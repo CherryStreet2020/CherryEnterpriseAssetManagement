@@ -1,5 +1,5 @@
 -- CherryAI Enterprise Asset Management - Database Schema Snapshot
--- Generated: 2026-01-22 21:38:36 UTC
+-- Generated: 2026-05-02 20:59:18 UTC
 -- Environment: Development (Replit)
 -- Method: pg_dump --schema-only
 -- PostgreSQL 16.10
@@ -11,6 +11,7 @@
 -- PostgreSQL database dump
 --
 
+\restrict G69Bp5PtiVVV27WVagcXizo7Sqeeib6JHHplxyIxyGfcYNYthMNgAEqa41mnLgP
 
 -- Dumped from database version 16.10
 -- Dumped by pg_dump version 16.10
@@ -26,760 +27,13 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-ALTER TABLE IF EXISTS ONLY public."OutboxEvents" DROP CONSTRAINT IF EXISTS "OutboxEvents_TenantId_fkey";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "FK_WorkRequests_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "FK_WorkRequests_MaintenanceEvents_GeneratedWorkOrderId";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "FK_WorkRequests_Locations_LocationId";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "FK_WorkRequests_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "FK_WorkRequests_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderParts" DROP CONSTRAINT IF EXISTS "FK_WorkOrderParts_MaintenanceEvents_MaintenanceEventId";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderParts" DROP CONSTRAINT IF EXISTS "FK_WorkOrderParts_Locations_IssuedFromLocationId";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderParts" DROP CONSTRAINT IF EXISTS "FK_WorkOrderParts_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperations" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperations_Technicians";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperations" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperations_MaintenanceEvents";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperations" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperations_Crafts";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationTools" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperationTools_WorkOrderOperations";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationParts" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperationParts_WorkOrderOperations";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationParts" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperationParts_Items";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationLabors" DROP CONSTRAINT IF EXISTS "FK_WorkOrderOperationLabor_WorkOrderOperations";
-ALTER TABLE IF EXISTS ONLY public."WebhookSubscriptions" DROP CONSTRAINT IF EXISTS "FK_WebhookSubscriptions_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."WebhookDeliveryLogs" DROP CONSTRAINT IF EXISTS "FK_WebhookDeliveryLogs_WebhookSubscriptions_WebhookSubscriptio~";
-ALTER TABLE IF EXISTS ONLY public."WebhookDeliveryLogs" DROP CONSTRAINT IF EXISTS "FK_WebhookDeliveryLogs_OutboxEvents_OutboxEventId";
-ALTER TABLE IF EXISTS ONLY public."Vendors" DROP CONSTRAINT IF EXISTS "FK_Vendors_GlAccounts_DefaultGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."Vendors" DROP CONSTRAINT IF EXISTS "FK_Vendors_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."VendorItemParts" DROP CONSTRAINT IF EXISTS "FK_VendorItemParts_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."VendorItemParts" DROP CONSTRAINT IF EXISTS "FK_VendorItemParts_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."VendorItemParts" DROP CONSTRAINT IF EXISTS "FK_VendorItemParts_ItemManufacturerParts_ItemManufacturerPartId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoices" DROP CONSTRAINT IF EXISTS "FK_VendorInvoices_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoices" DROP CONSTRAINT IF EXISTS "FK_VendorInvoices_Users_ApprovedById";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoices" DROP CONSTRAINT IF EXISTS "FK_VendorInvoices_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "FK_VendorInvoiceLines_VendorInvoices_VendorInvoiceId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "FK_VendorInvoiceLines_PurchaseOrderLines_PurchaseOrderLineId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "FK_VendorInvoiceLines_GoodsReceiptLines_GoodsReceiptLineId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "FK_VendorInvoiceLines_GlAccounts_GlAccountId";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "FK_VendorInvoiceLines_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."UsefulLifeEntries" DROP CONSTRAINT IF EXISTS "FK_UsefulLifeEntries_UsefulLifeTables_UsefulLifeTableId";
-ALTER TABLE IF EXISTS ONLY public."UsTaxSettings" DROP CONSTRAINT IF EXISTS "FK_UsTaxSettings_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Technicians" DROP CONSTRAINT IF EXISTS "FK_Technicians_Departments_DepartmentId";
-ALTER TABLE IF EXISTS ONLY public."Technicians" DROP CONSTRAINT IF EXISTS "FK_Technicians_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."Skills" DROP CONSTRAINT IF EXISTS "FK_Skills_Crafts_CraftId";
-ALTER TABLE IF EXISTS ONLY public."Sites" DROP CONSTRAINT IF EXISTS "FK_Sites_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ReorderAlerts" DROP CONSTRAINT IF EXISTS "FK_ReorderAlerts_PurchaseRequisitions_RequisitionId";
-ALTER TABLE IF EXISTS ONLY public."ReorderAlerts" DROP CONSTRAINT IF EXISTS "FK_ReorderAlerts_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ReorderAlerts" DROP CONSTRAINT IF EXISTS "FK_ReorderAlerts_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitions_Vendors_SuggestedVendorId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitions_Sites_DeliverToSiteId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitions_PurchaseOrders_ConvertedToPOId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitions_Locations_DeliverToLocationId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitions_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_Vendors_SuggestedVendorId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_PurchaseRequisitions_RequisitionId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_ItemCategories_ExpenseCategoryId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_GlAccounts_GlAccountId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseRequisitionLines_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Users_RequestedById";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Users_ApprovedById";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Sites_ShipToSiteId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Sites_BillToSiteId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_MaintenanceEvents_WorkOrderId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Locations_DefaultShipToLocationId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrders_CipProjects_CipProjectId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderReleases" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderReleases_PurchaseOrderLines_PurchaseOrderLineId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderReleases" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderReleases_Locations_ShipToLocationId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_PurchaseOrders_PurchaseOrderId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_Locations_ShipToLocationId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_ItemCategories_ExpenseCategoryId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_GlAccounts_GlAccountId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "FK_PurchaseOrderLines_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."ProjectManagers" DROP CONSTRAINT IF EXISTS "FK_ProjectManagers_Departments_DepartmentId";
-ALTER TABLE IF EXISTS ONLY public."ProjectManagers" DROP CONSTRAINT IF EXISTS "FK_ProjectManagers_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."PolicyCategoryDefaults" DROP CONSTRAINT IF EXISTS "FK_PolicyCategoryDefaults_DepreciationPolicies_DepreciationPol~";
-ALTER TABLE IF EXISTS ONLY public."PolicyCategoryDefaults" DROP CONSTRAINT IF EXISTS "FK_PolicyCategoryDefaults_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."PolicyCategoryDefaults" DROP CONSTRAINT IF EXISTS "FK_PolicyCategoryDefaults_Books_BookId";
-ALTER TABLE IF EXISTS ONLY public."PolicyCategoryDefaults" DROP CONSTRAINT IF EXISTS "FK_PolicyCategoryDefaults_AssetCategories_AssetCategoryId";
-ALTER TABLE IF EXISTS ONLY public."PartialDisposals" DROP CONSTRAINT IF EXISTS "FK_PartialDisposals_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplates" DROP CONSTRAINT IF EXISTS "FK_PMTemplates_PMTemplateRevisions_CurrentReleasedRevisionId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplates" DROP CONSTRAINT IF EXISTS "FK_PMTemplates_Manufacturers_ManufacturerId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplates" DROP CONSTRAINT IF EXISTS "FK_PMTemplates_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplates" DROP CONSTRAINT IF EXISTS "FK_PMTemplates_AssetCategories_AssetCategoryId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateRevisions" DROP CONSTRAINT IF EXISTS "FK_PMTemplateRevisions_PMTemplates_PMTemplateId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateRevisions" DROP CONSTRAINT IF EXISTS "FK_PMTemplateRevisions_PMTemplateRevisions_SupersedesRevisionId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateRevisionOperations" DROP CONSTRAINT IF EXISTS "FK_PMTemplateRevisionOperations_PMTemplateRevisions_PMTemplateR";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateItems" DROP CONSTRAINT IF EXISTS "FK_PMTemplateItems_PMTemplates_PMTemplateId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateItems" DROP CONSTRAINT IF EXISTS "FK_PMTemplateItems_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateAssets" DROP CONSTRAINT IF EXISTS "FK_PMTemplateAssets_PMTemplates_PMTemplateId";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateAssets" DROP CONSTRAINT IF EXISTS "FK_PMTemplateAssets_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."PMSchedules" DROP CONSTRAINT IF EXISTS "FK_PMSchedules_Sites";
-ALTER TABLE IF EXISTS ONLY public."PMSchedules" DROP CONSTRAINT IF EXISTS "FK_PMSchedules_PMTemplates";
-ALTER TABLE IF EXISTS ONLY public."PMSchedules" DROP CONSTRAINT IF EXISTS "FK_PMSchedules_Companies";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "FK_PMOccurrences_Sites";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "FK_PMOccurrences_PMTemplates";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "FK_PMOccurrences_PMSchedules";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "FK_PMOccurrences_MaintenanceEvents";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "FK_PMOccurrences_Companies";
-ALTER TABLE IF EXISTS ONLY public."OutboxEvents" DROP CONSTRAINT IF EXISTS "FK_OutboxEvents_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."OutboxEvents" DROP CONSTRAINT IF EXISTS "FK_OutboxEvents_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."MeterReadings" DROP CONSTRAINT IF EXISTS "FK_MeterReadings_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."MeterReadings" DROP CONSTRAINT IF EXISTS "FK_MeterReadings_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Manufacturers" DROP CONSTRAINT IF EXISTS "FK_Manufacturers_Tenants_TenantId";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceSchedules" DROP CONSTRAINT IF EXISTS "FK_MaintenanceSchedules_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceEvents" DROP CONSTRAINT IF EXISTS "FK_MaintenanceEvents_Users_RequestedById";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceEvents" DROP CONSTRAINT IF EXISTS "FK_MaintenanceEvents_Users_ApprovedById";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceEvents" DROP CONSTRAINT IF EXISTS "FK_MaintenanceEvents_Technicians_TechnicianId";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceEvents" DROP CONSTRAINT IF EXISTS "FK_MaintenanceEvents_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Locations" DROP CONSTRAINT IF EXISTS "FK_Locations_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."Locations" DROP CONSTRAINT IF EXISTS "FK_Locations_Locations_ParentLocationId";
-ALTER TABLE IF EXISTS ONLY public."Locations" DROP CONSTRAINT IF EXISTS "FK_Locations_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."Locations" DROP CONSTRAINT IF EXISTS "FK_Locations_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."LessonsLearned" DROP CONSTRAINT IF EXISTS "FK_LessonsLearned_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."LessonsLearned" DROP CONSTRAINT IF EXISTS "FK_LessonsLearned_MaintenanceEvents_SourceWorkOrderId";
-ALTER TABLE IF EXISTS ONLY public."LessonsLearned" DROP CONSTRAINT IF EXISTS "FK_LessonsLearned_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."LessonsLearned" DROP CONSTRAINT IF EXISTS "FK_LessonsLearned_AssetCategories_AssetCategoryId";
-ALTER TABLE IF EXISTS ONLY public."LaborRates" DROP CONSTRAINT IF EXISTS "FK_LaborRates_Skills_SkillId";
-ALTER TABLE IF EXISTS ONLY public."LaborRates" DROP CONSTRAINT IF EXISTS "FK_LaborRates_Crafts_CraftId";
-ALTER TABLE IF EXISTS ONLY public."Kits" DROP CONSTRAINT IF EXISTS "FK_Kits_ItemCategories_CategoryId";
-ALTER TABLE IF EXISTS ONLY public."Kits" DROP CONSTRAINT IF EXISTS "FK_Kits_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."KitItems" DROP CONSTRAINT IF EXISTS "FK_KitItems_Kits_KitId";
-ALTER TABLE IF EXISTS ONLY public."KitItems" DROP CONSTRAINT IF EXISTS "FK_KitItems_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."JournalLines" DROP CONSTRAINT IF EXISTS "FK_JournalLines_JournalEntries_JournalEntryId";
-ALTER TABLE IF EXISTS ONLY public."JournalEntries" DROP CONSTRAINT IF EXISTS "FK_JournalEntries_Books_BookId";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "FK_Items_Vendors_PrimaryVendorId";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "FK_Items_Manufacturers_ManufacturerId";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "FK_Items_ItemRevisions_CurrentReleasedRevisionId";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "FK_Items_ItemCategories_CategoryId";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "FK_Items_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ItemVendors" DROP CONSTRAINT IF EXISTS "FK_ItemVendors_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."ItemVendors" DROP CONSTRAINT IF EXISTS "FK_ItemVendors_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "FK_ItemTransactions_PurchaseOrders_PurchaseOrderId";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "FK_ItemTransactions_Locations_ToLocationId";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "FK_ItemTransactions_Locations_FromLocationId";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "FK_ItemTransactions_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "FK_ItemTransactions_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ItemSupersessions" DROP CONSTRAINT IF EXISTS "FK_ItemSupersessions_Users_CreatedByUserId";
-ALTER TABLE IF EXISTS ONLY public."ItemSupersessions" DROP CONSTRAINT IF EXISTS "FK_ItemSupersessions_Tenants_TenantId";
-ALTER TABLE IF EXISTS ONLY public."ItemSupersessions" DROP CONSTRAINT IF EXISTS "FK_ItemSupersessions_Items_OldItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemSupersessions" DROP CONSTRAINT IF EXISTS "FK_ItemSupersessions_Items_NewItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemRevisions" DROP CONSTRAINT IF EXISTS "FK_ItemRevisions_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemRevisions" DROP CONSTRAINT IF EXISTS "FK_ItemRevisions_ItemRevisions_SupersedesItemRevisionId";
-ALTER TABLE IF EXISTS ONLY public."ItemManufacturerParts" DROP CONSTRAINT IF EXISTS "FK_ItemManufacturerParts_Manufacturers_ManufacturerId";
-ALTER TABLE IF EXISTS ONLY public."ItemManufacturerParts" DROP CONSTRAINT IF EXISTS "FK_ItemManufacturerParts_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemInventories2" DROP CONSTRAINT IF EXISTS "FK_ItemInventories2_Locations_LocationId";
-ALTER TABLE IF EXISTS ONLY public."ItemInventories2" DROP CONSTRAINT IF EXISTS "FK_ItemInventories2_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemInventories2" DROP CONSTRAINT IF EXISTS "FK_ItemInventories2_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ItemImages" DROP CONSTRAINT IF EXISTS "FK_ItemImages_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemCompanyStockings" DROP CONSTRAINT IF EXISTS "FK_ItemCompanyStockings_Vendors_PreferredVendorId";
-ALTER TABLE IF EXISTS ONLY public."ItemCompanyStockings" DROP CONSTRAINT IF EXISTS "FK_ItemCompanyStockings_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemCompanyStockings" DROP CONSTRAINT IF EXISTS "FK_ItemCompanyStockings_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ItemCategories" DROP CONSTRAINT IF EXISTS "FK_ItemCategories_ItemCategories_ParentCategoryId";
-ALTER TABLE IF EXISTS ONLY public."ItemCategories" DROP CONSTRAINT IF EXISTS "FK_ItemCategories_GlAccounts_ExpenseGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."ItemCategories" DROP CONSTRAINT IF EXISTS "FK_ItemCategories_GlAccounts_DefaultGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Users_CreatedByUserId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Tenants_TenantId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "FK_ItemApprovedVendors_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."ItemAlternates" DROP CONSTRAINT IF EXISTS "FK_ItemAlternates_Users_CreatedByUserId";
-ALTER TABLE IF EXISTS ONLY public."ItemAlternates" DROP CONSTRAINT IF EXISTS "FK_ItemAlternates_Tenants_TenantId";
-ALTER TABLE IF EXISTS ONLY public."ItemAlternates" DROP CONSTRAINT IF EXISTS "FK_ItemAlternates_Items_ItemId";
-ALTER TABLE IF EXISTS ONLY public."ItemAlternates" DROP CONSTRAINT IF EXISTS "FK_ItemAlternates_Items_AlternateItemId";
-ALTER TABLE IF EXISTS ONLY public."InvoicePayments" DROP CONSTRAINT IF EXISTS "FK_InvoicePayments_VendorInvoices_VendorInvoiceId";
-ALTER TABLE IF EXISTS ONLY public."InventoryScans" DROP CONSTRAINT IF EXISTS "FK_InventoryScans_InventoryLists_InventoryListId";
-ALTER TABLE IF EXISTS ONLY public."InventoryScans" DROP CONSTRAINT IF EXISTS "FK_InventoryScans_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."IntegrationMappings" DROP CONSTRAINT IF EXISTS "FK_IntegrationMappings_IntegrationEndpoints_IntegrationEndpoin~";
-ALTER TABLE IF EXISTS ONLY public."IntegrationEndpoints" DROP CONSTRAINT IF EXISTS "FK_IntegrationEndpoints_Tenants_TenantId";
-ALTER TABLE IF EXISTS ONLY public."InboundEvents" DROP CONSTRAINT IF EXISTS "FK_InboundEvents_IntegrationEndpoints_IntegrationEndpointId";
-ALTER TABLE IF EXISTS ONLY public."InboundEvents" DROP CONSTRAINT IF EXISTS "FK_InboundEvents_Companies_TenantId";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceipts" DROP CONSTRAINT IF EXISTS "FK_GoodsReceipts_PurchaseOrders_PurchaseOrderId";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceipts" DROP CONSTRAINT IF EXISTS "FK_GoodsReceipts_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceiptLines" DROP CONSTRAINT IF EXISTS "FK_GoodsReceiptLines_PurchaseOrderLines_PurchaseOrderLineId";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceiptLines" DROP CONSTRAINT IF EXISTS "FK_GoodsReceiptLines_Locations_ReceivingLocationId";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceiptLines" DROP CONSTRAINT IF EXISTS "FK_GoodsReceiptLines_GoodsReceipts_GoodsReceiptId";
-ALTER TABLE IF EXISTS ONLY public."GlAccounts" DROP CONSTRAINT IF EXISTS "FK_GlAccounts_GlAccounts_ParentAccountId";
-ALTER TABLE IF EXISTS ONLY public."GlAccounts" DROP CONSTRAINT IF EXISTS "FK_GlAccounts_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."FiscalYears" DROP CONSTRAINT IF EXISTS "FK_FiscalYears_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."FiscalPeriods" DROP CONSTRAINT IF EXISTS "FK_FiscalPeriods_FiscalYears_FiscalYearId";
-ALTER TABLE IF EXISTS ONLY public."FiscalPeriods" DROP CONSTRAINT IF EXISTS "FK_FiscalPeriods_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."FailureCodes" DROP CONSTRAINT IF EXISTS "FK_FailureCodes_FailureCodes_ParentId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRuns" DROP CONSTRAINT IF EXISTS "FK_DepreciationRuns_FiscalPeriods_FiscalPeriodId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRuns" DROP CONSTRAINT IF EXISTS "FK_DepreciationRuns_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRuns" DROP CONSTRAINT IF EXISTS "FK_DepreciationRuns_Books_BookId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRunDetails" DROP CONSTRAINT IF EXISTS "FK_DepreciationRunDetails_DepreciationRuns_DepreciationRunId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRunDetails" DROP CONSTRAINT IF EXISTS "FK_DepreciationRunDetails_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationPolicies" DROP CONSTRAINT IF EXISTS "FK_DepreciationPolicies_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."DepreciationPolicies" DROP CONSTRAINT IF EXISTS "FK_DepreciationPolicies_CcaClasses_CcaClassId";
-ALTER TABLE IF EXISTS ONLY public."Departments" DROP CONSTRAINT IF EXISTS "FK_Departments_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."Departments" DROP CONSTRAINT IF EXISTS "FK_Departments_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."CostCenters" DROP CONSTRAINT IF EXISTS "FK_CostCenters_CostCenters_ParentCostCenterId";
-ALTER TABLE IF EXISTS ONLY public."CostCenters" DROP CONSTRAINT IF EXISTS "FK_CostCenters_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."Companies" DROP CONSTRAINT IF EXISTS "FK_Companies_Companies_ParentCompanyId";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "FK_CipProjects_ProjectManagers_ProjectManagerId";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "FK_CipProjects_GlAccounts_GlAccountId";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "FK_CipProjects_Departments_DepartmentId";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "FK_CipProjects_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "FK_CipProjects_Assets_ConvertedAssetId";
-ALTER TABLE IF EXISTS ONLY public."CipCosts" DROP CONSTRAINT IF EXISTS "FK_CipCosts_CipProjects_CipProjectId";
-ALTER TABLE IF EXISTS ONLY public."CcaTransactions" DROP CONSTRAINT IF EXISTS "FK_CcaTransactions_CcaClasses_CcaClassId";
-ALTER TABLE IF EXISTS ONLY public."CcaTransactions" DROP CONSTRAINT IF EXISTS "FK_CcaTransactions_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."CcaClassBalances" DROP CONSTRAINT IF EXISTS "FK_CcaClassBalances_CcaClasses_CcaClassId";
-ALTER TABLE IF EXISTS ONLY public."CauseCodes" DROP CONSTRAINT IF EXISTS "FK_CauseCodes_CauseCodes_ParentId";
-ALTER TABLE IF EXISTS ONLY public."CapitalImprovements" DROP CONSTRAINT IF EXISTS "FK_CapitalImprovements_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Books" DROP CONSTRAINT IF EXISTS "FK_Books_DepreciationPolicies_DefaultPolicyId";
-ALTER TABLE IF EXISTS ONLY public."Books" DROP CONSTRAINT IF EXISTS "FK_Books_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."BookGlAccounts" DROP CONSTRAINT IF EXISTS "FK_BookGlAccounts_Books_BookId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_MaintenanceEvents_MaintenanceEventId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_CipProjects_CipProjectId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_CipCosts_CipCostId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_CapitalImprovements_CapitalImprovementId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "FK_Attachments_AssetTransfers_AssetTransferId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Vendors_VendorId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Sites_SiteId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Manufacturers_ManufacturerId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Locations_LocationId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Departments_DepartmentId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_CostCenters_CostCenterId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_Assets_ParentAssetId";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "FK_Assets_AssetCategories_AssetCategoryId";
-ALTER TABLE IF EXISTS ONLY public."AssetTransfers" DROP CONSTRAINT IF EXISTS "FK_AssetTransfers_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."AssetTaxSettings" DROP CONSTRAINT IF EXISTS "FK_AssetTaxSettings_CcaClasses_CcaClassId";
-ALTER TABLE IF EXISTS ONLY public."AssetTaxSettings" DROP CONSTRAINT IF EXISTS "FK_AssetTaxSettings_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."AssetInventories" DROP CONSTRAINT IF EXISTS "FK_AssetInventories_InventoryLists_LastInventoryListId";
-ALTER TABLE IF EXISTS ONLY public."AssetInventories" DROP CONSTRAINT IF EXISTS "FK_AssetInventories_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "FK_AssetCategories_GlAccounts_DepExpGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "FK_AssetCategories_GlAccounts_AssetGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "FK_AssetCategories_GlAccounts_AccumDepGlAccountId";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "FK_AssetCategories_DepreciationPolicies_DepreciationPolicyId";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "FK_AssetCategories_Companies_CompanyId";
-ALTER TABLE IF EXISTS ONLY public."AssetBookSettings" DROP CONSTRAINT IF EXISTS "FK_AssetBookSettings_Books_BookId1";
-ALTER TABLE IF EXISTS ONLY public."AssetBookSettings" DROP CONSTRAINT IF EXISTS "FK_AssetBookSettings_Books_BookId";
-ALTER TABLE IF EXISTS ONLY public."AssetBookSettings" DROP CONSTRAINT IF EXISTS "FK_AssetBookSettings_Assets_AssetId";
-ALTER TABLE IF EXISTS ONLY public."Companies" DROP CONSTRAINT IF EXISTS "Companies_TenantId_fkey";
-DROP INDEX IF EXISTS public."IX_WorkRequests_SiteId";
-DROP INDEX IF EXISTS public."IX_WorkRequests_LocationId";
-DROP INDEX IF EXISTS public."IX_WorkRequests_GeneratedWorkOrderId";
-DROP INDEX IF EXISTS public."IX_WorkRequests_CompanyId";
-DROP INDEX IF EXISTS public."IX_WorkRequests_AssetId";
-DROP INDEX IF EXISTS public."IX_WorkOrderParts_MaintenanceEventId_ItemId";
-DROP INDEX IF EXISTS public."IX_WorkOrderParts_ItemId";
-DROP INDEX IF EXISTS public."IX_WorkOrderParts_IssuedFromLocationId";
-DROP INDEX IF EXISTS public."IX_WebhookSubscriptions_IsActive";
-DROP INDEX IF EXISTS public."IX_WebhookSubscriptions_CompanyId";
-DROP INDEX IF EXISTS public."IX_WebhookDeliveryLogs_WebhookSubscriptionId";
-DROP INDEX IF EXISTS public."IX_WebhookDeliveryLogs_OutboxEventId";
-DROP INDEX IF EXISTS public."IX_Vendors_DefaultGlAccountId";
-DROP INDEX IF EXISTS public."IX_Vendors_CompanyId";
-DROP INDEX IF EXISTS public."IX_VendorItemParts_VendorPartNumber";
-DROP INDEX IF EXISTS public."IX_VendorItemParts_VendorId_VendorPartNumber";
-DROP INDEX IF EXISTS public."IX_VendorItemParts_ItemManufacturerPartId";
-DROP INDEX IF EXISTS public."IX_VendorItemParts_ItemId";
-DROP INDEX IF EXISTS public."IX_VendorItemParts_CatalogUrl";
-DROP INDEX IF EXISTS public."IX_VendorInvoices_VendorId";
-DROP INDEX IF EXISTS public."IX_VendorInvoices_CompanyId";
-DROP INDEX IF EXISTS public."IX_VendorInvoices_ApprovedById";
-DROP INDEX IF EXISTS public."IX_VendorInvoiceLines_VendorInvoiceId";
-DROP INDEX IF EXISTS public."IX_VendorInvoiceLines_PurchaseOrderLineId";
-DROP INDEX IF EXISTS public."IX_VendorInvoiceLines_GoodsReceiptLineId";
-DROP INDEX IF EXISTS public."IX_VendorInvoiceLines_GlAccountId";
-DROP INDEX IF EXISTS public."IX_VendorInvoiceLines_CostCenterId";
-DROP INDEX IF EXISTS public."IX_Users_Username";
-DROP INDEX IF EXISTS public."IX_Users_Email";
-DROP INDEX IF EXISTS public."IX_UsefulLifeEntries_UsefulLifeTableId";
-DROP INDEX IF EXISTS public."IX_UsTaxSettings_AssetId";
-DROP INDEX IF EXISTS public."IX_Technicians_Name";
-DROP INDEX IF EXISTS public."IX_Technicians_DepartmentId";
-DROP INDEX IF EXISTS public."IX_Technicians_CostCenterId";
-DROP INDEX IF EXISTS public."IX_Technicians_Active";
-DROP INDEX IF EXISTS public."IX_Skills_CraftId";
-DROP INDEX IF EXISTS public."IX_Sites_CompanyId";
-DROP INDEX IF EXISTS public."IX_Section179Limits_TaxYear";
-DROP INDEX IF EXISTS public."IX_ReorderAlerts_RequisitionId";
-DROP INDEX IF EXISTS public."IX_ReorderAlerts_ItemId";
-DROP INDEX IF EXISTS public."IX_ReorderAlerts_CompanyId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitions_SuggestedVendorId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitions_DeliverToSiteId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitions_DeliverToLocationId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitions_ConvertedToPOId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitions_CompanyId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_SuggestedVendorId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_RequisitionId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_ItemId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_GlAccountId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_ExpenseCategoryId";
-DROP INDEX IF EXISTS public."IX_PurchaseRequisitionLines_CostCenterId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_WorkOrderId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_VendorId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_ShipToSiteId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_RequestedById";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_DefaultShipToLocationId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_CompanyId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_CipProjectId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_BillToSiteId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrders_ApprovedById";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderReleases_ShipToLocationId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderReleases_PurchaseOrderLineId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_ShipToLocationId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_PurchaseOrderId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_ItemId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_GlAccountId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_ExpenseCategoryId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_CostCenterId";
-DROP INDEX IF EXISTS public."IX_PurchaseOrderLines_AssetId";
-DROP INDEX IF EXISTS public."IX_ProjectManagers_Name";
-DROP INDEX IF EXISTS public."IX_ProjectManagers_DepartmentId";
-DROP INDEX IF EXISTS public."IX_ProjectManagers_CostCenterId";
-DROP INDEX IF EXISTS public."IX_ProjectManagers_Active";
-DROP INDEX IF EXISTS public."IX_PolicyCategoryDefaults_DepreciationPolicyId";
-DROP INDEX IF EXISTS public."IX_PolicyCategoryDefaults_CompanyId";
-DROP INDEX IF EXISTS public."IX_PolicyCategoryDefaults_BookId";
-DROP INDEX IF EXISTS public."IX_PolicyCategoryDefaults_AssetCategoryId";
-DROP INDEX IF EXISTS public."IX_PeriodLocks_Period";
-DROP INDEX IF EXISTS public."IX_PartialDisposals_AssetId";
-DROP INDEX IF EXISTS public."IX_PMTemplates_ManufacturerId";
-DROP INDEX IF EXISTS public."IX_PMTemplates_CurrentReleasedRevisionId";
-DROP INDEX IF EXISTS public."IX_PMTemplates_CompanyId";
-DROP INDEX IF EXISTS public."IX_PMTemplates_Code";
-DROP INDEX IF EXISTS public."IX_PMTemplates_AssetCategoryId";
-DROP INDEX IF EXISTS public."IX_PMTemplateRevisions_SupersedesRevisionId";
-DROP INDEX IF EXISTS public."IX_PMTemplateRevisions_PMTemplateId_RevisionCode";
-DROP INDEX IF EXISTS public."IX_PMTemplateRevisionOperations_PMTemplateRevisionId_Sequence";
-DROP INDEX IF EXISTS public."IX_PMTemplateItems_PMTemplateId_ItemId";
-DROP INDEX IF EXISTS public."IX_PMTemplateItems_ItemId";
-DROP INDEX IF EXISTS public."IX_PMTemplateAssets_PMTemplateId_AssetId";
-DROP INDEX IF EXISTS public."IX_PMTemplateAssets_AssetId";
-DROP INDEX IF EXISTS public."IX_PMSchedules_Active";
-DROP INDEX IF EXISTS public."IX_PMOccurrences_Unique";
-DROP INDEX IF EXISTS public."IX_OutboxEvents_Status_NextAttemptAt";
-DROP INDEX IF EXISTS public."IX_OutboxEvents_Status";
-DROP INDEX IF EXISTS public."IX_OutboxEvents_SiteId";
-DROP INDEX IF EXISTS public."IX_OutboxEvents_CompanyId";
-DROP INDEX IF EXISTS public."IX_MeterReadings_CompanyId";
-DROP INDEX IF EXISTS public."IX_MeterReadings_AssetId_MeterType_ReadingDate";
-DROP INDEX IF EXISTS public."IX_Manufacturers_TenantId_Code";
-DROP INDEX IF EXISTS public."IX_Manufacturers_Name";
-DROP INDEX IF EXISTS public."IX_Manufacturers_Active";
-DROP INDEX IF EXISTS public."IX_MaintenanceSchedules_NextDueDate";
-DROP INDEX IF EXISTS public."IX_MaintenanceSchedules_AssetId";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_TechnicianId";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_Status";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_ScheduledDate";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_RequestedById";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_AssetId";
-DROP INDEX IF EXISTS public."IX_MaintenanceEvents_ApprovedById";
-DROP INDEX IF EXISTS public."IX_Locations_SiteId";
-DROP INDEX IF EXISTS public."IX_Locations_ParentLocationId";
-DROP INDEX IF EXISTS public."IX_Locations_CostCenterId";
-DROP INDEX IF EXISTS public."IX_Locations_CompanyId";
-DROP INDEX IF EXISTS public."IX_Locations_Code";
-DROP INDEX IF EXISTS public."IX_LessonsLearned_SourceWorkOrderId";
-DROP INDEX IF EXISTS public."IX_LessonsLearned_SiteId";
-DROP INDEX IF EXISTS public."IX_LessonsLearned_FailureCode";
-DROP INDEX IF EXISTS public."IX_LessonsLearned_CompanyId";
-DROP INDEX IF EXISTS public."IX_LessonsLearned_AssetCategoryId";
-DROP INDEX IF EXISTS public."IX_LaborRates_SkillId";
-DROP INDEX IF EXISTS public."IX_LaborRates_CraftId";
-DROP INDEX IF EXISTS public."IX_Kits_KitNumber";
-DROP INDEX IF EXISTS public."IX_Kits_CompanyId";
-DROP INDEX IF EXISTS public."IX_Kits_CategoryId";
-DROP INDEX IF EXISTS public."IX_KitItems_KitId_ItemId";
-DROP INDEX IF EXISTS public."IX_KitItems_ItemId";
-DROP INDEX IF EXISTS public."IX_JournalLines_JournalEntryId_LineNo";
-DROP INDEX IF EXISTS public."IX_JournalEntries_Period";
-DROP INDEX IF EXISTS public."IX_JournalEntries_BookId";
-DROP INDEX IF EXISTS public."IX_JournalEntries_Batch";
-DROP INDEX IF EXISTS public."IX_Items_PrimaryVendorId";
-DROP INDEX IF EXISTS public."IX_Items_PartNumber";
-DROP INDEX IF EXISTS public."IX_Items_ManufacturerId";
-DROP INDEX IF EXISTS public."IX_Items_ImagePath";
-DROP INDEX IF EXISTS public."IX_Items_CurrentReleasedRevisionId";
-DROP INDEX IF EXISTS public."IX_Items_CompanyId";
-DROP INDEX IF EXISTS public."IX_Items_CategoryId";
-DROP INDEX IF EXISTS public."IX_ItemVendors_VendorId";
-DROP INDEX IF EXISTS public."IX_ItemVendors_ItemId_VendorId";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_TransactionNumber";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_TransactionDate";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_ToLocationId";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_PurchaseOrderId";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_ItemId";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_FromLocationId";
-DROP INDEX IF EXISTS public."IX_ItemTransactions_CompanyId";
-DROP INDEX IF EXISTS public."IX_ItemSupersessions_TenantId_OldItemId";
-DROP INDEX IF EXISTS public."IX_ItemSupersessions_OldItemId";
-DROP INDEX IF EXISTS public."IX_ItemSupersessions_NewItemId";
-DROP INDEX IF EXISTS public."IX_ItemSupersessions_CreatedByUserId";
-DROP INDEX IF EXISTS public."IX_ItemRevisions_SupersedesItemRevisionId";
-DROP INDEX IF EXISTS public."IX_ItemRevisions_ItemId_RevisionCode";
-DROP INDEX IF EXISTS public."IX_ItemManufacturerParts_MfrPartNumber";
-DROP INDEX IF EXISTS public."IX_ItemManufacturerParts_ManufacturerId";
-DROP INDEX IF EXISTS public."IX_ItemManufacturerParts_ItemId_ManufacturerId_MfrPartNumber";
-DROP INDEX IF EXISTS public."IX_ItemInventories2_LocationId";
-DROP INDEX IF EXISTS public."IX_ItemInventories2_ItemId_LocationId_Bin";
-DROP INDEX IF EXISTS public."IX_ItemInventories2_CompanyId";
-DROP INDEX IF EXISTS public."IX_ItemImages_ItemId";
-DROP INDEX IF EXISTS public."IX_ItemCompanyStockings_PreferredVendorId";
-DROP INDEX IF EXISTS public."IX_ItemCompanyStockings_ItemId";
-DROP INDEX IF EXISTS public."IX_ItemCompanyStockings_CompanyId";
-DROP INDEX IF EXISTS public."IX_ItemCategories_ParentCategoryId";
-DROP INDEX IF EXISTS public."IX_ItemCategories_ExpenseGlAccountId";
-DROP INDEX IF EXISTS public."IX_ItemCategories_DefaultGlAccountId";
-DROP INDEX IF EXISTS public."IX_ItemCategories_Code";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_VendorId";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_TenantId_ItemId_VendorId";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_SiteId";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_ItemId";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_CreatedByUserId";
-DROP INDEX IF EXISTS public."IX_ItemApprovedVendors_CompanyId";
-DROP INDEX IF EXISTS public."IX_ItemAlternates_TenantId_ItemId_AlternateItemId";
-DROP INDEX IF EXISTS public."IX_ItemAlternates_ItemId";
-DROP INDEX IF EXISTS public."IX_ItemAlternates_CreatedByUserId";
-DROP INDEX IF EXISTS public."IX_ItemAlternates_AlternateItemId";
-DROP INDEX IF EXISTS public."IX_InvoicePayments_VendorInvoiceId";
-DROP INDEX IF EXISTS public."IX_InventoryScans_ScanDate";
-DROP INDEX IF EXISTS public."IX_InventoryScans_InventoryListId";
-DROP INDEX IF EXISTS public."IX_InventoryScans_AssetId";
-DROP INDEX IF EXISTS public."IX_InventoryLists_Status";
-DROP INDEX IF EXISTS public."IX_InventoryLists_CreatedDate";
-DROP INDEX IF EXISTS public."IX_IntegrationMappings_IntegrationEndpointId";
-DROP INDEX IF EXISTS public."IX_IntegrationEndpoints_TenantId";
-DROP INDEX IF EXISTS public."IX_InboundEvents_TenantId";
-DROP INDEX IF EXISTS public."IX_InboundEvents_IntegrationEndpointId";
-DROP INDEX IF EXISTS public."IX_GoodsReceipts_PurchaseOrderId";
-DROP INDEX IF EXISTS public."IX_GoodsReceipts_CompanyId";
-DROP INDEX IF EXISTS public."IX_GoodsReceiptLines_ReceivingLocationId";
-DROP INDEX IF EXISTS public."IX_GoodsReceiptLines_PurchaseOrderLineId";
-DROP INDEX IF EXISTS public."IX_GoodsReceiptLines_GoodsReceiptId";
-DROP INDEX IF EXISTS public."IX_GlAccounts_ParentAccountId";
-DROP INDEX IF EXISTS public."IX_GlAccounts_CompanyId";
-DROP INDEX IF EXISTS public."IX_GlAccounts_Category";
-DROP INDEX IF EXISTS public."IX_GlAccounts_AccountNumber";
-DROP INDEX IF EXISTS public."IX_FiscalYears_CompanyId";
-DROP INDEX IF EXISTS public."IX_FiscalPeriods_FiscalYearId";
-DROP INDEX IF EXISTS public."IX_FiscalPeriods_CompanyId";
-DROP INDEX IF EXISTS public."IX_FailureCodes_ParentId";
-DROP INDEX IF EXISTS public."IX_DepreciationRuns_FiscalPeriodId";
-DROP INDEX IF EXISTS public."IX_DepreciationRuns_CompanyId";
-DROP INDEX IF EXISTS public."IX_DepreciationRuns_BookId";
-DROP INDEX IF EXISTS public."IX_DepreciationRunDetails_DepreciationRunId";
-DROP INDEX IF EXISTS public."IX_DepreciationRunDetails_AssetId";
-DROP INDEX IF EXISTS public."IX_DepreciationPolicies_CompanyId";
-DROP INDEX IF EXISTS public."IX_DepreciationPolicies_CcaClassId";
-DROP INDEX IF EXISTS public."IX_Departments_CostCenterId";
-DROP INDEX IF EXISTS public."IX_Departments_CompanyId";
-DROP INDEX IF EXISTS public."IX_Departments_Code";
-DROP INDEX IF EXISTS public."IX_CostCenters_ParentCostCenterId";
-DROP INDEX IF EXISTS public."IX_CostCenters_CompanyId";
-DROP INDEX IF EXISTS public."IX_CostCenters_Code";
-DROP INDEX IF EXISTS public."IX_Companies_ParentCompanyId";
-DROP INDEX IF EXISTS public."IX_Companies_Name";
-DROP INDEX IF EXISTS public."IX_Companies_CompanyCode";
-DROP INDEX IF EXISTS public."IX_CipProjects_Status";
-DROP INDEX IF EXISTS public."IX_CipProjects_ProjectNumber";
-DROP INDEX IF EXISTS public."IX_CipProjects_ProjectManagerId";
-DROP INDEX IF EXISTS public."IX_CipProjects_GlAccountId";
-DROP INDEX IF EXISTS public."IX_CipProjects_DepartmentId";
-DROP INDEX IF EXISTS public."IX_CipProjects_CostCenterId";
-DROP INDEX IF EXISTS public."IX_CipProjects_ConvertedAssetId";
-DROP INDEX IF EXISTS public."IX_CipCosts_TransactionDate";
-DROP INDEX IF EXISTS public."IX_CipCosts_CipProjectId";
-DROP INDEX IF EXISTS public."IX_CcaTransactions_CcaClassId_FiscalYear";
-DROP INDEX IF EXISTS public."IX_CcaTransactions_AssetId";
-DROP INDEX IF EXISTS public."IX_CcaClasses_ClassNumber";
-DROP INDEX IF EXISTS public."IX_CcaClassBalances_CcaClassId_FiscalYear";
-DROP INDEX IF EXISTS public."IX_CauseCodes_ParentId";
-DROP INDEX IF EXISTS public."IX_CapitalImprovements_ImprovementDate";
-DROP INDEX IF EXISTS public."IX_CapitalImprovements_AssetId";
-DROP INDEX IF EXISTS public."IX_Books_DefaultPolicyId";
-DROP INDEX IF EXISTS public."IX_Books_CompanyId";
-DROP INDEX IF EXISTS public."IX_BookGlAccounts_BookId";
-DROP INDEX IF EXISTS public."IX_BonusDepreciationRates_TaxYear";
-DROP INDEX IF EXISTS public."IX_AuditLogs_Timestamp";
-DROP INDEX IF EXISTS public."IX_AuditLogs_EntityType_EntityId";
-DROP INDEX IF EXISTS public."IX_AuditLogs_EntityType";
-DROP INDEX IF EXISTS public."IX_Attachments_MaintenanceEventId";
-DROP INDEX IF EXISTS public."IX_Attachments_CipProjectId";
-DROP INDEX IF EXISTS public."IX_Attachments_CipCostId";
-DROP INDEX IF EXISTS public."IX_Attachments_CapitalImprovementId";
-DROP INDEX IF EXISTS public."IX_Attachments_AssetTransferId";
-DROP INDEX IF EXISTS public."IX_Attachments_AssetId";
-DROP INDEX IF EXISTS public."IX_Assets_VendorId";
-DROP INDEX IF EXISTS public."IX_Assets_SiteId";
-DROP INDEX IF EXISTS public."IX_Assets_ParentAssetId";
-DROP INDEX IF EXISTS public."IX_Assets_ManufacturerId";
-DROP INDEX IF EXISTS public."IX_Assets_LocationId";
-DROP INDEX IF EXISTS public."IX_Assets_DepartmentId";
-DROP INDEX IF EXISTS public."IX_Assets_CostCenterId";
-DROP INDEX IF EXISTS public."IX_Assets_CompanyId";
-DROP INDEX IF EXISTS public."IX_Assets_AssetCategoryId";
-DROP INDEX IF EXISTS public."IX_AssetTransfers_TransferDate";
-DROP INDEX IF EXISTS public."IX_AssetTransfers_AssetId";
-DROP INDEX IF EXISTS public."IX_AssetTaxSettings_CcaClassId";
-DROP INDEX IF EXISTS public."IX_AssetTaxSettings_AssetId";
-DROP INDEX IF EXISTS public."IX_AssetInventories_LastInventoryListId";
-DROP INDEX IF EXISTS public."IX_AssetInventories_BarcodeNumber";
-DROP INDEX IF EXISTS public."IX_AssetInventories_AssetId";
-DROP INDEX IF EXISTS public."IX_AssetCategories_DepreciationPolicyId";
-DROP INDEX IF EXISTS public."IX_AssetCategories_DepExpGlAccountId";
-DROP INDEX IF EXISTS public."IX_AssetCategories_CompanyId";
-DROP INDEX IF EXISTS public."IX_AssetCategories_Code";
-DROP INDEX IF EXISTS public."IX_AssetCategories_AssetGlAccountId";
-DROP INDEX IF EXISTS public."IX_AssetCategories_AccumDepGlAccountId";
-DROP INDEX IF EXISTS public."IX_AssetBookSettings_BookId1";
-DROP INDEX IF EXISTS public."IX_AssetBookSettings_BookId";
-DROP INDEX IF EXISTS public."IX_AssetBookSettings_AssetId_BookId";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperations" DROP CONSTRAINT IF EXISTS "WorkOrderOperations_pkey";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationTools" DROP CONSTRAINT IF EXISTS "WorkOrderOperationTools_pkey";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationParts" DROP CONSTRAINT IF EXISTS "WorkOrderOperationParts_pkey";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderOperationLabors" DROP CONSTRAINT IF EXISTS "WorkOrderOperationLabor_pkey";
-ALTER TABLE IF EXISTS ONLY public."Tenants" DROP CONSTRAINT IF EXISTS "Tenants_pkey";
-ALTER TABLE IF EXISTS ONLY public."Tenants" DROP CONSTRAINT IF EXISTS "Tenants_Code_key";
-ALTER TABLE IF EXISTS ONLY public."PMSchedules" DROP CONSTRAINT IF EXISTS "PMSchedules_pkey";
-ALTER TABLE IF EXISTS ONLY public."PMOccurrences" DROP CONSTRAINT IF EXISTS "PMOccurrences_pkey";
-ALTER TABLE IF EXISTS ONLY public."__EFMigrationsHistory" DROP CONSTRAINT IF EXISTS "PK___EFMigrationsHistory";
-ALTER TABLE IF EXISTS ONLY public."WorkRequests" DROP CONSTRAINT IF EXISTS "PK_WorkRequests";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderTypes" DROP CONSTRAINT IF EXISTS "PK_WorkOrderTypes";
-ALTER TABLE IF EXISTS ONLY public."WorkOrderParts" DROP CONSTRAINT IF EXISTS "PK_WorkOrderParts";
-ALTER TABLE IF EXISTS ONLY public."WebhookSubscriptions" DROP CONSTRAINT IF EXISTS "PK_WebhookSubscriptions";
-ALTER TABLE IF EXISTS ONLY public."WebhookDeliveryLogs" DROP CONSTRAINT IF EXISTS "PK_WebhookDeliveryLogs";
-ALTER TABLE IF EXISTS ONLY public."Vendors" DROP CONSTRAINT IF EXISTS "PK_Vendors";
-ALTER TABLE IF EXISTS ONLY public."VendorItemParts" DROP CONSTRAINT IF EXISTS "PK_VendorItemParts";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoices" DROP CONSTRAINT IF EXISTS "PK_VendorInvoices";
-ALTER TABLE IF EXISTS ONLY public."VendorInvoiceLines" DROP CONSTRAINT IF EXISTS "PK_VendorInvoiceLines";
-ALTER TABLE IF EXISTS ONLY public."Users" DROP CONSTRAINT IF EXISTS "PK_Users";
-ALTER TABLE IF EXISTS ONLY public."UsefulLifeTables" DROP CONSTRAINT IF EXISTS "PK_UsefulLifeTables";
-ALTER TABLE IF EXISTS ONLY public."UsefulLifeEntries" DROP CONSTRAINT IF EXISTS "PK_UsefulLifeEntries";
-ALTER TABLE IF EXISTS ONLY public."UsTaxSettings" DROP CONSTRAINT IF EXISTS "PK_UsTaxSettings";
-ALTER TABLE IF EXISTS ONLY public."UOMDefinitions" DROP CONSTRAINT IF EXISTS "PK_UOMDefinitions";
-ALTER TABLE IF EXISTS ONLY public."Technicians" DROP CONSTRAINT IF EXISTS "PK_Technicians";
-ALTER TABLE IF EXISTS ONLY public."TaxCodes" DROP CONSTRAINT IF EXISTS "PK_TaxCodes";
-ALTER TABLE IF EXISTS ONLY public."Skills" DROP CONSTRAINT IF EXISTS "PK_Skills";
-ALTER TABLE IF EXISTS ONLY public."Sites" DROP CONSTRAINT IF EXISTS "PK_Sites";
-ALTER TABLE IF EXISTS ONLY public."ShippingMethods" DROP CONSTRAINT IF EXISTS "PK_ShippingMethods";
-ALTER TABLE IF EXISTS ONLY public."Section179Limits" DROP CONSTRAINT IF EXISTS "PK_Section179Limits";
-ALTER TABLE IF EXISTS ONLY public."ReorderAlerts" DROP CONSTRAINT IF EXISTS "PK_ReorderAlerts";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitions" DROP CONSTRAINT IF EXISTS "PK_PurchaseRequisitions";
-ALTER TABLE IF EXISTS ONLY public."PurchaseRequisitionLines" DROP CONSTRAINT IF EXISTS "PK_PurchaseRequisitionLines";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrders" DROP CONSTRAINT IF EXISTS "PK_PurchaseOrders";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderReleases" DROP CONSTRAINT IF EXISTS "PK_PurchaseOrderReleases";
-ALTER TABLE IF EXISTS ONLY public."PurchaseOrderLines" DROP CONSTRAINT IF EXISTS "PK_PurchaseOrderLines";
-ALTER TABLE IF EXISTS ONLY public."ProjectManagers" DROP CONSTRAINT IF EXISTS "PK_ProjectManagers";
-ALTER TABLE IF EXISTS ONLY public."ProblemCodes" DROP CONSTRAINT IF EXISTS "PK_ProblemCodes";
-ALTER TABLE IF EXISTS ONLY public."PriorityLevels" DROP CONSTRAINT IF EXISTS "PK_PriorityLevels";
-ALTER TABLE IF EXISTS ONLY public."PolicyCategoryDefaults" DROP CONSTRAINT IF EXISTS "PK_PolicyCategoryDefaults";
-ALTER TABLE IF EXISTS ONLY public."PeriodLocks" DROP CONSTRAINT IF EXISTS "PK_PeriodLocks";
-ALTER TABLE IF EXISTS ONLY public."PaymentTerms" DROP CONSTRAINT IF EXISTS "PK_PaymentTerms";
-ALTER TABLE IF EXISTS ONLY public."PartialDisposals" DROP CONSTRAINT IF EXISTS "PK_PartialDisposals";
-ALTER TABLE IF EXISTS ONLY public."PMTemplates" DROP CONSTRAINT IF EXISTS "PK_PMTemplates";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateRevisions" DROP CONSTRAINT IF EXISTS "PK_PMTemplateRevisions";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateRevisionOperations" DROP CONSTRAINT IF EXISTS "PK_PMTemplateRevisionOperations";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateItems" DROP CONSTRAINT IF EXISTS "PK_PMTemplateItems";
-ALTER TABLE IF EXISTS ONLY public."PMTemplateAssets" DROP CONSTRAINT IF EXISTS "PK_PMTemplateAssets";
-ALTER TABLE IF EXISTS ONLY public."OutboxEvents" DROP CONSTRAINT IF EXISTS "PK_OutboxEvents";
-ALTER TABLE IF EXISTS ONLY public."NumberingSequences" DROP CONSTRAINT IF EXISTS "PK_NumberingSequences";
-ALTER TABLE IF EXISTS ONLY public."MeterReadings" DROP CONSTRAINT IF EXISTS "PK_MeterReadings";
-ALTER TABLE IF EXISTS ONLY public."Manufacturers" DROP CONSTRAINT IF EXISTS "PK_Manufacturers";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceTypeCodes" DROP CONSTRAINT IF EXISTS "PK_MaintenanceTypeCodes";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceSchedules" DROP CONSTRAINT IF EXISTS "PK_MaintenanceSchedules";
-ALTER TABLE IF EXISTS ONLY public."MaintenanceEvents" DROP CONSTRAINT IF EXISTS "PK_MaintenanceEvents";
-ALTER TABLE IF EXISTS ONLY public."Locations" DROP CONSTRAINT IF EXISTS "PK_Locations";
-ALTER TABLE IF EXISTS ONLY public."LessonsLearned" DROP CONSTRAINT IF EXISTS "PK_LessonsLearned";
-ALTER TABLE IF EXISTS ONLY public."LaborTypes" DROP CONSTRAINT IF EXISTS "PK_LaborTypes";
-ALTER TABLE IF EXISTS ONLY public."LaborRates" DROP CONSTRAINT IF EXISTS "PK_LaborRates";
-ALTER TABLE IF EXISTS ONLY public."Kits" DROP CONSTRAINT IF EXISTS "PK_Kits";
-ALTER TABLE IF EXISTS ONLY public."KitItems" DROP CONSTRAINT IF EXISTS "PK_KitItems";
-ALTER TABLE IF EXISTS ONLY public."JournalLines" DROP CONSTRAINT IF EXISTS "PK_JournalLines";
-ALTER TABLE IF EXISTS ONLY public."JournalEntries" DROP CONSTRAINT IF EXISTS "PK_JournalEntries";
-ALTER TABLE IF EXISTS ONLY public."Items" DROP CONSTRAINT IF EXISTS "PK_Items";
-ALTER TABLE IF EXISTS ONLY public."ItemVendors" DROP CONSTRAINT IF EXISTS "PK_ItemVendors";
-ALTER TABLE IF EXISTS ONLY public."ItemTransactions" DROP CONSTRAINT IF EXISTS "PK_ItemTransactions";
-ALTER TABLE IF EXISTS ONLY public."ItemSupersessions" DROP CONSTRAINT IF EXISTS "PK_ItemSupersessions";
-ALTER TABLE IF EXISTS ONLY public."ItemRevisions" DROP CONSTRAINT IF EXISTS "PK_ItemRevisions";
-ALTER TABLE IF EXISTS ONLY public."ItemManufacturerParts" DROP CONSTRAINT IF EXISTS "PK_ItemManufacturerParts";
-ALTER TABLE IF EXISTS ONLY public."ItemInventories2" DROP CONSTRAINT IF EXISTS "PK_ItemInventories2";
-ALTER TABLE IF EXISTS ONLY public."ItemImages" DROP CONSTRAINT IF EXISTS "PK_ItemImages";
-ALTER TABLE IF EXISTS ONLY public."ItemCompanyStockings" DROP CONSTRAINT IF EXISTS "PK_ItemCompanyStockings";
-ALTER TABLE IF EXISTS ONLY public."ItemCategories" DROP CONSTRAINT IF EXISTS "PK_ItemCategories";
-ALTER TABLE IF EXISTS ONLY public."ItemApprovedVendors" DROP CONSTRAINT IF EXISTS "PK_ItemApprovedVendors";
-ALTER TABLE IF EXISTS ONLY public."ItemAlternates" DROP CONSTRAINT IF EXISTS "PK_ItemAlternates";
-ALTER TABLE IF EXISTS ONLY public."InvoicePayments" DROP CONSTRAINT IF EXISTS "PK_InvoicePayments";
-ALTER TABLE IF EXISTS ONLY public."InventoryScans" DROP CONSTRAINT IF EXISTS "PK_InventoryScans";
-ALTER TABLE IF EXISTS ONLY public."InventoryLists" DROP CONSTRAINT IF EXISTS "PK_InventoryLists";
-ALTER TABLE IF EXISTS ONLY public."IntegrationMappings" DROP CONSTRAINT IF EXISTS "PK_IntegrationMappings";
-ALTER TABLE IF EXISTS ONLY public."IntegrationEndpoints" DROP CONSTRAINT IF EXISTS "PK_IntegrationEndpoints";
-ALTER TABLE IF EXISTS ONLY public."InboundEvents" DROP CONSTRAINT IF EXISTS "PK_InboundEvents";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceipts" DROP CONSTRAINT IF EXISTS "PK_GoodsReceipts";
-ALTER TABLE IF EXISTS ONLY public."GoodsReceiptLines" DROP CONSTRAINT IF EXISTS "PK_GoodsReceiptLines";
-ALTER TABLE IF EXISTS ONLY public."GlAccounts" DROP CONSTRAINT IF EXISTS "PK_GlAccounts";
-ALTER TABLE IF EXISTS ONLY public."FiscalYears" DROP CONSTRAINT IF EXISTS "PK_FiscalYears";
-ALTER TABLE IF EXISTS ONLY public."FiscalPeriods" DROP CONSTRAINT IF EXISTS "PK_FiscalPeriods";
-ALTER TABLE IF EXISTS ONLY public."FailureCodes" DROP CONSTRAINT IF EXISTS "PK_FailureCodes";
-ALTER TABLE IF EXISTS ONLY public."ExchangeRates" DROP CONSTRAINT IF EXISTS "PK_ExchangeRates";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRuns" DROP CONSTRAINT IF EXISTS "PK_DepreciationRuns";
-ALTER TABLE IF EXISTS ONLY public."DepreciationRunDetails" DROP CONSTRAINT IF EXISTS "PK_DepreciationRunDetails";
-ALTER TABLE IF EXISTS ONLY public."DepreciationPolicies" DROP CONSTRAINT IF EXISTS "PK_DepreciationPolicies";
-ALTER TABLE IF EXISTS ONLY public."Departments" DROP CONSTRAINT IF EXISTS "PK_Departments";
-ALTER TABLE IF EXISTS ONLY public."Currencies" DROP CONSTRAINT IF EXISTS "PK_Currencies";
-ALTER TABLE IF EXISTS ONLY public."Crafts" DROP CONSTRAINT IF EXISTS "PK_Crafts";
-ALTER TABLE IF EXISTS ONLY public."CostCenters" DROP CONSTRAINT IF EXISTS "PK_CostCenters";
-ALTER TABLE IF EXISTS ONLY public."Companies" DROP CONSTRAINT IF EXISTS "PK_Companies";
-ALTER TABLE IF EXISTS ONLY public."CipProjects" DROP CONSTRAINT IF EXISTS "PK_CipProjects";
-ALTER TABLE IF EXISTS ONLY public."CipCosts" DROP CONSTRAINT IF EXISTS "PK_CipCosts";
-ALTER TABLE IF EXISTS ONLY public."CcaTransactions" DROP CONSTRAINT IF EXISTS "PK_CcaTransactions";
-ALTER TABLE IF EXISTS ONLY public."CcaClasses" DROP CONSTRAINT IF EXISTS "PK_CcaClasses";
-ALTER TABLE IF EXISTS ONLY public."CcaClassBalances" DROP CONSTRAINT IF EXISTS "PK_CcaClassBalances";
-ALTER TABLE IF EXISTS ONLY public."CauseCodes" DROP CONSTRAINT IF EXISTS "PK_CauseCodes";
-ALTER TABLE IF EXISTS ONLY public."CapitalImprovements" DROP CONSTRAINT IF EXISTS "PK_CapitalImprovements";
-ALTER TABLE IF EXISTS ONLY public."BulkOperations" DROP CONSTRAINT IF EXISTS "PK_BulkOperations";
-ALTER TABLE IF EXISTS ONLY public."Books" DROP CONSTRAINT IF EXISTS "PK_Books";
-ALTER TABLE IF EXISTS ONLY public."BookGlAccounts" DROP CONSTRAINT IF EXISTS "PK_BookGlAccounts";
-ALTER TABLE IF EXISTS ONLY public."BonusDepreciationRates" DROP CONSTRAINT IF EXISTS "PK_BonusDepreciationRates";
-ALTER TABLE IF EXISTS ONLY public."AuditLogs" DROP CONSTRAINT IF EXISTS "PK_AuditLogs";
-ALTER TABLE IF EXISTS ONLY public."Attachments" DROP CONSTRAINT IF EXISTS "PK_Attachments";
-ALTER TABLE IF EXISTS ONLY public."Assets" DROP CONSTRAINT IF EXISTS "PK_Assets";
-ALTER TABLE IF EXISTS ONLY public."AssetTransfers" DROP CONSTRAINT IF EXISTS "PK_AssetTransfers";
-ALTER TABLE IF EXISTS ONLY public."AssetTaxSettings" DROP CONSTRAINT IF EXISTS "PK_AssetTaxSettings";
-ALTER TABLE IF EXISTS ONLY public."AssetInventories" DROP CONSTRAINT IF EXISTS "PK_AssetInventories";
-ALTER TABLE IF EXISTS ONLY public."AssetCategories" DROP CONSTRAINT IF EXISTS "PK_AssetCategories";
-ALTER TABLE IF EXISTS ONLY public."AssetBookSettings" DROP CONSTRAINT IF EXISTS "PK_AssetBookSettings";
-ALTER TABLE IF EXISTS ONLY public."ApprovalWorkflows" DROP CONSTRAINT IF EXISTS "PK_ApprovalWorkflows";
-ALTER TABLE IF EXISTS ONLY public."ApiKeys" DROP CONSTRAINT IF EXISTS "PK_ApiKeys";
-ALTER TABLE IF EXISTS ONLY public."ActionCodes" DROP CONSTRAINT IF EXISTS "PK_ActionCodes";
-ALTER TABLE IF EXISTS public."WorkOrderOperations" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."WorkOrderOperationTools" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."WorkOrderOperationParts" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."WorkOrderOperationLabors" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."Tenants" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."PMSchedules" ALTER COLUMN "Id" DROP DEFAULT;
-ALTER TABLE IF EXISTS public."PMOccurrences" ALTER COLUMN "Id" DROP DEFAULT;
-DROP TABLE IF EXISTS public."__EFMigrationsHistory";
-DROP TABLE IF EXISTS public."WorkRequests";
-DROP TABLE IF EXISTS public."WorkOrderTypes";
-DROP TABLE IF EXISTS public."WorkOrderParts";
-DROP SEQUENCE IF EXISTS public."WorkOrderOperations_Id_seq";
-DROP TABLE IF EXISTS public."WorkOrderOperations";
-DROP SEQUENCE IF EXISTS public."WorkOrderOperationTools_Id_seq";
-DROP TABLE IF EXISTS public."WorkOrderOperationTools";
-DROP SEQUENCE IF EXISTS public."WorkOrderOperationParts_Id_seq";
-DROP TABLE IF EXISTS public."WorkOrderOperationParts";
-DROP SEQUENCE IF EXISTS public."WorkOrderOperationLabor_Id_seq";
-DROP TABLE IF EXISTS public."WorkOrderOperationLabors";
-DROP TABLE IF EXISTS public."WebhookSubscriptions";
-DROP TABLE IF EXISTS public."WebhookDeliveryLogs";
-DROP TABLE IF EXISTS public."Vendors";
-DROP TABLE IF EXISTS public."VendorItemParts";
-DROP TABLE IF EXISTS public."VendorInvoices";
-DROP TABLE IF EXISTS public."VendorInvoiceLines";
-DROP TABLE IF EXISTS public."Users";
-DROP TABLE IF EXISTS public."UsefulLifeTables";
-DROP TABLE IF EXISTS public."UsefulLifeEntries";
-DROP TABLE IF EXISTS public."UsTaxSettings";
-DROP TABLE IF EXISTS public."UOMDefinitions";
-DROP SEQUENCE IF EXISTS public."Tenants_Id_seq";
-DROP TABLE IF EXISTS public."Tenants";
-DROP TABLE IF EXISTS public."Technicians";
-DROP TABLE IF EXISTS public."TaxCodes";
-DROP TABLE IF EXISTS public."Skills";
-DROP TABLE IF EXISTS public."Sites";
-DROP TABLE IF EXISTS public."ShippingMethods";
-DROP TABLE IF EXISTS public."Section179Limits";
-DROP TABLE IF EXISTS public."ReorderAlerts";
-DROP TABLE IF EXISTS public."PurchaseRequisitions";
-DROP TABLE IF EXISTS public."PurchaseRequisitionLines";
-DROP TABLE IF EXISTS public."PurchaseOrders";
-DROP TABLE IF EXISTS public."PurchaseOrderReleases";
-DROP TABLE IF EXISTS public."PurchaseOrderLines";
-DROP TABLE IF EXISTS public."ProjectManagers";
-DROP TABLE IF EXISTS public."ProblemCodes";
-DROP TABLE IF EXISTS public."PriorityLevels";
-DROP TABLE IF EXISTS public."PolicyCategoryDefaults";
-DROP TABLE IF EXISTS public."PeriodLocks";
-DROP TABLE IF EXISTS public."PaymentTerms";
-DROP TABLE IF EXISTS public."PartialDisposals";
-DROP TABLE IF EXISTS public."PMTemplates";
-DROP TABLE IF EXISTS public."PMTemplateRevisions";
-DROP TABLE IF EXISTS public."PMTemplateRevisionOperations";
-DROP TABLE IF EXISTS public."PMTemplateItems";
-DROP TABLE IF EXISTS public."PMTemplateAssets";
-DROP SEQUENCE IF EXISTS public."PMSchedules_Id_seq";
-DROP TABLE IF EXISTS public."PMSchedules";
-DROP SEQUENCE IF EXISTS public."PMOccurrences_Id_seq";
-DROP TABLE IF EXISTS public."PMOccurrences";
-DROP TABLE IF EXISTS public."OutboxEvents";
-DROP TABLE IF EXISTS public."NumberingSequences";
-DROP TABLE IF EXISTS public."MeterReadings";
-DROP TABLE IF EXISTS public."Manufacturers";
-DROP TABLE IF EXISTS public."MaintenanceTypeCodes";
-DROP TABLE IF EXISTS public."MaintenanceSchedules";
-DROP TABLE IF EXISTS public."MaintenanceEvents";
-DROP TABLE IF EXISTS public."Locations";
-DROP TABLE IF EXISTS public."LessonsLearned";
-DROP TABLE IF EXISTS public."LaborTypes";
-DROP TABLE IF EXISTS public."LaborRates";
-DROP TABLE IF EXISTS public."Kits";
-DROP TABLE IF EXISTS public."KitItems";
-DROP TABLE IF EXISTS public."JournalLines";
-DROP TABLE IF EXISTS public."JournalEntries";
-DROP TABLE IF EXISTS public."Items";
-DROP TABLE IF EXISTS public."ItemVendors";
-DROP TABLE IF EXISTS public."ItemTransactions";
-DROP TABLE IF EXISTS public."ItemSupersessions";
-DROP TABLE IF EXISTS public."ItemRevisions";
-DROP TABLE IF EXISTS public."ItemManufacturerParts";
-DROP TABLE IF EXISTS public."ItemInventories2";
-DROP TABLE IF EXISTS public."ItemImages";
-DROP TABLE IF EXISTS public."ItemCompanyStockings";
-DROP TABLE IF EXISTS public."ItemCategories";
-DROP TABLE IF EXISTS public."ItemApprovedVendors";
-DROP TABLE IF EXISTS public."ItemAlternates";
-DROP TABLE IF EXISTS public."InvoicePayments";
-DROP TABLE IF EXISTS public."InventoryScans";
-DROP TABLE IF EXISTS public."InventoryLists";
-DROP TABLE IF EXISTS public."IntegrationMappings";
-DROP TABLE IF EXISTS public."IntegrationEndpoints";
-DROP TABLE IF EXISTS public."InboundEvents";
-DROP TABLE IF EXISTS public."GoodsReceipts";
-DROP TABLE IF EXISTS public."GoodsReceiptLines";
-DROP TABLE IF EXISTS public."GlAccounts";
-DROP TABLE IF EXISTS public."FiscalYears";
-DROP TABLE IF EXISTS public."FiscalPeriods";
-DROP TABLE IF EXISTS public."FailureCodes";
-DROP TABLE IF EXISTS public."ExchangeRates";
-DROP TABLE IF EXISTS public."DepreciationRuns";
-DROP TABLE IF EXISTS public."DepreciationRunDetails";
-DROP TABLE IF EXISTS public."DepreciationPolicies";
-DROP TABLE IF EXISTS public."Departments";
-DROP TABLE IF EXISTS public."Currencies";
-DROP TABLE IF EXISTS public."Crafts";
-DROP TABLE IF EXISTS public."CostCenters";
-DROP TABLE IF EXISTS public."Companies";
-DROP TABLE IF EXISTS public."CipProjects";
-DROP TABLE IF EXISTS public."CipCosts";
-DROP TABLE IF EXISTS public."CcaTransactions";
-DROP TABLE IF EXISTS public."CcaClasses";
-DROP TABLE IF EXISTS public."CcaClassBalances";
-DROP TABLE IF EXISTS public."CauseCodes";
-DROP TABLE IF EXISTS public."CapitalImprovements";
-DROP TABLE IF EXISTS public."BulkOperations";
-DROP TABLE IF EXISTS public."Books";
-DROP TABLE IF EXISTS public."BookGlAccounts";
-DROP TABLE IF EXISTS public."BonusDepreciationRates";
-DROP TABLE IF EXISTS public."AuditLogs";
-DROP TABLE IF EXISTS public."Attachments";
-DROP TABLE IF EXISTS public."Assets";
-DROP TABLE IF EXISTS public."AssetTransfers";
-DROP TABLE IF EXISTS public."AssetTaxSettings";
-DROP TABLE IF EXISTS public."AssetInventories";
-DROP TABLE IF EXISTS public."AssetCategories";
-DROP TABLE IF EXISTS public."AssetBookSettings";
-DROP TABLE IF EXISTS public."ApprovalWorkflows";
-DROP TABLE IF EXISTS public."ApiKeys";
-DROP TABLE IF EXISTS public."ActionCodes";
--- *not* dropping schema, since initdb creates it
+--
+-- Name: platform; Type: SCHEMA; Schema: -; Owner: -
+--
+
+CREATE SCHEMA platform;
+
+
 --
 -- Name: public; Type: SCHEMA; Schema: -; Owner: -
 --
@@ -797,6 +51,26 @@ COMMENT ON SCHEMA public IS '';
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: org_node; Type: TABLE; Schema: platform; Owner: -
+--
+
+CREATE TABLE platform.org_node (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    tenant_code text DEFAULT 'default'::text NOT NULL,
+    node_type text DEFAULT 'location'::text NOT NULL,
+    name text NOT NULL,
+    code text,
+    parent_id uuid,
+    company_id integer,
+    site_id integer,
+    location_id integer,
+    is_active boolean DEFAULT true NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 
 --
 -- Name: ActionCodes; Type: TABLE; Schema: public; Owner: -
@@ -1059,7 +333,8 @@ CREATE TABLE public."AssetTransfers" (
     "Reason" character varying(100),
     "Notes" text,
     "CreatedAt" timestamp with time zone NOT NULL,
-    "CreatedBy" character varying(100)
+    "CreatedBy" character varying(100),
+    "ReasonLookupValueId" integer
 );
 
 
@@ -1239,7 +514,12 @@ CREATE TABLE public."Assets" (
     "WeightUOM" character varying(10),
     "WorkCenterId" character varying(50),
     "WorkCenterName" character varying(100),
-    "ImageUrl" character varying(500)
+    "ImageUrl" character varying(500),
+    "AssetTypeLookupValueId" integer,
+    "AssetPriorityLookupValueId" integer,
+    "ConditionLookupValueId" integer,
+    "DepreciationMethodLookupValueId" integer,
+    "StatusLookupValueId" integer
 );
 
 
@@ -1263,7 +543,7 @@ ALTER TABLE public."Assets" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTI
 
 CREATE TABLE public."Attachments" (
     "Id" integer NOT NULL,
-    "AssetId" integer NOT NULL,
+    "AssetId" integer,
     "MaintenanceEventId" integer,
     "CipProjectId" integer,
     "CipCostId" integer,
@@ -1277,7 +557,10 @@ CREATE TABLE public."Attachments" (
     "Description" character varying(500),
     "Category" integer NOT NULL,
     "UploadedBy" character varying(100),
-    "UploadedAt" timestamp with time zone NOT NULL
+    "UploadedAt" timestamp with time zone NOT NULL,
+    "CategoryLookupValueId" integer,
+    "CompanyId" integer,
+    "TenantId" integer
 );
 
 
@@ -1416,7 +699,12 @@ CREATE TABLE public."Books" (
     "GlAccountLossOnDisposal" character varying(50),
     "IsPrimaryBook" boolean DEFAULT false NOT NULL,
     "RequireApprovalToPost" boolean DEFAULT false NOT NULL,
-    "TrackBudgetVsActual" boolean DEFAULT false NOT NULL
+    "TrackBudgetVsActual" boolean DEFAULT false NOT NULL,
+    "BookTypeLookupValueId" integer,
+    "MethodLookupValueId" integer,
+    "ConventionLookupValueId" integer,
+    "TaxJurisdictionLookupValueId" integer,
+    "FrequencyLookupValueId" integer
 );
 
 
@@ -1449,7 +737,9 @@ CREATE TABLE public."BulkOperations" (
     "NewStatus" integer,
     "ProcessedBy" character varying(100),
     "CreatedAt" timestamp with time zone NOT NULL,
-    "AssetIds" text
+    "AssetIds" text,
+    "CompanyId" integer,
+    "TenantId" integer
 );
 
 
@@ -1641,6 +931,96 @@ ALTER TABLE public."CcaTransactions" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT 
 
 
 --
+-- Name: CipBudgetLines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."CipBudgetLines" (
+    "Id" integer NOT NULL,
+    "CipProjectId" integer NOT NULL,
+    "CostType" character varying(100),
+    "Description" character varying(500),
+    "BudgetAmount" numeric DEFAULT 0 NOT NULL,
+    "ActualAmount" numeric DEFAULT 0 NOT NULL,
+    "Variance" numeric DEFAULT 0 NOT NULL,
+    "SortOrder" integer DEFAULT 0 NOT NULL,
+    "CostTypeLookupValueId" integer,
+    "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL,
+    "UpdatedAt" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: CipBudgetLines_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."CipBudgetLines" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public."CipBudgetLines_Id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: CipCapitalizationCosts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."CipCapitalizationCosts" (
+    "Id" integer NOT NULL,
+    "CipCapitalizationId" integer NOT NULL,
+    "CipCostId" integer NOT NULL,
+    "Amount" numeric DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: CipCapitalizationCosts_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."CipCapitalizationCosts" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public."CipCapitalizationCosts_Id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: CipCapitalizations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."CipCapitalizations" (
+    "Id" integer NOT NULL,
+    "CipProjectId" integer NOT NULL,
+    "AssetId" integer NOT NULL,
+    "JournalEntryId" integer,
+    "CapitalizedAt" timestamp with time zone DEFAULT now() NOT NULL,
+    "CapitalizedBy" character varying(200),
+    "TotalAmount" numeric DEFAULT 0 NOT NULL,
+    "Notes" character varying(1000),
+    "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: CipCapitalizations_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."CipCapitalizations" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public."CipCapitalizations_Id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: CipCosts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1658,7 +1038,22 @@ CREATE TABLE public."CipCosts" (
     "IsCapitalizable" boolean NOT NULL,
     "Notes" character varying(500),
     "EnteredBy" character varying(100),
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "CostTypeLookupValueId" integer,
+    "SourceType" character varying(50),
+    "SourceHeaderId" integer,
+    "SourceLineId" integer,
+    "SourceDisplayRef" character varying(100),
+    "WorkOrderId" integer,
+    "PurchaseOrderId" integer,
+    "PurchaseOrderLineId" integer,
+    "GoodsReceiptId" integer,
+    "GoodsReceiptLineId" integer,
+    "VendorInvoiceId" integer,
+    "VendorInvoiceLineId" integer,
+    "JournalEntryId" integer,
+    "VendorId" integer,
+    "CreatedByUserId" character varying(100)
 );
 
 
@@ -1704,7 +1099,12 @@ CREATE TABLE public."CipProjects" (
     "PlacedInServiceDate" timestamp with time zone,
     "Currency" character varying(3) DEFAULT 'CAD'::character varying NOT NULL,
     "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone
+    "UpdatedAt" timestamp with time zone,
+    "StatusLookupValueId" integer,
+    "CompanyId" integer,
+    "SiteId" integer,
+    "IsCapitalized" boolean DEFAULT false NOT NULL,
+    "CapitalizedAt" timestamp with time zone
 );
 
 
@@ -1810,7 +1210,8 @@ CREATE TABLE public."CostCenters" (
     "ParentCostCenterId" integer,
     "CompanyId" integer,
     "SortOrder" integer NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "TypeLookupValueId" integer
 );
 
 
@@ -1891,6 +1292,136 @@ ALTER TABLE public."Currencies" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS ID
 
 
 --
+-- Name: CustomerInvoiceLines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."CustomerInvoiceLines" (
+    "Id" integer NOT NULL,
+    "CustomerInvoiceId" integer NOT NULL,
+    "LineNumber" integer DEFAULT 1 NOT NULL,
+    "Description" character varying(200),
+    "ItemId" integer,
+    "Quantity" numeric(18,4) DEFAULT 0 NOT NULL,
+    "UnitPrice" numeric(18,4) DEFAULT 0 NOT NULL,
+    "LineTotal" numeric(18,2) DEFAULT 0 NOT NULL,
+    "UOM" character varying(20),
+    "GlAccountId" integer
+);
+
+
+--
+-- Name: CustomerInvoiceLines_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."CustomerInvoiceLines_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: CustomerInvoiceLines_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."CustomerInvoiceLines_Id_seq" OWNED BY public."CustomerInvoiceLines"."Id";
+
+
+--
+-- Name: CustomerInvoices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."CustomerInvoices" (
+    "Id" integer NOT NULL,
+    "CompanyId" integer NOT NULL,
+    "CustomerId" integer NOT NULL,
+    "InvoiceNumber" character varying(30) NOT NULL,
+    "InvoiceDate" timestamp with time zone DEFAULT now() NOT NULL,
+    "DueDate" timestamp with time zone,
+    "Subtotal" numeric(18,2) DEFAULT 0 NOT NULL,
+    "TaxAmount" numeric(18,2) DEFAULT 0 NOT NULL,
+    "Total" numeric(18,2) DEFAULT 0 NOT NULL,
+    "AmountPaid" numeric(18,2) DEFAULT 0 NOT NULL,
+    "BalanceDue" numeric(18,2) DEFAULT 0 NOT NULL,
+    "Status" character varying(20) DEFAULT 'Draft'::character varying NOT NULL,
+    "StatusLookupValueId" integer,
+    "Notes" character varying(500),
+    "PurchaseOrderRef" character varying(50),
+    "SiteId" integer,
+    "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL,
+    "UpdatedAt" timestamp with time zone
+);
+
+
+--
+-- Name: CustomerInvoices_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."CustomerInvoices_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: CustomerInvoices_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."CustomerInvoices_Id_seq" OWNED BY public."CustomerInvoices"."Id";
+
+
+--
+-- Name: Customers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."Customers" (
+    "Id" integer NOT NULL,
+    "CompanyId" integer NOT NULL,
+    "CustomerCode" character varying(20) NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "ContactName" character varying(200),
+    "ContactEmail" character varying(100),
+    "ContactPhone" character varying(20),
+    "Address" character varying(200),
+    "City" character varying(100),
+    "StateProvince" character varying(50),
+    "PostalCode" character varying(20),
+    "Country" character varying(50),
+    "TaxId" character varying(50),
+    "Currency" character varying(3) DEFAULT 'USD'::character varying NOT NULL,
+    "PaymentTermId" integer,
+    "IsActive" boolean DEFAULT true NOT NULL,
+    "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL,
+    "UpdatedAt" timestamp with time zone
+);
+
+
+--
+-- Name: Customers_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."Customers_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: Customers_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."Customers_Id_seq" OWNED BY public."Customers"."Id";
+
+
+--
 -- Name: Departments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1905,7 +1436,8 @@ CREATE TABLE public."Departments" (
     "CostCenterId" integer,
     "CompanyId" integer,
     "SortOrder" integer NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "TypeLookupValueId" integer
 );
 
 
@@ -2215,7 +1747,8 @@ CREATE TABLE public."GlAccounts" (
     "SortOrder" integer NOT NULL,
     "CompanyId" integer,
     "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone
+    "UpdatedAt" timestamp with time zone,
+    "AccountTypeLookupValueId" integer
 );
 
 
@@ -2251,7 +1784,8 @@ CREATE TABLE public."GoodsReceiptLines" (
     "LotNumber" character varying(50),
     "SerialNumber" character varying(50),
     "Notes" character varying(500),
-    "IsInvoiced" boolean NOT NULL
+    "IsInvoiced" boolean NOT NULL,
+    "CipProjectId" integer
 );
 
 
@@ -2287,7 +1821,8 @@ CREATE TABLE public."GoodsReceipts" (
     "Notes" character varying(500),
     "CompanyId" integer,
     "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone
+    "UpdatedAt" timestamp with time zone,
+    "StatusLookupValueId" integer
 );
 
 
@@ -2426,7 +1961,9 @@ CREATE TABLE public."InventoryLists" (
     "TotalAssets" integer NOT NULL,
     "ScannedAssets" integer NOT NULL,
     "MissingAssets" integer NOT NULL,
-    "FoundAssets" integer NOT NULL
+    "FoundAssets" integer NOT NULL,
+    "CompanyId" integer,
+    "TenantId" integer
 );
 
 
@@ -2778,7 +2315,8 @@ CREATE TABLE public."ItemRevisions" (
     "EffectiveToUtc" timestamp with time zone,
     "Name" character varying(200) DEFAULT ''::character varying NOT NULL,
     "Status" integer DEFAULT 0 NOT NULL,
-    "SupersedesItemRevisionId" integer
+    "SupersedesItemRevisionId" integer,
+    "StatusLookupValueId" integer
 );
 
 
@@ -2851,7 +2389,8 @@ CREATE TABLE public."ItemTransactions" (
     "TransactedBy" character varying(50) NOT NULL,
     "TransactionDate" timestamp with time zone NOT NULL,
     "CompanyId" integer,
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "TypeLookupValueId" integer
 );
 
 
@@ -3022,7 +2561,11 @@ CREATE TABLE public."Items" (
     "ContractRef" character varying(50),
     "StockPolicy" integer DEFAULT 0 NOT NULL,
     "MinOrderQty" integer,
-    "PackQty" integer
+    "PackQty" integer,
+    "TypeLookupValueId" integer,
+    "StatusLookupValueId" integer,
+    "CostMethodLookupValueId" integer,
+    "TrackingTypeLookupValueId" integer
 );
 
 
@@ -3300,7 +2843,8 @@ CREATE TABLE public."Locations" (
     "SafetyZone" integer DEFAULT 0 NOT NULL,
     "Shelf" character varying(50),
     "SiteId" integer,
-    "SquareFootage" integer
+    "SquareFootage" integer,
+    "TypeLookupValueId" integer
 );
 
 
@@ -3310,6 +2854,136 @@ CREATE TABLE public."Locations" (
 
 ALTER TABLE public."Locations" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
     SEQUENCE NAME public."Locations_Id_seq"
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: LookupTypes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."LookupTypes" (
+    "Id" integer NOT NULL,
+    "TenantId" integer,
+    "CompanyId" integer,
+    "Key" character varying(100) NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "IsSystem" boolean DEFAULT true NOT NULL,
+    "IsActive" boolean DEFAULT true NOT NULL,
+    "CreatedAt" timestamp without time zone DEFAULT now() NOT NULL,
+    "UpdatedAt" timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: LookupTypes_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."LookupTypes_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: LookupTypes_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."LookupTypes_Id_seq" OWNED BY public."LookupTypes"."Id";
+
+
+--
+-- Name: LookupValues; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."LookupValues" (
+    "Id" integer NOT NULL,
+    "LookupTypeId" integer NOT NULL,
+    "Code" character varying(50) NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "SortOrder" integer DEFAULT 0 NOT NULL,
+    "IsActive" boolean DEFAULT true NOT NULL,
+    "Metadata" jsonb,
+    "CreatedAt" timestamp without time zone DEFAULT now() NOT NULL,
+    "UpdatedAt" timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: LookupValues_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."LookupValues_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: LookupValues_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."LookupValues_Id_seq" OWNED BY public."LookupValues"."Id";
+
+
+--
+-- Name: MachineSpecifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."MachineSpecifications" (
+    "Id" integer NOT NULL,
+    "AssetId" integer NOT NULL,
+    "MachineTypeCode" character varying(20),
+    "MachineTypeLookupValueId" integer,
+    "CncControlSystem" character varying(100),
+    "FiveAxisCapable" boolean DEFAULT false NOT NULL,
+    "SyncFeedTapping" boolean DEFAULT false NOT NULL,
+    "CoolantThroughSpindle" boolean DEFAULT false NOT NULL,
+    "AtcPocketCount" integer,
+    "SpindleTaper" character varying(20),
+    "SpindleTaperLookupValueId" integer,
+    "SpindleDiameterMm" numeric(10,2),
+    "MaxSpindleSpeedRpm" integer,
+    "SpindleMotorHp" numeric(10,2),
+    "XAxisTravelMm" numeric(12,2),
+    "YAxisTravelMm" numeric(12,2),
+    "ZAxisTravelMm" numeric(12,2),
+    "WAxisTravelMm" numeric(12,2),
+    "MaxSwingDiameterMm" numeric(12,2),
+    "MaxBetweenColumnsMm" numeric(12,2),
+    "MaxHeightTableToRamMm" numeric(12,2),
+    "MaxCuttingDiameterMm" numeric(12,2),
+    "MaxCuttingLengthMm" numeric(12,2),
+    "TableSize" character varying(50),
+    "TableWeightCapacityKg" numeric(12,2),
+    "MachineWeightCapacityKg" numeric(12,2),
+    "EquippedHeads" character varying(500),
+    "ProbingSystem" character varying(100),
+    "DetailsSketchLink" character varying(500),
+    "Comments" character varying(500),
+    "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL,
+    "ModifiedAt" timestamp with time zone,
+    "TenantId" integer DEFAULT 1 NOT NULL,
+    "CompanyId" integer
+);
+
+
+--
+-- Name: MachineSpecifications_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public."MachineSpecifications" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDENTITY (
+    SEQUENCE NAME public."MachineSpecifications_Id_seq"
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -3373,7 +3047,14 @@ CREATE TABLE public."MaintenanceEvents" (
     "ClosedAt" timestamp with time zone,
     "ClosedBy" character varying(100),
     "LessonsLearned" character varying(2000),
-    "ResolutionSummary" character varying(2000)
+    "ResolutionSummary" character varying(2000),
+    "StartedAt" timestamp without time zone,
+    "StartedBy" character varying(100),
+    "HoldReason" character varying(500),
+    "TypeLookupValueId" integer,
+    "PriorityLookupValueId" integer,
+    "StatusLookupValueId" integer,
+    "CipProjectId" integer
 );
 
 
@@ -3896,7 +3577,8 @@ CREATE TABLE public."PMTemplates" (
     "UpdatedAt" timestamp with time zone,
     "CreatedBy" character varying(50),
     "UpdatedBy" character varying(50),
-    "CurrentReleasedRevisionId" integer
+    "CurrentReleasedRevisionId" integer,
+    "RequiresConfinedSpaceEntry" boolean DEFAULT false NOT NULL
 );
 
 
@@ -3934,7 +3616,8 @@ CREATE TABLE public."PartialDisposals" (
     "ReferenceNumber" character varying(50),
     "JournalEntryId" integer,
     "ProcessedBy" character varying(100),
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "ReasonLookupValueId" integer
 );
 
 
@@ -4165,7 +3848,8 @@ CREATE TABLE public."PurchaseOrderLines" (
     "IsReceived" boolean NOT NULL,
     "IsClosed" boolean NOT NULL,
     "Notes" character varying(500),
-    "RequiredDate" timestamp with time zone
+    "RequiredDate" timestamp with time zone,
+    "CipProjectId" integer
 );
 
 
@@ -4247,7 +3931,9 @@ CREATE TABLE public."PurchaseOrders" (
     "BillToSiteId" integer,
     "DefaultShipToLocationId" integer,
     "ShipToAddress" character varying(200),
-    "ShipToSiteId" integer
+    "ShipToSiteId" integer,
+    "POTypeLookupValueId" integer,
+    "StatusLookupValueId" integer
 );
 
 
@@ -4292,7 +3978,8 @@ CREATE TABLE public."PurchaseRequisitionLines" (
     "Notes" character varying(200),
     "GlAccountId" integer,
     "CostCenterId" integer,
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "CipProjectId" integer
 );
 
 
@@ -4351,7 +4038,9 @@ CREATE TABLE public."PurchaseRequisitions" (
     "CreatedBy" character varying(50),
     "UpdatedBy" character varying(50),
     "DeliverToLocationId" integer,
-    "DeliverToSiteId" integer
+    "DeliverToSiteId" integer,
+    "StatusLookupValueId" integer,
+    "PriorityLookupValueId" integer
 );
 
 
@@ -4512,7 +4201,9 @@ CREATE TABLE public."Sites" (
     "CreatedAt" timestamp with time zone NOT NULL,
     "CreatedBy" text,
     "ModifiedAt" timestamp with time zone,
-    "ModifiedBy" text
+    "ModifiedBy" text,
+    "TypeLookupValueId" integer,
+    "StatusLookupValueId" integer
 );
 
 
@@ -4599,6 +4290,81 @@ ALTER TABLE public."TaxCodes" ALTER COLUMN "Id" ADD GENERATED BY DEFAULT AS IDEN
 
 
 --
+-- Name: TechnicianCertifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."TechnicianCertifications" (
+    "Id" integer NOT NULL,
+    "TechnicianId" integer NOT NULL,
+    "Name" character varying(100) NOT NULL,
+    "CertificateNumber" character varying(50),
+    "IssuingAuthority" character varying(100),
+    "IssueDate" timestamp with time zone,
+    "ExpirationDate" timestamp with time zone,
+    "IsRequired" boolean DEFAULT false NOT NULL,
+    "Notes" character varying(500),
+    "TenantId" integer
+);
+
+
+--
+-- Name: TechnicianCertifications_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."TechnicianCertifications_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: TechnicianCertifications_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."TechnicianCertifications_Id_seq" OWNED BY public."TechnicianCertifications"."Id";
+
+
+--
+-- Name: TechnicianSkills; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public."TechnicianSkills" (
+    "Id" integer NOT NULL,
+    "TechnicianId" integer NOT NULL,
+    "SkillName" character varying(100) NOT NULL,
+    "Category" character varying(50),
+    "ProficiencyLevel" integer DEFAULT 0 NOT NULL,
+    "IsCertified" boolean DEFAULT false NOT NULL,
+    "LastAssessedDate" timestamp with time zone,
+    "Notes" character varying(500),
+    "TenantId" integer
+);
+
+
+--
+-- Name: TechnicianSkills_Id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public."TechnicianSkills_Id_seq"
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: TechnicianSkills_Id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public."TechnicianSkills_Id_seq" OWNED BY public."TechnicianSkills"."Id";
+
+
+--
 -- Name: Technicians; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4614,7 +4380,25 @@ CREATE TABLE public."Technicians" (
     "HourlyRate" numeric,
     "Notes" character varying(500),
     "Active" boolean NOT NULL,
-    "CreatedAt" timestamp with time zone NOT NULL
+    "CreatedAt" timestamp with time zone NOT NULL,
+    "EmployeeId" character varying(30),
+    "PhotoPath" character varying(500),
+    "Title" character varying(100),
+    "CompanyId" integer,
+    "SiteId" integer,
+    "SupervisorTechnicianId" integer,
+    "PrimaryCraft" character varying(50),
+    "SecondaryCraft" character varying(50),
+    "ProficiencyLevel" integer DEFAULT 0 NOT NULL,
+    "ShiftPattern" character varying(30),
+    "ShiftStart" time without time zone,
+    "ShiftEnd" time without time zone,
+    "OvertimeRate" numeric(10,2),
+    "DoubleTimeRate" numeric(10,2),
+    "HireDate" timestamp with time zone,
+    "EmergencyContactName" character varying(100),
+    "EmergencyContactPhone" character varying(30),
+    "TenantId" integer
 );
 
 
@@ -4825,7 +4609,9 @@ CREATE TABLE public."Users" (
     "TimeZone" character varying(50),
     "CompanyId" integer,
     "MustChangePassword" boolean NOT NULL,
-    "PasswordChangedAt" timestamp with time zone
+    "PasswordChangedAt" timestamp with time zone,
+    "AssignedCompanyId" integer,
+    "AssignedSiteId" integer
 );
 
 
@@ -4859,7 +4645,8 @@ CREATE TABLE public."VendorInvoiceLines" (
     "GoodsReceiptLineId" integer,
     "GlAccountId" integer,
     "CostCenterId" integer,
-    "Notes" character varying(500)
+    "Notes" character varying(500),
+    "CipProjectId" integer
 );
 
 
@@ -4904,7 +4691,8 @@ CREATE TABLE public."VendorInvoices" (
     "ApprovedAt" timestamp with time zone,
     "CompanyId" integer,
     "CreatedAt" timestamp with time zone NOT NULL,
-    "UpdatedAt" timestamp with time zone
+    "UpdatedAt" timestamp with time zone,
+    "StatusLookupValueId" integer
 );
 
 
@@ -5249,7 +5037,9 @@ CREATE TABLE public."WorkOrderOperations" (
     "CreatedAt" timestamp with time zone DEFAULT now() NOT NULL,
     "CreatedBy" character varying(100),
     "ModifiedAt" timestamp with time zone,
-    "ModifiedBy" character varying(100)
+    "ModifiedBy" character varying(100),
+    "TypeLookupValueId" integer,
+    "StatusLookupValueId" integer
 );
 
 
@@ -5398,6 +5188,41 @@ CREATE TABLE public."__EFMigrationsHistory" (
 
 
 --
+-- Name: CustomerInvoiceLines Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoiceLines" ALTER COLUMN "Id" SET DEFAULT nextval('public."CustomerInvoiceLines_Id_seq"'::regclass);
+
+
+--
+-- Name: CustomerInvoices Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoices" ALTER COLUMN "Id" SET DEFAULT nextval('public."CustomerInvoices_Id_seq"'::regclass);
+
+
+--
+-- Name: Customers Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Customers" ALTER COLUMN "Id" SET DEFAULT nextval('public."Customers_Id_seq"'::regclass);
+
+
+--
+-- Name: LookupTypes Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupTypes" ALTER COLUMN "Id" SET DEFAULT nextval('public."LookupTypes_Id_seq"'::regclass);
+
+
+--
+-- Name: LookupValues Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupValues" ALTER COLUMN "Id" SET DEFAULT nextval('public."LookupValues_Id_seq"'::regclass);
+
+
+--
 -- Name: PMOccurrences Id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -5409,6 +5234,20 @@ ALTER TABLE ONLY public."PMOccurrences" ALTER COLUMN "Id" SET DEFAULT nextval('p
 --
 
 ALTER TABLE ONLY public."PMSchedules" ALTER COLUMN "Id" SET DEFAULT nextval('public."PMSchedules_Id_seq"'::regclass);
+
+
+--
+-- Name: TechnicianCertifications Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianCertifications" ALTER COLUMN "Id" SET DEFAULT nextval('public."TechnicianCertifications_Id_seq"'::regclass);
+
+
+--
+-- Name: TechnicianSkills Id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianSkills" ALTER COLUMN "Id" SET DEFAULT nextval('public."TechnicianSkills_Id_seq"'::regclass);
 
 
 --
@@ -5444,6 +5283,78 @@ ALTER TABLE ONLY public."WorkOrderOperationTools" ALTER COLUMN "Id" SET DEFAULT 
 --
 
 ALTER TABLE ONLY public."WorkOrderOperations" ALTER COLUMN "Id" SET DEFAULT nextval('public."WorkOrderOperations_Id_seq"'::regclass);
+
+
+--
+-- Name: org_node PK_org_node; Type: CONSTRAINT; Schema: platform; Owner: -
+--
+
+ALTER TABLE ONLY platform.org_node
+    ADD CONSTRAINT "PK_org_node" PRIMARY KEY (id);
+
+
+--
+-- Name: CipBudgetLines CipBudgetLines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipBudgetLines"
+    ADD CONSTRAINT "CipBudgetLines_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: CipCapitalizationCosts CipCapitalizationCosts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCapitalizationCosts"
+    ADD CONSTRAINT "CipCapitalizationCosts_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: CipCapitalizations CipCapitalizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCapitalizations"
+    ADD CONSTRAINT "CipCapitalizations_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: CustomerInvoiceLines CustomerInvoiceLines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoiceLines"
+    ADD CONSTRAINT "CustomerInvoiceLines_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: CustomerInvoices CustomerInvoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoices"
+    ADD CONSTRAINT "CustomerInvoices_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: Customers Customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Customers"
+    ADD CONSTRAINT "Customers_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: LookupTypes LookupTypes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupTypes"
+    ADD CONSTRAINT "LookupTypes_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: LookupValues LookupValues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupValues"
+    ADD CONSTRAINT "LookupValues_pkey" PRIMARY KEY ("Id");
 
 
 --
@@ -5951,6 +5862,14 @@ ALTER TABLE ONLY public."Locations"
 
 
 --
+-- Name: MachineSpecifications PK_MachineSpecifications; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MachineSpecifications"
+    ADD CONSTRAINT "PK_MachineSpecifications" PRIMARY KEY ("Id");
+
+
+--
 -- Name: MaintenanceEvents PK_MaintenanceEvents; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6335,6 +6254,22 @@ ALTER TABLE ONLY public."PMSchedules"
 
 
 --
+-- Name: TechnicianCertifications TechnicianCertifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianCertifications"
+    ADD CONSTRAINT "TechnicianCertifications_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: TechnicianSkills TechnicianSkills_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianSkills"
+    ADD CONSTRAINT "TechnicianSkills_pkey" PRIMARY KEY ("Id");
+
+
+--
 -- Name: Tenants Tenants_Code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6380,6 +6315,41 @@ ALTER TABLE ONLY public."WorkOrderOperationTools"
 
 ALTER TABLE ONLY public."WorkOrderOperations"
     ADD CONSTRAINT "WorkOrderOperations_pkey" PRIMARY KEY ("Id");
+
+
+--
+-- Name: IX_org_node_company_id; Type: INDEX; Schema: platform; Owner: -
+--
+
+CREATE INDEX "IX_org_node_company_id" ON platform.org_node USING btree (company_id);
+
+
+--
+-- Name: IX_org_node_location_id; Type: INDEX; Schema: platform; Owner: -
+--
+
+CREATE INDEX "IX_org_node_location_id" ON platform.org_node USING btree (location_id);
+
+
+--
+-- Name: IX_org_node_parent_id; Type: INDEX; Schema: platform; Owner: -
+--
+
+CREATE INDEX "IX_org_node_parent_id" ON platform.org_node USING btree (parent_id);
+
+
+--
+-- Name: IX_org_node_site_id; Type: INDEX; Schema: platform; Owner: -
+--
+
+CREATE INDEX "IX_org_node_site_id" ON platform.org_node USING btree (site_id);
+
+
+--
+-- Name: IX_org_node_tenant_code_node_type; Type: INDEX; Schema: platform; Owner: -
+--
+
+CREATE INDEX "IX_org_node_tenant_code_node_type" ON platform.org_node USING btree (tenant_code, node_type);
 
 
 --
@@ -6488,6 +6458,13 @@ CREATE INDEX "IX_AssetTransfers_AssetId" ON public."AssetTransfers" USING btree 
 
 
 --
+-- Name: IX_AssetTransfers_ReasonLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_AssetTransfers_ReasonLookupValueId" ON public."AssetTransfers" USING btree ("ReasonLookupValueId");
+
+
+--
 -- Name: IX_AssetTransfers_TransferDate; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6502,10 +6479,38 @@ CREATE INDEX "IX_Assets_AssetCategoryId" ON public."Assets" USING btree ("AssetC
 
 
 --
+-- Name: IX_Assets_AssetPriorityLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Assets_AssetPriorityLookupValueId" ON public."Assets" USING btree ("AssetPriorityLookupValueId");
+
+
+--
+-- Name: IX_Assets_AssetTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Assets_AssetTypeLookupValueId" ON public."Assets" USING btree ("AssetTypeLookupValueId");
+
+
+--
 -- Name: IX_Assets_CompanyId; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_Assets_CompanyId" ON public."Assets" USING btree ("CompanyId");
+
+
+--
+-- Name: IX_Assets_CompanyId_AssetNumber_Unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_Assets_CompanyId_AssetNumber_Unique" ON public."Assets" USING btree ("CompanyId", "AssetNumber");
+
+
+--
+-- Name: IX_Assets_ConditionLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Assets_ConditionLookupValueId" ON public."Assets" USING btree ("ConditionLookupValueId");
 
 
 --
@@ -6520,6 +6525,13 @@ CREATE INDEX "IX_Assets_CostCenterId" ON public."Assets" USING btree ("CostCente
 --
 
 CREATE INDEX "IX_Assets_DepartmentId" ON public."Assets" USING btree ("DepartmentId");
+
+
+--
+-- Name: IX_Assets_DepreciationMethodLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Assets_DepreciationMethodLookupValueId" ON public."Assets" USING btree ("DepreciationMethodLookupValueId");
 
 
 --
@@ -6551,6 +6563,13 @@ CREATE INDEX "IX_Assets_SiteId" ON public."Assets" USING btree ("SiteId");
 
 
 --
+-- Name: IX_Assets_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Assets_StatusLookupValueId" ON public."Assets" USING btree ("StatusLookupValueId");
+
+
+--
 -- Name: IX_Assets_VendorId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6576,6 +6595,13 @@ CREATE INDEX "IX_Attachments_AssetTransferId" ON public."Attachments" USING btre
 --
 
 CREATE INDEX "IX_Attachments_CapitalImprovementId" ON public."Attachments" USING btree ("CapitalImprovementId");
+
+
+--
+-- Name: IX_Attachments_CategoryLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Attachments_CategoryLookupValueId" ON public."Attachments" USING btree ("CategoryLookupValueId");
 
 
 --
@@ -6635,6 +6661,13 @@ CREATE UNIQUE INDEX "IX_BookGlAccounts_BookId" ON public."BookGlAccounts" USING 
 
 
 --
+-- Name: IX_Books_BookTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Books_BookTypeLookupValueId" ON public."Books" USING btree ("BookTypeLookupValueId");
+
+
+--
 -- Name: IX_Books_CompanyId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6642,10 +6675,38 @@ CREATE INDEX "IX_Books_CompanyId" ON public."Books" USING btree ("CompanyId");
 
 
 --
+-- Name: IX_Books_ConventionLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Books_ConventionLookupValueId" ON public."Books" USING btree ("ConventionLookupValueId");
+
+
+--
 -- Name: IX_Books_DefaultPolicyId; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_Books_DefaultPolicyId" ON public."Books" USING btree ("DefaultPolicyId");
+
+
+--
+-- Name: IX_Books_FrequencyLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Books_FrequencyLookupValueId" ON public."Books" USING btree ("FrequencyLookupValueId");
+
+
+--
+-- Name: IX_Books_MethodLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Books_MethodLookupValueId" ON public."Books" USING btree ("MethodLookupValueId");
+
+
+--
+-- Name: IX_Books_TaxJurisdictionLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Books_TaxJurisdictionLookupValueId" ON public."Books" USING btree ("TaxJurisdictionLookupValueId");
 
 
 --
@@ -6698,6 +6759,34 @@ CREATE INDEX "IX_CcaTransactions_CcaClassId_FiscalYear" ON public."CcaTransactio
 
 
 --
+-- Name: IX_CipBudgetLines_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipBudgetLines_CipProjectId" ON public."CipBudgetLines" USING btree ("CipProjectId");
+
+
+--
+-- Name: IX_CipCapitalizationCosts_CipCapitalizationId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCapitalizationCosts_CipCapitalizationId" ON public."CipCapitalizationCosts" USING btree ("CipCapitalizationId");
+
+
+--
+-- Name: IX_CipCapitalizationCosts_CipCostId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCapitalizationCosts_CipCostId" ON public."CipCapitalizationCosts" USING btree ("CipCostId");
+
+
+--
+-- Name: IX_CipCapitalizations_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCapitalizations_CipProjectId" ON public."CipCapitalizations" USING btree ("CipProjectId");
+
+
+--
 -- Name: IX_CipCosts_CipProjectId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6705,10 +6794,66 @@ CREATE INDEX "IX_CipCosts_CipProjectId" ON public."CipCosts" USING btree ("CipPr
 
 
 --
+-- Name: IX_CipCosts_CostTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_CostTypeLookupValueId" ON public."CipCosts" USING btree ("CostTypeLookupValueId");
+
+
+--
+-- Name: IX_CipCosts_GoodsReceiptId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_GoodsReceiptId" ON public."CipCosts" USING btree ("GoodsReceiptId");
+
+
+--
+-- Name: IX_CipCosts_JournalEntryId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_JournalEntryId" ON public."CipCosts" USING btree ("JournalEntryId");
+
+
+--
+-- Name: IX_CipCosts_PurchaseOrderId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_PurchaseOrderId" ON public."CipCosts" USING btree ("PurchaseOrderId");
+
+
+--
 -- Name: IX_CipCosts_TransactionDate; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_CipCosts_TransactionDate" ON public."CipCosts" USING btree ("TransactionDate");
+
+
+--
+-- Name: IX_CipCosts_VendorId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_VendorId" ON public."CipCosts" USING btree ("VendorId");
+
+
+--
+-- Name: IX_CipCosts_VendorInvoiceId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_VendorInvoiceId" ON public."CipCosts" USING btree ("VendorInvoiceId");
+
+
+--
+-- Name: IX_CipCosts_WorkOrderId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipCosts_WorkOrderId" ON public."CipCosts" USING btree ("WorkOrderId");
+
+
+--
+-- Name: IX_CipProjects_CompanyId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipProjects_CompanyId" ON public."CipProjects" USING btree ("CompanyId");
 
 
 --
@@ -6754,10 +6899,24 @@ CREATE UNIQUE INDEX "IX_CipProjects_ProjectNumber" ON public."CipProjects" USING
 
 
 --
+-- Name: IX_CipProjects_SiteId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipProjects_SiteId" ON public."CipProjects" USING btree ("SiteId");
+
+
+--
 -- Name: IX_CipProjects_Status; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_CipProjects_Status" ON public."CipProjects" USING btree ("Status");
+
+
+--
+-- Name: IX_CipProjects_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CipProjects_StatusLookupValueId" ON public."CipProjects" USING btree ("StatusLookupValueId");
 
 
 --
@@ -6803,6 +6962,27 @@ CREATE INDEX "IX_CostCenters_ParentCostCenterId" ON public."CostCenters" USING b
 
 
 --
+-- Name: IX_CostCenters_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_CostCenters_TypeLookupValueId" ON public."CostCenters" USING btree ("TypeLookupValueId");
+
+
+--
+-- Name: IX_CustomerInvoices_CompanyId_InvoiceNumber; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_CustomerInvoices_CompanyId_InvoiceNumber" ON public."CustomerInvoices" USING btree ("CompanyId", "InvoiceNumber");
+
+
+--
+-- Name: IX_Customers_CompanyId_CustomerCode; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_Customers_CompanyId_CustomerCode" ON public."Customers" USING btree ("CompanyId", "CustomerCode");
+
+
+--
 -- Name: IX_Departments_Code; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6821,6 +7001,13 @@ CREATE INDEX "IX_Departments_CompanyId" ON public."Departments" USING btree ("Co
 --
 
 CREATE INDEX "IX_Departments_CostCenterId" ON public."Departments" USING btree ("CostCenterId");
+
+
+--
+-- Name: IX_Departments_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Departments_TypeLookupValueId" ON public."Departments" USING btree ("TypeLookupValueId");
 
 
 --
@@ -6908,6 +7095,13 @@ CREATE INDEX "IX_GlAccounts_AccountNumber" ON public."GlAccounts" USING btree ("
 
 
 --
+-- Name: IX_GlAccounts_AccountTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_GlAccounts_AccountTypeLookupValueId" ON public."GlAccounts" USING btree ("AccountTypeLookupValueId");
+
+
+--
 -- Name: IX_GlAccounts_Category; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6926,6 +7120,13 @@ CREATE INDEX "IX_GlAccounts_CompanyId" ON public."GlAccounts" USING btree ("Comp
 --
 
 CREATE INDEX "IX_GlAccounts_ParentAccountId" ON public."GlAccounts" USING btree ("ParentAccountId");
+
+
+--
+-- Name: IX_GoodsReceiptLines_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_GoodsReceiptLines_CipProjectId" ON public."GoodsReceiptLines" USING btree ("CipProjectId");
 
 
 --
@@ -6961,6 +7162,13 @@ CREATE INDEX "IX_GoodsReceipts_CompanyId" ON public."GoodsReceipts" USING btree 
 --
 
 CREATE INDEX "IX_GoodsReceipts_PurchaseOrderId" ON public."GoodsReceipts" USING btree ("PurchaseOrderId");
+
+
+--
+-- Name: IX_GoodsReceipts_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_GoodsReceipts_StatusLookupValueId" ON public."GoodsReceipts" USING btree ("StatusLookupValueId");
 
 
 --
@@ -7209,6 +7417,13 @@ CREATE UNIQUE INDEX "IX_ItemRevisions_ItemId_RevisionCode" ON public."ItemRevisi
 
 
 --
+-- Name: IX_ItemRevisions_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_ItemRevisions_StatusLookupValueId" ON public."ItemRevisions" USING btree ("StatusLookupValueId");
+
+
+--
 -- Name: IX_ItemRevisions_SupersedesItemRevisionId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7293,6 +7508,13 @@ CREATE INDEX "IX_ItemTransactions_TransactionNumber" ON public."ItemTransactions
 
 
 --
+-- Name: IX_ItemTransactions_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_ItemTransactions_TypeLookupValueId" ON public."ItemTransactions" USING btree ("TypeLookupValueId");
+
+
+--
 -- Name: IX_ItemVendors_ItemId_VendorId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7318,6 +7540,13 @@ CREATE INDEX "IX_Items_CategoryId" ON public."Items" USING btree ("CategoryId");
 --
 
 CREATE INDEX "IX_Items_CompanyId" ON public."Items" USING btree ("CompanyId");
+
+
+--
+-- Name: IX_Items_CostMethodLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Items_CostMethodLookupValueId" ON public."Items" USING btree ("CostMethodLookupValueId");
 
 
 --
@@ -7353,6 +7582,27 @@ CREATE INDEX "IX_Items_PartNumber" ON public."Items" USING btree ("PartNumber");
 --
 
 CREATE INDEX "IX_Items_PrimaryVendorId" ON public."Items" USING btree ("PrimaryVendorId");
+
+
+--
+-- Name: IX_Items_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Items_StatusLookupValueId" ON public."Items" USING btree ("StatusLookupValueId");
+
+
+--
+-- Name: IX_Items_TrackingTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Items_TrackingTypeLookupValueId" ON public."Items" USING btree ("TrackingTypeLookupValueId");
+
+
+--
+-- Name: IX_Items_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Items_TypeLookupValueId" ON public."Items" USING btree ("TypeLookupValueId");
 
 
 --
@@ -7503,6 +7753,55 @@ CREATE INDEX "IX_Locations_SiteId" ON public."Locations" USING btree ("SiteId");
 
 
 --
+-- Name: IX_Locations_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Locations_TypeLookupValueId" ON public."Locations" USING btree ("TypeLookupValueId");
+
+
+--
+-- Name: IX_LookupTypes_CompanyId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_LookupTypes_CompanyId" ON public."LookupTypes" USING btree ("CompanyId");
+
+
+--
+-- Name: IX_LookupTypes_TenantId_CompanyId_Key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_LookupTypes_TenantId_CompanyId_Key" ON public."LookupTypes" USING btree ("TenantId", "CompanyId", "Key");
+
+
+--
+-- Name: IX_LookupValues_LookupTypeId_Code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_LookupValues_LookupTypeId_Code" ON public."LookupValues" USING btree ("LookupTypeId", "Code");
+
+
+--
+-- Name: IX_LookupValues_LookupTypeId_IsActive_SortOrder; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_LookupValues_LookupTypeId_IsActive_SortOrder" ON public."LookupValues" USING btree ("LookupTypeId", "IsActive", "SortOrder");
+
+
+--
+-- Name: IX_MachineSpecifications_AssetId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX "IX_MachineSpecifications_AssetId" ON public."MachineSpecifications" USING btree ("AssetId");
+
+
+--
+-- Name: IX_MachineSpecifications_TenantId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_MachineSpecifications_TenantId" ON public."MachineSpecifications" USING btree ("TenantId");
+
+
+--
 -- Name: IX_MaintenanceEvents_ApprovedById; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7514,6 +7813,20 @@ CREATE INDEX "IX_MaintenanceEvents_ApprovedById" ON public."MaintenanceEvents" U
 --
 
 CREATE INDEX "IX_MaintenanceEvents_AssetId" ON public."MaintenanceEvents" USING btree ("AssetId");
+
+
+--
+-- Name: IX_MaintenanceEvents_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_MaintenanceEvents_CipProjectId" ON public."MaintenanceEvents" USING btree ("CipProjectId");
+
+
+--
+-- Name: IX_MaintenanceEvents_PriorityLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_MaintenanceEvents_PriorityLookupValueId" ON public."MaintenanceEvents" USING btree ("PriorityLookupValueId");
 
 
 --
@@ -7538,10 +7851,24 @@ CREATE INDEX "IX_MaintenanceEvents_Status" ON public."MaintenanceEvents" USING b
 
 
 --
+-- Name: IX_MaintenanceEvents_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_MaintenanceEvents_StatusLookupValueId" ON public."MaintenanceEvents" USING btree ("StatusLookupValueId");
+
+
+--
 -- Name: IX_MaintenanceEvents_TechnicianId; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_MaintenanceEvents_TechnicianId" ON public."MaintenanceEvents" USING btree ("TechnicianId");
+
+
+--
+-- Name: IX_MaintenanceEvents_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_MaintenanceEvents_TypeLookupValueId" ON public."MaintenanceEvents" USING btree ("TypeLookupValueId");
 
 
 --
@@ -7727,6 +8054,13 @@ CREATE INDEX "IX_PartialDisposals_AssetId" ON public."PartialDisposals" USING bt
 
 
 --
+-- Name: IX_PartialDisposals_ReasonLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PartialDisposals_ReasonLookupValueId" ON public."PartialDisposals" USING btree ("ReasonLookupValueId");
+
+
+--
 -- Name: IX_PeriodLocks_Period; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7794,6 +8128,13 @@ CREATE INDEX "IX_ProjectManagers_Name" ON public."ProjectManagers" USING btree (
 --
 
 CREATE INDEX "IX_PurchaseOrderLines_AssetId" ON public."PurchaseOrderLines" USING btree ("AssetId");
+
+
+--
+-- Name: IX_PurchaseOrderLines_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PurchaseOrderLines_CipProjectId" ON public."PurchaseOrderLines" USING btree ("CipProjectId");
 
 
 --
@@ -7888,6 +8229,13 @@ CREATE INDEX "IX_PurchaseOrders_DefaultShipToLocationId" ON public."PurchaseOrde
 
 
 --
+-- Name: IX_PurchaseOrders_POTypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PurchaseOrders_POTypeLookupValueId" ON public."PurchaseOrders" USING btree ("POTypeLookupValueId");
+
+
+--
 -- Name: IX_PurchaseOrders_RequestedById; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7899,6 +8247,13 @@ CREATE INDEX "IX_PurchaseOrders_RequestedById" ON public."PurchaseOrders" USING 
 --
 
 CREATE INDEX "IX_PurchaseOrders_ShipToSiteId" ON public."PurchaseOrders" USING btree ("ShipToSiteId");
+
+
+--
+-- Name: IX_PurchaseOrders_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PurchaseOrders_StatusLookupValueId" ON public."PurchaseOrders" USING btree ("StatusLookupValueId");
 
 
 --
@@ -7986,6 +8341,20 @@ CREATE INDEX "IX_PurchaseRequisitions_DeliverToSiteId" ON public."PurchaseRequis
 
 
 --
+-- Name: IX_PurchaseRequisitions_PriorityLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PurchaseRequisitions_PriorityLookupValueId" ON public."PurchaseRequisitions" USING btree ("PriorityLookupValueId");
+
+
+--
+-- Name: IX_PurchaseRequisitions_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_PurchaseRequisitions_StatusLookupValueId" ON public."PurchaseRequisitions" USING btree ("StatusLookupValueId");
+
+
+--
 -- Name: IX_PurchaseRequisitions_SuggestedVendorId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8028,6 +8397,20 @@ CREATE INDEX "IX_Sites_CompanyId" ON public."Sites" USING btree ("CompanyId");
 
 
 --
+-- Name: IX_Sites_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Sites_StatusLookupValueId" ON public."Sites" USING btree ("StatusLookupValueId");
+
+
+--
+-- Name: IX_Sites_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Sites_TypeLookupValueId" ON public."Sites" USING btree ("TypeLookupValueId");
+
+
+--
 -- Name: IX_Skills_CraftId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8035,10 +8418,31 @@ CREATE INDEX "IX_Skills_CraftId" ON public."Skills" USING btree ("CraftId");
 
 
 --
+-- Name: IX_TechnicianCertifications_TechnicianId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_TechnicianCertifications_TechnicianId" ON public."TechnicianCertifications" USING btree ("TechnicianId");
+
+
+--
+-- Name: IX_TechnicianSkills_TechnicianId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_TechnicianSkills_TechnicianId" ON public."TechnicianSkills" USING btree ("TechnicianId");
+
+
+--
 -- Name: IX_Technicians_Active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_Technicians_Active" ON public."Technicians" USING btree ("Active");
+
+
+--
+-- Name: IX_Technicians_CompanyId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Technicians_CompanyId" ON public."Technicians" USING btree ("CompanyId");
 
 
 --
@@ -8056,10 +8460,24 @@ CREATE INDEX "IX_Technicians_DepartmentId" ON public."Technicians" USING btree (
 
 
 --
+-- Name: IX_Technicians_EmployeeId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Technicians_EmployeeId" ON public."Technicians" USING btree ("EmployeeId");
+
+
+--
 -- Name: IX_Technicians_Name; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX "IX_Technicians_Name" ON public."Technicians" USING btree ("Name");
+
+
+--
+-- Name: IX_Technicians_SiteId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Technicians_SiteId" ON public."Technicians" USING btree ("SiteId");
 
 
 --
@@ -8077,6 +8495,20 @@ CREATE INDEX "IX_UsefulLifeEntries_UsefulLifeTableId" ON public."UsefulLifeEntri
 
 
 --
+-- Name: IX_Users_AssignedCompanyId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Users_AssignedCompanyId" ON public."Users" USING btree ("AssignedCompanyId");
+
+
+--
+-- Name: IX_Users_AssignedSiteId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_Users_AssignedSiteId" ON public."Users" USING btree ("AssignedSiteId");
+
+
+--
 -- Name: IX_Users_Email; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8088,6 +8520,13 @@ CREATE INDEX "IX_Users_Email" ON public."Users" USING btree ("Email");
 --
 
 CREATE UNIQUE INDEX "IX_Users_Username" ON public."Users" USING btree ("Username");
+
+
+--
+-- Name: IX_VendorInvoiceLines_CipProjectId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_VendorInvoiceLines_CipProjectId" ON public."VendorInvoiceLines" USING btree ("CipProjectId");
 
 
 --
@@ -8137,6 +8576,13 @@ CREATE INDEX "IX_VendorInvoices_ApprovedById" ON public."VendorInvoices" USING b
 --
 
 CREATE INDEX "IX_VendorInvoices_CompanyId" ON public."VendorInvoices" USING btree ("CompanyId");
+
+
+--
+-- Name: IX_VendorInvoices_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_VendorInvoices_StatusLookupValueId" ON public."VendorInvoices" USING btree ("StatusLookupValueId");
 
 
 --
@@ -8224,6 +8670,20 @@ CREATE INDEX "IX_WebhookSubscriptions_IsActive" ON public."WebhookSubscriptions"
 
 
 --
+-- Name: IX_WorkOrderOperations_StatusLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_WorkOrderOperations_StatusLookupValueId" ON public."WorkOrderOperations" USING btree ("StatusLookupValueId");
+
+
+--
+-- Name: IX_WorkOrderOperations_TypeLookupValueId; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX "IX_WorkOrderOperations_TypeLookupValueId" ON public."WorkOrderOperations" USING btree ("TypeLookupValueId");
+
+
+--
 -- Name: IX_WorkOrderParts_IssuedFromLocationId; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8280,11 +8740,83 @@ CREATE INDEX "IX_WorkRequests_SiteId" ON public."WorkRequests" USING btree ("Sit
 
 
 --
+-- Name: org_node FK_org_node_parent; Type: FK CONSTRAINT; Schema: platform; Owner: -
+--
+
+ALTER TABLE ONLY platform.org_node
+    ADD CONSTRAINT "FK_org_node_parent" FOREIGN KEY (parent_id) REFERENCES platform.org_node(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: CipBudgetLines CipBudgetLines_CipProjectId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipBudgetLines"
+    ADD CONSTRAINT "CipBudgetLines_CipProjectId_fkey" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: CipCapitalizationCosts CipCapitalizationCosts_CipCapitalizationId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCapitalizationCosts"
+    ADD CONSTRAINT "CipCapitalizationCosts_CipCapitalizationId_fkey" FOREIGN KEY ("CipCapitalizationId") REFERENCES public."CipCapitalizations"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: CipCapitalizationCosts CipCapitalizationCosts_CipCostId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCapitalizationCosts"
+    ADD CONSTRAINT "CipCapitalizationCosts_CipCostId_fkey" FOREIGN KEY ("CipCostId") REFERENCES public."CipCosts"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: CipCapitalizations CipCapitalizations_CipProjectId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCapitalizations"
+    ADD CONSTRAINT "CipCapitalizations_CipProjectId_fkey" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id") ON DELETE CASCADE;
+
+
+--
 -- Name: Companies Companies_TenantId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."Companies"
     ADD CONSTRAINT "Companies_TenantId_fkey" FOREIGN KEY ("TenantId") REFERENCES public."Tenants"("Id");
+
+
+--
+-- Name: CustomerInvoiceLines CustomerInvoiceLines_CustomerInvoiceId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoiceLines"
+    ADD CONSTRAINT "CustomerInvoiceLines_CustomerInvoiceId_fkey" FOREIGN KEY ("CustomerInvoiceId") REFERENCES public."CustomerInvoices"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: CustomerInvoices CustomerInvoices_CompanyId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoices"
+    ADD CONSTRAINT "CustomerInvoices_CompanyId_fkey" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: CustomerInvoices CustomerInvoices_CustomerId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CustomerInvoices"
+    ADD CONSTRAINT "CustomerInvoices_CustomerId_fkey" FOREIGN KEY ("CustomerId") REFERENCES public."Customers"("Id") ON DELETE RESTRICT;
+
+
+--
+-- Name: Customers Customers_CompanyId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Customers"
+    ADD CONSTRAINT "Customers_CompanyId_fkey" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id") ON DELETE CASCADE;
 
 
 --
@@ -8392,6 +8924,14 @@ ALTER TABLE ONLY public."AssetTransfers"
 
 
 --
+-- Name: AssetTransfers FK_AssetTransfers_LookupValues_ReasonLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."AssetTransfers"
+    ADD CONSTRAINT "FK_AssetTransfers_LookupValues_ReasonLookupValueId" FOREIGN KEY ("ReasonLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: Assets FK_Assets_AssetCategories_AssetCategoryId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8437,6 +8977,46 @@ ALTER TABLE ONLY public."Assets"
 
 ALTER TABLE ONLY public."Assets"
     ADD CONSTRAINT "FK_Assets_Locations_LocationId" FOREIGN KEY ("LocationId") REFERENCES public."Locations"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Assets FK_Assets_LookupValues_AssetPriorityLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Assets"
+    ADD CONSTRAINT "FK_Assets_LookupValues_AssetPriorityLookupValueId" FOREIGN KEY ("AssetPriorityLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Assets FK_Assets_LookupValues_AssetTypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Assets"
+    ADD CONSTRAINT "FK_Assets_LookupValues_AssetTypeLookupValueId" FOREIGN KEY ("AssetTypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Assets FK_Assets_LookupValues_ConditionLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Assets"
+    ADD CONSTRAINT "FK_Assets_LookupValues_ConditionLookupValueId" FOREIGN KEY ("ConditionLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Assets FK_Assets_LookupValues_DepreciationMethodLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Assets"
+    ADD CONSTRAINT "FK_Assets_LookupValues_DepreciationMethodLookupValueId" FOREIGN KEY ("DepreciationMethodLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Assets FK_Assets_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Assets"
+    ADD CONSTRAINT "FK_Assets_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -8504,6 +9084,14 @@ ALTER TABLE ONLY public."Attachments"
 
 
 --
+-- Name: Attachments FK_Attachments_LookupValues_CategoryLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Attachments"
+    ADD CONSTRAINT "FK_Attachments_LookupValues_CategoryLookupValueId" FOREIGN KEY ("CategoryLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: Attachments FK_Attachments_MaintenanceEvents_MaintenanceEventId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8533,6 +9121,46 @@ ALTER TABLE ONLY public."Books"
 
 ALTER TABLE ONLY public."Books"
     ADD CONSTRAINT "FK_Books_DepreciationPolicies_DefaultPolicyId" FOREIGN KEY ("DefaultPolicyId") REFERENCES public."DepreciationPolicies"("Id");
+
+
+--
+-- Name: Books FK_Books_LookupValues_BookTypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Books"
+    ADD CONSTRAINT "FK_Books_LookupValues_BookTypeLookupValueId" FOREIGN KEY ("BookTypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Books FK_Books_LookupValues_ConventionLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Books"
+    ADD CONSTRAINT "FK_Books_LookupValues_ConventionLookupValueId" FOREIGN KEY ("ConventionLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Books FK_Books_LookupValues_FrequencyLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Books"
+    ADD CONSTRAINT "FK_Books_LookupValues_FrequencyLookupValueId" FOREIGN KEY ("FrequencyLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Books FK_Books_LookupValues_MethodLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Books"
+    ADD CONSTRAINT "FK_Books_LookupValues_MethodLookupValueId" FOREIGN KEY ("MethodLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Books FK_Books_LookupValues_TaxJurisdictionLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Books"
+    ADD CONSTRAINT "FK_Books_LookupValues_TaxJurisdictionLookupValueId" FOREIGN KEY ("TaxJurisdictionLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -8584,11 +9212,27 @@ ALTER TABLE ONLY public."CipCosts"
 
 
 --
+-- Name: CipCosts FK_CipCosts_LookupValues_CostTypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipCosts"
+    ADD CONSTRAINT "FK_CipCosts_LookupValues_CostTypeLookupValueId" FOREIGN KEY ("CostTypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: CipProjects FK_CipProjects_Assets_ConvertedAssetId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."CipProjects"
     ADD CONSTRAINT "FK_CipProjects_Assets_ConvertedAssetId" FOREIGN KEY ("ConvertedAssetId") REFERENCES public."Assets"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: CipProjects FK_CipProjects_Companies_CompanyId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipProjects"
+    ADD CONSTRAINT "FK_CipProjects_Companies_CompanyId" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id");
 
 
 --
@@ -8616,11 +9260,27 @@ ALTER TABLE ONLY public."CipProjects"
 
 
 --
+-- Name: CipProjects FK_CipProjects_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipProjects"
+    ADD CONSTRAINT "FK_CipProjects_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: CipProjects FK_CipProjects_ProjectManagers_ProjectManagerId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."CipProjects"
     ADD CONSTRAINT "FK_CipProjects_ProjectManagers_ProjectManagerId" FOREIGN KEY ("ProjectManagerId") REFERENCES public."ProjectManagers"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: CipProjects FK_CipProjects_Sites_SiteId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."CipProjects"
+    ADD CONSTRAINT "FK_CipProjects_Sites_SiteId" FOREIGN KEY ("SiteId") REFERENCES public."Sites"("Id");
 
 
 --
@@ -8768,6 +9428,14 @@ ALTER TABLE ONLY public."GlAccounts"
 
 
 --
+-- Name: GoodsReceiptLines FK_GoodsReceiptLines_CipProjects_CipProjectId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."GoodsReceiptLines"
+    ADD CONSTRAINT "FK_GoodsReceiptLines_CipProjects_CipProjectId" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id");
+
+
+--
 -- Name: GoodsReceiptLines FK_GoodsReceiptLines_GoodsReceipts_GoodsReceiptId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8797,6 +9465,14 @@ ALTER TABLE ONLY public."GoodsReceiptLines"
 
 ALTER TABLE ONLY public."GoodsReceipts"
     ADD CONSTRAINT "FK_GoodsReceipts_Companies_CompanyId" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id");
+
+
+--
+-- Name: GoodsReceipts FK_GoodsReceipts_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."GoodsReceipts"
+    ADD CONSTRAINT "FK_GoodsReceipts_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -9168,6 +9844,38 @@ ALTER TABLE ONLY public."Items"
 
 
 --
+-- Name: Items FK_Items_LookupValues_CostMethodLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Items"
+    ADD CONSTRAINT "FK_Items_LookupValues_CostMethodLookupValueId" FOREIGN KEY ("CostMethodLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Items FK_Items_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Items"
+    ADD CONSTRAINT "FK_Items_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Items FK_Items_LookupValues_TrackingTypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Items"
+    ADD CONSTRAINT "FK_Items_LookupValues_TrackingTypeLookupValueId" FOREIGN KEY ("TrackingTypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Items FK_Items_LookupValues_TypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Items"
+    ADD CONSTRAINT "FK_Items_LookupValues_TypeLookupValueId" FOREIGN KEY ("TypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: Items FK_Items_Manufacturers_ManufacturerId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9312,11 +10020,51 @@ ALTER TABLE ONLY public."Locations"
 
 
 --
+-- Name: MachineSpecifications FK_MachineSpecifications_Assets_AssetId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MachineSpecifications"
+    ADD CONSTRAINT "FK_MachineSpecifications_Assets_AssetId" FOREIGN KEY ("AssetId") REFERENCES public."Assets"("Id") ON DELETE CASCADE;
+
+
+--
 -- Name: MaintenanceEvents FK_MaintenanceEvents_Assets_AssetId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public."MaintenanceEvents"
     ADD CONSTRAINT "FK_MaintenanceEvents_Assets_AssetId" FOREIGN KEY ("AssetId") REFERENCES public."Assets"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: MaintenanceEvents FK_MaintenanceEvents_CipProjects_CipProjectId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MaintenanceEvents"
+    ADD CONSTRAINT "FK_MaintenanceEvents_CipProjects_CipProjectId" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id");
+
+
+--
+-- Name: MaintenanceEvents FK_MaintenanceEvents_LookupValues_PriorityLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MaintenanceEvents"
+    ADD CONSTRAINT "FK_MaintenanceEvents_LookupValues_PriorityLookupValueId" FOREIGN KEY ("PriorityLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: MaintenanceEvents FK_MaintenanceEvents_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MaintenanceEvents"
+    ADD CONSTRAINT "FK_MaintenanceEvents_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: MaintenanceEvents FK_MaintenanceEvents_LookupValues_TypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."MaintenanceEvents"
+    ADD CONSTRAINT "FK_MaintenanceEvents_LookupValues_TypeLookupValueId" FOREIGN KEY ("TypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -9552,6 +10300,14 @@ ALTER TABLE ONLY public."PartialDisposals"
 
 
 --
+-- Name: PartialDisposals FK_PartialDisposals_LookupValues_ReasonLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PartialDisposals"
+    ADD CONSTRAINT "FK_PartialDisposals_LookupValues_ReasonLookupValueId" FOREIGN KEY ("ReasonLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: PolicyCategoryDefaults FK_PolicyCategoryDefaults_AssetCategories_AssetCategoryId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9605,6 +10361,14 @@ ALTER TABLE ONLY public."ProjectManagers"
 
 ALTER TABLE ONLY public."PurchaseOrderLines"
     ADD CONSTRAINT "FK_PurchaseOrderLines_Assets_AssetId" FOREIGN KEY ("AssetId") REFERENCES public."Assets"("Id");
+
+
+--
+-- Name: PurchaseOrderLines FK_PurchaseOrderLines_CipProjects_CipProjectId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PurchaseOrderLines"
+    ADD CONSTRAINT "FK_PurchaseOrderLines_CipProjects_CipProjectId" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id");
 
 
 --
@@ -9693,6 +10457,22 @@ ALTER TABLE ONLY public."PurchaseOrders"
 
 ALTER TABLE ONLY public."PurchaseOrders"
     ADD CONSTRAINT "FK_PurchaseOrders_Locations_DefaultShipToLocationId" FOREIGN KEY ("DefaultShipToLocationId") REFERENCES public."Locations"("Id");
+
+
+--
+-- Name: PurchaseOrders FK_PurchaseOrders_LookupValues_POTypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PurchaseOrders"
+    ADD CONSTRAINT "FK_PurchaseOrders_LookupValues_POTypeLookupValueId" FOREIGN KEY ("POTypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: PurchaseOrders FK_PurchaseOrders_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PurchaseOrders"
+    ADD CONSTRAINT "FK_PurchaseOrders_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -9808,6 +10588,22 @@ ALTER TABLE ONLY public."PurchaseRequisitions"
 
 
 --
+-- Name: PurchaseRequisitions FK_PurchaseRequisitions_LookupValues_PriorityLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PurchaseRequisitions"
+    ADD CONSTRAINT "FK_PurchaseRequisitions_LookupValues_PriorityLookupValueId" FOREIGN KEY ("PriorityLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: PurchaseRequisitions FK_PurchaseRequisitions_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."PurchaseRequisitions"
+    ADD CONSTRAINT "FK_PurchaseRequisitions_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: PurchaseRequisitions FK_PurchaseRequisitions_PurchaseOrders_ConvertedToPOId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9864,6 +10660,22 @@ ALTER TABLE ONLY public."Sites"
 
 
 --
+-- Name: Sites FK_Sites_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Sites"
+    ADD CONSTRAINT "FK_Sites_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Sites FK_Sites_LookupValues_TypeLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Sites"
+    ADD CONSTRAINT "FK_Sites_LookupValues_TypeLookupValueId" FOREIGN KEY ("TypeLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
+
+
+--
 -- Name: Skills FK_Skills_Crafts_CraftId; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9901,6 +10713,30 @@ ALTER TABLE ONLY public."UsTaxSettings"
 
 ALTER TABLE ONLY public."UsefulLifeEntries"
     ADD CONSTRAINT "FK_UsefulLifeEntries_UsefulLifeTables_UsefulLifeTableId" FOREIGN KEY ("UsefulLifeTableId") REFERENCES public."UsefulLifeTables"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: Users FK_Users_Companies_AssignedCompanyId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Users"
+    ADD CONSTRAINT "FK_Users_Companies_AssignedCompanyId" FOREIGN KEY ("AssignedCompanyId") REFERENCES public."Companies"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Users FK_Users_Sites_AssignedSiteId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Users"
+    ADD CONSTRAINT "FK_Users_Sites_AssignedSiteId" FOREIGN KEY ("AssignedSiteId") REFERENCES public."Sites"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: VendorInvoiceLines FK_VendorInvoiceLines_CipProjects_CipProjectId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."VendorInvoiceLines"
+    ADD CONSTRAINT "FK_VendorInvoiceLines_CipProjects_CipProjectId" FOREIGN KEY ("CipProjectId") REFERENCES public."CipProjects"("Id");
 
 
 --
@@ -9949,6 +10785,14 @@ ALTER TABLE ONLY public."VendorInvoiceLines"
 
 ALTER TABLE ONLY public."VendorInvoices"
     ADD CONSTRAINT "FK_VendorInvoices_Companies_CompanyId" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id");
+
+
+--
+-- Name: VendorInvoices FK_VendorInvoices_LookupValues_StatusLookupValueId; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."VendorInvoices"
+    ADD CONSTRAINT "FK_VendorInvoices_LookupValues_StatusLookupValueId" FOREIGN KEY ("StatusLookupValueId") REFERENCES public."LookupValues"("Id") ON DELETE SET NULL;
 
 
 --
@@ -10152,6 +10996,30 @@ ALTER TABLE ONLY public."WorkRequests"
 
 
 --
+-- Name: LookupTypes LookupTypes_CompanyId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupTypes"
+    ADD CONSTRAINT "LookupTypes_CompanyId_fkey" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: LookupTypes LookupTypes_TenantId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupTypes"
+    ADD CONSTRAINT "LookupTypes_TenantId_fkey" FOREIGN KEY ("TenantId") REFERENCES public."Tenants"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: LookupValues LookupValues_LookupTypeId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."LookupValues"
+    ADD CONSTRAINT "LookupValues_LookupTypeId_fkey" FOREIGN KEY ("LookupTypeId") REFERENCES public."LookupTypes"("Id") ON DELETE CASCADE;
+
+
+--
 -- Name: OutboxEvents OutboxEvents_TenantId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10160,8 +11028,48 @@ ALTER TABLE ONLY public."OutboxEvents"
 
 
 --
+-- Name: TechnicianCertifications TechnicianCertifications_TechnicianId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianCertifications"
+    ADD CONSTRAINT "TechnicianCertifications_TechnicianId_fkey" FOREIGN KEY ("TechnicianId") REFERENCES public."Technicians"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: TechnicianSkills TechnicianSkills_TechnicianId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."TechnicianSkills"
+    ADD CONSTRAINT "TechnicianSkills_TechnicianId_fkey" FOREIGN KEY ("TechnicianId") REFERENCES public."Technicians"("Id") ON DELETE CASCADE;
+
+
+--
+-- Name: Technicians Technicians_CompanyId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Technicians"
+    ADD CONSTRAINT "Technicians_CompanyId_fkey" FOREIGN KEY ("CompanyId") REFERENCES public."Companies"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Technicians Technicians_SiteId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Technicians"
+    ADD CONSTRAINT "Technicians_SiteId_fkey" FOREIGN KEY ("SiteId") REFERENCES public."Sites"("Id") ON DELETE SET NULL;
+
+
+--
+-- Name: Technicians Technicians_SupervisorTechnicianId_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public."Technicians"
+    ADD CONSTRAINT "Technicians_SupervisorTechnicianId_fkey" FOREIGN KEY ("SupervisorTechnicianId") REFERENCES public."Technicians"("Id") ON DELETE SET NULL;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict txyMOos8tBVwmnl1MujdknFDIQQphvkVHqeFYXKQt1ciTxFd8O6YcrCybPjULKY
+\unrestrict G69Bp5PtiVVV27WVagcXizo7Sqeeib6JHHplxyIxyGfcYNYthMNgAEqa41mnLgP
 

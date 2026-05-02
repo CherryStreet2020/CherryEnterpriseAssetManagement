@@ -1,5 +1,5 @@
 # CherryAI EAM - Database Migrations
-Last updated: 2026-01-24
+Last updated: 2026-05-02
 
 
 ## Overview
@@ -268,6 +268,48 @@ For destructive changes (drops, renames):
 - Deploy new code first
 - Run migration
 - Verify and rollback if needed
+
+## Idempotent Migrations for Out-of-Band Schema Changes
+
+When a schema change has already been applied directly via `psql` (e.g. an
+emergency hotfix in production) and you later need to add the matching EF
+migration so fresh databases get the same schema, write the migration body
+with raw SQL guarded by `IF NOT EXISTS` / `IF EXISTS` so it is safe on both
+already-patched and brand-new databases.
+
+Example — `20260502205715_AddAssetCompanyAssetNumberUniqueIndex`:
+
+```csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.Sql(
+        "CREATE UNIQUE INDEX IF NOT EXISTS \"IX_Assets_CompanyId_AssetNumber_Unique\" " +
+        "ON \"Assets\" (\"CompanyId\", \"AssetNumber\");");
+}
+
+protected override void Down(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.Sql(
+        "DROP INDEX IF EXISTS \"IX_Assets_CompanyId_AssetNumber_Unique\";");
+}
+```
+
+The EF model snapshot still gets updated automatically by `dotnet ef migrations
+add` — only the `Up`/`Down` bodies are hand-edited. Do not hand-edit
+`AppDbContextModelSnapshot.cs`.
+
+### Verifying an index post-deploy
+
+```bash
+psql "$DATABASE_URL" -c "SELECT indexname FROM pg_indexes \
+  WHERE tablename='Assets' \
+  AND indexname='IX_Assets_CompanyId_AssetNumber_Unique';"
+
+psql "$DATABASE_URL" -c "SELECT \"MigrationId\" FROM \"__EFMigrationsHistory\" \
+  WHERE \"MigrationId\" LIKE '%AddAssetCompanyAssetNumberUniqueIndex';"
+```
+
+Both queries should return exactly one row.
 
 ## Related Documents
 
