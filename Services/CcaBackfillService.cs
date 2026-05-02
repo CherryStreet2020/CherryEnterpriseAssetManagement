@@ -159,8 +159,21 @@ namespace Abs.FixedAssets.Services
             };
             var sw = Stopwatch.StartNew();
 
+            // Snapshot prior tenant context so we can restore it in the finally
+            // block — we override it during the run so CcaService's per-tenant
+            // filters resolve to this Canadian company.
+            var priorAssigned = _tenantContext.AssignedCompanyId;
+            var priorVisible = _tenantContext.VisibleCompanyIds.ToList();
+            var priorTenantId = _tenantContext.TenantId ?? 1;
+            IDisposable? scope = null;
+            Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? tx = null;
+
             try
             {
+                // ── Authorization gate: only Canadian companies are allowed.
+                // The page filters the dropdown, but we never trust the posted
+                // CompanyId — a tampered request must not mutate non-Canadian
+                // tax data. (Out-of-scope per task spec.)
                 var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
                 if (company == null)
                 {
@@ -168,6 +181,41 @@ namespace Abs.FixedAssets.Services
                     return report;
                 }
                 report.CompanyName = company.Name;
+
+                if (!IsCanadian(company))
+                {
+                    report.Errors.Add($"Company {companyId} ({company.Name}) is not a Canadian company (Country='{company.Country}'). CCA backfill is restricted to Canadian subsidiaries.");
+                    return report;
+                }
+
+                // ── Multi-Canadian-company guard: until CcaClassBalance is
+                // company-scoped at the schema level (see follow-up task),
+                // running balance computation while a second Canadian company
+                // also has CCA mappings would corrupt that company's totals
+                // (balances are unique per (CcaClassId, FiscalYear) globally).
+                if (computeBalances)
+                {
+                    var otherCanadian = await _db.Companies.AsNoTracking()
+                        .Where(c => c.Id != companyId && c.IsActive && c.Country != null && c.Country.ToUpper().Contains("CANADA"))
+                        .Select(c => new { c.Id, c.Name })
+                        .ToListAsync();
+                    if (otherCanadian.Count > 0)
+                    {
+                        var others = string.Join(", ", otherCanadian.Select(c => $"{c.Name} (Co{c.Id})"));
+                        report.Errors.Add($"Multiple Canadian companies detected ({others}). Computing CCA balances is disabled until CcaClassBalance is company-scoped at the schema level. Re-run with ComputeBalances=false to only create AssetTaxSettings.");
+                        return report;
+                    }
+                }
+
+                // ── Establish tenant scope for the entire run so
+                // CcaService.AddAssetToCcaClassAsync (and CalculateCcaForClassAsync)
+                // resolve to this company.
+                _tenantContext.SetHierarchyContext(companyId, new List<int> { companyId });
+                scope = _tenantOverride.BeginScope(tenantId: priorTenantId, companyId: companyId);
+
+                // ── All-or-nothing: wrap the entire run in a DB transaction so
+                // a mid-run failure does not leave partial AssetTaxSettings.
+                tx = await _db.Database.BeginTransactionAsync();
 
                 var ccaClasses = await _db.CcaClasses.AsNoTracking().Where(c => c.Active).ToListAsync();
                 var classIdByNumber = ccaClasses.ToDictionary(c => c.ClassNumber, c => c.Id);
@@ -183,11 +231,23 @@ namespace Abs.FixedAssets.Services
                 {
                     await ComputeBalancesAsync(companyId, report.ThroughFiscalYear, report);
                 }
+
+                await tx.CommitAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CcaBackfillService.RunAsync failed for company {CompanyId}", companyId);
                 report.Errors.Add($"FATAL: {ex.GetType().Name}: {ex.Message}");
+                if (tx != null)
+                {
+                    try { await tx.RollbackAsync(); } catch { /* best effort */ }
+                }
+            }
+            finally
+            {
+                tx?.Dispose();
+                scope?.Dispose();
+                _tenantContext.SetHierarchyContext(priorAssigned, priorVisible);
             }
 
             sw.Stop();
@@ -195,8 +255,15 @@ namespace Abs.FixedAssets.Services
             return report;
         }
 
+        private static bool IsCanadian(Company c) =>
+            !string.IsNullOrWhiteSpace(c.Country) && c.Country.ToUpper().Contains("CANADA");
+
         // ────────────────────────────────────────────────────────────────────────
-        // Step 1 — create AssetTaxSettings + opening Addition transaction
+        // Step 1 — delegate to CcaService.AddAssetToCcaClassAsync per asset.
+        //
+        // Per-asset try/catch records failures on the report without aborting
+        // the whole run. The outer RunAsync transaction guarantees atomicity:
+        // a thrown FATAL rolls everything back together.
         // ────────────────────────────────────────────────────────────────────────
         private async Task CreateMissingTaxSettingsAsync(
             int companyId,
@@ -217,10 +284,6 @@ namespace Abs.FixedAssets.Services
                     .Where(t => assetIds.Contains(t.AssetId))
                     .Select(t => t.AssetId)
                     .ToListAsync());
-
-            var ccaClassEntities = await _db.CcaClasses
-                .Where(c => validClassIds.Contains(c.Id))
-                .ToDictionaryAsync(c => c.Id, c => c);
 
             foreach (var asset in assets)
             {
@@ -247,59 +310,61 @@ namespace Abs.FixedAssets.Services
                     targetClassId = CcaClassSuggester.SuggestCcaClassId(asset, classIdByNumber);
                 }
 
-                if (!targetClassId.HasValue || !ccaClassEntities.TryGetValue(targetClassId.Value, out var ccaClass))
+                if (!targetClassId.HasValue)
                 {
                     report.AssetsSkippedNoClass++;
                     report.Warnings.Add($"Asset {asset.AssetNumber}: no CCA class could be resolved — skipped.");
                     continue;
                 }
 
-                var afuDate = asset.InServiceDate;
-
-                var taxSettings = new AssetTaxSettings
+                try
                 {
-                    AssetId = asset.Id,
-                    CcaClassId = ccaClass.Id,
-                    AvailableForUseDate = afuDate,
-                    CapitalCost = asset.AcquisitionCost,
-                    EligibleForAcceleratedIncentive = ccaClass.IsAcceleratedInvestmentIncentive
-                };
-                _db.AssetTaxSettings.Add(taxSettings);
+                    // Delegate to the canonical CcaService creation path so we
+                    // inherit its tenant filter checks and stay aligned with
+                    // future changes to its rules.
+                    await _ccaService.AddAssetToCcaClassAsync(asset.Id, targetClassId.Value, asset.InServiceDate);
 
-                var transaction = new CcaTransaction
-                {
-                    CcaClassId = ccaClass.Id,
-                    AssetId = asset.Id,
-                    FiscalYear = afuDate.Year,
-                    TransactionType = CcaTransactionType.Addition,
-                    TransactionDate = asset.InServiceDate,
-                    AvailableForUseDate = afuDate,
-                    CapitalCost = asset.AcquisitionCost,
-                    NetAddition = asset.AcquisitionCost,
-                    SubjectToHalfYearRule = ccaClass.HalfYearRuleApplies,
-                    IsAcceleratedIncentiveEligible = ccaClass.IsAcceleratedInvestmentIncentive,
-                    Description = $"Backfill addition: {asset.AssetNumber} - {asset.Description}",
-                    CreatedBy = report.Actor
-                };
-                _db.CcaTransactions.Add(transaction);
+                    // Stamp the just-created opening transaction with the
+                    // backfill marker + actor so it's distinguishable in the
+                    // audit trail. (CcaService doesn't take an actor.)
+                    var openingTx = await _db.CcaTransactions
+                        .Where(t => t.AssetId == asset.Id
+                                 && t.TransactionType == CcaTransactionType.Addition
+                                 && t.CcaClassId == targetClassId.Value)
+                        .OrderByDescending(t => t.Id)
+                        .FirstOrDefaultAsync();
+                    if (openingTx != null)
+                    {
+                        openingTx.CreatedBy = report.Actor;
+                        openingTx.Description = $"Backfill addition: {asset.AssetNumber} - {asset.Description}";
+                        await _db.SaveChangesAsync();
+                    }
 
-                report.AssetsMapped++;
-                if (classNumberById.TryGetValue(ccaClass.Id, out var num))
+                    report.AssetsMapped++;
+                    if (classNumberById.TryGetValue(targetClassId.Value, out var num))
+                    {
+                        report.MappingsByClassNumber.TryGetValue(num, out var prior);
+                        report.MappingsByClassNumber[num] = prior + 1;
+                    }
+                }
+                catch (Exception ex)
                 {
-                    report.MappingsByClassNumber.TryGetValue(num, out var prior);
-                    report.MappingsByClassNumber[num] = prior + 1;
+                    // Capture and continue — do NOT abort the whole batch over
+                    // a single bad asset. The outer transaction will still be
+                    // committed for the assets that succeeded.
+                    report.Errors.Add($"Asset {asset.AssetNumber} (id {asset.Id}): {ex.GetType().Name}: {ex.Message}");
+                    _logger.LogWarning(ex, "CCA backfill: failed to map asset {AssetId} to class {CcaClassId}", asset.Id, targetClassId);
                 }
             }
 
             if (report.AssetsMapped > 0)
             {
-                await _db.SaveChangesAsync();
                 await _audit.LogAsync<AssetTaxSettings>(
                     action: "CCA_BACKFILL",
                     before: null,
                     after: null,
                     username: report.Actor,
-                    description: $"CCA backfill for {report.CompanyName} (Co{companyId}): mapped {report.AssetsMapped} new assets, {report.AssetsAlreadyMapped} already mapped, through FY{report.ThroughFiscalYear}.");
+                    description: $"CCA backfill for {report.CompanyName} (Co{companyId}): mapped {report.AssetsMapped} new assets, {report.AssetsAlreadyMapped} already mapped, {report.Errors.Count} errors, through FY{report.ThroughFiscalYear}.");
             }
         }
 
@@ -326,46 +391,32 @@ namespace Abs.FixedAssets.Services
                 return;
             }
 
-            // Run the calculator under an explicit tenant scope so CcaService's per-tenant
-            // filters resolve to this company. Preserve and restore the prior hierarchy.
-            var priorAssigned = _tenantContext.AssignedCompanyId;
-            var priorVisible = _tenantContext.VisibleCompanyIds.ToList();
-            var priorTenantId = _tenantContext.TenantId ?? 1;
-
-            try
+            // Tenant scope is already set by RunAsync — CcaService's per-tenant
+            // filters resolve to this company without further setup here.
+            foreach (var entry in classFirstYears)
             {
-                _tenantContext.SetHierarchyContext(companyId, new List<int> { companyId });
-                using var scope = _tenantOverride.BeginScope(tenantId: priorTenantId, companyId: companyId);
-
-                foreach (var entry in classFirstYears)
+                for (var year = entry.FirstYear; year <= throughFiscalYear; year++)
                 {
-                    for (var year = entry.FirstYear; year <= throughFiscalYear; year++)
+                    try
                     {
-                        try
+                        // Skip already-posted balances — never recompute committed numbers.
+                        var existing = await _db.CcaClassBalances
+                            .FirstOrDefaultAsync(b => b.CcaClassId == entry.CcaClassId && b.FiscalYear == year);
+                        if (existing != null && existing.IsPosted)
                         {
-                            // Skip already-posted balances — never recompute committed numbers.
-                            var existing = await _db.CcaClassBalances
-                                .FirstOrDefaultAsync(b => b.CcaClassId == entry.CcaClassId && b.FiscalYear == year);
-                            if (existing != null && existing.IsPosted)
-                            {
-                                report.Warnings.Add($"Class {entry.CcaClassId} FY{year}: already posted — skipped.");
-                                continue;
-                            }
+                            report.Warnings.Add($"Class {entry.CcaClassId} FY{year}: already posted — skipped.");
+                            continue;
+                        }
 
-                            var balance = await _ccaService.CalculateCcaForClassAsync(entry.CcaClassId, year);
-                            report.ClassYearsComputed++;
-                            report.TotalCcaClaimed += balance.CcaClaimed;
-                        }
-                        catch (Exception ex)
-                        {
-                            report.Errors.Add($"Class {entry.CcaClassId} FY{year}: {ex.GetType().Name}: {ex.Message}");
-                        }
+                        var balance = await _ccaService.CalculateCcaForClassAsync(entry.CcaClassId, year);
+                        report.ClassYearsComputed++;
+                        report.TotalCcaClaimed += balance.CcaClaimed;
+                    }
+                    catch (Exception ex)
+                    {
+                        report.Errors.Add($"Class {entry.CcaClassId} FY{year}: {ex.GetType().Name}: {ex.Message}");
                     }
                 }
-            }
-            finally
-            {
-                _tenantContext.SetHierarchyContext(priorAssigned, priorVisible);
             }
         }
     }
