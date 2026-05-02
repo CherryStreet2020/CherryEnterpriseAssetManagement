@@ -282,15 +282,29 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(a => a.StatusLookupValueId)
                     .OnDelete(DeleteBehavior.SetNull);
 
-                // Optimistic concurrency: PostgreSQL system column `xmin`. The shadow column
-                // already exists on every PG row, so this generates no schema change. EF
-                // includes RowVersion in WHERE clauses on UPDATE/DELETE and raises
-                // DbUpdateConcurrencyException on a stale token.
+                // Map RowVersion (byte[]) to PostgreSQL system column `xmin` (xid/uint).
+                // The 4-byte big-endian conversion lets the public API expose RowVersion
+                // as a base64 ETag while EF still uses xmin natively as the concurrency token.
                 e.Property(a => a.RowVersion)
                     .HasColumnName("xmin")
                     .HasColumnType("xid")
                     .ValueGeneratedOnAddOrUpdate()
-                    .IsConcurrencyToken();
+                    .IsConcurrencyToken()
+                    .HasConversion(
+                        v => v == null || v.Length != 4
+                            ? 0u
+                            : ((uint)v[0] << 24) | ((uint)v[1] << 16) | ((uint)v[2] << 8) | (uint)v[3],
+                        v => new byte[]
+                        {
+                            (byte)((v >> 24) & 0xFF),
+                            (byte)((v >> 16) & 0xFF),
+                            (byte)((v >> 8)  & 0xFF),
+                            (byte)( v        & 0xFF)
+                        },
+                        new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<byte[]?>(
+                            (a, b) => (a == null && b == null) || (a != null && b != null && a.SequenceEqual(b)),
+                            v => v == null ? 0 : v.Aggregate(0, (h, x) => HashCode.Combine(h, x)),
+                            v => v == null ? null : v.ToArray()));
             });
 
             // Books

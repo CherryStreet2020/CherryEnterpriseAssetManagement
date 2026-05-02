@@ -49,13 +49,9 @@ namespace Abs.FixedAssets.Pages.Assets
         public bool IsEditMode => Mode == "edit";
         public bool IsCreateMode => Mode == "create";
 
-        // True when OnPostAsync detected another user/session modified the row between
-        // load and save. Surfaced in the Razor view as a yellow "Conflict detected"
-        // banner so the operator notices before re-clicking Save.
+        // Set when another user modified the row between load and save; the view
+        // renders a yellow conflict banner when true.
         public bool HasConcurrencyConflict { get; set; }
-
-        // Server-side snapshot of the row at conflict time (for display alongside the
-        // user's pending edits). Populated only when HasConcurrencyConflict is true.
         public Asset? ConflictServerCopy { get; set; }
 
         public List<Manufacturer> Manufacturers { get; set; } = new();
@@ -431,13 +427,10 @@ namespace Abs.FixedAssets.Pages.Assets
                 var existingAsset = await _context.Assets.Where(a => a.Id == Asset.Id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
                 if (existingAsset == null) return NotFound();
 
-                // Explicit pre-check: detect "someone else edited this row" BEFORE we
-                // mutate fields. EF's concurrency token (kept below as a safety net)
-                // would only fire when SaveChanges actually issues an UPDATE — which
-                // can be skipped on no-op posts and is not exercised by the InMemory
-                // EF provider. The explicit comparison guarantees the conflict UX
-                // fires deterministically.
-                if (existingAsset.RowVersion != Asset.RowVersion)
+                // Pre-check before mutating fields: EF's concurrency token only fires
+                // when SaveChanges actually issues an UPDATE, which is skipped on no-op
+                // posts. The catch below remains as a safety net for true races.
+                if (!RowVersionEquals(existingAsset.RowVersion, Asset.RowVersion))
                 {
                     return await BuildConcurrencyConflictPageAsync(existingAsset);
                 }
@@ -447,8 +440,6 @@ namespace Abs.FixedAssets.Pages.Assets
                 Asset.ModifiedBy = User.Identity?.Name ?? "System";
                 _context.Entry(existingAsset).State = EntityState.Detached;
                 _context.Attach(Asset).State = EntityState.Modified;
-                // Tell EF the original RowVersion (xmin) was the value posted with the form so
-                // the generated UPDATE includes WHERE xmin = @posted_value.
                 _context.Entry(Asset).Property(a => a.RowVersion).OriginalValue = Asset.RowVersion;
 
                 try
@@ -458,8 +449,6 @@ namespace Abs.FixedAssets.Pages.Assets
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    // Race between our pre-check and SaveChanges. Re-read tenant-scoped
-                    // and surface the same conflict UX.
                     var current = await _context.Assets
                         .AsNoTracking()
                         .Where(e => e.Id == Asset.Id
@@ -474,11 +463,9 @@ namespace Abs.FixedAssets.Pages.Assets
             }
         }
 
-        // Builds the conflict UX shared between the pre-check and the
-        // DbUpdateConcurrencyException catch. We deliberately do NOT update
-        // Asset.RowVersion to the latest value here: forcing the operator to refresh
-        // the page (and therefore re-read the latest server values) prevents them
-        // from blindly clicking Save again and overwriting the other user's change.
+        // Renders the form with a conflict banner. Asset.RowVersion is intentionally
+        // NOT advanced — the operator must refresh to re-read the latest server values
+        // before saving, preventing a blind re-save from overwriting the other change.
         private async Task<IActionResult> BuildConcurrencyConflictPageAsync(Asset current)
         {
             var modifier = string.IsNullOrWhiteSpace(current.ModifiedBy) ? "another user" : current.ModifiedBy;
@@ -492,6 +479,14 @@ namespace Abs.FixedAssets.Pages.Assets
             Mode = "edit";
             await LoadDropdownsAsync();
             return Page();
+        }
+
+        private static bool RowVersionEquals(byte[]? a, byte[]? b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null || a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
         }
 
         public async Task<IActionResult> OnPostSaveMachineSpecAsync(int assetId, MachineSpecification machineSpec)

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Controllers;
@@ -17,7 +16,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Mvc.RazorPages.Infrastructure;
@@ -29,17 +27,17 @@ using Xunit;
 
 namespace Abs.FixedAssets.Tests
 {
-    /// <summary>
-    /// Coverage for Task #7 (asset row versioning + conflict UX).
-    /// (a) Two simultaneous edits — second one is rejected as a concurrency conflict.
-    /// (b) Razor edit page returns 200 with the conflict banner state on stale POST.
-    /// (c) Public API returns 409 with the documented {error,current} shape on stale If-Match,
-    ///     and 428 when If-Match is missing.
-    /// </summary>
+    // Asset row versioning + conflict UX coverage:
+    //   (a) two simultaneous edits — second is rejected as a concurrency conflict
+    //       (in-memory pre-check path AND a real PostgreSQL DbUpdateConcurrencyException),
+    //   (b) Razor edit page renders the conflict banner on a stale POST,
+    //   (c) public PUT API returns 409 with {error,current} on stale If-Match
+    //       and 428 when If-Match is missing.
     public class AssetConcurrencyTests
     {
-        // The InMemory provider can't map jsonb (LookupValue.Metadata). Same trick as the
-        // CCA tests: ignore that property in tests.
+        // The InMemory provider can't map jsonb (LookupValue.Metadata) and has no
+        // PG xmin column. Ignore both for the in-memory tests; the explicit
+        // RowVersion comparison in production code is what those tests exercise.
         private sealed class TestAppDbContext : AppDbContext
         {
             public TestAppDbContext(DbContextOptions<AppDbContext> opts) : base(opts) { }
@@ -47,10 +45,6 @@ namespace Abs.FixedAssets.Tests
             {
                 base.OnModelCreating(mb);
                 mb.Entity<LookupValue>().Ignore(x => x.Metadata);
-                // Asset.RowVersion is mapped to PG xmin (xid). InMemory has no xmin, so
-                // ignore the property here — the production code uses an EXPLICIT
-                // RowVersion comparison (in addition to the EF concurrency token) which
-                // is what these tests exercise.
                 mb.Entity<Asset>().Ignore(a => a.RowVersion);
             }
         }
@@ -120,6 +114,14 @@ namespace Abs.FixedAssets.Tests
             public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
         }
 
+        private static byte[] Rv(uint v) => new[]
+        {
+            (byte)((v >> 24) & 0xFF),
+            (byte)((v >> 16) & 0xFF),
+            (byte)((v >> 8)  & 0xFF),
+            (byte)( v        & 0xFF)
+        };
+
         private static Asset SeedAsset(AppDbContext db, uint rowVersion = 100)
         {
             db.Companies.Add(new Company { Id = 1, Name = "Test Co", IsActive = true, Currency = "USD" });
@@ -134,81 +136,60 @@ namespace Abs.FixedAssets.Tests
                 Status = AssetStatus.Active,
                 CreatedAt = new DateTime(2024, 1, 1),
                 CreatedBy = "seed",
-                RowVersion = rowVersion
+                RowVersion = Rv(rowVersion)
             };
             db.Assets.Add(asset);
             db.SaveChanges();
             return asset;
         }
 
-        // ---------------------------------------------------------------
         // (a) Two simultaneous edits — explicit pre-check rejects the second.
-        // ---------------------------------------------------------------
         [Fact]
         public async Task TwoSimultaneousEdits_SecondPostIsRejectedAsConcurrencyConflict()
         {
             using var db = NewDb();
             SeedAsset(db, rowVersion: 500);
 
-            // Both users open the form at row-version 500.
-            var userAOriginalRowVersion = 500u;
-            var userBOriginalRowVersion = 500u;
-
-            // User A saves first. Production code applies the change and the underlying
-            // PG xmin advances; we simulate that here by bumping the stored RowVersion
-            // out-of-band.
             var rowAtServer = await db.Assets.FirstAsync(a => a.Id == 1);
             rowAtServer.Description = "User A change";
             rowAtServer.ModifiedAt = DateTime.UtcNow;
             rowAtServer.ModifiedBy = "user-a";
-            rowAtServer.RowVersion = 501;
+            rowAtServer.RowVersion = Rv(501);
             await db.SaveChangesAsync();
 
-            // User B now POSTs with their stale version. Drive the API path explicitly
-            // (same precondition logic the Razor handler uses).
-            var apiResult = await InvokeApiUpdateAsync(db, id: 1, ifMatch: BuildBase64ETag(userBOriginalRowVersion), description: "User B change");
+            // User B's stale version POSTs through the API path.
+            var apiResult = await InvokeApiUpdateAsync(db, id: 1, ifMatch: AssetsApiController.FormatETag(Rv(500)), description: "User B change");
 
-            Assert.IsType<ConflictObjectResult>(apiResult);
-            var conflict = (ConflictObjectResult)apiResult;
+            var conflict = Assert.IsType<ConflictObjectResult>(apiResult);
             Assert.Equal(409, conflict.StatusCode);
-            // The asset on disk is still User A's value.
+
             var afterRow = await db.Assets.AsNoTracking().FirstAsync(a => a.Id == 1);
             Assert.Equal("User A change", afterRow.Description);
-            // Sanity: User A's change was not silently overwritten by User B.
-
-            // The non-stale prefix `userAOriginalRowVersion` is unused beyond the test
-            // narrative; reference it so the compiler stays quiet.
-            Assert.Equal(500u, userAOriginalRowVersion);
         }
 
-        // ---------------------------------------------------------------
         // (b) Razor edit page on stale POST: 200 with conflict banner state.
-        // ---------------------------------------------------------------
         [Fact]
         public async Task WebEditPage_StalePost_RendersConflictBannerAndPreservesUserEdits()
         {
             using var db = NewDb();
             SeedAsset(db, rowVersion: 700);
 
-            // Server-side advance: the row was edited by another user.
             var server = await db.Assets.FirstAsync(a => a.Id == 1);
             server.Description = "Latest from server";
             server.ModifiedAt = new DateTime(2026, 5, 2, 18, 30, 0, DateTimeKind.Utc);
             server.ModifiedBy = "other-user";
-            server.RowVersion = 701;
+            server.RowVersion = Rv(701);
             await db.SaveChangesAsync();
 
             var page = BuildAssetModel(db);
             page.Mode = "edit";
-            // The user posted with the original (stale) RowVersion of 700 and a
-            // changed description.
             page.Asset = new Asset
             {
                 Id = 1,
                 CompanyId = 1,
                 AssetNumber = "AST-TEST-1",
                 Description = "User's pending edit",
-                RowVersion = 700,
+                RowVersion = Rv(700),
                 Status = AssetStatus.Active,
                 InServiceDate = new DateTime(2024, 1, 1)
             };
@@ -216,40 +197,30 @@ namespace Abs.FixedAssets.Tests
             var result = await page.OnPostAsync();
 
             Assert.IsType<PageResult>(result);
-            Assert.True(page.HasConcurrencyConflict, "HasConcurrencyConflict flag should be set so the view renders the yellow banner.");
+            Assert.True(page.HasConcurrencyConflict);
             Assert.NotNull(page.ConflictServerCopy);
             Assert.Equal("Latest from server", page.ConflictServerCopy!.Description);
-            // ModelState carries the human-readable message.
             Assert.True(page.ModelState.ErrorCount > 0);
             var msg = page.ModelState[string.Empty]!.Errors[0].ErrorMessage;
             Assert.Contains("changed by other-user", msg, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Please refresh", msg);
-            // User's pending edit is preserved (not clobbered with the server value).
             Assert.Equal("User's pending edit", page.Asset.Description);
-            // RowVersion is NOT silently advanced — the operator must refresh the page
-            // (and re-read the latest server values) before the next save.
-            Assert.Equal(700u, page.Asset.RowVersion);
+            // RowVersion is NOT auto-advanced — operator must refresh.
+            Assert.Equal(Rv(700), page.Asset.RowVersion);
         }
 
-        // ---------------------------------------------------------------
         // (c) API contract on stale If-Match.
-        // ---------------------------------------------------------------
         [Fact]
         public async Task Api_StaleIfMatch_Returns409_WithErrorAndCurrentShape()
         {
             using var db = NewDb();
             SeedAsset(db, rowVersion: 900);
 
-            // Stale If-Match: client thinks RowVersion=1, server has 900.
-            var result = await InvokeApiUpdateAsync(db, id: 1, ifMatch: BuildBase64ETag(1u), description: "stale write");
+            var result = await InvokeApiUpdateAsync(db, id: 1, ifMatch: AssetsApiController.FormatETag(Rv(1)), description: "stale write");
 
             var conflict = Assert.IsType<ConflictObjectResult>(result);
             Assert.Equal(409, conflict.StatusCode);
 
-            // Documented body shape: { error: "concurrency", message, current: <DTO> }.
-            // Anonymous types serialize with their declared property names; we use
-            // camelCase here so the comparison is case-insensitive and matches both
-            // System.Text.Json default and ASP.NET Core's camelCase wire format.
             var json = JsonSerializer.Serialize(conflict.Value,
                 new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
             using var doc = JsonDocument.Parse(json);
@@ -275,17 +246,96 @@ namespace Abs.FixedAssets.Tests
         [Fact]
         public void ETag_RoundTrips_AsBase64FourBytes()
         {
-            var raw = AssetsApiController.FormatETag(0xCAFEBABE);
+            var raw = AssetsApiController.FormatETag(Rv(0xCAFEBABE));
             Assert.StartsWith("\"", raw);
             Assert.EndsWith("\"", raw);
             Assert.True(AssetsApiController.TryParseETag(raw, out var parsed));
-            Assert.Equal(0xCAFEBABEu, parsed);
+            Assert.Equal(Rv(0xCAFEBABE), parsed);
         }
 
-        // ---------------------------------------------------------------
-        // Helpers
-        // ---------------------------------------------------------------
-        private static string BuildBase64ETag(uint v) => AssetsApiController.FormatETag(v);
+        // Real PostgreSQL EF concurrency: two AppDbContext instances load the same
+        // row, the first save advances xmin, the second save throws
+        // DbUpdateConcurrencyException. Skipped (vacuous pass) when PG env vars
+        // are unavailable so the test suite still runs in clean environments.
+        [Fact]
+        public async Task Postgres_TwoSimultaneousEdits_SecondSaveThrowsDbUpdateConcurrencyException()
+        {
+            var connStr = TryBuildPgConnString();
+            if (connStr == null) return;
+
+            var opts = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connStr).Options;
+            var assetNumber = "ROWVER-TEST-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            int assetId;
+
+            await using (var setup = new AppDbContext(opts))
+            {
+                var company = await setup.Companies.FirstAsync();
+                var asset = new Asset
+                {
+                    AssetNumber = assetNumber,
+                    Description = "v0",
+                    AcquisitionCost = 1000m,
+                    InServiceDate = DateTime.UtcNow.Date,
+                    CompanyId = company.Id,
+                    Status = AssetStatus.Active,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "rowver-test"
+                };
+                setup.Assets.Add(asset);
+                await setup.SaveChangesAsync();
+                assetId = asset.Id;
+            }
+
+            try
+            {
+                await using var ctxA = new AppDbContext(opts);
+                await using var ctxB = new AppDbContext(opts);
+
+                var a = await ctxA.Assets.FirstAsync(x => x.Id == assetId);
+                var b = await ctxB.Assets.FirstAsync(x => x.Id == assetId);
+
+                Assert.NotNull(a.RowVersion);
+                Assert.Equal(4, a.RowVersion!.Length);
+                Assert.Equal(a.RowVersion, b.RowVersion);
+
+                a.Description = "v1-from-A";
+                a.ModifiedAt = DateTime.UtcNow;
+                a.ModifiedBy = "user-a";
+                await ctxA.SaveChangesAsync();
+
+                b.Description = "v1-from-B";
+                b.ModifiedAt = DateTime.UtcNow;
+                b.ModifiedBy = "user-b";
+                await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => ctxB.SaveChangesAsync());
+
+                await using var verify = new AppDbContext(opts);
+                var final = await verify.Assets.AsNoTracking().FirstAsync(x => x.Id == assetId);
+                Assert.Equal("v1-from-A", final.Description);
+            }
+            finally
+            {
+                await using var cleanup = new AppDbContext(opts);
+                var doomed = await cleanup.Assets.FindAsync(assetId);
+                if (doomed != null)
+                {
+                    cleanup.Assets.Remove(doomed);
+                    await cleanup.SaveChangesAsync();
+                }
+            }
+        }
+
+        private static string? TryBuildPgConnString()
+        {
+            var host = Environment.GetEnvironmentVariable("PGHOST");
+            var user = Environment.GetEnvironmentVariable("PGUSER");
+            var pwd  = Environment.GetEnvironmentVariable("PGPASSWORD");
+            var db   = Environment.GetEnvironmentVariable("PGDATABASE");
+            if (string.IsNullOrEmpty(host) || string.IsNullOrEmpty(user)
+                || string.IsNullOrEmpty(pwd) || string.IsNullOrEmpty(db))
+                return null;
+            var port = Environment.GetEnvironmentVariable("PGPORT") ?? "5432";
+            return $"Host={host};Port={port};Username={user};Password={pwd};Database={db};SslMode=Disable";
+        }
 
         private static AssetModel BuildAssetModel(AppDbContext db)
         {
@@ -295,22 +345,18 @@ namespace Abs.FixedAssets.Tests
             var moduleGuard = new StubModuleGuard();
             var page = new AssetModel(db, attach, lookup, tenant, moduleGuard);
 
-            // Minimum PageContext / ModelState plumbing so OnPostAsync can call
-            // ModelState.AddModelError and return Page().
             var httpContext = new DefaultHttpContext();
             var modelState = new ModelStateDictionary();
             var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
             page.PageContext = new PageContext(actionContext)
             {
-                ViewData = new ViewDataDictionary<AssetModel>(new Microsoft.AspNetCore.Mvc.ModelBinding.EmptyModelMetadataProvider(), modelState)
+                ViewData = new ViewDataDictionary<AssetModel>(new EmptyModelMetadataProvider(), modelState)
             };
             return page;
         }
 
         private static async Task<IActionResult> InvokeApiUpdateAsync(AppDbContext db, int id, string? ifMatch, string description)
         {
-            // Seed a real ApiKey with a deterministic SHA-256 hash so the production
-            // ApiService.ValidateKeyAsync accepts our request as authenticated.
             const string rawKey = "test-raw-key-cfa_concurrency";
             var hash = ComputeSha256(rawKey);
             if (!await db.ApiKeys.AnyAsync(k => k.KeyHash == hash))

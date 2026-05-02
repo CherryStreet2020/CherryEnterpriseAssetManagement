@@ -90,22 +90,16 @@ public class AssetsApiController : ControllerBase
         });
     }
 
-    // ETag carries the base-64 of the 4-byte big-endian xmin value. This matches the
-    // `byte[] RowVersion`-style contract documented for the public API while still
-    // letting EF use the underlying PG xmin (uint) as the concurrency token.
-    internal static string FormatETag(uint rowVersion)
+    // ETag = base64 of the 4-byte RowVersion (xmin). Returns "" when null.
+    internal static string FormatETag(byte[]? rowVersion)
     {
-        var bytes = new byte[4];
-        bytes[0] = (byte)((rowVersion >> 24) & 0xFF);
-        bytes[1] = (byte)((rowVersion >> 16) & 0xFF);
-        bytes[2] = (byte)((rowVersion >> 8) & 0xFF);
-        bytes[3] = (byte)(rowVersion & 0xFF);
-        return "\"" + Convert.ToBase64String(bytes) + "\"";
+        if (rowVersion == null || rowVersion.Length == 0) return "\"\"";
+        return "\"" + Convert.ToBase64String(rowVersion) + "\"";
     }
 
-    internal static bool TryParseETag(string? raw, out uint value)
+    internal static bool TryParseETag(string? raw, out byte[] value)
     {
-        value = 0;
+        value = Array.Empty<byte>();
         if (string.IsNullOrWhiteSpace(raw)) return false;
         var trimmed = raw.Trim();
         if (trimmed.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
@@ -113,21 +107,34 @@ public class AssetsApiController : ControllerBase
         trimmed = trimmed.Trim('"').Trim();
         if (trimmed.Length == 0) return false;
 
-        // Primary contract: base-64 of 4 big-endian bytes.
         try
         {
             var bytes = Convert.FromBase64String(trimmed);
-            if (bytes.Length == 4)
-            {
-                value = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
-                return true;
-            }
+            if (bytes.Length == 4) { value = bytes; return true; }
         }
-        catch (FormatException) { /* fall through to legacy form */ }
+        catch (FormatException) { }
 
-        // Back-compat: accept a quoted decimal xmin (the form used during initial
-        // hardening before the base-64 contract was finalised).
-        return uint.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+        // Back-compat with the pre-base64 hardening contract: a quoted decimal xmin.
+        if (uint.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out var u))
+        {
+            value = new[]
+            {
+                (byte)((u >> 24) & 0xFF),
+                (byte)((u >> 16) & 0xFF),
+                (byte)((u >> 8)  & 0xFF),
+                (byte)( u        & 0xFF)
+            };
+            return true;
+        }
+        return false;
+    }
+
+    private static bool RowVersionEquals(byte[]? a, byte[]? b)
+    {
+        if (ReferenceEquals(a, b)) return true;
+        if (a == null || b == null || a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+        return true;
     }
 
     [HttpPost]
@@ -184,7 +191,6 @@ public class AssetsApiController : ControllerBase
             return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
         }
 
-        // Optimistic concurrency: clients must send the current row's version via If-Match.
         var ifMatch = Request.Headers.IfMatch.ToString();
         if (string.IsNullOrWhiteSpace(ifMatch))
         {
@@ -205,12 +211,10 @@ public class AssetsApiController : ControllerBase
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
         }
 
-        // Explicit precondition check: enforce If-Match even when the request body
-        // would result in a no-op update (EF would otherwise skip the UPDATE and
-        // never raise DbUpdateConcurrencyException, allowing a stale ETag to slip
-        // through). The EF concurrency token below is kept as a second safety net
-        // for true races between this read and SaveChanges.
-        if (asset.RowVersion != expectedRowVersion)
+        // Enforce If-Match even when the body is a no-op (EF would skip the UPDATE
+        // and never raise the concurrency exception). The EF token still guards
+        // races between this read and SaveChanges.
+        if (!RowVersionEquals(asset.RowVersion, expectedRowVersion))
         {
             Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
             return Conflict(new
@@ -228,7 +232,6 @@ public class AssetsApiController : ControllerBase
         if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<AssetStatus>(request.Status, out var status))
             asset.Status = status;
 
-        // Force EF to use the client-supplied xmin in the WHERE clause.
         _context.Entry(asset).Property(a => a.RowVersion).OriginalValue = expectedRowVersion;
 
         try
