@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "playwright test",
+    "test:fa": "playwright test tests/fa_*.spec.js"
   },
   "keywords": [],
   "author": "",
@@ -21,5 +22,8 @@
   },
   "directories": {
     "doc": "docs"
+  },
+  "devDependencies": {
+    "pg": "^8.20.0"
   }
 }

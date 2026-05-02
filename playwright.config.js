@@ -4,7 +4,8 @@ module.exports = defineConfig({
   testDir: './tests',
   testMatch: '*.spec.js',
   timeout: 60000,
-  retries: 0,
+  workers: 1,
+  retries: 1,
   reporter: [
     ['html', { outputFolder: 'proof/ui/playwright/playwright-report', open: 'never' }],
   ],

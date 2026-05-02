@@ -1,18 +1,9 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { BASE, login } = require('./_helpers');
 
-const BASE = 'http://127.0.0.1:5000';
 const SS_DIR = path.join(__dirname, '..', 'proof', 'ui', 'playwright', 'screenshots');
-
-async function login(page) {
-  await page.goto(`${BASE}/Account/Login`);
-  await page.waitForLoadState('domcontentloaded');
-  await page.fill('input[name="Username"]', 'admin');
-  await page.fill('input[name="Password"]', 'admin123');
-  await page.click('button[type="submit"]');
-  await page.waitForLoadState('domcontentloaded');
-}
 
 async function checkBreadcrumbsAndBackLink(page, screenshotName) {
   const bc = page.locator('.screen-header__breadcrumbs');
