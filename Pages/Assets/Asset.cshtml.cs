@@ -49,6 +49,15 @@ namespace Abs.FixedAssets.Pages.Assets
         public bool IsEditMode => Mode == "edit";
         public bool IsCreateMode => Mode == "create";
 
+        // True when OnPostAsync detected another user/session modified the row between
+        // load and save. Surfaced in the Razor view as a yellow "Conflict detected"
+        // banner so the operator notices before re-clicking Save.
+        public bool HasConcurrencyConflict { get; set; }
+
+        // Server-side snapshot of the row at conflict time (for display alongside the
+        // user's pending edits). Populated only when HasConcurrencyConflict is true.
+        public Asset? ConflictServerCopy { get; set; }
+
         public List<Manufacturer> Manufacturers { get; set; } = new();
         public List<Location> Locations { get; set; } = new();
         public List<Department> Departments { get; set; } = new();
@@ -422,6 +431,17 @@ namespace Abs.FixedAssets.Pages.Assets
                 var existingAsset = await _context.Assets.Where(a => a.Id == Asset.Id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
                 if (existingAsset == null) return NotFound();
 
+                // Explicit pre-check: detect "someone else edited this row" BEFORE we
+                // mutate fields. EF's concurrency token (kept below as a safety net)
+                // would only fire when SaveChanges actually issues an UPDATE — which
+                // can be skipped on no-op posts and is not exercised by the InMemory
+                // EF provider. The explicit comparison guarantees the conflict UX
+                // fires deterministically.
+                if (existingAsset.RowVersion != Asset.RowVersion)
+                {
+                    return await BuildConcurrencyConflictPageAsync(existingAsset);
+                }
+
                 Asset.CompanyId = existingAsset.CompanyId;
                 Asset.ModifiedAt = DateTime.UtcNow;
                 Asset.ModifiedBy = User.Identity?.Name ?? "System";
@@ -438,7 +458,8 @@ namespace Abs.FixedAssets.Pages.Assets
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    // Determine whether the row vanished or was edited by someone else.
+                    // Race between our pre-check and SaveChanges. Re-read tenant-scoped
+                    // and surface the same conflict UX.
                     var current = await _context.Assets
                         .AsNoTracking()
                         .Where(e => e.Id == Asset.Id
@@ -446,24 +467,31 @@ namespace Abs.FixedAssets.Pages.Assets
                                     && (!_tenantContext.SiteId.HasValue || e.SiteId == _tenantContext.SiteId.Value))
                         .FirstOrDefaultAsync();
                     if (current == null) return NotFound();
-
-                    // Row still exists but was modified by another user/session. Keep the
-                    // posted form values, surface a clear message, and refresh hidden
-                    // RowVersion so the operator can re-submit after reviewing.
-                    var modifier = string.IsNullOrWhiteSpace(current.ModifiedBy) ? "another user" : current.ModifiedBy;
-                    var when = current.ModifiedAt?.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)
-                               ?? current.CreatedAt.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
-                    ModelState.AddModelError(string.Empty,
-                        $"This asset was modified by {modifier} at {when} after you opened the form. " +
-                        "Your changes were not saved. Review the latest values, then click Save again to apply your edits.");
-                    Asset.RowVersion = current.RowVersion;
-                    Mode = "edit";
-                    await LoadDropdownsAsync();
-                    return Page();
+                    return await BuildConcurrencyConflictPageAsync(current);
                 }
 
                 return RedirectToPage("./Asset", new { id = Asset.Id, mode = "view" });
             }
+        }
+
+        // Builds the conflict UX shared between the pre-check and the
+        // DbUpdateConcurrencyException catch. We deliberately do NOT update
+        // Asset.RowVersion to the latest value here: forcing the operator to refresh
+        // the page (and therefore re-read the latest server values) prevents them
+        // from blindly clicking Save again and overwriting the other user's change.
+        private async Task<IActionResult> BuildConcurrencyConflictPageAsync(Asset current)
+        {
+            var modifier = string.IsNullOrWhiteSpace(current.ModifiedBy) ? "another user" : current.ModifiedBy;
+            var when = current.ModifiedAt?.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                       ?? current.CreatedAt.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
+            ModelState.AddModelError(string.Empty,
+                $"This asset was changed by {modifier} at {when} since you opened it. " +
+                "Please refresh to see the latest values — your edits were NOT saved.");
+            HasConcurrencyConflict = true;
+            ConflictServerCopy = current;
+            Mode = "edit";
+            await LoadDropdownsAsync();
+            return Page();
         }
 
         public async Task<IActionResult> OnPostSaveMachineSpecAsync(int assetId, MachineSpecification machineSpec)

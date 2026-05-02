@@ -90,16 +90,43 @@ public class AssetsApiController : ControllerBase
         });
     }
 
-    private static string FormatETag(uint rowVersion) => "\"" + rowVersion.ToString(CultureInfo.InvariantCulture) + "\"";
+    // ETag carries the base-64 of the 4-byte big-endian xmin value. This matches the
+    // `byte[] RowVersion`-style contract documented for the public API while still
+    // letting EF use the underlying PG xmin (uint) as the concurrency token.
+    internal static string FormatETag(uint rowVersion)
+    {
+        var bytes = new byte[4];
+        bytes[0] = (byte)((rowVersion >> 24) & 0xFF);
+        bytes[1] = (byte)((rowVersion >> 16) & 0xFF);
+        bytes[2] = (byte)((rowVersion >> 8) & 0xFF);
+        bytes[3] = (byte)(rowVersion & 0xFF);
+        return "\"" + Convert.ToBase64String(bytes) + "\"";
+    }
 
-    private static bool TryParseETag(string? raw, out uint value)
+    internal static bool TryParseETag(string? raw, out uint value)
     {
         value = 0;
         if (string.IsNullOrWhiteSpace(raw)) return false;
         var trimmed = raw.Trim();
         if (trimmed.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
             trimmed = trimmed.Substring(2);
-        trimmed = trimmed.Trim('"');
+        trimmed = trimmed.Trim('"').Trim();
+        if (trimmed.Length == 0) return false;
+
+        // Primary contract: base-64 of 4 big-endian bytes.
+        try
+        {
+            var bytes = Convert.FromBase64String(trimmed);
+            if (bytes.Length == 4)
+            {
+                value = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
+                return true;
+            }
+        }
+        catch (FormatException) { /* fall through to legacy form */ }
+
+        // Back-compat: accept a quoted decimal xmin (the form used during initial
+        // hardening before the base-64 contract was finalised).
         return uint.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
@@ -186,11 +213,11 @@ public class AssetsApiController : ControllerBase
         if (asset.RowVersion != expectedRowVersion)
         {
             Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
-            return Conflict(new ApiResponse<AssetDto>
+            return Conflict(new
             {
-                Success = false,
-                Message = "If-Match precondition failed. The asset has been modified since you fetched it. Re-fetch the asset and retry with the new ETag.",
-                Data = AssetDto.FromAsset(asset)
+                error = "concurrency",
+                message = "If-Match precondition failed. The asset has been modified since you fetched it. Re-fetch the asset and retry with the new ETag.",
+                current = AssetDto.FromAsset(asset)
             });
         }
 
@@ -212,11 +239,11 @@ public class AssetsApiController : ControllerBase
         {
             await _context.Entry(asset).ReloadAsync();
             Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
-            return Conflict(new ApiResponse<AssetDto>
+            return Conflict(new
             {
-                Success = false,
-                Message = "The asset was modified by another client between read and save. Re-fetch the asset and retry with the new ETag.",
-                Data = AssetDto.FromAsset(asset)
+                error = "concurrency",
+                message = "The asset was modified by another client between read and save. Re-fetch the asset and retry with the new ETag.",
+                current = AssetDto.FromAsset(asset)
             });
         }
 
