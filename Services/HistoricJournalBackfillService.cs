@@ -236,27 +236,36 @@ namespace Abs.FixedAssets.Services
             summary.LatestMonth = lastMonth;
             summary.MonthsInRange = MonthsBetween(firstMonth, lastMonth);
 
-            // Idempotency: every existing DEP entry for this book by Period yyyymm.
+            // Idempotency: skip a (Book, Period) if ANY journal entry already exists for
+            // that book and month — regardless of Source. This honors hand-made historical
+            // journals (e.g. legacy "MANUAL" or "ADJ" depreciation entries) so we never
+            // post a duplicate month. The original DEP-only filter would have created a
+            // duplicate DEP entry alongside any pre-existing manual entry for the same
+            // (book, period), which is exactly the failure mode the reviewer flagged.
             var existingPeriods = await _db.JournalEntries
-                .Where(j => j.BookId == book.Id && j.Source == "DEP")
+                .Where(j => j.BookId == book.Id)
                 .Select(j => j.Period)
                 .ToListAsync();
             var existingSet = new HashSet<int>(existingPeriods);
 
             // For per-book reporting, only count existing periods that fall inside the
-            // sweep window [firstMonth, lastMonth] — otherwise an old DEP entry outside
-            // the window would inflate the "already posted" count and confuse operators.
+            // sweep window [firstMonth, lastMonth] — otherwise an old entry outside the
+            // window would inflate the "already posted" count and confuse operators.
             var firstPeriod = firstMonth.Year * 100 + firstMonth.Month;
             var lastPeriod = lastMonth.Year * 100 + lastMonth.Month;
             summary.MonthsAlreadyPosted = existingSet.Count(p => p >= firstPeriod && p <= lastPeriod);
 
-            // Reconciliation: include debits from PREVIOUSLY-posted DEP entries within the
-            // sweep window so the per-book "Posted vs AssetBookSettings.Acc" comparison is
-            // accurate even when a book was partially pre-seeded by an earlier sweep.
+            // Reconciliation: include debits from ALL previously-posted entries (any
+            // source) for this book within the sweep window so the per-book
+            // "Posted vs AssetBookSettings.Acc" comparison reflects the full
+            // depreciation actually on the books, including hand-made historical
+            // entries the backfill skipped. (Convention: financial-book journals at
+            // monthly periods are presumed to represent depreciation activity; if
+            // operators post non-depreciation activity to a financial book, the
+            // displayed Δ will diverge from settings.acc and surface that mismatch.)
             var existingDebitTotal = await _db.JournalLines
                 .Where(jl => jl.JournalEntry != null
                           && jl.JournalEntry.BookId == book.Id
-                          && jl.JournalEntry.Source == "DEP"
                           && jl.JournalEntry.Period >= firstPeriod
                           && jl.JournalEntry.Period <= lastPeriod
                           && jl.Debit > 0m)

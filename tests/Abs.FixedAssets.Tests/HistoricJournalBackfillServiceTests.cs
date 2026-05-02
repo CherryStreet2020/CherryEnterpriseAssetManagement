@@ -301,6 +301,74 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
+        public async Task PreExistingNonDepJournal_IsSkipped_NoDuplicatePosting()
+        {
+            // Seeds a hand-made "MANUAL" journal for one (Book, Month) and proves the
+            // backfill skips that month on first run AND on rerun — never creating a
+            // duplicate. Mirrors the production reality of 7 hand-made historical
+            // journals that the spec explicitly calls out.
+            using var db = NewDb(nameof(PreExistingNonDepJournal_IsSkipped_NoDuplicatePosting));
+            var (book, _, _) = Seed(db, "M");
+
+            // The seeded book runs from 2024-01 with 36-month life. Hand-place a
+            // legacy journal at 2024-06 with Source != "DEP".
+            var legacyPeriod = 2024 * 100 + 6; // yyyymm
+            var legacyEntry = new JournalEntry
+            {
+                BookId = book.Id,
+                Period = legacyPeriod,
+                PostingDate = new DateTime(2024, 6, 30),
+                Source = "MANUAL",
+                Description = "Hand-made legacy depreciation entry",
+                Reference = "LEGACY-001"
+            };
+            db.JournalEntries.Add(legacyEntry);
+            db.SaveChanges();
+            db.JournalLines.AddRange(
+                new JournalLine { JournalEntryId = legacyEntry.Id, Account = "6500", Debit = 3000m, Credit = 0m, LineNo = 1 },
+                new JournalLine { JournalEntryId = legacyEntry.Id, Account = "1510", Debit = 0m, Credit = 3000m, LineNo = 2 });
+            db.SaveChanges();
+
+            var svc = MakeService(db);
+            // Run through 2025-12 → 24 months in range, but 2024-06 already has the
+            // hand-made entry, so the backfill should create 23 (not 24) entries.
+            var report = await svc.RunAsync(new DateTime(2025, 12, 31));
+
+            Assert.False(report.Aborted, $"Errors: {string.Join(" | ", report.Errors)}");
+            Assert.Equal(23, report.JournalsCreated);
+            Assert.Equal(1, report.JournalsSkippedExisting);
+
+            // The (Book, Period) for 2024-06 must have exactly ONE entry — the legacy one.
+            var entriesAtLegacyPeriod = db.JournalEntries
+                .Where(j => j.BookId == book.Id && j.Period == legacyPeriod)
+                .ToList();
+            Assert.Single(entriesAtLegacyPeriod);
+            Assert.Equal("MANUAL", entriesAtLegacyPeriod[0].Source);
+
+            // Per-book report counters honor the in-window legacy entry.
+            var bs = report.PerBook.Single();
+            Assert.Equal(1, bs.MonthsAlreadyPosted);
+            Assert.Equal(23, bs.MonthsCreated);
+
+            // Reconciliation must include the legacy debit ($3,000) plus newly-created
+            // DEP debits (23 × $3,000 = $69,000) → $72,000 total, matching the
+            // pre-stamped AssetBookSettings.AccumulatedDepreciation of $72,000.
+            Assert.Equal(72000m, bs.TotalDebit);
+            Assert.Equal(72000m, bs.SettingsAccumulated);
+
+            // Rerun: should be a complete no-op (24 already posted, 0 created).
+            var rerun = await svc.RunAsync(new DateTime(2025, 12, 31));
+            Assert.False(rerun.Aborted);
+            Assert.Equal(0, rerun.JournalsCreated);
+            Assert.Equal(24, rerun.JournalsSkippedExisting);
+
+            // And the legacy month STILL has only one entry.
+            var entriesAfterRerun = db.JournalEntries
+                .Count(j => j.BookId == book.Id && j.Period == legacyPeriod);
+            Assert.Equal(1, entriesAfterRerun);
+        }
+
+        [Fact]
         public async Task PreviewMode_DoesNotPersist()
         {
             using var db = NewDb(nameof(PreviewMode_DoesNotPersist));
