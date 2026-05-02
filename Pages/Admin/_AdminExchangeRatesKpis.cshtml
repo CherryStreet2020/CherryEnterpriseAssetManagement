@@ -1,0 +1,20 @@
+@model Abs.FixedAssets.Pages.Admin.ExchangeRatesModel
+@{
+    var totalRates = Model.Rates.Count;
+}
+<div class="kpi-card">
+    <div class="kpi-label">USD/CAD</div>
+    <div class="kpi-value">@(Model.Rates.FirstOrDefault(r => r.FromCurrency == "USD" && r.ToCurrency == "CAD")?.Rate.ToString("F4") ?? "N/A")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">CAD/USD</div>
+    <div class="kpi-value">@(Model.Rates.FirstOrDefault(r => r.FromCurrency == "CAD" && r.ToCurrency == "USD")?.Rate.ToString("F4") ?? "N/A")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">EUR/CAD</div>
+    <div class="kpi-value">@(Model.Rates.FirstOrDefault(r => r.FromCurrency == "EUR" && r.ToCurrency == "CAD")?.Rate.ToString("F4") ?? "N/A")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Rates</div>
+    <div class="kpi-value">@totalRates</div>
+</div>

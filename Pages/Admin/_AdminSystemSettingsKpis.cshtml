@@ -1,0 +1,12 @@
+@model Abs.FixedAssets.Pages.Admin.SystemSettingsModel
+@{
+    var lockedCount = Model.LockedPeriods.Count(p => p.IsLocked);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Locked Periods</div>
+    <div class="kpi-value @(lockedCount > 0 ? "warning" : "")">@lockedCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Periods</div>
+    <div class="kpi-value">@Model.LockedPeriods.Count</div>
+</div>

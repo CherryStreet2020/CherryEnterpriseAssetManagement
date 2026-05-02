@@ -1,0 +1,232 @@
+@page "{projectId:int}/{costId:int}"
+@model Abs.FixedAssets.Pages.CIP.CostDetailsModel
+@{
+    ViewData["Title"] = "Cost Analysis";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var percentOfProject = Model.Project.TotalCosts > 0 ? (Model.Cost.Amount / Model.Project.TotalCosts * 100) : 0;
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.Cost.Amount.ToString("C0"),
+        ["Subtitle"] = Model.Cost.Description,
+        ["TypeLabel"] = $"{Model.Cost.CostType} Cost Entry",
+        ["StatusText"] = Model.Cost.IsCapitalizable ? "Capitalizable" : "Non-Capitalizable",
+        ["StatusTone"] = Model.Cost.IsCapitalizable ? "success" : "muted",
+        ["ContextPartial"] = "CIP/_CipCostDetailsContext",
+        ["KpisPartial"] = "CIP/_CipCostDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Cost"] = Model.Cost, ["PercentOfProject"] = percentOfProject },
+        ["ActionsPartial"] = "CIP/_CipCostDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["Project"] = Model.Project, ["Cost"] = Model.Cost, ["IsEditing"] = Model.IsEditing },
+        ["Breadcrumbs"] = ViewData["Breadcrumbs"],
+        ["ShowBackLink"] = ViewData["ShowBackLink"],
+        ["BackLinkFallback"] = ViewData["BackLinkFallback"],
+        ["BackLinkLabel"] = ViewData["BackLinkLabel"]
+    };
+    ViewData["Project"] = Model.Project;
+    ViewData["Cost"] = Model.Cost;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="content-grid">
+    <div class="content-main">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Cost Information</h3>
+                <span class="badge @(Model.Cost.IsCapitalizable ? "badge-success" : "badge-neutral")">
+                    @(Model.Cost.IsCapitalizable ? "Capitalizable" : "Non-Capitalizable")
+                </span>
+            </div>
+            
+            @if (Model.IsEditing)
+            {
+                <form method="post" asp-page-handler="Update" asp-route-projectId="@Model.Project.Id" asp-route-costId="@Model.Cost.Id">
+                    <div class="section-card-body">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Cost Type</label>
+                                <select name="costTypeLookupValueId" class="form-control" required asp-items="Model.CostTypeOptions"></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Transaction Date</label>
+                                <input type="date" name="transactionDate" class="form-control" required 
+                                       value="@Model.Cost.TransactionDate.ToString("yyyy-MM-dd")" />
+                            </div>
+                            <div class="form-group full-width">
+                                <label>Description</label>
+                                <input type="text" name="description" class="form-control" required 
+                                       value="@Model.Cost.Description" maxlength="200" />
+                            </div>
+                            <div class="form-group">
+                                <label>Amount</label>
+                                <div class="input-group-currency">
+                                    <span class="currency-prefix">$</span>
+                                    <input type="number" name="amount" class="form-control" step="0.01" min="0" required 
+                                           value="@Model.Cost.Amount" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Vendor</label>
+                                <input type="text" name="vendor" class="form-control" 
+                                       value="@Model.Cost.Vendor" maxlength="100" placeholder="Vendor name..." />
+                            </div>
+                            <div class="form-group">
+                                <label>Invoice Number</label>
+                                <input type="text" name="invoiceNumber" class="form-control" 
+                                       value="@Model.Cost.InvoiceNumber" maxlength="50" placeholder="INV-12345" />
+                            </div>
+                            <div class="form-group">
+                                <label>Purchase Order</label>
+                                <input type="text" name="purchaseOrderNumber" class="form-control" 
+                                       value="@Model.Cost.PurchaseOrderNumber" maxlength="50" placeholder="PO-12345" />
+                            </div>
+                            <div class="form-group">
+                                <label>GL Account</label>
+                                <input type="text" name="glAccount" class="form-control" 
+                                       value="@Model.Cost.GlAccount" maxlength="50" placeholder="Account code..." />
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="isCapitalizable" value="true" @(Model.Cost.IsCapitalizable ? "checked" : "") />
+                                    Capitalizable (include in asset cost when project is capitalized)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="section-card-footer">
+                        <a href="/CIP/CostDetails/@Model.Project.Id/@Model.Cost.Id" class="btn-p btn-p--secondary">Cancel</a>
+                        <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <div class="section-card-body">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">Cost Type</span>
+                            <span class="detail-value"><span class="badge badge-secondary">@Model.Cost.CostType</span></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Transaction Date</span>
+                            <span class="detail-value">@Model.Cost.TransactionDate.ToString("MMMM dd, yyyy")</span>
+                        </div>
+                        <div class="detail-item full-width">
+                            <span class="detail-label">Description</span>
+                            <span class="detail-value">@Model.Cost.Description</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Amount</span>
+                            <span class="detail-value amount-large">@Model.Cost.Amount.ToString("C2")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Vendor</span>
+                            <span class="detail-value">@(Model.Cost.Vendor ?? "-")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Invoice Number</span>
+                            <span class="detail-value">@(Model.Cost.InvoiceNumber ?? "-")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Purchase Order</span>
+                            <span class="detail-value">@(Model.Cost.PurchaseOrderNumber ?? "-")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">GL Account</span>
+                            <span class="detail-value">@(Model.Cost.GlAccount ?? "-")</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Capitalizable</span>
+                            <span class="detail-value">
+                                @if (Model.Cost.IsCapitalizable)
+                                {
+                                    <span class="badge badge-success">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-neutral">No</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Parent Project</h3>
+            </div>
+            <div class="section-card-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Project Number</span>
+                        <span class="detail-value"><a href="/CIP/Details/@Model.Project.Id">@Model.Project.ProjectNumber</a></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Project Name</span>
+                        <span class="detail-value">@Model.Project.Name</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value">
+                            <span class="badge @(Model.Project.Status == CipProjectStatus.Active ? "badge-success" : Model.Project.Status == CipProjectStatus.Capitalized ? "badge-primary" : "badge-neutral")">
+                                @Model.Project.Status
+                            </span>
+                        </span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Total Project Costs</span>
+                        <span class="detail-value">@Model.Project.TotalCosts.ToString("C2")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-sidebar">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Actions</h3>
+            </div>
+            <div class="section-card-body">
+                <div class="action-buttons">
+                    @if (!Model.IsEditing)
+                    {
+                        <a href="/CIP/CostDetails/@Model.Project.Id/@Model.Cost.Id?edit=true" class="btn-p btn-p--primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px;margin-right:8px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit Cost Entry
+                        </a>
+                    }
+                    <form method="post" asp-page-handler="Delete" asp-route-projectId="@Model.Project.Id" asp-route-costId="@Model.Cost.Id" 
+                          onsubmit="return confirm('Are you sure you want to delete this cost entry? This cannot be undone.');">
+                        <button type="submit" class="btn-p btn-p--danger">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:16px;height:16px;margin-right:8px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete Cost Entry
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Cost Summary</h3>
+            </div>
+            <div class="section-card-body">
+                <div class="summary-stat">
+                    <span class="summary-label">This Entry</span>
+                    <span class="summary-value">@Model.Cost.Amount.ToString("C2")</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">% of Project Total</span>
+                    <span class="summary-value">@percentOfProject.ToString("F1")%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

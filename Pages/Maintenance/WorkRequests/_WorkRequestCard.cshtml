@@ -1,0 +1,60 @@
+@model Abs.FixedAssets.Models.WorkRequest
+@using Abs.FixedAssets.Models
+
+@{
+    var priorityChipClass = Model.Priority switch
+    {
+        WorkRequestPriority.Critical => "wr-card__chip wr-card__chip--critical",
+        WorkRequestPriority.Emergency => "wr-card__chip wr-card__chip--critical",
+        WorkRequestPriority.High => "wr-card__chip wr-card__chip--priority",
+        WorkRequestPriority.Medium => "wr-card__chip wr-card__chip--priority",
+        _ => "wr-card__chip"
+    };
+}
+
+<article class="card wr-card">
+    <div class="wr-card__header">
+        <span class="wr-card__number">@Model.RequestNumber</span>
+        @if (Model.IsAIAssisted)
+        {
+            <span class="badge badge-ai">
+                <i class="fas fa-robot"></i> AI
+            </span>
+        }
+    </div>
+    <div class="wr-card__body">
+        @(Model.RequestText.Length > 100 ? Model.RequestText[..100] + "..." : Model.RequestText)
+    </div>
+    <div class="wr-card__meta">
+        <span><i class="fas fa-user"></i> @(Model.RequestedBy ?? "Unknown")</span>
+        <span><i class="fas fa-clock"></i> @Model.RequestedAt.ToString("MMM dd")</span>
+    </div>
+    <div class="wr-card__chips">
+        <span class="@priorityChipClass">
+            <i class="fas fa-flag"></i> @Model.Priority
+        </span>
+        @if (Model.Site != null)
+        {
+            <span class="wr-card__chip">
+                <i class="fas fa-building"></i> @Model.Site.Name
+            </span>
+        }
+        @if (Model.Asset != null)
+        {
+            <span class="wr-card__chip">
+                <i class="fas fa-cog"></i> @Model.Asset.AssetNumber
+            </span>
+        }
+    </div>
+    <div class="wr-card__actions">
+        <a href="/Maintenance/WorkRequests/Details/@Model.Id" class="btn-p btn-p--secondary btn-p--sm">
+            <i class="fas fa-eye"></i> Review
+        </a>
+        @if (Model.GeneratedWorkOrderId != null)
+        {
+            <a href="/Maintenance/Details/@Model.GeneratedWorkOrderId" class="btn-p btn-p--primary btn-p--sm">
+                <i class="fas fa-wrench"></i> Work Order
+            </a>
+        }
+    </div>
+</article>

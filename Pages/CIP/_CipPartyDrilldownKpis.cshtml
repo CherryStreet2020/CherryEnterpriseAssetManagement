@@ -1,0 +1,9 @@
+@model Abs.FixedAssets.Pages.CIP.PartyDrilldownModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Vendors</div>
+    <div class="kpi-value">@Model.TotalRows</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total PO Amount</div>
+    <div class="kpi-value money">@Model.TotalAmount.ToString("C0")</div>
+</div>

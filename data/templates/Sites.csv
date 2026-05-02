@@ -1,0 +1,5 @@
+SiteCode,Name,Type,Status,Address1,City,State,Country,PostalCode
+MAIN,Main Manufacturing Plant,Manufacturing,Active,123 Industrial Blvd,Springfield,IL,USA,62701
+WHSE,Central Warehouse,Warehouse,Active,456 Storage Lane,Springfield,IL,USA,62702
+HQ,Corporate Headquarters,Office,Active,789 Executive Dr,Chicago,IL,USA,60601
+DC01,Distribution Center East,Distribution,Active,321 Logistics Way,Columbus,OH,USA,43201

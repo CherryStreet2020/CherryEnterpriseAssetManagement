@@ -1,0 +1,32 @@
+@model Abs.FixedAssets.Pages.Reports.Form4562Model
+<div class="hero-tags">
+    <form method="get" style="display: flex; gap: 12px; align-items: center;">
+        <select name="taxYear" class="form-select" style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+            @for (int y = DateTime.Now.Year; y >= 2020; y--)
+            {
+                <option value="@y" selected="@(y == Model.TaxYear)" style="color: black;">@y</option>
+            }
+        </select>
+        <select name="companyId" class="form-select" style="width: 200px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+            <option value="" style="color: black;">All Companies</option>
+            @foreach (var c in Model.Companies)
+            {
+                <option value="@c.Id" selected="@(c.Id == Model.SelectedCompanyId)" style="color: black;">@c.Name</option>
+            }
+        </select>
+    </form>
+</div>
+<div class="hero-btns">
+    <button type="button" class="hero-btn hero-btn-ghost" onclick="window.print()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+        </svg>
+        Print
+    </button>
+    <a href="/Reports" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+        </svg>
+        Back
+    </a>
+</div>

@@ -1,0 +1,153 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Outbox.IndexModel
+@{
+    ViewData["Title"] = "Outbox Console";
+    ViewData["TabTitle"] = "Outbox";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Outbox Console" },
+        { "Subtitle", "Monitor and manage webhook event delivery" },
+        { "TypeLabel", "Administration" },
+        { "KpisPartial", "Admin/Outbox/_AdminOutboxIndexKpis" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!Model.IsLabEnvironment)
+{
+    <div class="alert alert-danger">This page is only available in LAB/Development environment.</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success">@Model.SuccessMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+        { "TabId", "outbox-tabs" },
+        { "Mode", "link" },
+        { "Variant", "primary" },
+        { "AriaLabel", "Outbox filters" },
+        { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+            ("?tab=all", "All", Model.CurrentTab == "all", null, null),
+            ("?tab=pending", "Pending", Model.CurrentTab == "pending", Model.PendingCount > 0 ? Model.PendingCount : (int?)null, null),
+            ("?tab=sent", "Sent", Model.CurrentTab == "sent", Model.SentCount > 0 ? Model.SentCount : (int?)null, null),
+            ("?tab=failed", "Failed", Model.CurrentTab == "failed", Model.FailedCount > 0 ? Model.FailedCount : (int?)null, null),
+            ("?tab=deadletter", "Dead Letter", Model.CurrentTab == "deadletter", Model.DeadLetterCount > 0 ? Model.DeadLetterCount : (int?)null, null)
+        }}
+    })
+
+    <div class="enhanced-grid-container">
+        <table class="enhanced-grid">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Event Type</th>
+                    <th>Entity</th>
+                    <th>Occurred</th>
+                    <th>Status</th>
+                    <th>Attempts</th>
+                    <th>Next Attempt</th>
+                    <th>Last Error</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var evt in Model.Events)
+                {
+                    <tr>
+                        <td>@evt.Id</td>
+                        <td><code style="font-size: 0.85em;">@evt.EventType</code></td>
+                        <td>@evt.EntityType:@evt.EntityId</td>
+                        <td>@evt.OccurredAt.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @switch (evt.Status)
+                            {
+                                case OutboxEventStatus.Pending:
+                                    <span class="badge badge-info">Pending</span>
+                                    break;
+                                case OutboxEventStatus.Sent:
+                                    <span class="badge badge-success">Sent</span>
+                                    break;
+                                case OutboxEventStatus.Failed:
+                                    <span class="badge badge-warning">Failed</span>
+                                    break;
+                                case OutboxEventStatus.DeadLetter:
+                                    <span class="badge badge-danger">Dead Letter</span>
+                                    break;
+                            }
+                        </td>
+                        <td>@evt.AttemptCount</td>
+                        <td>@(evt.NextAttemptAt?.ToString("HH:mm:ss") ?? "-")</td>
+                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@evt.LastError">
+                            @(evt.LastError ?? "-")
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 0.25rem;">
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="viewPayload(@evt.Id)">View</button>
+                                @if (evt.Status != OutboxEventStatus.Sent)
+                                {
+                                    <form method="post" asp-page-handler="RetryNow" style="display:inline;">
+                                        <input type="hidden" name="id" value="@evt.Id" />
+                                        <button type="submit" class="btn btn-sm btn-primary">Retry</button>
+                                    </form>
+                                }
+                                <form method="post" asp-page-handler="Replay" style="display:inline;">
+                                    <input type="hidden" name="id" value="@evt.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Replay</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Events.Any())
+                {
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 2rem;">No events found for this filter.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div id="payloadFormPanel" class="inline-form-panel" style="display:none;">
+    <div class="inline-form-panel-content" style="max-width: 800px;">
+        <div class="inline-form-header">
+            <h3>Event Payload</h3>
+            <button type="button" class="inline-form-close" onclick="closePayloadForm()">&times;</button>
+        </div>
+        <div class="inline-form-body">
+            <pre id="payloadContent" style="background: var(--lux-surface-alt, #f5f5f5); padding: 1rem; border-radius: 4px; overflow: auto; max-height: 400px;"></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewPayload(id) {
+        fetch('?handler=Payload&id=' + id)
+            .then(r => r.text())
+            .then(json => {
+                try {
+                    var formatted = JSON.stringify(JSON.parse(json), null, 2);
+                    document.getElementById('payloadContent').textContent = formatted;
+                } catch {
+                    document.getElementById('payloadContent').textContent = json;
+                }
+                document.getElementById('payloadFormPanel').style.display = '';
+            });
+    }
+    function closePayloadForm() {
+        document.getElementById('payloadFormPanel').style.display = 'none';
+    }
+</script>

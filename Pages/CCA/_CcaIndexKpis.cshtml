@@ -1,0 +1,15 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.CCA.IndexModel;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Classes</div>
+    <div class="kpi-value">@(model?.CcaClasses.Count ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Assets</div>
+    <div class="kpi-value success">@(model?.TotalAssetsByCca ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active Classes</div>
+    <div class="kpi-value warning">@(model?.CcaClasses.Count(c => c.Active) ?? 0)</div>
+</div>

@@ -1,0 +1,233 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.ComplianceModel
+@{
+    ViewData["Title"] = "Compliance Reports";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Compliance Reports" },
+        { "Subtitle", "Depreciation schedules, tax summaries, and audit trails" },
+        { "TypeLabel", "Reports" },
+        { "StatusText", "Compliant" },
+        { "StatusTone", "success" },
+        { "KpisPartial", "Reports/_ReportsComplianceKpis" },
+        { "ActionsPartial", "Reports/_ReportsComplianceActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@{
+    var activeTab = Request.Query["tab"].FirstOrDefault() ?? "depreciation";
+}
+@await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+    { "TabId", "compliance-tabs" },
+    { "Mode", "button" },
+    { "Variant", "primary" },
+    { "UrlParam", "tab" },
+    { "AriaLabel", "Compliance sections" },
+    { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+        ("depreciation", "Depreciation Schedule", activeTab == "depreciation", null, null),
+        ("tax", "Tax Summary", activeTab == "tax", null, null),
+        ("audit", "Audit Trail", activeTab == "audit", null, null)
+    }}
+})
+
+<div class="tab-panel" id="panel-depreciation" role="tabpanel" aria-labelledby="compliance-tabs-depreciation" @(activeTab != "depreciation" ? Html.Raw("hidden") : null)>
+    <div class="section-card">
+        <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Depreciation Schedule - @Model.DepreciationSchedule.Year</h3>
+            <div>
+                <form method="get" style="display: inline;">
+                    <select name="year" class="form-control" style="width: auto; display: inline-block;" onchange="this.form.submit()">
+                        @for (int y = DateTime.Now.Year; y >= 2020; y--)
+                        {
+                            if (Model.Year == y)
+                            {
+                                <option value="@y" selected>@y</option>
+                            }
+                            else
+                            {
+                                <option value="@y">@y</option>
+                            }
+                        }
+                    </select>
+                </form>
+            </div>
+        </div>
+        <div class="section-card-body">
+            <div class="stats-row">
+                <div class="stat-mini">
+                    <span class="stat-label">Total Cost</span>
+                    <span class="stat-value">@Model.DepreciationSchedule.TotalCost.ToString("C2")</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-label">Annual Depreciation</span>
+                    <span class="stat-value">@Model.DepreciationSchedule.TotalDepreciation.ToString("C2")</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-label">Net Book Value</span>
+                    <span class="stat-value">@Model.DepreciationSchedule.TotalNetBookValue.ToString("C2")</span>
+                </div>
+            </div>
+            
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Asset #</th>
+                        <th>Description</th>
+                        <th style="text-align: right;">Cost</th>
+                        <th style="text-align: right;">Accum Depr (BOY)</th>
+                        <th style="text-align: right;">Depreciation</th>
+                        <th style="text-align: right;">Accum Depr (EOY)</th>
+                        <th style="text-align: right;">NBV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.DepreciationSchedule.Items.Take(50))
+                    {
+                        <tr>
+                            <td>@item.AssetNumber</td>
+                            <td>@item.Description</td>
+                            <td style="text-align: right;">@item.AcquisitionCost.ToString("C2")</td>
+                            <td style="text-align: right;">@item.AccumulatedDepreciationBOY.ToString("C2")</td>
+                            <td style="text-align: right;">@item.DepreciationExpense.ToString("C2")</td>
+                            <td style="text-align: right;">@item.AccumulatedDepreciationEOY.ToString("C2")</td>
+                            <td style="text-align: right;">@item.NetBookValue.ToString("C2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="totals-row bg-surface-alt">
+                        <td colspan="2">TOTALS</td>
+                        <td style="text-align: right;">@Model.DepreciationSchedule.TotalCost.ToString("C2")</td>
+                        <td></td>
+                        <td style="text-align: right;">@Model.DepreciationSchedule.TotalDepreciation.ToString("C2")</td>
+                        <td></td>
+                        <td style="text-align: right;">@Model.DepreciationSchedule.TotalNetBookValue.ToString("C2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+            @if (Model.DepreciationSchedule.Items.Count > 50)
+            {
+                <p class="text-muted" style="margin-top: 1rem;">Showing 50 of @Model.DepreciationSchedule.Items.Count assets. Export to see all.</p>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="tab-panel" id="panel-tax" role="tabpanel" aria-labelledby="compliance-tabs-tax" @(activeTab != "tax" ? Html.Raw("hidden") : null)>
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3>Tax Summary - @Model.TaxSummary.Year</h3>
+        </div>
+        <div class="section-card-body">
+            <div class="stats-row">
+                <div class="stat-mini">
+                    <span class="stat-label">Total Assets</span>
+                    <span class="stat-value">@Model.TaxSummary.TotalAssets</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-label">Total Cost</span>
+                    <span class="stat-value">@Model.TaxSummary.TotalCost.ToString("C2")</span>
+                </div>
+                <div class="stat-mini">
+                    <span class="stat-label">Accumulated Depreciation</span>
+                    <span class="stat-value">@Model.TaxSummary.TotalAccumulatedDepreciation.ToString("C2")</span>
+                </div>
+            </div>
+            
+            @if (Model.TaxSummary.CcaClasses.Any())
+            {
+                <h4 style="margin: 1.5rem 0 1rem;">CCA Class Summary</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Rate</th>
+                            <th style="text-align: right;">Opening UCC</th>
+                            <th style="text-align: right;">Additions</th>
+                            <th style="text-align: right;">Disposals</th>
+                            <th style="text-align: right;">CCA Claimed</th>
+                            <th style="text-align: right;">Closing UCC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cls in Model.TaxSummary.CcaClasses)
+                        {
+                            <tr>
+                                <td>@cls.ClassName</td>
+                                <td>@cls.Rate.ToString("P0")</td>
+                                <td style="text-align: right;">@cls.OpeningUCC.ToString("C2")</td>
+                                <td style="text-align: right;">@cls.Additions.ToString("C2")</td>
+                                <td style="text-align: right;">@cls.Disposals.ToString("C2")</td>
+                                <td style="text-align: right;">@cls.CcaClaimed.ToString("C2")</td>
+                                <td style="text-align: right;">@cls.ClosingUCC.ToString("C2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:2rem;">
+                    <i class="fas fa-file-alt pe-empty__icon" style="font-size:1.5rem;"></i>
+                    <div class="pe-empty__title">No CCA Data</div>
+                    <div class="pe-empty__text">No CCA data available for this year.</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="tab-panel" id="panel-audit" role="tabpanel" aria-labelledby="compliance-tabs-audit" @(activeTab != "audit" ? Html.Raw("hidden") : null)>
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3>Audit Trail</h3>
+        </div>
+        <div class="section-card-body">
+            <p class="text-muted" style="margin-bottom: 1rem;">
+                Generated: @Model.AuditTrail.GeneratedAt.ToString("MMM dd, yyyy h:mm tt") | 
+                @Model.AuditTrail.TotalEntries entries
+            </p>
+            
+            @if (Model.AuditTrail.Entries.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Entity</th>
+                            <th>ID</th>
+                            <th>Action</th>
+                            <th>User</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in Model.AuditTrail.Entries.Take(100))
+                        {
+                            <tr>
+                                <td>@entry.Timestamp.ToString("MMM dd HH:mm")</td>
+                                <td>@entry.EntityType</td>
+                                <td>@entry.EntityId</td>
+                                <td><span class="badge badge-neutral">@entry.Action</span></td>
+                                <td>@entry.Username</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:2rem;">
+                    <i class="fas fa-clipboard-list pe-empty__icon" style="font-size:1.5rem;"></i>
+                    <div class="pe-empty__title">No Audit Entries</div>
+                    <div class="pe-empty__text">No audit entries found.</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>

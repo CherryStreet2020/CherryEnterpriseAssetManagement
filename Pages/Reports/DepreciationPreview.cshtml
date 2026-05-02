@@ -1,0 +1,137 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.DepreciationPreviewModel
+@{
+    ViewData["Title"] = "Depreciation Preview";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@functions{
+    public string ShortDate(DateTime dt) =>
+        dt.ToString("MM/dd/yy", System.Globalization.CultureInfo.InvariantCulture);
+
+    public string Money(decimal v) =>
+        v.ToString("C2", System.Globalization.CultureInfo.CurrentCulture);
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Depreciation Preview" },
+        { "Subtitle", "Preview depreciation calculations as of a specific date" },
+        { "TypeLabel", "Reports" },
+        { "StatusText", "Preview" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "Reports/_ReportsDepreciationPreviewKpis" },
+        { "ActionsPartial", "Reports/_ReportsDepreciationPreviewActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="quick-stats-row-4">
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@(Model.Lines?.Count ?? 0)</div>
+            <div class="quick-stat-label">Assets</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Money(Model.TotalAccumulated)</div>
+            <div class="quick-stat-label">Accumulated Depreciation</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Money(Model.TotalEndNbv)</div>
+            <div class="quick-stat-label">Net Book Value</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value info">@ShortDate(Model.AsOfMonthEnd)</div>
+            <div class="quick-stat-label">Period End</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Depreciation Details
+        </h3>
+        <span class="status-badge info">@(Model.Lines?.Count ?? 0) ASSETS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Asset #</th>
+                        <th>Description</th>
+                        <th style="text-align: center;">In Service</th>
+                        <th style="text-align: right;">Cost</th>
+                        <th style="text-align: right;">Salvage</th>
+                        <th style="text-align: center;">Life</th>
+                        <th style="text-align: right;">Monthly</th>
+                        <th style="text-align: right;">Accumulated</th>
+                        <th style="text-align: right;">NBV</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (Model.Lines != null && Model.Lines.Any())
+                {
+                    foreach (var r in Model.Lines)
+                    {
+                        <tr>
+                            <td><span class="badge badge-outline">@r.AssetNumber</span></td>
+                            <td>@r.Description</td>
+                            <td style="text-align: center;">@ShortDate(r.InService)</td>
+                            <td style="text-align: right;">@Money(r.Cost)</td>
+                            <td style="text-align: right;">@Money(r.Salvage)</td>
+                            <td style="text-align: center;">@r.LifeMonths mo</td>
+                            <td class="text-amber" style="text-align: right;">@Money(r.Monthly)</td>
+                            <td style="text-align: right; font-weight: 500;">@Money(r.Accumulated)</td>
+                            <td class="text-green" style="text-align: right; font-weight: 600;">@Money(r.NBV)</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td class="text-theme-muted" colspan="9" style="text-align: center; padding: 3rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-bottom: 1rem; opacity: 0.5;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <div>No depreciation data to display for this period.</div>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

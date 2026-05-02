@@ -1,0 +1,26 @@
+@{
+    var asset = ViewData["Asset"] as Abs.FixedAssets.Models.Asset;
+    var improvementCount = ViewData["ImprovementCount"] as int? ?? 0;
+    var totalImprovements = ViewData["TotalImprovements"] as decimal? ?? 0;
+}
+@if (asset != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Current Cost</div>
+            <div class="kpi-value money">@asset.AcquisitionCost.ToString("C0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Prior Improvements</div>
+            <div class="kpi-value">@improvementCount</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total Added</div>
+            <div class="kpi-value success">@totalImprovements.ToString("C0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Status</div>
+            <div class="kpi-value">@asset.Status</div>
+        </div>
+    </div>
+}

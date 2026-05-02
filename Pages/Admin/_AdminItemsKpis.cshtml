@@ -1,0 +1,22 @@
+@model Abs.FixedAssets.Pages.Admin.ItemsModel
+@{
+    var totalItems = Model.Items.Count;
+    var activeItems = Model.Items.Count(i => i.IsActive);
+    var criticalSpares = Model.StockingByItem.Values.Count(s => s.IsCriticalSpare);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalItems</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeItems</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Critical</div>
+    <div class="kpi-value warning">@criticalSpares</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Categories</div>
+    <div class="kpi-value">@Model.Categories.Count</div>
+</div>

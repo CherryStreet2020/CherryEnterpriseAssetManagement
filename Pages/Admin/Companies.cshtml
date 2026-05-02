@@ -1,0 +1,225 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.CompaniesModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Companies";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var activeCompanies = Model.Companies.Count(c => c.IsActive);
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Companies" },
+        { "Subtitle", "Manage companies within tenant organizations" },
+        { "TypeLabel", "Administration" },
+        { "StatusText", $"{activeCompanies} Active" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "Admin/_AdminCompaniesKpis" },
+        { "ActionsPartial", "Admin/_AdminCompaniesActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="data-panel">
+    <div class="panel-header">
+        <h2 class="panel-title">Company List</h2>
+    </div>
+    <div class="panel-body">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Parent</th>
+                    <th>Tenant</th>
+                    <th>Currency</th>
+                    <th>Sites</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var company in Model.Companies)
+                {
+                    var siteCount = Model.CompanySiteCounts.GetValueOrDefault(company.Id, 0);
+                    var indent = company.HierarchyLevel;
+                    var treePrefix = indent > 0 ? string.Concat(Enumerable.Repeat("&nbsp;&nbsp;&nbsp;", indent)) + "└─ " : "";
+                    <tr>
+                        <td>@company.Id</td>
+                        <td><strong>@(company.CompanyCode ?? "-")</strong></td>
+                        <td>@Html.Raw(treePrefix)@company.Name</td>
+                        <td>@(company.ParentCompany?.Name ?? "—")</td>
+                        <td>@(company.Tenant?.Code ?? "-")</td>
+                        <td>@(company.Currency ?? "USD")</td>
+                        <td>@siteCount</td>
+                        <td>
+                            @if (company.IsActive)
+                            {
+                                <span class="status-badge status-active">Active</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge status-inactive">Inactive</span>
+                            }
+                        </td>
+                        <td>
+                            <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="openEditForm(@company.Id, '@(company.CompanyCode ?? "")', '@company.Name', @(company.TenantId ?? 1), '@(company.Currency ?? "USD")', '@(company.TaxId ?? "")', '@(company.Address?.Replace("'", "\\'").Replace("\n", "\\n") ?? "")', @company.IsActive.ToString().ToLower(), @(company.ParentCompanyId?.ToString() ?? "''"))">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="addCompanyForm" class="inline-form-panel-content" style="display:none;">
+    <div class="inline-form-backdrop" onclick="toggleInlineForm('addCompanyForm')"></div>
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3 class="inline-form-title">Add Company</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addCompanyForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Tenant</label>
+                    <select name="tenantId" class="form-control">
+                        @foreach (var tenant in Model.Tenants)
+                        {
+                            <option value="@tenant.Id">@tenant.Code - @tenant.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Company Code <span class="required">*</span></label>
+                    <input type="text" name="companyCode" class="form-control" required maxlength="20" pattern="[A-Za-z0-9_-]+" />
+                </div>
+                <div class="form-group">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" name="name" class="form-control" required maxlength="100" />
+                </div>
+                <div class="form-group">
+                    <label>Parent Company</label>
+                    <select name="parentCompanyId" class="form-control">
+                        <option value="">— None (Top Level) —</option>
+                        @foreach (var c in Model.Companies)
+                        {
+                            <option value="@c.Id">@c.Name (@(c.CompanyCode ?? "-"))</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Currency Code</label>
+                    <input type="text" name="currency" class="form-control" maxlength="3" value="USD" />
+                </div>
+                <div class="form-group">
+                    <label>Tax ID</label>
+                    <input type="text" name="taxId" class="form-control" maxlength="50" />
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" class="form-control" maxlength="200" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addCompanyForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Company</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editCompanyForm" class="inline-form-panel-content" style="display:none;">
+    <div class="inline-form-backdrop" onclick="toggleInlineForm('editCompanyForm')"></div>
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3 class="inline-form-title">Edit Company</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editCompanyForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" name="id" id="editId" />
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Tenant</label>
+                    <select name="tenantId" id="editTenantId" class="form-control">
+                        @foreach (var tenant in Model.Tenants)
+                        {
+                            <option value="@tenant.Id">@tenant.Code - @tenant.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Company Code <span class="required">*</span></label>
+                    <input type="text" name="companyCode" id="editCompanyCode" class="form-control" required maxlength="20" />
+                </div>
+                <div class="form-group">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" name="name" id="editName" class="form-control" required maxlength="100" />
+                </div>
+                <div class="form-group">
+                    <label>Parent Company</label>
+                    <select name="parentCompanyId" id="editParentCompanyId" class="form-control">
+                        <option value="">— None (Top Level) —</option>
+                        @foreach (var c in Model.Companies)
+                        {
+                            <option value="@c.Id">@c.Name (@(c.CompanyCode ?? "-"))</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Currency Code</label>
+                    <input type="text" name="currency" id="editCurrency" class="form-control" maxlength="3" />
+                </div>
+                <div class="form-group">
+                    <label>Tax ID</label>
+                    <input type="text" name="taxId" id="editTaxId" class="form-control" maxlength="50" />
+                </div>
+                <div class="form-group">
+                    <label>Address</label>
+                    <textarea name="address" id="editAddress" class="form-control" maxlength="200" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="isActive" id="editIsActive" value="true" />
+                        Active
+                    </label>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editCompanyForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+function openEditForm(id, companyCode, name, tenantId, currency, taxId, address, isActive, parentCompanyId) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editCompanyCode').value = companyCode;
+    document.getElementById('editName').value = name;
+    document.getElementById('editTenantId').value = tenantId;
+    document.getElementById('editCurrency').value = currency;
+    document.getElementById('editTaxId').value = taxId;
+    document.getElementById('editAddress').value = address;
+    document.getElementById('editIsActive').checked = isActive;
+    document.getElementById('editParentCompanyId').value = parentCompanyId || '';
+    toggleInlineForm('editCompanyForm');
+}
+</script>
+}

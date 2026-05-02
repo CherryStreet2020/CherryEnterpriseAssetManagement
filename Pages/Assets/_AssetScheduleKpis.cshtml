@@ -1,0 +1,24 @@
+@{
+    var totalPeriods = ViewData["TotalPeriods"] as int? ?? 0;
+    var totalDepreciation = ViewData["TotalDepreciation"] as decimal? ?? 0;
+    var endingNbv = ViewData["EndingNbv"]?.ToString() ?? "$0";
+    var monthEnd = ViewData["MonthEnd"] as DateTime? ?? DateTime.Now;
+}
+<div class="screen-header__kpis">
+    <div class="kpi-card">
+        <div class="kpi-label">Periods</div>
+        <div class="kpi-value">@totalPeriods</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Total Depr</div>
+        <div class="kpi-value warning">@totalDepreciation.ToString("C0")</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ending NBV</div>
+        <div class="kpi-value success">@endingNbv</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Month End</div>
+        <div class="kpi-value">@monthEnd.ToString("MMM yyyy")</div>
+    </div>
+</div>

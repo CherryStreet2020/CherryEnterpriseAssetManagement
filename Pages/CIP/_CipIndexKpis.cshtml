@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.CIP.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Projects</div>
+    <div class="kpi-value">@Model.Stats.TotalProjects</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.Stats.ActiveProjects</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Budget</div>
+    <div class="kpi-value money">@Model.Stats.TotalBudget.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Spent</div>
+    <div class="kpi-value warning">@Model.Stats.TotalSpent.ToString("C0")</div>
+</div>

@@ -1,0 +1,204 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Receiving.DetailsModel
+@{
+    var gr = Model.Receipt;
+    var po = gr.PurchaseOrder;
+    ViewData["Title"] = gr.ReceiptNumber;
+    ViewData["TabTitle"] = $"{gr.ReceiptNumber} — Receipt";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var statusTone = gr.Status switch {
+        Models.ReceiptStatus.Received => "info",
+        Models.ReceiptStatus.Accepted => "success",
+        Models.ReceiptStatus.Rejected => "danger",
+        Models.ReceiptStatus.Inspecting => "warning",
+        _ => "info"
+    };
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = gr.ReceiptNumber,
+        ["Subtitle"] = $"PO {po?.PONumber ?? "—"} — {po?.Vendor?.Name ?? "Unknown"}",
+        ["TypeLabel"] = "Goods Receipt",
+        ["StatusText"] = gr.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Receiving/_ReceiptDetailsContext.cshtml",
+        ["KpisPartial"] = "/Pages/Receiving/_ReceiptDetailsKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Receiving/_ReceiptDetailsActions.cshtml",
+        ["Breadcrumbs"] = new (string, string)[] { ("Materials", "/Purchasing"), ("Receipt History", "/Receiving/History"), (gr.ReceiptNumber, "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Receiving/History",
+        ["BackLinkLabel"] = "Back to history"
+    };
+
+    ViewData["Receipt"] = gr;
+    ViewData["TotalValue"] = Model.TotalValue;
+    ViewData["TotalQtyReceived"] = Model.TotalQtyReceived;
+    ViewData["TotalQtyRejected"] = Model.TotalQtyRejected;
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<!-- RECEIPT INFO -->
+<div class="pe-card" style="margin-bottom:1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Receipt Information</span>
+    </div>
+    <div class="pe-card__body">
+        <div class="pe-fields pe-fields--4">
+            <div class="pe-field">
+                <span class="pe-field__label">Receipt Number</span>
+                <span class="pe-field__value" style="font-weight:600;">@gr.ReceiptNumber</span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Purchase Order</span>
+                <span class="pe-field__value">
+                    <a href="/Purchasing/Details/@gr.PurchaseOrderId" style="color:var(--cherry-red, #cf3339); text-decoration:none;">@(po?.PONumber ?? "—")</a>
+                </span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Vendor</span>
+                <span class="pe-field__value">@(po?.Vendor?.Name ?? "—")</span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Receipt Date</span>
+                <span class="pe-field__value">@gr.ReceiptDate.ToString("MMM dd, yyyy")</span>
+            </div>
+        </div>
+        <div class="pe-fields pe-fields--4" style="margin-top:0.75rem;">
+            <div class="pe-field">
+                <span class="pe-field__label">Received By</span>
+                <span class="pe-field__value">@(gr.ReceivedBy ?? "—")</span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Shipping Carrier</span>
+                <span class="pe-field__value">@(gr.ShippingCarrier ?? "—")</span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Tracking Number</span>
+                <span class="pe-field__value">@(gr.TrackingNumber ?? "—")</span>
+            </div>
+            <div class="pe-field">
+                <span class="pe-field__label">Packing Slip #</span>
+                <span class="pe-field__value">@(gr.PackingSlipNumber ?? "—")</span>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(gr.ReceivingLocation) || !string.IsNullOrEmpty(gr.Notes))
+        {
+            <div class="pe-fields pe-fields--2" style="margin-top:0.75rem;">
+                <div class="pe-field">
+                    <span class="pe-field__label">Receiving Location</span>
+                    <span class="pe-field__value">@(gr.ReceivingLocation ?? "—")</span>
+                </div>
+                <div class="pe-field">
+                    <span class="pe-field__label">Notes</span>
+                    <span class="pe-field__value">@(gr.Notes ?? "—")</span>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- RECEIPT LINES -->
+<div class="line-section">
+    <div class="line-section__header">
+        <h3 class="line-section__title">
+            <i class="fas fa-boxes"></i> Receipt Lines
+        </h3>
+        <div class="line-section__summary">
+            <span class="line-section__count">@gr.Lines.Count line@(gr.Lines.Count != 1 ? "s" : "")</span>
+            <span class="line-section__total">@Model.TotalValue.ToString("C2")</span>
+        </div>
+    </div>
+
+    <div class="line-section__body">
+        @if (gr.Lines.Any())
+        {
+            <table class="line-table">
+                <thead>
+                    <tr>
+                        <th class="line-table__th" style="width:35px">#</th>
+                        <th class="line-table__th" style="width:120px">PART #</th>
+                        <th class="line-table__th">DESCRIPTION</th>
+                        <th class="line-table__th line-table__th--right" style="width:80px">QTY RCVD</th>
+                        <th class="line-table__th line-table__th--right" style="width:80px">ACCEPTED</th>
+                        <th class="line-table__th line-table__th--right" style="width:80px">REJECTED</th>
+                        <th class="line-table__th" style="width:140px">REJECTION REASON</th>
+                        <th class="line-table__th" style="width:90px">LOT #</th>
+                        <th class="line-table__th" style="width:90px">SERIAL #</th>
+                        <th class="line-table__th" style="width:100px">STORAGE LOC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in gr.Lines.OrderBy(l => l.LineNumber))
+                    {
+                        var hasRejection = line.QuantityRejected > 0;
+                        <tr class="line-table__row" style="@(hasRejection ? "border-left:3px solid var(--status-danger, #ef4444);" : "")">
+                            <td class="line-table__td line-table__td--muted">@line.LineNumber</td>
+                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PurchaseOrderLine?.PartNumber ?? line.PurchaseOrderLine?.Item?.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--primary">@(line.PurchaseOrderLine?.Description ?? "—")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono">@line.QuantityReceived.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@line.QuantityAccepted.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono" style="@(hasRejection ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">
+                                @(hasRejection ? line.QuantityRejected.ToString("N0") : "—")
+                            </td>
+                            <td class="line-table__td line-table__td--muted">@(line.RejectionReason ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono line-table__td--muted">@(line.LotNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono line-table__td--muted">@(line.SerialNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--muted">@(line.StorageLocation ?? line.ReceivingLocation?.Name ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="line-table__total-row">
+                        <td colspan="3" class="line-table__td line-table__td--right" style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">TOTALS</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.TotalQtyReceived.ToString("N0")</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@gr.Lines.Sum(l => l.QuantityAccepted).ToString("N0")</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono" style="@(Model.TotalQtyRejected > 0 ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">@(Model.TotalQtyRejected > 0 ? Model.TotalQtyRejected.ToString("N0") : "—")</td>
+                        <td colspan="4"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        }
+        else
+        {
+            <div class="line-section__empty">No receipt lines.</div>
+        }
+    </div>
+</div>
+
+<!-- LINKED DOCUMENTS -->
+@if (Model.LinkedInvoices.Any())
+{
+    <div class="pe-card" style="margin-top:1rem;">
+        <div class="pe-card__header">
+            <span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Linked Invoices</span>
+            <span class="status-badge info">@Model.LinkedInvoices.Count</span>
+        </div>
+        <div class="pe-card__body--flush">
+            <table class="line-table">
+                <thead>
+                    <tr>
+                        <th class="line-table__th">INVOICE #</th>
+                        <th class="line-table__th">STATUS</th>
+                        <th class="line-table__th">DATE</th>
+                        <th class="line-table__th line-table__th--right">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var inv in Model.LinkedInvoices)
+                    {
+                        <tr class="line-table__row">
+                            <td class="line-table__td line-table__td--primary">
+                                <a href="/AccountsPayable/Details/@inv.Id" style="color:var(--cherry-red, #cf3339); text-decoration:none;">@inv.InvoiceNumber</a>
+                            </td>
+                            <td class="line-table__td"><span class="status-badge-p status-badge-p--info" style="font-size:0.65rem;">@inv.Status</span></td>
+                            <td class="line-table__td line-table__td--muted">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@inv.Total.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

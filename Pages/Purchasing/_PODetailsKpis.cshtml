@@ -1,0 +1,20 @@
+@{
+    var po = ViewData["PurchaseOrder"] as Abs.FixedAssets.Models.PurchaseOrder;
+    if (po == null) return;
+}
+<div class="kpi-card">
+    <div class="kpi-label">PO Type</div>
+    <div class="kpi-value" style="font-size: 14px;">@po.POType</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Value</div>
+    <div class="kpi-value money">@po.Total.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Line Items</div>
+    <div class="kpi-value">@po.Lines.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Releases</div>
+    <div class="kpi-value">@po.Lines.Sum(l => l.Releases.Count)</div>
+</div>

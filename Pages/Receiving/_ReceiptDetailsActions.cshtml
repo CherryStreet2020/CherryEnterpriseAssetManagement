@@ -1,0 +1,16 @@
+@{
+    var receipt = ViewData["Receipt"] as Abs.FixedAssets.Models.GoodsReceipt;
+    var canInspect = receipt?.Status == Abs.FixedAssets.Models.ReceiptStatus.Received;
+}
+<div class="hero-tags"></div>
+<div class="hero-btns">
+    @if (canInspect)
+    {
+        <a href="/Receiving/Inspect/@receipt!.Id" class="hero-btn hero-btn-primary">
+            <i class="fas fa-search-plus"></i> Inspect
+        </a>
+    }
+    <a href="/Receiving/History" class="hero-btn hero-btn-ghost">
+        <i class="fas fa-arrow-left"></i> Back to History
+    </a>
+</div>

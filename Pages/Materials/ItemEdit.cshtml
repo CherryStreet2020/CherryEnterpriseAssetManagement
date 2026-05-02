@@ -1,0 +1,1738 @@
+@page "{id:int?}"
+@model Abs.FixedAssets.Pages.Materials.ItemEditModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Models.Revisions
+@{
+    ViewData["Title"] = Model.IsNew ? "New Item" : $"Item: {Model.Item?.PartNumber}";
+    ViewData["TabTitle"] = Model.IsNew ? "New Item" : Model.Item?.PartNumber;
+    ViewData["ReturnUrl"] = Model.ReturnUrl;
+    ViewData["FallbackPage"] = "/Materials/Items";
+    ViewData["FallbackLabel"] = "Items";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var isReleased = Model.CurrentRevision?.Status == RevisionStatus.Released;
+    var isDraft = Model.CurrentRevision?.Status == RevisionStatus.Draft;
+    var alternatesCount = Model.Alternates.Count;
+    var supersessionStatus = Model.SupersededBy != null ? "Replaced" : (Model.Supersession != null ? "Supersedes" : "Current");
+    var hasDraftRevision = Model.Revisions?.Any(r => r.Status == RevisionStatus.Draft) ?? false;
+    var currentReleasedRev = Model.Revisions?.FirstOrDefault(r => r.Status == RevisionStatus.Released);
+    var isViewingHistorical = Model.CurrentRevision != null && Model.CurrentRevision.Status != RevisionStatus.Draft && Model.CurrentRevision.Id != currentReleasedRev?.Id;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/item-master.css" />
+}
+
+@* Revision Bar - Visible under hero for non-new items *@
+
+<div style="padding: 1rem 2rem 0;">
+    @await Html.PartialAsync("_BackLink")
+</div>
+
+@if (Model.IsNew)
+{
+    var newItemHeaderVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "New Item" },
+        { "Subtitle", "Create a new item in the master file" },
+        { "TypeLabel", "Item Master" },
+        { "ActionsPartial", "Materials/_MaterialsItemEditActions" }
+    };
+    @await Html.PartialAsync("Shared/_ScreenHeader", newItemHeaderVd)
+}
+else
+{
+    <div class="item-hero">
+        <div class="item-hero-main">
+            @{
+                var itemImageUrl = Model.GetItemImageUrl();
+                var hasImage = !string.IsNullOrEmpty(itemImageUrl);
+                var hasUploadedImage = !string.IsNullOrEmpty(Model.Item?.ImagePath);
+                var imageSource = Model.GetImageSource();
+            }
+            <div class="item-image-wrapper">
+                <div class="item-hero-thumb" onclick="document.getElementById('imageUploadInput').click();" title="Click to change image">
+                    @if (hasImage)
+                    {
+                        <img src="@itemImageUrl" alt="@Model.Item?.PartNumber" loading="lazy" id="itemImage" />
+                        <div class="item-hero-thumb-overlay">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <span>Change</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="item-hero-thumb-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="item-hero-thumb-overlay">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Upload</span>
+                        </div>
+                    }
+                </div>
+                @if (imageSource == ItemEditModel.ImageSourceType.PreferredVendor)
+                {
+                    <div class="item-image-source-label">
+                        Vendor catalog image (@Model.PreferredVendorName)
+                    </div>
+                }
+                else if (imageSource == ItemEditModel.ImageSourceType.OtherVendor)
+                {
+                    <div class="item-image-source-label">
+                        Vendor catalog image
+                    </div>
+                }
+            </div>
+            <form id="imageUploadForm" method="post" asp-page-handler="UploadImage" asp-route-itemId="@Model.Item?.Id" enctype="multipart/form-data" class="hidden-form">
+                <input type="file" id="imageUploadInput" name="imageFile" accept=".jpg,.jpeg,.png,.webp,.gif" onchange="this.form.submit();" />
+            </form>
+            @if (hasUploadedImage)
+            {
+                <form method="post" asp-page-handler="RemoveImage" asp-route-itemId="@Model.Item?.Id" class="hidden-form" id="removeImageForm"></form>
+            }
+            <div class="item-hero-info">
+                <div class="item-hero-meta">
+                    <span class="item-hero-type">@Model.Item?.Type.ToString().ToUpper()</span>
+                    @if (Model.Item?.IsActive == true)
+                    {
+                        <span class="item-hero-status active">Active</span>
+                    }
+                    else
+                    {
+                        <span class="item-hero-status inactive">Inactive</span>
+                    }
+                </div>
+                <h1 class="item-hero-title">@Model.Item?.PartNumber</h1>
+                <p class="item-hero-subtitle">@Model.Item?.Description</p>
+                <div class="item-hero-location">
+                    <span class="loc-pill">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        UoM: @Model.Item?.StockUOM
+                    </span>
+                    @if (Model.CurrentRevision != null)
+                    {
+                        <span class="loc-pill">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Rev @Model.CurrentRevision.RevisionCode
+                        </span>
+                    }
+                </div>
+            </div>
+            <div class="item-hero-kpis">
+                <div class="kpi-card">
+                    <div class="kpi-label">Current Rev</div>
+                    <div class="kpi-value @(Model.CurrentRevision != null ? "success" : "muted")">
+                        @(Model.CurrentRevision?.RevisionCode ?? "—")
+                    </div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">MPNs</div>
+                    <div class="kpi-value">@Model.ManufacturerParts.Count</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">VPNs</div>
+                    <div class="kpi-value">@Model.VendorParts.Count</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">Alternates</div>
+                    <div class="kpi-value">@alternatesCount</div>
+                </div>
+            </div>
+        </div>
+        <div class="item-hero-actions">
+            <div class="hero-tags">
+                @if (Model.SupersededBy != null)
+                {
+                    <span class="hero-tag superseded">Replaced by @Model.SupersededBy.NewItem?.PartNumber</span>
+                }
+                else if (Model.Supersession != null)
+                {
+                    <span class="hero-tag supersedes">Supersedes @Model.Supersession.OldItem?.PartNumber</span>
+                }
+                else
+                {
+                    <span class="hero-tag current">Current</span>
+                }
+            </div>
+            <div class="hero-btns">
+                @if (hasUploadedImage)
+                {
+                    <button type="button" class="image-action-btn remove" onclick="if(confirm('Remove uploaded image?')) document.getElementById('removeImageForm').submit();" title="Remove uploaded image">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline;vertical-align:middle;margin-right:4px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Remove Image
+                    </button>
+                }
+                @{
+                    var catalogState = Model.GetCatalogState();
+                }
+                @if (catalogState == ItemEditModel.CatalogButtonState.PreferredWithUrl)
+                {
+                    <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="catalog-link-subtle" title="Open @Model.PreferredVendorName catalog page">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="14" height="14">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        Preferred Vendor Catalog
+                    </a>
+                }
+                else if (catalogState == ItemEditModel.CatalogButtonState.PreferredNoUrl)
+                {
+                    <a href="#vpns" class="catalog-link-subtle" onclick="activateTab('vpns'); highlightPreferredVendor();" title="Add catalog link for @Model.PreferredVendorName">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add catalog link
+                    </a>
+                }
+                else if (catalogState == ItemEditModel.CatalogButtonState.SingleVendor && Model.FirstVendorWithCatalog != null)
+                {
+                    var singleVendorUrl = Model.FirstVendorWithCatalog.ProductPageUrl ?? Model.FirstVendorWithCatalog.CatalogUrl;
+                    if (!string.IsNullOrEmpty(singleVendorUrl))
+                    {
+                        <a href="@singleVendorUrl" target="_blank" rel="noopener noreferrer" class="catalog-btn" title="Open @Model.FirstVendorWithCatalog.Vendor?.Name catalog page">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Open Catalog
+                        </a>
+                    }
+                }
+                else if (catalogState == ItemEditModel.CatalogButtonState.MultipleVendors && Model.FirstVendorWithCatalog != null)
+                {
+                    var firstVendorUrl = Model.FirstVendorWithCatalog.ProductPageUrl ?? Model.FirstVendorWithCatalog.CatalogUrl;
+                    if (!string.IsNullOrEmpty(firstVendorUrl))
+                    {
+                        <div class="catalog-split-btn" id="catalogSplitBtn">
+                            <a href="@firstVendorUrl" target="_blank" rel="noopener noreferrer" class="catalog-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Open Catalog...
+                            </a>
+                        <button type="button" class="catalog-dropdown-toggle" onclick="toggleCatalogDropdown()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div class="catalog-dropdown-menu">
+                            @foreach (var vpn in Model.VendorPartsWithCatalog)
+                            {
+                                var vpnCatalogUrl = vpn.ProductPageUrl ?? vpn.CatalogUrl;
+                                <a href="@vpnCatalogUrl" target="_blank" rel="noopener noreferrer" class="catalog-dropdown-item">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                    </svg>
+                                    @vpn.Vendor?.Name
+                                </a>
+                            }
+                            <div class="catalog-dropdown-divider"></div>
+                            <a href="#vpns" class="catalog-dropdown-item" onclick="activateTab('vpns'); closeCatalogDropdown();">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Manage Vendor Parts
+                            </a>
+                        </div>
+                        </div>
+                    }
+                }
+                else if (catalogState == ItemEditModel.CatalogButtonState.None)
+                {
+                    <a href="#vpns" class="catalog-link-subtle" onclick="activateTab('vpns');" title="Add vendor catalog link">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add vendor catalog link
+                    </a>
+                }
+                <a href="/Materials/Items" class="hero-btn hero-btn-ghost">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Items
+                </a>
+            </div>
+        </div>
+    </div>
+}
+
+@* Revision Bar - Under hero, visible across all tabs *@
+@if (!Model.IsNew)
+{
+    <div class="revision-bar">
+        <div class="revision-bar-info">
+            <span class="revision-bar-label">Current Release:</span>
+            @if (Model.CurrentReleasedRevision != null)
+            {
+                <span class="revision-bar-value">Rev @Model.CurrentReleasedRevision.RevisionCode</span>
+                <span class="revision-bar-pill released">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Released
+                </span>
+            }
+            else
+            {
+                <span class="revision-bar-value text-theme-muted">No released revision</span>
+            }
+            
+            @if (Model.HasDraft)
+            {
+                <span class="revision-bar-pill draft">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                    </svg>
+                    Draft Rev @Model.DraftRevision?.RevisionCode exists
+                </span>
+            }
+            
+            @if (Model.IsViewingHistorical)
+            {
+                <span class="revision-bar-pill historical">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                    </svg>
+                    Viewing Historical
+                </span>
+            }
+        </div>
+        
+        <div class="revision-bar-actions">
+            @if (Model.HasDraft)
+            {
+                <a href="?id=@Model.Item?.Id&tab=revisions&revId=@Model.DraftRevision?.Id" class="revision-bar-btn revision-bar-btn-warning">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                    </svg>
+                    Resume Draft
+                </a>
+                <button type="button" class="revision-bar-btn revision-bar-btn-success" onclick="openReleaseForm()">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Release Draft
+                </button>
+                @if (Model.CurrentReleasedRevision != null)
+                {
+                    <a href="?id=@Model.Item?.Id&showCompare=true" class="revision-bar-btn revision-bar-btn-secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                        </svg>
+                        Compare
+                    </a>
+                }
+            }
+            else
+            {
+                <form method="post" asp-page-handler="CreateDraft" class="form-inline">
+                    <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                    <button type="submit" class="revision-bar-btn revision-bar-btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Create Draft Revision
+                    </button>
+                </form>
+            }
+            
+            @if (Model.IsViewingHistorical && Model.CurrentReleasedRevision != null)
+            {
+                <a href="?id=@Model.Item?.Id&tab=revisions&revId=@Model.CurrentReleasedRevision.Id" class="revision-bar-btn revision-bar-btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                    </svg>
+                    Go to Current
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@* Compare Section *@
+@if (!Model.IsNew && Model.ShowCompare)
+{
+    <div class="compare-section">
+        <div class="compare-header">
+            <span class="compare-header-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+                Comparing: Current Release (Rev @Model.CurrentReleasedRevision?.RevisionCode) vs Draft (Rev @Model.DraftRevision?.RevisionCode)
+            </span>
+            <a href="?id=@Model.Item?.Id" class="compare-header-close" title="Close compare">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </a>
+        </div>
+        <div class="compare-body">
+            @if (Model.CompareDeltas.Count > 0)
+            {
+                <table class="compare-table">
+                    <thead>
+                        <tr>
+                            <th>Field</th>
+                            <th>Current Release</th>
+                            <th>Draft</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var delta in Model.CompareDeltas)
+                        {
+                            <tr>
+                                <td class="compare-field-name">@delta.FieldName</td>
+                                <td><span class="compare-value-old">@delta.OldValue</span></td>
+                                <td><span class="compare-value-new">@delta.NewValue</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="compare-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>No differences found between current release and draft.</p>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@{
+    var activeTab = Request.Query["tab"].FirstOrDefault() ?? "basics";
+}
+<div class="premium-tabs">
+    @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+        { "TabId", "item-tabs" },
+        { "Mode", "button" },
+        { "Variant", "compact" },
+        { "UrlParam", "tab" },
+        { "AriaLabel", "Item sections" },
+        { "Tabs", Model.IsNew 
+            ? new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+                ("basics", "Basics", activeTab == "basics", null, null)
+            }
+            : new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+                ("basics", "Basics", activeTab == "basics", null, null),
+                ("revisions", "Revisions", activeTab == "revisions", Model.Revisions?.Count, null),
+                ("mpns", "Manufacturer Parts", activeTab == "mpns", Model.ManufacturerParts?.Count, null),
+                ("vpns", "Vendor Parts", activeTab == "vpns", Model.VendorParts.Count, null),
+                ("avl", "Approved Vendors", activeTab == "avl", Model.ApprovedVendors.Count, null),
+                ("alternates", "Alternates", activeTab == "alternates", Model.Alternates.Count, null),
+                ("supersession", "Supersession", activeTab == "supersession", null, null)
+            }
+        }
+    })
+
+    <div class="tab-panel @(activeTab == "basics" ? "active" : "")" id="panel-basics" role="tabpanel" aria-labelledby="tab-basics" @(activeTab != "basics" ? Html.Raw("hidden") : null)>
+        @if (!Model.IsNew)
+        {
+            <h3 class="section-title-with-margin">Sourcing Summary</h3>
+            <div class="sourcing-summary">
+                <div class="sourcing-tile">
+                    <div class="sourcing-tile-label">Current Revision</div>
+                    <div class="sourcing-tile-value @(Model.CurrentRevisionCode == null ? "muted" : "")">
+                        @(Model.CurrentRevisionCode ?? "No released revision")
+                    </div>
+                    <a href="#" class="sourcing-tile-link" onclick="document.querySelector('[data-tab=revisions]').click(); return false;">Manage revisions</a>
+                </div>
+                <div class="sourcing-tile">
+                    <div class="sourcing-tile-label">Manufacturer</div>
+                    <div class="sourcing-tile-value @(Model.PrimaryMpn?.Manufacturer == null ? "muted" : "")">
+                        @(Model.PrimaryMpn?.Manufacturer?.Name ?? "Not configured")
+                    </div>
+                    <a href="#" class="sourcing-tile-link" onclick="document.querySelector('[data-tab=mpns]').click(); return false;">Manage MPNs</a>
+                </div>
+                <div class="sourcing-tile">
+                    <div class="sourcing-tile-label">Mfr Part #</div>
+                    <div class="sourcing-tile-value @(Model.PrimaryMpn == null ? "muted" : "")">
+                        @(Model.PrimaryMpn?.MfrPartNumber ?? "Not configured")
+                    </div>
+                </div>
+                <div class="sourcing-tile">
+                    <div class="sourcing-tile-label">Primary Vendor</div>
+                    <div class="sourcing-tile-value @(Model.PreferredAvl?.Vendor == null ? "muted" : "")">
+                        @(Model.PreferredAvl?.Vendor?.Name ?? "No preferred vendor")
+                    </div>
+                    <a href="#" class="sourcing-tile-link" onclick="document.querySelector('[data-tab=avl]').click(); return false;">Manage AVL</a>
+                </div>
+                <div class="sourcing-tile">
+                    <div class="sourcing-tile-label">Vendor Part #</div>
+                    <div class="sourcing-tile-value @(Model.PreferredVpn == null ? "muted" : "")">
+                        @(Model.PreferredVpn?.VendorPartNumber ?? "Not configured")
+                    </div>
+                    <a href="#" class="sourcing-tile-link" onclick="document.querySelector('[data-tab=vpns]').click(); return false;">Manage VPNs</a>
+                </div>
+                @if (Model.HasPreferredVendor && Model.HasPreferredVpn && !string.IsNullOrEmpty(Model.PreferredVendorCatalogUrl))
+                {
+                    <div class="sourcing-tile bg-blue-soft" style="border-color: var(--info, #93c5fd);">
+                        <div class="sourcing-tile-label text-blue">Preferred Vendor Catalog</div>
+                        <div class="sourcing-tile-value">
+                            <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="text-blue" style="text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Open Catalog
+                            </a>
+                        </div>
+                        <span class="sourcing-tile-link text-blue">@Model.PreferredVendorName</span>
+                    </div>
+                }
+            </div>
+        }
+        
+        <form method="post" asp-page-handler="SaveItem">
+            <input type="hidden" name="id" value="@Model.Item?.Id" />
+            <div style="display: grid; gap: 1.5rem;">
+            <div class="form-section">
+                <div class="form-section__title"><h3>Item Details</h3></div>
+                <div class="form-section__body">
+                    <div class="form-grid">
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Part Number <span class="form-field__required" aria-label="required">*</span></label>
+                            <input type="text" name="partNumber" value="@Model.Item?.PartNumber" class="form-field__input form-input-p" required @(Model.IsNew ? "" : "readonly") />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Current Rev</label>
+                            <div class="form-field__input form-input-p bg-surface-alt" style="border-style: dashed;">
+                                @if (Model.CurrentRevision != null)
+                                {
+                                    <span class="badge badge-success" style="margin-right: 4px;">@Model.CurrentRevision.RevisionCode</span>
+                                    <span style="color: var(--text-muted); font-size: 12px;">@Model.CurrentRevision.Status</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--text-muted);">No released revision</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Item Type <span class="form-field__required" aria-label="required">*</span></label>
+                            <select name="typeLookupValueId" class="form-field__input form-input-p" required asp-items="Model.TypeOptions"></select>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Unit of Measure <span class="form-field__required" aria-label="required">*</span></label>
+                            <input type="text" name="stockUom" value="@Model.Item?.StockUOM" class="form-field__input form-input-p" required placeholder="EA, PCS, FT, etc." />
+                        </div>
+                        <div class="form-field form-field--full form-group-p">
+                            <label class="form-field__label form-label-p">Description <span class="form-field__required" aria-label="required">*</span></label>
+                            <input type="text" name="description" value="@Model.Item?.Description" class="form-field__input form-input-p" required />
+                        </div>
+                        <div class="form-field form-field--full form-group-p">
+                            <label class="form-field__label form-label-p">Extended Description</label>
+                            <textarea name="extendedDescription" class="form-field__input form-input-p" rows="3">@Model.Item?.ExtendedDescription</textarea>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Active/Inactive</label>
+                            <select name="isActive" class="form-field__input form-input-p" asp-items="Model.ActiveInactiveOptions"></select>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Item Status</label>
+                            <select name="statusLookupValueId" class="form-field__input form-input-p" asp-items="Model.StatusOptions"></select>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Cost Method</label>
+                            <select name="costMethodLookupValueId" class="form-field__input form-input-p" asp-items="Model.CostMethodOptions"></select>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Tracking Type</label>
+                            <select name="trackingTypeLookupValueId" class="form-field__input form-input-p" asp-items="Model.TrackingTypeOptions"></select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-section__title">
+                    <h3>Procurement</h3>
+                    @if (Model.BuyabilityScore != null && !Model.IsNew)
+                    {
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="badge @Model.BuyabilityScore.TierBadgeClass" style="padding: 4px 10px; font-size: 12px; font-weight: 600;">
+                                @Model.BuyabilityScore.Tier (@Model.BuyabilityScore.Score)
+                            </span>
+                            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleBuyabilityPanel()" style="font-size: 12px; padding: 4px 8px;">
+                                Why?
+                            </button>
+                        </div>
+                    }
+                </div>
+                <div class="form-section__body">
+                    @if (Model.BuyabilityScore != null && !Model.IsNew)
+                    {
+                        <div id="buyability-panel" class="bg-surface-alt" style="display: none; margin-bottom: 20px; padding: 16px; border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <span class="text-theme-primary" style="font-size: 13px; font-weight: 600;">Buyability Score Breakdown</span>
+                                <button type="button" onclick="toggleBuyabilityPanel()" class="text-theme-muted" style="background: none; border: none; cursor: pointer; font-size: 18px;">&times;</button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
+                                @foreach (var cat in Model.BuyabilityScore.Categories.Values.OrderBy(c => c.Name))
+                                {
+                                    <div class="bg-surface" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);">
+                                        <div class="text-theme-secondary" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;">@cat.Name</div>
+                                        <div style="font-size: 16px; font-weight: 700; color: @(cat.Percentage >= 80 ? "#059669" : cat.Percentage >= 50 ? "#d97706" : "#dc2626");">
+                                            @cat.EarnedPoints/@cat.MaxPoints
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            @if (Model.BuyabilityScore.MissingFactors.Any())
+                            {
+                                <div class="text-theme-secondary" style="font-size: 12px; margin-top: 8px;">
+                                    <span style="font-weight: 600;">Missing:</span>
+                                    @string.Join(", ", Model.BuyabilityScore.MissingFactors.Take(5).Select(f => f.Name))
+                                    @if (Model.BuyabilityScore.MissingFactors.Count > 5)
+                                    {
+                                        <span> +@(Model.BuyabilityScore.MissingFactors.Count - 5) more</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    
+                    @if (!Model.IsNew && Model.BuyabilityScore?.MissingFactors.Any() == true)
+                    {
+                        <div class="bg-amber-soft" style="margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--warning, #fcd34d);">
+                            <div class="text-amber" style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                Procurement Readiness Checklist
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                @foreach (var missing in Model.BuyabilityScore.MissingFactors.Take(6))
+                                {
+                                    var tabId = missing.FixTab?.ToLower().Replace(" ", "-") ?? "basics";
+                                    <a href="#@tabId" onclick="switchTab('@tabId')" class="text-amber bg-surface" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; font-size: 11px; text-decoration: none; border: 1px solid var(--warning, #fcd34d);">
+                                        @missing.Name
+                                        <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    }
+                    
+                    @if (Model.EffectiveProcurement?.HasPreferredVendor == true)
+                    {
+                        <div class="bg-blue-soft text-blue" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--info, #93c5fd); font-size: 12px;">
+                            <span style="font-weight: 600;">Effective values</span> from <strong>@Model.EffectiveProcurement.PreferredVendorName</strong> (Preferred Vendor)
+                        </div>
+                    }
+                    
+                    <div class="form-grid">
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">
+                                Lead Time (Days)
+                                @if (Model.EffectiveProcurement?.LeadTimeSource == "Preferred Vendor")
+                                {
+                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                }
+                            </label>
+                            <input type="number" name="leadTimeDays" value="@Model.Item?.LeadTimeDays" class="form-field__input form-input-p" min="0" placeholder="@(Model.EffectiveProcurement?.LeadTimeDays?.ToString() ?? "0")" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Standard Cost</label>
+                            <input type="number" name="standardCost" value="@Model.Item?.StandardCost" class="form-field__input form-input-p" step="0.01" min="0" placeholder="0.00" />
+                            @if (Model.EffectiveProcurement?.LeadTimeDays.HasValue == true && Model.EffectiveProcurement.LeadTimeSource == "Preferred Vendor")
+                            {
+                                <small class="text-theme-secondary" style="font-size: 11px;">Effective: @Model.EffectiveProcurement.LeadTimeDays days</small>
+                            }
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">
+                                Min Order Qty
+                                @if (Model.EffectiveProcurement?.MinOrderQtySource == "Preferred Vendor")
+                                {
+                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                }
+                            </label>
+                            <input type="number" name="minOrderQty" value="@Model.Item?.MinOrderQty" class="form-field__input form-input-p" step="0.0001" min="0" placeholder="@(Model.EffectiveProcurement?.MinOrderQty?.ToString() ?? "1")" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Order Multiple</label>
+                            <input type="number" name="orderMultiple" value="@Model.Item?.OrderMultiple" class="form-field__input form-input-p" step="0.0001" min="0" placeholder="1" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">
+                                Purchase UOM
+                                @if (Model.EffectiveProcurement?.PurchaseUomSource == "Preferred Vendor")
+                                {
+                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                }
+                            </label>
+                            <input type="text" name="purchaseUom" value="@Model.Item?.PurchaseUOM" class="form-field__input form-input-p" placeholder="@(Model.EffectiveProcurement?.PurchaseUom ?? "EA")" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">
+                                Pack Qty
+                                @if (Model.EffectiveProcurement?.PackQtySource == "Preferred Vendor")
+                                {
+                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                }
+                            </label>
+                            <input type="number" name="packQty" value="@Model.Item?.PackQty" class="form-field__input form-input-p" step="0.0001" min="0" placeholder="@(Model.EffectiveProcurement?.PackQty?.ToString() ?? "1")" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Stock Policy</label>
+                            <select name="stockPolicy" class="form-field__input form-input-p">
+                                @foreach (StockPolicy policy in Enum.GetValues(typeof(StockPolicy)))
+                                {
+                                    @if (Model.Item?.StockPolicy == policy)
+                                    {
+                                        <option value="@policy" selected>@(policy == StockPolicy.CriticalSpare ? "Critical Spare" : policy.ToString())</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@policy">@(policy == StockPolicy.CriticalSpare ? "Critical Spare" : policy.ToString())</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">
+                                Last Price
+                                @if (Model.EffectiveProcurement?.LastPriceSource == "Preferred Vendor")
+                                {
+                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                }
+                            </label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="number" name="lastPrice" value="@Model.Item?.LastPrice" class="form-field__input form-input-p" step="0.01" min="0" placeholder="@(Model.EffectiveProcurement?.LastPrice?.ToString("F2") ?? "0.00")" style="flex: 2;" />
+                                <input type="text" name="currencyCode" value="@(Model.Item?.CurrencyCode ?? "USD")" class="form-field__input form-input-p" maxlength="3" placeholder="USD" style="flex: 1; max-width: 70px;" />
+                            </div>
+                            @if (Model.EffectiveProcurement?.LastPrice.HasValue == true && Model.EffectiveProcurement.LastPriceSource == "Preferred Vendor")
+                            {
+                                <small class="text-theme-secondary" style="font-size: 11px;">Effective: @Model.EffectiveProcurement.CurrencyCode @Model.EffectiveProcurement.LastPrice?.ToString("N2")</small>
+                            }
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Price Effective Date</label>
+                            <input type="date" name="priceEffectiveDate" value="@Model.Item?.PriceEffectiveDate?.ToString("yyyy-MM-dd")" class="form-field__input form-input-p" />
+                        </div>
+                        <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p">Contract</label>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <label class="text-theme-secondary" style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                    <input type="checkbox" name="contractFlag" value="true" @(Model.Item?.ContractFlag == true ? "checked" : "") style="width: 16px; height: 16px;" />
+                                    On Contract
+                                </label>
+                                <input type="text" name="contractRef" value="@Model.Item?.ContractRef" class="form-field__input form-input-p" placeholder="Contract #" style="flex: 1;" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions form-actions--end">
+                <button type="submit" class="btn-p btn-p--primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 6px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    @(Model.IsNew ? "Create Item" : "Save Changes")
+                </button>
+            </div>
+            </div>
+        </form>
+    </div>
+
+    @if (!Model.IsNew)
+    {
+        var sortedRevisions = (Model.Revisions ?? new List<ItemRevision>())
+            .OrderByDescending(r => r.Status == RevisionStatus.Released)
+            .ThenByDescending(r => r.RevisionCode)
+            .ThenByDescending(r => r.Id)
+            .ToList();
+        var hasDraft = (Model.Revisions ?? new List<ItemRevision>()).Any(r => r.Status == RevisionStatus.Draft);
+        <div class="tab-panel @(activeTab == "revisions" ? "active" : "")" id="panel-revisions" role="tabpanel" aria-labelledby="tab-revisions" @(activeTab != "revisions" ? Html.Raw("hidden") : null)>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 class="text-theme-primary" style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Revision History</h3>
+                @if (!hasDraft)
+                {
+                    <form method="post" asp-page-handler="CreateDraft" class="form-inline">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            New Revision
+                        </button>
+                    </form>
+                }
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; min-height: 400px;">
+                <div style="overflow-x: auto;">
+                    <table class="data-table revision-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">Rev</th>
+                                <th>Status</th>
+                                <th>Released</th>
+                                <th>Updated</th>
+                                <th>Change Note</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!sortedRevisions.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">No revisions yet. Click "New Revision" to start.</td>
+                                </tr>
+                            }
+                            @foreach (var rev in sortedRevisions)
+                            {
+                                var isCurrent = Model.Item?.CurrentReleasedRevisionId == rev.Id;
+                                var isSelected = Model.SelectedRevision?.Id == rev.Id;
+                                <tr class="revision-row @(isSelected ? "selected" : "")" 
+                                    style="cursor: pointer; @(isCurrent ? "background: var(--success-soft, rgba(16,185,129,0.08));" : "")"
+                                    onclick="window.location.href='@Url.Page("/Materials/ItemEdit", new { id = Model.Item?.Id, tab = "revisions", revId = rev.Id })'">
+                                    <td>
+                                        <strong style="font-size: 13px;">@rev.RevisionCode</strong>
+                                        @if (isCurrent)
+                                        {
+                                            <span class="badge badge-success" style="margin-left: 4px; font-size: 9px; padding: 2px 6px;">Current</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (rev.Status == RevisionStatus.Draft)
+                                        {
+                                            <span class="badge badge-warning" style="font-size: 10px;">Draft</span>
+                                        }
+                                        else if (rev.Status == RevisionStatus.Released)
+                                        {
+                                            <span class="badge badge-success" style="font-size: 10px;">Released</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge badge-secondary" style="font-size: 10px;">Obsolete</span>
+                                        }
+                                    </td>
+                                    <td style="font-size: 12px; color: var(--text-muted);">@(rev.ReleasedAtUtc?.ToString("MMM d, yyyy") ?? "-")</td>
+                                    <td style="font-size: 12px; color: var(--text-muted);">@rev.CreatedAtUtc.ToString("MMM d, yyyy")</td>
+                                    <td style="font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@(rev.ChangeReason ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="revision-inspector bg-surface-alt" style="border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0); padding: 20px;">
+                    @if (Model.SelectedRevision != null)
+                    {
+                        var selIsDraft = Model.SelectedRevision.Status == RevisionStatus.Draft;
+                        var selIsReleased = Model.SelectedRevision.Status == RevisionStatus.Released;
+                        var selIsObsolete = Model.SelectedRevision.Status == RevisionStatus.Obsolete;
+                        var selIsCurrentRev = Model.Item?.CurrentReleasedRevisionId == Model.SelectedRevision.Id;
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h4 class="text-theme-primary" style="font-size: 14px; font-weight: 700; margin: 0;">
+                                Revision @Model.SelectedRevision.RevisionCode
+                            </h4>
+                            @if (selIsDraft)
+                            {
+                                <span class="badge badge-warning">Draft</span>
+                            }
+                            else if (selIsReleased)
+                            {
+                                <span class="badge badge-success">@(selIsCurrentRev ? "Current" : "Released")</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Obsolete</span>
+                            }
+                        </div>
+                        
+                        @if (selIsDraft)
+                        {
+                            <form method="post" asp-page-handler="SaveRevision">
+                                <input type="hidden" name="revisionId" value="@Model.SelectedRevision.Id" />
+                                <div class="form-section">
+                                    <div class="form-section__body">
+                                        <div class="form-field form-group-p">
+                                            <label class="form-field__label form-label-p">Revision Code <span class="form-field__required" aria-label="required">*</span></label>
+                                            <input type="text" name="revisionCode" class="form-field__input form-input-p" value="@Model.SelectedRevision.RevisionCode" required maxlength="10" />
+                                        </div>
+                                        <div class="form-field form-group-p">
+                                            <label class="form-field__label form-label-p">Name <span class="form-field__required" aria-label="required">*</span></label>
+                                            <input type="text" name="name" class="form-field__input form-input-p" value="@Model.SelectedRevision.Name" required maxlength="200" />
+                                        </div>
+                                        <div class="form-field form-group-p">
+                                            <label class="form-field__label form-label-p">Description</label>
+                                            <textarea name="description" class="form-field__input form-input-p" rows="3" maxlength="1000">@Model.SelectedRevision.Description</textarea>
+                                        </div>
+                                        <div class="form-field form-group-p">
+                                            <label class="form-field__label form-label-p">Change Reason</label>
+                                            <textarea name="changeReason" class="form-field__input form-input-p" rows="2" maxlength="500" placeholder="Describe what changed in this revision...">@Model.SelectedRevision.ChangeReason</textarea>
+                                        </div>
+                                        <div class="form-actions">
+                                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Save Draft</button>
+                                            <button type="submit" formaction="@Url.Page("/Materials/ItemEdit", "ReleaseDraft")" class="btn-p btn-p--primary btn-p--sm" onclick="return confirm('Release this revision? This will make it the current revision and cannot be undone.')">Release</button>
+                                            <button type="submit" formaction="@Url.Page("/Materials/ItemEdit", "DeleteRevision")" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Delete this draft revision?')">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        }
+                        else
+                        {
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Revision Code</label>
+                                <div class="form-field__input form-input-p">@Model.SelectedRevision.RevisionCode</div>
+                            </div>
+                            
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Name</label>
+                                <div class="form-field__input form-input-p">@Model.SelectedRevision.Name</div>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(Model.SelectedRevision.Description))
+                            {
+                                <div class="form-field form-group-p">
+                                    <label class="form-field__label form-label-p">Description</label>
+                                    <div class="form-field__input form-input-p">@Model.SelectedRevision.Description</div>
+                                </div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(Model.SelectedRevision.ChangeReason))
+                            {
+                                <div class="form-field form-group-p">
+                                    <label class="form-field__label form-label-p">Change Reason</label>
+                                    <div class="form-field__input form-input-p">@Model.SelectedRevision.ChangeReason</div>
+                                </div>
+                            }
+                            
+                            <div class="form-grid">
+                                <div class="form-field form-group-p">
+                                    <label class="form-field__label form-label-p">Created</label>
+                                    <div class="form-field__input form-input-p">@Model.SelectedRevision.CreatedAtUtc.ToString("MMM d, yyyy")</div>
+                                </div>
+                                @if (Model.SelectedRevision.ReleasedAtUtc.HasValue)
+                                {
+                                    <div class="form-field form-group-p">
+                                        <label class="form-field__label form-label-p">Released</label>
+                                        <div class="form-field__input form-input-p">@Model.SelectedRevision.ReleasedAtUtc.Value.ToString("MMM d, yyyy")</div>
+                                    </div>
+                                }
+                                @if (Model.SelectedRevision.ObsoletedAtUtc.HasValue)
+                                {
+                                    <div class="form-field form-group-p">
+                                        <label class="form-field__label form-label-p">Obsoleted</label>
+                                        <div class="form-field__input form-input-p">@Model.SelectedRevision.ObsoletedAtUtc.Value.ToString("MMM d, yyyy")</div>
+                                    </div>
+                                }
+                            </div>
+                            
+                            @if (selIsReleased && !selIsCurrentRev)
+                            {
+                                <form method="post" asp-page-handler="ObsoleteRevision" style="margin-top: 12px;">
+                                    <input type="hidden" name="revisionId" value="@Model.SelectedRevision.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm" onclick="return confirm('Mark this revision as obsolete?')">Mark Obsolete</button>
+                                </form>
+                            }
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-theme-muted" style="text-align: center; padding: 40px 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin: 0 auto 12px; opacity: 0.5;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p style="font-size: 13px; margin: 0;">Select a revision to view details</p>
+                            <p class="text-theme-muted" style="font-size: 12px; margin: 8px 0 0 0;">Click any row in the table</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-panel @(activeTab == "mpns" ? "active" : "")" id="panel-mpns" role="tabpanel" aria-labelledby="tab-mpns" @(activeTab != "mpns" ? Html.Raw("hidden") : null)>
+            <div class="form-section">
+                <div class="form-section__title">
+                    <h3>Add Manufacturer Part</h3>
+                </div>
+                <div class="form-section__body">
+                    <form method="post" asp-page-handler="AddMpn">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <div class="form-grid">
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Manufacturer <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="manufacturerId" class="form-field__input form-input-p" required data-cherry-select data-placeholder="Search manufacturers...">
+                                    <option value="">Select Manufacturer...</option>
+                                    @foreach (var mfr in Model.Manufacturers)
+                                    {
+                                        <option value="@mfr.Id">@mfr.Name (@mfr.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">MPN <span class="form-field__required" aria-label="required">*</span></label>
+                                <input type="text" name="mfrPartNumber" class="form-field__input form-input-p" required placeholder="Manufacturer Part Number" />
+                            </div>
+                            <div class="form-field form-field--full form-group-p">
+                                <label class="form-field__label form-label-p">Description</label>
+                                <input type="text" name="mpnDescription" class="form-field__input form-input-p" placeholder="Optional description" />
+                            </div>
+                        </div>
+                        <div class="form-actions form-actions--end">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add MPN</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Manufacturer</th>
+                            <th>MPN</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!(Model.ManufacturerParts?.Any() ?? false))
+                        {
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No manufacturer parts. Add an MPN above.</td>
+                            </tr>
+                        }
+                        @foreach (var mpn in Model.ManufacturerParts ?? Enumerable.Empty<ItemManufacturerPart>())
+                        {
+                            <tr>
+                                <td><strong>@mpn.Manufacturer?.Name</strong></td>
+                                <td>@mpn.MfrPartNumber</td>
+                                <td>@(mpn.Description ?? "-")</td>
+                                <td>
+                                    @if (mpn.IsActive)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-panel @(activeTab == "vpns" ? "active" : "")" id="panel-vpns" role="tabpanel" aria-labelledby="tab-vpns" @(activeTab != "vpns" ? Html.Raw("hidden") : null)>
+            <div class="vpn-section-header">
+                <h3 class="vpn-section-title">Vendor Part Numbers</h3>
+                <div class="vpn-section-actions">
+                    @if (Model.HasPreferredVendor && Model.HasPreferredVpn && !string.IsNullOrEmpty(Model.PreferredVendorCatalogUrl))
+                    {
+                        <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--primary btn-p--sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            Preferred Vendor Catalog
+                        </a>
+                    }
+                    @if (Model.IsLabEnvironment && Model.VendorParts.Any(v => !string.IsNullOrEmpty(v.CatalogUrl ?? v.ProductPageUrl)))
+                    {
+                        <form method="post" asp-page-handler="EnrichAllVpns" class="form-inline">
+                            <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" style="border: none; display: inline-flex; align-items: center; gap: 6px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Enrich All
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+            <div class="form-section">
+                <div class="form-section__title">
+                    <h3>Add Vendor Part</h3>
+                </div>
+                <div class="form-section__body">
+                    <form method="post" asp-page-handler="AddVpn">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <div class="form-grid">
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Vendor <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="vendorId" class="form-field__input form-input-p" required data-cherry-select data-placeholder="Search vendors...">
+                                    <option value="">Select Vendor...</option>
+                                    @foreach (var vendor in Model.Vendors)
+                                    {
+                                        <option value="@vendor.Id">@vendor.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">VPN <span class="form-field__required" aria-label="required">*</span></label>
+                                <input type="text" name="vendorPartNumber" class="form-field__input form-input-p" required placeholder="Vendor Part Number" />
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Link to MPN</label>
+                                <select name="mpnId" class="form-field__input form-input-p">
+                                    <option value="">No link (standalone)</option>
+                                    @foreach (var mpn in (Model.ManufacturerParts ?? Enumerable.Empty<ItemManufacturerPart>()).Where(m => m.IsActive))
+                                    {
+                                        <option value="@mpn.Id">@mpn.Manufacturer?.Name - @mpn.MfrPartNumber</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Catalog URL</label>
+                                <input type="url" name="catalogUrl" class="form-field__input form-input-p" placeholder="https://vendor.com/product/..." />
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Datasheet URL</label>
+                                <input type="url" name="datasheetUrl" class="form-field__input form-input-p" placeholder="https://vendor.com/datasheet/..." />
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Image URL</label>
+                                <input type="url" name="externalImageUrl" class="form-field__input form-input-p" placeholder="https://vendor.com/images/..." />
+                            </div>
+                        </div>
+                        <div class="form-actions form-actions--end">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add VPN</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            @if (Model.IsLabEnvironment)
+            {
+                <div class="vpn-lab-notice">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="vpn-lab-notice-text"><strong>Catalog Intelligence (LAB)</strong>: Use "Enrich" to auto-extract metadata from vendor catalog pages (OpenGraph/JSON-LD).</span>
+                </div>
+            }
+            <div class="vpn-table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;"></th>
+                            <th>Vendor</th>
+                            <th>VPN</th>
+                            <th>Linked MPN</th>
+                            <th style="text-align: right; white-space: nowrap;">Lead Time</th>
+                            <th style="text-align: right; white-space: nowrap;">Price</th>
+                            <th style="text-align: right; white-space: nowrap;">Pack Qty</th>
+                            <th>Catalog</th>
+                            <th>Datasheet</th>
+                            <th>Enrich</th>
+                            <th>Status</th>
+                            <th style="width: 140px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.VendorParts.Any())
+                        {
+                            <tr>
+                                <td colspan="12" class="text-center text-muted py-4">No vendor parts. Add a VPN above.</td>
+                            </tr>
+                        }
+                        @foreach (var vpn in Model.VendorParts)
+                        {
+                            var vpnImageUrl = vpn.ExternalImageUrl ?? vpn.ImageUrl;
+                            var catalogUrl = vpn.CatalogUrl ?? vpn.ProductPageUrl;
+                            var hasEnrichableUrl = !string.IsNullOrEmpty(catalogUrl);
+                            <tr>
+                                <td style="text-align: center;">
+                                    @if (!string.IsNullOrEmpty(vpnImageUrl))
+                                    {
+                                        <img src="@vpnImageUrl" alt="@vpn.VendorPartNumber" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);" />
+                                    }
+                                    else
+                                    {
+                                        <div class="bg-surface-alt" style="width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--lux-border, #e2e8f0);">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#94a3b8">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <strong>@vpn.Vendor?.Name</strong>
+                                    @if (vpn.Preferred)
+                                    {
+                                        <span class="badge badge-info" style="margin-left: 4px;">Preferred</span>
+                                    }
+                                </td>
+                                <td>
+                                    @vpn.VendorPartNumber
+                                    @if (!string.IsNullOrEmpty(vpn.ExtractedMpn))
+                                    {
+                                        <div class="text-theme-secondary" style="font-size: 11px; margin-top: 2px;">MPN: @vpn.ExtractedMpn</div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(vpn.ExtractedSku))
+                                    {
+                                        <div class="text-theme-secondary" style="font-size: 11px;">SKU: @vpn.ExtractedSku</div>
+                                    }
+                                </td>
+                                <td>@(vpn.ItemManufacturerPart != null ? $"{vpn.ItemManufacturerPart.Manufacturer?.Name} - {vpn.ItemManufacturerPart.MfrPartNumber}" : "-")</td>
+                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                    @if (vpn.LeadTimeDays.HasValue)
+                                    {
+                                        <span>@vpn.LeadTimeDays d</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                    @if (vpn.UnitPrice.HasValue)
+                                    {
+                                        <span>$@vpn.UnitPrice.Value.ToString("N2")</span>
+                                        @if (vpn.PriceEffectiveDate.HasValue)
+                                        {
+                                            <div class="text-theme-muted" style="font-size: 10px;">@vpn.PriceEffectiveDate.Value.ToString("MM/dd/yy")</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                    @if (vpn.PackQty.HasValue)
+                                    {
+                                        <span>@vpn.PackQty.Value.ToString("G29")</span>
+                                        @if (!string.IsNullOrEmpty(vpn.VendorUom))
+                                        {
+                                            <span class="text-muted"> @vpn.VendorUom</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(catalogUrl))
+                                    {
+                                        <a href="@catalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm vpn-catalog-btn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                            Open
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(vpn.DatasheetUrl))
+                                    {
+                                        <a href="@vpn.DatasheetUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm vpn-datasheet-btn" title="View Datasheet">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            PDF
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (Model.IsLabEnvironment && hasEnrichableUrl)
+                                    {
+                                        <form method="post" asp-page-handler="EnrichVpn" class="form-inline">
+                                            <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                                            <input type="hidden" name="vpnId" value="@vpn.Id" />
+                                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" style="padding: 4px 10px; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" title="Extract metadata from catalog URL">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: inline; vertical-align: middle; margin-right: 3px;">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                </svg>
+                                                Enrich
+                                            </button>
+                                        </form>
+                                        @if (!string.IsNullOrEmpty(vpn.LastEnrichStatus))
+                                        {
+                                            <span class="badge @(vpn.LastEnrichStatus == "Success" ? "badge-success" : vpn.LastEnrichStatus == "NoMetadata" ? "badge-warning" : "badge-secondary")" style="margin-left: 4px; font-size: 10px;">
+                                                @vpn.LastEnrichStatus
+                                            </span>
+                                        }
+                                    }
+                                    else if (!Model.IsLabEnvironment)
+                                    {
+                                        <span class="text-muted" style="font-size: 11px;">LAB only</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (vpn.IsActive)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var isOnAvl = Model.ApprovedVendors.Any(a => a.VendorId == vpn.VendorId && a.ApprovalStatus == AvlApprovalStatus.Approved);
+                                        var isPreferredOnAvl = Model.ApprovedVendors.Any(a => a.VendorId == vpn.VendorId && a.IsPreferred && a.ApprovalStatus == AvlApprovalStatus.Approved);
+                                    }
+                                    @if (isPreferredOnAvl)
+                                    {
+                                        <span class="badge badge-info" style="font-size: 10px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline;vertical-align:middle;margin-right:2px;">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            Preferred
+                                        </span>
+                                    }
+                                    else if (isOnAvl)
+                                    {
+                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm" style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Set as preferred in AVL">
+                                            Set Preferred
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm text-theme-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Add vendor to AVL first">
+                                            Add to AVL
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-panel @(activeTab == "avl" ? "active" : "")" id="panel-avl" role="tabpanel" aria-labelledby="tab-avl" @(activeTab != "avl" ? Html.Raw("hidden") : null)>
+            <div class="form-section">
+                <div class="form-section__title">
+                    <h3>Add Approved Vendor</h3>
+                </div>
+                <div class="form-section__body">
+                    <form method="post" asp-page-handler="AddApprovedVendor">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <div class="form-grid">
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Vendor <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="vendorId" class="form-field__input form-input-p" required data-cherry-select data-placeholder="Search vendors...">
+                                    <option value="">Select Vendor...</option>
+                                    @foreach (var vendor in Model.Vendors)
+                                    {
+                                        <option value="@vendor.Id">@vendor.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Approval Status <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="statusLookupValueId" class="form-field__input form-input-p" required asp-items="Model.RevisionStatusOptions"></select>
+                            </div>
+                            <div class="form-field form-field--full form-group-p">
+                                <label class="form-field__label form-label-p">
+                                    <input type="checkbox" name="isPreferred" value="true" style="margin-right: 6px;" />
+                                    Preferred Vendor
+                                </label>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Notes</label>
+                                <input type="text" name="notes" class="form-field__input form-input-p" placeholder="Optional notes" />
+                            </div>
+                        </div>
+                        <div class="form-actions form-actions--end">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add to AVL</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Vendor</th>
+                            <th>Status</th>
+                            <th>Preferred</th>
+                            <th>Notes</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.ApprovedVendors.Any())
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">No approved vendors. Add vendors to the AVL above.</td>
+                            </tr>
+                        }
+                        @foreach (var avl in Model.ApprovedVendors)
+                        {
+                            <tr>
+                                <td><strong>@avl.Vendor?.Name</strong></td>
+                                <td>
+                                    @if (avl.ApprovalStatus == AvlApprovalStatus.Approved)
+                                    {
+                                        <span class="badge badge-success">Approved</span>
+                                    }
+                                    else if (avl.ApprovalStatus == AvlApprovalStatus.Conditional)
+                                    {
+                                        <span class="badge badge-warning">Conditional</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">@avl.ApprovalStatus</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (avl.IsPreferred)
+                                    {
+                                        <span class="badge badge-info">Preferred</span>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-page-handler="SetPreferredVendor" class="form-inline">
+                                            <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                                            <input type="hidden" name="vendorId" value="@avl.VendorId" />
+                                            <button type="submit" class="btn-p btn-p--ghost btn-p--sm">Set Preferred</button>
+                                        </form>
+                                    }
+                                </td>
+                                <td>@(avl.Notes ?? "-")</td>
+                                <td>
+                                    <form method="post" asp-page-handler="RemoveApprovedVendor" class="form-inline">
+                                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                                        <input type="hidden" name="vendorId" value="@avl.VendorId" />
+                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" style="color: var(--danger);" onclick="return confirm('Remove this vendor from the AVL?')">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-panel @(activeTab == "alternates" ? "active" : "")" id="panel-alternates" role="tabpanel" aria-labelledby="tab-alternates" @(activeTab != "alternates" ? Html.Raw("hidden") : null)>
+            <div class="form-section">
+                <div class="form-section__title">
+                    <h3>Add Alternate Item</h3>
+                </div>
+                <div class="form-section__body">
+                    <form method="post" asp-page-handler="AddAlternate">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <div class="form-grid">
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Alternate Item <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="alternateItemId" class="form-field__input form-input-p" required data-cherry-select data-placeholder="Search items...">
+                                    <option value="">Select Item...</option>
+                                    @foreach (var item in Model.AllItems.Where(i => i.Id != Model.Item?.Id))
+                                    {
+                                        <option value="@item.Id">@item.PartNumber - @item.Description</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Alternate Type <span class="form-field__required" aria-label="required">*</span></label>
+                                <select name="alternateType" class="form-field__input form-input-p" required>
+                                    @foreach (AlternateType altType in Enum.GetValues(typeof(AlternateType)))
+                                    {
+                                        <option value="@altType">@altType</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Rank</label>
+                                <input type="number" name="rank" class="form-field__input form-input-p" value="1" min="1" />
+                            </div>
+                            <div class="form-field form-group-p">
+                                <label class="form-field__label form-label-p">Reason</label>
+                                <input type="text" name="reason" class="form-field__input form-input-p" placeholder="Reason for substitution" />
+                            </div>
+                            <div class="form-field form-field--full form-group-p">
+                                <label class="form-field__label form-label-p">
+                                    <input type="checkbox" name="isApproved" value="true" checked style="margin-right: 6px;" />
+                                    Approved for use
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-actions form-actions--end">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add Alternate</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Alternate Item</th>
+                            <th>Type</th>
+                            <th>Rank</th>
+                            <th>Reason</th>
+                            <th>Approved</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (!Model.Alternates.Any())
+                        {
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">No alternate items defined.</td>
+                            </tr>
+                        }
+                        @foreach (var alt in Model.Alternates)
+                        {
+                            <tr>
+                                <td><strong>@alt.AlternateItem?.PartNumber</strong> - @alt.AlternateItem?.Description</td>
+                                <td><span class="badge badge-secondary">@alt.AlternateType</span></td>
+                                <td>@alt.Rank</td>
+                                <td>@(alt.Reason ?? "-")</td>
+                                <td>
+                                    @if (alt.IsApproved)
+                                    {
+                                        <span class="badge badge-success">Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warning">No</span>
+                                    }
+                                </td>
+                                <td>
+                                    <form method="post" asp-page-handler="RemoveAlternate" class="form-inline">
+                                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                                        <input type="hidden" name="alternateItemId" value="@alt.AlternateItemId" />
+                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" style="color: var(--danger);" onclick="return confirm('Remove this alternate?')">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-panel @(activeTab == "supersession" ? "active" : "")" id="panel-supersession" role="tabpanel" aria-labelledby="tab-supersession" @(activeTab != "supersession" ? Html.Raw("hidden") : null)>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 class="text-theme-primary" style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Supersession Chain</h3>
+            </div>
+            
+            @if (Model.SupersededBy != null)
+            {
+                <div class="alert alert-warning" style="margin-bottom: 20px;">
+                    <strong>This item has been superseded.</strong>
+                    Use <a href="/Materials/ItemEdit/@Model.SupersededBy.NewItemId">@Model.SupersededBy.NewItem?.PartNumber</a> instead.
+                    @if (Model.SupersededBy.EffectiveFromUtc.HasValue)
+                    {
+                        <text>Effective from @Model.SupersededBy.EffectiveFromUtc.Value.ToString("yyyy-MM-dd").</text>
+                    }
+                </div>
+            }
+            
+            @if (Model.Supersession != null)
+            {
+                <div class="card" style="padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">This Item Supersedes:</h4>
+                    <p style="margin: 0 0 12px;">
+                        <a href="/Materials/ItemEdit/@Model.Supersession.OldItemId">@Model.Supersession.OldItem?.PartNumber</a> - @Model.Supersession.OldItem?.Description
+                    </p>
+                    @if (Model.Supersession.Reason != null)
+                    {
+                        <p style="margin: 0 0 12px; color: var(--text-muted);">Reason: @Model.Supersession.Reason</p>
+                    }
+                    <form method="post" asp-page-handler="RemoveSupersession">
+                        <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                        <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Remove supersession?')">Remove Supersession</button>
+                    </form>
+                </div>
+            }
+            
+            @if (Model.ResolvedCurrentItem != null && Model.ResolvedCurrentItem.Id != Model.Item?.Id)
+            {
+                <div class="card bg-green-soft" style="padding: 20px; margin-bottom: 20px;">
+                    <h4 class="text-green" style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Resolved Current Item:</h4>
+                    <p style="margin: 0;">
+                        <a href="/Materials/ItemEdit/@Model.ResolvedCurrentItem.Id">@Model.ResolvedCurrentItem.PartNumber</a> - @Model.ResolvedCurrentItem.Description
+                    </p>
+                </div>
+            }
+            
+            @if (Model.SupersededBy == null && Model.Supersession == null)
+            {
+                <div class="form-section">
+                    <div class="form-section__title">
+                        <h3>Supersede This Item</h3>
+                    </div>
+                    <div class="form-section__body">
+                        <form method="post" asp-page-handler="SetSupersession">
+                            <input type="hidden" name="itemId" value="@Model.Item?.Id" />
+                            <div class="form-grid">
+                                <div class="form-field form-group-p">
+                                    <label class="form-field__label form-label-p">New Item <span class="form-field__required" aria-label="required">*</span></label>
+                                    <select name="newItemId" class="form-field__input form-input-p" required data-cherry-select data-placeholder="Search items...">
+                                        <option value="">Select replacement item...</option>
+                                        @foreach (var item in Model.AllItems.Where(i => i.Id != Model.Item?.Id))
+                                        {
+                                            <option value="@item.Id">@item.PartNumber - @item.Description</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="form-field form-group-p">
+                                    <label class="form-field__label form-label-p">Effective Date</label>
+                                    <input type="date" name="effectiveFromUtc" class="form-field__input form-input-p" />
+                                </div>
+                                <div class="form-field form-field--full form-group-p">
+                                    <label class="form-field__label form-label-p">Reason</label>
+                                    <input type="text" name="reason" class="form-field__input form-input-p" placeholder="Reason for supersession" />
+                                </div>
+                            </div>
+                            <div class="form-actions form-actions--end">
+                                <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Mark as Superseded</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('click', function(e) {
+        const splitBtn = document.getElementById('catalogSplitBtn');
+        if (splitBtn && !splitBtn.contains(e.target)) {
+            splitBtn.classList.remove('open');
+        }
+    });
+});
+
+function toggleBuyabilityPanel() {
+    const panel = document.getElementById('buyability-panel');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function switchTab(tabId) {
+    const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+    if (targetBtn) targetBtn.click();
+}
+
+function activateTab(tabId) {
+    const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+    if (targetBtn) targetBtn.click();
+    document.getElementById('panel-' + tabId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function toggleCatalogDropdown() {
+    const splitBtn = document.getElementById('catalogSplitBtn');
+    if (splitBtn) splitBtn.classList.toggle('open');
+}
+
+function closeCatalogDropdown() {
+    const splitBtn = document.getElementById('catalogSplitBtn');
+    if (splitBtn) splitBtn.classList.remove('open');
+}
+
+function highlightPreferredVendor() {
+    const preferredVendorId = @(Model.PreferredAvl?.VendorId ?? 0);
+    if (preferredVendorId > 0) {
+        setTimeout(function() {
+            const rows = document.querySelectorAll('#vpns tbody tr');
+            rows.forEach(row => {
+                const preferredBadge = row.querySelector('.badge-info');
+                if (preferredBadge && preferredBadge.textContent.includes('Preferred')) {
+                    row.style.background = 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)';
+                    row.style.transition = 'background 0.3s ease';
+                    setTimeout(() => {
+                        row.style.background = '';
+                    }, 3000);
+                }
+            });
+        }, 300);
+    }
+}
+
+function openReleaseForm() {
+    const el = document.getElementById('releasePanel');
+    if (el) { el.style.display = ''; el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
+function closeReleaseForm() {
+    const el = document.getElementById('releasePanel');
+    if (el) el.style.display = 'none';
+}
+
+function submitRelease() {
+    const changeReason = document.getElementById('releaseChangeReason').value.trim();
+    if (!changeReason) {
+        alert('Change reason is required to release a revision.');
+        return;
+    }
+    document.getElementById('releaseForm').submit();
+}
+</script>
+}
+
+@if (!Model.IsNew && Model.HasDraft)
+{
+    <div class="inline-form-panel" id="releasePanel" style="display: none;">
+        <div class="inline-form-panel-content">
+            <div class="inline-form-header">
+                <h3>Release Revision @Model.DraftRevision?.RevisionCode</h3>
+                <button type="button" class="inline-form-close" onclick="closeReleaseForm()">&times;</button>
+            </div>
+            <form method="post" asp-page-handler="ReleaseDraft" id="releaseForm">
+                <input type="hidden" name="revisionId" value="@Model.DraftRevision?.Id" />
+                <div class="inline-form-body">
+                    <div class="form-field form-field--full form-group-p">
+                        <label class="form-field__label form-label-p" for="releaseChangeReason">
+                            Change Reason <span class="form-field__required" aria-label="required">*</span>
+                        </label>
+                        <textarea name="changeReason" id="releaseChangeReason" class="form-field__input form-input-p" rows="3" 
+                                  placeholder="Describe what changed in this revision..." required></textarea>
+                        <span class="form-field__help">Required. This will be recorded in the audit trail.</span>
+                    </div>
+                </div>
+                <div class="inline-form-footer">
+                    <button type="button" class="revision-bar-btn revision-bar-btn-secondary" onclick="closeReleaseForm()">Cancel</button>
+                    <button type="button" class="revision-bar-btn revision-bar-btn-success" onclick="submitRelease()">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="14" height="14">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Release Revision
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

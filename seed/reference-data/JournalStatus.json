@@ -1,0 +1,10 @@
+{
+  "lookupKey": "JournalStatus",
+  "name": "Journal Status",
+  "isSystem": true,
+  "values": [
+    { "code": "DRAFT", "name": "Draft", "sortOrder": 1, "isActive": true },
+    { "code": "POSTED", "name": "Posted", "sortOrder": 2, "isActive": true, "metadata": { "IsPosted": true } },
+    { "code": "REVERSED", "name": "Reversed", "sortOrder": 3, "isActive": true, "metadata": { "IsTerminal": true } }
+  ]
+}

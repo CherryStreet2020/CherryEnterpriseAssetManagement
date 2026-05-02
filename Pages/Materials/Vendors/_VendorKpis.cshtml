@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Materials.Vendors.EditModel
+<div class="kpi-card">
+    <div class="kpi-label">Type</div>
+    <div class="kpi-value" style="font-size:14px;">@Model.Vendor.VendorType</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Terms</div>
+    <div class="kpi-value" style="font-size:14px;">@Model.Vendor.PaymentTerms</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Credit Limit</div>
+    <div class="kpi-value money">@(Model.Vendor.CreditLimit > 0 ? Model.Vendor.CreditLimit?.ToString("C0") : "—")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Purchase Orders</div>
+    <div class="kpi-value">@Model.POCount</div>
+</div>

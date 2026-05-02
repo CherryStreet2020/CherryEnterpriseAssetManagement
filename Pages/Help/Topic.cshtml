@@ -1,0 +1,53 @@
+@page
+@model Abs.FixedAssets.Pages.Help.TopicModel
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["TabTitle"] = Model.Title;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = Model.Title,
+        ["Subtitle"] = "Learn about this feature and how to use it effectively",
+        ["TypeLabel"] = "Help Topic",
+        ["StatusText"] = "Documentation",
+        ["StatusTone"] = "info",
+        ["ContextPartial"] = "/Pages/Help/_HelpTopicContext.cshtml",
+        ["KpisPartial"] = "/Pages/Help/_HelpTopicKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Help/_HelpTopicActions.cshtml"
+    };
+}
+
+<link rel="stylesheet" href="/css/help-enterprise.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-body" style="padding: 2rem; line-height: 1.8;">
+        @Html.Raw(Model.Content)
+    </div>
+</div>
+
+@if (Model.RelatedTopics.Any())
+{
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Related Topics
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                @foreach (var topic in Model.RelatedTopics)
+                {
+                    <a href="/Help/Topic?id=@topic.Key" class="hero-btn hero-btn-ghost text-blue" style="background: rgba(59,130,246,0.1);">
+                        @topic.Value
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+}

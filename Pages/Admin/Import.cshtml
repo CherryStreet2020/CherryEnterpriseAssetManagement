@@ -1,0 +1,223 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.ImportModel
+@{
+    ViewData["Title"] = "File Import";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var historyCount = Model.ImportHistory.Count();
+}
+
+<div class="alert alert-warning mb-4 text-dark-amber" style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 8px; background: var(--lux-surface-alt, #fef3cd); border: 1px solid var(--warning, #ffc107);">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <span><strong>Legacy page:</strong> This page is not used in the current workflow. Use <a href="/Admin/DataImport" class="text-dark-amber" style="font-weight: 600;">Master Data Import</a> instead for seed and bootstrap pipelines.</span>
+</div>
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "File Import" },
+        { "Subtitle", "Import data from CSV or Excel files into the system" },
+        { "TypeLabel", "Tools" },
+        { "StatusText", "Legacy" },
+        { "StatusTone", "warning" },
+        { "KpisPartial", "Admin/_AdminImportKpis" },
+        { "ActionsPartial", "Admin/_AdminImportActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import Options
+        </h3>
+        <span class="status-badge info">3 CATEGORIES</span>
+    </div>
+    <div class="section-card-body">
+        <div class="grid grid-cols-3 gap-4">
+            <div class="card">
+                <div class="card-body">
+                    <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-blue" style="display: inline; vertical-align: middle; margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg> Assets</h3>
+                    <p class="text-muted">Import fixed assets with depreciation data</p>
+                    <button class="btn-p btn-p--secondary" onclick="toggleInlineForm('importAssetsForm')">Import Assets</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-amber" style="display: inline; vertical-align: middle; margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg> Items</h3>
+                    <p class="text-muted">Import inventory items and parts</p>
+                    <button class="btn-p btn-p--secondary" onclick="toggleInlineForm('importItemsForm')">Import Items</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body">
+                    <h3><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-green" style="display: inline; vertical-align: middle; margin-right: 8px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> Vendors</h3>
+                    <p class="text-muted">Import vendor master data</p>
+                    <button class="btn-p btn-p--secondary" onclick="toggleInlineForm('importVendorsForm')">Import Vendors</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Import History
+        </h3>
+        <span class="status-badge info">@historyCount RECORDS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.ImportHistory.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>File</th>
+                        <th>Records</th>
+                        <th>Status</th>
+                        <th>User</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var import in Model.ImportHistory)
+                    {
+                        <tr>
+                            <td>@import.Date.ToString("MM/dd/yyyy HH:mm")</td>
+                            <td>@import.Type</td>
+                            <td>@import.FileName</td>
+                            <td>@import.RecordCount</td>
+                            <td><span class="badge @(import.Success ? "badge-success" : "badge-danger")">@(import.Success ? "Success" : "Failed")</span></td>
+                            <td>@import.User</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-upload pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No import history. Import data using the options above to get started.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="inline-form-panel" id="importAssetsForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Import Assets</h3>
+                    <p>Upload CSV or Excel file with asset data</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('importAssetsForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="ImportAssets" enctype="multipart/form-data">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label class="form-label">Select File (CSV or Excel)</label>
+                    <input type="file" name="File" class="form-control" accept=".csv,.xlsx,.xls" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-check">
+                        <input type="checkbox" name="HasHeader" checked />
+                        First row contains headers
+                    </label>
+                </div>
+                <div class="alert alert-info">
+                    <strong>Required columns:</strong> AssetTag, Description, AcquisitionDate, AcquisitionCost
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('importAssetsForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Import</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="inline-form-panel" id="importItemsForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Import Items</h3>
+                    <p>Upload CSV or Excel file with inventory items</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('importItemsForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="ImportItems" enctype="multipart/form-data">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label class="form-label">Select File (CSV or Excel)</label>
+                    <input type="file" name="File" class="form-control" accept=".csv,.xlsx,.xls" required />
+                </div>
+                <div class="alert alert-info">
+                    <strong>Required columns:</strong> PartNumber, Description, UnitCost
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('importItemsForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Import</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="inline-form-panel" id="importVendorsForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Import Vendors</h3>
+                    <p>Upload CSV or Excel file with vendor data</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('importVendorsForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="ImportVendors" enctype="multipart/form-data">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label class="form-label">Select File (CSV or Excel)</label>
+                    <input type="file" name="File" class="form-control" accept=".csv,.xlsx,.xls" required />
+                </div>
+                <div class="alert alert-info">
+                    <strong>Required columns:</strong> VendorCode, Name, Email
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('importVendorsForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Import</button>
+            </div>
+        </form>
+    </div>
+</div>

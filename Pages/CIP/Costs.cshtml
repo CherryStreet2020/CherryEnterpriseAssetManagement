@@ -1,0 +1,76 @@
+@page
+@model Abs.FixedAssets.Pages.CIP.CostsModel
+@{
+    ViewData["Title"] = "Cost Analysis";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Cost Analysis" },
+        { "Subtitle", "Analyze costs across all capital improvement projects" },
+        { "TypeLabel", "Finance" },
+        { "StatusText", $"{Model.TotalCosts} Costs" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "CIP/_CipCostsKpis" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h2 class="section-card-title">Project Costs Summary</h2>
+        <a href="/CIP" class="btn-p btn-p--secondary">View All Projects</a>
+    </div>
+    <div class="section-card-body">
+        @if (!Model.ProjectCosts.Any())
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No costs recorded. Start by adding costs to your capital projects.</div>
+                <a href="/CIP" class="btn-p btn-p--primary" style="margin-top:0.75rem;">Go to Capital Projects</a>
+            </div>
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th class="text-right">Costs</th>
+                        <th class="text-right">Total Amount</th>
+                        <th class="text-right">Capitalizable</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var project in Model.ProjectCosts)
+                    {
+                        <tr>
+                            <td>
+                                <div class="flex flex-col">
+                                    <span class="font-medium">@project.ProjectNumber</span>
+                                    <span class="text-muted text-sm">@project.Name</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge @(project.Status == "Active" ? "badge-success" : project.Status == "Planned" ? "badge-info" : "badge-secondary")">
+                                    @project.Status
+                                </span>
+                            </td>
+                            <td class="text-right">@project.CostCount</td>
+                            <td class="text-right font-medium">@project.TotalAmount.ToString("C0")</td>
+                            <td class="text-right">@project.CapitalizableAmount.ToString("C0")</td>
+                            <td class="text-right">
+                                <a href="/CIP/Details/@project.ProjectId" class="btn-p btn-p--secondary btn-p--sm">View Details</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

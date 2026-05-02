@@ -1,0 +1,573 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Maintenance.Technicians.ProfileModel
+@{
+    ViewData["Title"] = Model.Tech.Name;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var activeTab = Model.Tab.ToLowerInvariant();
+    var initials = string.Join("", Model.Tech.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpper();
+    var hasPhoto = !string.IsNullOrEmpty(Model.Tech.PhotoPath);
+    var statusText = Model.Tech.Active ? "Active" : "Inactive";
+    var statusTone = Model.Tech.Active ? "success" : "muted";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/modules/technicians.css" asp-append-version="true" />
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.Tech.Name,
+        ["Subtitle"] = Model.Tech.Title ?? "Technician",
+        ["TypeLabel"] = "Technician Profile",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["Breadcrumbs"] = new (string, string)[] { ("Maintenance", "/Maintenance"), ("Technicians", "/Maintenance/Technicians"), (Model.Tech.Name, "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Maintenance/Technicians",
+        ["BackLinkLabel"] = "Back to Technicians"
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="tech-profile-hero">
+    <div class="tech-profile-hero__left">
+        <div class="tech-avatar tech-avatar--xl">
+            @if (hasPhoto)
+            {
+                <img src="@Model.Tech.PhotoPath" alt="@Model.Tech.Name" />
+            }
+            else
+            {
+                <span class="tech-avatar__initials">@initials</span>
+            }
+        </div>
+        <div class="tech-profile-hero__info">
+            <h2 class="tech-profile-hero__name">@Model.Tech.Name</h2>
+            <p class="tech-profile-hero__title">@(Model.Tech.Title ?? "Technician")</p>
+            <div class="tech-profile-hero__meta">
+                @if (!string.IsNullOrEmpty(Model.Tech.EmployeeId))
+                {
+                    <span class="tech-meta-tag"><i class="fas fa-id-badge"></i> @Model.Tech.EmployeeId</span>
+                }
+                @if (Model.Tech.Site != null)
+                {
+                    <span class="tech-meta-tag"><i class="fas fa-map-marker-alt"></i> @Model.Tech.Site.Name</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.Tech.ShiftPattern))
+                {
+                    <span class="tech-meta-tag"><i class="fas fa-clock"></i> @Model.Tech.ShiftPattern</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.Tech.PrimaryCraft))
+                {
+                    <span class="tech-craft-badge">@Model.Tech.PrimaryCraft</span>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="tech-profile-hero__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Completed WOs</div>
+            <div class="kpi-value">@Model.CompletedWoCount</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Open WOs</div>
+            <div class="kpi-value @(Model.OpenWoCount > 0 ? "kpi-warning" : "")">@Model.OpenWoCount</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Labor Hours</div>
+            <div class="kpi-value">@Model.TotalLaborHours.ToString("0.0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Active Certs</div>
+            <div class="kpi-value">@Model.ActiveCertCount</div>
+        </div>
+    </div>
+    <div class="tech-profile-hero__actions">
+        <form method="post" asp-page-handler="ToggleActive" asp-route-id="@Model.Tech.Id">
+            <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                @(Model.Tech.Active ? "Deactivate" : "Activate")
+            </button>
+        </form>
+    </div>
+</div>
+
+@await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+    { "TabId", "tech-profile-tabs" },
+    { "Mode", "button" },
+    { "UrlParam", "tab" },
+    { "AriaLabel", "Technician profile tabs" },
+    { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+        ("skills", "Skills & Certifications", activeTab == "skills", (Model.Skills.Count + Model.Certifications.Count) > 0 ? Model.Skills.Count + Model.Certifications.Count : (int?)null, null),
+        ("history", "Work History", activeTab == "history", Model.RecentWorkOrders.Count > 0 ? Model.RecentWorkOrders.Count : (int?)null, null),
+        ("availability", "Availability", activeTab == "availability", null, null),
+        ("contact", "Contact & HR", activeTab == "contact", null, null)
+    }}
+})
+
+<div class="tab-panel @(activeTab == "skills" ? "active" : "")" id="panel-skills" role="tabpanel" aria-labelledby="tab-skills" @(activeTab != "skills" ? Html.Raw("hidden") : null)>
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Certifications (@Model.Certifications.Count)</h3>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="AddCertification" asp-route-id="@Model.Tech.Id" class="tech-inline-form">
+                <div class="form-grid form-grid--3">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Name <span class="required">*</span></label>
+                        <input type="text" name="CertName" class="form-input-p" required placeholder="e.g. Red Seal" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Certificate #</label>
+                        <input type="text" name="CertNumber" class="form-input-p" placeholder="Certificate number" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Issuing Authority</label>
+                        <input type="text" name="CertAuthority" class="form-input-p" placeholder="e.g. TSSA" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Issue Date</label>
+                        <input type="date" name="CertIssueDate" class="form-input-p" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Expiration Date</label>
+                        <input type="date" name="CertExpirationDate" class="form-input-p" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">&nbsp;</label>
+                        <div class="tech-inline-form__actions">
+                            <label class="form-check-label-p"><input type="checkbox" name="CertIsRequired" value="true" /> Required</label>
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add Certification</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            @if (Model.Certifications.Any())
+            {
+                <div class="table-responsive">
+                    <table class="data-table premium-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Certificate #</th>
+                                <th>Authority</th>
+                                <th>Issue Date</th>
+                                <th>Expiration</th>
+                                <th>Required</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cert in Model.Certifications)
+                            {
+                                var isExpired = cert.ExpirationDate.HasValue && cert.ExpirationDate < DateTime.UtcNow;
+                                var isExpiringSoon = cert.ExpirationDate.HasValue && cert.ExpirationDate < DateTime.UtcNow.AddDays(90) && !isExpired;
+                                <tr>
+                                    <td class="font-medium">@cert.Name</td>
+                                    <td>@(cert.CertificateNumber ?? "-")</td>
+                                    <td>@(cert.IssuingAuthority ?? "-")</td>
+                                    <td>@(cert.IssueDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                                    <td>
+                                        @if (cert.ExpirationDate.HasValue)
+                                        {
+                                            <span class="@(isExpired ? "text-danger" : isExpiringSoon ? "text-warning" : "")">
+                                                @cert.ExpirationDate.Value.ToString("MMM dd, yyyy")
+                                                @if (isExpired) { <span class="badge badge-danger">Expired</span> }
+                                                else if (isExpiringSoon) { <span class="badge badge-warning">Expiring</span> }
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span>No Expiry</span>
+                                        }
+                                    </td>
+                                    <td>@(cert.IsRequired ? "Yes" : "No")</td>
+                                    <td>
+                                        <form method="post" asp-page-handler="RemoveCertification" asp-route-id="@Model.Tech.Id" asp-route-certId="@cert.Id">
+                                            <button type="submit" class="btn-p btn-p--ghost btn-p--sm text-danger" title="Remove">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="pe-empty">
+                    <div class="pe-empty__icon">&#128203;</div>
+                    <h4 class="pe-empty__title">No Certifications</h4>
+                    <p class="pe-empty__text">Add certifications using the form above.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="pe-card" style="margin-top: 1.5rem;">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--green"></span>Skills (@Model.Skills.Count)</h3>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="AddSkill" asp-route-id="@Model.Tech.Id" class="tech-inline-form">
+                <div class="form-grid form-grid--4">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Skill Name <span class="required">*</span></label>
+                        <input type="text" name="SkillName" class="form-input-p" required placeholder="e.g. PLC Programming" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Category</label>
+                        <input type="text" name="SkillCategory" class="form-input-p" placeholder="e.g. Electrical" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Proficiency (1-5)</label>
+                        <select name="SkillProficiency" class="form-input-p">
+                            <option value="1">1 — Beginner</option>
+                            <option value="2">2 — Basic</option>
+                            <option value="3" selected>3 — Intermediate</option>
+                            <option value="4">4 — Advanced</option>
+                            <option value="5">5 — Expert</option>
+                        </select>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">&nbsp;</label>
+                        <div class="tech-inline-form__actions">
+                            <label class="form-check-label-p"><input type="checkbox" name="SkillIsCertified" value="true" /> Certified</label>
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add Skill</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            @if (Model.Skills.Any())
+            {
+                <div class="table-responsive">
+                    <table class="data-table premium-table">
+                        <thead>
+                            <tr>
+                                <th>Skill</th>
+                                <th>Category</th>
+                                <th>Proficiency</th>
+                                <th>Certified</th>
+                                <th>Last Assessed</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var skill in Model.Skills)
+                            {
+                                <tr>
+                                    <td class="font-medium">@skill.SkillName</td>
+                                    <td>@(skill.Category ?? "-")</td>
+                                    <td>
+                                        <div class="tech-proficiency">
+                                            <div class="tech-proficiency__bar">
+                                                <div class="tech-proficiency__fill tech-proficiency__fill--@skill.ProficiencyLevel" style="width: @(skill.ProficiencyLevel * 20)%;"></div>
+                                            </div>
+                                            <span class="tech-proficiency__label">@skill.ProficiencyLevel/5</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (skill.IsCertified)
+                                        {
+                                            <span class="badge badge-success">Yes</span>
+                                        }
+                                        else
+                                        {
+                                            <span>No</span>
+                                        }
+                                    </td>
+                                    <td>@(skill.LastAssessedDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                                    <td>
+                                        <form method="post" asp-page-handler="RemoveSkill" asp-route-id="@Model.Tech.Id" asp-route-skillId="@skill.Id">
+                                            <button type="submit" class="btn-p btn-p--ghost btn-p--sm text-danger" title="Remove">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="pe-empty">
+                    <div class="pe-empty__icon">&#128736;</div>
+                    <h4 class="pe-empty__title">No Skills Recorded</h4>
+                    <p class="pe-empty__text">Add skills using the form above.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="tab-panel @(activeTab == "history" ? "active" : "")" id="panel-history" role="tabpanel" aria-labelledby="tab-history" @(activeTab != "history" ? Html.Raw("hidden") : null)>
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Recent Work Orders (@Model.RecentWorkOrders.Count)</h3>
+        </div>
+        <div class="pe-card__body">
+            @if (Model.RecentWorkOrders.Any())
+            {
+                <div class="table-responsive">
+                    <table class="data-table premium-table">
+                        <thead>
+                            <tr>
+                                <th>WO #</th>
+                                <th>Asset</th>
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Scheduled</th>
+                                <th>Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var wo in Model.RecentWorkOrders)
+                            {
+                                <tr class="datagrid-row-clickable" data-href="/Maintenance/Details/@wo.Id">
+                                    <td class="font-medium">
+                                        <a href="/Maintenance/Details/@wo.Id">@(wo.WorkOrderNumber ?? $"#{wo.Id}")</a>
+                                    </td>
+                                    <td>@(wo.Asset?.AssetNumber ?? "-")</td>
+                                    <td>@wo.Description</td>
+                                    <td>@wo.Type</td>
+                                    <td>
+                                        <span class="badge @(wo.Priority == MaintenancePriority.Critical ? "badge-danger" : wo.Priority == MaintenancePriority.High ? "badge-warning" : "badge-neutral")">
+                                            @wo.Priority
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge @(wo.Status == MaintenanceStatus.Completed ? "badge-success" : wo.Status == MaintenanceStatus.InProgress ? "badge-warning" : "badge-neutral")">
+                                            @wo.Status
+                                        </span>
+                                    </td>
+                                    <td>@wo.ScheduledDate.ToString("MMM dd, yyyy")</td>
+                                    <td>@(wo.LaborHours?.ToString("0.0") ?? "-")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="pe-empty">
+                    <div class="pe-empty__icon">&#128203;</div>
+                    <h4 class="pe-empty__title">No Work Orders</h4>
+                    <p class="pe-empty__text">No work orders have been assigned to this technician.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="tab-panel @(activeTab == "availability" ? "active" : "")" id="panel-availability" role="tabpanel" aria-labelledby="tab-availability" @(activeTab != "availability" ? Html.Raw("hidden") : null)>
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--green"></span>Shift & Availability</h3>
+        </div>
+        <div class="pe-card__body">
+            <div class="wo-detail-grid">
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Shift Pattern</span>
+                    <span class="wo-detail-value">@(Model.Tech.ShiftPattern ?? "Not Set")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Shift Start</span>
+                    <span class="wo-detail-value">@(Model.Tech.ShiftStart?.ToString("hh\\:mm tt") ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Shift End</span>
+                    <span class="wo-detail-value">@(Model.Tech.ShiftEnd?.ToString("hh\\:mm tt") ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Status</span>
+                    <span class="wo-detail-value">
+                        <span class="status-pill tone-@statusTone">@statusText</span>
+                    </span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Hourly Rate</span>
+                    <span class="wo-detail-value">@(Model.Tech.HourlyRate?.ToString("C2") ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Overtime Rate</span>
+                    <span class="wo-detail-value">@(Model.Tech.OvertimeRate?.ToString("C2") ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Double Time Rate</span>
+                    <span class="wo-detail-value">@(Model.Tech.DoubleTimeRate?.ToString("C2") ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Primary Craft</span>
+                    <span class="wo-detail-value">@(Model.Tech.PrimaryCraft ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Secondary Craft</span>
+                    <span class="wo-detail-value">@(Model.Tech.SecondaryCraft ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Proficiency Level</span>
+                    <span class="wo-detail-value">
+                        <div class="tech-proficiency">
+                            <div class="tech-proficiency__bar">
+                                <div class="tech-proficiency__fill tech-proficiency__fill--@Model.Tech.ProficiencyLevel" style="width: @(Model.Tech.ProficiencyLevel * 20)%;"></div>
+                            </div>
+                            <span class="tech-proficiency__label">@Model.Tech.ProficiencyLevel/5</span>
+                        </div>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="tab-panel @(activeTab == "contact" ? "active" : "")" id="panel-contact" role="tabpanel" aria-labelledby="tab-contact" @(activeTab != "contact" ? Html.Raw("hidden") : null)>
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Contact Information</h3>
+        </div>
+        <div class="pe-card__body">
+            <div class="wo-detail-grid">
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Email</span>
+                    <span class="wo-detail-value">
+                        @if (!string.IsNullOrEmpty(Model.Tech.Email))
+                        {
+                            <a href="mailto:@Model.Tech.Email">@Model.Tech.Email</a>
+                        }
+                        else
+                        {
+                            @:-
+                        }
+                    </span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Phone</span>
+                    <span class="wo-detail-value">@(Model.Tech.Phone ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Company</span>
+                    <span class="wo-detail-value">@(Model.Tech.Company?.Name ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Site</span>
+                    <span class="wo-detail-value">@(Model.Tech.Site?.Name ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Department</span>
+                    <span class="wo-detail-value">@(Model.Tech.Department ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Employee ID</span>
+                    <span class="wo-detail-value">@(Model.Tech.EmployeeId ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Hire Date</span>
+                    <span class="wo-detail-value">@(Model.Tech.HireDate?.ToString("MMM dd, yyyy") ?? "-")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card" style="margin-top: 1.5rem;">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--red"></span>Emergency Contact</h3>
+        </div>
+        <div class="pe-card__body">
+            <div class="wo-detail-grid">
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Name</span>
+                    <span class="wo-detail-value">@(Model.Tech.EmergencyContactName ?? "-")</span>
+                </div>
+                <div class="wo-detail-item">
+                    <span class="wo-detail-label">Phone</span>
+                    <span class="wo-detail-value">@(Model.Tech.EmergencyContactPhone ?? "-")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card" style="margin-top: 1.5rem;">
+        <div class="pe-card__header">
+            <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Edit Profile</h3>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="EditProfile" asp-route-id="@Model.Tech.Id">
+                <div class="form-grid form-grid--2">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Name <span class="required">*</span></label>
+                        <input type="text" name="EditName" class="form-input-p" value="@Model.Tech.Name" required />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Title</label>
+                        <input type="text" name="EditTitle" class="form-input-p" value="@Model.Tech.Title" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Email</label>
+                        <input type="email" name="EditEmail" class="form-input-p" value="@Model.Tech.Email" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Phone</label>
+                        <input type="text" name="EditPhone" class="form-input-p" value="@Model.Tech.Phone" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Primary Craft</label>
+                        <input type="text" name="EditPrimaryCraft" class="form-input-p" value="@Model.Tech.PrimaryCraft" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Secondary Craft</label>
+                        <input type="text" name="EditSecondaryCraft" class="form-input-p" value="@Model.Tech.SecondaryCraft" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Shift Pattern</label>
+                        <input type="text" name="EditShiftPattern" class="form-input-p" value="@Model.Tech.ShiftPattern" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Emergency Contact Name</label>
+                        <input type="text" name="EditEmergencyContactName" class="form-input-p" value="@Model.Tech.EmergencyContactName" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Emergency Contact Phone</label>
+                        <input type="text" name="EditEmergencyContactPhone" class="form-input-p" value="@Model.Tech.EmergencyContactPhone" />
+                    </div>
+                </div>
+                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                    <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="pe-card" style="margin-top: 1.5rem;">
+        <div class="pe-card__header">
+            <h3 class="card-title">Upload Photo</h3>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="UploadPhoto" asp-route-id="@Model.Tech.Id" enctype="multipart/form-data">
+                <div class="form-grid form-grid--2">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Photo</label>
+                        <input type="file" name="photo" class="form-input-p" accept="image/jpeg,image/png,image/webp" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">&nbsp;</label>
+                        <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Upload</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tabs.js" asp-append-version="true"></script>
+}

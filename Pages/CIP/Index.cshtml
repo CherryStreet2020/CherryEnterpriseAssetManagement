@@ -1,0 +1,287 @@
+@page
+@model Abs.FixedAssets.Pages.CIP.IndexModel
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = UiTerms.CapitalProjects;
+    ViewData["TabTitle"] = UiTerms.CIPPlural;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Construction in Progress" },
+        { "Subtitle", "Track capital projects from planning through capitalization" },
+        { "TypeLabel", "Capital Projects" },
+        { "StatusText", $"{Model.Stats.ActiveProjects} Active" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "CIP/_CipIndexKpis" },
+        { "ActionsPartial", "CIP/_CipIndexActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div id="newProjectInline" class="pe-card" style="display: none; margin-bottom: 1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">New CIP Project</span>
+        <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('newProjectInline')">&times;</button>
+    </div>
+    <form method="post" asp-page-handler="CreateProject">
+        <div class="pe-card__body">
+            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Number</label>
+                    <input type="text" name="projectNumber" class="form-input-p" required placeholder="e.g., CIP-2026-001" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Name</label>
+                    <input type="text" name="name" class="form-input-p" required placeholder="e.g., New Production Line" />
+                </div>
+            </div>
+            <div class="form-group-p" style="margin-bottom: 1rem;">
+                <label class="form-label-p">Description</label>
+                <textarea name="description" class="form-input-p" rows="2" placeholder="Project description..."></textarea>
+            </div>
+            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Start Date</label>
+                    <input type="date" name="startDate" class="form-input-p" required />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Est. Completion</label>
+                    <input type="date" name="estimatedCompletionDate" class="form-input-p" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Budget Amount</label>
+                    <div class="input-group-currency">
+                        <span class="currency-prefix">$</span>
+                        <input type="number" name="budgetAmount" class="form-input-p" step="0.01" min="0" required placeholder="0.00" />
+                    </div>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Location</label>
+                    <select name="location" class="form-input-p" data-cherry-select data-placeholder="Search locations...">
+                        <option value="">-- Select Location --</option>
+                        @foreach (var loc in Model.Locations)
+                        {
+                            <option value="@loc.Name">@loc.Code - @loc.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid form-grid--3" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Manager</label>
+                    <select name="projectManagerId" class="form-input-p">
+                        <option value="">-- Select Project Manager --</option>
+                        @foreach (var pm in Model.ProjectManagers)
+                        {
+                            <option value="@pm.Id">@pm.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Department</label>
+                    <select name="department" class="form-input-p">
+                        <option value="">-- Select Department --</option>
+                        @foreach (var dept in Model.Departments)
+                        {
+                            <option value="@dept.Name">@dept.Code - @dept.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">GL Account</label>
+                    <select name="glAccount" class="form-input-p" data-cherry-select data-placeholder="Search GL accounts...">
+                        <option value="">-- Select GL Account --</option>
+                        @foreach (var gl in Model.GlAccounts)
+                        {
+                            <option value="@gl.AccountNumber">@gl.AccountNumber - @gl.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="pe-card__footer">
+            <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('newProjectInline')">Cancel</button>
+            <button type="submit" class="btn-p btn-p--primary">Create Project</button>
+        </div>
+    </form>
+</div>
+
+<div class="quick-stats-row-4">
+    <a href="/CIP" class="quick-stat-card clickable @(Model.Filter == null ? "stat-active" : "")">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.Stats.TotalProjects</div>
+            <div class="quick-stat-label">Total Projects</div>
+        </div>
+    </a>
+    <a href="/CIP?filter=active" class="quick-stat-card clickable @(Model.Filter == "active" ? "stat-active" : "")">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Model.Stats.ActiveProjects</div>
+            <div class="quick-stat-label">Active Projects</div>
+        </div>
+    </a>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Model.Stats.TotalBudget.ToString("C0")</div>
+            <div class="quick-stat-label">Total Budget</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value info">@Model.Stats.TotalSpent.ToString("C0")</div>
+            <div class="quick-stat-label">Total Spent</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            @Model.FilterLabel
+        </h3>
+        @if (Model.Filter != null)
+        {
+            <a href="/CIP" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Clear Filter
+            </a>
+        }
+    </div>
+    @if (Model.Projects.Any())
+    {
+        <div class="section-card-body pe-card__body" style="padding: 0;">
+            @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+            <table class="data-table premium-table" id="cipGrid" data-enhanced-grid="true" data-row-click="true">
+                <thead>
+                    <tr>
+                        <th style="width: 110px;" data-col="Project #" data-filter="text">Project #</th>
+                        <th style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
+                        <th style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|OnHold|Capitalized|Cancelled">Status</th>
+                        <th style="width: 100px;" data-col="Start Date" data-filter="text">Start Date</th>
+                        <th style="width: 110px;" data-col="Est. Completion" data-filter="text">Est. Completion</th>
+                        <th style="width: 110px; text-align: right;" data-col="Budget" data-filter="number">Budget</th>
+                        <th style="width: 110px; text-align: right;" data-col="Spent" data-filter="number">Spent</th>
+                        <th style="width: 100px;" data-col="% Budget" data-filter="none">% Budget</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var project in Model.Projects)
+                    {
+                        var percentComplete = project.BudgetAmount > 0 ? (project.TotalCosts / project.BudgetAmount * 100) : 0;
+                        <tr data-row-id="@project.Id" data-row-href="@Url.Page("/CIP/Details", new { id = project.Id, returnUrl = returnUrl })">
+                            <td><strong class="text-primary">@project.ProjectNumber</strong></td>
+                            <td style="font-weight: 500;">@project.Name</td>
+                            <td>
+                                <span class="badge @(project.Status == CipProjectStatus.Active ? "badge-success" : project.Status == CipProjectStatus.Capitalized ? "badge-primary" : project.Status == CipProjectStatus.OnHold ? "badge-warning" : "badge-neutral")">
+                                    @project.Status
+                                </span>
+                            </td>
+                            <td style="white-space: nowrap;">@project.StartDate.ToString("MM/dd/yyyy")</td>
+                            <td style="white-space: nowrap;">@(project.EstimatedCompletionDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                            <td style="text-align: right; font-weight: 600;">@project.BudgetAmount.ToString("C2")</td>
+                            <td style="text-align: right; font-weight: 500;">@project.TotalCosts.ToString("C2")</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: @Math.Min(percentComplete, 100)%"></div>
+                                </div>
+                                <span class="text-muted">@percentComplete.ToString("F0")%</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="pe-empty" style="padding:1.5rem;">
+            <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty__text">No CIP projects. Start tracking your capital projects here.</div>
+        </div>
+    }
+</div>
+
+@functions {
+    static string[] _tileColors = new[] { "#3b82f6", "#8b5cf6", "#06b6d4", "#f59e0b", "#22c55e", "#ec4899", "#6366f1", "#14b8a6", "#ef4444", "#0891b2", "#f97316", "#64748b" };
+    static string GetTileColor(int index) => _tileColors[index % _tileColors.Length];
+    static string GetDefaultIcon() => "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4";
+}
+
+<div class="content-section">
+    <div class="section-header">
+        <h2>Cost Types</h2>
+    </div>
+    <div class="cost-types-grid">
+        @{ var tileIndex = 0; }
+        @foreach (var lv in Model.CipCostTypeLookups)
+        {
+            var amount = Model.CostsByLookupId.ContainsKey(lv.Id) ? Model.CostsByLookupId[lv.Id] : 0m;
+            var color = GetTileColor(tileIndex);
+            var filterParam = Model.Filter != null ? $"&filter={Model.Filter}" : "";
+            var costTypeReturnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
+            <a href="/CIP/CostTypeDetails?lookupValueId=@lv.Id@filterParam&returnUrl=@Uri.EscapeDataString(costTypeReturnUrl)" class="cost-type-card" style="--cost-color: @color;">
+                <div class="cost-type-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@GetDefaultIcon()" />
+                    </svg>
+                </div>
+                <div class="cost-type-content">
+                    <div class="cost-type-name">@lv.Name</div>
+                    <div class="cost-type-amount">@amount.ToString("C2")</div>
+                </div>
+            </a>
+            tileIndex++;
+        }
+    </div>
+</div>
+
+
+
+@section Scripts {
+<script>
+function toggleInlineForm(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        if (el.style.display === 'block') el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    initEnhancedGrid('cipGrid', {
+        searchable: true,
+        sortable: true,
+        exportable: true,
+        columnVisibility: true,
+        clickableRows: true
+    });
+});
+</script>
+}

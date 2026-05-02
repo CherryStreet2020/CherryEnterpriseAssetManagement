@@ -1,0 +1,241 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.ManufacturersModel
+@{
+    ViewData["Title"] = "Manufacturers";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalManufacturers = Model.Manufacturers.Count;
+    var activeManufacturers = Model.Manufacturers.Count(m => m.Active);
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Manufacturers",
+        ["Subtitle"] = "Manage equipment manufacturers for parts and assets",
+        ["TypeLabel"] = "Administration",
+        ["StatusText"] = $"{activeManufacturers} Active",
+        ["StatusTone"] = "active",
+        ["ContextPartial"] = "/Pages/Admin/_AdminManufacturersContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_AdminManufacturersKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_AdminManufacturersActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            All Manufacturers
+        </h3>
+        <span class="status-badge info">@totalManufacturers MANUFACTURERS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Website</th>
+                    <th>Country</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var mfr in Model.Manufacturers)
+                {
+                    <tr>
+                        <td><strong>@mfr.Name</strong></td>
+                        <td>@(mfr.Website ?? "-")</td>
+                        <td>@(mfr.Country ?? "-")</td>
+                        <td>@(mfr.ContactName ?? "-")</td>
+                        <td>
+                            @if (mfr.Active)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">Inactive</span>
+                            }
+                        </td>
+                        <td class="actions-cell">
+                            <button type="button" class="btn-p btn-p--secondary btn-p--sm" 
+                                onclick="editManufacturer(@mfr.Id, '@mfr.Name.Replace("'", "\\'")', '@(mfr.Website ?? "")', '@(mfr.Country ?? "")', '@(mfr.ContactName?.Replace("'", "\\'") ?? "")', '@(mfr.ContactEmail ?? "")', '@(mfr.ContactPhone ?? "")', '@(mfr.Address?.Replace("'", "\\'") ?? "")', '@(mfr.Notes?.Replace("'", "\\'").Replace("\n", "\\n") ?? "")', @mfr.Active.ToString().ToLower())">Edit</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="createForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Add Manufacturer</h3>
+                    <p>Create a new equipment manufacturer</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('createForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Company Information</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Name *</label>
+                            <input type="text" name="name" class="form-control" required maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Website</label>
+                            <input type="text" name="website" class="form-control" maxlength="200" placeholder="https://..." />
+                        </div>
+                        <div class="form-group">
+                            <label>Country</label>
+                            <input type="text" name="country" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Address</label>
+                            <input type="text" name="address" class="form-control" maxlength="500" />
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Contact Information</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Contact Name</label>
+                            <input type="text" name="contactName" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Email</label>
+                            <input type="email" name="contactEmail" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Phone</label>
+                            <input type="text" name="contactPhone" class="form-control" maxlength="30" />
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" maxlength="500"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('createForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Manufacturer</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Edit Manufacturer</h3>
+                    <p>Update manufacturer details</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" id="editManufacturerId" name="manufacturerId" />
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Company Information</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Name *</label>
+                            <input type="text" id="editName" name="name" class="form-control" required maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Website</label>
+                            <input type="text" id="editWebsite" name="website" class="form-control" maxlength="200" />
+                        </div>
+                        <div class="form-group">
+                            <label>Country</label>
+                            <input type="text" id="editCountry" name="country" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Address</label>
+                            <input type="text" id="editAddress" name="address" class="form-control" maxlength="500" />
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Contact Information</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Contact Name</label>
+                            <input type="text" id="editContactName" name="contactName" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Email</label>
+                            <input type="email" id="editContactEmail" name="contactEmail" class="form-control" maxlength="100" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Phone</label>
+                            <input type="text" id="editContactPhone" name="contactPhone" class="form-control" maxlength="30" />
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="editActive" name="active" class="form-control" asp-items="Model.ActiveInactiveOptions"></select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Notes</label>
+                            <textarea id="editNotes" name="notes" class="form-control" rows="2" maxlength="500"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editManufacturer(id, name, website, country, contactName, contactEmail, contactPhone, address, notes, active) {
+    document.getElementById('editManufacturerId').value = id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editWebsite').value = website;
+    document.getElementById('editCountry').value = country;
+    document.getElementById('editContactName').value = contactName;
+    document.getElementById('editContactEmail').value = contactEmail;
+    document.getElementById('editContactPhone').value = contactPhone;
+    document.getElementById('editAddress').value = address;
+    document.getElementById('editNotes').value = notes;
+    document.getElementById('editActive').value = active.toString();
+    toggleInlineForm('editForm');
+}
+</script>

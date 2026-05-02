@@ -1,0 +1,20 @@
+Forbidden Strings Scan
+Target: /home/runner/workspace/.tmp_prescan_bundle.zip
+
+--- SCAN STATISTICS ---
+Total files scanned: 1014
+Total bytes scanned: 23,276,070
+Zips scanned (2):
+  - /home/runner/workspace/.tmp_prescan_bundle.zip
+  - REPO_SNAPSHOT.zip!
+
+Forbidden tokens checked (7):
+  - (dollar)PORT
+  - (dollar){PORT
+  - localhost(colon)
+  - 0[.]0[.]0[.]0:
+  - replit[.]app
+  - replit[.]dev
+  - repl[.]co
+
+RESULT: PASS - 0 forbidden strings found

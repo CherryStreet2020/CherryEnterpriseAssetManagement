@@ -1,0 +1,212 @@
+/* ==========================================================================
+   ABS Fixed Assets — GLOBAL DARK THEME
+   Works with Bootstrap, keeps strong contrast, and fixes footer layout.
+   ========================================================================== */
+
+/* ---- Dark palette ------------------------------------------------------- */
+:root{
+  /* Base */
+  --bg: var(--surface-app, #0b1220);
+  --surface: var(--surface-primary, #0f172a);
+  --surface-2: var(--surface-primary, #111827);
+  --border: var(--border-primary, #1f2937);
+  --text: var(--text-primary, #e5e7eb);
+  --muted: var(--text-muted, #94a3b8);
+  --link: #93c5fd;
+  --link-hover: #bfdbfe;
+  --accent: #60a5fa;
+  --accent-strong: var(--info, #3b82f6);
+
+  /* Map to Bootstrap tokens so components inherit correctly */
+  --bs-body-bg: var(--bg);
+  --bs-body-color: var(--text);
+  --bs-primary: var(--accent-strong);
+  --bs-secondary: var(--text-muted, #64748b);
+  --bs-success: var(--success, #22c55e);
+  --bs-info: #38bdf8;
+  --bs-warning: var(--warning, #f59e0b);
+  --bs-danger: var(--danger, #ef4444);
+  --bs-light: var(--border-primary, #1f2937);
+  --bs-dark: var(--surface-app, #0b1220);
+}
+
+/* ---- Global ------------------------------------------------------------- */
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Layout fix: make footer sit at the real bottom, never float mid-page */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* neutralize any light backgrounds from older CSS */
+body, .app, .page, .content, .wrapper {
+  background: var(--bg);
+  background-image: none;
+  color: var(--text);
+}
+
+/* Ensure main content grows and footer is pushed down */
+main[role="main"] { flex: 1 0 auto; }
+
+/* Links */
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--link-hover); text-decoration: underline; }
+
+/* ---- Navbar ------------------------------------------------------------- */
+.navbar,
+.navbar-dark,
+.navbar-expand,
+.navbar-expand-lg,
+.navbar-expand-md{
+  background: linear-gradient(180deg, var(--surface-app, #0d1527) 0%, var(--surface-app, #0b1220) 100%);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+.navbar .navbar-brand,
+.navbar .nav-link { color: var(--text); }
+.navbar .nav-link:hover { color: var(--link-hover); }
+
+/* ---- Cards / sections --------------------------------------------------- */
+.card,
+.panel,
+.box,
+.widget,
+.shadow-card,
+.section-card{
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: .75rem;
+}
+
+/* Optional "hero" look for big top panels */
+.panel-hero{
+  background: radial-gradient(1200px 400px at 20% -10%, rgba(59,130,246,.15), transparent 60%),
+              radial-gradient(1000px 500px at 80% -20%, rgba(14,165,233,.12), transparent 60%),
+              linear-gradient(180deg, var(--surface-app, #0e162b) 0%, var(--surface-app, #0b1220) 100%);
+  border: 1px solid var(--border);
+  border-radius: .9rem;
+}
+
+/* ---- Tables (readability boost) ---------------------------------------- */
+table, .table{
+  background: var(--surface);
+  color: var(--text-primary, #e9eef7);
+  border-color: var(--border);
+}
+.table thead th{
+  background: var(--surface-primary, #0f172a);
+  color: var(--text-inverse, #f7fbff);
+  border-bottom: 1px solid var(--border);
+}
+.table tbody td{
+  color: var(--text-primary, #e3e9f3);
+  border-top: 1px solid var(--border);
+}
+.table-hover tbody tr:hover{
+  background: var(--surface-primary, #0e172a);
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+.btn{ border-radius: .55rem; }
+.btn-primary    { background: var(--accent-strong); border-color: var(--accent-strong); color: white; }
+.btn-secondary  { background: var(--bs-secondary);  border-color: var(--bs-secondary);  color: white; }
+.btn-success    { background: var(--bs-success);    border-color: var(--bs-success);    color:#00140a; }
+.btn-info       { background: var(--bs-info);       border-color: var(--bs-info);       color:#001018; }
+.btn-warning    { background: var(--bs-warning);    border-color: var(--bs-warning);    color:#1b1200; }
+.btn-danger     { background: var(--bs-danger);     border-color: var(--bs-danger);     color: white; }
+.btn-light      { background: var(--surface-secondary, #253244); border-color: var(--border); color: var(--text); }
+.btn-outline-primary{
+  color: var(--accent-strong);
+  border-color: var(--accent-strong);
+}
+.btn-outline-primary:hover{
+  background: var(--accent-strong);
+  color: white;
+}
+
+/* ---- Forms -------------------------------------------------------------- */
+.form-control,
+.form-select,
+.input-group-text{
+  background: var(--input-bg, #0f172a);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.form-control::placeholder{ color: var(--muted); }
+.form-control:focus,
+.form-select:focus{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 .2rem rgba(96,165,250,.18);
+}
+
+/* ---- Badges / Pills ----------------------------------------------------- */
+.badge.bg-light{ background: var(--border-primary, #1f2937) !important; color: var(--text) !important; }
+.badge.bg-secondary{ background: var(--surface-tertiary, #334155) !important; }
+
+/* ---- Alerts ------------------------------------------------------------- */
+.alert{
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.alert-primary{ background: rgba(59,130,246,.15); border-color: var(--info, #1d4ed8); }
+.alert-success{ background: rgba(34,197,94,.12);  border-color: var(--success, #16a34a); }
+.alert-info   { background: rgba(56,189,248,.12); border-color:#0891b2; }
+.alert-warning{ background: rgba(245,158,11,.15); border-color: var(--warning, #b45309); color:#fff3d6; }
+.alert-danger { background: rgba(239,68,68,.14);  border-color:#b91c1c; }
+
+/* ---- Footer ------------------------------------------------------------- */
+.footer, .site-footer{
+  background: var(--surface-app, #0e1627);
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+
+  /* Hard fix: in case any legacy styles force it to stick/fixed */
+  position: static !important;
+  bottom: auto !important;
+  width: 100%;
+  margin-top: auto;                /* pushes footer to real page bottom */
+  z-index: auto;
+}
+
+/* ---- Utilities ---------------------------------------------------------- */
+hr{ border-top: 1px solid var(--border); }
+.muted, .text-muted{ color: var(--muted) !important; }
+
+/* --- Dark mode readability boosts (kept) -------------------------------- */
+.theme-dark,
+.theme-dark .card,
+.theme-dark .panel,
+.theme-dark .section-card,
+.theme-dark .box {
+  color: var(--text-primary, #eef2f7);
+}
+
+.theme-dark .table,
+.theme-dark table {
+  color: var(--text-primary, #eef2f7);
+  border-color: var(--border-primary, #1f2937);
+}
+
+.theme-dark .table thead th {
+  color: var(--text-inverse, #f8fafc);
+  border-bottom: 1px solid var(--border-primary, #1f2937);
+}
+
+.theme-dark .table tbody td {
+  color: var(--text-primary, #e6ebf2);
+  border-top: 1px solid var(--border-primary, #1f2937);
+}
+
+.theme-dark a { color: #9cc7ff; }
+.theme-dark a:hover { color: #c8ddff; }
+
+.theme-dark .muted, .theme-dark .text-muted {
+  color: var(--text-muted, #9fb0c6) !important;
+}

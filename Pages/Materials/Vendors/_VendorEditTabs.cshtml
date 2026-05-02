@@ -1,0 +1,155 @@
+@model Abs.FixedAssets.Pages.Materials.Vendors.EditModel
+@using Abs.FixedAssets.Models
+@{
+    var v = Model.Vendor;
+}
+
+@if (Model.ActiveTab == "info")
+{
+    <input type="hidden" name="activeTab" value="info" />
+    <div class="workspace__panel">
+        <div class="form-section-p">
+            <div class="form-section-p__title">Vendor Information</div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Code <span class="required">*</span></label>
+                    <input type="text" name="code" class="form-input-p" required maxlength="20" value="@v.Code" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Name <span class="required">*</span></label>
+                    <input type="text" name="name" class="form-input-p" required maxlength="100" value="@v.Name" />
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Legal Name</label>
+                    <input type="text" name="legalName" class="form-input-p" maxlength="100" value="@v.LegalName" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Vendor Type</label>
+                    <select name="vendorType" class="form-input-p" asp-items="Model.VendorTypeOptions" data-cherry-select data-placeholder="Search vendor types..."></select>
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Payment Terms</label>
+                    <select name="paymentTerms" class="form-input-p" asp-items="Model.PaymentTermsOptions" data-cherry-select data-placeholder="Search payment terms..."></select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Currency</label>
+                    <input type="text" name="currency" class="form-input-p" maxlength="3" value="@v.Currency" />
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Tax ID / EIN</label>
+                    <input type="text" name="taxId" class="form-input-p" maxlength="50" value="@v.TaxId" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Credit Limit</label>
+                    <input type="number" name="creditLimit" class="form-input-p" step="0.01" min="0" value="@v.CreditLimit" />
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Account Number</label>
+                    <input type="text" name="accountNumber" class="form-input-p" maxlength="50" value="@v.AccountNumber" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Status</label>
+                    <select name="isActive" class="form-input-p">
+                        <option value="true" selected="@v.IsActive">Active</option>
+                        <option value="false" selected="@(!v.IsActive)">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p" style="padding-top: 0.5rem;">
+                    <label class="form-check-label-p" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="is1099Vendor" value="true" class="form-check-input" @(v.Is1099Vendor ? "checked" : "") />
+                        1099 Vendor
+                    </label>
+                </div>
+                <div class="form-group-p" style="padding-top: 0.5rem;">
+                    <label class="form-check-label-p" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="isPreferred" value="true" class="form-check-input" @(v.IsPreferred ? "checked" : "") />
+                        Preferred Vendor
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-section-p">
+            <div class="form-section-p__title">Notes</div>
+            <div class="form-group-p">
+                <textarea name="notes" class="form-input-p" rows="3" maxlength="500">@v.Notes</textarea>
+            </div>
+        </div>
+    </div>
+}
+else if (Model.ActiveTab == "contact")
+{
+    <input type="hidden" name="activeTab" value="contact" />
+    <div class="workspace__panel">
+        <div class="form-section-p">
+            <div class="form-section-p__title">Contact Information</div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Contact Name</label>
+                    <input type="text" name="contactName" class="form-input-p" maxlength="100" value="@v.ContactName" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Phone</label>
+                    <input type="text" name="phone" class="form-input-p" maxlength="50" value="@v.Phone" />
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Fax</label>
+                    <input type="text" name="fax" class="form-input-p" maxlength="20" value="@v.Fax" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Email</label>
+                    <input type="email" name="email" class="form-input-p" maxlength="100" value="@v.Email" />
+                </div>
+            </div>
+            <div class="form-group-p">
+                <label class="form-label-p">Website</label>
+                <input type="text" name="website" class="form-input-p" maxlength="200" value="@v.Website" />
+            </div>
+        </div>
+
+        <div class="form-section-p">
+            <div class="form-section-p__title">Address</div>
+            <div class="form-group-p">
+                <label class="form-label-p">Street Address</label>
+                <input type="text" name="address" class="form-input-p" maxlength="200" value="@v.Address" />
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">City</label>
+                    <input type="text" name="city" class="form-input-p" maxlength="50" value="@v.City" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">State / Province</label>
+                    <input type="text" name="state" class="form-input-p" maxlength="50" value="@v.State" />
+                </div>
+            </div>
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Postal Code</label>
+                    <input type="text" name="postalCode" class="form-input-p" maxlength="20" value="@v.PostalCode" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Country</label>
+                    <input type="text" name="country" class="form-input-p" maxlength="50" value="@v.Country" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+}
+else if (Model.ActiveTab == "history")
+{
+    @await Html.PartialAsync("_VendorViewTabs", Model)
+}

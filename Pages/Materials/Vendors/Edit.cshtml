@@ -1,0 +1,62 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Materials.Vendors.EditModel
+@using Abs.FixedAssets.Models
+@{
+    var v = Model.Vendor;
+    ViewData["Title"] = v.Name;
+    ViewData["TabTitle"] = $"{v.Code} — Vendor";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+
+    var canEdit = User.IsInRole("Admin") || User.IsInRole("Accountant");
+    var statusText = v.IsActive ? "Active" : "Inactive";
+    var statusTone = v.IsActive ? "success" : "danger";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = v.Code,
+        ["Subtitle"] = v.Name,
+        ["TypeLabel"] = "Vendor",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Materials/Vendors/_VendorContext.cshtml",
+        ["KpisPartial"] = "/Pages/Materials/Vendors/_VendorKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Materials/Vendors/_VendorActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null) {
+    <div class="alert alert-success" style="margin-bottom:1rem;">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null) {
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@TempData["Error"]</div>
+}
+
+@* ── Tab Navigation ── *@
+<div class="pe-card" style="margin-bottom:0; border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom:none;">
+    <div style="display:flex; gap:0; padding:0 1.25rem; border-bottom:2px solid var(--border-secondary);">
+        <a href="?tab=info@(Model.IsEditMode ? "&mode=edit" : "")"
+           style="padding:0.85rem 1.25rem; font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-2px;
+                  @(Model.ActiveTab == "info" ? "color:var(--color-accent, #cf3339); border-bottom-color:var(--color-accent, #cf3339);" : "color:var(--text-muted);")">
+            Vendor Info
+        </a>
+        <a href="?tab=contact@(Model.IsEditMode ? "&mode=edit" : "")"
+           style="padding:0.85rem 1.25rem; font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-2px;
+                  @(Model.ActiveTab == "contact" ? "color:var(--color-accent, #cf3339); border-bottom-color:var(--color-accent, #cf3339);" : "color:var(--text-muted);")">
+            Contact & Address
+        </a>
+        <a href="?tab=history"
+           style="padding:0.85rem 1.25rem; font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; text-decoration:none; border-bottom:2px solid transparent; margin-bottom:-2px;
+                  @(Model.ActiveTab == "history" ? "color:var(--color-accent, #cf3339); border-bottom-color:var(--color-accent, #cf3339);" : "color:var(--text-muted);")">
+            Purchase History
+        </a>
+    </div>
+</div>
+
+@* ── Tab Content ── *@
+@if (Model.IsEditMode) {
+    @await Html.PartialAsync("_VendorEditTabs")
+} else {
+    @await Html.PartialAsync("_VendorViewTabs")
+}

@@ -1,0 +1,121 @@
+@*
+    Unified Tab Navigation Partial (ADR-007)
+    
+    Usage (link mode - server-side navigation):
+    @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+        { "TabId", "my-tabs" },
+        { "Mode", "link" },
+        { "AriaLabel", "Section navigation" },
+        { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+            ("overview", "Overview", true, null, null),
+            ("details", "Details", false, 5, null)
+        }}
+    })
+    
+    Usage (button mode - JS-driven panels with URL sync):
+    @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+        { "TabId", "item-tabs" },
+        { "Mode", "button" },
+        { "Variant", "compact" },
+        { "UrlParam", "tab" },
+        { "AriaLabel", "Item sections" },
+        { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+            ("basics", "Basics", true, null, null),
+            ("revisions", "Revisions", false, 3, null)
+        }}
+    })
+    
+    Modes:
+    - "link": Normal navigation (<a> tags). Use for server-side tab switching.
+             Uses aria-current="page" on active link. NO role="tablist"/"tab".
+    - "button": Tab panel control (<button> tags). Use for JS-driven tab panels.
+             Uses role="tablist"/"tab" + aria-selected + tabindex roving.
+    
+    Variants:
+    - "primary" (default): Full-size tabs for page-level sections.
+    - "compact": Smaller tabs for form sub-sections (uses .tab-nav--compact).
+    
+    UrlParam (button mode only):
+    - If set, tabs.js will sync active tab to URL query param (e.g., ?tab=revisions).
+    - On page load, reads param to restore active tab.
+    
+    Href behavior (link mode):
+    - If keyOrHref starts with "?", "/", or "http", use it verbatim as href.
+    - Otherwise, treat it as a key and build href as "?tab=<key>".
+    
+    Icon parameter:
+    - Must be trusted static SVG markup (not user-provided content).
+    - Rendered via Html.Raw().
+    
+    Compatibility shims:
+    - "wo-tab-link" class: Included in BOTH modes for existing JS compatibility.
+      This shim will be removed after full migration is complete.
+*@
+@{
+    var tabId = ViewData["TabId"]?.ToString() ?? "tabs";
+    var mode = ViewData["Mode"]?.ToString()?.ToLowerInvariant() ?? "link";
+    var variant = ViewData["Variant"]?.ToString()?.ToLowerInvariant() ?? "primary";
+    var urlParam = ViewData["UrlParam"]?.ToString();
+    var ariaLabel = ViewData["AriaLabel"]?.ToString() ?? "Tab navigation";
+    var tabs = ViewData["Tabs"] as IEnumerable<(string keyOrHref, string label, bool active, int? count, string? icon)>;
+    var isButtonMode = mode == "button";
+    var navClass = "tab-nav" + (variant == "compact" ? " tab-nav--compact" : "");
+}
+
+@if (tabs != null && tabs.Any())
+{
+    if (isButtonMode)
+    {
+        <nav id="@tabId" class="@navClass" role="tablist" aria-label="@ariaLabel"@(urlParam != null ? Html.Raw($" data-url-param=\"{urlParam}\"") : null)>
+            @foreach (var tab in tabs)
+            {
+                var activeClass = tab.active ? "tab-nav__item--active" : "";
+                var tabIndex = tab.active ? "0" : "-1";
+                <button type="button" 
+                        class="tab-nav__item wo-tab-link @activeClass"
+                        data-tab="@tab.keyOrHref"
+                        role="tab"
+                        id="tab-@tab.keyOrHref"
+                        aria-selected="@(tab.active ? "true" : "false")"
+                        aria-controls="panel-@tab.keyOrHref"
+                        tabindex="@tabIndex">
+                    @if (!string.IsNullOrEmpty(tab.icon))
+                    {
+                        @Html.Raw(tab.icon)
+                    }
+                    @tab.label
+                    @if (tab.count.HasValue && tab.count.Value > 0)
+                    {
+                        <span class="tab-nav__count">@tab.count.Value</span>
+                    }
+                </button>
+            }
+        </nav>
+    }
+    else
+    {
+        <nav id="@tabId" class="@navClass" aria-label="@ariaLabel">
+            @foreach (var tab in tabs)
+            {
+                var activeClass = tab.active ? "tab-nav__item--active" : "";
+                var href = tab.keyOrHref.StartsWith("?") || tab.keyOrHref.StartsWith("/") || tab.keyOrHref.StartsWith("http")
+                    ? tab.keyOrHref
+                    : $"?tab={tab.keyOrHref}";
+                <a href="@href" 
+                   class="tab-nav__item wo-tab-link @activeClass"
+                   id="tab-@tab.keyOrHref"
+                   @(tab.active ? Html.Raw("aria-current=\"page\"") : null)>
+                    @if (!string.IsNullOrEmpty(tab.icon))
+                    {
+                        @Html.Raw(tab.icon)
+                    }
+                    @tab.label
+                    @if (tab.count.HasValue && tab.count.Value > 0)
+                    {
+                        <span class="tab-nav__count">@tab.count.Value</span>
+                    }
+                </a>
+            }
+        </nav>
+    }
+}

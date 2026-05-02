@@ -1,0 +1,85 @@
+@page
+@model Abs.FixedAssets.Pages.AccountsPayable.CreateModel
+@{
+    ViewData["Title"] = "Create Invoice";
+    ViewData["TabTitle"] = "New Invoice";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Create Vendor Invoice",
+        ["Subtitle"] = "Fill in the details below to create a new vendor invoice",
+        ["TypeLabel"] = "Accounts Payable",
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/AccountsPayable",
+        ["BackLinkLabel"] = "Accounts Payable"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@TempData["Error"]</div>
+}
+
+<form method="post">
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Vendor Information</span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p">Vendor <span class="required">*</span></label>
+                <select name="vendorId" data-cherry-select data-placeholder="Search vendors..." required>
+                    <option value="">Search vendors...</option>
+                    @foreach (var v in Model.Vendors)
+                    {
+                        <option value="@v.Id">@v.Code - @v.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Invoice Details</span></div>
+        <div class="pe-card__body">
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Invoice Number <span class="required">*</span></label>
+                    <input type="text" name="invoiceNumber" class="form-input-p" required placeholder="Vendor's invoice #" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Invoice Date <span class="required">*</span></label>
+                    <input type="date" name="invoiceDate" class="form-input-p" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+            </div>
+            <div class="form-row-p" style="margin-top:1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Invoice Amount <span class="required">*</span></label>
+                    <input type="number" name="amount" class="form-input-p" step="0.01" min="0" required placeholder="0.00" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Due Date</label>
+                    <input type="date" name="dueDate" class="form-input-p" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--green"></span> Additional Information</span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p">Description / Notes</label>
+                <textarea name="description" class="form-input-p" rows="3" placeholder="Optional notes about this invoice..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions-sticky">
+        <a href="/AccountsPayable" class="btn-p btn-p--secondary">Cancel</a>
+        <button type="submit" class="btn-p btn-p--primary">
+            <i class="fas fa-plus"></i> Create Invoice
+        </button>
+    </div>
+</form>

@@ -1,0 +1,90 @@
+@page
+@model Abs.FixedAssets.Pages.CIP.CostTypeDetailsModel
+@{
+    ViewData["Title"] = $"{Model.CostTypeName} Costs";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.CostTypeName,
+        ["Subtitle"] = Model.FilterLabel,
+        ["TypeLabel"] = "Cost Type Analysis",
+        ["StatusText"] = $"{Model.CostEntries.Count} Entries",
+        ["StatusTone"] = "info",
+        ["ContextPartial"] = "CIP/_CipCostTypeDetailsContext",
+        ["KpisPartial"] = "CIP/_CipCostTypeDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["CostTypeName"] = Model.CostTypeName, ["TotalAmount"] = Model.TotalAmount, ["EntryCount"] = Model.CostEntries.Count },
+        ["ActionsPartial"] = "CIP/_CipCostTypeDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["CostTypeName"] = Model.CostTypeName, ["Filter"] = Model.Filter },
+        ["Breadcrumbs"] = ViewData["Breadcrumbs"],
+        ["ShowBackLink"] = ViewData["ShowBackLink"],
+        ["BackLinkFallback"] = ViewData["BackLinkFallback"],
+        ["BackLinkLabel"] = ViewData["BackLinkLabel"]
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Cost Entries (@Model.CostEntries.Count)</h3>
+        <div class="search-box">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search entries..." style="max-width: 300px;" />
+        </div>
+    </div>
+    
+    @if (Model.CostEntries.Any())
+    {
+        <table class="data-table" id="costTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Project</th>
+                    <th>Description</th>
+                    <th>Vendor</th>
+                    <th>Invoice #</th>
+                    <th>PO #</th>
+                    <th style="text-align: right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in Model.CostEntries)
+                {
+                    <tr class="clickable-row" onclick="window.location='/CIP/Details/@entry.CipProjectId'">
+                        <td>@entry.TransactionDate.ToString("MM/dd/yyyy")</td>
+                        <td><a href="/CIP/Details/@entry.CipProjectId"><strong>@entry.Project?.ProjectNumber</strong></a></td>
+                        <td>@(entry.Description ?? "-")</td>
+                        <td>@(entry.Vendor ?? "-")</td>
+                        <td>@(entry.InvoiceNumber ?? "-")</td>
+                        <td>@(entry.PurchaseOrderNumber ?? "-")</td>
+                        <td style="text-align: right;"><strong>@entry.Amount.ToString("C2")</strong></td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr style="font-weight: 600; background: var(--bg-tertiary);">
+                    <td colspan="6">Total</td>
+                    <td style="text-align: right;">@Model.TotalAmount.ToString("C2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    }
+    else
+    {
+        <div class="pe-empty" style="padding:1.5rem;">
+            <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty__text">No @Model.CostTypeName costs. No cost entries of this type have been recorded yet.</div>
+        </div>
+    }
+</div>
+
+<script>
+document.getElementById('searchInput').addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#costTable tbody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? '' : 'none';
+    });
+});
+</script>

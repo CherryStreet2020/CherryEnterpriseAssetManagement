@@ -1,0 +1,26 @@
+@using Abs.FixedAssets.Services.Maintenance
+@{
+    var evt = ViewData["Event"] as Abs.FixedAssets.Models.MaintenanceEvent;
+    var totalActual = (evt?.LaborCost ?? 0) + (evt?.MaterialsCost ?? 0) + (evt?.PartsCost ?? 0) + (evt?.OutsideVendorCost ?? 0);
+}
+@if (evt != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Priority</div>
+            <div class="kpi-value @(evt.Priority == MaintenancePriority.Critical ? "danger" : evt.Priority == MaintenancePriority.High ? "warning" : "")">@evt.Priority</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Estimated Cost</div>
+            <div class="kpi-value money">@evt.EstimatedCost.ToString("C0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Actual Cost</div>
+            <div class="kpi-value warning">@totalActual.ToString("C0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Technician</div>
+            <div class="kpi-value kpi-technician">@(evt.Technician?.Name ?? "Unassigned")</div>
+        </div>
+    </div>
+}

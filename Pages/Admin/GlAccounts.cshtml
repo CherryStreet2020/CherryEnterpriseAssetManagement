@@ -1,0 +1,238 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.GlAccountsModel
+@{
+    ViewData["Title"] = "Chart of Accounts";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalAccounts = Model.GlAccounts.Count;
+    var activeAccounts = Model.GlAccounts.Count(a => a.IsActive);
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Setup (Masters)" },
+        { "HeaderTitle", "Chart of Accounts" },
+        { "Subtitle", "Manage general ledger accounts for financial reporting" },
+        { "StatusText", $"{activeAccounts} Active" },
+        { "StatusTone", "active" },
+        { "ContextPartial", "Admin/_AdminGlAccountsContext" },
+        { "KpisPartial", "Admin/_AdminGlAccountsKpis" },
+        { "ActionsPartial", "Admin/_AdminGlAccountsActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="filter-bar">
+    <form method="get" class="filter-form">
+        <select name="category" class="form-control" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            @foreach (var cat in Enum.GetValues<Abs.FixedAssets.Models.GlAccountCategory>())
+            {
+                <option value="@((int)cat)" selected="@(Model.CategoryFilter == (int)cat)">@cat.ToString()</option>
+            }
+        </select>
+        <select name="type" class="form-control" onchange="this.form.submit()">
+            <option value="">All Types</option>
+            @foreach (var t in Enum.GetValues<Abs.FixedAssets.Models.GlAccountType>())
+            {
+                <option value="@((int)t)" selected="@(Model.TypeFilter == (int)t)">@t.ToString()</option>
+            }
+        </select>
+    </form>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            All Accounts
+        </h3>
+        <span class="status-badge info">@totalAccounts ACCOUNTS</span>
+    </div>
+    <div class="section-card-body pe-card__body" style="padding: 0;">
+        <table class="data-table premium-table">
+            <thead>
+                <tr>
+                    <th>Account #</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Category</th>
+                    <th>Normal Balance</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var account in Model.GlAccounts)
+                {
+                    <tr>
+                        <td><strong>@account.AccountNumber</strong></td>
+                        <td>@account.Name</td>
+                        <td><span class="badge badge-outline">@account.AccountType</span></td>
+                        <td>@account.Category</td>
+                        <td>@account.NormalBalance</td>
+                        <td>
+                            @if (account.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger">Inactive</span>
+                            }
+                        </td>
+                        <td class="actions-cell">
+                            <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="editAccount(@account.Id, '@account.AccountNumber', '@account.Name.Replace("'", "\\'")', '@(account.Description?.Replace("'", "\\'") ?? "")', @(account.AccountTypeLookupValueId ?? 0), @((int)account.Category), @((int)account.NormalBalance), @account.IsActive.ToString().ToLower())">Edit</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="createForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Add GL Account</h3>
+                    <p>Create a new general ledger account</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('createForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="inline-form-grid">
+                    <div class="form-group form-group-p">
+                        <label>Account Number *</label>
+                        <input type="text" name="accountNumber" class="form-control form-input-p" required maxlength="20" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Account Name *</label>
+                        <input type="text" name="name" class="form-control form-input-p" required maxlength="100" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Account Type *</label>
+                        <select name="accountTypeLookupValueId" class="form-control form-input-p" required asp-items="Model.AccountTypeOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Category *</label>
+                        <select name="category" class="form-control form-input-p" required>
+                            @foreach (var cat in Enum.GetValues<Abs.FixedAssets.Models.GlAccountCategory>())
+                            {
+                                <option value="@((int)cat)">@cat</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Normal Balance *</label>
+                        <select name="normalBalance" class="form-control form-input-p" required asp-items="Model.NormalBalanceOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p full-width">
+                        <label>Description</label>
+                        <textarea name="description" class="form-control form-input-p" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('createForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Edit GL Account</h3>
+                    <p>Update account details</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" id="editId" name="id" />
+            <div class="inline-form-body">
+                <div class="inline-form-grid">
+                    <div class="form-group form-group-p">
+                        <label>Account Number *</label>
+                        <input type="text" id="editAccountNumber" name="accountNumber" class="form-control form-input-p" required maxlength="20" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Account Name *</label>
+                        <input type="text" id="editName" name="name" class="form-control form-input-p" required maxlength="100" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Account Type *</label>
+                        <select id="editAccountType" name="accountTypeLookupValueId" class="form-control form-input-p" required asp-items="Model.AccountTypeOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Category *</label>
+                        <select id="editCategory" name="category" class="form-control form-input-p" required>
+                            @foreach (var cat in Enum.GetValues<Abs.FixedAssets.Models.GlAccountCategory>())
+                            {
+                                <option value="@((int)cat)">@cat</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Normal Balance *</label>
+                        <select id="editNormalBalance" name="normalBalance" class="form-control form-input-p" required asp-items="Model.NormalBalanceOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label>Status</label>
+                        <select id="editIsActive" name="isActive" class="form-control form-input-p" asp-items="Model.ActiveInactiveOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p full-width">
+                        <label>Description</label>
+                        <textarea id="editDescription" name="description" class="form-control form-input-p" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editAccount(id, accountNumber, name, description, accountType, category, normalBalance, isActive) {
+    document.getElementById('editId').value = id;
+    document.getElementById('editAccountNumber').value = accountNumber;
+    document.getElementById('editName').value = name;
+    document.getElementById('editDescription').value = description;
+    document.getElementById('editAccountType').value = accountType;
+    document.getElementById('editCategory').value = category;
+    document.getElementById('editNormalBalance').value = normalBalance;
+    document.getElementById('editIsActive').value = isActive.toString();
+    toggleInlineForm('editForm');
+}
+</script>

@@ -1,0 +1,22 @@
+@model Abs.FixedAssets.Pages.Admin.Webhooks.DeliveriesModel
+@{
+}
+@if (Model.Subscription != null)
+{
+    <div class="kpi-card">
+        <div class="kpi-label">Success Rate</div>
+        <div class="kpi-value success">@Model.Subscription.GetSuccessRate().ToString("F0")%</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Successes</div>
+        <div class="kpi-value info">@Model.Subscription.SuccessCountLifetime</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Failures</div>
+        <div class="kpi-value danger">@Model.Subscription.FailureCountLifetime</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Consecutive</div>
+        <div class="kpi-value @(Model.Subscription.ConsecutiveFailures > 0 ? "danger" : "")">@Model.Subscription.ConsecutiveFailures</div>
+    </div>
+}

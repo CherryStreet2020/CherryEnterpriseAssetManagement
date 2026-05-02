@@ -1,0 +1,671 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.ItemsModel
+@{
+    ViewData["Title"] = "Item Master";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalItems = Model.Items.Count;
+    var activeItems = Model.Items.Count(i => i.IsActive);
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Item Master" },
+        { "Subtitle", "Manage parts, consumables, and inventory items" },
+        { "TypeLabel", "Administration" },
+        { "StatusText", $"{activeItems} Active" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "Admin/_AdminItemsKpis" },
+        { "ActionsPartial", "Admin/_AdminItemsActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<script>
+var currentCompanyId = @Model.CurrentCompanyId;
+</script>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Parts Catalog
+        </h3>
+        <span class="status-badge info">@totalItems ITEMS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        <table class="data-table" id="itemGrid" data-enhanced-grid="true" data-row-click="true">
+            <thead>
+                <tr>
+                    <th style="width: 120px;" data-col="Part #" data-filter="text">Part #</th>
+                    <th style="width: 50px;" data-col="Rev" data-filter="text">Rev</th>
+                    <th style="width: 120px;" data-col="Vendor Part #" data-filter="text">Vendor Part #</th>
+                    <th style="width: 120px;" data-col="Mfr Part #" data-filter="text">Mfr Part #</th>
+                    <th style="min-width: 180px;" data-col="Description" data-filter="text">Description</th>
+                    <th style="width: 100px;" data-col="Type" data-filter="select" data-filter-options="Part|Consumable|Service|Tool|Kit">Type</th>
+                    <th style="width: 100px;" data-col="Category" data-filter="text">Category</th>
+                    <th style="width: 70px;" data-col="UOM" data-filter="text">UOM</th>
+                    <th style="text-align: right; width: 90px;" data-col="Std Cost" data-filter="number">Std Cost</th>
+                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    var stocking = Model.StockingByItem.TryGetValue(item.Id, out var s) ? s : null;
+                    var warehouse = stocking?.DefaultWarehouse ?? item.Warehouse;
+                    var aisle = stocking?.DefaultAisle ?? item.Aisle;
+                    var rack = stocking?.DefaultRack ?? item.Rack;
+                    var shelf = stocking?.DefaultShelf ?? item.Shelf;
+                    var bin = stocking?.DefaultBin ?? item.Bin;
+                    var location = string.Join("-", new[] { warehouse, aisle, rack, shelf, bin }.Where(x => !string.IsNullOrEmpty(x)));
+                    var isStocked = stocking?.IsStocked ?? item.IsStocked;
+                    var isPurchasable = stocking?.IsPurchasable ?? item.IsPurchasable;
+                    var isCriticalSpare = stocking?.IsCriticalSpare ?? item.IsCriticalSpare;
+                    var minQty = stocking?.MinQuantity ?? item.MinQuantity;
+                    var maxQty = stocking?.MaxQuantity ?? item.MaxQuantity;
+                    var reorderPt = stocking?.ReorderPoint ?? item.ReorderPoint;
+                    var reorderQty = stocking?.ReorderQuantity ?? item.ReorderQuantity;
+                    var safetyStk = stocking?.SafetyStock ?? item.SafetyStock;
+                    var leadTime = stocking?.LeadTimeDays ?? item.LeadTimeDays;
+                    var prefVendor = stocking?.PreferredVendorId ?? item.PrimaryVendorId;
+                    var reorderMeth = stocking != null ? (int)stocking.ReorderMethod : (int)item.ReorderMethod;
+                    var autoReorder = stocking?.AutoReorderEnabled ?? item.AutoReorderEnabled;
+                    var abcCls = stocking != null ? (int)stocking.ABCClass : (int)item.ABCClass;
+                    <tr data-row-id="@item.Id" data-row-href="@Url.Page("/Materials/ItemEdit", new { id = item.Id, returnUrl = returnUrl })"
+                        data-id="@item.Id"
+                        data-partnumber="@item.PartNumber"
+                        data-revision="@(item.Revision ?? "")"
+                        data-requirerevisioncontrol="@item.RequireRevisionControl.ToString().ToLower()"
+                        data-description="@item.Description"
+                        data-extendeddescription="@(item.ExtendedDescription ?? "")"
+                        data-type="@((int)item.Type)"
+                        data-status="@((int)item.Status)"
+                        data-categoryid="@(item.CategoryId?.ToString() ?? "")"
+                        data-uom="@((int)item.UOM)"
+                        data-stockuom="@item.StockUOM"
+                        data-costmethod="@((int)item.CostMethod)"
+                        data-standardcost="@item.StandardCost"
+                        data-listprice="@(item.ListPrice?.ToString() ?? "")"
+                        data-trackingtype="@((int)item.TrackingType)"
+                        data-minquantity="@minQty"
+                        data-maxquantity="@maxQty"
+                        data-reorderpoint="@reorderPt"
+                        data-reorderquantity="@reorderQty"
+                        data-safetystock="@safetyStk"
+                        data-leadtimedays="@leadTime"
+                        data-warehouse="@(warehouse ?? "")"
+                        data-aisle="@(aisle ?? "")"
+                        data-rack="@(rack ?? "")"
+                        data-shelf="@(shelf ?? "")"
+                        data-bin="@(bin ?? "")"
+                        data-primaryvendorid="@(prefVendor?.ToString() ?? "")"
+                        data-manufacturerid="@(item.ManufacturerId?.ToString() ?? "")"
+                        data-vendorpartnumber="@(item.VendorPartNumber ?? "")"
+                        data-manufacturerpartnumber="@(item.ManufacturerPartNumber ?? "")"
+                        data-isstocked="@(isStocked ? "true" : "false")"
+                        data-ispurchasable="@(isPurchasable ? "true" : "false")"
+                        data-iscriticalspare="@(isCriticalSpare ? "true" : "false")"
+                        data-istaxable="@(item.IsTaxable ? "true" : "false")"
+                        data-notes="@(item.Notes ?? "")"
+                        data-isactive="@(item.IsActive ? "true" : "false")"
+                        data-source="@((int)item.Source)"
+                        data-reordermethod="@reorderMeth"
+                        data-autoreorderenabled="@(autoReorder ? "true" : "false")"
+                        data-abcclass="@abcCls"
+                        onclick="editItemFromRow(this)">
+                        <td><strong class="text-primary">@item.PartNumber</strong></td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(item.Revision))
+                            {
+                                <span class="badge badge-outline" style="font-size: 0.75em;">@item.Revision</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(item.VendorPartNumber))
+                            {
+                                <span class="text-muted" style="font-size: 0.85em;">@item.VendorPartNumber</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(item.ManufacturerPartNumber))
+                            {
+                                <span class="text-muted" style="font-size: 0.85em;">@item.ManufacturerPartNumber</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td style="max-width: 220px;">
+                            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@item.Description">
+                                @item.Description
+                            </div>
+                        </td>
+                        <td><span class="badge badge-outline">@item.Type</span></td>
+                        <td>@(item.Category?.Name ?? "-")</td>
+                        <td>@item.StockUOM</td>
+                        <td style="text-align: right; font-weight: 600;">@item.StandardCost.ToString("C2")</td>
+                        <td>
+                            @if (isCriticalSpare)
+                            {
+                                <span class="badge badge-warning" title="Critical Spare">Critical</span>
+                            }
+                            else if (item.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="addItemForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content" style="max-width: 850px;">
+        <div class="inline-form-header">
+            <h3>Add Item</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addItemForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <input type="hidden" name="companyId" value="@Model.CurrentCompanyId" />
+            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
+                <h4 style="margin-bottom: 12px; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Basic Information</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Part Number *</label>
+                        <input type="text" name="partNumber" class="form-control" required placeholder="e.g., BRG-6205-2RS" maxlength="50" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rev</label>
+                        <input type="text" name="revision" class="form-control" placeholder="e.g., A" maxlength="10" id="revisionInput" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <input type="text" name="description" class="form-control" required placeholder="e.g., Ball Bearing 25x52x15mm" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="requireRevisionControl" id="requireRevisionControl" value="true" onchange="toggleRevisionRequired(this)" />
+                        <label for="requireRevisionControl" class="form-label" style="margin: 0;">Require Revision Control</label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mfr Part #</label>
+                        <input type="text" name="manufacturerPartNumber" class="form-control" placeholder="e.g., SKF-6205-2RS" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select name="typeLookupValueId" class="form-control" asp-items="Model.ItemTypeOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select name="statusLookupValueId" class="form-control" asp-items="Model.ItemStatusOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select name="categoryId" class="form-control" data-cherry-select data-placeholder="Search categories...">
+                            <option value="">-- Select --</option>
+                            @foreach (var cat in Model.Categories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Extended Description</label>
+                    <textarea name="extendedDescription" class="form-control" rows="2" placeholder="Additional specifications or notes"></textarea>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Units & Costing</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">UOM Type</label>
+                        <select name="uom" class="form-control" asp-items="Model.UomOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock UOM</label>
+                        <input type="text" name="stockUOM" class="form-control" value="EA" placeholder="EA" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cost Method</label>
+                        <select name="costMethodLookupValueId" class="form-control" asp-items="Model.CostMethodOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tracking</label>
+                        <select name="trackingTypeLookupValueId" class="form-control" asp-items="Model.TrackingTypeOptions"></select>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Standard Cost</label>
+                        <input type="number" name="standardCost" class="form-control" step="0.0001" value="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">List Price</label>
+                        <input type="number" name="listPrice" class="form-control" step="0.0001" placeholder="0.00" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Inventory Planning</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Min Qty</label>
+                        <input type="number" name="minQuantity" class="form-control" step="0.01" value="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max Qty</label>
+                        <input type="number" name="maxQuantity" class="form-control" step="0.01" value="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reorder Point</label>
+                        <input type="number" name="reorderPoint" class="form-control" step="0.01" value="0" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Reorder Qty</label>
+                        <input type="number" name="reorderQuantity" class="form-control" step="0.01" value="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Safety Stock</label>
+                        <input type="number" name="safetyStock" class="form-control" step="0.01" value="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lead Time (Days)</label>
+                        <input type="number" name="leadTimeDays" class="form-control" value="0" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Barcode & Identification</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Barcode Type</label>
+                        <select name="barcodeType" class="form-control" asp-items="Model.BarcodeTypeOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Barcode</label>
+                        <input type="text" name="barcode" class="form-control" placeholder="Auto-generate or enter" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ABC Class</label>
+                        <select name="abcClass" class="form-control" asp-items="Model.AbcClassOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Commodity Code</label>
+                        <input type="text" name="commodityCode" class="form-control" placeholder="e.g., 31161500" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Reorder Automation</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Reorder Method</label>
+                        <select name="reorderMethod" class="form-control" asp-items="Model.StockingMethodOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">EOQ</label>
+                        <input type="number" name="eoq" class="form-control" step="0.01" value="0" />
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding-top: 24px;">
+                        <input type="checkbox" name="autoReorderEnabled" id="autoReorderEnabled" value="true" />
+                        <label for="autoReorderEnabled" class="form-label" style="margin: 0;">Auto Reorder</label>
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Default Storage Location</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Warehouse</label>
+                        <input type="text" name="warehouse" class="form-control" placeholder="WH-01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Aisle</label>
+                        <input type="text" name="aisle" class="form-control" placeholder="A" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rack</label>
+                        <input type="text" name="rack" class="form-control" placeholder="01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Shelf</label>
+                        <input type="text" name="shelf" class="form-control" placeholder="1" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bin</label>
+                        <input type="text" name="bin" class="form-control" placeholder="A" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Sourcing</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Primary Vendor</label>
+                        <select name="primaryVendorId" class="form-control" data-cherry-select data-placeholder="Search vendors...">
+                            <option value="">-- Select --</option>
+                            @foreach (var vendor in Model.Vendors)
+                            {
+                                <option value="@vendor.Id">@vendor.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vendor Part #</label>
+                        <input type="text" name="vendorPartNumber" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Manufacturer</label>
+                        <select name="manufacturerId" class="form-control" data-cherry-select data-placeholder="Search manufacturers...">
+                            <option value="">-- Select --</option>
+                            @foreach (var mfr in Model.Manufacturers)
+                            {
+                                <option value="@mfr.Id">@mfr.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Item Settings</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isStocked" id="isStocked" value="true" checked />
+                        <label for="isStocked" class="form-label" style="margin: 0;">Stocked Item</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isPurchasable" id="isPurchasable" value="true" checked />
+                        <label for="isPurchasable" class="form-label" style="margin: 0;">Purchasable</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isCriticalSpare" id="isCriticalSpare" value="true" />
+                        <label for="isCriticalSpare" class="form-label" style="margin: 0;">Critical Spare</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isTaxable" id="isTaxable" value="true" checked />
+                        <label for="isTaxable" class="form-label" style="margin: 0;">Taxable</label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Internal notes about this item"></textarea>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addItemForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Item</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editItemForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content" style="max-width: 850px;">
+        <div class="inline-form-header">
+            <h3>Edit Item</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editItemForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" name="itemId" id="editItemId" />
+            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
+                <h4 style="margin-bottom: 12px; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Basic Information</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Part Number *</label>
+                        <input type="text" name="partNumber" id="editPartNumber" class="form-control" required maxlength="50" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rev</label>
+                        <input type="text" name="revision" id="editRevision" class="form-control" maxlength="10" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description *</label>
+                        <input type="text" name="description" id="editDescription" class="form-control" required />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="requireRevisionControl" id="editRequireRevisionControl" value="true" />
+                        <label for="editRequireRevisionControl" class="form-label" style="margin: 0;">Require Revision Control</label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mfr Part #</label>
+                        <input type="text" name="manufacturerPartNumber" id="editManufacturerPartNumber" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Type</label>
+                        <select name="typeLookupValueId" id="editType" class="form-control" asp-items="Model.ItemTypeOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select name="statusLookupValueId" id="editStatus" class="form-control" asp-items="Model.ItemStatusOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select name="categoryId" id="editCategoryId" class="form-control" data-cherry-select data-placeholder="Search categories...">
+                            <option value="">-- Select --</option>
+                            @foreach (var cat in Model.Categories)
+                            {
+                                <option value="@cat.Id">@cat.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Extended Description</label>
+                    <textarea name="extendedDescription" id="editExtendedDescription" class="form-control" rows="2"></textarea>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Units & Costing</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">UOM Type</label>
+                        <select name="uom" id="editUom" class="form-control" asp-items="Model.UomOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock UOM</label>
+                        <input type="text" name="stockUOM" id="editStockUOM" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cost Method</label>
+                        <select name="costMethodLookupValueId" id="editCostMethod" class="form-control" asp-items="Model.CostMethodOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tracking</label>
+                        <select name="trackingTypeLookupValueId" id="editTrackingType" class="form-control" asp-items="Model.TrackingTypeOptions"></select>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Standard Cost</label>
+                        <input type="number" name="standardCost" id="editStandardCost" class="form-control" step="0.0001" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">List Price</label>
+                        <input type="number" name="listPrice" id="editListPrice" class="form-control" step="0.0001" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Inventory Planning</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Min Qty</label>
+                        <input type="number" name="minQuantity" id="editMinQuantity" class="form-control" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Max Qty</label>
+                        <input type="number" name="maxQuantity" id="editMaxQuantity" class="form-control" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Reorder Point</label>
+                        <input type="number" name="reorderPoint" id="editReorderPoint" class="form-control" step="0.01" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Reorder Qty</label>
+                        <input type="number" name="reorderQuantity" id="editReorderQuantity" class="form-control" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Safety Stock</label>
+                        <input type="number" name="safetyStock" id="editSafetyStock" class="form-control" step="0.01" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Lead Time (Days)</label>
+                        <input type="number" name="leadTimeDays" id="editLeadTimeDays" class="form-control" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Reorder Automation</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Reorder Method</label>
+                        <select name="reorderMethod" id="editReorderMethod" class="form-control" asp-items="Model.StockingMethodOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ABC Class</label>
+                        <select name="abcClass" id="editAbcClass" class="form-control" asp-items="Model.AbcClassOptions"></select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding-top: 24px;">
+                        <input type="checkbox" name="autoReorderEnabled" id="editAutoReorderEnabled" value="true" />
+                        <label for="editAutoReorderEnabled" class="form-label" style="margin: 0;">Auto Reorder</label>
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Default Storage Location</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Warehouse</label>
+                        <input type="text" name="warehouse" id="editWarehouse" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Aisle</label>
+                        <input type="text" name="aisle" id="editAisle" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Rack</label>
+                        <input type="text" name="rack" id="editRack" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Shelf</label>
+                        <input type="text" name="shelf" id="editShelf" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bin</label>
+                        <input type="text" name="bin" id="editBin" class="form-control" />
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Sourcing</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Primary Vendor</label>
+                        <select name="primaryVendorId" id="editPrimaryVendorId" class="form-control">
+                            <option value="">-- Select --</option>
+                            @foreach (var vendor in Model.Vendors)
+                            {
+                                <option value="@vendor.Id">@vendor.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vendor Part #</label>
+                        <input type="text" name="vendorPartNumber" id="editVendorPartNumber" class="form-control" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Manufacturer</label>
+                        <select name="manufacturerId" id="editManufacturerId" class="form-control">
+                            <option value="">-- Select --</option>
+                            @foreach (var mfr in Model.Manufacturers)
+                            {
+                                <option value="@mfr.Id">@mfr.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <h4 style="margin: 20px 0 12px 0; color: var(--text-primary); font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Item Settings</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isStocked" id="editIsStocked" value="true" />
+                        <label for="editIsStocked" class="form-label" style="margin: 0;">Stocked Item</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isPurchasable" id="editIsPurchasable" value="true" />
+                        <label for="editIsPurchasable" class="form-label" style="margin: 0;">Purchasable</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isCriticalSpare" id="editIsCriticalSpare" value="true" />
+                        <label for="editIsCriticalSpare" class="form-label" style="margin: 0;">Critical Spare</label>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isTaxable" id="editIsTaxable" value="true" />
+                        <label for="editIsTaxable" class="form-label" style="margin: 0;">Taxable</label>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px;">
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" name="isActive" id="editIsActive" value="true" />
+                        <label for="editIsActive" class="form-label" style="margin: 0;">Active</label>
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" id="editNotes" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editItemForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleRevisionRequired(checkbox) {
+    var revInput = document.getElementById('revisionInput');
+    if (checkbox.checked) {
+        revInput.required = true;
+    } else {
+        revInput.required = false;
+    }
+}
+
+function editItemFromRow(row) {
+    // Navigate to full page editor instead of form
+    window.location.href = '/Materials/ItemEdit/' + row.dataset.id;
+}
+</script>

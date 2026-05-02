@@ -1,0 +1,64 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Assets.ScheduleModel
+@{
+    ViewData["Title"] = "Depreciation Schedule";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalPeriods = Model.Rows.Count();
+    var totalDepreciation = Model.Rows.Sum(r => r.DepreciationAmount);
+    var endingNbv = Model.Rows.LastOrDefault()?.EndingBookValue.ToString("C0") ?? "$0";
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = "Depreciation Schedule",
+        ["Subtitle"] = Model.Description,
+        ["TypeLabel"] = "Asset Report",
+        ["StatusText"] = "Schedule",
+        ["StatusTone"] = "info",
+        ["ContextPartial"] = "Assets/_AssetScheduleContext",
+        ["KpisPartial"] = "Assets/_AssetScheduleKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["TotalPeriods"] = totalPeriods, ["TotalDepreciation"] = totalDepreciation, ["EndingNbv"] = endingNbv, ["MonthEnd"] = Model.AsOfMonthEnd },
+        ["ActionsPartial"] = "Assets/_AssetScheduleActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["AssetId"] = Model.AssetId }
+    };
+    ViewData["AssetNumber"] = Model.AssetNumber;
+    ViewData["AsOf"] = Model.AsOf;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Depreciation Schedule
+        </h3>
+        <span class="status-badge info">@totalPeriods PERIODS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="text-align: center; width: 60px;">#</th>
+                    <th style="text-align: left;">Period Start</th>
+                    <th style="text-align: right;">Depreciation</th>
+                    <th style="text-align: right;">Accumulated</th>
+                    <th style="text-align: right;">Ending NBV</th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var r in Model.Rows)
+            {
+                <tr>
+                    <td class="text-blue" style="text-align: center; font-weight: 700;">@r.PeriodNumber</td>
+                    <td class="text-theme-muted" style="text-align: left; text-transform: uppercase; font-size: 13px;">@Model.ShortDate(r.PeriodStart)</td>
+                    <td style="text-align: right; font-weight: 600;">@Model.Money(r.DepreciationAmount)</td>
+                    <td style="text-align: right; font-weight: 600;">@Model.Money(r.AccumulatedDepreciation)</td>
+                    <td class="text-green" style="text-align: right; font-weight: 700;">@Model.Money(r.EndingBookValue)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</div>

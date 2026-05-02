@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Reports.ComplianceModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Cost</div>
+    <div class="kpi-value">@Model.DepreciationSchedule.TotalCost.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Annual Depr</div>
+    <div class="kpi-value warning">@Model.DepreciationSchedule.TotalDepreciation.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Net Book Value</div>
+    <div class="kpi-value success">@Model.DepreciationSchedule.TotalNetBookValue.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Audit Entries</div>
+    <div class="kpi-value info">@Model.AuditTrail.TotalEntries</div>
+</div>

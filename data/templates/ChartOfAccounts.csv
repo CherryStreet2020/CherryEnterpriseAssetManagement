@@ -1,0 +1,12 @@
+AccountNumber,Name,AccountType,Category,NormalBalance,Description,IsActive
+1000,Cash,Asset,CurrentAsset,Debit,Operating cash account,true
+1100,Accounts Receivable,Asset,CurrentAsset,Debit,Trade receivables,true
+1200,Inventory,Asset,CurrentAsset,Debit,Raw materials and finished goods,true
+1500,Fixed Assets,Asset,FixedAsset,Debit,General fixed assets,true
+1510,Machinery & Equipment,Asset,FixedAsset,Debit,Production machinery,true
+1600,Accumulated Depreciation,ContraAsset,FixedAsset,Credit,Contra asset for depreciation,true
+2000,Accounts Payable,Liability,CurrentLiability,Credit,Trade payables,true
+3000,Common Stock,Equity,OwnersEquity,Credit,Issued common stock,true
+4000,Revenue,Revenue,OperatingRevenue,Credit,Operating revenue,true
+5000,Cost of Goods Sold,Expense,CostOfSales,Debit,Direct costs,true
+6100,Depreciation Expense,Expense,OperatingExpense,Debit,Asset depreciation,true

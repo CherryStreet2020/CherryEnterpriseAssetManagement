@@ -1,0 +1,13 @@
+@model Abs.FixedAssets.Pages.CIP.CostsModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Costs</div>
+    <div class="kpi-value">@Model.TotalCosts</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Capitalizable</div>
+    <div class="kpi-value success">@Model.CapitalizableAmount.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Non-Capital</div>
+    <div class="kpi-value warning">@Model.NonCapitalizableAmount.ToString("C0")</div>
+</div>

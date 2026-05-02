@@ -1,0 +1,198 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.ExchangeRatesModel
+@{
+    ViewData["Title"] = "Exchange Rates";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalRates = Model.Rates.Count;
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Exchange Rates" },
+        { "Subtitle", "Manage currency exchange rates for multi-currency reporting" },
+        { "TypeLabel", "Administration" },
+        { "StatusText", $"{totalRates} Rates" },
+        { "StatusTone", "info" },
+        { "KpisPartial", "Admin/_AdminExchangeRatesKpis" },
+        { "ActionsPartial", "Admin/_AdminExchangeRatesActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Rate History
+        </h3>
+        <span class="status-badge info">@totalRates RATES</span>
+    </div>
+    <div class="section-card-body pe-card__body" style="padding: 0;">
+        @if (Model.Rates.Any())
+        {
+            <table class="data-table premium-table">
+                <thead>
+                    <tr>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Rate</th>
+                        <th>Effective Date</th>
+                        <th>Source</th>
+                        <th>Added By</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rate in Model.Rates)
+                    {
+                        <tr>
+                            <td><span class="badge badge-secondary">@rate.FromCurrency</span></td>
+                            <td><span class="badge badge-secondary">@rate.ToCurrency</span></td>
+                            <td><strong>@rate.Rate.ToString("F6")</strong></td>
+                            <td>@rate.EffectiveDate.ToString("MM/dd/yyyy")</td>
+                            <td>@(rate.Source ?? "-")</td>
+                            <td>@(rate.CreatedBy ?? "-")</td>
+                            <td>
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="openEditRate(@rate.Id, '@rate.FromCurrency', '@rate.ToCurrency', @rate.Rate, '@rate.EffectiveDate.ToString("yyyy-MM-dd")')">Edit</button>
+                                <form method="post" asp-page-handler="Delete" style="display: inline;">
+                                    <input type="hidden" name="id" value="@rate.Id" />
+                                    <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Delete this rate?')">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-coins pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">
+                    <p>No exchange rates configured. Add rates to enable multi-currency reporting.</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="addForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Add Exchange Rate</h3>
+                    <p>Configure a new currency conversion rate</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Add">
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Currency Pair</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group form-group-p">
+                            <label>From Currency</label>
+                            <select name="fromCurrency" class="form-control form-input-p" asp-items="Model.CurrencyOptions">
+                            </select>
+                        </div>
+                        <div class="form-group form-group-p">
+                            <label>To Currency</label>
+                            <select name="toCurrency" class="form-control form-input-p" asp-items="Model.CurrencyOptions">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Rate Details</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group form-group-p">
+                            <label>Exchange Rate</label>
+                            <input type="number" name="rate" class="form-control form-input-p" step="0.000001" required placeholder="1.3500" />
+                        </div>
+                        <div class="form-group form-group-p">
+                            <label>Effective Date</label>
+                            <input type="date" name="effectiveDate" class="form-control form-input-p" value="@DateTime.UtcNow.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="form-group form-group-p full-width">
+                            <label>Source (optional)</label>
+                            <input type="text" name="source" class="form-control form-input-p" placeholder="e.g., Bank of Canada, Manual Entry" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Add Rate</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-text">
+                    <h3>Edit Exchange Rate</h3>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Edit">
+            <input type="hidden" name="id" id="editRateId" />
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-grid">
+                        <div class="form-group form-group-p">
+                            <label>From Currency</label>
+                            <select name="fromCurrency" id="editFromCurrency" class="form-control form-input-p" asp-items="Model.CurrencyOptions"></select>
+                        </div>
+                        <div class="form-group form-group-p">
+                            <label>To Currency</label>
+                            <select name="toCurrency" id="editToCurrency" class="form-control form-input-p" asp-items="Model.CurrencyOptions"></select>
+                        </div>
+                        <div class="form-group form-group-p">
+                            <label>Exchange Rate</label>
+                            <input type="number" name="rate" id="editRate" class="form-control form-input-p" step="0.000001" required />
+                        </div>
+                        <div class="form-group form-group-p">
+                            <label>Effective Date</label>
+                            <input type="date" name="effectiveDate" id="editEffectiveDate" class="form-control form-input-p" required />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditRate(id, from, to, rate, date) {
+    document.getElementById('editRateId').value = id;
+    document.getElementById('editFromCurrency').value = from;
+    document.getElementById('editToCurrency').value = to;
+    document.getElementById('editRate').value = rate;
+    document.getElementById('editEffectiveDate').value = date;
+    document.getElementById('editForm').style.display = '';
+}
+</script>

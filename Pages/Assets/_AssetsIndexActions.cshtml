@@ -1,0 +1,24 @@
+@model Abs.FixedAssets.Pages.Assets.IndexModel
+<div class="hero-tags">
+    @if (Model.Filter != null)
+    {
+        <span class="hero-tag info">FILTERED: @Model.FilterLabel.ToUpper()</span>
+    }
+</div>
+<div class="hero-btns">
+    @if (Model.Filter != null)
+    {
+        <a href="/Assets" class="hero-btn hero-btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filter
+        </a>
+    }
+    <a asp-page="./Asset" asp-route-mode="create" class="hero-btn hero-btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        New Asset
+    </a>
+</div>

@@ -1,0 +1,402 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.LocationsModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Locations";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalLocations = Model.Locations.Count;
+    var activeLocations = Model.Locations.Count(l => l.IsActive);
+    var buildingCount = Model.Locations.Count(l => l.Type == LocationType.Building);
+    var criticalCount = Model.Locations.Count(l => l.Criticality == LocationCriticality.Critical || l.Criticality == LocationCriticality.High);
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Locations" },
+        { "Subtitle", "Manage physical locations, buildings, areas, and storage zones" },
+        { "StatusText", $"{activeLocations} Active" },
+        { "StatusTone", "active" },
+        { "ContextPartial", "Admin/_AdminLocationsContext" },
+        { "KpisPartial", "Admin/_AdminLocationsKpis" },
+        { "ActionsPartial", "Admin/_AdminLocationsActions" }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="quick-stats-row-4">
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@totalLocations</div>
+            <div class="quick-stat-label">Total Locations</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@activeLocations</div>
+            <div class="quick-stat-label">Active Locations</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value info">@buildingCount</div>
+            <div class="quick-stat-label">Buildings</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value danger">@criticalCount</div>
+            <div class="quick-stat-label">High/Critical</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Physical Locations
+        </h3>
+        <span class="status-badge info">@Model.Locations.Count LOCATIONS</span>
+    </div>
+    <div class="section-card-body pe-card__body" style="padding: 0;">
+        <table class="data-table premium-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Site</th>
+                    <th>Type</th>
+                    <th>Parent</th>
+                    <th>Storage Path</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var loc in Model.Locations)
+                {
+                    var storagePath = string.Join("/", new[] { loc.Aisle, loc.Rack, loc.Shelf, loc.Bin }.Where(x => !string.IsNullOrEmpty(x)));
+                    <tr>
+                        <td><strong>@loc.Code</strong></td>
+                        <td>@loc.Name</td>
+                        <td>@(loc.Site?.SiteCode ?? "-")</td>
+                        <td>
+                            @{
+                                var typeClass = loc.Type switch {
+                                    LocationType.Building => "badge-info",
+                                    LocationType.Floor => "badge-secondary",
+                                    LocationType.Area => "badge-primary",
+                                    LocationType.Room => "badge-secondary",
+                                    LocationType.Bay => "badge-warning",
+                                    LocationType.Cell => "badge-success",
+                                    LocationType.Station => "badge-info",
+                                    LocationType.Dock => "badge-warning",
+                                    LocationType.Yard => "badge-secondary",
+                                    LocationType.Storage => "badge-success",
+                                    _ => "badge-secondary"
+                                };
+                            }
+                            <span class="badge @typeClass">@loc.Type</span>
+                        </td>
+                        <td>@(loc.ParentLocation?.Code ?? "-")</td>
+                        <td>@(string.IsNullOrEmpty(storagePath) ? "-" : storagePath)</td>
+                        <td>
+                            @if (loc.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>
+                            <button type="button" class="btn-p btn-p--secondary btn-p--sm" 
+                                    data-id="@loc.Id"
+                                    data-code="@loc.Code"
+                                    data-name="@loc.Name"
+                                    data-description="@(loc.Description ?? "")"
+                                    data-type="@(loc.TypeLookupValueId ?? 0)"
+                                    data-parent="@(loc.ParentLocationId ?? 0)"
+                                    data-costcenter="@(loc.CostCenterId ?? 0)"
+                                    data-siteid="@(loc.SiteId ?? 0)"
+                                    data-bay="@(loc.Bay ?? "")"
+                                    data-aisle="@(loc.Aisle ?? "")"
+                                    data-rack="@(loc.Rack ?? "")"
+                                    data-shelf="@(loc.Shelf ?? "")"
+                                    data-bin="@(loc.Bin ?? "")"
+                                    data-active="@(loc.IsActive ? "true" : "false")"
+                                    onclick="editLocation(this)">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="addLocationForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3>Add Location</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addLocationForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="form-group form-group-p">
+                    <div class="form-field">
+                        <label class="form-field__label">Code *</label>
+                        <input type="text" name="code" class="form-field__input form-input-p" required placeholder="e.g., MISS-A-B1" />
+                    </div>
+                </div>
+                <div class="form-group form-group-p">
+                    <div class="form-field">
+                        <label class="form-field__label">Name *</label>
+                        <input type="text" name="name" class="form-field__input form-input-p" required placeholder="e.g., Bay 1 - CNC Area" />
+                    </div>
+                </div>
+                <div class="form-group form-group-p">
+                    <div class="form-field">
+                        <label class="form-field__label">Description</label>
+                        <input type="text" name="description" class="form-field__input form-input-p" placeholder="Optional description" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Site</label>
+                            <select name="siteId" class="form-field__input form-input-p">
+                                <option value="">-- None --</option>
+                                @foreach (var s in Model.Sites)
+                                {
+                                    <option value="@s.Id">@s.SiteCode - @s.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Type</label>
+                            <select name="typeLookupValueId" class="form-field__input form-input-p" asp-items="Model.TypeOptions"></select>
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Parent Location</label>
+                            <select name="parentLocationId" class="form-field__input form-input-p">
+                                <option value="">-- None --</option>
+                                @foreach (var l in Model.Locations.Where(l => l.Type == LocationType.Building || l.Type == LocationType.Area))
+                                {
+                                    <option value="@l.Id">@l.Code - @l.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Cost Center</label>
+                            <select name="costCenterId" class="form-field__input form-input-p">
+                                <option value="">-- None --</option>
+                                @foreach (var cc in Model.CostCenters)
+                                {
+                                    <option value="@cc.Id">@cc.Code - @cc.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Bay/Station ID</label>
+                            <input type="text" name="bay" class="form-field__input form-input-p" placeholder="e.g., Bay 3" maxlength="50" />
+                        </div>
+                    </div>
+                </div>
+                <h4 class="text-theme-muted" style="margin: 16px 0 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Storage Location</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Aisle</label>
+                            <input type="text" name="aisle" class="form-field__input form-input-p" placeholder="e.g., A" maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Rack</label>
+                            <input type="text" name="rack" class="form-field__input form-input-p" placeholder="e.g., 01" maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Shelf</label>
+                            <input type="text" name="shelf" class="form-field__input form-input-p" placeholder="e.g., 3" maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <div class="form-field">
+                            <label class="form-field__label">Bin</label>
+                            <input type="text" name="bin" class="form-field__input form-input-p" placeholder="e.g., B2" maxlength="50" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addLocationForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Location</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editLocationForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3>Edit Location</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editLocationForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" name="id" id="editId" />
+            <div class="inline-form-body">
+                <div class="form-group form-group-p">
+                    <label class="form-label">Code *</label>
+                    <input type="text" name="code" id="editCode" class="form-control form-input-p" required />
+                </div>
+                <div class="form-group form-group-p">
+                    <label class="form-label">Name *</label>
+                    <input type="text" name="name" id="editName" class="form-control form-input-p" required />
+                </div>
+                <div class="form-group form-group-p">
+                    <label class="form-label">Description</label>
+                    <input type="text" name="description" id="editDescription" class="form-control form-input-p" />
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Site</label>
+                        <select name="siteId" id="editSiteId" class="form-control form-input-p">
+                            <option value="0">-- None --</option>
+                            @foreach (var s in Model.Sites)
+                            {
+                                <option value="@s.Id">@s.SiteCode - @s.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Type</label>
+                        <select name="typeLookupValueId" id="editType" class="form-control form-input-p" asp-items="Model.TypeOptions"></select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Parent Location</label>
+                        <select name="parentLocationId" id="editParentLocationId" class="form-control form-input-p">
+                            <option value="0">-- None --</option>
+                            @foreach (var l in Model.Locations.Where(l => l.Type == LocationType.Building || l.Type == LocationType.Area))
+                            {
+                                <option value="@l.Id">@l.Code - @l.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Cost Center</label>
+                        <select name="costCenterId" id="editCostCenterId" class="form-control form-input-p">
+                            <option value="0">-- None --</option>
+                            @foreach (var cc in Model.CostCenters)
+                            {
+                                <option value="@cc.Id">@cc.Code - @cc.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Bay/Station ID</label>
+                        <input type="text" name="bay" id="editBay" class="form-control form-input-p" maxlength="50" />
+                    </div>
+                </div>
+                <h4 class="text-theme-muted" style="margin: 16px 0 12px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;">Storage Location</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Aisle</label>
+                        <input type="text" name="aisle" id="editAisle" class="form-control form-input-p" maxlength="50" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Rack</label>
+                        <input type="text" name="rack" id="editRack" class="form-control form-input-p" maxlength="50" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Shelf</label>
+                        <input type="text" name="shelf" id="editShelf" class="form-control form-input-p" maxlength="50" />
+                    </div>
+                    <div class="form-group form-group-p">
+                        <label class="form-label">Bin</label>
+                        <input type="text" name="bin" id="editBin" class="form-control form-input-p" maxlength="50" />
+                    </div>
+                </div>
+                <div class="form-group form-group-p">
+                    <label class="checkbox-label">
+                        <input type="hidden" name="isActive" value="false" />
+                        <input type="checkbox" name="isActive" id="editIsActive" value="true" />
+                        <span class="checkbox-text">Active</span>
+                    </label>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editLocationForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function editLocation(btn) {
+        document.getElementById('editId').value = btn.dataset.id;
+        document.getElementById('editCode').value = btn.dataset.code;
+        document.getElementById('editName').value = btn.dataset.name;
+        document.getElementById('editDescription').value = btn.dataset.description;
+        document.getElementById('editSiteId').value = btn.dataset.siteid;
+        document.getElementById('editType').value = btn.dataset.type;
+        document.getElementById('editParentLocationId').value = btn.dataset.parent;
+        document.getElementById('editCostCenterId').value = btn.dataset.costcenter;
+        document.getElementById('editBay').value = btn.dataset.bay;
+        document.getElementById('editAisle').value = btn.dataset.aisle;
+        document.getElementById('editRack').value = btn.dataset.rack;
+        document.getElementById('editShelf').value = btn.dataset.shelf;
+        document.getElementById('editBin').value = btn.dataset.bin;
+        document.getElementById('editIsActive').checked = btn.dataset.active === 'true';
+        toggleInlineForm('editLocationForm');
+    }
+</script>

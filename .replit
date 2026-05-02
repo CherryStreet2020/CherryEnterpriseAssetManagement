@@ -1,0 +1,52 @@
+modules = ["dotnet-7.0", "web", "nodejs-20", "dotnet-9.0", "python-3.11", "postgresql-16"]
+[agent]
+expertMode = true
+integrations = ["javascript_openai_ai_integrations:2.0.0"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["gitFull", "iproute2", "playwright-driver", "python3", "zip", "glib", "nss", "nspr", "atk", "at-spi2-atk", "cups", "libdrm", "gtk3", "pango", "cairo", "xorg.libX11", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXext", "xorg.libXfixes", "xorg.libXrandr", "xorg.libxcb", "mesa", "expat", "alsa-lib", "dbus-glib", "libxkbcommon", "dbus", "psmisc", "libgbm", "at-spi2-core"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Web Server"
+
+[[workflows.workflow]]
+name = "Web Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "dotnet run --project Abs.FixedAssets.csproj"
+waitForPort = 5000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["dotnet", "out/Abs.FixedAssets.dll"]
+build = ["dotnet", "publish", "-c", "Release", "-o", "out"]
+
+[userenv]
+
+[userenv.development]
+THROW_EF_FIRST_WARNING = "false"
+ALLOW_DEMO_SEED = "true"
+DEMO_DATA_ENABLED = "true"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 120000

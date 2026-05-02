@@ -1,0 +1,21 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.API.IndexModel;
+    var totalKeys = model?.ApiKeys.Count ?? 0;
+    var activeKeys = model?.ApiKeys.Count(k => k.IsActive) ?? 0;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total Keys</div>
+    <div class="kpi-value">@totalKeys</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeKeys</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Endpoints</div>
+    <div class="kpi-value info">4</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Version</div>
+    <div class="kpi-value">v1</div>
+</div>

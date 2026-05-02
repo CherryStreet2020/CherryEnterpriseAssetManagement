@@ -1,0 +1,3054 @@
+============================================
+CherryAI EAM — Receiving Module Full Scan
+Generated: Mon Mar  9 08:36:15 PM UTC 2026
+============================================
+
+########################################
+# RECEIVING PAGES (.cshtml)
+########################################
+
+--- Pages/Receiving/Index.cshtml ---
+@page
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+@{
+    ViewData["Title"] = "Receiving";
+    ViewData["TabTitle"] = "Receiving";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var statusText = Model.PendingReceiptCount > 0 ? $"{Model.PendingReceiptCount} Pending" : "Current";
+    var statusTone = Model.PendingReceiptCount > 0 ? "warning" : "success";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Receiving",
+        ["Subtitle"] = "Log received goods against purchase orders",
+        ["TypeLabel"] = "Purchasing",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Receiving/_ReceivingIndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/Receiving/_ReceivingIndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Receiving/_ReceivingIndexActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            POs Awaiting Receipt
+        </h3>
+        <span class="status-badge warning">@Model.PendingReceiptCount PENDING</span>
+    </div>
+    @if (Model.PendingPOs.Any())
+    {
+        <div class="section-card-body pe-card__body" style="padding: 0;">
+            <table class="data-table premium-table">
+                <thead>
+                    <tr>
+                        <th>PO Number</th>
+                        <th>Vendor</th>
+                        <th>Order Date</th>
+                        <th>Required Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var po in Model.PendingPOs)
+                    {
+                        <tr>
+                            <td><strong>@po.PONumber</strong></td>
+                            <td>@po.Vendor?.Name</td>
+                            <td>@po.OrderDate.ToString("MM/dd/yyyy")</td>
+                            <td>@(po.RequiredDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                            <td><span class="badge badge-primary">@po.Status</span></td>
+                            <td>
+                                <a href="/Receiving/Receive/@po.Id" class="btn-p btn-p--secondary btn-p--sm">Receive</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="pe-empty" style="padding:1.5rem;">
+            <i class="fas fa-inbox pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty__text">
+                <h3>No Pending Receipts</h3>
+                <p>All approved purchase orders have been received.</p>
+            </div>
+        </div>
+    }
+</div>
+
+--- Pages/Receiving/Receive.cshtml ---
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Receiving.ReceiveModel
+@{
+    ViewData["Title"] = $"Receive — {Model.PO.PONumber}";
+    ViewData["TabTitle"] = "Receive Goods";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var statusTone = Model.PO.Status == Models.POStatus.PartiallyReceived ? "warning" : "info";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Receive Goods",
+        ["Subtitle"] = $"PO {Model.PO.PONumber} — {Model.PO.Vendor?.Name ?? "Unknown Vendor"}",
+        ["TypeLabel"] = "Receiving",
+        ["StatusText"] = Model.PO.Status.ToString(),
+        ["StatusTone"] = statusTone
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] is string success)
+{
+    <div class="pe-alert pe-alert--success">
+        <strong>&#10003;</strong> @success
+    </div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="pe-alert pe-alert--danger">
+        <strong>&#10007;</strong> @error
+    </div>
+}
+
+<div class="detail-hero">
+    <div class="detail-hero__header">
+        <h3 class="detail-hero__title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Purchase Order Summary
+        </h3>
+    </div>
+    <div class="detail-hero__meta">
+        <div class="pe-field">
+            <div class="pe-field__label">PO Number</div>
+            <div class="pe-field__value">@Model.PO.PONumber</div>
+        </div>
+        <div class="pe-field">
+            <div class="pe-field__label">Vendor</div>
+            <div class="pe-field__value">@(Model.PO.Vendor?.Name ?? "—")</div>
+        </div>
+        <div class="pe-field">
+            <div class="pe-field__label">Order Date</div>
+            <div class="pe-field__value">@Model.PO.OrderDate.ToString("MM/dd/yyyy")</div>
+        </div>
+        <div class="pe-field">
+            <div class="pe-field__label">Required Date</div>
+            <div class="pe-field__value">@(Model.PO.RequiredDate?.ToString("MM/dd/yyyy") ?? "—")</div>
+        </div>
+        <div class="pe-field">
+            <div class="pe-field__label">Total Amount</div>
+            <div class="pe-field__value">@Model.PO.Total.ToString("C")</div>
+        </div>
+        <div class="pe-field">
+            <div class="pe-field__label">Status</div>
+            <div><span class="badge badge-primary">@Model.PO.Status</span></div>
+        </div>
+    </div>
+</div>
+
+<form method="post" asp-page-handler="Receive" asp-route-id="@Model.PO.Id">
+    @Html.AntiForgeryToken()
+    <div class="premium-table-card">
+        <div class="premium-table-card__header">
+            <h3 class="premium-table-card__title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                Line Items
+            </h3>
+            <span class="premium-table-card__badge">@Model.Lines.Count LINE(S)</span>
+        </div>
+        <div class="pe-card__body--flush">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Description</th>
+                        <th>Part Number</th>
+                        <th>UOM</th>
+                        <th class="text-right">Unit Price</th>
+                        <th class="text-right">Ordered</th>
+                        <th class="text-right">Prev. Received</th>
+                        <th class="text-right">Remaining</th>
+                        <th class="text-center">Qty to Receive</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var line = Model.Lines[i];
+                        var isFullyReceived = line.QuantityRemaining <= 0;
+                        <tr style="@(isFullyReceived ? "opacity: 0.5;" : "")">
+                            <td>
+                                <input type="hidden" name="lines[@i].POLineId" value="@line.POLineId" />
+                                @(i + 1)
+                            </td>
+                            <td>@line.ItemDescription</td>
+                            <td><code>@(line.PartNumber ?? "—")</code></td>
+                            <td>@line.UOM</td>
+                            <td class="td-right">@line.UnitPrice.ToString("N2")</td>
+                            <td class="td-right">@line.QuantityOrdered.ToString("N2")</td>
+                            <td class="td-right">@line.QuantityPreviouslyReceived.ToString("N2")</td>
+                            <td class="td-right">
+                                @if (isFullyReceived)
+                                {
+                                    <span class="badge badge-success">Complete</span>
+                                }
+                                else
+                                {
+                                    <strong>@line.QuantityRemaining.ToString("N2")</strong>
+                                }
+                            </td>
+                            <td class="td-center">
+                                @if (isFullyReceived)
+                                {
+                                    <input type="number" name="lines[@i].QuantityToReceive" value="0"
+                                           class="form-control" disabled
+                                           style="width: 90px; text-align: center; display: inline-block;" />
+                                }
+                                else
+                                {
+                                    <input type="number" name="lines[@i].QuantityToReceive" value="0"
+                                           min="0" max="@line.QuantityRemaining" step="any"
+                                           class="form-control"
+                                           style="width: 90px; text-align: center; display: inline-block;" />
+                                }
+                            </td>
+                            <td>
+                                <input type="text" name="lines[@i].Notes" value=""
+                                       class="form-control" placeholder="Notes..."
+                                       style="width: 140px; display: inline-block;"
+                                       @(isFullyReceived ? "disabled" : "") />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="pe-action-bar pe-action-bar--right">
+        <a asp-page="Index" class="btn-p btn-p--secondary">
+            &#8592; Back to Receiving
+        </a>
+        <button type="submit" class="btn-p btn-p--primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align: text-bottom; margin-right: 4px;">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Receive Selected Items
+        </button>
+    </div>
+</form>
+
+--- Pages/Receiving/_ReceivingIndexActions.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<div class="hero-tags"></div>
+<div class="hero-btns">
+    <a href="/Purchasing" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Purchase Orders
+    </a>
+</div>
+
+--- Pages/Receiving/_ReceivingIndexContext.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<span class="loc-pill">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+    @Model.PendingReceiptCount Awaiting
+</span>
+<span class="loc-divider">/</span>
+<span class="loc-pill">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    @Model.ReceivedTodayCount Today
+</span>
+
+--- Pages/Receiving/_ReceivingIndexKpis.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Pending</div>
+    <div class="kpi-value warning">@Model.PendingReceiptCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Today</div>
+    <div class="kpi-value success">@Model.ReceivedTodayCount</div>
+</div>
+
+########################################
+# RECEIVING PAGE MODELS (.cshtml.cs)
+########################################
+
+--- Pages/Receiving/Index.cshtml.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Pages.Receiving
+{
+    public class IndexModel : PageModel
+    {
+        private readonly AppDbContext _context;
+        private readonly IModuleGuardService _moduleGuard;
+        private readonly ITenantContext _tenantContext;
+
+        public IndexModel(AppDbContext context, IModuleGuardService moduleGuard, ITenantContext tenantContext)
+        {
+            _context = context;
+            _moduleGuard = moduleGuard;
+            _tenantContext = tenantContext;
+        }
+
+        public List<PurchaseOrder> PendingPOs { get; set; } = new();
+        public int PendingReceiptCount { get; set; }
+        public int ReceivedTodayCount { get; set; }
+
+        public async Task<IActionResult> OnGetAsync()
+        {
+            if (!await _moduleGuard.IsModuleEnabledAsync("purchasing"))
+                return RedirectToPage("/ModuleDisabled", new { module = "Receiving" });
+
+            var visibleIds = _tenantContext.VisibleCompanyIds;
+            var receivableStatuses = new[] { POStatus.Approved, POStatus.Sent, POStatus.PartiallyReceived };
+            
+            PendingPOs = await _context.PurchaseOrders
+                .Include(p => p.Vendor)
+                .Where(p => visibleIds.Contains(p.CompanyId ?? 0) && receivableStatuses.Contains(p.Status))
+                .OrderBy(p => p.RequiredDate ?? p.OrderDate)
+                .ToListAsync();
+
+            PendingReceiptCount = PendingPOs.Count;
+
+            var today = DateTime.Today;
+            ReceivedTodayCount = await _context.GoodsReceipts
+                .Where(g => visibleIds.Contains(g.CompanyId ?? 0))
+                .CountAsync(g => g.ReceiptDate == today);
+
+            return Page();
+        }
+    }
+}
+
+--- Pages/Receiving/Receive.cshtml.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Lookups;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Pages.Receiving
+{
+    [Authorize(Roles = "Admin")]
+    public class ReceiveModel : PageModel
+    {
+        private readonly AppDbContext _context;
+        private readonly IModuleGuardService _moduleGuard;
+        private readonly ITenantContext _tenantContext;
+        private readonly ILookupService _lookupService;
+
+        public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
+            ITenantContext tenantContext, ILookupService lookupService)
+        {
+            _context = context;
+            _moduleGuard = moduleGuard;
+            _tenantContext = tenantContext;
+            _lookupService = lookupService;
+        }
+
+        public PurchaseOrder PO { get; set; } = null!;
+        public List<ReceiveLineViewModel> Lines { get; set; } = new();
+
+        public class ReceiveLineViewModel
+        {
+            public int POLineId { get; set; }
+            public string? ItemDescription { get; set; }
+            public string? PartNumber { get; set; }
+            public string? UOM { get; set; }
+            public decimal UnitPrice { get; set; }
+            public decimal QuantityOrdered { get; set; }
+            public decimal QuantityPreviouslyReceived { get; set; }
+            public decimal QuantityRemaining { get; set; }
+            public decimal QuantityToReceive { get; set; }
+            public string? Notes { get; set; }
+        }
+
+        public async Task<IActionResult> OnGetAsync(int id)
+        {
+            if (!await _moduleGuard.IsModuleEnabledAsync("purchasing"))
+                return RedirectToPage("/ModuleDisabled", new { module = "purchasing" });
+
+            var poQuery = _context.PurchaseOrders
+                .Include(p => p.Vendor)
+                .Include(p => p.Lines).ThenInclude(l => l.Item)
+                .Where(p => p.Id == id);
+
+            if (_tenantContext.CompanyId.HasValue)
+                poQuery = poQuery.Where(p => _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+
+            var po = await poQuery.FirstOrDefaultAsync();
+
+            if (po == null)
+                return NotFound();
+
+            var receivableStatuses = new[] { POStatus.Approved, POStatus.Sent, POStatus.PartiallyReceived };
+            if (!receivableStatuses.Contains(po.Status))
+            {
+                TempData["Error"] = $"PO {po.PONumber} is not in a receivable status (current: {po.Status}).";
+                return RedirectToPage("Index");
+            }
+
+            PO = po;
+            Lines = po.Lines.OrderBy(l => l.LineNumber).Select(l => new ReceiveLineViewModel
+            {
+                POLineId = l.Id,
+                ItemDescription = l.Description,
+                PartNumber = l.PartNumber ?? l.Item?.PartNumber,
+                UOM = l.UOM,
+                UnitPrice = l.UnitPrice,
+                QuantityOrdered = l.QuantityOrdered,
+                QuantityPreviouslyReceived = l.QuantityReceived,
+                QuantityRemaining = l.QuantityOrdered - l.QuantityReceived
+            }).ToList();
+
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostReceiveAsync(int id, List<ReceiveLineViewModel> lines)
+        {
+            if (!await _moduleGuard.IsModuleEnabledAsync("purchasing"))
+                return RedirectToPage("/ModuleDisabled", new { module = "purchasing" });
+
+            var poQuery = _context.PurchaseOrders
+                .Include(p => p.Vendor)
+                .Include(p => p.Lines).ThenInclude(l => l.Item)
+                .Where(p => p.Id == id);
+
+            if (_tenantContext.CompanyId.HasValue)
+                poQuery = poQuery.Where(p => _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+
+            var po = await poQuery.FirstOrDefaultAsync();
+
+            if (po == null)
+                return NotFound();
+
+            var receivableStatuses = new[] { POStatus.Approved, POStatus.Sent, POStatus.PartiallyReceived };
+            if (!receivableStatuses.Contains(po.Status))
+            {
+                TempData["Error"] = $"PO {po.PONumber} is not in a receivable status.";
+                return RedirectToPage("Index");
+            }
+
+            var errors = new List<string>();
+            foreach (var line in lines)
+            {
+                if (line.QuantityToReceive < 0)
+                    errors.Add($"Quantity cannot be negative for PO line {line.POLineId}.");
+            }
+
+            var receivingLines = lines.Where(l => l.QuantityToReceive > 0).ToList();
+            if (!receivingLines.Any() && !errors.Any())
+            {
+                TempData["Error"] = "Please enter a quantity to receive on at least one line.";
+                return RedirectToPage("Receive", new { id });
+            }
+
+            foreach (var line in receivingLines)
+            {
+                var poLine = po.Lines.FirstOrDefault(l => l.Id == line.POLineId);
+                if (poLine == null)
+                {
+                    errors.Add($"PO line {line.POLineId} not found.");
+                    continue;
+                }
+                var remaining = poLine.QuantityOrdered - poLine.QuantityReceived;
+                if (line.QuantityToReceive > remaining)
+                    errors.Add($"Line '{poLine.Description}': cannot receive {line.QuantityToReceive} — only {remaining} remaining.");
+            }
+
+            if (errors.Any())
+            {
+                TempData["Error"] = string.Join(" ", errors);
+                return RedirectToPage("Receive", new { id });
+            }
+
+            var receiptNumber = $"GR-{DateTime.UtcNow:yyyyMMdd}-{DateTime.UtcNow:HHmmss}";
+
+            var receiptStatusLv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId, "ReceiptStatus", "1");
+
+            var receipt = new GoodsReceipt
+            {
+                ReceiptNumber = receiptNumber,
+                PurchaseOrderId = po.Id,
+                Status = ReceiptStatus.Received,
+                StatusLookupValueId = receiptStatusLv?.Id,
+                ReceiptDate = DateTime.Today,
+                ReceivedBy = User.Identity?.Name ?? "admin",
+                CompanyId = po.CompanyId ?? _tenantContext.CompanyId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            int lineNum = 0;
+            int totalItemsReceived = 0;
+            foreach (var line in receivingLines)
+            {
+                var poLine = po.Lines.First(l => l.Id == line.POLineId);
+                lineNum++;
+                totalItemsReceived++;
+
+                receipt.Lines.Add(new GoodsReceiptLine
+                {
+                    PurchaseOrderLineId = poLine.Id,
+                    LineNumber = lineNum,
+                    QuantityReceived = line.QuantityToReceive,
+                    QuantityAccepted = line.QuantityToReceive,
+                    Notes = line.Notes
+                });
+
+                poLine.QuantityReceived += line.QuantityToReceive;
+                _context.Entry(poLine).Property(p => p.QuantityReceived).IsModified = true;
+            }
+
+            bool allFullyReceived = po.Lines.All(l => l.QuantityReceived >= l.QuantityOrdered);
+            var newStatus = allFullyReceived ? POStatus.Received : POStatus.PartiallyReceived;
+            po.Status = newStatus;
+            var poStatusLv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId, "POStatus", ((int)newStatus).ToString());
+            if (poStatusLv != null)
+                po.StatusLookupValueId = poStatusLv.Id;
+
+            _context.Entry(po).Property(p => p.Status).IsModified = true;
+            _context.Entry(po).Property(p => p.StatusLookupValueId).IsModified = true;
+
+            _context.GoodsReceipts.Add(receipt);
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
+            }
+            catch (Exception)
+            {
+                TempData["Error"] = "An error occurred while saving the receipt. Please try again.";
+                return RedirectToPage("Receive", new { id });
+            }
+
+            if (allFullyReceived)
+                return RedirectToPage("Index");
+
+            return RedirectToPage("Receive", new { id });
+        }
+    }
+}
+
+########################################
+# MODELS
+########################################
+
+--- Models/GoodsReceipt.cs ---
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Abs.FixedAssets.Models
+{
+    public enum ReceiptStatus
+    {
+        Draft = 0,
+        Received = 1,
+        PartiallyReceived = 2,
+        Inspecting = 3,
+        Accepted = 4,
+        Rejected = 5
+    }
+
+    public class GoodsReceipt
+    {
+        public int Id { get; set; }
+
+        [Required, StringLength(20)]
+        [Display(Name = "Receipt Number")]
+        public string ReceiptNumber { get; set; } = string.Empty;
+
+        [Required]
+        public int PurchaseOrderId { get; set; }
+        [Display(Name = "Purchase Order")]
+        public PurchaseOrder? PurchaseOrder { get; set; }
+
+        public ReceiptStatus Status { get; set; } = ReceiptStatus.Draft;
+        public int? StatusLookupValueId { get; set; }
+        public LookupValue? StatusLookupValue { get; set; }
+
+        [Required]
+        [Display(Name = "Receipt Date")]
+        [DataType(DataType.Date)]
+        public DateTime ReceiptDate { get; set; } = DateTime.Today;
+
+        [StringLength(100)]
+        [Display(Name = "Received By")]
+        public string? ReceivedBy { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Shipping Carrier")]
+        public string? ShippingCarrier { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Tracking Number")]
+        public string? TrackingNumber { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Packing Slip #")]
+        public string? PackingSlipNumber { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Receiving Location")]
+        public string? ReceivingLocation { get; set; }
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
+        public int? CompanyId { get; set; }
+        public Company? Company { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+
+        public ICollection<GoodsReceiptLine> Lines { get; set; } = new List<GoodsReceiptLine>();
+    }
+
+    public class GoodsReceiptLine
+    {
+        public int Id { get; set; }
+
+        public int GoodsReceiptId { get; set; }
+        public GoodsReceipt? GoodsReceipt { get; set; }
+
+        public int PurchaseOrderLineId { get; set; }
+        [Display(Name = "PO Line")]
+        public PurchaseOrderLine? PurchaseOrderLine { get; set; }
+
+        public int LineNumber { get; set; }
+
+        [Display(Name = "Quantity Received")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal QuantityReceived { get; set; }
+
+        [Display(Name = "Quantity Accepted")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal QuantityAccepted { get; set; }
+
+        [Display(Name = "Quantity Rejected")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal QuantityRejected { get; set; }
+
+        [StringLength(500)]
+        [Display(Name = "Rejection Reason")]
+        public string? RejectionReason { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Storage Location")]
+        public string? StorageLocation { get; set; }
+
+        [Display(Name = "Receiving Location")]
+        public int? ReceivingLocationId { get; set; }
+        public Location? ReceivingLocation { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Lot Number")]
+        public string? LotNumber { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Serial Number")]
+        public string? SerialNumber { get; set; }
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
+        public int? CipProjectId { get; set; }
+        [Display(Name = "CIP Project")]
+        public CipProject? CipProject { get; set; }
+
+        public bool IsInvoiced { get; set; } = false;
+    }
+}
+
+--- Models/PurchaseOrder.cs (PurchaseOrderLine — QuantityReceived etc) ---
+136:    public class PurchaseOrderLine
+184:        public decimal QuantityOrdered { get; set; }
+188:        public decimal QuantityReceived { get; set; }
+192:        public decimal UnitPrice { get; set; }
+196:        public decimal LineTotal { get; set; }
+227:        public ICollection<PurchaseOrderRelease> Releases { get; set; } = new List<PurchaseOrderRelease>();
+253:        public decimal QuantityReceived { get; set; }
+
+--- Models/PurchaseOrderRelease.cs (if separate file) ---
+[NOT SEPARATE — likely in PurchaseOrder.cs]
+188:        public decimal QuantityReceived { get; set; }
+230:    public enum ReleaseStatus
+238:    public class PurchaseOrderRelease
+253:        public decimal QuantityReceived { get; set; }
+263:        public ReleaseStatus Status { get; set; } = ReleaseStatus.Open;
+
+########################################
+# RECEIVING-RELATED SERVICES
+########################################
+
+--- Services that mention GoodsReceipt or Receiving ---
+Services/Cip/CipAutoCostPostingService.cs
+Services/Cip/CipTraceQueryService.cs
+Services/InvoiceMatchingService.cs
+Services/MasterDataBootstrapService.cs
+Services/Seeding/Pipelines/SystemReferenceSeedPipeline.cs
+
+
+--- Services/Cip/CipAutoCostPostingService.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Lookups;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Services.Cip
+{
+    public class CipAutoCostPostingService
+    {
+        private readonly AppDbContext _db;
+        private readonly ILookupService _lookupService;
+        private readonly ITenantContext _tenantContext;
+        private readonly CipCostService _cipCostService;
+
+        public CipAutoCostPostingService(AppDbContext db, ILookupService lookupService, ITenantContext tenantContext, CipCostService cipCostService)
+        {
+            _db = db;
+            _lookupService = lookupService;
+            _tenantContext = tenantContext;
+            _cipCostService = cipCostService;
+        }
+
+        private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
+        private List<int> GetVisibleCompanyIds() => _tenantContext.VisibleCompanyIds;
+
+        public async Task<CipCost?> PostFromWorkOrderAsync(int workOrderId)
+        {
+            var companyId = GetCompanyId();
+            var wo = await _db.MaintenanceEvents
+                .Include(e => e.Asset)
+                .Where(e => e.Id == workOrderId && e.Asset != null && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null || wo.CipProjectId == null) return null;
+
+            var project = await _db.CipProjects.Where(p => p.Id == wo.CipProjectId.Value && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0)).FirstOrDefaultAsync();
+            if (project == null || project.IsLocked) return null;
+
+            var existingCost = await _db.CipCosts
+                .FirstOrDefaultAsync(c => c.SourceType == "WorkOrder" && c.SourceHeaderId == workOrderId && c.CipProjectId == wo.CipProjectId.Value);
+            if (existingCost != null) return existingCost;
+
+            var laborCostTypeId = await ResolveCostTypeLookupValueIdAsync("LABOR");
+            var laborAmount = wo.LaborCost ?? wo.ActualCost ?? 0m;
+            if (laborAmount <= 0) return null;
+
+            var cost = new CipCost
+            {
+                CipProjectId = wo.CipProjectId.Value,
+                CostTypeLookupValueId = laborCostTypeId,
+                CostType = CipCostType.Labor,
+                Amount = laborAmount,
+                TransactionDate = wo.CompletedDate ?? DateTime.UtcNow,
+                Description = $"Labor from WO {wo.WorkOrderNumber}: {wo.Description}",
+                SourceType = "WorkOrder",
+                SourceHeaderId = workOrderId,
+                SourceDisplayRef = $"WO-{wo.WorkOrderNumber}",
+                WorkOrderId = workOrderId,
+                IsCapitalizable = true,
+                EnteredBy = "system",
+                CreatedByUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.CipCosts.Add(cost);
+            await _db.SaveChangesAsync();
+            await _cipCostService.ReconcileProjectTotalAsync(wo.CipProjectId.Value);
+            return cost;
+        }
+
+        public async Task<CipCost?> PostFromReceiptLineAsync(int receiptLineId)
+        {
+            var receiptLine = await _db.Set<GoodsReceiptLine>()
+                .Include(l => l.GoodsReceipt)
+                .Include(l => l.PurchaseOrderLine)
+                .FirstOrDefaultAsync(l => l.Id == receiptLineId);
+            if (receiptLine == null) return null;
+
+            var cipProjectId = receiptLine.CipProjectId
+                ?? receiptLine.PurchaseOrderLine?.CipProjectId;
+            if (cipProjectId == null) return null;
+
+            var companyId = GetCompanyId();
+            var project = await _db.CipProjects.Where(p => p.Id == cipProjectId.Value && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0)).FirstOrDefaultAsync();
+            if (project == null || project.IsLocked) return null;
+
+            var existingCost = await _db.CipCosts
+                .FirstOrDefaultAsync(c => c.SourceType == "Receipt" && c.SourceLineId == receiptLineId && c.CipProjectId == cipProjectId.Value);
+            if (existingCost != null) return existingCost;
+
+            var materialsCostTypeId = await ResolveCostTypeLookupValueIdAsync("MATERIALS");
+            var amount = receiptLine.QuantityAccepted * (receiptLine.PurchaseOrderLine?.UnitPrice ?? 0m);
+            if (amount <= 0) return null;
+
+            var poLine = receiptLine.PurchaseOrderLine;
+            var receipt = receiptLine.GoodsReceipt;
+
+            var cost = new CipCost
+            {
+                CipProjectId = cipProjectId.Value,
+                CostTypeLookupValueId = materialsCostTypeId,
+                CostType = CipCostType.Materials,
+                Amount = amount,
+                TransactionDate = receipt?.ReceiptDate ?? DateTime.UtcNow,
+                Description = $"Receipt {receipt?.ReceiptNumber}: {poLine?.Description ?? poLine?.PartNumber ?? receipt?.ReceiptNumber ?? "N/A"}",
+                SourceType = "Receipt",
+                SourceHeaderId = receipt?.Id,
+                SourceLineId = receiptLineId,
+                SourceDisplayRef = $"RCV-{receipt?.ReceiptNumber}",
+                GoodsReceiptId = receipt?.Id,
+                GoodsReceiptLineId = receiptLineId,
+                PurchaseOrderId = receipt?.PurchaseOrderId,
+                PurchaseOrderLineId = poLine?.Id,
+                IsCapitalizable = true,
+                EnteredBy = "system",
+                CreatedByUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.CipCosts.Add(cost);
+            await _db.SaveChangesAsync();
+            await _cipCostService.ReconcileProjectTotalAsync(cipProjectId.Value);
+            return cost;
+        }
+
+        public async Task<CipCost?> PostFromVendorInvoiceLineAsync(int invoiceLineId)
+        {
+            var invoiceLine = await _db.Set<VendorInvoiceLine>()
+                .Include(l => l.VendorInvoice)
+                .FirstOrDefaultAsync(l => l.Id == invoiceLineId);
+            if (invoiceLine == null) return null;
+
+            var cipProjectId = invoiceLine.CipProjectId;
+            if (cipProjectId == null) return null;
+
+            var project = await _db.CipProjects.Where(p => p.Id == cipProjectId.Value && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0)).FirstOrDefaultAsync();
+            if (project == null || project.IsLocked) return null;
+
+            var existingCost = await _db.CipCosts
+                .FirstOrDefaultAsync(c => c.SourceType == "Invoice" && c.SourceLineId == invoiceLineId && c.CipProjectId == cipProjectId.Value);
+            if (existingCost != null) return existingCost;
+
+            var equipmentCostTypeId = await ResolveCostTypeLookupValueIdAsync("EQUIPMENT");
+
+            var cost = new CipCost
+            {
+                CipProjectId = cipProjectId.Value,
+                CostTypeLookupValueId = equipmentCostTypeId,
+                CostType = CipCostType.Equipment,
+                Amount = invoiceLine.LineTotal,
+                TransactionDate = invoiceLine.VendorInvoice?.InvoiceDate ?? DateTime.UtcNow,
+                Description = $"Invoice {invoiceLine.VendorInvoice?.InvoiceNumber}: {invoiceLine.Description}",
+                SourceType = "Invoice",
+                SourceHeaderId = invoiceLine.VendorInvoiceId,
+                SourceLineId = invoiceLineId,
+                SourceDisplayRef = $"INV-{invoiceLine.VendorInvoice?.InvoiceNumber}",
+                VendorInvoiceId = invoiceLine.VendorInvoiceId,
+                VendorInvoiceLineId = invoiceLineId,
+                VendorId = invoiceLine.VendorInvoice?.VendorId,
+                IsCapitalizable = true,
+                EnteredBy = "system",
+                CreatedByUserId = "system",
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.CipCosts.Add(cost);
+            await _db.SaveChangesAsync();
+            await _cipCostService.ReconcileProjectTotalAsync(cipProjectId.Value);
+            return cost;
+        }
+
+        private async Task<int?> ResolveCostTypeLookupValueIdAsync(string code)
+        {
+            var values = await _lookupService.GetValuesAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "CipCostType");
+            return values.FirstOrDefault(v => v.Code == code)?.Id;
+        }
+    }
+}
+
+--- Services/Cip/CipTraceQueryService.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Services.Cip
+{
+    public class CipTraceQueryService
+    {
+        private readonly AppDbContext _db;
+        private readonly ITenantContext _tenantContext;
+
+        public CipTraceQueryService(AppDbContext db, ITenantContext tenantContext)
+        {
+            _db = db;
+            _tenantContext = tenantContext;
+        }
+
+        private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
+        private List<int> GetVisibleCompanyIds() => _tenantContext.VisibleCompanyIds;
+
+        public async Task<List<MaintenanceEvent>> GetRelatedWorkOrdersAsync(int cipProjectId)
+        {
+            return await _db.MaintenanceEvents
+                .Where(w => w.CipProjectId == cipProjectId)
+                .OrderByDescending(w => w.ScheduledDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<PurchaseOrder>> GetRelatedPurchaseOrdersAsync(int cipProjectId)
+        {
+            var directPOs = await _db.PurchaseOrders
+                .Where(po => po.CipProjectId == cipProjectId)
+                .OrderByDescending(po => po.OrderDate)
+                .ToListAsync();
+
+            var linePOIds = await _db.Set<PurchaseOrderLine>()
+                .Where(l => l.CipProjectId == cipProjectId)
+                .Select(l => l.PurchaseOrderId)
+                .Distinct()
+                .ToListAsync();
+
+            var linePOs = await _db.PurchaseOrders
+                .Where(po => linePOIds.Contains(po.Id) && !directPOs.Select(d => d.Id).Contains(po.Id))
+                .OrderByDescending(po => po.OrderDate)
+                .ToListAsync();
+
+            return directPOs.Concat(linePOs).ToList();
+        }
+
+        public async Task<List<VendorInvoice>> GetRelatedVendorInvoicesAsync(int cipProjectId)
+        {
+            var invoiceIds = await _db.Set<VendorInvoiceLine>()
+                .Where(l => l.CipProjectId == cipProjectId)
+                .Select(l => l.VendorInvoiceId)
+                .Distinct()
+                .ToListAsync();
+
+            var costInvoiceIds = await _db.CipCosts
+                .Where(c => c.CipProjectId == cipProjectId && c.VendorInvoiceId != null)
+                .Select(c => c.VendorInvoiceId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var allIds = invoiceIds.Union(costInvoiceIds).Distinct().ToList();
+
+            return await _db.VendorInvoices
+                .Where(i => allIds.Contains(i.Id))
+                .OrderByDescending(i => i.InvoiceDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<JournalEntry>> GetRelatedJournalsAsync(int cipProjectId)
+        {
+            var journalIds = await _db.CipCosts
+                .Where(c => c.CipProjectId == cipProjectId && c.JournalEntryId != null)
+                .Select(c => c.JournalEntryId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var capJournalIds = await _db.CipCapitalizations
+                .Where(cap => cap.CipProjectId == cipProjectId && cap.JournalEntryId != null)
+                .Select(cap => cap.JournalEntryId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            var allIds = journalIds.Union(capJournalIds).Distinct().ToList();
+
+            return await _db.JournalEntries
+                .Where(j => allIds.Contains(j.Id))
+                .OrderByDescending(j => j.PostingDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Asset>> GetAssetLinksAsync(int cipProjectId)
+        {
+            var assetIds = await _db.CipCapitalizations
+                .Where(cap => cap.CipProjectId == cipProjectId)
+                .Select(cap => cap.AssetId)
+                .Distinct()
+                .ToListAsync();
+
+            var companyId = GetCompanyId();
+            var project = await _db.CipProjects.Where(p => p.Id == cipProjectId && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0)).FirstOrDefaultAsync();
+            if (project?.ConvertedAssetId != null && !assetIds.Contains(project.ConvertedAssetId.Value))
+                assetIds.Add(project.ConvertedAssetId.Value);
+
+            return await _db.Assets
+                .Where(a => assetIds.Contains(a.Id))
+                .ToListAsync();
+        }
+
+        public async Task<List<GoodsReceipt>> GetRelatedReceiptsAsync(int cipProjectId)
+        {
+            var receiptIds = await _db.CipCosts
+                .Where(c => c.CipProjectId == cipProjectId && c.GoodsReceiptId != null)
+                .Select(c => c.GoodsReceiptId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            return await _db.GoodsReceipts
+                .Where(r => receiptIds.Contains(r.Id))
+                .OrderByDescending(r => r.ReceiptDate)
+                .ToListAsync();
+        }
+    }
+}
+
+--- Services/InvoiceMatchingService.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Services
+{
+    public class InvoiceMatchingService
+    {
+        private readonly AppDbContext _db;
+        private const decimal Tolerance = 0.01m;
+
+        public InvoiceMatchingService(AppDbContext db)
+        {
+            _db = db;
+        }
+
+        public async Task<InvoiceMatchStatus> EvaluateMatchAsync(int invoiceId)
+        {
+            var invoice = await _db.VendorInvoices
+                .Include(i => i.Lines)
+                    .ThenInclude(l => l.PurchaseOrderLine)
+                .Include(i => i.Lines)
+                    .ThenInclude(l => l.GoodsReceiptLine)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId);
+
+            if (invoice == null)
+                return InvoiceMatchStatus.NotMatched;
+
+            if (!invoice.Lines.Any())
+                return InvoiceMatchStatus.NotMatched;
+
+            int fullyMatched = 0;
+            int partiallyLinked = 0;
+            int exceptions = 0;
+            int unlinked = 0;
+
+            foreach (var line in invoice.Lines)
+            {
+                if (line.PurchaseOrderLineId == null)
+                {
+                    unlinked++;
+                    continue;
+                }
+
+                var poLine = line.PurchaseOrderLine;
+                if (poLine == null)
+                {
+                    unlinked++;
+                    continue;
+                }
+
+                if (line.GoodsReceiptLineId == null || line.GoodsReceiptLine == null)
+                {
+                    partiallyLinked++;
+                    continue;
+                }
+
+                var grLine = line.GoodsReceiptLine;
+
+                bool qtyMatch = line.Quantity == poLine.QuantityOrdered && grLine.QuantityReceived >= poLine.QuantityOrdered;
+                decimal poLineTotal = poLine.QuantityOrdered * poLine.UnitPrice;
+                bool amountMatch = Math.Abs(line.LineTotal - poLineTotal) <= Tolerance;
+
+                if (qtyMatch && amountMatch)
+                    fullyMatched++;
+                else
+                    exceptions++;
+            }
+
+            if (exceptions > 0)
+                return InvoiceMatchStatus.Exception;
+            if (fullyMatched == invoice.Lines.Count)
+                return InvoiceMatchStatus.FullyMatched;
+            if (fullyMatched > 0 || partiallyLinked > 0)
+                return InvoiceMatchStatus.PartialMatch;
+
+            return InvoiceMatchStatus.NotMatched;
+        }
+
+        public async Task<int> AutoLinkToPOAsync(int invoiceId)
+        {
+            var invoice = await _db.VendorInvoices
+                .Include(i => i.Lines)
+                .FirstOrDefaultAsync(i => i.Id == invoiceId);
+
+            if (invoice == null)
+                return 0;
+
+            var vendorPOs = await _db.PurchaseOrders
+                .Include(po => po.Lines)
+                .Where(po => po.VendorId == invoice.VendorId
+                    && (po.CompanyId == invoice.CompanyId || po.CompanyId == null)
+                    && (po.Status == POStatus.Approved || po.Status == POStatus.Sent
+                        || po.Status == POStatus.PartiallyReceived || po.Status == POStatus.Received))
+                .ToListAsync();
+
+            var allPOLines = vendorPOs.SelectMany(po => po.Lines).ToList();
+
+            var poIds = vendorPOs.Select(po => po.Id).ToList();
+            var grLines = await _db.GoodsReceiptLines
+                .Include(grl => grl.GoodsReceipt)
+                .Where(grl => poIds.Contains(grl.GoodsReceipt!.PurchaseOrderId))
+                .ToListAsync();
+
+            int linked = 0;
+
+            foreach (var invLine in invoice.Lines)
+            {
+                if (invLine.PurchaseOrderLineId != null)
+                    continue;
+
+                var candidates = allPOLines
+                    .Where(pol => !string.IsNullOrEmpty(pol.Description)
+                        && pol.Description.Equals(invLine.Description, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (candidates.Count != 1)
+                    continue;
+
+                var matchedPOLine = candidates[0];
+                invLine.PurchaseOrderLineId = matchedPOLine.Id;
+                _db.Entry(invLine).Property(l => l.PurchaseOrderLineId).IsModified = true;
+
+                var grCandidates = grLines
+                    .Where(grl => grl.PurchaseOrderLineId == matchedPOLine.Id)
+                    .ToList();
+
+                if (grCandidates.Count == 1)
+                {
+                    invLine.GoodsReceiptLineId = grCandidates[0].Id;
+                    _db.Entry(invLine).Property(l => l.GoodsReceiptLineId).IsModified = true;
+                }
+
+                linked++;
+            }
+
+            if (linked > 0)
+                await _db.SaveChangesAsync();
+
+            return linked;
+        }
+
+        public async Task<(bool Success, string? Error)> LinkLineAsync(int invoiceLineId, int? poLineId, int? grLineId, int invoiceVendorId, int? invoiceCompanyId)
+        {
+            var line = await _db.VendorInvoiceLines.Where(l => l.Id == invoiceLineId).FirstOrDefaultAsync();
+            if (line == null)
+                return (false, "Invoice line not found.");
+
+            if (poLineId.HasValue)
+            {
+                var poLine = await _db.PurchaseOrderLines
+                    .Include(pl => pl.PurchaseOrder)
+                    .FirstOrDefaultAsync(pl => pl.Id == poLineId.Value);
+
+                if (poLine == null)
+                    return (false, "PO line not found.");
+
+                if (poLine.PurchaseOrder?.VendorId != invoiceVendorId)
+                    return (false, "PO line does not belong to this invoice's vendor.");
+
+                if (invoiceCompanyId.HasValue && poLine.PurchaseOrder?.CompanyId != null
+                    && poLine.PurchaseOrder.CompanyId != invoiceCompanyId)
+                    return (false, "PO line does not belong to the same company.");
+            }
+
+            if (grLineId.HasValue)
+            {
+                var grLine = await _db.GoodsReceiptLines
+                    .Include(grl => grl.GoodsReceipt)
+                    .FirstOrDefaultAsync(grl => grl.Id == grLineId.Value);
+
+                if (grLine == null)
+                    return (false, "Goods receipt line not found.");
+
+                if (poLineId.HasValue && grLine.PurchaseOrderLineId != poLineId.Value)
+                    return (false, "Goods receipt line does not belong to the selected PO line.");
+            }
+
+            line.PurchaseOrderLineId = poLineId;
+            line.GoodsReceiptLineId = grLineId;
+            _db.Entry(line).Property(l => l.PurchaseOrderLineId).IsModified = true;
+            _db.Entry(line).Property(l => l.GoodsReceiptLineId).IsModified = true;
+
+            await _db.SaveChangesAsync();
+            return (true, null);
+        }
+
+        public async Task UnlinkLineAsync(int invoiceLineId)
+        {
+            var line = await _db.VendorInvoiceLines.Where(l => l.Id == invoiceLineId).FirstOrDefaultAsync();
+            if (line == null)
+                return;
+
+            line.PurchaseOrderLineId = null;
+            line.GoodsReceiptLineId = null;
+            _db.Entry(line).Property(l => l.PurchaseOrderLineId).IsModified = true;
+            _db.Entry(line).Property(l => l.GoodsReceiptLineId).IsModified = true;
+
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task UpdateInvoiceMatchStatusAsync(int invoiceId)
+        {
+            var invoice = await _db.VendorInvoices.Where(i => i.Id == invoiceId).FirstOrDefaultAsync();
+            if (invoice == null)
+                return;
+
+            var status = await EvaluateMatchAsync(invoiceId);
+            invoice.MatchStatus = status;
+            _db.Entry(invoice).Property(i => i.MatchStatus).IsModified = true;
+            await _db.SaveChangesAsync();
+        }
+    }
+}
+
+--- Services/MasterDataBootstrapService.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Services
+{
+    public class SeedResult
+    {
+        public string Domain { get; set; } = string.Empty;
+        public int TotalRecords { get; set; }
+        public int Inserted { get; set; }
+        public int Updated { get; set; }
+        public int Skipped { get; set; }
+        public int Failed { get; set; }
+        public List<string> Errors { get; set; } = new();
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public bool Success => Failed == 0;
+    }
+
+    public class BootstrapReport
+    {
+        public List<SeedResult> Results { get; set; } = new();
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public bool Success => Results.All(r => r.Success);
+        public int TotalInserted => Results.Sum(r => r.Inserted);
+        public int TotalUpdated => Results.Sum(r => r.Updated);
+        public int TotalFailed => Results.Sum(r => r.Failed);
+    }
+
+    public interface IMasterDataBootstrapService
+    {
+        Task<BootstrapReport> RunSystemReferenceSeedAsync();
+        Task<BootstrapReport> RunCustomerMasterLoadAsync();
+        Task<BootstrapReport> RunDemoSeedAsync();
+        Task<SeedResult> ImportFromCsvAsync<T>(string csvContent, string domain) where T : class;
+    }
+
+    public class MasterDataBootstrapService : IMasterDataBootstrapService
+    {
+        private readonly AppDbContext _context;
+        private readonly ILogger<MasterDataBootstrapService> _logger;
+
+        public MasterDataBootstrapService(AppDbContext context, ILogger<MasterDataBootstrapService> logger)
+        {
+            _context = context;
+            _logger = logger;
+        }
+
+        public async Task<BootstrapReport> RunSystemReferenceSeedAsync()
+        {
+            var report = new BootstrapReport { StartTime = DateTime.UtcNow };
+
+            report.Results.Add(await SeedWorkOrderTypesAsync());
+            report.Results.Add(await SeedFailureCodesAsync());
+            report.Results.Add(await SeedCauseCodesAsync());
+            report.Results.Add(await SeedPriorityLevelsAsync());
+            report.Results.Add(await SeedCraftsAsync());
+            report.Results.Add(await SeedNumberingSequencesAsync());
+            report.Results.Add(await SeedPaymentTermsAsync());
+            report.Results.Add(await SeedCurrenciesAsync());
+            report.Results.Add(await SeedSection179LimitsAsync());
+            report.Results.Add(await SeedBonusDepreciationRatesAsync());
+
+            report.EndTime = DateTime.UtcNow;
+            return report;
+        }
+
+        public async Task<BootstrapReport> RunCustomerMasterLoadAsync()
+        {
+            var report = new BootstrapReport { StartTime = DateTime.UtcNow };
+
+            report.Results.Add(await SeedGlAccountsAsync());
+            report.Results.Add(await SeedSitesAsync());
+            report.Results.Add(await SeedDepartmentsAsync());
+            report.Results.Add(await SeedCostCentersAsync());
+            report.Results.Add(await SeedAssetCategoriesAsync());
+
+            report.EndTime = DateTime.UtcNow;
+            return report;
+        }
+
+        public async Task<BootstrapReport> RunDemoSeedAsync()
+        {
+            var report = new BootstrapReport { StartTime = DateTime.UtcNow };
+
+            report.Results.Add(await SeedPMTemplatesAsync());
+
+            report.EndTime = DateTime.UtcNow;
+            return report;
+        }
+
+        public async Task<SeedResult> ImportFromCsvAsync<T>(string csvContent, string domain) where T : class
+        {
+            var result = new SeedResult { Domain = domain };
+
+            try
+            {
+                var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length < 2)
+                {
+                    result.Errors.Add("CSV must have header row and at least one data row");
+                    result.Failed = 1;
+                    return result;
+                }
+
+                var headers = lines[0].Split(',').Select(h => h.Trim().Trim('"')).ToArray();
+                result.TotalRecords = lines.Length - 1;
+
+                for (int i = 1; i < lines.Length; i++)
+                {
+                    try
+                    {
+                        var values = ParseCsvLine(lines[i]);
+                        if (values.Length != headers.Length)
+                        {
+                            result.Errors.Add($"Row {i}: Column count mismatch");
+                            result.Failed++;
+                            continue;
+                        }
+
+                        var data = new Dictionary<string, string>();
+                        for (int j = 0; j < headers.Length; j++)
+                        {
+                            data[headers[j]] = values[j];
+                        }
+
+                        var (inserted, updated) = await UpsertRecordAsync<T>(data);
+                        if (inserted) result.Inserted++;
+                        else if (updated) result.Updated++;
+                        else result.Skipped++;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"Row {i}: {ex.Message}");
+                        result.Failed++;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                result.Errors.Add($"Import failed: {ex.Message}");
+                result.Failed = result.TotalRecords;
+            }
+
+            return result;
+        }
+
+        private string[] ParseCsvLine(string line)
+        {
+            var result = new List<string>();
+            var current = new System.Text.StringBuilder();
+            bool inQuotes = false;
+
+            foreach (char c in line)
+            {
+                if (c == '"')
+                {
+                    inQuotes = !inQuotes;
+                }
+                else if (c == ',' && !inQuotes)
+                {
+                    result.Add(current.ToString().Trim());
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            result.Add(current.ToString().Trim());
+            return result.ToArray();
+        }
+
+        private Task<(bool inserted, bool updated)> UpsertRecordAsync<T>(Dictionary<string, string> data) where T : class
+        {
+            return Task.FromResult((false, false));
+        }
+
+        private async Task<SeedResult> SeedWorkOrderTypesAsync()
+        {
+            var result = new SeedResult { Domain = "WorkOrderTypes" };
+            var types = new[]
+            {
+                ("PM", "Preventive Maintenance", "Scheduled maintenance to prevent failures"),
+                ("CM", "Corrective Maintenance", "Repair after failure or issue discovered"),
+                ("PDM", "Predictive Maintenance", "Condition-based maintenance"),
+                ("EM", "Emergency Maintenance", "Urgent unplanned repairs"),
+                ("PRJ", "Project Work", "Capital improvement or modification"),
+                ("INSP", "Inspection", "Regulatory or safety inspection"),
+                ("CAL", "Calibration", "Instrument calibration"),
+                ("SAF", "Safety Work", "LOTO or safety-related work"),
+                ("INST", "Installation", "New equipment installation"),
+                ("DEMO", "Demolition/Removal", "Equipment removal or decommission"),
+                ("RELO", "Relocation", "Equipment move or transfer"),
+                ("MOD", "Modification", "Equipment modification or upgrade")
+            };
+
+            result.TotalRecords = types.Length;
+
+            foreach (var (code, name, desc) in types)
+            {
+                var existing = await _context.WorkOrderTypes.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.WorkOrderTypes.Add(new WorkOrderType { Code = code, Name = name, Description = desc, IsActive = true });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedFailureCodesAsync()
+        {
+            var result = new SeedResult { Domain = "FailureCodes" };
+            var codes = new[]
+            {
+                ("MECH-WEAR", "Mechanical Wear", "Component worn beyond tolerance"),
+                ("MECH-BREAK", "Mechanical Breakage", "Component broke or fractured"),
+                ("MECH-MISALIGN", "Misalignment", "Shaft or coupling misalignment"),
+                ("ELEC-SHORT", "Electrical Short", "Short circuit or ground fault"),
+                ("ELEC-OPEN", "Open Circuit", "Wire break or loose connection"),
+                ("ELEC-OVERLOAD", "Electrical Overload", "Motor or circuit overloaded"),
+                ("ELEC-CTRL", "Control Failure", "PLC or control system failure"),
+                ("HYD-LEAK", "Hydraulic Leak", "Fluid leak in hydraulic system"),
+                ("HYD-PUMP", "Hydraulic Pump Failure", "Pump failure or degradation"),
+                ("PNEU-LEAK", "Pneumatic Leak", "Air leak in pneumatic system"),
+                ("PNEU-VALVE", "Pneumatic Valve Failure", "Valve stuck or failed"),
+                ("LUBR-LACK", "Lack of Lubrication", "Insufficient lubrication"),
+                ("LUBR-CONTAM", "Lubricant Contamination", "Contaminated lubricant"),
+                ("STRUC-CRACK", "Structural Crack", "Crack in frame or structure"),
+                ("STRUC-CORR", "Corrosion", "Corrosion or rust damage"),
+                ("INST-CAL", "Calibration Drift", "Instrument out of calibration"),
+                ("INST-SENSOR", "Sensor Failure", "Sensor malfunction"),
+                ("SOFT-ERROR", "Software Error", "Program or logic error"),
+                ("SOFT-COMM", "Communication Failure", "Network or protocol failure"),
+                ("OPER-ABUSE", "Operator Abuse", "Improper operation"),
+                ("OPER-OVERLOAD", "Operational Overload", "Exceeded capacity"),
+                ("ENV-TEMP", "Temperature Extreme", "Heat or cold damage"),
+                ("ENV-CONTAM", "Environmental Contamination", "Dust, dirt, or debris"),
+                ("UNK", "Unknown", "Root cause undetermined")
+            };
+
+            result.TotalRecords = codes.Length;
+
+            foreach (var (code, name, desc) in codes)
+            {
+                var existing = await _context.FailureCodes.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.FailureCodes.Add(new FailureCode { Code = code, Name = name, Description = desc, IsActive = true });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedCauseCodesAsync()
+        {
+            var result = new SeedResult { Domain = "CauseCodes" };
+            var codes = new[]
+            {
+                ("WEAR", "Normal Wear", "End of component life"),
+                ("MAINT-LACK", "Lack of Maintenance", "PM not performed"),
+                ("MAINT-IMPROPER", "Improper Maintenance", "Incorrect PM procedures"),
+                ("MISALIGN", "Misalignment", "Installation or operational misalignment"),
+                ("OVERLOAD", "Overload", "Exceeded design capacity"),
+                ("CONTAM", "Contamination", "Foreign material intrusion"),
+                ("CORR", "Corrosion", "Chemical or environmental corrosion"),
+                ("FATIGUE", "Fatigue", "Cyclic stress failure"),
+                ("HEAT", "Overheating", "Thermal damage"),
+                ("VIBR", "Excessive Vibration", "Vibration-induced damage"),
+                ("DESIGN", "Design Deficiency", "Inherent design flaw"),
+                ("INSTALL", "Installation Error", "Improper installation"),
+                ("OPER-ERROR", "Operator Error", "Human error in operation"),
+                ("MATERIAL", "Material Defect", "Manufacturing or material defect"),
+                ("AGE", "Age Degradation", "Time-based deterioration"),
+                ("POWER", "Power Quality", "Voltage sag, surge, or transient"),
+                ("UNK", "Unknown", "Cause undetermined")
+            };
+
+            result.TotalRecords = codes.Length;
+
+            foreach (var (code, name, desc) in codes)
+            {
+                var existing = await _context.CauseCodes.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.CauseCodes.Add(new CauseCode { Code = code, Name = name, Description = desc, IsActive = true });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedPriorityLevelsAsync()
+        {
+            var result = new SeedResult { Domain = "PriorityLevels" };
+            var levels = new[]
+            {
+                ("P1", "Emergency", 1, 4, "Safety or production critical - immediate response"),
+                ("P2", "Urgent", 2, 24, "Major impact - respond within 24 hours"),
+                ("P3", "High", 3, 72, "Significant impact - respond within 3 days"),
+                ("P4", "Medium", 4, 168, "Moderate impact - respond within 1 week"),
+                ("P5", "Low", 5, 336, "Minor impact - respond within 2 weeks"),
+                ("P6", "Planned", 6, 720, "No immediate impact - schedule as available")
+            };
+
+            result.TotalRecords = levels.Length;
+
+            foreach (var (code, name, sortOrder, slaHours, desc) in levels)
+            {
+                var existing = await _context.PriorityLevels.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.PriorityLevels.Add(new PriorityLevel 
+                    { 
+                        Code = code, 
+                        Name = name, 
+                        Description = desc, 
+                        Level = sortOrder,
+                        ResponseTimeHours = slaHours,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedCraftsAsync()
+        {
+            var result = new SeedResult { Domain = "Crafts" };
+            var crafts = new[]
+            {
+                ("MECH", "Mechanic", 45.00m),
+                ("ELEC", "Electrician", 50.00m),
+                ("WELD", "Welder", 48.00m),
+                ("PIPE", "Pipefitter", 46.00m),
+                ("HVAC", "HVAC Technician", 52.00m),
+                ("INST", "Instrument Technician", 55.00m),
+                ("PLC", "PLC Programmer", 60.00m),
+                ("MILL", "Millwright", 50.00m),
+                ("MACH", "Machinist", 48.00m),
+                ("LUBE", "Lubrication Technician", 38.00m),
+                ("OPER", "Operator", 35.00m),
+                ("HELP", "Helper", 28.00m),
+                ("LEAD", "Lead Technician", 58.00m),
+                ("SUPV", "Supervisor", 65.00m),
+                ("ENGR", "Engineer", 75.00m)
+            };
+
+            result.TotalRecords = crafts.Length;
+
+            foreach (var (code, name, rate) in crafts)
+            {
+                var existing = await _context.Crafts.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.Crafts.Add(new Craft 
+                    { 
+                        Code = code, 
+                        Name = name, 
+                        DefaultHourlyRate = rate,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedNumberingSequencesAsync()
+        {
+            var result = new SeedResult { Domain = "NumberingSequences" };
+            var sequences = new[]
+            {
+                ("PO", "PO-", 1, "Purchase Orders"),
+                ("PR", "PR-", 1, "Purchase Requisitions"),
+                ("WO", "WO-", 1, "Work Orders"),
+                ("INV", "INV-", 1, "Vendor Invoices"),
+                ("GR", "GR-", 1, "Goods Receipts"),
+                ("AST", "AST-", 1, "Assets"),
+                ("JE", "JE-", 1, "Journal Entries"),
+                ("PAY", "PAY-", 1, "Payments"),
+                ("CIP", "CIP-", 1, "CIP Projects"),
+                ("MR", "MR-", 1, "Material Requests")
+            };
+
+            result.TotalRecords = sequences.Length;
+
+            foreach (var (code, prefix, next, name) in sequences)
+            {
+                var existing = await _context.NumberingSequences.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.NumberingSequences.Add(new NumberingSequence 
+                    { 
+                        Code = code, 
+                        Name = name,
+                        Prefix = prefix, 
+                        NextNumber = next,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedPaymentTermsAsync()
+        {
+            var result = new SeedResult { Domain = "PaymentTerms" };
+            var terms = new[]
+            {
+                ("NET10", "Net 10", 10, 0m),
+                ("NET15", "Net 15", 15, 0m),
+                ("NET30", "Net 30", 30, 0m),
+                ("NET45", "Net 45", 45, 0m),
+                ("NET60", "Net 60", 60, 0m),
+                ("NET90", "Net 90", 90, 0m),
+                ("2/10NET30", "2% 10 Net 30", 30, 2m),
+                ("1/10NET30", "1% 10 Net 30", 30, 1m),
+                ("COD", "Cash on Delivery", 0, 0m),
+                ("CIA", "Cash in Advance", -1, 0m),
+                ("EOM", "End of Month", 30, 0m),
+                ("15MFI", "15th of Month Following Invoice", 45, 0m),
+                ("DOR", "Due on Receipt", 0, 0m)
+            };
+
+            result.TotalRecords = terms.Length;
+
+            foreach (var (code, name, days, discount) in terms)
+            {
+                var existing = await _context.PaymentTerms.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.PaymentTerms.Add(new PaymentTerm 
+                    { 
+                        Code = code, 
+                        Name = name, 
+                        DueDays = days,
+                        DiscountPercent = discount,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedCurrenciesAsync()
+        {
+            var result = new SeedResult { Domain = "Currencies" };
+            var currencies = new[]
+            {
+                ("USD", "US Dollar", "$", 2),
+                ("CAD", "Canadian Dollar", "C$", 2),
+                ("EUR", "Euro", "€", 2),
+                ("GBP", "British Pound", "£", 2),
+                ("MXN", "Mexican Peso", "MX$", 2),
+                ("JPY", "Japanese Yen", "¥", 0),
+                ("CNY", "Chinese Yuan", "¥", 2),
+                ("CHF", "Swiss Franc", "CHF", 2),
+                ("AUD", "Australian Dollar", "A$", 2),
+                ("INR", "Indian Rupee", "₹", 2)
+            };
+
+            result.TotalRecords = currencies.Length;
+
+            foreach (var (code, name, symbol, decimals) in currencies)
+            {
+                var existing = await _context.Currencies.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.Currencies.Add(new Currency 
+                    { 
+                        Code = code, 
+                        Name = name, 
+                        Symbol = symbol,
+                        DecimalPlaces = decimals,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedSection179LimitsAsync()
+        {
+            var result = new SeedResult { Domain = "Section179Limits" };
+            var limits = new[]
+            {
+                (2020, 1040000m, 2590000m),
+                (2021, 1050000m, 2620000m),
+                (2022, 1080000m, 2700000m),
+                (2023, 1160000m, 2890000m),
+                (2024, 1220000m, 3050000m),
+                (2025, 1250000m, 3130000m),
+                (2026, 1280000m, 3200000m)
+            };
+
+            result.TotalRecords = limits.Length;
+
+            foreach (var (year, maxDeduction, phaseout) in limits)
+            {
+                var existing = await _context.Section179Limits.FirstOrDefaultAsync(x => x.TaxYear == year);
+                if (existing == null)
+                {
+                    _context.Section179Limits.Add(new Section179Limits 
+                    { 
+                        TaxYear = year, 
+                        MaxDeduction = maxDeduction, 
+                        PhaseoutThreshold = phaseout
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedBonusDepreciationRatesAsync()
+        {
+            var result = new SeedResult { Domain = "BonusDepreciationRates" };
+            var rates = new[]
+            {
+                (2020, 100m),
+                (2021, 100m),
+                (2022, 100m),
+                (2023, 80m),
+                (2024, 60m),
+                (2025, 40m),
+                (2026, 20m),
+                (2027, 0m)
+            };
+
+            result.TotalRecords = rates.Length;
+
+            foreach (var (year, rate) in rates)
+            {
+                var existing = await _context.BonusDepreciationRates.FirstOrDefaultAsync(x => x.TaxYear == year);
+                if (existing == null)
+                {
+                    _context.BonusDepreciationRates.Add(new BonusDepreciationRates 
+                    { 
+                        TaxYear = year, 
+                        Rate = rate
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedGlAccountsAsync()
+        {
+            var result = new SeedResult { Domain = "GlAccounts" };
+            
+            var accounts = new[]
+            {
+                ("1000", "Cash", GlAccountType.Asset, GlAccountCategory.CashAndReceivables, NormalBalance.Debit),
+                ("1100", "Accounts Receivable", GlAccountType.Asset, GlAccountCategory.CashAndReceivables, NormalBalance.Debit),
+                ("1200", "Inventory", GlAccountType.Asset, GlAccountCategory.MroInventory, NormalBalance.Debit),
+                ("1500", "Fixed Assets", GlAccountType.Asset, GlAccountCategory.FixedAssetsMachinery, NormalBalance.Debit),
+                ("1510", "Machinery & Equipment", GlAccountType.Asset, GlAccountCategory.FixedAssetsMachinery, NormalBalance.Debit),
+                ("1520", "Vehicles", GlAccountType.Asset, GlAccountCategory.FixedAssetsVehicles, NormalBalance.Debit),
+                ("1530", "Furniture & Fixtures", GlAccountType.Asset, GlAccountCategory.FixedAssetsMachinery, NormalBalance.Debit),
+                ("1540", "Computer Equipment", GlAccountType.Asset, GlAccountCategory.FixedAssetsTechnology, NormalBalance.Debit),
+                ("1550", "Buildings", GlAccountType.Asset, GlAccountCategory.FixedAssetsLandBuildings, NormalBalance.Debit),
+                ("1560", "Land", GlAccountType.Asset, GlAccountCategory.FixedAssetsLandBuildings, NormalBalance.Debit),
+                ("1570", "Leasehold Improvements", GlAccountType.Asset, GlAccountCategory.FixedAssetsLandBuildings, NormalBalance.Debit),
+                ("1580", "Construction in Progress", GlAccountType.Asset, GlAccountCategory.WorkInProgress, NormalBalance.Debit),
+                ("1600", "Accumulated Depreciation", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("1610", "Accum Depr - Machinery", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("1620", "Accum Depr - Vehicles", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("1630", "Accum Depr - Furniture", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("1640", "Accum Depr - Computers", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("1650", "Accum Depr - Buildings", GlAccountType.ContraAsset, GlAccountCategory.AccumulatedDepreciation, NormalBalance.Credit),
+                ("2000", "Accounts Payable", GlAccountType.Liability, GlAccountCategory.CurrentLiabilities, NormalBalance.Credit),
+                ("2100", "Accrued Liabilities", GlAccountType.Liability, GlAccountCategory.CurrentLiabilities, NormalBalance.Credit),
+                ("3000", "Common Stock", GlAccountType.Equity, GlAccountCategory.Equity, NormalBalance.Credit),
+                ("3100", "Retained Earnings", GlAccountType.Equity, GlAccountCategory.Equity, NormalBalance.Credit),
+                ("4000", "Revenue", GlAccountType.Revenue, GlAccountCategory.RevenueAndGains, NormalBalance.Credit),
+                ("5000", "Cost of Goods Sold", GlAccountType.Expense, GlAccountCategory.CostOfSales, NormalBalance.Debit),
+                ("6000", "Operating Expenses", GlAccountType.Expense, GlAccountCategory.OperatingExpenses, NormalBalance.Debit),
+                ("6100", "Depreciation Expense", GlAccountType.Expense, GlAccountCategory.DepreciationExpense, NormalBalance.Debit),
+                ("6200", "Maintenance Expense", GlAccountType.Expense, GlAccountCategory.MaintenanceLabor, NormalBalance.Debit),
+                ("6300", "Utilities Expense", GlAccountType.Expense, GlAccountCategory.UtilitiesInfrastructure, NormalBalance.Debit),
+                ("7000", "Gain on Asset Sale", GlAccountType.Revenue, GlAccountCategory.RevenueAndGains, NormalBalance.Credit),
+                ("7100", "Loss on Asset Disposal", GlAccountType.Expense, GlAccountCategory.AssetLosses, NormalBalance.Debit)
+            };
+
+            var company = await _context.Companies.FirstOrDefaultAsync();
+            if (company == null)
+            {
+                result.Errors.Add("No company exists - cannot seed GL accounts");
+                result.Failed = accounts.Length;
+                return result;
+            }
+
+            result.TotalRecords = accounts.Length;
+
+            foreach (var (acctNum, name, type, category, balance) in accounts)
+            {
+                var existing = await _context.GlAccounts.FirstOrDefaultAsync(x => x.AccountNumber == acctNum && x.CompanyId == company.Id);
+                if (existing == null)
+                {
+                    _context.GlAccounts.Add(new GlAccount 
+                    { 
+                        AccountNumber = acctNum, 
+                        Name = name, 
+                        AccountType = type,
+                        Category = category,
+                        NormalBalance = balance,
+                        CompanyId = company.Id,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedSitesAsync()
+        {
+            var result = new SeedResult { Domain = "Sites" };
+            
+            var company = await _context.Companies.FirstOrDefaultAsync();
+            if (company == null)
+            {
+                result.Errors.Add("No company exists - cannot seed sites");
+                return result;
+            }
+
+            var sites = new[]
+            {
+                ("MAIN", "Main Manufacturing Plant", SiteType.Manufacturing),
+                ("WHSE", "Central Warehouse", SiteType.Warehouse),
+                ("HQ", "Corporate Headquarters", SiteType.Office),
+                ("DC01", "Distribution Center East", SiteType.Distribution),
+                ("SVC01", "Service Center", SiteType.ServiceCenter)
+            };
+
+            result.TotalRecords = sites.Length;
+
+            foreach (var (code, name, type) in sites)
+            {
+                var existing = await _context.Sites.FirstOrDefaultAsync(x => x.SiteCode == code);
+                if (existing == null)
+                {
+                    _context.Sites.Add(new Site 
+                    { 
+                        SiteCode = code, 
+                        Name = name, 
+                        Type = type,
+                        Status = SiteStatus.Active,
+                        CompanyId = company.Id
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedDepartmentsAsync()
+        {
+            var result = new SeedResult { Domain = "Departments" };
+            var depts = new[]
+            {
+                ("MAINT", "Maintenance"),
+                ("PROD", "Production"),
+                ("QA", "Quality Assurance"),
+                ("ENG", "Engineering"),
+                ("ADMIN", "Administration"),
+                ("IT", "Information Technology"),
+                ("FACIL", "Facilities"),
+                ("SAFE", "Safety & Environmental"),
+                ("WHSE", "Warehouse"),
+                ("SHIP", "Shipping & Receiving")
+            };
+
+            result.TotalRecords = depts.Length;
+
+            foreach (var (code, name) in depts)
+            {
+                var existing = await _context.Departments.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.Departments.Add(new Department { Code = code, Name = name, IsActive = true });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedCostCentersAsync()
+        {
+            var result = new SeedResult { Domain = "CostCenters" };
+            var centers = new[]
+            {
+                ("CC100", "Production Line 1"),
+                ("CC200", "Production Line 2"),
+                ("CC300", "Packaging"),
+                ("CC400", "Warehouse Operations"),
+                ("CC500", "Plant Maintenance"),
+                ("CC600", "Quality Control"),
+                ("CC700", "Engineering Support"),
+                ("CC800", "General & Administrative"),
+                ("CC900", "Research & Development")
+            };
+
+            result.TotalRecords = centers.Length;
+
+            foreach (var (code, name) in centers)
+            {
+                var existing = await _context.CostCenters.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.CostCenters.Add(new CostCenter { Code = code, Name = name, IsActive = true });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedAssetCategoriesAsync()
+        {
+            var result = new SeedResult { Domain = "AssetCategories" };
+            var categories = new[]
+            {
+                ("MACH", "Machinery & Equipment", "1510", "1610", 7),
+                ("VEH", "Vehicles", "1520", "1620", 5),
+                ("FURN", "Furniture & Fixtures", "1530", "1630", 7),
+                ("COMP", "Computer Equipment", "1540", "1640", 5),
+                ("BLDG", "Buildings", "1550", "1650", 39),
+                ("LAND", "Land", "1560", null, 0),
+                ("LHLD", "Leasehold Improvements", "1570", "1650", 15),
+                ("TOOL", "Tools & Dies", "1510", "1610", 3),
+                ("ELEC", "Electrical Equipment", "1510", "1610", 7),
+                ("HVAC", "HVAC Equipment", "1510", "1610", 15),
+                ("SAFE", "Safety Equipment", "1510", "1610", 5),
+                ("SOFT", "Software", "1540", "1640", 3)
+            };
+
+            result.TotalRecords = categories.Length;
+
+            foreach (var (code, name, assetGl, accumGl, life) in categories)
+            {
+                var existing = await _context.AssetCategories.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.AssetCategories.Add(new AssetCategory 
+                    { 
+                        Code = code, 
+                        Name = name,
+                        DefaultUsefulLifeMonths = life
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+
+        private async Task<SeedResult> SeedPMTemplatesAsync()
+        {
+            var result = new SeedResult { Domain = "PMTemplates" };
+            var templates = new[]
+            {
+                ("PM-MOTOR-30D", "Motor PM - Monthly", MaintenanceType.Preventative, PMTriggerType.Calendar, RecurrenceType.Monthly, 1),
+                ("PM-MOTOR-90D", "Motor PM - Quarterly", MaintenanceType.Preventative, PMTriggerType.Calendar, RecurrenceType.Quarterly, 1),
+                ("PM-PUMP-WK", "Pump Inspection - Weekly", MaintenanceType.Inspection, PMTriggerType.Calendar, RecurrenceType.Weekly, 1),
+                ("PM-HVAC-MO", "HVAC Filter Change - Monthly", MaintenanceType.Preventative, PMTriggerType.Calendar, RecurrenceType.Monthly, 1),
+                ("PM-VEH-OIL", "Vehicle Oil Change", MaintenanceType.Preventative, PMTriggerType.Meter, RecurrenceType.Custom, 0),
+                ("CAL-INST-YR", "Annual Instrument Calibration", MaintenanceType.Calibration, PMTriggerType.Calendar, RecurrenceType.Annually, 1),
+                ("INSP-SAFE-QTR", "Quarterly Safety Inspection", MaintenanceType.Inspection, PMTriggerType.Calendar, RecurrenceType.Quarterly, 1),
+                ("PM-CONV-WK", "Conveyor Belt Inspection", MaintenanceType.Inspection, PMTriggerType.Calendar, RecurrenceType.Weekly, 1)
+            };
+
+            result.TotalRecords = templates.Length;
+
+            foreach (var (code, name, type, trigger, interval, intervalValue) in templates)
+            {
+                var existing = await _context.PMTemplates.FirstOrDefaultAsync(x => x.Code == code);
+                if (existing == null)
+                {
+                    _context.PMTemplates.Add(new PMTemplate 
+                    { 
+                        Code = code, 
+                        Name = name,
+                        Type = type,
+                        TriggerType = trigger,
+                        CalendarInterval = interval,
+                        CalendarIntervalValue = intervalValue,
+                        IsActive = true 
+                    });
+                    result.Inserted++;
+                }
+                else
+                {
+                    result.Skipped++;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return result;
+        }
+    }
+}
+
+--- Services/Seeding/Pipelines/SystemReferenceSeedPipeline.cs ---
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace Abs.FixedAssets.Services.Seeding.Pipelines
+{
+    public class SystemReferenceSeedPipeline : ISeedPipeline
+    {
+        public string Name => "SystemReferenceSeed";
+        public string Version => "1.0.0";
+        public string Description => "Core system reference data: WO types, failure/cause/action/problem codes, crafts, priorities, numbering, currencies, tax limits";
+        public bool IsDevOnly => false;
+
+        private readonly List<ISeedStep> _steps;
+        public IReadOnlyList<ISeedStep> Steps => _steps;
+
+        public SystemReferenceSeedPipeline(AppDbContext context, ILoggerFactory loggerFactory)
+        {
+            var logger = loggerFactory.CreateLogger<SystemReferenceSeedPipeline>();
+            _steps = new List<ISeedStep>
+            {
+                new WorkOrderTypesSeedStep(context, logger),
+                new FailureCodesSeedStep(context, logger),
+                new CauseCodesSeedStep(context, logger),
+                new ActionCodesSeedStep(context, logger),
+                new ProblemCodesSeedStep(context, logger),
+                new PriorityLevelsSeedStep(context, logger),
+                new CraftsSeedStep(context, logger),
+                new MaintenanceTypeCodesSeedStep(context, logger),
+                new LaborTypesSeedStep(context, logger),
+                new SkillsSeedStep(context, logger),
+                new NumberingSequencesSeedStep(context, logger),
+                new PaymentTermsSeedStep(context, logger),
+                new CurrenciesSeedStep(context, logger),
+                new UOMDefinitionsSeedStep(context, logger),
+                new ShippingMethodsSeedStep(context, logger),
+                new TaxCodesSeedStep(context, logger),
+                new Section179LimitsSeedStep(context, logger),
+                new BonusDepreciationRatesSeedStep(context, logger),
+                new CcaClassesSeedStep(context, logger)
+            };
+        }
+    }
+
+    #region WorkOrderTypes
+    public class WorkOrderTypesSeedStep : BaseSeedStep<WorkOrderType>
+    {
+        public override string StepName => "WorkOrderTypes";
+        public override string DomainName => "WorkOrderTypes";
+        public override string NaturalKeyDescription => "Code";
+
+        public WorkOrderTypesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<WorkOrderType> GetSeedData() => new[]
+        {
+            new WorkOrderType { Code = "CM", Name = "Corrective Maintenance", Description = "Unplanned repairs", Category = WorkOrderCategory.Corrective, RequiresApproval = false, IsActive = true, SortOrder = 1 },
+            new WorkOrderType { Code = "PM", Name = "Preventive Maintenance", Description = "Scheduled maintenance", Category = WorkOrderCategory.Preventive, RequiresApproval = false, IsActive = true, SortOrder = 2 },
+            new WorkOrderType { Code = "PDM", Name = "Predictive Maintenance", Description = "Condition-based maintenance", Category = WorkOrderCategory.Predictive, RequiresApproval = false, IsActive = true, SortOrder = 3 },
+            new WorkOrderType { Code = "EM", Name = "Emergency Maintenance", Description = "Urgent breakdown repairs", Category = WorkOrderCategory.Emergency, RequiresApproval = false, IsActive = true, SortOrder = 4 },
+            new WorkOrderType { Code = "CAL", Name = "Calibration", Description = "Calibration and certification", Category = WorkOrderCategory.Calibration, RequiresApproval = false, IsActive = true, SortOrder = 5 },
+            new WorkOrderType { Code = "INS", Name = "Inspection", Description = "Routine inspection", Category = WorkOrderCategory.Inspection, RequiresApproval = false, IsActive = true, SortOrder = 6 },
+            new WorkOrderType { Code = "OVH", Name = "Overhaul", Description = "Major overhaul or rebuild", Category = WorkOrderCategory.Project, RequiresApproval = true, IsActive = true, SortOrder = 7 },
+            new WorkOrderType { Code = "MOD", Name = "Modification", Description = "Equipment modification", Category = WorkOrderCategory.Project, RequiresApproval = true, IsActive = true, SortOrder = 8 },
+            new WorkOrderType { Code = "INST", Name = "Installation", Description = "New equipment installation", Category = WorkOrderCategory.Project, RequiresApproval = true, IsActive = true, SortOrder = 9 },
+            new WorkOrderType { Code = "REM", Name = "Removal", Description = "Equipment removal/decommission", Category = WorkOrderCategory.Project, RequiresApproval = true, IsActive = true, SortOrder = 10 },
+            new WorkOrderType { Code = "PROJ", Name = "Project Work", Description = "Capital project work", Category = WorkOrderCategory.Project, RequiresApproval = true, IsActive = true, SortOrder = 11 },
+            new WorkOrderType { Code = "SAF", Name = "Safety Work", Description = "Safety-related work", Category = WorkOrderCategory.Safety, RequiresApproval = true, IsActive = true, SortOrder = 12 }
+        };
+
+        protected override async Task<WorkOrderType?> FindByNaturalKeyAsync(WorkOrderType item, CancellationToken ct)
+            => await Context.WorkOrderTypes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+
+        protected override string GetNaturalKeyValue(WorkOrderType item) => item.Code;
+        protected override bool ShouldUpdate(WorkOrderType existing, WorkOrderType incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Category != incoming.Category || existing.RequiresApproval != incoming.RequiresApproval
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(WorkOrderType existing, WorkOrderType incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Category = incoming.Category;
+            existing.RequiresApproval = incoming.RequiresApproval;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region FailureCodes
+    public class FailureCodesSeedStep : BaseSeedStep<FailureCode>
+    {
+        public override string StepName => "FailureCodes";
+        public override string DomainName => "FailureCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public FailureCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<FailureCode> GetSeedData() => new[]
+        {
+            new FailureCode { Code = "BEAR", Name = "Bearing Failure", Description = "Bearing wear or damage", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 1 },
+            new FailureCode { Code = "BELT", Name = "Belt Failure", Description = "Belt wear or breakage", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 2 },
+            new FailureCode { Code = "GEAR", Name = "Gear Failure", Description = "Gear tooth wear or breakage", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 3 },
+            new FailureCode { Code = "SEAL", Name = "Seal Leak", Description = "Seal failure causing leaks", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 4 },
+            new FailureCode { Code = "PUMP", Name = "Pump Failure", Description = "Pump malfunction", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 5 },
+            new FailureCode { Code = "MOTR", Name = "Motor Failure", Description = "Electric motor failure", Category = FailureCategory.Electrical, IsActive = true, SortOrder = 6 },
+            new FailureCode { Code = "SENS", Name = "Sensor Failure", Description = "Sensor malfunction or drift", Category = FailureCategory.Electronic, IsActive = true, SortOrder = 7 },
+            new FailureCode { Code = "CTRL", Name = "Control Failure", Description = "PLC or control system issue", Category = FailureCategory.Electronic, IsActive = true, SortOrder = 8 },
+            new FailureCode { Code = "WIRE", Name = "Wiring Issue", Description = "Electrical wiring problem", Category = FailureCategory.Electrical, IsActive = true, SortOrder = 9 },
+            new FailureCode { Code = "HOSE", Name = "Hose Failure", Description = "Hydraulic/pneumatic hose failure", Category = FailureCategory.Hydraulic, IsActive = true, SortOrder = 10 },
+            new FailureCode { Code = "VALV", Name = "Valve Failure", Description = "Valve malfunction", Category = FailureCategory.Hydraulic, IsActive = true, SortOrder = 11 },
+            new FailureCode { Code = "CYLN", Name = "Cylinder Failure", Description = "Hydraulic cylinder issue", Category = FailureCategory.Hydraulic, IsActive = true, SortOrder = 12 },
+            new FailureCode { Code = "PNEU", Name = "Pneumatic Failure", Description = "Air system component failure", Category = FailureCategory.Pneumatic, IsActive = true, SortOrder = 13 },
+            new FailureCode { Code = "CORR", Name = "Corrosion", Description = "Corrosion damage", Category = FailureCategory.Structural, IsActive = true, SortOrder = 14 },
+            new FailureCode { Code = "FATG", Name = "Fatigue Failure", Description = "Metal fatigue or cracking", Category = FailureCategory.Structural, IsActive = true, SortOrder = 15 },
+            new FailureCode { Code = "SOFT", Name = "Software Issue", Description = "Software bug or configuration", Category = FailureCategory.Software, IsActive = true, SortOrder = 16 },
+            new FailureCode { Code = "CONT", Name = "Contamination", Description = "Fluid or material contamination", Category = FailureCategory.Environmental, IsActive = true, SortOrder = 17 },
+            new FailureCode { Code = "OVHT", Name = "Overheating", Description = "Thermal damage from overheating", Category = FailureCategory.Environmental, IsActive = true, SortOrder = 18 },
+            new FailureCode { Code = "VIBR", Name = "Excessive Vibration", Description = "Vibration-induced failure", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 19 },
+            new FailureCode { Code = "LUBR", Name = "Lubrication Failure", Description = "Inadequate or wrong lubrication", Category = FailureCategory.Mechanical, IsActive = true, SortOrder = 20 }
+        };
+
+        protected override async Task<FailureCode?> FindByNaturalKeyAsync(FailureCode item, CancellationToken ct)
+            => await Context.FailureCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(FailureCode item) => item.Code;
+        protected override bool ShouldUpdate(FailureCode existing, FailureCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Category != incoming.Category || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(FailureCode existing, FailureCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Category = incoming.Category;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region CauseCodes
+    public class CauseCodesSeedStep : BaseSeedStep<CauseCode>
+    {
+        public override string StepName => "CauseCodes";
+        public override string DomainName => "CauseCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public CauseCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<CauseCode> GetSeedData() => new[]
+        {
+            new CauseCode { Code = "WEAR", Name = "Normal Wear", Description = "End of component life", IsActive = true, SortOrder = 1 },
+            new CauseCode { Code = "LACK", Name = "Lack of Maintenance", Description = "Missed or delayed PM", IsActive = true, SortOrder = 2 },
+            new CauseCode { Code = "IMPR", Name = "Improper Operation", Description = "Incorrect use of equipment", IsActive = true, SortOrder = 3 },
+            new CauseCode { Code = "MATL", Name = "Material Defect", Description = "Defective material or part", IsActive = true, SortOrder = 4 },
+            new CauseCode { Code = "INST", Name = "Improper Installation", Description = "Incorrect installation", IsActive = true, SortOrder = 5 },
+            new CauseCode { Code = "DSGN", Name = "Design Flaw", Description = "Inherent design issue", IsActive = true, SortOrder = 6 },
+            new CauseCode { Code = "OVER", Name = "Overload", Description = "Exceeded capacity", IsActive = true, SortOrder = 7 },
+            new CauseCode { Code = "CONT", Name = "Contamination", Description = "Foreign material contamination", IsActive = true, SortOrder = 8 },
+            new CauseCode { Code = "LUBR", Name = "Lubrication Issue", Description = "Wrong or insufficient lubricant", IsActive = true, SortOrder = 9 },
+            new CauseCode { Code = "ALIG", Name = "Misalignment", Description = "Component misalignment", IsActive = true, SortOrder = 10 },
+            new CauseCode { Code = "TEMP", Name = "Temperature Extreme", Description = "Abnormal temperature exposure", IsActive = true, SortOrder = 11 },
+            new CauseCode { Code = "VIBR", Name = "Vibration", Description = "Excessive vibration", IsActive = true, SortOrder = 12 },
+            new CauseCode { Code = "CORR", Name = "Corrosion", Description = "Chemical or environmental corrosion", IsActive = true, SortOrder = 13 },
+            new CauseCode { Code = "AGED", Name = "Age/Obsolescence", Description = "Equipment beyond useful life", IsActive = true, SortOrder = 14 }
+        };
+
+        protected override async Task<CauseCode?> FindByNaturalKeyAsync(CauseCode item, CancellationToken ct)
+            => await Context.CauseCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(CauseCode item) => item.Code;
+        protected override bool ShouldUpdate(CauseCode existing, CauseCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(CauseCode existing, CauseCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region ActionCodes
+    public class ActionCodesSeedStep : BaseSeedStep<ActionCode>
+    {
+        public override string StepName => "ActionCodes";
+        public override string DomainName => "ActionCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public ActionCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<ActionCode> GetSeedData() => new[]
+        {
+            new ActionCode { Code = "REP", Name = "Repair", Description = "Repair component", Category = ActionCategory.Repair, RequiresParts = true, IsActive = true, SortOrder = 1 },
+            new ActionCode { Code = "REPL", Name = "Replace", Description = "Replace component", Category = ActionCategory.Replace, RequiresParts = true, IsActive = true, SortOrder = 2 },
+            new ActionCode { Code = "ADJ", Name = "Adjust", Description = "Adjust or calibrate", Category = ActionCategory.Adjust, RequiresParts = false, IsActive = true, SortOrder = 3 },
+            new ActionCode { Code = "CLN", Name = "Clean", Description = "Clean component", Category = ActionCategory.Clean, RequiresParts = false, IsActive = true, SortOrder = 4 },
+            new ActionCode { Code = "LUBR", Name = "Lubricate", Description = "Lubricate component", Category = ActionCategory.Lubricate, RequiresParts = true, IsActive = true, SortOrder = 5 },
+            new ActionCode { Code = "TGHT", Name = "Tighten", Description = "Tighten fasteners", Category = ActionCategory.Adjust, RequiresParts = false, IsActive = true, SortOrder = 6 },
+            new ActionCode { Code = "ALIG", Name = "Align", Description = "Align components", Category = ActionCategory.Adjust, RequiresParts = false, IsActive = true, SortOrder = 7 },
+            new ActionCode { Code = "REBLD", Name = "Rebuild", Description = "Rebuild assembly", Category = ActionCategory.Overhaul, RequiresParts = true, IsActive = true, SortOrder = 8 },
+            new ActionCode { Code = "INSP", Name = "Inspect", Description = "Inspect and report", Category = ActionCategory.Inspect, RequiresParts = false, IsActive = true, SortOrder = 9 },
+            new ActionCode { Code = "TEST", Name = "Test", Description = "Test and verify", Category = ActionCategory.Test, RequiresParts = false, IsActive = true, SortOrder = 10 },
+            new ActionCode { Code = "CAL", Name = "Calibrate", Description = "Calibrate instrument", Category = ActionCategory.Calibrate, RequiresParts = false, IsActive = true, SortOrder = 11 },
+            new ActionCode { Code = "SEAL", Name = "Reseal", Description = "Replace seals", Category = ActionCategory.Replace, RequiresParts = true, IsActive = true, SortOrder = 12 },
+            new ActionCode { Code = "FLUSH", Name = "Flush System", Description = "Flush and refill", Category = ActionCategory.Clean, RequiresParts = true, IsActive = true, SortOrder = 13 }
+        };
+
+        protected override async Task<ActionCode?> FindByNaturalKeyAsync(ActionCode item, CancellationToken ct)
+            => await Context.ActionCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(ActionCode item) => item.Code;
+        protected override bool ShouldUpdate(ActionCode existing, ActionCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Category != incoming.Category || existing.RequiresParts != incoming.RequiresParts
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(ActionCode existing, ActionCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Category = incoming.Category;
+            existing.RequiresParts = incoming.RequiresParts;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region ProblemCodes
+    public class ProblemCodesSeedStep : BaseSeedStep<ProblemCode>
+    {
+        public override string StepName => "ProblemCodes";
+        public override string DomainName => "ProblemCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public ProblemCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<ProblemCode> GetSeedData() => new[]
+        {
+            new ProblemCode { Code = "NRUN", Name = "Won't Run", Description = "Equipment will not start", IsActive = true, SortOrder = 1 },
+            new ProblemCode { Code = "NOIS", Name = "Abnormal Noise", Description = "Unusual sound during operation", IsActive = true, SortOrder = 2 },
+            new ProblemCode { Code = "VIBR", Name = "Excessive Vibration", Description = "Abnormal vibration", IsActive = true, SortOrder = 3 },
+            new ProblemCode { Code = "LEAK", Name = "Leaking", Description = "Fluid leak detected", IsActive = true, SortOrder = 4 },
+            new ProblemCode { Code = "OVHT", Name = "Overheating", Description = "Running too hot", IsActive = true, SortOrder = 5 },
+            new ProblemCode { Code = "SLOW", Name = "Running Slow", Description = "Below normal speed/output", IsActive = true, SortOrder = 6 },
+            new ProblemCode { Code = "QUAL", Name = "Quality Issue", Description = "Output quality problem", IsActive = true, SortOrder = 7 },
+            new ProblemCode { Code = "ALRM", Name = "Alarm Active", Description = "Equipment alarm triggered", IsActive = true, SortOrder = 8 },
+            new ProblemCode { Code = "INTM", Name = "Intermittent", Description = "Intermittent operation", IsActive = true, SortOrder = 9 },
+            new ProblemCode { Code = "ERRM", Name = "Error Message", Description = "Error displayed on HMI", IsActive = true, SortOrder = 10 },
+            new ProblemCode { Code = "PRES", Name = "Pressure Issue", Description = "Abnormal pressure", IsActive = true, SortOrder = 11 },
+            new ProblemCode { Code = "ELEC", Name = "Electrical Problem", Description = "Electrical fault indication", IsActive = true, SortOrder = 12 }
+        };
+
+        protected override async Task<ProblemCode?> FindByNaturalKeyAsync(ProblemCode item, CancellationToken ct)
+            => await Context.ProblemCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(ProblemCode item) => item.Code;
+        protected override bool ShouldUpdate(ProblemCode existing, ProblemCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(ProblemCode existing, ProblemCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region PriorityLevels
+    public class PriorityLevelsSeedStep : BaseSeedStep<PriorityLevel>
+    {
+        public override string StepName => "PriorityLevels";
+        public override string DomainName => "PriorityLevels";
+        public override string NaturalKeyDescription => "Code";
+
+        public PriorityLevelsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<PriorityLevel> GetSeedData() => new[]
+        {
+            new PriorityLevel { Code = "EMER", Name = "Emergency", Description = "Immediate action required", ResponseTimeHours = 1, Color = "#dc2626", IsDefault = false, IsActive = true, SortOrder = 1 },
+            new PriorityLevel { Code = "HIGH", Name = "High", Description = "Urgent - same day", ResponseTimeHours = 8, Color = "#ea580c", IsDefault = false, IsActive = true, SortOrder = 2 },
+            new PriorityLevel { Code = "MED", Name = "Medium", Description = "Within 48 hours", ResponseTimeHours = 48, Color = "#ca8a04", IsDefault = true, IsActive = true, SortOrder = 3 },
+            new PriorityLevel { Code = "LOW", Name = "Low", Description = "Within 1 week", ResponseTimeHours = 168, Color = "#16a34a", IsDefault = false, IsActive = true, SortOrder = 4 },
+            new PriorityLevel { Code = "PLAN", Name = "Planned", Description = "Scheduled work", ResponseTimeHours = 720, Color = "#2563eb", IsDefault = false, IsActive = true, SortOrder = 5 },
+            new PriorityLevel { Code = "PROJ", Name = "Project", Description = "Project timeline", ResponseTimeHours = 2160, Color = "#7c3aed", IsDefault = false, IsActive = true, SortOrder = 6 }
+        };
+
+        protected override async Task<PriorityLevel?> FindByNaturalKeyAsync(PriorityLevel item, CancellationToken ct)
+            => await Context.PriorityLevels.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(PriorityLevel item) => item.Code;
+        protected override bool ShouldUpdate(PriorityLevel existing, PriorityLevel incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.ResponseTimeHours != incoming.ResponseTimeHours || !StringEquals(existing.Color, incoming.Color)
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(PriorityLevel existing, PriorityLevel incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.ResponseTimeHours = incoming.ResponseTimeHours;
+            existing.Color = incoming.Color;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region Crafts
+    public class CraftsSeedStep : BaseSeedStep<Craft>
+    {
+        public override string StepName => "Crafts";
+        public override string DomainName => "Crafts";
+        public override string NaturalKeyDescription => "Code";
+
+        public CraftsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<Craft> GetSeedData() => new[]
+        {
+            new Craft { Code = "ELEC", Name = "Electrician", Description = "Electrical systems", DefaultHourlyRate = 75.00m, IsActive = true, SortOrder = 1 },
+            new Craft { Code = "MECH", Name = "Mechanic", Description = "Mechanical systems", DefaultHourlyRate = 70.00m, IsActive = true, SortOrder = 2 },
+            new Craft { Code = "HVAC", Name = "HVAC Technician", Description = "Heating, ventilation, AC", DefaultHourlyRate = 72.00m, IsActive = true, SortOrder = 3 },
+            new Craft { Code = "PLMB", Name = "Plumber", Description = "Plumbing systems", DefaultHourlyRate = 68.00m, IsActive = true, SortOrder = 4 },
+            new Craft { Code = "WELD", Name = "Welder", Description = "Welding and fabrication", DefaultHourlyRate = 75.00m, IsActive = true, SortOrder = 5 },
+            new Craft { Code = "MACH", Name = "Machinist", Description = "Machine shop work", DefaultHourlyRate = 72.00m, IsActive = true, SortOrder = 6 },
+            new Craft { Code = "INST", Name = "Instrument Tech", Description = "Instrumentation and controls", DefaultHourlyRate = 78.00m, IsActive = true, SortOrder = 7 },
+            new Craft { Code = "PLC", Name = "PLC Programmer", Description = "PLC programming and HMI", DefaultHourlyRate = 85.00m, IsActive = true, SortOrder = 8 },
+            new Craft { Code = "LUBR", Name = "Lubrication Tech", Description = "Lubrication specialist", DefaultHourlyRate = 55.00m, IsActive = true, SortOrder = 9 },
+            new Craft { Code = "MILL", Name = "Millwright", Description = "Heavy machinery", DefaultHourlyRate = 78.00m, IsActive = true, SortOrder = 10 }
+        };
+
+        protected override async Task<Craft?> FindByNaturalKeyAsync(Craft item, CancellationToken ct)
+            => await Context.Crafts.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(Craft item) => item.Code;
+        protected override bool ShouldUpdate(Craft existing, Craft incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.DefaultHourlyRate != incoming.DefaultHourlyRate || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(Craft existing, Craft incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.DefaultHourlyRate = incoming.DefaultHourlyRate;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region MaintenanceTypeCodes
+    public class MaintenanceTypeCodesSeedStep : BaseSeedStep<MaintenanceTypeCode>
+    {
+        public override string StepName => "MaintenanceTypeCodes";
+        public override string DomainName => "MaintenanceTypeCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public MaintenanceTypeCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<MaintenanceTypeCode> GetSeedData() => new[]
+        {
+            new MaintenanceTypeCode { Code = "PM", Name = "Preventive Maintenance", Description = "Scheduled preventive work", IsPreventive = true, IsCorrective = false, IsActive = true, SortOrder = 1 },
+            new MaintenanceTypeCode { Code = "CM", Name = "Corrective Maintenance", Description = "Unplanned repair work", IsPreventive = false, IsCorrective = true, IsActive = true, SortOrder = 2 },
+            new MaintenanceTypeCode { Code = "PDM", Name = "Predictive Maintenance", Description = "Condition-based maintenance", IsPreventive = true, IsCorrective = false, IsActive = true, SortOrder = 3 },
+            new MaintenanceTypeCode { Code = "EM", Name = "Emergency Maintenance", Description = "Emergency breakdown", IsPreventive = false, IsCorrective = true, IsActive = true, SortOrder = 4 },
+            new MaintenanceTypeCode { Code = "OH", Name = "Overhaul", Description = "Major overhaul work", IsPreventive = true, IsCorrective = false, IsActive = true, SortOrder = 5 }
+        };
+
+        protected override async Task<MaintenanceTypeCode?> FindByNaturalKeyAsync(MaintenanceTypeCode item, CancellationToken ct)
+            => await Context.MaintenanceTypeCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(MaintenanceTypeCode item) => item.Code;
+        protected override bool ShouldUpdate(MaintenanceTypeCode existing, MaintenanceTypeCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.IsPreventive != incoming.IsPreventive || existing.IsCorrective != incoming.IsCorrective
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(MaintenanceTypeCode existing, MaintenanceTypeCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.IsPreventive = incoming.IsPreventive;
+            existing.IsCorrective = incoming.IsCorrective;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region LaborTypes
+    public class LaborTypesSeedStep : BaseSeedStep<LaborType>
+    {
+        public override string StepName => "LaborTypes";
+        public override string DomainName => "LaborTypes";
+        public override string NaturalKeyDescription => "Code";
+
+        public LaborTypesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<LaborType> GetSeedData() => new[]
+        {
+            new LaborType { Code = "REG", Name = "Regular", Description = "Standard hourly rate", Category = LaborCategory.Regular, MultiplierRate = 1.0m, IsActive = true, SortOrder = 1 },
+            new LaborType { Code = "OT15", Name = "Overtime 1.5x", Description = "Time and a half", Category = LaborCategory.Overtime, MultiplierRate = 1.5m, IsActive = true, SortOrder = 2 },
+            new LaborType { Code = "OT20", Name = "Overtime 2.0x", Description = "Double time", Category = LaborCategory.DoubleTime, MultiplierRate = 2.0m, IsActive = true, SortOrder = 3 },
+            new LaborType { Code = "HOLI", Name = "Holiday", Description = "Holiday rate", Category = LaborCategory.Holiday, MultiplierRate = 2.0m, IsActive = true, SortOrder = 4 },
+            new LaborType { Code = "CALL", Name = "Call-Out", Description = "Emergency call-out", Category = LaborCategory.OnCall, MultiplierRate = 1.5m, IsActive = true, SortOrder = 5 },
+            new LaborType { Code = "TRNG", Name = "Training", Description = "Training time", Category = LaborCategory.Training, MultiplierRate = 1.0m, IsActive = true, SortOrder = 6 },
+            new LaborType { Code = "TRVL", Name = "Travel", Description = "Travel time", Category = LaborCategory.Travel, MultiplierRate = 1.0m, IsActive = true, SortOrder = 7 }
+        };
+
+        protected override async Task<LaborType?> FindByNaturalKeyAsync(LaborType item, CancellationToken ct)
+            => await Context.LaborTypes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(LaborType item) => item.Code;
+        protected override bool ShouldUpdate(LaborType existing, LaborType incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Category != incoming.Category || existing.MultiplierRate != incoming.MultiplierRate
+               || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(LaborType existing, LaborType incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Category = incoming.Category;
+            existing.MultiplierRate = incoming.MultiplierRate;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region Skills
+    public class SkillsSeedStep : BaseSeedStep<Skill>
+    {
+        public override string StepName => "Skills";
+        public override string DomainName => "Skills";
+        public override string NaturalKeyDescription => "Code";
+
+        public SkillsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<Skill> GetSeedData() => new[]
+        {
+            new Skill { Code = "ELEC", Name = "Electrical", Description = "Electrical systems", Level = SkillLevel.Advanced, IsActive = true, SortOrder = 1 },
+            new Skill { Code = "MECH", Name = "Mechanical", Description = "Mechanical systems", Level = SkillLevel.Advanced, IsActive = true, SortOrder = 2 },
+            new Skill { Code = "HYDR", Name = "Hydraulics", Description = "Hydraulic systems", Level = SkillLevel.Intermediate, IsActive = true, SortOrder = 3 },
+            new Skill { Code = "PNEU", Name = "Pneumatics", Description = "Pneumatic systems", Level = SkillLevel.Intermediate, IsActive = true, SortOrder = 4 },
+            new Skill { Code = "WELD", Name = "Welding", Description = "Welding and fabrication", Level = SkillLevel.Advanced, IsActive = true, SortOrder = 5 },
+            new Skill { Code = "PLCPG", Name = "PLC Programming", Description = "PLC and automation", Level = SkillLevel.Expert, IsActive = true, SortOrder = 6 },
+            new Skill { Code = "HVAC", Name = "HVAC", Description = "HVAC systems", Level = SkillLevel.Intermediate, IsActive = true, SortOrder = 7 },
+            new Skill { Code = "CALIBR", Name = "Calibration", Description = "Instrument calibration", Level = SkillLevel.Advanced, IsActive = true, SortOrder = 8 }
+        };
+
+        protected override async Task<Skill?> FindByNaturalKeyAsync(Skill item, CancellationToken ct)
+            => await Context.Skills.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(Skill item) => item.Code;
+        protected override bool ShouldUpdate(Skill existing, Skill incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Level != incoming.Level || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(Skill existing, Skill incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Level = incoming.Level;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region NumberingSequences
+    public class NumberingSequencesSeedStep : BaseSeedStep<NumberingSequence>
+    {
+        public override string StepName => "NumberingSequences";
+        public override string DomainName => "NumberingSequences";
+        public override string NaturalKeyDescription => "Code";
+
+        public NumberingSequencesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<NumberingSequence> GetSeedData() => new[]
+        {
+            new NumberingSequence { Code = "ASSET", Name = "Asset Number", Prefix = "AST-", NextNumber = 1000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "WO", Name = "Work Order Number", Prefix = "WO-", NextNumber = 10000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "PO", Name = "Purchase Order Number", Prefix = "PO-", NextNumber = 5000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "REQ", Name = "Requisition Number", Prefix = "REQ-", NextNumber = 1000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "INV", Name = "Invoice Number", Prefix = "INV-", NextNumber = 1000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "GR", Name = "Goods Receipt Number", Prefix = "GR-", NextNumber = 1000, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "TRANS", Name = "Transfer Number", Prefix = "TRF-", NextNumber = 100, NumberLength = 6, IsActive = true },
+            new NumberingSequence { Code = "PROJ", Name = "Project Number", Prefix = "CIP-", NextNumber = 100, NumberLength = 5, IsActive = true }
+        };
+
+        protected override async Task<NumberingSequence?> FindByNaturalKeyAsync(NumberingSequence item, CancellationToken ct)
+            => await Context.NumberingSequences.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(NumberingSequence item) => item.Code;
+        protected override bool ShouldUpdate(NumberingSequence existing, NumberingSequence incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Prefix, incoming.Prefix)
+               || existing.NumberLength != incoming.NumberLength;
+        protected override void UpdateEntity(NumberingSequence existing, NumberingSequence incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Prefix = incoming.Prefix;
+            existing.NumberLength = incoming.NumberLength;
+        }
+    }
+    #endregion
+
+    #region PaymentTerms
+    public class PaymentTermsSeedStep : BaseSeedStep<PaymentTerm>
+    {
+        public override string StepName => "PaymentTerms";
+        public override string DomainName => "PaymentTerms";
+        public override string NaturalKeyDescription => "Code";
+
+        public PaymentTermsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<PaymentTerm> GetSeedData() => new[]
+        {
+            new PaymentTerm { Code = "NET30", Name = "Net 30", Description = "Payment due in 30 days", DueDays = 30, DiscountPercent = 0, DiscountDays = 0, IsActive = true, SortOrder = 1 },
+            new PaymentTerm { Code = "NET45", Name = "Net 45", Description = "Payment due in 45 days", DueDays = 45, DiscountPercent = 0, DiscountDays = 0, IsActive = true, SortOrder = 2 },
+            new PaymentTerm { Code = "NET60", Name = "Net 60", Description = "Payment due in 60 days", DueDays = 60, DiscountPercent = 0, DiscountDays = 0, IsActive = true, SortOrder = 3 },
+            new PaymentTerm { Code = "2N10N30", Name = "2% 10 Net 30", Description = "2% discount if paid in 10 days", DueDays = 30, DiscountPercent = 2.0m, DiscountDays = 10, IsActive = true, SortOrder = 4 },
+            new PaymentTerm { Code = "COD", Name = "Cash on Delivery", Description = "Payment due on delivery", DueDays = 0, DiscountPercent = 0, DiscountDays = 0, IsActive = true, SortOrder = 5 },
+            new PaymentTerm { Code = "NET15", Name = "Net 15", Description = "Payment due in 15 days", DueDays = 15, DiscountPercent = 0, DiscountDays = 0, IsActive = true, SortOrder = 6 }
+        };
+
+        protected override async Task<PaymentTerm?> FindByNaturalKeyAsync(PaymentTerm item, CancellationToken ct)
+            => await Context.PaymentTerms.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(PaymentTerm item) => item.Code;
+        protected override bool ShouldUpdate(PaymentTerm existing, PaymentTerm incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.DueDays != incoming.DueDays || existing.DiscountPercent != incoming.DiscountPercent
+               || existing.DiscountDays != incoming.DiscountDays || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(PaymentTerm existing, PaymentTerm incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.DueDays = incoming.DueDays;
+            existing.DiscountPercent = incoming.DiscountPercent;
+            existing.DiscountDays = incoming.DiscountDays;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region Currencies
+    public class CurrenciesSeedStep : BaseSeedStep<Currency>
+    {
+        public override string StepName => "Currencies";
+        public override string DomainName => "Currencies";
+        public override string NaturalKeyDescription => "Code";
+
+        public CurrenciesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<Currency> GetSeedData() => new[]
+        {
+            new Currency { Code = "USD", Name = "US Dollar", Symbol = "$", DecimalPlaces = 2, IsBaseCurrency = true, IsActive = true, SortOrder = 1 },
+            new Currency { Code = "CAD", Name = "Canadian Dollar", Symbol = "$", DecimalPlaces = 2, IsActive = true, SortOrder = 2 },
+            new Currency { Code = "EUR", Name = "Euro", Symbol = "€", DecimalPlaces = 2, IsActive = true, SortOrder = 3 },
+            new Currency { Code = "GBP", Name = "British Pound", Symbol = "£", DecimalPlaces = 2, IsActive = true, SortOrder = 4 },
+            new Currency { Code = "MXN", Name = "Mexican Peso", Symbol = "$", DecimalPlaces = 2, IsActive = true, SortOrder = 5 },
+            new Currency { Code = "JPY", Name = "Japanese Yen", Symbol = "¥", DecimalPlaces = 0, IsActive = true, SortOrder = 6 }
+        };
+
+        protected override async Task<Currency?> FindByNaturalKeyAsync(Currency item, CancellationToken ct)
+            => await Context.Currencies.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(Currency item) => item.Code;
+        protected override bool ShouldUpdate(Currency existing, Currency incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Symbol, incoming.Symbol)
+               || existing.DecimalPlaces != incoming.DecimalPlaces || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(Currency existing, Currency incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Symbol = incoming.Symbol;
+            existing.DecimalPlaces = incoming.DecimalPlaces;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region UOMDefinitions
+    public class UOMDefinitionsSeedStep : BaseSeedStep<UOMDefinition>
+    {
+        public override string StepName => "UOMDefinitions";
+        public override string DomainName => "UOMDefinitions";
+        public override string NaturalKeyDescription => "Code";
+
+        public UOMDefinitionsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<UOMDefinition> GetSeedData() => new[]
+        {
+            new UOMDefinition { Code = "EA", Name = "Each", Description = "Individual unit", Type = UOMType.Count, IsActive = true, SortOrder = 1 },
+            new UOMDefinition { Code = "PCS", Name = "Pieces", Description = "Individual pieces", Type = UOMType.Count, IsActive = true, SortOrder = 2 },
+            new UOMDefinition { Code = "BOX", Name = "Box", Description = "Box of items", Type = UOMType.Count, IsActive = true, SortOrder = 3 },
+            new UOMDefinition { Code = "FT", Name = "Feet", Description = "Linear feet", Type = UOMType.Length, IsActive = true, SortOrder = 4 },
+            new UOMDefinition { Code = "M", Name = "Meter", Description = "Linear meter", Type = UOMType.Length, IsActive = true, SortOrder = 5 },
+            new UOMDefinition { Code = "LB", Name = "Pound", Description = "Weight in pounds", Type = UOMType.Weight, IsActive = true, SortOrder = 6 },
+            new UOMDefinition { Code = "KG", Name = "Kilogram", Description = "Weight in kilograms", Type = UOMType.Weight, IsActive = true, SortOrder = 7 },
+            new UOMDefinition { Code = "GAL", Name = "Gallon", Description = "Volume in gallons", Type = UOMType.Volume, IsActive = true, SortOrder = 8 },
+            new UOMDefinition { Code = "L", Name = "Liter", Description = "Volume in liters", Type = UOMType.Volume, IsActive = true, SortOrder = 9 },
+            new UOMDefinition { Code = "HR", Name = "Hour", Description = "Time in hours", Type = UOMType.Time, IsActive = true, SortOrder = 10 }
+        };
+
+        protected override async Task<UOMDefinition?> FindByNaturalKeyAsync(UOMDefinition item, CancellationToken ct)
+            => await Context.UOMDefinitions.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(UOMDefinition item) => item.Code;
+        protected override bool ShouldUpdate(UOMDefinition existing, UOMDefinition incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Type != incoming.Type || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(UOMDefinition existing, UOMDefinition incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Type = incoming.Type;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region ShippingMethods
+    public class ShippingMethodsSeedStep : BaseSeedStep<ShippingMethod>
+    {
+        public override string StepName => "ShippingMethods";
+        public override string DomainName => "ShippingMethods";
+        public override string NaturalKeyDescription => "Code";
+
+        public ShippingMethodsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<ShippingMethod> GetSeedData() => new[]
+        {
+            new ShippingMethod { Code = "GND", Name = "Ground", Description = "Standard ground shipping", Carrier = "Various", EstimatedDays = 5, IsActive = true },
+            new ShippingMethod { Code = "2DAY", Name = "2-Day", Description = "2-day express shipping", Carrier = "Various", EstimatedDays = 2, IsActive = true },
+            new ShippingMethod { Code = "OVNT", Name = "Overnight", Description = "Next day delivery", Carrier = "Various", EstimatedDays = 1, IsActive = true },
+            new ShippingMethod { Code = "FRT", Name = "Freight/LTL", Description = "Less than truckload freight", Carrier = "Various", EstimatedDays = 7, IsActive = true },
+            new ShippingMethod { Code = "PICK", Name = "Will Call/Pickup", Description = "Customer pickup", Carrier = "N/A", EstimatedDays = 0, IsActive = true }
+        };
+
+        protected override async Task<ShippingMethod?> FindByNaturalKeyAsync(ShippingMethod item, CancellationToken ct)
+            => await Context.ShippingMethods.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(ShippingMethod item) => item.Code;
+        protected override bool ShouldUpdate(ShippingMethod existing, ShippingMethod incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || !StringEquals(existing.Carrier, incoming.Carrier) || existing.EstimatedDays != incoming.EstimatedDays;
+        protected override void UpdateEntity(ShippingMethod existing, ShippingMethod incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Carrier = incoming.Carrier;
+            existing.EstimatedDays = incoming.EstimatedDays;
+        }
+    }
+    #endregion
+
+    #region TaxCodes
+    public class TaxCodesSeedStep : BaseSeedStep<TaxCode>
+    {
+        public override string StepName => "TaxCodes";
+        public override string DomainName => "TaxCodes";
+        public override string NaturalKeyDescription => "Code";
+
+        public TaxCodesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<TaxCode> GetSeedData() => new[]
+        {
+            new TaxCode { Code = "NOTAX", Name = "No Tax", Description = "Tax exempt", Rate = 0, IsActive = true, SortOrder = 1 },
+            new TaxCode { Code = "STD", Name = "Standard Rate", Description = "Standard sales tax", Rate = 0.0825m, IsActive = true, SortOrder = 2 },
+            new TaxCode { Code = "GST", Name = "GST (Canada)", Description = "Goods and Services Tax", Rate = 0.05m, IsActive = true, SortOrder = 3 },
+            new TaxCode { Code = "HST13", Name = "HST 13% (Ontario)", Description = "Harmonized Sales Tax", Rate = 0.13m, IsActive = true, SortOrder = 4 },
+            new TaxCode { Code = "EXEMPT", Name = "Exempt", Description = "Tax exempt transaction", Rate = 0, IsActive = true, SortOrder = 5 }
+        };
+
+        protected override async Task<TaxCode?> FindByNaturalKeyAsync(TaxCode item, CancellationToken ct)
+            => await Context.TaxCodes.FirstOrDefaultAsync(x => x.Code == item.Code, ct);
+        protected override string GetNaturalKeyValue(TaxCode item) => item.Code;
+        protected override bool ShouldUpdate(TaxCode existing, TaxCode incoming)
+            => !StringEquals(existing.Name, incoming.Name) || !StringEquals(existing.Description, incoming.Description)
+               || existing.Rate != incoming.Rate || existing.SortOrder != incoming.SortOrder;
+        protected override void UpdateEntity(TaxCode existing, TaxCode incoming)
+        {
+            existing.Name = incoming.Name;
+            existing.Description = incoming.Description;
+            existing.Rate = incoming.Rate;
+            existing.SortOrder = incoming.SortOrder;
+        }
+    }
+    #endregion
+
+    #region Section179Limits
+    public class Section179LimitsSeedStep : BaseSeedStep<Section179Limits>
+    {
+        public override string StepName => "Section179Limits";
+        public override string DomainName => "Section179Limits";
+        public override string NaturalKeyDescription => "TaxYear";
+
+        public Section179LimitsSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<Section179Limits> GetSeedData() => new[]
+        {
+            new Section179Limits { TaxYear = 2024, MaxDeduction = 1220000m, PhaseoutThreshold = 3050000m },
+            new Section179Limits { TaxYear = 2025, MaxDeduction = 1250000m, PhaseoutThreshold = 3130000m },
+            new Section179Limits { TaxYear = 2026, MaxDeduction = 1280000m, PhaseoutThreshold = 3200000m }
+        };
+
+        protected override async Task<Section179Limits?> FindByNaturalKeyAsync(Section179Limits item, CancellationToken ct)
+            => await Context.Section179Limits.FirstOrDefaultAsync(x => x.TaxYear == item.TaxYear, ct);
+        protected override string GetNaturalKeyValue(Section179Limits item) => item.TaxYear.ToString();
+        protected override bool ShouldUpdate(Section179Limits existing, Section179Limits incoming)
+            => existing.MaxDeduction != incoming.MaxDeduction || existing.PhaseoutThreshold != incoming.PhaseoutThreshold;
+        protected override void UpdateEntity(Section179Limits existing, Section179Limits incoming)
+        {
+            existing.MaxDeduction = incoming.MaxDeduction;
+            existing.PhaseoutThreshold = incoming.PhaseoutThreshold;
+        }
+    }
+    #endregion
+
+    #region BonusDepreciationRates
+    public class BonusDepreciationRatesSeedStep : BaseSeedStep<BonusDepreciationRates>
+    {
+        public override string StepName => "BonusDepreciationRates";
+        public override string DomainName => "BonusDepreciationRates";
+        public override string NaturalKeyDescription => "TaxYear";
+
+        public BonusDepreciationRatesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<BonusDepreciationRates> GetSeedData() => new[]
+        {
+            new BonusDepreciationRates { TaxYear = 2024, Rate = 0.60m, Notes = "60% bonus depreciation" },
+            new BonusDepreciationRates { TaxYear = 2025, Rate = 0.40m, Notes = "40% bonus depreciation" },
+            new BonusDepreciationRates { TaxYear = 2026, Rate = 0.20m, Notes = "20% bonus depreciation" }
+        };
+
+        protected override async Task<BonusDepreciationRates?> FindByNaturalKeyAsync(BonusDepreciationRates item, CancellationToken ct)
+            => await Context.BonusDepreciationRates.FirstOrDefaultAsync(x => x.TaxYear == item.TaxYear, ct);
+        protected override string GetNaturalKeyValue(BonusDepreciationRates item) => item.TaxYear.ToString();
+        protected override bool ShouldUpdate(BonusDepreciationRates existing, BonusDepreciationRates incoming)
+            => existing.Rate != incoming.Rate || !StringEquals(existing.Notes, incoming.Notes);
+        protected override void UpdateEntity(BonusDepreciationRates existing, BonusDepreciationRates incoming)
+        {
+            existing.Rate = incoming.Rate;
+            existing.Notes = incoming.Notes;
+        }
+    }
+    #endregion
+
+    #region CcaClasses
+    public class CcaClassesSeedStep : BaseSeedStep<CcaClass>
+    {
+        public override string StepName => "CcaClasses";
+        public override string DomainName => "CcaClasses";
+        public override string NaturalKeyDescription => "ClassNumber";
+
+        public CcaClassesSeedStep(AppDbContext context, ILogger logger) : base(context, logger) { }
+
+        protected override IEnumerable<CcaClass> GetSeedData() => new[]
+        {
+            new CcaClass { ClassNumber = 1, Description = "Buildings acquired after 1987", Rate = 4m, IsDecliningBalance = true },
+            new CcaClass { ClassNumber = 8, Description = "Furniture, machinery, equipment", Rate = 20m, IsDecliningBalance = true },
+            new CcaClass { ClassNumber = 10, Description = "Automotive equipment", Rate = 30m, IsDecliningBalance = true },
+            new CcaClass { ClassNumber = 12, Description = "Tools under $500", Rate = 100m, IsDecliningBalance = true },
+            new CcaClass { ClassNumber = 45, Description = "Computers acquired after Mar 2007", Rate = 45m, IsDecliningBalance = true },
+            new CcaClass { ClassNumber = 50, Description = "Computer equipment after Jan 2024", Rate = 55m, IsDecliningBalance = true }
+        };
+
+        protected override async Task<CcaClass?> FindByNaturalKeyAsync(CcaClass item, CancellationToken ct)
+            => await Context.CcaClasses.FirstOrDefaultAsync(x => x.ClassNumber == item.ClassNumber, ct);
+        protected override string GetNaturalKeyValue(CcaClass item) => item.ClassNumber.ToString();
+        protected override bool ShouldUpdate(CcaClass existing, CcaClass incoming)
+            => !StringEquals(existing.Description, incoming.Description) || existing.Rate != incoming.Rate
+               || existing.IsDecliningBalance != incoming.IsDecliningBalance;
+        protected override void UpdateEntity(CcaClass existing, CcaClass incoming)
+        {
+            existing.Description = incoming.Description;
+            existing.Rate = incoming.Rate;
+            existing.IsDecliningBalance = incoming.IsDecliningBalance;
+        }
+    }
+    #endregion
+}
+
+########################################
+# DBCONTEXT — GoodsReceipt DbSets
+########################################
+126:        public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
+127:        public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+659:                e.HasOne(x => x.GoodsReceiptRef)
+661:                    .HasForeignKey(x => x.GoodsReceiptId)
+663:                e.HasOne(x => x.GoodsReceiptLineRef)
+665:                    .HasForeignKey(x => x.GoodsReceiptLineId)
+1386:            // GoodsReceipt
+1387:            modelBuilder.Entity<GoodsReceipt>(e =>
+
+########################################
+# SEED DATA — Receipt Status
+########################################
+{
+  "lookupKey": "ReceiptStatus",
+  "name": "Receipt Status",
+  "isSystem": true,
+  "values": [
+    { "code": "0", "name": "Draft", "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "Received", "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Partially Received", "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Inspecting", "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Accepted", "sortOrder": 5, "isActive": true },
+    { "code": "5", "name": "Rejected", "sortOrder": 6, "isActive": true }
+  ]
+}
+
+########################################
+# PARTIALS (if any)
+########################################
+Pages/Receiving/_ReceivingIndexActions.cshtml
+Pages/Receiving/_ReceivingIndexContext.cshtml
+Pages/Receiving/_ReceivingIndexKpis.cshtml
+
+--- Pages/Receiving/_ReceivingIndexActions.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<div class="hero-tags"></div>
+<div class="hero-btns">
+    <a href="/Purchasing" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Purchase Orders
+    </a>
+</div>
+
+--- Pages/Receiving/_ReceivingIndexContext.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<span class="loc-pill">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+    </svg>
+    @Model.PendingReceiptCount Awaiting
+</span>
+<span class="loc-divider">/</span>
+<span class="loc-pill">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    @Model.ReceivedTodayCount Today
+</span>
+
+--- Pages/Receiving/_ReceivingIndexKpis.cshtml ---
+@model Abs.FixedAssets.Pages.Receiving.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Pending</div>
+    <div class="kpi-value warning">@Model.PendingReceiptCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Today</div>
+    <div class="kpi-value success">@Model.ReceivedTodayCount</div>
+</div>
+
+########################################
+# SIDEBAR / NAV REFERENCES TO RECEIVING
+########################################
+262:                <div class="menu-group @(IsAny("/Materials", "/Inventory", "/Purchasing", "/Receiving") || IsPage("/Admin/Vendors") || IsPage("/Admin/Requisitions") || IsPage("/Admin/Kits") || IsPage("/Admin/StockLevels") || IsPage("/Admin/ItemCategories") ? "expanded" : "")" data-section="materials">
+289:                        <a href="/Receiving" class="menu-item @(IsPage("/Receiving") ? "active" : "")" data-nav-route="/Receiving">
+291:                            <span>Receiving</span>
+
+########################################
+# PO DETAIL — Receive links/buttons
+########################################
+19:        POStatus.Received => "success",
+216:                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">@ln.QuantityReceived.ToString("N0")</td>
+242:                                            <strong class="td-mono" style="color:var(--text-primary);">@ln.QuantityReceived.ToString("N0")</strong> received
+260:                                                    var relBadge = rel.Status == ReleaseStatus.Open ? "badge-neutral" : rel.Status == ReleaseStatus.PartiallyReceived ? "badge-warning" : "badge-success";
+53:                        <th style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Draft|Pending|Approved|Received|Closed">Status</th>
+67:                                <span class="badge @(po.Status == POStatus.Received ? "badge-success" : po.Status == POStatus.Approved ? "badge-primary" : po.Status == POStatus.Draft ? "badge-neutral" : "badge-warning")">
+
+########################################
+# ALL OnPost/OnGet HANDLERS IN RECEIVING
+########################################
+
+--- Pages/Receiving/Index.cshtml.cs ---
+27:        public async Task<IActionResult> OnGetAsync()
+
+--- Pages/Receiving/Receive.cshtml.cs ---
+46:        public async Task<IActionResult> OnGetAsync(int id)
+87:        public async Task<IActionResult> OnPostReceiveAsync(int id, List<ReceiveLineViewModel> lines)
+
+########################################
+# COMPLETE FILE INVENTORY
+########################################
+Receiving pages:
+Pages/Receiving/Index.cshtml
+Pages/Receiving/Index.cshtml.cs
+Pages/Receiving/Receive.cshtml
+Pages/Receiving/Receive.cshtml.cs
+Pages/Receiving/_ReceivingIndexActions.cshtml
+Pages/Receiving/_ReceivingIndexContext.cshtml
+Pages/Receiving/_ReceivingIndexKpis.cshtml
+
+Line counts:
+  78 lines — Pages/Receiving/Index.cshtml
+  51 lines — Pages/Receiving/Index.cshtml.cs
+  165 lines — Pages/Receiving/Receive.cshtml
+  213 lines — Pages/Receiving/Receive.cshtml.cs
+  10 lines — Pages/Receiving/_ReceivingIndexActions.cshtml
+  14 lines — Pages/Receiving/_ReceivingIndexContext.cshtml
+  9 lines — Pages/Receiving/_ReceivingIndexKpis.cshtml
+
+########################################
+# AP INVOICE — GoodsReceipt references
+########################################
+36:        public List<AvailableGRLineViewModel> AvailableGRLines { get; set; } = new();
+49:        public class AvailableGRLineViewModel
+78:                    .ThenInclude(l => l.GoodsReceiptLine)
+79:                        .ThenInclude(grl => grl!.GoodsReceipt)
+91:                await LoadAvailablePOAndGRLinesAsync(Invoice);
+111:        private async Task LoadAvailablePOAndGRLinesAsync(VendorInvoice invoice)
+138:            AvailableGRLines = await _context.GoodsReceiptLines
+139:                .Include(grl => grl.GoodsReceipt)
+140:                .Where(grl => poIds.Contains(grl.GoodsReceipt!.PurchaseOrderId))
+141:                .Select(grl => new AvailableGRLineViewModel
+144:                    ReceiptNumber = grl.GoodsReceipt!.ReceiptNumber,
+
+============================================
+SCAN COMPLETE
+============================================

@@ -1,0 +1,729 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.CIP.DetailsModel
+@using Abs.FixedAssets.Helpers
+@{
+    var projNum = Model.Project?.ProjectNumber ?? "";
+    ViewData["Title"] = UiTerms.CapitalProjects;
+    ViewData["TabTitle"] = UiTerms.GetProjectTabTitle(projNum);
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+    var percentSpent = Model.Project!.BudgetAmount > 0 ? (Model.Project.TotalCosts / Model.Project.BudgetAmount * 100) : 0;
+    
+    var statusTone = Model.Project.Status == CipProjectStatus.Active ? "success" : Model.Project.Status == CipProjectStatus.Capitalized ? "info" : Model.Project.Status == CipProjectStatus.OnHold ? "warning" : "muted";
+    ViewData["ReturnUrl"] = Model.ReturnUrl;
+    ViewData["FallbackPage"] = "/CIP";
+    ViewData["FallbackLabel"] = "Back to results";
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.Project.Name,
+        ["Subtitle"] = $"{Model.Project.ProjectNumber} - {Model.Project.Description ?? "Capital improvement project"}",
+        ["TypeLabel"] = "Capital Project",
+        ["StatusText"] = Model.Project.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["Breadcrumbs"] = new (string, string)[] { ("Finance", "/CIP"), ("Capital Projects", "/CIP"), (Model.Project.ProjectNumber ?? "Details", "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/CIP",
+        ["BackLinkLabel"] = "Back to results",
+        ["ContextPartial"] = "CIP/_CIPDetailsContext",
+        ["KpisPartial"] = "CIP/_CIPDetailsKpis",
+        ["ActionsPartial"] = "CIP/_CIPDetailsActions"
+    };
+    ViewData["Project"] = Model.Project;
+    ViewData["PercentSpent"] = percentSpent;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div id="editProjectInline" class="pe-card" style="display: none; margin-bottom: 1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">Edit Project</span>
+        <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('editProjectInline')">&times;</button>
+    </div>
+    <form method="post" asp-page-handler="EditProject" asp-route-id="@Model.Project.Id">
+        <div class="pe-card__body">
+            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Number</label>
+                    <input type="text" name="projectNumber" class="form-input-p" required value="@Model.Project.ProjectNumber" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Name</label>
+                    <input type="text" name="name" class="form-input-p" required value="@Model.Project.Name" />
+                </div>
+            </div>
+            <div class="form-group-p" style="margin-bottom: 1rem;">
+                <label class="form-label-p">Description</label>
+                <textarea name="description" class="form-input-p" rows="2">@Model.Project.Description</textarea>
+            </div>
+            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Project Manager</label>
+                    <select name="projectManagerId" class="form-input-p">
+                        <option value="">-- Select Project Manager --</option>
+                        @foreach (var pm in Model.ProjectManagers)
+                        {
+                            if (Model.Project.ProjectManagerId == pm.Id)
+                            {
+                                <option value="@pm.Id" selected>@pm.Name</option>
+                            }
+                            else
+                            {
+                                <option value="@pm.Id">@pm.Name</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Location</label>
+                    <select name="location" class="form-input-p" data-cherry-select data-placeholder="Search locations...">
+                        <option value="">-- Select Location --</option>
+                        @foreach (var loc in Model.Locations)
+                        {
+                            var isSelected = Model.Project.Location == loc.Name;
+                            <option value="@loc.Name" selected="@isSelected">@loc.Code - @loc.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Department</label>
+                    <select name="department" class="form-input-p" data-cherry-select data-placeholder="Search departments...">
+                        <option value="">-- Select Department --</option>
+                        @foreach (var dept in Model.Departments)
+                        {
+                            var isSelected = Model.Project.Department == dept.Name;
+                            <option value="@dept.Name" selected="@isSelected">@dept.Code - @dept.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">GL Account</label>
+                    <select name="glAccount" class="form-input-p" data-cherry-select data-placeholder="Search GL accounts...">
+                        <option value="">-- Select GL Account --</option>
+                        @foreach (var gl in Model.GlAccounts)
+                        {
+                            var isSelected = Model.Project.GlAccount == gl.AccountNumber;
+                            <option value="@gl.AccountNumber" selected="@isSelected">@gl.AccountNumber - @gl.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid form-grid--4" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Start Date</label>
+                    <input type="date" name="startDate" class="form-input-p" required value="@Model.Project.StartDate.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Est. Completion</label>
+                    <input type="date" name="estimatedCompletionDate" class="form-input-p" value="@Model.Project.EstimatedCompletionDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Actual Completion</label>
+                    <input type="date" name="actualCompletionDate" class="form-input-p" value="@Model.Project.ActualCompletionDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Budget Amount</label>
+                    <div class="input-group-currency">
+                        <span class="currency-prefix">$</span>
+                        <input type="number" name="budgetAmount" class="form-input-p" step="0.01" min="0" required value="@Model.Project.BudgetAmount" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="pe-card__footer">
+            <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editProjectInline')">Cancel</button>
+            <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+
+@if (Model.CostSummary.ByType.Any())
+{
+<div class="card pe-card" style="margin-bottom: 16px;">
+    <div class="card-header pe-card__header">
+        <h3 class="card-title">Cost by Type</h3>
+        <span class="badge badge-neutral">DB-driven from LookupValues</span>
+    </div>
+    <div class="card-body pe-card__body">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+            @foreach (var ct in Model.CostSummary.ByType)
+            {
+                <div style="background: var(--surface-secondary); border-radius: 8px; padding: 12px; text-align: center;">
+                    <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">@ct.TypeName</div>
+                    <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">@ct.Amount.ToString("C2")</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">@ct.Count cost(s)</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+}
+
+<div class="content-grid pe-layout">
+    <div class="content-main">
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Project Details</h3>
+                <span class="badge @(Model.Project.Status == CipProjectStatus.Active ? "badge-success" : Model.Project.Status == CipProjectStatus.Capitalized ? "badge-primary" : Model.Project.Status == CipProjectStatus.OnHold ? "badge-warning" : "badge-neutral")">
+                    @Model.Project.Status
+                </span>
+            </div>
+            <div class="card-body pe-card__body">
+                <div class="detail-grid pe-fields">
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Project Number</span>
+                        <span class="detail-value pe-field__value">@Model.Project.ProjectNumber</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Name</span>
+                        <span class="detail-value pe-field__value">@Model.Project.Name</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Project Manager</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.ProjectManager != null ? Model.Project.ProjectManager.Name : (Model.Project.ProjectManagerName ?? "-"))</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Location</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.Location ?? "-")</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Department</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.Department ?? "-")</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Start Date</span>
+                        <span class="detail-value pe-field__value">@Model.Project.StartDate.ToString("MM/dd/yyyy")</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Est. Completion</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.EstimatedCompletionDate?.ToString("MM/dd/yyyy") ?? "-")</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Actual Completion</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.ActualCompletionDate?.ToString("MM/dd/yyyy") ?? "-")</span>
+                    </div>
+                    <div class="detail-item pe-field">
+                        <span class="detail-label pe-field__label">Capitalized</span>
+                        <span class="detail-value pe-field__value">@(Model.Project.IsCapitalized ? "Yes" : "No")</span>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Project.Description))
+                {
+                    <div class="detail-description">
+                        <span class="detail-label pe-field__label">Description</span>
+                        <p>@Model.Project.Description</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="line-section" id="line-section-costs">
+            <div class="line-section__header">
+                <h3 class="line-section__title">
+                    <i class="fas fa-receipt"></i> Project Costs
+                </h3>
+                <div class="line-section__summary">
+                    <span class="line-section__count">@Model.CostSummary.TotalCostCount entries</span>
+                    <span class="line-section__total">@Model.CostSummary.TotalSpent.ToString("C2")</span>
+                </div>
+            </div>
+
+
+            @if (Model.Project.Status == CipProjectStatus.Active)
+            {
+            <div class="line-section__add line-section__add--above">
+                <div class="line-section__add-label">+ Add Project Cost</div>
+                <form method="post" asp-page-handler="AddCost" asp-route-id="@Model.Project.Id" class="line-add-form">
+                    <div class="line-add-form__row">
+                        <div class="line-add-form__field">
+                            <label class="line-add-form__label">COST TYPE *</label>
+                            <select name="costTypeLookupValueId" class="line-add-form__input" required asp-items="Model.CipCostTypeOptions" data-cherry-select data-placeholder="Search cost types..."></select>
+                        </div>
+                        <div class="line-add-form__field line-add-form__field--wide">
+                            <label class="line-add-form__label">DESCRIPTION *</label>
+                            <input type="text" name="description" class="line-add-form__input" required placeholder="Cost description..." />
+                        </div>
+                        <div class="line-add-form__field line-add-form__field--narrow">
+                            <label class="line-add-form__label">AMOUNT *</label>
+                            <input type="number" name="amount" class="line-add-form__input line-add-form__input--right" step="0.01" min="0" required placeholder="0.00" />
+                        </div>
+                    </div>
+                    <div class="line-add-form__row">
+                        <div class="line-add-form__field">
+                            <label class="line-add-form__label">VENDOR</label>
+                            <input type="text" name="vendor" class="line-add-form__input" placeholder="Vendor name..." />
+                        </div>
+                        <div class="line-add-form__field">
+                            <label class="line-add-form__label">INVOICE #</label>
+                            <input type="text" name="invoiceNumber" class="line-add-form__input" placeholder="INV-12345" />
+                        </div>
+                        <div class="line-add-form__field line-add-form__field--narrow">
+                            <label class="line-add-form__label">DATE *</label>
+                            <input type="date" name="transactionDate" class="line-add-form__input" required value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="line-add-form__field line-add-form__field--action">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                                <i class="fas fa-plus"></i> Add Cost
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            }
+
+            <div class="line-section__body">
+                @if (Model.Costs.Any())
+                {
+                    <table class="line-table">
+                        <thead>
+                            <tr>
+                                <th class="line-table__th" style="width: 100px;">DATE</th>
+                                <th class="line-table__th" style="width: 120px;">TYPE</th>
+                                <th class="line-table__th">DESCRIPTION</th>
+                                <th class="line-table__th" style="width: 100px;">SOURCE</th>
+                                <th class="line-table__th" style="width: 120px;">VENDOR</th>
+                                <th class="line-table__th line-table__th--right" style="width: 110px;">AMOUNT</th>
+                                <th class="line-table__th" style="width: 60px;">CAP.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var cost in Model.Costs)
+                            {
+                                <tr class="line-table__row">
+                                    <td class="line-table__td line-table__td--muted">@cost.TransactionDate.ToString("MM/dd/yyyy")</td>
+                                    <td class="line-table__td"><span class="status-badge-p status-badge-p--info" style="font-size:0.65rem;">@(cost.CostTypeLookupValue?.Name ?? cost.CostType.ToString())</span></td>
+                                    <td class="line-table__td line-table__td--primary">@cost.Description</td>
+                                    <td class="line-table__td line-table__td--muted">
+                                        @if (!string.IsNullOrEmpty(cost.SourceDisplayRef))
+                                        {
+                                            <span style="font-size:0.75rem;">@cost.SourceDisplayRef</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@(cost.SourceType ?? "Manual")</span>
+                                        }
+                                    </td>
+                                    <td class="line-table__td line-table__td--muted">@(cost.Vendor ?? "—")</td>
+                                    <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@cost.Amount.ToString("N2")</td>
+                                    <td class="line-table__td">
+                                        @if (cost.IsCapitalizable)
+                                        {
+                                            <span style="color:var(--status-success, #22c55e);">✓</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="color:var(--text-muted);">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr class="line-table__total-row">
+                                <td colspan="5" class="line-table__td line-table__td--right" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL</td>
+                                <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.CostSummary.TotalSpent.ToString("N2")</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                }
+                else
+                {
+                    <div class="line-section__empty">
+                        No costs recorded yet. Use the form above to add one.
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Related Work Orders</h3>
+                <span class="badge badge-neutral">@Model.RelatedWorkOrders.Count</span>
+            </div>
+            @if (Model.RelatedWorkOrders.Any())
+            {
+                <table class="data-table premium-table">
+                    <thead><tr><th>WO #</th><th>Description</th><th>Status</th><th>Cost</th></tr></thead>
+                    <tbody>
+                        @foreach (var wo in Model.RelatedWorkOrders)
+                        {
+                            <tr>
+                                <td><a href="/Maintenance/Details/@wo.Id">@wo.WorkOrderNumber</a></td>
+                                <td>@wo.Description</td>
+                                <td><span class="badge badge-secondary">@wo.Status</span></td>
+                                <td style="text-align: right;">@((wo.ActualCost ?? 0).ToString("C2"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:1rem;">
+                    <div class="pe-empty__text">No linked work orders.</div>
+                </div>
+            }
+        </div>
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Related Purchase Orders</h3>
+                <span class="badge badge-neutral">@Model.RelatedPurchaseOrders.Count</span>
+            </div>
+            @if (Model.RelatedPurchaseOrders.Any())
+            {
+                <table class="data-table premium-table">
+                    <thead><tr><th>PO #</th><th>Status</th><th>Order Date</th><th style="text-align: right;">Total</th></tr></thead>
+                    <tbody>
+                        @foreach (var po in Model.RelatedPurchaseOrders)
+                        {
+                            <tr>
+                                <td><a href="/Purchasing?id=@po.Id">@po.PONumber</a></td>
+                                <td><span class="badge badge-secondary">@po.Status</span></td>
+                                <td>@po.OrderDate.ToString("MM/dd/yyyy")</td>
+                                <td style="text-align: right;">@po.Total.ToString("C2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:1rem;">
+                    <div class="pe-empty__text">No linked purchase orders.</div>
+                </div>
+            }
+        </div>
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Related Vendor Invoices</h3>
+                <span class="badge badge-neutral">@Model.RelatedInvoices.Count</span>
+            </div>
+            @if (Model.RelatedInvoices.Any())
+            {
+                <table class="data-table premium-table">
+                    <thead><tr><th>Invoice #</th><th>Status</th><th>Date</th><th style="text-align: right;">Total</th></tr></thead>
+                    <tbody>
+                        @foreach (var inv in Model.RelatedInvoices)
+                        {
+                            <tr>
+                                <td><a href="/AccountsPayable/Details/@inv.Id">@inv.InvoiceNumber</a></td>
+                                <td><span class="badge badge-secondary">@inv.Status</span></td>
+                                <td>@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
+                                <td style="text-align: right;">@inv.Total.ToString("C2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:1rem;">
+                    <div class="pe-empty__text">No linked vendor invoices.</div>
+                </div>
+            }
+        </div>
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Related Journals</h3>
+                <span class="badge badge-neutral">@Model.RelatedJournals.Count</span>
+            </div>
+            @if (Model.RelatedJournals.Any())
+            {
+                <table class="data-table premium-table">
+                    <thead><tr><th>Batch</th><th>Source</th><th>Posting Date</th><th>Reference</th></tr></thead>
+                    <tbody>
+                        @foreach (var je in Model.RelatedJournals)
+                        {
+                            <tr>
+                                <td>@je.Batch</td>
+                                <td>@(je.Source ?? "-")</td>
+                                <td>@je.PostingDate.ToString("MM/dd/yyyy")</td>
+                                <td>@(je.Reference ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:1rem;">
+                    <div class="pe-empty__text">No linked journal entries.</div>
+                </div>
+            }
+        </div>
+
+        @if (Model.RelatedAssets.Any())
+        {
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Capitalized Asset(s)</h3>
+            </div>
+            <table class="data-table premium-table">
+                <thead><tr><th>Asset #</th><th>Description</th><th>Cost</th><th>Status</th></tr></thead>
+                <tbody>
+                    @foreach (var asset in Model.RelatedAssets)
+                    {
+                        <tr>
+                            <td><a href="/Assets/Asset/@asset.Id">@asset.AssetNumber</a></td>
+                            <td>@asset.Description</td>
+                            <td style="text-align: right;">@asset.AcquisitionCost.ToString("C2")</td>
+                            <td><span class="badge badge-success">@asset.Status</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        }
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Attachments</h3>
+                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="toggleInlineForm('uploadInline')">Upload File</button>
+            </div>
+            <div id="uploadInline" style="display: none; border-bottom: 1px solid var(--border-primary);">
+                <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Project.Id" enctype="multipart/form-data" style="padding: 1.25rem;">
+                    <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                        <div class="form-group-p">
+                            <label class="form-label-p">File</label>
+                            <input type="file" name="file" class="form-input-p" required />
+                        </div>
+                        <div class="form-group-p">
+                            <label class="form-label-p">Category</label>
+                            <select name="category" class="form-input-p">
+                                <option value="0">General</option>
+                                <option value="1">Contract</option>
+                                <option value="2">Invoice</option>
+                                <option value="3">Photo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group-p" style="margin-bottom: 1rem;">
+                        <label class="form-label-p">Description (optional)</label>
+                        <input type="text" name="description" class="form-input-p" placeholder="File description..." />
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('uploadInline')">Cancel</button>
+                        <button type="submit" class="btn-p btn-p--primary">Upload</button>
+                    </div>
+                </form>
+            </div>
+            @if (Model.Attachments.Any())
+                {
+                    <div class="attachment-grid">
+                        @foreach (var att in Model.Attachments)
+                        {
+                            <div class="attachment-item">
+                                @if (att.ContentType.StartsWith("image/"))
+                                {
+                                    <a href="@att.FilePath" target="_blank" class="attachment-preview">
+                                        <img src="@att.FilePath" alt="@att.FileName" />
+                                    </a>
+                                }
+                                else
+                                {
+                                    <a href="@att.FilePath" target="_blank" class="attachment-icon">
+                                        <i class="fa fa-file"></i>
+                                    </a>
+                                }
+                                <div class="attachment-info">
+                                    <a href="@att.FilePath" target="_blank" class="attachment-name">@att.FileName</a>
+                                    <span class="attachment-meta">@att.Category - @att.UploadedAt.ToString("MMM dd, yyyy")</span>
+                                </div>
+                                <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Project.Id" class="attachment-delete">
+                                    <input type="hidden" name="attachmentId" value="@att.Id" />
+                                    <button type="submit" class="btn-icon" title="Delete" onclick="return confirm('Delete this attachment?')">&times;</button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="pe-empty" style="padding:1rem;">
+                        <div class="pe-empty__text">No attachments yet. Upload contracts, invoices, or progress photos.</div>
+                    </div>
+                }
+        </div>
+    </div>
+
+    <div class="content-sidebar">
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Budget Summary</h3>
+            </div>
+            <div class="card-body pe-card__body">
+                <div class="budget-stat">
+                    <span class="budget-label">Budget</span>
+                    <span class="budget-value">@Model.CostSummary.BudgetAmount.ToString("C2")</span>
+                </div>
+                <div class="budget-stat">
+                    <span class="budget-label">Spent</span>
+                    <span class="budget-value @(Model.CostSummary.TotalSpent > Model.CostSummary.BudgetAmount ? "text-danger" : "")">@Model.CostSummary.TotalSpent.ToString("C2")</span>
+                </div>
+                <div class="budget-stat">
+                    <span class="budget-label">Remaining</span>
+                    <span class="budget-value">@Model.CostSummary.Remaining.ToString("C2")</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: @Math.Min(Model.PercentComplete, 100)%; background: @(Model.PercentComplete > 100 ? "var(--danger)" : "var(--primary)")"></div>
+                </div>
+                <div class="progress-label">@Model.CostSummary.PercentUsed.ToString("F1")% of budget used</div>
+            </div>
+        </div>
+
+        <div class="card pe-card">
+            <div class="card-header pe-card__header">
+                <h3 class="card-title">Actions</h3>
+            </div>
+            <div class="card-body pe-card__body">
+                @if (Model.Project.Status == CipProjectStatus.Planned && Model.ActiveStatusLvId.HasValue)
+                {
+                    <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id">
+                        <input type="hidden" name="statusLookupValueId" value="@Model.ActiveStatusLvId.Value" />
+                        <button type="submit" class="btn-p btn-p--primary">Start Project</button>
+                    </form>
+                }
+                @if (Model.Project.Status == CipProjectStatus.Active)
+                {
+                    @if (Model.OnHoldStatusLvId.HasValue)
+                    {
+                        <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id" style="margin-bottom: 8px;">
+                            <input type="hidden" name="statusLookupValueId" value="@Model.OnHoldStatusLvId.Value" />
+                            <button type="submit" class="btn-p btn-p--secondary">Put On Hold</button>
+                        </form>
+                    }
+                    @if (Model.CompletedStatusLvId.HasValue)
+                    {
+                        <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id">
+                            <input type="hidden" name="statusLookupValueId" value="@Model.CompletedStatusLvId.Value" />
+                            <button type="submit" class="btn-p btn-p--primary">Mark Completed</button>
+                        </form>
+                    }
+                }
+                @if (Model.Project.Status == CipProjectStatus.OnHold && Model.ActiveStatusLvId.HasValue)
+                {
+                    <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id">
+                        <input type="hidden" name="statusLookupValueId" value="@Model.ActiveStatusLvId.Value" />
+                        <button type="submit" class="btn-p btn-p--primary">Resume Project</button>
+                    </form>
+                }
+                @if (Model.Project.Status == CipProjectStatus.Completed && !Model.Project.IsCapitalized)
+                {
+                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-primary);">
+                        <h4 style="font-size: 14px; margin-bottom: 8px;">Capitalize Project</h4>
+                        @if (Model.CapPreview != null)
+                        {
+                            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                                Total: @Model.CapPreview.TotalCapitalizableCosts.ToString("C2") (@Model.CapPreview.CostCount costs)
+                            </p>
+                        }
+                        <button type="button" class="btn-p btn-p--primary" onclick="toggleInlineForm('capitalizeInline')">Capitalize</button>
+                    </div>
+                }
+                @if (Model.Project.IsCapitalized)
+                {
+                    <p class="text-muted" style="font-size: 13px; margin-top: 8px;">Project is capitalized and locked. No further cost additions allowed.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="capitalizeInline" class="pe-card" style="display: none; margin-top: 1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">Capitalize CIP Project</span>
+        <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('capitalizeInline')">&times;</button>
+    </div>
+    <form method="post" asp-page-handler="Capitalize" asp-route-id="@Model.Project.Id">
+        <div class="pe-card__body">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Convert @Model.Project.ProjectNumber into a fixed asset</p>
+            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Asset Number</label>
+                    <input type="text" name="assetNumber" class="form-input-p" required placeholder="e.g. FA-00123" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Asset Description</label>
+                    <input type="text" name="assetDescription" class="form-input-p" required value="@Model.Project.Name" />
+                </div>
+            </div>
+            @if (Model.CapPreview != null)
+            {
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 1rem; background: var(--surface-secondary); border-radius: 8px;">
+                    <div><strong>Capitalizable:</strong> @Model.CapPreview.TotalCapitalizableCosts.ToString("C2")</div>
+                    <div><strong>Non-Capitalizable:</strong> @Model.CapPreview.TotalNonCapitalizableCosts.ToString("C2")</div>
+                    <div><strong>Proposed Asset Basis:</strong> @Model.CapPreview.ProposedAssetBasis.ToString("C2")</div>
+                    <div><strong>Costs Included:</strong> @Model.CapPreview.CostCount</div>
+                </div>
+            }
+        </div>
+        <div class="pe-card__footer">
+            <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('capitalizeInline')">Cancel</button>
+            <button type="submit" class="btn-p btn-p--primary" onclick="return confirm('This will lock the project and create a new fixed asset. Continue?')">Capitalize Project</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+<script>
+function toggleInlineForm(id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+        if (el.style.display === 'block') el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+</script>
+}
+
+--- Pages/CIP/Details.cshtml.cs ---
+--- Pages/CIP/Details.cshtml ---
+  line-section: 10
+  line-table: 19
+  line-add-form: 22
+  premium-table: 5
+  pe-card: 34
+  workspace: 0
+0
+  modal: 0
+0
+
+--- Pages/AccountsPayable/Details.cshtml ---
+  line-section: 10
+  line-table: 17
+  line-add-form: 15
+  premium-table: 11
+  pe-card: 13
+  workspace: 0
+0
+  modal: 0
+0
+
+########################################
+# FILE SIZES
+########################################
+  425 lines — Pages/Purchasing/Details.cshtml
+  457 lines — Pages/Purchasing/Details.cshtml.cs
+  658 lines — Pages/WorkOrders/Details.cshtml
+  507 lines — Pages/WorkOrders/Details.cshtml.cs
+  678 lines — Pages/CIP/Details.cshtml
+  302 lines — Pages/CIP/Details.cshtml.cs
+  547 lines — Pages/AccountsPayable/Details.cshtml
+  288 lines — Pages/AccountsPayable/Details.cshtml.cs
+  2871 lines — wwwroot/css/modules/premium-enterprise.css
+
+########################################
+# LAYOUT: Which layout does each page use?
+########################################
+
+--- Pages/Purchasing/Details.cshtml ---
+
+--- Pages/WorkOrders/Details.cshtml ---
+
+--- Pages/CIP/Details.cshtml ---
+
+--- Pages/AccountsPayable/Details.cshtml ---
+
+============================================

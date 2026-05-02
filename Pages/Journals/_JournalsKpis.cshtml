@@ -1,0 +1,22 @@
+@{
+    var totalEntries = (int)(ViewData["TotalEntries"] ?? 0);
+    var totalLines = (int)(ViewData["TotalLines"] ?? 0);
+    var totalDebits = (decimal)(ViewData["TotalDebits"] ?? 0m);
+    var totalCredits = (decimal)(ViewData["TotalCredits"] ?? 0m);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Entries</div>
+    <div class="kpi-value">@totalEntries</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Lines</div>
+    <div class="kpi-value">@totalLines</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Debits</div>
+    <div class="kpi-value success">@totalDebits.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Credits</div>
+    <div class="kpi-value danger">@totalCredits.ToString("C0")</div>
+</div>

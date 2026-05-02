@@ -1,0 +1,394 @@
+@page
+@model Abs.FixedAssets.Pages.Help.IndexModel
+@{
+    ViewData["Title"] = "Help Center";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Help Center",
+        ["Subtitle"] = "Find step-by-step guides, learn key concepts, and get the most out of your asset management system",
+        ["TypeLabel"] = "Support",
+        ["StatusText"] = "Online",
+        ["StatusTone"] = "success",
+        ["ContextPartial"] = "/Pages/Help/_HelpIndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/Help/_HelpIndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Help/_HelpIndexActions.cshtml"
+    };
+}
+
+<link rel="stylesheet" href="/css/help-enterprise.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<h2 class="text-theme-primary" style="margin: 0 0 1rem 0; font-size: 1.1rem;"><i class="fas fa-bolt text-amber"></i> Quick Start</h2>
+<div class="quick-start-grid">
+    <a href="/Assets" class="quick-start-card">
+        <div class="quick-start-icon icon-bg-green">
+            <i class="fas fa-boxes"></i>
+        </div>
+        <h4>View Assets</h4>
+        <p>See all your equipment</p>
+    </a>
+    <a href="/Assets/Asset?mode=create" class="quick-start-card">
+        <div class="quick-start-icon icon-bg-blue">
+            <i class="fas fa-plus-circle"></i>
+        </div>
+        <h4>Add Asset</h4>
+        <p>Register new equipment</p>
+    </a>
+    <a href="/Depreciation" class="quick-start-card">
+        <div class="quick-start-icon icon-bg-amber">
+            <i class="fas fa-calculator"></i>
+        </div>
+        <h4>Run Depreciation</h4>
+        <p>Calculate monthly values</p>
+    </a>
+    <a href="/AI" class="quick-start-card">
+        <div class="quick-start-icon icon-bg-pink">
+            <i class="fas fa-robot"></i>
+        </div>
+        <h4>Ask AI</h4>
+        <p>Get instant answers</p>
+    </a>
+</div>
+
+<div class="section-card gradient-btn-purple" style="margin-bottom: 2rem; border: none;">
+    <a href="/Help/Implementation" style="text-decoration: none; color: white; display: block;">
+        <div class="section-card-body" style="padding: 1.75rem; display: flex; align-items: center; gap: 1.5rem;">
+            <div class="icon-circle-lg" style="background: rgba(255,255,255,0.2);">
+                <i class="fas fa-rocket" style="font-size: 1.5rem;"></i>
+            </div>
+            <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                    <h2 style="margin: 0; color: white; font-size: 1.35rem;">Interactive Implementation Guide</h2>
+                    <span style="background: rgba(255,255,255,0.25); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">11 PHASES</span>
+                    <span style="background: var(--success, #10b981); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600;">PROGRESS TRACKING</span>
+                </div>
+                <p style="margin: 0; opacity: 0.9; font-size: 0.95rem;">Complete step-by-step manual with 78 interactive tasks. Covers company setup, module configuration, depreciation, inventory, procurement, and go-live. Your progress is saved automatically!</p>
+                <div style="margin-top: 0.75rem; display: flex; gap: 1rem; font-size: 0.8rem; opacity: 0.8;">
+                    <span><i class="fas fa-clock"></i> 2-4 hours</span>
+                    <span><i class="fas fa-users"></i> For Admins</span>
+                    <span><i class="fas fa-save"></i> Progress Saved</span>
+                    <span><i class="fas fa-print"></i> Printable</span>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right" style="opacity: 0.7; font-size: 1.25rem;"></i>
+        </div>
+    </a>
+</div>
+
+<div class="section-card gradient-btn-green" style="margin-bottom: 2rem; border: none; color: white;">
+    <div class="section-card-header" style="border-bottom: 1px solid rgba(255,255,255,0.2); background: transparent !important; padding: 1.25rem 1.5rem;">
+        <div>
+            <h2 style="margin: 0; color: white; display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem;">
+                <i class="fas fa-list-check"></i> Step-by-Step Task Guides
+            </h2>
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.85; font-size: 0.9rem;">Click any task for detailed instructions with screenshots and direct links</p>
+        </div>
+    </div>
+    <div class="section-card-body" style="padding: 1.5rem;">
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">ASSET MANAGEMENT</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=view-assets" class="task-item">
+                <i class="fas fa-eye"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">View Your Assets</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 2 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=add-asset" class="task-item">
+                <i class="fas fa-plus"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Add New Asset</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=dispose-asset" class="task-item">
+                <i class="fas fa-trash-alt"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Dispose Asset</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 3 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=transfer-asset" class="task-item">
+                <i class="fas fa-exchange-alt"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Transfer Asset</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 2 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=bulk-operations" class="task-item">
+                <i class="fas fa-layer-group"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Bulk Operations</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=add-attachment" class="task-item">
+                <i class="fas fa-paperclip"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Add Attachments</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 2 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">OPERATIONS</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=schedule-maintenance" class="task-item">
+                <i class="fas fa-wrench"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Schedule Maintenance</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=create-cip" class="task-item">
+                <i class="fas fa-hard-hat"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Create CIP Project</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 10 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=run-inventory" class="task-item">
+                <i class="fas fa-clipboard-check"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Run Inventory Count</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 15 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=use-ai-assistant" class="task-item">
+                <i class="fas fa-robot"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Use AI Assistant</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 2 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">DEPRECIATION & REPORTING</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=run-depreciation" class="task-item">
+                <i class="fas fa-calculator"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Run Depreciation</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=view-journals" class="task-item">
+                <i class="fas fa-file-alt"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">View Journals</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 3 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=view-cca" class="task-item">
+                <i class="fas fa-percent"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">View CCA Classes</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 3 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=export-reports" class="task-item">
+                <i class="fas fa-download"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Export Reports</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 3 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=view-books" class="task-item">
+                <i class="fas fa-book"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">View Books</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 2 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">ADMINISTRATION</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=manage-users" class="task-item">
+                <i class="fas fa-users"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Users</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=company-settings" class="task-item">
+                <i class="fas fa-building"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Company Settings</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 10 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-technicians" class="task-item">
+                <i class="fas fa-user-cog"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Technicians</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">CHART OF ACCOUNTS</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=manage-gl-accounts" class="task-item">
+                <i class="fas fa-calculator"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage GL Accounts</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 10 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-cost-centers" class="task-item">
+                <i class="fas fa-building"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Cost Centers</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-departments" class="task-item">
+                <i class="fas fa-users"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Departments</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-asset-categories" class="task-item">
+                <i class="fas fa-tags"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Asset Categories</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 10 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">PERSONNEL & RESOURCES</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=manage-vendors" class="task-item">
+                <i class="fas fa-truck"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Vendors</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-manufacturers" class="task-item">
+                <i class="fas fa-industry"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Manufacturers</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=manage-locations" class="task-item">
+                <i class="fas fa-map-marker-alt"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Manage Locations</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+        </div>
+        
+        <p class="category-label" style="color: rgba(255,255,255,0.7);">INVENTORY & PURCHASING</p>
+        <div class="task-grid">
+            <a href="/Help/Tasks?id=manage-items" class="task-item">
+                <i class="fas fa-boxes"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Item Master</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 10 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=create-requisition" class="task-item">
+                <i class="fas fa-file-invoice"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Create Requisition</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=barcode-scan" class="task-item">
+                <i class="fas fa-barcode"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Scan Barcodes</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 3 min</span></span>
+                </div>
+            </a>
+            <a href="/Help/Tasks?id=configure-modules" class="task-item">
+                <i class="fas fa-toggle-on"></i>
+                <div class="task-item-content">
+                    <span class="task-item-title">Configure Modules</span>
+                    <span class="task-item-meta"><span><i class="fas fa-clock"></i> 5 min</span></span>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Learn the Concepts
+        </h3>
+        <span class="status-badge info">15 TOPICS</span>
+    </div>
+    <div class="section-card-body">
+        <div class="section-intro">
+            <p><strong>New to asset management?</strong> These topics explain the key concepts in plain English. Start with "Dashboard" for an overview, or jump to any topic that interests you.</p>
+        </div>
+
+        <p class="category-label">CORE MODULES</p>
+        <div class="concepts-grid">
+            <a href="/Help/Topic?id=dashboard" class="concept-card">
+                <div class="concept-header">
+                    <div class="concept-icon icon-bg-blue">
+                        <i class="fas fa-home"></i>
+                    </div>
+                    <h3>Dashboard</h3>
+                </div>
+                <p>Understanding the numbers at a glance - what do all those stats mean and how to use them for decision-making?</p>
+                <div class="concept-links">
+                    <span class="concept-link"><i class="fas fa-arrow-right"></i> Go to Dashboard</span>
+                </div>
+            </a>
+
+            <a href="/Help/Topic?id=assets" class="concept-card">
+                <div class="concept-header">
+                    <div class="concept-icon icon-bg-green">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <h3>Assets</h3>
+                </div>
+                <p>Learn about the asset lifecycle, from acquisition through disposal. Understand asset statuses, values, and tracking.</p>
+                <div class="concept-links">
+                    <span class="concept-link"><i class="fas fa-arrow-right"></i> View Assets</span>
+                </div>
+            </a>
+
+            <a href="/Help/Topic?id=depreciation" class="concept-card">
+                <div class="concept-header">
+                    <div class="concept-icon icon-bg-amber">
+                        <i class="fas fa-calculator"></i>
+                    </div>
+                    <h3>Depreciation</h3>
+                </div>
+                <p>How assets lose value over time. Straight-line vs declining balance methods, useful life, and salvage values.</p>
+                <div class="concept-links">
+                    <span class="concept-link"><i class="fas fa-arrow-right"></i> Run Depreciation</span>
+                </div>
+            </a>
+
+            <a href="/Help/Topic?id=maintenance" class="concept-card">
+                <div class="concept-header">
+                    <div class="concept-icon icon-bg-indigo">
+                        <i class="fas fa-wrench"></i>
+                    </div>
+                    <h3>Maintenance</h3>
+                </div>
+                <p>Preventive and corrective maintenance scheduling. Work orders, technician assignments, and cost tracking.</p>
+                <div class="concept-links">
+                    <span class="concept-link"><i class="fas fa-arrow-right"></i> View Maintenance</span>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>

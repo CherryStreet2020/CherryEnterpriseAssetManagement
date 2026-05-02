@@ -1,0 +1,243 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.PMSchedulesModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = "PM Schedules";
+    ViewData["TabTitle"] = "PM Schedules";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var totalSchedules = Model.Schedules.Count;
+    var dueSoon = Model.Previews.Count(p => !p.AlreadyExists);
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "PM Schedules",
+        ["Subtitle"] = "Configure and run preventive maintenance schedules",
+        ["TypeLabel"] = "Work Execution",
+        ["Breadcrumbs"] = new[] { ("Asset Maintenance", "/Maintenance"), ("PM Schedules", "") },
+        ["ContextPartial"] = "/Pages/Admin/_PMSchedulesContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_PMSchedulesKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_PMSchedulesActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="module-header">
+    <nav class="module-pills" role="navigation" aria-label="@UiTerms.ModuleName navigation">
+        <a href="/Maintenance" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            @UiTerms.WorkOrderPlural
+        </a>
+        <a href="/Admin/PMTemplates" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            @UiTerms.PMTemplates
+        </a>
+        <a href="/Maintenance/Assignments" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            PM Assignments
+        </a>
+        <a href="/Maintenance/Schedules" class="module-pill active" aria-current="page">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @UiTerms.Schedules
+        </a>
+    </nav>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Generate Work Orders
+        </h3>
+        <span class="status-badge warning">@dueSoon DUE SOON</span>
+    </div>
+    <div class="section-card-body">
+        <form method="post" asp-page-handler="Generate" class="d-flex align-items-center gap-3">
+            <div class="form-group mb-0 form-group--inline">
+                <label for="HorizonDays" class="form-label">Horizon (Days)</label>
+                <select asp-for="HorizonDays" class="form-select" asp-items="Model.HorizonOptions"></select>
+            </div>
+            <div class="form-actions">
+                <a href="?HorizonDays=@Model.HorizonDays" class="btn-p btn-p--secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="btn-icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Preview
+                </a>
+                <button type="submit" class="btn-p btn-p--primary" @(dueSoon == 0 ? "disabled" : "")>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="btn-icon">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Generate @dueSoon Work Orders
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.Previews.Any())
+{
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                Preview: Due Work Orders (Next @Model.HorizonDays Days)
+            </h3>
+        </div>
+        <div class="section-card-body section-card-body--flush">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Due Date</th>
+                        <th>Schedule</th>
+                        <th>Template</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var preview in Model.Previews)
+                    {
+                        <tr>
+                            <td>@preview.DueDateUtc.ToString("yyyy-MM-dd")</td>
+                            <td>@preview.ScheduleName</td>
+                            <td>@preview.TemplateName</td>
+                            <td>
+                                @if (preview.AlreadyExists)
+                                {
+                                    <span class="badge badge-secondary">Already Generated</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-warning">Pending</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Schedule Definitions
+        </h3>
+        <span class="status-badge info">@totalSchedules SCHEDULES</span>
+    </div>
+    <div class="section-card-body section-card-body--flush">
+        <table class="data-table" id="scheduleGrid">
+            <thead>
+                <tr>
+                    <th data-col="Name">Name</th>
+                    <th data-col="Template">Template</th>
+                    <th data-col="Cadence">Cadence</th>
+                    <th data-col="Interval">Interval</th>
+                    <th data-col="StartDate">Start Date</th>
+                    <th data-col="NextDue">Next Due</th>
+                    <th data-col="Status">Status</th>
+                    <th class="no-sort" data-col="Actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var schedule in Model.Schedules)
+                {
+                    var intervalDisplay = schedule.CadenceType switch {
+                        PMCadenceType.IntervalDays => $"Every {schedule.IntervalDays} days",
+                        PMCadenceType.Weekly => GetWeeklyDisplay(schedule.DaysOfWeekMask ?? 0),
+                        PMCadenceType.Monthly => $"Day {schedule.DayOfMonth} of month",
+                        _ => "Unknown"
+                    };
+                    <tr class="clickable-row" onclick="window.location.href='/Admin/PMScheduleEdit/@schedule.Id'">
+                        <td><strong>@schedule.Name</strong></td>
+                        <td>@schedule.PMTemplate?.Name</td>
+                        <td><span class="badge badge-info">@schedule.CadenceType</span></td>
+                        <td>@intervalDisplay</td>
+                        <td>@schedule.StartDateUtc.ToString("yyyy-MM-dd")</td>
+                        <td>@schedule.NextDueDateUtc?.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (schedule.Active)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td onclick="event.stopPropagation();">
+                            <form method="post" asp-page-handler="Delete" asp-route-id="@schedule.Id" 
+                                  onsubmit="return confirm('Delete this schedule?');">
+                                <button type="submit" class="btn-p btn-p--danger btn-p--sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Model.Schedules.Any())
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-calendar pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No PM schedules. Create a schedule to automate work order generation from PM templates.</div>
+                <a href="/Admin/PMScheduleEdit" class="btn-p btn-p--primary" style="margin-top:0.75rem;">Create First Schedule</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/enhanced-grid.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            new EnhancedGrid('scheduleGrid', {
+                searchable: true,
+                sortable: true,
+                exportable: true,
+                exportFilename: 'pm-schedules'
+            });
+        });
+    </script>
+}
+
+@functions {
+    static string GetWeeklyDisplay(int mask)
+    {
+        var days = new List<string>();
+        string[] names = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+        for (int i = 0; i < 7; i++)
+        {
+            if ((mask & (1 << i)) != 0)
+                days.Add(names[i]);
+        }
+        return days.Any() ? string.Join(", ", days) : "Weekly";
+    }
+}

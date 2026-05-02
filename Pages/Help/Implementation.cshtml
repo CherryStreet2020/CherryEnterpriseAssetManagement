@@ -1,0 +1,1314 @@
+@page
+@model Abs.FixedAssets.Pages.Help.ImplementationModel
+@{
+    ViewData["Title"] = "Implementation Guide";
+    ViewData["TabTitle"] = "Implementation Guide";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Implementation Guide",
+        ["Subtitle"] = "Your complete step-by-step manual for enterprise asset management success",
+        ["TypeLabel"] = "Guide",
+        ["StatusText"] = "Interactive",
+        ["StatusTone"] = "info",
+        ["ContextPartial"] = "/Pages/Help/_HelpImplementationContext.cshtml",
+        ["KpisPartial"] = "/Pages/Help/_HelpImplementationKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Help/_HelpImplementationActions.cshtml"
+    };
+}
+
+<link rel="stylesheet" href="/css/help-enterprise.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="impl-layout">
+    <nav class="impl-sticky-nav" id="impl-sticky-nav">
+        <div class="impl-nav-header">
+            <h3>Your Progress</h3>
+            <div class="impl-progress-ring" id="impl-progress-percent">0%</div>
+        </div>
+        
+        <div class="impl-nav-search">
+            <input type="text" id="impl-search" placeholder="Search guide...">
+        </div>
+        
+        <ul class="impl-nav-list">
+            <li class="impl-nav-item active" data-section="getting-started">
+                <span class="nav-number">1</span>
+                <span class="nav-label">Getting Started</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="company-setup">
+                <span class="nav-number">2</span>
+                <span class="nav-label">Company Setup</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="module-config">
+                <span class="nav-number">3</span>
+                <span class="nav-label">Module Configuration</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="master-data">
+                <span class="nav-number">4</span>
+                <span class="nav-label">Master Data Setup</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="depreciation">
+                <span class="nav-number">5</span>
+                <span class="nav-label">Depreciation Books</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="inventory-setup">
+                <span class="nav-number">6</span>
+                <span class="nav-label">Inventory & Parts</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="procurement">
+                <span class="nav-number">7</span>
+                <span class="nav-label">Procurement Setup</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="data-import">
+                <span class="nav-number">8</span>
+                <span class="nav-label">Data Import</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="users-security">
+                <span class="nav-number">9</span>
+                <span class="nav-label">Users & Security</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="testing">
+                <span class="nav-number">10</span>
+                <span class="nav-label">Testing & Validation</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+            <li class="impl-nav-item" data-section="go-live">
+                <span class="nav-number">11</span>
+                <span class="nav-label">Go-Live</span>
+                <span class="nav-progress-indicator"></span>
+            </li>
+        </ul>
+        
+        <div class="impl-nav-actions">
+            <button class="impl-nav-btn" id="impl-print-btn">
+                <i class="fas fa-print"></i> Print
+            </button>
+            <button class="impl-nav-btn" id="impl-reset-btn">
+                <i class="fas fa-redo"></i> Reset
+            </button>
+        </div>
+    </nav>
+    
+    <div class="impl-content">
+        <div class="impl-progress-banner">
+            <div class="impl-progress-banner-icon">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div class="impl-progress-banner-text">
+                <h2>Implementation Progress</h2>
+                <p id="impl-progress-text">0 of 0 tasks completed</p>
+            </div>
+            <div class="impl-progress-bar-container">
+                <div class="impl-progress-bar-track">
+                    <div class="impl-progress-bar-fill" id="impl-progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="impl-progress-bar-label">Check tasks as you complete them</div>
+            </div>
+        </div>
+
+        <section class="impl-section" id="getting-started">
+            <div class="impl-section-header">
+                <div class="impl-section-number">1</div>
+                <div class="impl-section-title">
+                    <h2>Getting Started</h2>
+                    <p>Prepare for a successful implementation</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-users subsection-icon"></i> Assemble Your Team</h3>
+                    <p>A successful implementation requires the right people. Identify these key roles:</p>
+                    
+                    <div class="impl-grid">
+                        <div class="impl-card">
+                            <h4><i class="fas fa-user-tie text-blue"></i> Project Lead</h4>
+                            <p>Oversees implementation, makes decisions, coordinates between departments.</p>
+                            <ul>
+                                <li>Typically: Controller or CFO</li>
+                                <li>Time: 2-4 hours/week</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-calculator text-green"></i> Accounting Lead</h4>
+                            <p>Defines GL mapping, depreciation policies, reconciliation requirements.</p>
+                            <ul>
+                                <li>Typically: Senior Accountant</li>
+                                <li>Time: 8-10 hours/week</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-industry text-amber"></i> Operations Contact</h4>
+                            <p>Provides asset details, locations, serial numbers, equipment knowledge.</p>
+                            <ul>
+                                <li>Typically: Plant Manager</li>
+                                <li>Time: 4-6 hours total</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-file-invoice-dollar text-purple"></i> Tax Advisor</h4>
+                            <p>Confirms MACRS classes (US) or CCA classes (Canada), validates elections.</p>
+                            <ul>
+                                <li>Typically: CPA or Tax Specialist</li>
+                                <li>Time: 2-3 hours total</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="team-lead">
+                            <div class="check-content">
+                                <span class="check-label">Identify Project Lead</span>
+                                <span class="check-hint">Assign a decision-maker to oversee implementation</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="team-accounting">
+                            <div class="check-content">
+                                <span class="check-label">Assign Accounting Lead</span>
+                                <span class="check-hint">Select someone to define GL mapping and depreciation policies</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="team-ops">
+                            <div class="check-content">
+                                <span class="check-label">Identify Operations Contact</span>
+                                <span class="check-hint">Someone who knows the assets and locations</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="team-tax">
+                            <div class="check-content">
+                                <span class="check-label">Engage Tax Advisor</span>
+                                <span class="check-hint">For MACRS/CCA class confirmations</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-folder-open subsection-icon"></i> Gather Required Documents</h3>
+                    <p>Collect these documents before starting configuration:</p>
+                    
+                    <div class="impl-expandable">
+                        <div class="impl-expandable-header">
+                            <h4><i class="fas fa-file-alt"></i> Financial Information</h4>
+                            <i class="fas fa-chevron-down expand-icon"></i>
+                        </div>
+                        <div class="impl-expandable-body">
+                            <div class="impl-checklist">
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-gl">
+                                    <div class="check-content">
+                                        <span class="check-label">GL Account Listing</span>
+                                        <span class="check-hint">Complete chart of accounts from your ERP or accounting system</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-fiscal">
+                                    <div class="check-content">
+                                        <span class="check-label">Fiscal Year Details</span>
+                                        <span class="check-hint">Start/end dates, accounting period structure</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-depr-policy">
+                                    <div class="check-content">
+                                        <span class="check-label">Depreciation Policy Document</span>
+                                        <span class="check-hint">Your company's standard depreciation methods by asset type</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-expandable">
+                        <div class="impl-expandable-header">
+                            <h4><i class="fas fa-boxes"></i> Asset Information</h4>
+                            <i class="fas fa-chevron-down expand-icon"></i>
+                        </div>
+                        <div class="impl-expandable-body">
+                            <div class="impl-checklist">
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-assets">
+                                    <div class="check-content">
+                                        <span class="check-label">Complete Asset Listing</span>
+                                        <span class="check-hint">Export from current system or Excel file with all assets</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-locations">
+                                    <div class="check-content">
+                                        <span class="check-label">Location List</span>
+                                        <span class="check-hint">Buildings, departments, cost centers</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-accum">
+                                    <div class="check-content">
+                                        <span class="check-label">Accumulated Depreciation</span>
+                                        <span class="check-hint">By asset for both GAAP and Tax books</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-expandable">
+                        <div class="impl-expandable-header">
+                            <h4><i class="fas fa-flag-usa"></i> US Tax Information (MACRS)</h4>
+                            <i class="fas fa-chevron-down expand-icon"></i>
+                        </div>
+                        <div class="impl-expandable-body">
+                            <div class="impl-checklist">
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-macrs">
+                                    <div class="check-content">
+                                        <span class="check-label">MACRS Property Class Assignments</span>
+                                        <span class="check-hint">3, 5, 7, 10, 15, 20, 27.5, 39-year classes for each asset category</span>
+                                        <a href="/UsTax" class="check-link"><i class="fas fa-external-link-alt"></i> View MACRS Reference</a>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-179">
+                                    <div class="check-content">
+                                        <span class="check-label">Section 179 Elections</span>
+                                        <span class="check-hint">Current year assets elected for immediate expensing</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-bonus">
+                                    <div class="check-content">
+                                        <span class="check-label">Bonus Depreciation Records</span>
+                                        <span class="check-hint">Assets with bonus depreciation by year placed in service</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-4562">
+                                    <div class="check-content">
+                                        <span class="check-label">Form 4562</span>
+                                        <span class="check-hint">Most recent Depreciation and Amortization form</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-expandable">
+                        <div class="impl-expandable-header">
+                            <h4><i class="fas fa-leaf"></i> Canadian Tax Information (CCA)</h4>
+                            <i class="fas fa-chevron-down expand-icon"></i>
+                        </div>
+                        <div class="impl-expandable-body">
+                            <div class="impl-checklist">
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-cca">
+                                    <div class="check-content">
+                                        <span class="check-label">CCA Class Assignments</span>
+                                        <span class="check-hint">Canadian capital cost allowance classes for each asset type</span>
+                                        <a href="/CCA" class="check-link"><i class="fas fa-external-link-alt"></i> View CCA Reference</a>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-ucc">
+                                    <div class="check-content">
+                                        <span class="check-label">Current UCC Balances</span>
+                                        <span class="check-hint">Undepreciated Capital Cost by class</span>
+                                    </div>
+                                </label>
+                                <label class="impl-checklist-item">
+                                    <input type="checkbox" data-check-id="doc-t2s8">
+                                    <div class="check-content">
+                                        <span class="check-label">T2 Schedule 8</span>
+                                        <span class="check-hint">Most recent CCA schedule</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="company-setup">
+            <div class="impl-section-header">
+                <div class="impl-section-number">2</div>
+                <div class="impl-section-title">
+                    <h2>Company Setup</h2>
+                    <p>Configure your organizational structure</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-building subsection-icon"></i> Choose Your Company Structure</h3>
+                    <p>CherryAI supports both single-company and multi-company (holding company) structures with Smart Mode that automatically adapts.</p>
+                    
+                    <div class="impl-grid">
+                        <div class="impl-card">
+                            <h4>Single Company Mode</h4>
+                            <p>For standalone businesses with one legal entity.</p>
+                            <ul>
+                                <li>Simpler setup and navigation</li>
+                                <li>No holding/subsidiary complexity</li>
+                                <li>Standard GL accounts only</li>
+                                <li>Ideal for single-location manufacturers</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card recommended">
+                            <h4>Multi-Company Mode</h4>
+                            <p>For holding companies with operating subsidiaries.</p>
+                            <ul>
+                                <li>Separate books per subsidiary</li>
+                                <li>Intercompany accounts automatic</li>
+                                <li>Consolidated reporting</li>
+                                <li>Each company can have different stocking settings</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-info-box">
+                        <i class="fas fa-info-circle info-icon"></i>
+                        <div class="info-content">
+                            <strong>Smart Mode Detection</strong>
+                            <p>CherryAI automatically detects your mode based on company count. Item Master is shared globally, while stocking settings (reorder points, preferred vendors) are per-company in multi-company mode.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="company-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Primary Company</span>
+                                <span class="check-hint">Set up your main company with name, address, and fiscal year</span>
+                                <a href="/Admin/Company" class="check-link"><i class="fas fa-external-link-alt"></i> Company Settings</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="company-structure">
+                            <div class="check-content">
+                                <span class="check-label">Choose Company Structure</span>
+                                <span class="check-hint">Single Company or Multi-Company (Holding)</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="company-subs">
+                            <div class="check-content">
+                                <span class="check-label">Create Subsidiaries (if multi-company)</span>
+                                <span class="check-hint">Add each operating company under the holding company</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="company-fiscal">
+                            <div class="check-content">
+                                <span class="check-label">Configure Fiscal Calendar</span>
+                                <span class="check-hint">Set fiscal year, accounting periods (monthly, quarterly, 13-period)</span>
+                                <a href="/Admin/Company" class="check-link"><i class="fas fa-external-link-alt"></i> Accounting Periods</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="module-config">
+            <div class="impl-section-header">
+                <div class="impl-section-number">3</div>
+                <div class="impl-section-title">
+                    <h2>Module Configuration</h2>
+                    <p>Enable the features you need</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-cogs subsection-icon"></i> Financial Mode Selection</h3>
+                    <p>Choose how CherryAI integrates with your existing systems. This controls which modules are available.</p>
+                    
+                    <div class="impl-grid">
+                        <div class="impl-card recommended">
+                            <h4>Standalone Mode</h4>
+                            <p>CherryAI handles all asset-related purchasing and payables.</p>
+                            <ul>
+                                <li>Full vendor management</li>
+                                <li>Purchase orders & approvals</li>
+                                <li>Goods receiving workflow</li>
+                                <li>Accounts payable & 3-way matching</li>
+                                <li>Purchase requisitions</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card">
+                            <h4>ERP Integration Mode</h4>
+                            <p>CherryAI focuses on assets while your ERP handles procurement.</p>
+                            <ul>
+                                <li>Streamlined asset-focused interface</li>
+                                <li>Procurement modules hidden</li>
+                                <li>Journal entries export to ERP</li>
+                                <li>Vendor data stays in your ERP</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-toggle-on subsection-icon"></i> Module Toggles</h3>
+                    <p>Enable or disable individual modules based on your needs. Note: Some modules have dependencies.</p>
+                    
+                    <div class="impl-info-box warning">
+                        <i class="fas fa-exclamation-triangle info-icon"></i>
+                        <div class="info-content">
+                            <strong>Module Dependencies</strong>
+                            <p><strong>Purchasing</strong> and <strong>Accounts Payable</strong> both require the <strong>Vendors</strong> module. If you disable Vendors, these modules will also become unavailable. The system will warn you before making changes.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Module</th>
+                                    <th>Description</th>
+                                    <th>Requires</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Vendors</strong></td>
+                                    <td>Manage vendor master data, contacts, payment terms</td>
+                                    <td>-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Purchasing</strong></td>
+                                    <td>Purchase orders, goods receiving, requisitions</td>
+                                    <td>Vendors</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Accounts Payable</strong></td>
+                                    <td>Invoice entry, 3-way matching, payments, aging</td>
+                                    <td>Vendors</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Work Orders</strong></td>
+                                    <td>Maintenance work orders, labor tracking, parts usage</td>
+                                    <td>-</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>MRO Inventory</strong></td>
+                                    <td>Item Master, stock levels, barcode scanning</td>
+                                    <td>-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-mode">
+                            <div class="check-content">
+                                <span class="check-label">Select Financial Mode</span>
+                                <span class="check-hint">Choose Standalone or ERP Integration</span>
+                                <a href="/Admin/Company" class="check-link"><i class="fas fa-external-link-alt"></i> Company Settings</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-vendors">
+                            <div class="check-content">
+                                <span class="check-label">Configure Vendors Module</span>
+                                <span class="check-hint">Enable if you'll manage vendors in CherryAI</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-purchasing">
+                            <div class="check-content">
+                                <span class="check-label">Configure Purchasing Module</span>
+                                <span class="check-hint">Enable for PO management and requisitions</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-ap">
+                            <div class="check-content">
+                                <span class="check-label">Configure Accounts Payable Module</span>
+                                <span class="check-hint">Enable for invoice management and payments</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-wo">
+                            <div class="check-content">
+                                <span class="check-label">Configure Work Orders Module</span>
+                                <span class="check-hint">Enable for maintenance work order tracking</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="module-inv">
+                            <div class="check-content">
+                                <span class="check-label">Configure MRO Inventory Module</span>
+                                <span class="check-hint">Enable for spare parts and consumables management</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="master-data">
+            <div class="impl-section-header">
+                <div class="impl-section-number">4</div>
+                <div class="impl-section-title">
+                    <h2>Master Data Setup</h2>
+                    <p>Configure core reference data</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-sitemap subsection-icon"></i> Chart of Accounts</h3>
+                    <p>Set up GL accounts for asset transactions, depreciation, and gain/loss entries.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="gl-review">
+                            <div class="check-content">
+                                <span class="check-label">Review Pre-loaded GL Accounts</span>
+                                <span class="check-hint">CherryAI includes 82+ standard accounts; review and customize</span>
+                                <a href="/Admin/GlAccounts" class="check-link"><i class="fas fa-external-link-alt"></i> GL Accounts</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="gl-asset">
+                            <div class="check-content">
+                                <span class="check-label">Configure Asset Accounts (1xxx)</span>
+                                <span class="check-hint">Fixed asset, accumulated depreciation accounts by category</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="gl-expense">
+                            <div class="check-content">
+                                <span class="check-label">Configure Expense Accounts (6xxx)</span>
+                                <span class="check-hint">Depreciation expense, maintenance expense accounts</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="gl-interco">
+                            <div class="check-content">
+                                <span class="check-label">Configure Intercompany Accounts (if multi-company)</span>
+                                <span class="check-hint">Accounts with -IC suffix for inter-subsidiary transfers</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-building subsection-icon"></i> Cost Centers & Departments</h3>
+                    <p>Set up organizational hierarchy for asset assignment and cost allocation.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="cc-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Cost Centers</span>
+                                <span class="check-hint">Define cost center hierarchy (6 levels supported)</span>
+                                <a href="/Admin/CostCenters" class="check-link"><i class="fas fa-external-link-alt"></i> Cost Centers</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="dept-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Departments</span>
+                                <span class="check-hint">Production, Maintenance, Administration, etc.</span>
+                                <a href="/Admin/Departments" class="check-link"><i class="fas fa-external-link-alt"></i> Departments</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="loc-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Locations</span>
+                                <span class="check-hint">Buildings, floors, areas where assets are located</span>
+                                <a href="/Admin/Locations" class="check-link"><i class="fas fa-external-link-alt"></i> Locations</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-tags subsection-icon"></i> Asset Categories</h3>
+                    <p>Define asset categories with default depreciation settings and GL mappings.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="cat-review">
+                            <div class="check-content">
+                                <span class="check-label">Review Pre-loaded Categories</span>
+                                <span class="check-hint">Buildings, Machinery, Vehicles, Computer Equipment, etc.</span>
+                                <a href="/Admin/AssetCategories" class="check-link"><i class="fas fa-external-link-alt"></i> Asset Categories</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="cat-gl">
+                            <div class="check-content">
+                                <span class="check-label">Map Categories to GL Accounts</span>
+                                <span class="check-hint">Link each category to asset, depreciation, and expense accounts</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="cat-depr">
+                            <div class="check-content">
+                                <span class="check-label">Set Default Depreciation Methods</span>
+                                <span class="check-hint">GAAP method, useful life, salvage value per category</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-truck subsection-icon"></i> Vendors & Manufacturers</h3>
+                    <p>Set up supplier information for assets and parts (if Vendors module enabled).</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="vendor-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Key Vendors</span>
+                                <span class="check-hint">Add primary equipment and parts suppliers</span>
+                                <a href="/Admin/Vendors" class="check-link"><i class="fas fa-external-link-alt"></i> Vendors</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="mfr-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Manufacturers</span>
+                                <span class="check-hint">Equipment and parts manufacturers</span>
+                                <a href="/Admin/Manufacturers" class="check-link"><i class="fas fa-external-link-alt"></i> Manufacturers</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="depreciation">
+            <div class="impl-section-header">
+                <div class="impl-section-number">5</div>
+                <div class="impl-section-title">
+                    <h2>Depreciation Books</h2>
+                    <p>Configure GAAP and tax depreciation</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-book subsection-icon"></i> Book Configuration</h3>
+                    <p>CherryAI supports multiple depreciation books per asset (GAAP, US Tax, Canadian Tax).</p>
+                    
+                    <div class="impl-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Book Type</th>
+                                    <th>Purpose</th>
+                                    <th>Common Methods</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>GAAP</strong></td>
+                                    <td>Financial reporting (GAAP/IFRS)</td>
+                                    <td>Straight-Line, DDB, Units of Production</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>US Tax</strong></td>
+                                    <td>US Federal tax returns</td>
+                                    <td>MACRS (GDS), Section 179, Bonus Depreciation</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Canadian Tax</strong></td>
+                                    <td>Canadian CRA tax returns</td>
+                                    <td>CCA (Declining Balance), Half-Year Rule, AII</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="book-gaap">
+                            <div class="check-content">
+                                <span class="check-label">Configure GAAP Book</span>
+                                <span class="check-hint">Set up financial reporting depreciation methods</span>
+                                <a href="/Books" class="check-link"><i class="fas fa-external-link-alt"></i> Depreciation Books</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="book-ustax">
+                            <div class="check-content">
+                                <span class="check-label">Configure US Tax Book</span>
+                                <span class="check-hint">MACRS classes, Section 179 limits, bonus depreciation rates</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="book-cca">
+                            <div class="check-content">
+                                <span class="check-label">Configure Canadian Tax Book (if applicable)</span>
+                                <span class="check-hint">CCA classes with rates, half-year rule settings</span>
+                                <a href="/CCA" class="check-link"><i class="fas fa-external-link-alt"></i> CCA Classes</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-flag-usa subsection-icon"></i> US MACRS Reference</h3>
+                    <p>Common MACRS property classes for US tax depreciation:</p>
+                    
+                    <div class="impl-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Recovery Period</th>
+                                    <th>Property Examples</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>3-year</strong></td>
+                                    <td>3 years</td>
+                                    <td>Tractors, some manufacturing tools</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>5-year</strong></td>
+                                    <td>5 years</td>
+                                    <td>Computers, office equipment, vehicles, trucks</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>7-year</strong></td>
+                                    <td>7 years</td>
+                                    <td>Machinery, furniture, fixtures</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>15-year</strong></td>
+                                    <td>15 years</td>
+                                    <td>Land improvements, QIP</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>27.5-year</strong></td>
+                                    <td>27.5 years</td>
+                                    <td>Residential rental property</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>39-year</strong></td>
+                                    <td>39 years</td>
+                                    <td>Commercial buildings</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="impl-info-box">
+                        <i class="fas fa-info-circle info-icon"></i>
+                        <div class="info-content">
+                            <strong>Section 179 & Bonus Depreciation</strong>
+                            <p>CherryAI supports Section 179 immediate expensing (up to annual limits) and bonus depreciation percentages by year placed in service. Configure these on a per-asset basis when adding new assets.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="inventory-setup">
+            <div class="impl-section-header">
+                <div class="impl-section-number">6</div>
+                <div class="impl-section-title">
+                    <h2>Inventory & Parts</h2>
+                    <p>Configure MRO inventory and barcode system</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-boxes subsection-icon"></i> Item Master Setup</h3>
+                    <p>The Item Master is your catalog of spare parts, consumables, and MRO supplies. Items are shared across all companies, with per-company stocking settings.</p>
+                    
+                    <div class="impl-info-box">
+                        <i class="fas fa-info-circle info-icon"></i>
+                        <div class="info-content">
+                            <strong>Part Number Cross-Referencing</strong>
+                            <p>CherryAI supports three-way cross-referencing between your Internal Part Number, Vendor Part Number, and Manufacturer Part Number. All three flow through requisitions to purchase orders for easy lookup.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="item-categories">
+                            <div class="check-content">
+                                <span class="check-label">Configure Item Categories</span>
+                                <span class="check-hint">Spare Parts, Consumables, Safety, Tools, etc. with GL mappings</span>
+                                <a href="/Admin/ItemCategories" class="check-link"><i class="fas fa-external-link-alt"></i> Item Categories</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="item-create">
+                            <div class="check-content">
+                                <span class="check-label">Create Initial Items</span>
+                                <span class="check-hint">Add critical spare parts and commonly used consumables</span>
+                                <a href="/Admin/Items" class="check-link"><i class="fas fa-external-link-alt"></i> Item Master</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="item-stocking">
+                            <div class="check-content">
+                                <span class="check-label">Set Stocking Parameters</span>
+                                <span class="check-hint">Reorder points, min/max quantities, preferred vendors per company</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="item-revision">
+                            <div class="check-content">
+                                <span class="check-label">Enable Revision Control (if needed)</span>
+                                <span class="check-hint">For items requiring revision tracking on engineering drawings</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-barcode subsection-icon"></i> Barcode System</h3>
+                    <p>CherryAI includes comprehensive barcode generation and scanning for assets and parts.</p>
+                    
+                    <div class="impl-grid">
+                        <div class="impl-card">
+                            <h4><i class="fas fa-print text-blue"></i> Supported Formats</h4>
+                            <ul>
+                                <li>Code 128 (standard)</li>
+                                <li>QR Codes</li>
+                                <li>Data Matrix</li>
+                                <li>EAN-13 / UPC</li>
+                            </ul>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-mobile-alt text-green"></i> Mobile Ready</h4>
+                            <ul>
+                                <li>REST API for iPhone app</li>
+                                <li>Base64 image scanning</li>
+                                <li>Batch label printing</li>
+                                <li>Printable label sheets</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="barcode-format">
+                            <div class="check-content">
+                                <span class="check-label">Choose Barcode Format</span>
+                                <span class="check-hint">Select standard format for your organization</span>
+                                <a href="/Admin/Barcodes" class="check-link"><i class="fas fa-external-link-alt"></i> Barcode Settings</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="barcode-labels">
+                            <div class="check-content">
+                                <span class="check-label">Configure Label Templates</span>
+                                <span class="check-hint">Set up label sizes and content for printing</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="barcode-test">
+                            <div class="check-content">
+                                <span class="check-label">Test Barcode Scanning</span>
+                                <span class="check-hint">Verify scan functionality with test items</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="procurement">
+            <div class="impl-section-header">
+                <div class="impl-section-number">7</div>
+                <div class="impl-section-title">
+                    <h2>Procurement Setup</h2>
+                    <p>Configure purchasing and requisitions</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-file-invoice subsection-icon"></i> Purchase Requisitions</h3>
+                    <p>Requisitions support both Item Master items and non-Item Master purchases (office supplies, janitorial, etc.).</p>
+                    
+                    <div class="impl-info-box">
+                        <i class="fas fa-info-circle info-icon"></i>
+                        <div class="info-content">
+                            <strong>Requisition Workflow</strong>
+                            <p>Requisitions flow through approval states: <strong>Draft</strong> → <strong>Pending Approval</strong> → <strong>Approved</strong> → <strong>Converted to PO</strong>. Auto-reorder alerts can generate requisitions when stock falls below reorder points.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="req-expense">
+                            <div class="check-content">
+                                <span class="check-label">Configure Expense Categories</span>
+                                <span class="check-hint">For non-Item Master purchases with GL account mapping</span>
+                                <a href="/Admin/ItemCategories" class="check-link"><i class="fas fa-external-link-alt"></i> Expense Categories</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="req-approval">
+                            <div class="check-content">
+                                <span class="check-label">Set Approval Thresholds</span>
+                                <span class="check-hint">Define approval levels by dollar amount</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="req-test">
+                            <div class="check-content">
+                                <span class="check-label">Test Requisition Workflow</span>
+                                <span class="check-hint">Create and approve a test requisition</span>
+                                <a href="/Admin/Requisitions" class="check-link"><i class="fas fa-external-link-alt"></i> Requisitions</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-file-alt subsection-icon"></i> Purchase Orders</h3>
+                    <p>POs can be created from approved requisitions or entered directly.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="po-numbering">
+                            <div class="check-content">
+                                <span class="check-label">Configure PO Numbering</span>
+                                <span class="check-hint">Set prefix and starting number sequence</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="po-approval">
+                            <div class="check-content">
+                                <span class="check-label">Set PO Approval Workflow</span>
+                                <span class="check-hint">Define who can approve POs by amount</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="po-test">
+                            <div class="check-content">
+                                <span class="check-label">Test PO Creation</span>
+                                <span class="check-hint">Create a test PO from a requisition</span>
+                                <a href="/Purchasing" class="check-link"><i class="fas fa-external-link-alt"></i> Purchasing</a>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="data-import">
+            <div class="impl-section-header">
+                <div class="impl-section-number">8</div>
+                <div class="impl-section-title">
+                    <h2>Data Import</h2>
+                    <p>Import your existing asset data</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-file-excel subsection-icon"></i> Prepare Import Files</h3>
+                    <p>Clean and format your data before importing into CherryAI.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-template">
+                            <div class="check-content">
+                                <span class="check-label">Download Import Templates</span>
+                                <span class="check-hint">Get Excel templates for assets, items, vendors</span>
+                                <a href="/Admin/Import" class="check-link"><i class="fas fa-external-link-alt"></i> Import/Export</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-clean">
+                            <div class="check-content">
+                                <span class="check-label">Clean Data</span>
+                                <span class="check-hint">Remove duplicates, fix formatting, validate required fields</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-map">
+                            <div class="check-content">
+                                <span class="check-label">Map Data to Categories</span>
+                                <span class="check-hint">Ensure asset categories, locations, cost centers match</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-upload subsection-icon"></i> Import Assets</h3>
+                    <p>Import your assets with opening balances.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-test">
+                            <div class="check-content">
+                                <span class="check-label">Test Import with Sample</span>
+                                <span class="check-hint">Import 10-20 assets first to verify mapping</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-full">
+                            <div class="check-content">
+                                <span class="check-label">Full Asset Import</span>
+                                <span class="check-hint">Import all assets with cost and accumulated depreciation</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-verify">
+                            <div class="check-content">
+                                <span class="check-label">Verify Import Totals</span>
+                                <span class="check-hint">Compare totals to source system</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="import-fix">
+                            <div class="check-content">
+                                <span class="check-label">Fix Any Errors</span>
+                                <span class="check-hint">Correct rejected records and re-import</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="users-security">
+            <div class="impl-section-header">
+                <div class="impl-section-number">9</div>
+                <div class="impl-section-title">
+                    <h2>Users & Security</h2>
+                    <p>Configure user access and permissions</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-users subsection-icon"></i> User Roles</h3>
+                    <p>CherryAI uses role-based access control with three standard roles:</p>
+                    
+                    <div class="impl-grid">
+                        <div class="impl-card">
+                            <h4><i class="fas fa-user-shield text-red"></i> Admin</h4>
+                            <p>Full system access including configuration, user management, and all modules.</p>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-user-tie text-blue"></i> Accountant</h4>
+                            <p>Access to assets, depreciation, journals, and financial reports. No system configuration.</p>
+                        </div>
+                        <div class="impl-card">
+                            <h4><i class="fas fa-user text-green"></i> Viewer</h4>
+                            <p>Read-only access to view assets, reports, and dashboards.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="user-create">
+                            <div class="check-content">
+                                <span class="check-label">Create User Accounts</span>
+                                <span class="check-hint">Add users who will access the system</span>
+                                <a href="/Admin/Users" class="check-link"><i class="fas fa-external-link-alt"></i> User Management</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="user-roles">
+                            <div class="check-content">
+                                <span class="check-label">Assign Roles</span>
+                                <span class="check-hint">Give each user the appropriate role</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="user-test">
+                            <div class="check-content">
+                                <span class="check-label">Test User Access</span>
+                                <span class="check-hint">Log in as each role to verify permissions</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="testing">
+            <div class="impl-section-header">
+                <div class="impl-section-number">10</div>
+                <div class="impl-section-title">
+                    <h2>Testing & Validation</h2>
+                    <p>Verify everything works correctly</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-check-double subsection-icon"></i> System Testing</h3>
+                    <p>Run through key workflows to validate your configuration.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="test-asset-add">
+                            <div class="check-content">
+                                <span class="check-label">Test Asset Creation</span>
+                                <span class="check-hint">Add a test asset and verify all fields save correctly</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="test-depr">
+                            <div class="check-content">
+                                <span class="check-label">Test Depreciation Calculation</span>
+                                <span class="check-hint">Run depreciation and verify amounts match expected values</span>
+                                <a href="/Books" class="check-link"><i class="fas fa-external-link-alt"></i> Depreciation</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="test-journal">
+                            <div class="check-content">
+                                <span class="check-label">Test Journal Entry Generation</span>
+                                <span class="check-hint">Verify journal entries post to correct GL accounts</span>
+                                <a href="/Journals" class="check-link"><i class="fas fa-external-link-alt"></i> Journals</a>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="test-transfer">
+                            <div class="check-content">
+                                <span class="check-label">Test Asset Transfer</span>
+                                <span class="check-hint">Transfer an asset between locations/departments</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="test-dispose">
+                            <div class="check-content">
+                                <span class="check-label">Test Asset Disposal</span>
+                                <span class="check-hint">Dispose a test asset and verify gain/loss calculation</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-balance-scale subsection-icon"></i> Reconciliation</h3>
+                    <p>Reconcile CherryAI balances to your general ledger.</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="recon-cost">
+                            <div class="check-content">
+                                <span class="check-label">Reconcile Asset Cost</span>
+                                <span class="check-hint">Total asset cost in CherryAI = GL fixed asset accounts</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="recon-accum">
+                            <div class="check-content">
+                                <span class="check-label">Reconcile Accumulated Depreciation</span>
+                                <span class="check-hint">Total accumulated depreciation = GL accumulated depreciation accounts</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="recon-nbv">
+                            <div class="check-content">
+                                <span class="check-label">Verify Net Book Value</span>
+                                <span class="check-hint">NBV = Cost - Accumulated Depreciation</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="impl-section" id="go-live">
+            <div class="impl-section-header">
+                <div class="impl-section-number">11</div>
+                <div class="impl-section-title">
+                    <h2>Go-Live</h2>
+                    <p>Launch and train your team</p>
+                </div>
+            </div>
+            <div class="impl-section-body">
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-clipboard-check subsection-icon"></i> Final Checklist</h3>
+                    <p>Complete these items before going live:</p>
+                    
+                    <div class="impl-checklist">
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="go-backup">
+                            <div class="check-content">
+                                <span class="check-label">Create System Backup</span>
+                                <span class="check-hint">Backup database and configuration before go-live</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="go-lock">
+                            <div class="check-content">
+                                <span class="check-label">Lock Prior Periods</span>
+                                <span class="check-hint">Prevent changes to periods before go-live date</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="go-train">
+                            <div class="check-content">
+                                <span class="check-label">Train Users</span>
+                                <span class="check-hint">Conduct training sessions for each user role</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="go-docs">
+                            <div class="check-content">
+                                <span class="check-label">Document Procedures</span>
+                                <span class="check-hint">Create standard operating procedures for common tasks</span>
+                            </div>
+                        </label>
+                        <label class="impl-checklist-item">
+                            <input type="checkbox" data-check-id="go-support">
+                            <div class="check-content">
+                                <span class="check-label">Establish Support Process</span>
+                                <span class="check-hint">Define who to contact for questions</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="impl-subsection">
+                    <h3><i class="fas fa-rocket subsection-icon"></i> Congratulations!</h3>
+                    
+                    <div class="impl-info-box success">
+                        <i class="fas fa-check-circle info-icon"></i>
+                        <div class="info-content">
+                            <strong>You're Ready to Go Live!</strong>
+                            <p>Once you've completed all the steps above, your CherryAI Enterprise Asset Management system is ready for production use. Don't forget to use the AI Assistant if you have questions!</p>
+                        </div>
+                    </div>
+                    
+                    <div class="impl-grid">
+                        <a href="/" class="impl-card" style="text-decoration:none">
+                            <h4><i class="fas fa-tachometer-alt text-blue"></i> Dashboard</h4>
+                            <p>Start using CherryAI</p>
+                        </a>
+                        <a href="/AI" class="impl-card" style="text-decoration:none">
+                            <h4><i class="fas fa-robot text-purple"></i> AI Assistant</h4>
+                            <p>Get instant help</p>
+                        </a>
+                        <a href="/Help" class="impl-card" style="text-decoration:none">
+                            <h4><i class="fas fa-life-ring text-green"></i> Help Center</h4>
+                            <p>Browse all guides</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script src="/js/implementation-guide.js"></script>

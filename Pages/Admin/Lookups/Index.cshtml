@@ -1,0 +1,101 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Lookups.IndexModel
+@{
+    ViewData["Title"] = "Lookup Types";
+    ViewData["Breadcrumb1"] = "Admin";
+    ViewData["Breadcrumb1Url"] = "/Admin";
+    ViewData["Breadcrumb2"] = "Lookups";
+}
+
+<partial name="_ScreenHeader" model='new Abs.FixedAssets.Models.PageTitle { Title = "Reference Data (Lookups)", Subtitle = "Manage lookup types and values used across the application" }' />
+
+<div class="page-content" style="padding: 1.5rem;">
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success">@Model.SuccessMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+
+    <div class="section-card" style="margin-bottom: 1.5rem;">
+        <div class="section-card__header">
+            <h3 class="section-card__title">Create New Lookup Type</h3>
+        </div>
+        <div class="section-card__body">
+            <form method="post" asp-page-handler="CreateType" class="form-grid" style="max-width: 600px;">
+                <div class="form-field">
+                    <label class="form-field__label">Key (machine name)</label>
+                    <input type="text" name="key" class="form-field__input" placeholder="e.g. AssetCondition" required pattern="[A-Za-z][A-Za-z0-9_]*" title="Alphanumeric, start with letter" />
+                </div>
+                <div class="form-field">
+                    <label class="form-field__label">Display Name</label>
+                    <input type="text" name="name" class="form-field__input" placeholder="e.g. Asset Condition" required />
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn-p btn-p--primary">Create Lookup Type</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card__header">
+            <h3 class="section-card__title">All Lookup Types (@Model.LookupTypes.Count)</h3>
+        </div>
+        <div class="section-card__body" style="padding: 0;">
+            <table class="data-grid" data-grid-id="lookupTypes">
+                <thead>
+                    <tr>
+                        <th data-sortable>Key</th>
+                        <th data-sortable>Name</th>
+                        <th data-sortable>Active Values</th>
+                        <th data-sortable>System</th>
+                        <th data-sortable>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var lt in Model.LookupTypes)
+                    {
+                        <tr>
+                            <td><code>@lt.Key</code></td>
+                            <td>@lt.Name</td>
+                            <td>@lt.ValueCount / @lt.TotalValueCount</td>
+                            <td>
+                                @if (lt.IsSystem)
+                                {
+                                    <span class="badge badge-info">System</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-secondary">Custom</span>
+                                }
+                            </td>
+                            <td>
+                                @if (lt.IsActive)
+                                {
+                                    <span class="badge badge-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-danger">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="/Admin/Lookups/EditValues?typeId=@lt.Id" class="btn-p btn-p--secondary btn-p--sm">Manage Values</a>
+                                <form method="post" asp-page-handler="ToggleActive" style="display:inline;">
+                                    <input type="hidden" name="id" value="@lt.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                                        @(lt.IsActive ? "Deactivate" : "Activate")
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,42 @@
+# .NET build output
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Editors
+.vscode/
+.idea/
+
+# Logs / temp
+*.log
+*.swp
+*~
+.DS_Store
+
+# Caches and dependencies (regenerable)
+.cache/
+.pw-browsers/
+.pythonlibs/
+node_modules/
+.upm/
+
+# Environment / secrets
+*.env
+.env
+.env.local
+*.local
+
+# Replit-specific runtime / agent state (not needed in GitHub)
+.config/
+.local/
+.agents/
+.replit_integration_files/
+
+# Old proof bundles & repo snapshots (do not commit large zips)
+proof_bundle_*.zip
+proof_bundle_*/
+REPO_SNAPSHOT.zip
+snapshot/
+*.cache

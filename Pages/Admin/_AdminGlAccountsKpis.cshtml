@@ -1,0 +1,13 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.GlAccountsModel;
+    var totalAccounts = model?.GlAccounts.Count ?? 0;
+    var activeAccounts = model?.GlAccounts.Count(a => a.IsActive) ?? 0;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalAccounts</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeAccounts</div>
+</div>

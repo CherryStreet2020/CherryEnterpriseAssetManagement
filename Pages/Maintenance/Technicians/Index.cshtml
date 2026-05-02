@@ -1,0 +1,198 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.Technicians.IndexModel
+@{
+    ViewData["Title"] = "Technicians";
+    ViewData["TabTitle"] = "Technicians";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Technicians",
+        ["Subtitle"] = "Manage maintenance technicians, certifications, and labor assignments",
+        ["TypeLabel"] = "Work Management",
+        ["StatusText"] = $"{Model.ActiveCount} Active",
+        ["StatusTone"] = Model.ActiveCount > 0 ? "success" : "muted",
+        ["KpisPartial"] = "/Pages/Maintenance/Technicians/_TechIndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Maintenance/Technicians/_TechIndexActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters
+        </h3>
+    </div>
+    <div class="section-card-body pe-card__body">
+        <form method="get" class="inline-form-grid">
+            <div class="form-group">
+                <label>Search</label>
+                <input type="text" name="Search" value="@Model.Search" class="form-control" placeholder="Name, ID, or email..." />
+            </div>
+            <div class="form-group">
+                <label>Craft</label>
+                <select name="Craft" class="form-control">
+                    <option value="">All Crafts</option>
+                    <option value="ELEC" selected="@(Model.Craft == "ELEC")">Electrical</option>
+                    <option value="MECH" selected="@(Model.Craft == "MECH")">Mechanical</option>
+                    <option value="HVAC" selected="@(Model.Craft == "HVAC")">HVAC</option>
+                    <option value="WELD" selected="@(Model.Craft == "WELD")">Welding</option>
+                    <option value="CTRL" selected="@(Model.Craft == "CTRL")">Controls/PLC</option>
+                    <option value="INST" selected="@(Model.Craft == "INST")">Instrumentation</option>
+                    <option value="PRED" selected="@(Model.Craft == "PRED")">Predictive Maintenance</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Site</label>
+                <select name="SiteId" class="form-control" data-cherry-select data-placeholder="All Sites">
+                    <option value="">All Sites</option>
+                    @foreach (var site in Model.AvailableSites)
+                    {
+                        <option value="@site.Id" selected="@(Model.SiteId == site.Id)">@site.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Shift</label>
+                <select name="Shift" class="form-control">
+                    <option value="">All Shifts</option>
+                    <option value="Day" selected="@(Model.Shift == "Day")">Day</option>
+                    <option value="Afternoon" selected="@(Model.Shift == "Afternoon")">Afternoon</option>
+                    <option value="Night" selected="@(Model.Shift == "Night")">Night</option>
+                    <option value="Rotating" selected="@(Model.Shift == "Rotating")">Rotating</option>
+                </select>
+            </div>
+            <div class="form-group" style="display: flex; align-items: flex-end; gap: 0.5rem;">
+                <button type="submit" class="btn-p btn-p--primary btn-p--sm">Apply</button>
+                <a href="/Maintenance/Technicians" class="btn-p btn-p--secondary btn-p--sm">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Technician Register
+        </h3>
+        <span class="status-badge info">@Model.TotalCount TECHNICIANS</span>
+    </div>
+    @if (Model.Technicians.Any())
+    {
+        <div class="section-card-body section-card-body-flush pe-card__body" style="padding: 0;">
+            <table class="data-table premium-table" id="techGrid" data-enhanced-grid="true" data-row-click="true">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;" class="no-sort"></th>
+                        <th style="min-width: 180px;" data-col="Name" data-filter="text">Name & Title</th>
+                        <th style="width: 100px;" data-col="Employee ID" data-filter="text">Employee ID</th>
+                        <th style="width: 120px;" data-col="Craft" data-filter="text">Craft</th>
+                        <th style="width: 120px;" data-col="Site" data-filter="text">Site</th>
+                        <th style="width: 90px;" data-col="Shift" data-filter="text">Shift</th>
+                        <th style="width: 80px;" class="no-sort" data-col="Status">Status</th>
+                        <th style="width: 60px; text-align: center;" data-col="Certs" data-filter="number">Certs</th>
+                        <th style="width: 80px;" class="no-sort">Profile</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tech in Model.Technicians)
+                    {
+                        var initials = string.Join("", tech.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => w[0])).ToUpper();
+                        var certCount = tech.Certifications?.Count ?? 0;
+                        var profileUrl = $"/Maintenance/Technicians/Profile/{tech.Id}";
+                        <tr data-row-id="@tech.Id" data-row-href="@profileUrl">
+                            <td>
+                                @if (!string.IsNullOrEmpty(tech.PhotoPath))
+                                {
+                                    <img src="@tech.PhotoPath" alt="@tech.Name" class="tech-avatar" />
+                                }
+                                else
+                                {
+                                    <span class="tech-avatar tech-avatar--initials">@initials</span>
+                                }
+                            </td>
+                            <td>
+                                <div><strong>@tech.Name</strong></div>
+                                @if (!string.IsNullOrEmpty(tech.Title))
+                                {
+                                    <div class="cell-muted" style="font-size: var(--font-size-12);">@tech.Title</div>
+                                }
+                            </td>
+                            <td class="cell-mono">@(tech.EmployeeId ?? "-")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(tech.PrimaryCraft))
+                                {
+                                    <span class="badge badge-neutral">@tech.PrimaryCraft</span>
+                                }
+                                else
+                                {
+                                    <span class="cell-muted">-</span>
+                                }
+                            </td>
+                            <td>@(tech.Site?.Name ?? "-")</td>
+                            <td>@(tech.ShiftPattern ?? "-")</td>
+                            <td>
+                                @if (tech.Active)
+                                {
+                                    <span class="badge badge-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-danger">Inactive</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (certCount > 0)
+                                {
+                                    <span class="badge badge-neutral">@certCount</span>
+                                }
+                                else
+                                {
+                                    <span class="cell-muted">0</span>
+                                }
+                            </td>
+                            <td>
+                                <a href="@profileUrl" class="btn-p btn-p--secondary btn-p--sm">View</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="section-card-body pe-card__body">
+            <div class="empty-state empty-state-padded">
+                <svg xmlns="http://www.w3.org/2000/svg" class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <h3 class="empty-state-title">No Technicians Found</h3>
+                <p class="empty-state-text">No technicians match your current filters. Try adjusting your search criteria.</p>
+                <a href="/Maintenance/Technicians" class="btn-p btn-p--primary">Clear Filters</a>
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initEnhancedGrid('techGrid', {
+        searchable: true,
+        sortable: true,
+        exportable: true,
+        columnVisibility: true,
+        clickableRows: true
+    });
+});
+</script>
+}

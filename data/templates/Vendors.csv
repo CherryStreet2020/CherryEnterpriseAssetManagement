@@ -1,0 +1,6 @@
+Code,Name,Type,Status,ContactName,Phone,Email,PaymentTerms
+VND001,ACME Industrial Supply,Supplier,Active,John Smith,555-0100,sales@acme.com,NET30
+VND002,Precision Parts Co,Supplier,Active,Jane Doe,555-0101,orders@precision.com,NET30
+VND003,Maintenance Pro Services,ServiceProvider,Active,Bob Wilson,555-0102,service@maintpro.com,NET15
+VND004,Industrial Electrical,Supplier,Active,Mike Johnson,555-0103,orders@indelectric.com,NET45
+VND005,Safety Equipment Inc,Supplier,Active,Sarah Brown,555-0104,sales@safetyeq.com,NET30

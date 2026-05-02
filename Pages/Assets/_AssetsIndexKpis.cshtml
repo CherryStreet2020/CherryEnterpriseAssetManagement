@@ -1,0 +1,22 @@
+@model Abs.FixedAssets.Pages.Assets.IndexModel
+@{
+    var totalCost = Model.AllAssets.Sum(a => a.AcquisitionCost);
+    var totalDepreciation = Model.AllAssets.Sum(a => a.AccumulatedDepreciation);
+    var activeCount = Model.AllAssets.Count(a => a.Active);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total Assets</div>
+    <div class="kpi-value">@Model.AllAssets.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Cost</div>
+    <div class="kpi-value money">@totalCost.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Accum. Depr.</div>
+    <div class="kpi-value danger">@totalDepreciation.ToString("C0")</div>
+</div>

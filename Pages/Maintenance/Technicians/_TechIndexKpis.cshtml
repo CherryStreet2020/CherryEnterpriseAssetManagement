@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Maintenance.Technicians.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.TotalCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.ActiveCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Available</div>
+    <div class="kpi-value">@Model.AvailableCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Avg Proficiency</div>
+    <div class="kpi-value">@Model.AvgUtilization%</div>
+</div>

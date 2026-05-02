@@ -1,0 +1,15 @@
+{
+  "lookupKey": "GlAccountType",
+  "name": "GL Account Type",
+  "isSystem": true,
+  "values": [
+    { "code": "1", "name": "Asset", "sortOrder": 1, "isActive": true },
+    { "code": "2", "name": "Liability", "sortOrder": 2, "isActive": true },
+    { "code": "3", "name": "Equity", "sortOrder": 3, "isActive": true },
+    { "code": "4", "name": "Revenue", "sortOrder": 4, "isActive": true },
+    { "code": "5", "name": "Expense", "sortOrder": 5, "isActive": true },
+    { "code": "6", "name": "Contra Asset", "sortOrder": 6, "isActive": true },
+    { "code": "7", "name": "Contra Revenue", "sortOrder": 7, "isActive": true },
+    { "code": "8", "name": "Contra Expense", "sortOrder": 8, "isActive": true }
+  ]
+}

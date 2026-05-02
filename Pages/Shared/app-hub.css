@@ -1,0 +1,108 @@
+/* wwwroot/css/app-hub.css
+   Clean, HubSpot-like light theme for ABS Machining Fixed Assets
+*/
+
+/* ===== Palette & base ===== */
+:root{
+  --hs-bg: #f7f9fb;
+  --hs-card: #ffffff;
+  --hs-ink: #1f2a44;
+  --hs-ink-2: #5d6b8a;
+  --hs-muted: #8a95ad;
+  --hs-border: #e8edf3;
+
+  --hs-accent: #ff7a59;       /* HubSpot warm orange */
+  --hs-accent-2: #33475b;     /* HubSpot navy */
+  --hs-accent-3: #00a4bd;     /* teal accent */
+  --hs-success: #2fb67a;
+  --hs-warn: #f5a623;
+  --hs-danger: #e03e2d;
+
+  --hs-radius-lg: 18px;
+  --hs-radius: 12px;
+  --hs-shadow: 0 10px 30px rgba(31,42,68,.08);
+}
+
+html, body { height: 100%; }
+body.hs-body{
+  background: var(--hs-bg);
+  color: var(--hs-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Header / Nav ===== */
+.hs-header {
+  background: #fff;
+  position: sticky; top: 0; z-index: 1000;
+  backdrop-filter: saturate(1.2) blur(6px);
+}
+.navbar { padding-top: .75rem; padding-bottom: .75rem; }
+
+.hs-brand { color: var(--hs-accent-2); text-decoration: none; }
+.hs-subbrand { font-size: .9rem; }
+.hs-logo-dot{
+  width: .9rem; height: .9rem; border-radius: 999px; display:inline-block;
+  background: radial-gradient(circle at 35% 35%, #fff 0 25%, var(--hs-accent) 26% 65%, #ff977f 66% 100%);
+  box-shadow: 0 0 0 3px rgba(255,122,89,.15);
+}
+
+.navbar .nav-link{
+  color: var(--hs-ink-2);
+  padding: .55rem .9rem;
+  border-radius: 10px;
+  transition: background .15s ease, color .15s ease;
+}
+.navbar .nav-link:hover{ background: #f2f6fa; color: var(--hs-ink); }
+.navbar .nav-link.active{
+  color: #fff !important;
+  background: linear-gradient(135deg, var(--hs-accent), #ff9466);
+  box-shadow: 0 6px 18px rgba(255,122,89,.25);
+}
+
+/* CTA button */
+.btn-hs{
+  background: linear-gradient(135deg, var(--hs-accent), #ff9466);
+  color: #fff; border: none; border-radius: 999px; padding: .55rem 1rem;
+  font-weight: 600;
+  box-shadow: 0 8px 18px rgba(255,122,89,.25);
+}
+.btn-hs:hover{ filter: brightness(1.02); color:#fff; }
+
+/* ===== Stage / Panel ===== */
+.hs-stage { min-height: calc(100vh - 140px); }
+.hs-panel{
+  background: var(--hs-card);
+  border: 1px solid var(--hs-border);
+  border-radius: var(--hs-radius-lg);
+  box-shadow: var(--hs-shadow);
+}
+
+/* ===== Tables ===== */
+.table{ color: var(--hs-ink); }
+.table thead th{
+  background: #fbfcfe;
+  border-bottom: 1px solid var(--hs-border);
+  color: var(--hs-ink-2);
+  font-weight: 600;
+}
+.table tbody tr{ border-color: var(--hs-border); }
+.table tbody tr:hover{ background: #f7fbff; }
+
+/* ===== Forms ===== */
+.form-control, .form-select{
+  border-radius: var(--hs-radius);
+  border: 1px solid var(--hs-border);
+}
+.form-control:focus, .form-select:focus{
+  border-color: #cfd8e6;
+  box-shadow: 0 0 0 .25rem rgba(0,164,189,.15);
+}
+
+/* ===== Footer ===== */
+.hs-footer{ background: #fff; color: var(--hs-muted); }
+
+/* ===== Utility badges (optional) ===== */
+.badge-ok{ background:#e9f8f1; color: var(--hs-success); border:1px solid #c5ead8; }
+.badge-warn{ background:#fff6e7; color: var(--hs-warn); border:1px solid #faddb0; }
+.badge-bad{ background:#ffeceb; color: var(--hs-danger); border:1px solid #f6c1bd; }

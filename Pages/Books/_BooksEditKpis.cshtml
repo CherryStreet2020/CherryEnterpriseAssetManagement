@@ -1,0 +1,16 @@
+@{
+    var book = ViewData["Book"] as Abs.FixedAssets.Models.Book;
+}
+@if (book != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Method</div>
+            <div class="kpi-value">@book.Method</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Convention</div>
+            <div class="kpi-value">@book.Convention</div>
+        </div>
+    </div>
+}

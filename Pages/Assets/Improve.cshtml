@@ -1,0 +1,191 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Assets.ImproveModel
+@{
+    ViewData["Title"] = "Capital Improvements";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@if (Model.Asset is null)
+{
+    <div class="section-card">
+        <div class="section-card-body">
+            <div class="pe-empty" style="padding:2rem;">
+                <i class="fas fa-box-open pe-empty__icon" style="font-size:1.5rem;"></i>
+                <div class="pe-empty__title">Asset Not Found</div>
+                <div class="pe-empty__text">The asset you're looking for doesn't exist or has been removed.</div>
+                <a asp-page="./Index" class="btn-p btn-p--primary">Back to Assets</a>
+            </div>
+        </div>
+    </div>
+    return;
+}
+
+@{
+    var improvementCount = Model.PreviousImprovements.Count();
+    var totalImprovements = Model.PreviousImprovements.Sum(i => i.Cost);
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = "Capital Improvement",
+        ["Subtitle"] = "Add capital improvements to increase asset value and extend useful life",
+        ["TypeLabel"] = "Asset Workflow",
+        ["StatusText"] = "Improvement",
+        ["StatusTone"] = "success",
+        ["ContextPartial"] = "Assets/_AssetImproveContext",
+        ["KpisPartial"] = "Assets/_AssetImproveKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Asset"] = Model.Asset, ["ImprovementCount"] = improvementCount, ["TotalImprovements"] = totalImprovements },
+        ["ActionsPartial"] = "Assets/_AssetImproveActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["AssetId"] = Model.AssetId }
+    };
+    ViewData["Asset"] = Model.Asset;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<form method="post">
+    <input type="hidden" asp-for="AssetId" />
+    
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Capital Improvement Details
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label asp-for="ImprovementDate" class="form-label">Improvement Date <span class="text-danger">*</span></label>
+                    <input asp-for="ImprovementDate" type="date" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label asp-for="Cost" class="form-label">Cost <span class="text-danger">*</span></label>
+                    <div style="position: relative;">
+                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">$</span>
+                        <input asp-for="Cost" type="number" step="0.01" min="0" class="form-control" style="padding-left: 28px;" required />
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Description" class="form-label">Description <span class="text-danger">*</span></label>
+                <input asp-for="Description" class="form-control" placeholder="e.g., New spindle motor, control system upgrade" required />
+            </div>
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label asp-for="Vendor" class="form-label">Vendor</label>
+                    <input asp-for="Vendor" class="form-control" placeholder="e.g., Mazak USA" />
+                </div>
+                <div class="form-group">
+                    <label asp-for="InvoiceNumber" class="form-label">Invoice Number</label>
+                    <input asp-for="InvoiceNumber" class="form-control" placeholder="e.g., INV-2026-001" />
+                </div>
+            </div>
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label asp-for="UsefulLifeExtension" class="form-label">Useful Life Extension (Months)</label>
+                    <input asp-for="UsefulLifeExtension" type="number" min="0" class="form-control" placeholder="0" />
+                    <small class="text-muted">Enter months to extend the asset's useful life</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Capitalize?</label>
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-secondary); border-radius: 8px;">
+                        <input asp-for="Capitalize" type="checkbox" id="capitalize" style="width: 20px; height: 20px;" checked />
+                        <label for="capitalize" style="margin: 0; cursor: pointer;">Add to asset cost basis</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="Notes" class="form-label">Notes</label>
+                <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Additional notes about this improvement..."></textarea>
+            </div>
+
+            <div class="cost-preview" id="costPreview">
+                <div class="cost-preview-header">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h4>Cost Impact Preview</h4>
+                </div>
+                <div class="cost-row">
+                    <span class="cost-label">Current Acquisition Cost</span>
+                    <span class="cost-value">@Model.Asset.AcquisitionCost.ToString("C2")</span>
+                </div>
+                <div class="cost-row">
+                    <span class="cost-label">Improvement Cost</span>
+                    <span class="cost-value" id="improvementCostDisplay">$0</span>
+                </div>
+                <div class="cost-row">
+                    <span class="cost-label">New Acquisition Cost</span>
+                    <span class="cost-value" id="newTotalDisplay">@Model.Asset.AcquisitionCost.ToString("C2")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.PreviousImprovements.Any())
+    {
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Previous Improvements
+                </h3>
+                <span class="status-badge info">@improvementCount RECORDS</span>
+            </div>
+            <div class="section-card-body" style="padding: 0;">
+                <div style="padding: 16px;">
+                    @foreach (var imp in Model.PreviousImprovements)
+                    {
+                        <div class="history-item">
+                            <span class="history-date">@imp.ImprovementDate.ToString("MMM d, yyyy")</span>
+                            <span class="history-desc">@imp.Description</span>
+                            <span class="history-cost">+@imp.Cost.ToString("C2")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="section-card">
+        <div class="section-card-body" style="display: flex; justify-content: space-between; align-items: center;">
+            <a asp-page="./Asset" asp-route-id="@Model.AssetId" class="btn-p btn-p--secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Cancel
+            </a>
+            <button type="submit" class="btn-p btn-p--primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Add Improvement
+            </button>
+        </div>
+    </div>
+</form>
+
+
+<script>
+    var currentCost = @Model.Asset.AcquisitionCost;
+    var costInput = document.getElementById('Cost');
+    var capitalizeCheck = document.getElementById('capitalize');
+    
+    function updatePreview() {
+        var improvement = parseFloat(costInput.value) || 0;
+        var capitalize = capitalizeCheck.checked;
+        
+        document.getElementById('improvementCostDisplay').textContent = capitalize ? 
+            '+$' + improvement.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0}) : 
+            '$0 (expensed)';
+        document.getElementById('newTotalDisplay').textContent = 
+            '$' + (capitalize ? currentCost + improvement : currentCost).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+    }
+    
+    costInput.addEventListener('input', updatePreview);
+    capitalizeCheck.addEventListener('change', updatePreview);
+</script>

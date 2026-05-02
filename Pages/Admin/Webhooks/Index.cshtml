@@ -1,0 +1,265 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Webhooks.IndexModel
+@using Abs.FixedAssets.Services.Webhooks
+@{
+    ViewData["Title"] = "Webhooks";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var newSecret = TempData["NewSecret"] as string;
+    var newSubId = TempData["NewSubscriptionId"] as int?;
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Webhooks" },
+        { "Subtitle", "Configure webhook subscriptions for event notifications" },
+        { "TypeLabel", "System Administration" },
+        { "StatusText", Model.IsDevelopment ? "LAB" : "" },
+        { "StatusTone", "info" },
+        { "ActionsPartial", "Admin/Webhooks/_AdminWebhooksIndexActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="content-area">
+    @if (TempData["Success"] != null)
+    {
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
+            <p class="text-green-800">@TempData["Success"]</p>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p class="text-red-800">@TempData["Error"]</p>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(newSecret))
+    {
+        <div class="bg-yellow-50 border border-yellow-300 rounded-xl p-6 mb-6">
+            <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-yellow-800 mb-2">Webhook Secret</h3>
+                    <p class="text-yellow-700 text-sm mb-3">Copy this secret now. It will not be shown again!</p>
+                    <div class="flex items-center gap-2">
+                        <code id="secretCode" class="bg-yellow-100 px-4 py-2 rounded font-mono text-sm flex-1 select-all">@newSecret</code>
+                        <button onclick="copySecret()" class="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-6 border-b border-slate-200">
+            <h2 class="text-lg font-semibold text-slate-800">Webhook Subscriptions</h2>
+            <p class="text-sm text-slate-500">Manage endpoints that receive event notifications</p>
+        </div>
+
+        @if (Model.Subscriptions.Count == 0)
+        {
+            <div class="p-12 text-center">
+                <svg class="w-16 h-16 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path>
+                </svg>
+                <h3 class="text-lg font-medium text-slate-600 mb-2">No Webhooks Configured</h3>
+                <p class="text-slate-500 mb-4">Create a webhook subscription to receive event notifications</p>
+                <button onclick="showCreateForm()" class="btn-primary">Create Webhook</button>
+            </div>
+        }
+        else
+        {
+            <div class="divide-y divide-slate-100">
+                @foreach (var sub in Model.Subscriptions)
+                {
+                    <div class="p-6 hover:bg-slate-50">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <h3 class="text-lg font-semibold text-slate-800">@sub.Name</h3>
+                                    @if (sub.IsActive)
+                                    {
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-600">Inactive</span>
+                                    }
+                                </div>
+                                <p class="text-sm text-slate-500 font-mono mb-2">@sub.Url</p>
+                                <div class="flex flex-wrap gap-1 mb-2">
+                                    @foreach (var evt in sub.GetEventTypes())
+                                    {
+                                        <span class="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-700">@evt</span>
+                                    }
+                                    @if (sub.GetEventTypes().Length == 0)
+                                    {
+                                        <span class="px-2 py-0.5 text-xs rounded bg-purple-100 text-purple-700">All Events</span>
+                                    }
+                                </div>
+                                <div class="flex items-center gap-4 text-xs text-slate-400 mb-2">
+                                    <span>Created: @sub.CreatedAt.ToString("MMM d, yyyy")</span>
+                                    @if (sub.LastDeliveryAt != null)
+                                    {
+                                        <span>Last delivery: @sub.LastDeliveryAt.Value.ToString("MMM d, HH:mm")</span>
+                                    }
+                                </div>
+                                <div class="flex items-center gap-4 text-xs">
+                                    <span class="px-2 py-1 rounded @(sub.GetSuccessRate() >= 90 ? "bg-green-100 text-green-700" : sub.GetSuccessRate() >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700")">
+                                        @sub.GetSuccessRate().ToString("F0")% success rate
+                                    </span>
+                                    @if (sub.ConsecutiveFailures > 0)
+                                    {
+                                        <span class="px-2 py-1 rounded bg-red-100 text-red-700">
+                                            @sub.ConsecutiveFailures consecutive failures
+                                        </span>
+                                    }
+                                    @if (sub.DisabledAt != null)
+                                    {
+                                        <span class="px-2 py-1 rounded bg-gray-200 text-gray-700" title="@sub.DisabledReason">
+                                            Auto-disabled: @sub.DisabledAt.Value.ToString("MMM d, HH:mm")
+                                        </span>
+                                    }
+                                    <a href="/Admin/Webhooks/Deliveries?id=@sub.Id" class="text-blue-600 hover:underline">View Deliveries</a>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                @if (Model.IsDevelopment)
+                                {
+                                    <form method="post" asp-page-handler="SendTestEvent" asp-route-id="@sub.Id" class="inline">
+                                        <button type="submit" class="px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200">
+                                            Test
+                                        </button>
+                                    </form>
+                                }
+                                <button onclick="showEditForm(@sub.Id, '@sub.Name.Replace("'", "\\'")', '@sub.Url.Replace("'", "\\'")', @sub.IsActive.ToString().ToLower(), '@sub.EventTypesCsv')" 
+                                        class="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded hover:bg-slate-200">
+                                    Edit
+                                </button>
+                                <form method="post" asp-page-handler="RegenerateSecret" asp-route-id="@sub.Id" class="inline">
+                                    <button type="submit" class="px-3 py-1.5 text-sm bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
+                                            onclick="return confirm('Regenerate secret? The old secret will stop working immediately.')">
+                                        Regenerate Secret
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" asp-route-id="@sub.Id" class="inline">
+                                    <button type="submit" class="px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                            onclick="return confirm('Delete this webhook? This cannot be undone.')">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Available Event Types</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            @foreach (var evt in WebhookEventTypes.AllEventTypes)
+            {
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    <code class="text-sm text-slate-600">@evt</code>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div id="webhookFormPanel" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3 id="formTitle">Create Webhook</h3>
+            <button type="button" class="inline-form-close" onclick="hideWebhookForm()">&times;</button>
+        </div>
+        <form id="webhookForm" method="post">
+            <input type="hidden" id="inputId" name="Input.Id" />
+            <div class="inline-form-body">
+                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                    <label>Name</label>
+                    <input type="text" id="inputName" name="Input.Name" required class="form-control form-input-p" />
+                </div>
+                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                    <label>URL</label>
+                    <input type="url" id="inputUrl" name="Input.Url" required placeholder="https://..." class="form-control form-input-p" />
+                </div>
+                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                    <label class="form-check-p">
+                        <input type="checkbox" id="inputIsActive" name="Input.IsActive" value="true" checked />
+                        <span>Active</span>
+                    </label>
+                </div>
+                <div class="form-group form-group-p">
+                    <label>Event Types (leave empty for all)</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                        @foreach (var evt in WebhookEventTypes.AllEventTypes)
+                        {
+                            <label class="form-check-p">
+                                <input type="checkbox" name="Input.EventTypes" value="@evt" class="event-checkbox" />
+                                <span>@evt</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="hideWebhookForm()">Cancel</button>
+                <button type="submit" id="submitBtn" class="btn-p btn-p--primary">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showCreateForm() {
+        document.getElementById('formTitle').textContent = 'Create Webhook';
+        document.getElementById('submitBtn').textContent = 'Create';
+        document.getElementById('webhookForm').action = '?handler=Create';
+        document.getElementById('inputId').value = '';
+        document.getElementById('inputName').value = '';
+        document.getElementById('inputUrl').value = '';
+        document.getElementById('inputIsActive').checked = true;
+        document.querySelectorAll('.event-checkbox').forEach(cb => cb.checked = false);
+        document.getElementById('webhookFormPanel').style.display = '';
+        document.getElementById('webhookFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showEditForm(id, name, url, isActive, eventTypesCsv) {
+        document.getElementById('formTitle').textContent = 'Edit Webhook';
+        document.getElementById('submitBtn').textContent = 'Update';
+        document.getElementById('webhookForm').action = '?handler=Update';
+        document.getElementById('inputId').value = id;
+        document.getElementById('inputName').value = name;
+        document.getElementById('inputUrl').value = url;
+        document.getElementById('inputIsActive').checked = isActive;
+        
+        var selectedTypes = eventTypesCsv ? eventTypesCsv.split(',').map(s => s.trim().toUpperCase()) : [];
+        document.querySelectorAll('.event-checkbox').forEach(cb => {
+            cb.checked = selectedTypes.includes(cb.value.toUpperCase());
+        });
+        
+        document.getElementById('webhookFormPanel').style.display = '';
+        document.getElementById('webhookFormPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function hideWebhookForm() {
+        document.getElementById('webhookFormPanel').style.display = 'none';
+    }
+
+    function copySecret() {
+        var code = document.getElementById('secretCode');
+        navigator.clipboard.writeText(code.textContent);
+        alert('Secret copied to clipboard!');
+    }
+</script>

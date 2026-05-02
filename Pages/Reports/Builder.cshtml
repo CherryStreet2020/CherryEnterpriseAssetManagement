@@ -1,0 +1,147 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.BuilderModel
+@{
+    ViewData["Title"] = "Report Builder";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Report Builder" },
+        { "Subtitle", "Create custom reports by selecting fields and applying filters" },
+        { "TypeLabel", "Reports" },
+        { "StatusText", "Custom" },
+        { "StatusTone", "info" },
+        { "KpisPartial", "Reports/_ReportsBuilderKpis" },
+        { "ActionsPartial", "Reports/_ReportsBuilderActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="builder-layout">
+    <div class="builder-sidebar">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3>Select Fields</h3>
+            </div>
+            <div class="section-card-body">
+                <form id="reportForm" method="post">
+                    <div class="field-list">
+                        @foreach (var field in Model.AvailableFields)
+                        {
+                            <label class="field-checkbox">
+                                <input type="checkbox" name="selectedFields" value="@field" 
+                                       @(Model.SelectedFields.Contains(field) ? "checked" : "") />
+                                <span>@field</span>
+                            </label>
+                        }
+                    </div>
+                    
+                    <hr style="margin: 1rem 0;" />
+                    
+                    <h4 style="margin-bottom: 0.75rem;">Filters</h4>
+                    
+                    <div class="form-group">
+                        <label>Location</label>
+                        <select name="locationFilter" class="form-control" data-cherry-select>
+                            <option value="">All Locations</option>
+                            @foreach (var loc in Model.Locations)
+                            {
+                                if (Model.LocationFilter == loc)
+                                {
+                                    <option value="@loc" selected>@loc</option>
+                                }
+                                else
+                                {
+                                    <option value="@loc">@loc</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select name="statusFilter" class="form-control" asp-items="Model.AssetStatusOptions">
+                        </select>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Min Value</label>
+                            <input type="number" name="minValue" class="form-control" value="@Model.MinValue" placeholder="0" />
+                        </div>
+                        <div class="form-group">
+                            <label>Max Value</label>
+                            <input type="number" name="maxValue" class="form-control" value="@Model.MaxValue" placeholder="Any" />
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn-p btn-p--primary" style="width: 100%; margin-top: 1rem;">
+                        Generate Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="builder-content">
+        <div class="section-card">
+            <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h3>Report Results</h3>
+                @if (Model.ReportData.Any())
+                {
+                    <span class="badge badge-primary">@Model.ReportData.Count records</span>
+                }
+            </div>
+            <div class="section-card-body">
+                @if (Model.ReportData.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    @foreach (var field in Model.SelectedFields)
+                                    {
+                                        <th>@field</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in Model.ReportData)
+                                {
+                                    <tr>
+                                        @foreach (var field in Model.SelectedFields)
+                                        {
+                                            var value = row.ContainsKey(field) ? row[field] : "";
+                                            <td>
+                                                @if (value is decimal d)
+                                                {
+                                                    @d.ToString("C2")
+                                                }
+                                                else
+                                                {
+                                                    @value
+                                                }
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="pe-empty" style="padding:2rem;">
+                        <i class="fas fa-chart-bar pe-empty__icon" style="font-size:1.5rem;"></i>
+                        <div class="pe-empty__title">No Report Generated</div>
+                        <div class="pe-empty__text">Select fields and click "Generate Report" to build your custom report.</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+

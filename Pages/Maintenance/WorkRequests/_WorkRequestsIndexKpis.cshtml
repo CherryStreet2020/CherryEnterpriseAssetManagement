@@ -1,0 +1,15 @@
+@model Abs.FixedAssets.Pages.Maintenance.WorkRequests.IndexModel
+@{
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.TotalCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Approved</div>
+    <div class="kpi-value success">@Model.ApprovedCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Rejected</div>
+    <div class="kpi-value danger">@Model.RejectedCount</div>
+</div>

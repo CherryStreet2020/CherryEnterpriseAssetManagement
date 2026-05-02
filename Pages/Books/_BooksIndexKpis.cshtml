@@ -1,0 +1,22 @@
+@model Abs.FixedAssets.Pages.Books.IndexModel
+@{
+    var totalBooks = Model.Items?.Count ?? 0;
+    var activeBooks = Model.Items?.Count(b => b.IsActive) ?? 0;
+    var booksWithGl = Model.Items?.Count(b => b.HasGl) ?? 0;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalBooks</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeBooks</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">GL Setup</div>
+    <div class="kpi-value info">@booksWithGl</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Pending GL</div>
+    <div class="kpi-value warning">@(totalBooks - booksWithGl)</div>
+</div>

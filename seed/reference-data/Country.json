@@ -1,0 +1,9 @@
+{
+  "lookupKey": "Country",
+  "name": "Country",
+  "isSystem": true,
+  "values": [
+    { "code": "US", "name": "United States", "sortOrder": 1, "isActive": true },
+    { "code": "CA", "name": "Canada", "sortOrder": 2, "isActive": true }
+  ]
+}

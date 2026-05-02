@@ -1,0 +1,413 @@
+@page "{id:int?}"
+@model Abs.FixedAssets.Pages.Admin.PMTemplateEditModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Models.Revisions
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = Model.PageTitle;
+    ViewData["TabTitle"] = Model.PageTitle;
+    ViewData["HideDefaultPageHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@await Html.PartialAsync("_AssetMaintenanceHeader", new ViewDataDictionary(ViewData) { 
+    { "ActivePill", "PMTemplates" }, 
+    { "Subtitle", Model.IsCreateMode ? "Create a new preventive maintenance template" : "Edit template details and scheduling" },
+    { "Breadcrumbs", new (string, string)[] { ("Maintenance", "/Maintenance"), ("PM Templates", "/Admin/PMTemplates"), (Model.PageTitle, "") } }
+})
+
+<div class="pm-template-page">
+    <form method="post" class="pm-template-form">
+        <input type="hidden" asp-for="Template.Id" />
+        
+        <div class="pm-form-header">
+            <div class="pm-form-header-info">
+                <h1 class="pm-form-title">@Model.PageTitle</h1>
+                <p class="pm-form-subtitle">@(Model.IsCreateMode ? "Define the template details, scheduling triggers, and safety requirements." : $"Editing template: {Model.Template.Code}")</p>
+            </div>
+            <div class="pm-form-header-actions">
+                <a href="/Admin/PMTemplates" class="btn-p btn-p--secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Cancel
+                </a>
+                <button type="submit" class="btn-p btn-p--primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    @(Model.IsCreateMode ? "Create Template" : "Save Changes")
+                </button>
+            </div>
+        </div>
+
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+        <div class="pm-form-grid">
+            <div class="pm-form-main">
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Basic Information
+                        </h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label asp-for="Template.Code" class="form-label">Template Code <span class="required">*</span></label>
+                                <input asp-for="Template.Code" class="form-control" placeholder="PM-OIL-001" required maxlength="50" />
+                                <span asp-validation-for="Template.Code" class="text-danger"></span>
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label asp-for="Template.Name" class="form-label">Name <span class="required">*</span></label>
+                                <input asp-for="Template.Name" class="form-control" placeholder="Oil Change - Standard" required maxlength="200" />
+                                <span asp-validation-for="Template.Name" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Template.Description" class="form-label">Description</label>
+                            <textarea asp-for="Template.Description" class="form-control" rows="3" placeholder="Describe the maintenance procedure, required tools, and expected outcomes..." maxlength="1000"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Scheduling Configuration
+                        </h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="form-row form-row-3">
+                            <div class="form-group">
+                                <label asp-for="Template.Type" class="form-label">Maintenance Type</label>
+                                <select asp-for="Template.Type" class="form-control" asp-items="Html.GetEnumSelectList<MaintenanceType>()"></select>
+                            </div>
+                            <div class="form-group">
+                                <label asp-for="Template.Priority" class="form-label">Priority</label>
+                                <select asp-for="Template.Priority" class="form-control" asp-items="Html.GetEnumSelectList<PMPriority>()"></select>
+                            </div>
+                            <div class="form-group">
+                                <label asp-for="Template.TriggerType" class="form-label">Trigger Type</label>
+                                <select asp-for="Template.TriggerType" class="form-control" asp-items="Html.GetEnumSelectList<PMTriggerType>()" id="triggerType" onchange="updateTriggerFields()"></select>
+                            </div>
+                        </div>
+
+                        <div id="calendarFieldsSection">
+                            <h4 class="form-section-title">Calendar-Based Trigger</h4>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label asp-for="Template.CalendarInterval" class="form-label">Interval Type</label>
+                                    <select asp-for="Template.CalendarInterval" class="form-control" asp-items="Html.GetEnumSelectList<RecurrenceType>()"></select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label asp-for="Template.CalendarIntervalValue" class="form-label">Every X Intervals</label>
+                                    <input asp-for="Template.CalendarIntervalValue" class="form-control" type="number" min="1" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="meterFieldsSection" style="display: none;">
+                            <h4 class="form-section-title">Meter-Based Trigger</h4>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label asp-for="Template.MeterType" class="form-label">Meter Type</label>
+                                    <select asp-for="Template.MeterType" class="form-control" asp-items="Html.GetEnumSelectList<MeterType>()"></select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label asp-for="Template.MeterInterval" class="form-label">Meter Interval</label>
+                                    <input asp-for="Template.MeterInterval" class="form-control" type="number" min="0" step="0.01" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <p class="form-helper" id="triggerHelper">Maintenance will be scheduled based on calendar intervals.</p>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Cost Estimates
+                        </h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="form-row form-row-3">
+                            <div class="form-group">
+                                <label asp-for="Template.EstimatedHours" class="form-label">Estimated Hours</label>
+                                <input asp-for="Template.EstimatedHours" class="form-control" type="number" min="0" step="0.25" />
+                            </div>
+                            <div class="form-group">
+                                <label asp-for="Template.EstimatedLaborCost" class="form-label">Est. Labor Cost ($)</label>
+                                <input asp-for="Template.EstimatedLaborCost" class="form-control" type="number" min="0" step="0.01" />
+                            </div>
+                            <div class="form-group">
+                                <label asp-for="Template.EstimatedPartsCost" class="form-label">Est. Parts Cost ($)</label>
+                                <input asp-for="Template.EstimatedPartsCost" class="form-control" type="number" min="0" step="0.01" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            Safety Requirements
+                        </h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="form-row">
+                            <div class="form-group toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" asp-for="Template.RequiresShutdown" />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Requires Equipment Shutdown</span>
+                                </label>
+                                <p class="toggle-helper">Equipment must be shut down before maintenance can begin</p>
+                            </div>
+                            <div class="form-group toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" asp-for="Template.RequiresLOTO" />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Requires Lockout/Tagout (LOTO)</span>
+                                </label>
+                                <p class="toggle-helper">LOTO procedures must be followed for safety compliance</p>
+                            </div>
+                            <div class="form-group toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" asp-for="Template.RequiresConfinedSpaceEntry" />
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Requires Confined Space Entry</span>
+                                </label>
+                                <p class="toggle-helper">Confined space entry procedures and permits required</p>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Template.SafetyInstructions" class="form-label">Safety Instructions</label>
+                            <textarea asp-for="Template.SafetyInstructions" class="form-control" rows="4" placeholder="Enter detailed safety precautions, PPE requirements, and special instructions..." maxlength="2000"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pm-form-sidebar">
+                <div class="section-card">
+                    <div class="section-card-header">
+                        <h3 class="section-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Status
+                        </h3>
+                    </div>
+                    <div class="section-card-body">
+                        <div class="form-group toggle-group">
+                            <label class="toggle-label">
+                                <input type="checkbox" asp-for="Template.IsActive" />
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Active</span>
+                            </label>
+                            <p class="toggle-helper">Active templates can generate scheduled work orders</p>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!Model.IsCreateMode)
+                {
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <h3 class="section-card-title">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Revision Control
+                            </h3>
+                        </div>
+                        <div class="section-card-body">
+                            @if (Model.CurrentRevision != null)
+                            {
+                                <div class="revision-current" style="margin-bottom: 12px;">
+                                    <span class="badge badge-success" style="font-size: 12px;">Current: @Model.CurrentRevision.RevisionCode</span>
+                                    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                                        Released @Model.CurrentRevision.ReleasedAtUtc?.ToString("MMM d, yyyy")
+                                    </span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 12px;">
+                                    No released revision yet
+                                </div>
+                            }
+                            @{
+                                var hasDraft = Model.Revisions.Any(r => r.Status == RevisionStatus.Draft);
+                            }
+                            @if (!hasDraft)
+                            {
+                                <form method="post" asp-page-handler="CreateDraft">
+                                    <input type="hidden" name="templateId" value="@Model.Template.Id" />
+                                    <button type="submit" class="btn btn-primary btn-sm btn-full">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        Create Draft Revision
+                                    </button>
+                                </form>
+                            }
+                            @if (Model.Revisions.Any())
+                            {
+                                <div style="margin-top: 12px;">
+                                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Revision History</h4>
+                                    <div style="max-height: 200px; overflow-y: auto;">
+                                        @foreach (var rev in Model.Revisions.OrderByDescending(r => r.CreatedAtUtc))
+                                        {
+                                            <div class="revision-row" style="padding: 8px; border-bottom: 1px solid var(--border-color); font-size: 12px;">
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <span style="font-weight: 600;">@rev.RevisionCode</span>
+                                                    @if (rev.Status == RevisionStatus.Draft)
+                                                    {
+                                                        <span class="badge badge-warning" style="font-size: 10px;">Draft</span>
+                                                    }
+                                                    else if (rev.Status == RevisionStatus.Released)
+                                                    {
+                                                        <span class="badge badge-success" style="font-size: 10px;">Released</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge badge-secondary" style="font-size: 10px;">Obsolete</span>
+                                                    }
+                                                </div>
+                                                <div style="color: var(--text-muted); font-size: 11px;">
+                                                    @rev.CreatedAtUtc.ToString("MMM d, yyyy")
+                                                </div>
+                                                @if (rev.Status == RevisionStatus.Draft)
+                                                {
+                                                    <div style="margin-top: 6px; display: flex; gap: 6px;">
+                                                        <form method="post" asp-page-handler="ReleaseDraft" style="display: inline;">
+                                                            <input type="hidden" name="revisionId" value="@rev.Id" />
+                                                            <button type="submit" class="btn-p btn-p--primary btn-p--xs" onclick="return confirm('Release this revision? This will make it the current revision.')">Release</button>
+                                                        </form>
+                                                        <form method="post" asp-page-handler="DeleteDraft" style="display: inline;">
+                                                            <input type="hidden" name="revisionId" value="@rev.Id" />
+                                                            <button type="submit" class="btn-p btn-p--danger btn-p--xs" onclick="return confirm('Delete this draft?')">Delete</button>
+                                                        </form>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <h3 class="section-card-title danger">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Danger Zone
+                            </h3>
+                        </div>
+                        <div class="section-card-body">
+                            <p class="danger-text">Deleting this template cannot be undone. Any scheduled work orders based on this template will remain, but new ones will not be generated.</p>
+                            <button type="submit" asp-page-handler="Delete" class="btn-p btn-p--danger" onclick="return confirm('Are you sure you want to delete this template? This action cannot be undone.');">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Delete Template
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="section-card">
+                        <div class="section-card-header">
+                            <h3 class="section-card-title muted">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Audit Information
+                            </h3>
+                        </div>
+                        <div class="section-card-body audit-info">
+                            <div class="audit-row">
+                                <span class="audit-label">Created</span>
+                                <span class="audit-value">@Model.Template.CreatedAt.ToString("MMM d, yyyy h:mm tt")</span>
+                            </div>
+                            <div class="audit-row">
+                                <span class="audit-label">Created By</span>
+                                <span class="audit-value">@(Model.Template.CreatedBy ?? "—")</span>
+                            </div>
+                            @if (Model.Template.UpdatedAt.HasValue)
+                            {
+                                <div class="audit-row">
+                                    <span class="audit-label">Updated</span>
+                                    <span class="audit-value">@Model.Template.UpdatedAt.Value.ToString("MMM d, yyyy h:mm tt")</span>
+                                </div>
+                                <div class="audit-row">
+                                    <span class="audit-label">Updated By</span>
+                                    <span class="audit-value">@(Model.Template.UpdatedBy ?? "—")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTriggerFields();
+        });
+
+        function updateTriggerFields() {
+            var triggerType = document.getElementById('triggerType').value;
+            var calendarSection = document.getElementById('calendarFieldsSection');
+            var meterSection = document.getElementById('meterFieldsSection');
+            var helper = document.getElementById('triggerHelper');
+            
+            var showCalendar = (triggerType === 'Calendar' || triggerType === 'CalendarOrMeter' || triggerType === '0' || triggerType === '2');
+            var showMeter = (triggerType === 'Meter' || triggerType === 'CalendarOrMeter' || triggerType === '1' || triggerType === '2');
+            
+            calendarSection.style.display = showCalendar ? 'block' : 'none';
+            meterSection.style.display = showMeter ? 'block' : 'none';
+            
+            var helperText = '';
+            switch(triggerType) {
+                case 'Calendar':
+                case '0':
+                    helperText = 'Maintenance will be scheduled based on calendar intervals.';
+                    break;
+                case 'Meter':
+                case '1':
+                    helperText = 'Maintenance will be triggered when meter reading reaches the interval.';
+                    break;
+                case 'CalendarOrMeter':
+                case '2':
+                    helperText = 'Maintenance will be triggered by whichever condition is met first.';
+                    break;
+                case 'Manual':
+                case '3':
+                    helperText = 'Maintenance must be manually scheduled.';
+                    break;
+            }
+            helper.textContent = helperText;
+        }
+    </script>
+}

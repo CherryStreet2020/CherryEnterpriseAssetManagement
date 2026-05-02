@@ -1,0 +1,19 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.StockLevelsModel;
+}
+<div class="kpi-card">
+    <div class="kpi-label">In Stock</div>
+    <div class="kpi-value success">@(model?.InStockCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Low Stock</div>
+    <div class="kpi-value warning">@(model?.LowStockCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Out of Stock</div>
+    <div class="kpi-value danger">@(model?.OutOfStockCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Value</div>
+    <div class="kpi-value money">@(model?.TotalValue.ToString("C0") ?? "$0")</div>
+</div>

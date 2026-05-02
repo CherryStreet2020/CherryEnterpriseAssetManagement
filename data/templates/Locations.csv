@@ -1,0 +1,11 @@
+Code,Name,SiteCode,Building,Floor,Room,Description
+LOC-001,Assembly Line 1,MAIN,Building A,1,101,Primary assembly area
+LOC-002,Assembly Line 2,MAIN,Building A,1,102,Secondary assembly area
+LOC-003,Machine Shop,MAIN,Building B,1,201,CNC and manual machining
+LOC-004,Welding Bay,MAIN,Building B,1,202,Welding and fabrication
+LOC-005,Warehouse A,WHSE,Warehouse,1,WA1,Raw materials storage
+LOC-006,Warehouse B,WHSE,Warehouse,1,WB1,Finished goods storage
+LOC-007,Shipping Dock,WHSE,Warehouse,1,SHIP,Shipping and receiving
+LOC-008,Maintenance Shop,MAIN,Building C,1,301,Maintenance work area
+LOC-009,Tool Crib,MAIN,Building C,1,302,Tool storage and checkout
+LOC-010,Quality Lab,MAIN,Building A,2,QA1,Quality control testing

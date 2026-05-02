@@ -1,0 +1,65 @@
+@using Abs.FixedAssets.Services.Maintenance
+@{
+    var evt = ViewData["Event"] as Abs.FixedAssets.Models.MaintenanceEvent;
+    var origin = ViewData["Origin"] as WorkOrderOriginInfo;
+}
+@if (evt != null)
+{
+    <div class="screen-header__actions">
+        <div class="hero-tags">
+            <span class="hero-tag @(evt.Priority == MaintenancePriority.Critical ? "danger" : evt.Priority == MaintenancePriority.High ? "warning" : "info")">@evt.Priority PRIORITY</span>
+            @if (origin?.Origin == WorkOrderOrigin.SmartAssist)
+            {
+                <span class="hero-tag info" title="Generated via Smart Assist work request analysis">SMART ASSIST</span>
+            }
+            else if (origin?.Origin == WorkOrderOrigin.PMSchedule)
+            {
+                <span class="hero-tag primary" title="@(origin.TemplateReference ?? origin.ScheduleReference ?? "Scheduled maintenance")">PM SCHEDULE</span>
+            }
+            else
+            {
+                <span class="hero-tag neutral">MANUAL</span>
+            }
+        </div>
+        @if (evt.Asset != null && (evt.Asset.LOTOProcedureId != null || evt.Asset.ConfinedSpaceEntry || evt.Asset.SafetyClassification == "Critical" || evt.Asset.SafetyClassification == "High"))
+        {
+            <div class="hero-tags" style="margin-top: 0.25rem;">
+                @if (!string.IsNullOrEmpty(evt.Asset.LOTOProcedureId))
+                {
+                    <span class="hero-tag danger" title="LOTO Procedure: @evt.Asset.LOTOProcedureId">⚡ LOTO REQUIRED</span>
+                }
+                @if (evt.Asset.ConfinedSpaceEntry)
+                {
+                    <span class="hero-tag danger" title="Confined space entry required">🚧 CONFINED SPACE</span>
+                }
+                @if (evt.Asset.SafetyClassification == "Critical" || evt.Asset.SafetyClassification == "High")
+                {
+                    <span class="hero-tag warning" title="Safety Classification: @evt.Asset.SafetyClassification">⚠️ @evt.Asset.SafetyClassification.ToUpper() SAFETY</span>
+                }
+            </div>
+        }
+        <div class="hero-btns">
+            <a href="/Maintenance" class="hero-btn hero-btn-ghost">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to results
+            </a>
+            <a href="/WorkOrders/Details/@evt.Id" class="hero-btn hero-btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                Operations &amp; Labor
+            </a>
+            @if (evt.AssetId > 0)
+            {
+                <a href="/Assets/Asset/@evt.AssetId" class="hero-btn hero-btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    View Asset
+                </a>
+            }
+        </div>
+    </div>
+}

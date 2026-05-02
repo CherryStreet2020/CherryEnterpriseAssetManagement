@@ -1,0 +1,71 @@
+/* Maintenance Module Styles */
+
+/* Stat Card Variants */
+.stat-card-danger {
+    border-left: 3px solid var(--danger);
+}
+.badge-danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+/* Maintenance Types Grid */
+.maint-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.maint-type-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--maint-color);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-normal);
+}
+
+.maint-type-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+}
+
+.maint-type-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--maint-color) 12%, transparent);
+    border-radius: var(--radius-md);
+}
+
+.maint-type-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--maint-color);
+}
+
+.maint-type-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.maint-type-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.maint-type-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+

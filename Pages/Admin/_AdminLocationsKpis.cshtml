@@ -1,0 +1,18 @@
+@model Abs.FixedAssets.Pages.Admin.LocationsModel
+@using Abs.FixedAssets.Models
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.Locations.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.Locations.Count(l => l.IsActive)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Buildings</div>
+    <div class="kpi-value info">@Model.Locations.Count(l => l.Type == LocationType.Building)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Critical</div>
+    <div class="kpi-value danger">@Model.Locations.Count(l => l.Criticality == LocationCriticality.Critical || l.Criticality == LocationCriticality.High)</div>
+</div>

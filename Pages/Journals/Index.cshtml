@@ -1,0 +1,206 @@
+@page
+@model Abs.FixedAssets.Pages.Journals.IndexModel
+@{
+    ViewData["Title"] = "Journal Entries";
+    ViewData["Breadcrumb"] = "Depreciation";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+
+    Func<DateTime?, string> nd = d => d.HasValue ? d.Value.ToString("MM/dd/yyyy") : "";
+    Func<DateTime, string> ndn = d => d.ToString("MM/dd/yyyy");
+    Func<decimal, string> money = v => v.ToString("C2");
+
+    var totalEntries = Model.Items?.Count ?? 0;
+    var totalDebits = Model.Items?.Sum(j => j.Lines.Sum(l => l.Debit)) ?? 0;
+    var totalCredits = Model.Items?.Sum(j => j.Lines.Sum(l => l.Credit)) ?? 0;
+    var totalLines = Model.Items?.Sum(j => j.Lines.Count) ?? 0;
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = "Journal Entries",
+        ["Subtitle"] = "Depreciation and adjustment journal entries",
+        ["TypeLabel"] = "Depreciation",
+        ["StatusText"] = $"{totalEntries} Entries",
+        ["StatusTone"] = "success",
+        ["ContextText"] = $"{totalLines} Lines / {totalDebits:C0} Total",
+        ["KpisPartial"] = "Journals/_JournalsKpis",
+        ["ActionsPartial"] = "Journals/_JournalsActions"
+    };
+    ViewData["TotalEntries"] = totalEntries;
+    ViewData["TotalLines"] = totalLines;
+    ViewData["TotalDebits"] = totalDebits;
+    ViewData["TotalCredits"] = totalCredits;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Flash"] is string ok && !string.IsNullOrWhiteSpace(ok))
+{
+    <div class="alert alert-success pe-alert pe-alert--success">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 8px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        @ok
+    </div>
+}
+@if (TempData["FlashError"] is string err && !string.IsNullOrWhiteSpace(err))
+{
+    <div class="alert alert-danger pe-alert pe-alert--danger">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 8px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        @err
+    </div>
+}
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters
+        </h3>
+    </div>
+    <div class="section-card-body pe-card__body">
+        <form method="get" class="filter-form">
+            <div class="form-group">
+                <label class="form-label">From</label>
+                <input class="form-control" type="date" name="From" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">To</label>
+                <input class="form-control" type="date" name="To" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Source</label>
+                <input class="form-control" type="text" name="Source" value="@Model.Source" placeholder="e.g., FA" style="width: 120px;" />
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label class="form-label">Search</label>
+                <input class="form-control" type="text" name="Search" value="@Model.Search" placeholder="Batch / Reference / Description" />
+            </div>
+            <div class="form-group" style="align-self: flex-end;">
+                <button class="btn-p btn-p--primary" type="submit">Apply</button>
+                <a class="btn-p btn-p--secondary" asp-page="./Index" style="margin-left: 8px;">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            All Journal Entries
+        </h3>
+        <span class="status-badge info">@totalEntries ENTRIES</span>
+    </div>
+    <div class="section-card-body pe-card__body" style="padding: 0;">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        <table class="data-table premium-table" id="journalGrid" data-enhanced-grid="true" data-row-click="true">
+            <thead>
+                <tr>
+                    <th data-col="Batch" data-filter="text">Batch</th>
+                    <th data-col="Posting Date" data-filter="text">Posting Date</th>
+                    <th data-col="Reference" data-filter="text">Reference</th>
+                    <th data-col="Source" data-filter="text">Source</th>
+                    <th data-col="Description" data-filter="text">Description</th>
+                    <th style="text-align: right;" data-col="Lines" data-filter="number">Lines</th>
+                    <th style="text-align: right;" data-col="Debit" data-filter="number">Debit</th>
+                    <th style="text-align: right;" data-col="Credit" data-filter="number">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Items != null && Model.Items.Any())
+                {
+                    foreach (var j in Model.Items)
+                    {
+                        <tr data-row-id="@j.Id" data-row-href="@Url.Page("/Journals/Details", new { id = j.Id, returnUrl = returnUrl })">
+                            <td><strong class="text-primary">@j.Batch</strong></td>
+                            <td>@ndn(j.PostingDate)</td>
+                            <td style="color: var(--text-secondary);">@j.Reference</td>
+                            <td>
+                                <span class="badge badge-secondary">@j.Source</span>
+                            </td>
+                            <td style="max-width: 200px;">
+                                <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@j.Description">
+                                    @j.Description
+                                </div>
+                            </td>
+                            <td style="text-align: right;">@j.Lines.Count</td>
+                            <td style="text-align: right; color: var(--success);">@money(j.Lines.Sum(l => l.Debit))</td>
+                            <td style="text-align: right; color: var(--danger);">@money(j.Lines.Sum(l => l.Credit))</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8">
+                            <div class="pe-empty" style="padding:2rem;">
+                                <i class="fas fa-file-invoice pe-empty__icon" style="font-size:1.5rem;"></i>
+                                <div class="pe-empty__title">No journal entries</div>
+                                <div class="pe-empty__text">Generate depreciation to create journal entries</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initEnhancedGrid('journalGrid', {
+        searchable: true,
+        sortable: true,
+        exportable: true,
+        columnVisibility: true,
+        clickableRows: true
+    });
+});
+</script>
+}
+
+<div class="inline-form-panel" id="generateForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <form method="post" asp-page-handler="Generate">
+            <div class="inline-form-header">
+                <h5>Generate Depreciation Journal</h5>
+                <button type="button" class="inline-form-close" onclick="toggleInlineForm('generateForm')">&times;</button>
+            </div>
+            <div class="inline-form-body">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label">Book</label>
+                    <select name="BookId" class="form-select form-input-p" required data-cherry-select data-placeholder="Search books...">
+                        <option value="">-- Select Book --</option>
+                        @if (Model.Books != null)
+                        {
+                            foreach (var b in Model.Books)
+                            {
+                                <option value="@b.Id">@b.Name (@b.Code)</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label class="form-label">Period End Date</label>
+                    <input name="PeriodEnd" type="date" class="form-control form-input-p" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Reference</label>
+                    <input name="Reference" type="text" class="form-control form-input-p" placeholder="e.g., JAN-2026" />
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('generateForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Generate Journal</button>
+            </div>
+        </form>
+    </div>
+</div>
+

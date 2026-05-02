@@ -1,0 +1,13 @@
+SQL Schema Scan (data. schema references in SQL contexts)
+
+Root: /home/runner/workspace
+Excluded directories: .cache, .git, .local, .pw-browsers, .pythonlibs, __pycache__, attached_assets, bin, node_modules, obj, proof
+Scanned extensions: .cs, .cshtml, .json, .sql, .xml, .yaml, .yml
+Patterns checked: 10
+
+--- SCAN STATISTICS ---
+Directories scanned: 113
+Directories excluded: 0 ()
+Files scanned: 791
+
+RESULT: PASS - 0 SQL 'data.' schema references found

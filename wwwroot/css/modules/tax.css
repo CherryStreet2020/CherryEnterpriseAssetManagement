@@ -1,0 +1,27 @@
+/* Tax Module Styles */
+
+/* Convention Cards */
+.convention-card {
+    background: var(--lux-surface-alt, #f8fafc);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 20px;
+}
+.convention-card h4 {
+    margin: 0 0 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.convention-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+.convention-note {
+    margin-top: 12px !important;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-primary);
+    color: var(--text-secondary) !important;
+}

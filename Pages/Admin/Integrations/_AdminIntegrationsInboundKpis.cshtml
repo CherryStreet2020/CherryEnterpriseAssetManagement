@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Admin.Integrations.InboundModel
+<div class="kpi-card">
+    <div class="kpi-label">Pending</div>
+    <div class="kpi-value warning">@Model.PendingCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Processed</div>
+    <div class="kpi-value success">@Model.ProcessedCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Failed</div>
+    <div class="kpi-value danger">@Model.FailedCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Dead Letter</div>
+    <div class="kpi-value">@Model.DeadLetterCount</div>
+</div>

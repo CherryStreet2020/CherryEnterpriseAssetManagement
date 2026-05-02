@@ -1,0 +1,120 @@
+=== FULL STATE AUDIT — Tue Mar 10 12:58:56 AM UTC 2026 ===
+
+============================================
+1. RECEIVING MODULE — Do the pages exist?
+============================================
+  ✓ 98 lines — Pages/Receiving/Index.cshtml
+  ✓ 68 lines — Pages/Receiving/Index.cshtml.cs
+  ✓ 209 lines — Pages/Receiving/Receive.cshtml
+  ✓ 253 lines — Pages/Receiving/Receive.cshtml.cs
+  ✓ 143 lines — Pages/Receiving/History.cshtml
+  ✓ 109 lines — Pages/Receiving/History.cshtml.cs
+  ✓ 204 lines — Pages/Receiving/Details.cshtml
+  ✓ 66 lines — Pages/Receiving/Details.cshtml.cs
+  ✓ 151 lines — Pages/Receiving/Inspect.cshtml
+  ✓ 207 lines — Pages/Receiving/Inspect.cshtml.cs
+  ✓ 17 lines — Pages/Receiving/_ReceivingIndexKpis.cshtml
+  ✓ 10 lines — Pages/Receiving/_ReceivingIndexContext.cshtml
+  ✓ 10 lines — Pages/Receiving/_ReceivingIndexActions.cshtml
+  ✓ 22 lines — Pages/Receiving/_ReceiptDetailsKpis.cshtml
+  ✓ 12 lines — Pages/Receiving/_ReceiptDetailsContext.cshtml
+  ✓ 16 lines — Pages/Receiving/_ReceiptDetailsActions.cshtml
+
+============================================
+2. RECEIVE PAGE — Which version?
+============================================
+  data-cherry-select: 0
+  locDropdown: 0
+  loc-pill-btn: 0
+  PUT-AWAY LOCATION: 1
+  StorageLocation: 1
+  Shipment Details: 1
+  receivingLocationId: 0
+
+============================================
+3. SITE SCOPING — Which files are wired?
+============================================
+  ✓ WIRED — Pages/Receiving/Index.cshtml.cs (ShipTo:2 Site:4)
+  ✓ WIRED — Pages/Receiving/History.cshtml.cs (ShipTo:1 Site:2)
+  ✓ WIRED — Pages/Receiving/Details.cshtml.cs (ShipTo:1 Site:1)
+  ✓ WIRED — Pages/Receiving/Inspect.cshtml.cs (ShipTo:3 Site:3)
+  ✓ WIRED — Pages/Receiving/Receive.cshtml.cs (ShipTo:2 Site:4)
+  ✓ WIRED — Pages/Purchasing/Index.cshtml.cs (ShipTo:2 Site:3)
+  ✓ WIRED — Pages/Purchasing/Create.cshtml.cs (ShipTo:1 Site:1)
+  ✓ WIRED — Pages/CIP/Details.cshtml.cs (ShipTo:0 Site:5)
+  ✓ WIRED — Pages/CIP/Costs.cshtml.cs (ShipTo:0 Site:2)
+  ✓ WIRED — Pages/CIP/CostDetails.cshtml.cs (ShipTo:0 Site:3)
+  ✓ WIRED — Pages/CIP/CostTypeDetails.cshtml.cs (ShipTo:0 Site:2)
+  ✓ WIRED — Pages/CIP/PartyDrilldown.cshtml.cs (ShipTo:3 Site:1)
+  ✓ WIRED — Pages/AccountsPayable/Index.cshtml.cs (ShipTo:1 Site:2)
+  ✓ WIRED — Pages/AccountsPayable/Details.cshtml.cs (ShipTo:2 Site:4)
+  ✗ NOT WIRED — Pages/AccountsPayable/Create.cshtml.cs
+  ✓ WIRED — Pages/WorkOrders/Details.cshtml.cs (ShipTo:0 Site:1)
+
+============================================
+4. UNIFIED LINE-ITEM PATTERN — Still deployed?
+============================================
+  Pages/Purchasing/Details.cshtml — line-section:12 line-table:61
+  Pages/WorkOrders/Details.cshtml — line-section:13 line-table:25
+  Pages/CIP/Details.cshtml — line-section:12 line-table:21
+  Pages/AccountsPayable/Details.cshtml — line-section:11 line-table:18
+
+============================================
+5. FONT FIX — JetBrains Mono gone?
+============================================
+  JetBrains refs in CSS: wwwroot/css/overrides.css:0
+wwwroot/css/modules/admin.css:0
+wwwroot/css/modules/auth.css:0
+wwwroot/css/modules/finance.css:0
+wwwroot/css/modules/forms.css:0
+wwwroot/css/modules/inventory.css:0
+wwwroot/css/modules/tabs.css:0
+wwwroot/css/modules/utility-theme.css:0
+wwwroot/css/modules/purchasing.css:0
+wwwroot/css/modules/tax.css:0
+wwwroot/css/modules/cip.css:0
+wwwroot/css/modules/headers.css:0
+wwwroot/css/modules/bulk-operations.css:0
+wwwroot/css/modules/ai.css:0
+wwwroot/css/modules/api.css:0
+wwwroot/css/modules/help.css:0
+wwwroot/css/modules/workorders.css:0
+wwwroot/css/modules/assets.css:0
+wwwroot/css/modules/reports.css:0
+wwwroot/css/modules/dashboard.css:0
+wwwroot/css/modules/org-selector.css:0
+wwwroot/css/modules/layout-components.css:0
+wwwroot/css/modules/technicians.css:0
+wwwroot/css/modules/maintenance.css:0
+wwwroot/css/modules/tom-select-premium.css:0
+wwwroot/css/modules/font-normalize.css:0
+wwwroot/css/modules/premium-polish.css:0
+wwwroot/css/modules/asset-premium.css:0
+wwwroot/css/modules/site-selector.css:0
+wwwroot/css/modules/premium-enterprise.css:0
+wwwroot/css/work-requests.css:0
+wwwroot/css/base.css:0
+wwwroot/css/item-master.css:0
+wwwroot/css/help-enterprise.css:0
+wwwroot/css/premium-components.css:0
+wwwroot/css/cherryai-dark-compliance.css:0
+wwwroot/css/modern.css:0
+wwwroot/css/sidebar-nav.css:0
+wwwroot/css/tour.css:0
+wwwroot/css/command-palette.css:0
+wwwroot/css/work-order-details.css:0
+wwwroot/css/site.css:0
+wwwroot/css/tokens.css:1
+wwwroot/css/cherryai-theme.css:1
+
+============================================
+6. CSS PATCHES — premium-enterprise.css size
+============================================
+  Lines: 2970
+  overflow visible: 2
+  overflow hidden in line-section: 0
+  Tom Select fix: 1
+
+============================================
+7. BUILD STATUS
+============================================

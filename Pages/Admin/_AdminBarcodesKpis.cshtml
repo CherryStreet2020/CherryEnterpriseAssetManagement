@@ -1,0 +1,15 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.BarcodesModel;
+}
+<div class="kpi-card">
+    <div class="kpi-label">With Barcodes</div>
+    <div class="kpi-value success">@(model?.ItemsWithBarcodes ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Missing</div>
+    <div class="kpi-value danger">@(model?.ItemsWithoutBarcodes ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total Items</div>
+    <div class="kpi-value">@(model?.TotalItems ?? 0)</div>
+</div>

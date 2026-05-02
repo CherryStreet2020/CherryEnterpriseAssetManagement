@@ -1,0 +1,64 @@
+@page
+@model Abs.FixedAssets.Pages.CIP.PartyDrilldownModel
+@{
+    ViewData["Title"] = "Vendor Drilldown";
+    ViewData["TabTitle"] = "CIP Vendor Drilldown";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Vendor Drilldown",
+        ["Subtitle"] = $"Org Scope: {Model.OrgScope}",
+        ["TypeLabel"] = "Capital Projects",
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/CIP",
+        ["BackLinkLabel"] = "CIP Projects",
+        ["KpisPartial"] = "/Pages/CIP/_CipPartyDrilldownKpis.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="pe-card">
+    <div class="pe-card__header">
+        <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Vendor Summary</span>
+        <span class="status-badge info">@Model.TotalRows vendors</span>
+    </div>
+    <div class="pe-card__body--flush">
+        <div style="padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-primary);">
+            <input type="text" id="vendorSearch" class="form-input-p" placeholder="Search vendors..." style="max-width:300px;" />
+        </div>
+        <table class="premium-table" id="vendorTable">
+            <thead>
+                <tr>
+                    <th>Vendor Name</th>
+                    <th>Code</th>
+                    <th class="text-right">Total PO Amount</th>
+                    <th class="text-right">PO Count</th>
+                    <th>Last PO Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var v in Model.Vendors)
+                {
+                    <tr class="vendor-row">
+                        <td><strong>@v.VendorName</strong></td>
+                        <td class="td-mono td-muted">@v.VendorCode</td>
+                        <td class="td-right td-mono">@v.TotalAmount.ToString("N2")</td>
+                        <td class="td-right td-muted">@v.TransactionCount</td>
+                        <td class="td-muted">@(v.LastTransactionDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+document.getElementById('vendorSearch').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#vendorTable tbody .vendor-row').forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+</script>

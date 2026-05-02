@@ -1,0 +1,13 @@
+@{
+    var wr = ViewData["WorkRequest"] as Abs.FixedAssets.Models.WorkRequest;
+}
+@if (wr != null)
+{
+    <nav class="breadcrumb">
+        <a href="/">Dashboard</a>
+        <span class="separator">/</span>
+        <a href="/Maintenance/WorkRequests">Work Requests</a>
+        <span class="separator">/</span>
+        <span>@wr.RequestNumber</span>
+    </nav>
+}

@@ -1,0 +1,232 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Inventory.ListModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = Model.InventoryList.Name;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var progress = Model.InventoryList.TotalAssets > 0 
+        ? ((double)Model.InventoryList.ScannedAssets / Model.InventoryList.TotalAssets * 100) 
+        : 0;
+    
+    var statusTone = Model.InventoryList.Status == InventoryStatus.Completed ? "success" : Model.InventoryList.Status == InventoryStatus.InProgress ? "warning" : "info";
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.InventoryList.Name,
+        ["Subtitle"] = Model.InventoryList.Description ?? "Physical inventory count",
+        ["TypeLabel"] = "Inventory Count",
+        ["StatusText"] = Model.InventoryList.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "Inventory/_InventoryListContext",
+        ["KpisPartial"] = "Inventory/_InventoryListKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["InventoryList"] = Model.InventoryList },
+        ["ActionsPartial"] = "Inventory/_InventoryListActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["InventoryList"] = Model.InventoryList }
+    };
+    ViewData["InventoryList"] = Model.InventoryList;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div id="scanForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Record Asset Scan</h3>
+                    <p>Log an asset scan for this inventory count</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('scanForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="AddScan" asp-route-id="@Model.InventoryList.Id">
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Asset Selection</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group full-width">
+                            <label>Asset</label>
+                            <select name="assetId" class="form-control" data-cherry-select required>
+                                <option value="">Select asset...</option>
+                                @foreach (var asset in Model.AvailableAssets)
+                                {
+                                    <option value="@asset.Id">@asset.AssetNumber - @asset.Description</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Scan Details</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Result</label>
+                            <select name="result" class="form-control" required asp-items="Model.DiscrepancyOptions"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Condition</label>
+                            <select name="condition" class="form-control" required asp-items="Model.ConditionOptions"></select>
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Notes</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes..."></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('scanForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Record Scan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="content-grid">
+    <div class="content-main">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">List Details</h3>
+                <span class="badge @(Model.InventoryList.Status == InventoryStatus.Completed ? "badge-success" : Model.InventoryList.Status == InventoryStatus.InProgress ? "badge-warning" : "badge-neutral")">
+                    @Model.InventoryList.Status
+                </span>
+            </div>
+            <div class="section-card-body">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Location</span>
+                        <span class="detail-value">@(Model.InventoryList.Location ?? "All Locations")</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Assigned To</span>
+                        <span class="detail-value">@(Model.InventoryList.AssignedTo ?? "-")</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Created</span>
+                        <span class="detail-value">@Model.InventoryList.CreatedDate.ToString("MMM dd, yyyy")</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Started</span>
+                        <span class="detail-value">@(Model.InventoryList.StartedDate?.ToString("MMM dd, yyyy") ?? "-")</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Completed</span>
+                        <span class="detail-value">@(Model.InventoryList.CompletedDate?.ToString("MMM dd, yyyy") ?? "-")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Scanned Assets</h3>
+                <span class="badge badge-neutral">@Model.Scans.Count scans</span>
+            </div>
+            @if (Model.Scans.Any())
+            {
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Barcode</th>
+                            <th>Scan Date</th>
+                            <th>Scanned By</th>
+                            <th>Result</th>
+                            <th>Condition</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var scan in Model.Scans)
+                        {
+                            <tr class="clickable-row" onclick="window.location='/Assets/Asset/@scan.AssetId'">
+                                <td><a href="/Assets/Asset/@scan.AssetId" class="asset-link"><strong>@scan.Asset?.AssetNumber</strong></a></td>
+                                <td style="font-family: monospace;">@scan.ScannedBarcode</td>
+                                <td>@scan.ScanDate.ToString("MMM dd HH:mm")</td>
+                                <td>@scan.ScannedBy</td>
+                                <td>
+                                    <span class="badge @(scan.Result == ScanResult.Found ? "badge-success" : scan.Result == ScanResult.Missing ? "badge-danger" : "badge-warning")">
+                                        @scan.Result
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @(scan.Condition == AssetCondition.Excellent || scan.Condition == AssetCondition.Good ? "badge-success" : scan.Condition == AssetCondition.Fair ? "badge-neutral" : "badge-warning")">
+                                        @scan.Condition
+                                    </span>
+                                </td>
+                                <td>@(scan.Notes ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:2rem;">
+                    <i class="fas fa-barcode pe-empty__icon" style="font-size:1.5rem;"></i>
+                    <div class="pe-empty__title">No Scans Recorded</div>
+                    <div class="pe-empty__text">Start the inventory count to begin scanning assets.</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="content-sidebar">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Progress</h3>
+            </div>
+            <div class="section-card-body">
+                <div class="budget-stat">
+                    <span class="budget-label">Total Assets</span>
+                    <span class="budget-value">@Model.InventoryList.TotalAssets</span>
+                </div>
+                <div class="budget-stat">
+                    <span class="budget-label">Scanned</span>
+                    <span class="budget-value">@Model.InventoryList.ScannedAssets</span>
+                </div>
+                <div class="budget-stat">
+                    <span class="budget-label">Found</span>
+                    <span class="budget-value text-success">@Model.InventoryList.FoundAssets</span>
+                </div>
+                <div class="budget-stat">
+                    <span class="budget-label">Missing</span>
+                    <span class="budget-value @(Model.InventoryList.MissingAssets > 0 ? "text-danger" : "")">@Model.InventoryList.MissingAssets</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" style="width: @progress%; background: var(--primary)"></div>
+                </div>
+                <div class="progress-label">@progress.ToString("F1")% complete</div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Actions</h3>
+            </div>
+            <div class="section-card-body">
+                @if (Model.InventoryList.Status == InventoryStatus.Draft)
+                {
+                    <form method="post" asp-page-handler="Start" asp-route-id="@Model.InventoryList.Id">
+                        <button type="submit" class="btn-p btn-p--primary">Start Count</button>
+                    </form>
+                }
+                @if (Model.InventoryList.Status == InventoryStatus.InProgress)
+                {
+                    <form method="post" asp-page-handler="Complete" asp-route-id="@Model.InventoryList.Id">
+                        <button type="submit" class="btn-p btn-p--primary">Mark Complete</button>
+                    </form>
+                }
+                @if (Model.InventoryList.Status == InventoryStatus.Completed)
+                {
+                    <p class="text-muted" style="font-size: 13px; text-align: center;">This inventory count has been completed.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+

@@ -1,0 +1,17 @@
+@{
+    var costTypeName = ViewData["CostTypeName"]?.ToString();
+    var filter = ViewData["Filter"]?.ToString();
+}
+<div class="screen-header__actions">
+    <div class="hero-tags">
+        <span class="hero-tag info">@costTypeName?.ToUpper()</span>
+    </div>
+    <div class="hero-btns">
+        <a href="/CIP@(!string.IsNullOrEmpty(filter) ? $"?filter={filter}" : "")" class="hero-btn hero-btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Projects
+        </a>
+    </div>
+</div>

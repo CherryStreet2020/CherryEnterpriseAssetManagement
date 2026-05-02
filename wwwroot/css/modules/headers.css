@@ -1,0 +1,180 @@
+/* 
+ * Unified Screen Header System (ADR-008)
+ * 
+ * This module provides consistent header styling across all pages.
+ * Status pills use existing .status-pill.tone-* classes from premium-components.css.
+ * 
+ * NO inline styles. NO <style> blocks.
+ */
+
+/* Container */
+.screen-header {
+    background: var(--gradient-header);
+    border-radius: var(--radius-xl);
+    padding: var(--space-9) var(--space-11);
+    margin-bottom: var(--space-9);
+    color: var(--color-text-inverse);
+}
+
+/* Breadcrumbs */
+.screen-header__breadcrumbs {
+    margin-bottom: 16px;
+}
+
+.screen-header__breadcrumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+}
+
+.screen-header__breadcrumbs li {
+    display: flex;
+    align-items: center;
+}
+
+.screen-header__breadcrumbs li:not(:last-child)::after {
+    content: '/';
+    margin-left: var(--space-3);
+    color: var(--color-text-inverse-faint);
+}
+
+.screen-header__breadcrumbs a {
+    color: var(--color-text-inverse-muted);
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+}
+
+.screen-header__breadcrumbs a:hover {
+    color: var(--color-text-inverse);
+    text-decoration: underline;
+}
+
+.screen-header__breadcrumbs li[aria-current="page"] {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: var(--font-weight-500);
+}
+
+/* Main content row */
+.screen-header__main {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+/* Info section (left side) */
+.screen-header__info {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Meta row (type label + status) */
+.screen-header__meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.screen-header__type {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Title */
+.screen-header__title {
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0 0 8px 0;
+    color: var(--text-inverse);
+}
+
+/* Subtitle */
+.screen-header__subtitle {
+    font-size: 15px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+/* Context line (replaces page-hero-location) */
+.screen-header__context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.screen-header__context .loc-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.screen-header__context .loc-pill svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+.screen-header__context .loc-divider {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* KPIs section (right side) */
+.screen-header__kpis {
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+}
+
+/* Actions row */
+.screen-header__actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .screen-header {
+        padding: 20px;
+    }
+    
+    .screen-header__main {
+        flex-direction: column;
+    }
+    
+    .screen-header__title {
+        font-size: 22px;
+    }
+    
+    .screen-header__kpis {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    
+    .screen-header__actions {
+        flex-direction: column;
+        gap: 12px;
+    }
+}

@@ -1,0 +1,14 @@
+@model Abs.FixedAssets.Pages.Maintenance.SchedulesModel
+
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.TotalSchedules</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Due This Week</div>
+    <div class="kpi-value warning">@Model.DueThisWeek</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Overdue</div>
+    <div class="kpi-value danger">@Model.Overdue</div>
+</div>

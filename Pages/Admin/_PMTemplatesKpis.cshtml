@@ -1,0 +1,26 @@
+@model Abs.FixedAssets.Pages.Admin.PMTemplatesModel
+@using Abs.FixedAssets.Models
+
+@{
+    var totalTemplates = Model.Templates.Count;
+    var activeTemplates = Model.Templates.Count(t => t.IsActive);
+    var calendarBased = Model.Templates.Count(t => t.TriggerType == PMTriggerType.Calendar || t.TriggerType == PMTriggerType.CalendarOrMeter);
+    var meterBased = Model.Templates.Count(t => t.TriggerType == PMTriggerType.Meter || t.TriggerType == PMTriggerType.CalendarOrMeter);
+}
+
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalTemplates</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Calendar</div>
+    <div class="kpi-value">@calendarBased</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Meter</div>
+    <div class="kpi-value">@meterBased</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeTemplates</div>
+</div>

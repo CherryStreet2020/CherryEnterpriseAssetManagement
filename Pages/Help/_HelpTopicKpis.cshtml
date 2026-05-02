@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Help.TopicModel
+<div class="kpi-card">
+    <div class="kpi-label">Type</div>
+    <div class="kpi-value">Topic</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Category</div>
+    <div class="kpi-value info">Help</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Related</div>
+    <div class="kpi-value">@Model.RelatedTopics.Count()</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Status</div>
+    <div class="kpi-value success">Active</div>
+</div>

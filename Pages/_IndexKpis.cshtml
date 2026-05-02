@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Value</div>
+    <div class="kpi-value money">@Model.TotalAcquisitionCost.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Net Book Value</div>
+    <div class="kpi-value">@Model.TotalNetBookValue.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Open Work Orders</div>
+    <div class="kpi-value">@Model.OpenMaintenance</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active Projects</div>
+    <div class="kpi-value">@Model.ActiveCipProjects</div>
+</div>

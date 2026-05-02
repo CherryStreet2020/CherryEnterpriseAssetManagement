@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Inventory.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.Stats.TotalAssets</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">With Barcode</div>
+    <div class="kpi-value success">@Model.Stats.AssetsWithBarcode</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Recent Scans</div>
+    <div class="kpi-value info">@Model.Stats.RecentScans</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Open Lists</div>
+    <div class="kpi-value warning">@Model.Stats.OpenInventories</div>
+</div>

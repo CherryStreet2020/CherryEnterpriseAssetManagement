@@ -1,0 +1,9 @@
+@model Abs.FixedAssets.Pages.Admin.ItemCategoriesModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.Categories.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.Categories.Count(c => c.IsActive)</div>
+</div>

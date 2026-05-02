@@ -1,0 +1,586 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.AccountsPayable.DetailsModel
+@{
+    var inv = Model.Invoice;
+    ViewData["Title"] = "Accounts Payable";
+    ViewData["TabTitle"] = inv != null && !string.IsNullOrEmpty(inv.InvoiceNumber) 
+        ? $"{inv.InvoiceNumber} — Invoice" 
+        : "Invoice Details";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+    var canEdit = inv != null && (inv.Status == InvoiceStatus.Draft || inv.Status == InvoiceStatus.PendingApproval);
+    var backUrl = Model.SafeReturnUrl;
+}
+
+@if (inv == null)
+{
+    var notFoundVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = "Invoice Not Found",
+        ["Subtitle"] = "The requested invoice does not exist or you do not have access to view it.",
+        ["TypeLabel"] = "Vendor Invoice",
+        ["ActionsPartial"] = "AccountsPayable/_InvoiceNotFoundActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["BackUrl"] = backUrl }
+    };
+    @await Html.PartialAsync("Shared/_ScreenHeader", notFoundVd)
+    return;
+}
+
+@{
+    var statusTone = inv.Status == InvoiceStatus.Paid ? "success" : inv.Status == InvoiceStatus.Approved ? "info" : inv.Status == InvoiceStatus.Voided ? "danger" : "warning";
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = inv.InvoiceNumber,
+        ["Subtitle"] = inv.Vendor?.Name ?? "No vendor",
+        ["TypeLabel"] = "Vendor Invoice",
+        ["StatusText"] = inv.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "AccountsPayable/_InvoiceDetailsContext",
+        ["KpisPartial"] = "AccountsPayable/_InvoiceDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Invoice"] = inv },
+        ["ActionsPartial"] = "AccountsPayable/_InvoiceDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["Invoice"] = inv, ["BackUrl"] = backUrl },
+        ["Breadcrumbs"] = ViewData["Breadcrumbs"],
+        ["ShowBackLink"] = ViewData["ShowBackLink"],
+        ["BackLinkFallback"] = ViewData["BackLinkFallback"],
+        ["BackLinkLabel"] = ViewData["BackLinkLabel"]
+    };
+    ViewData["Invoice"] = inv;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null)
+{
+    <div class="pe-alert pe-alert--success">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        @TempData["Success"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="pe-alert pe-alert--danger">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        @TempData["Error"]
+    </div>
+}
+
+<div class="detail-hero">
+    <div class="pe-fields pe-fields--4">
+        <div class="pe-field">
+            <span class="pe-field__label">Invoice Number</span>
+            <span class="pe-field__value">@inv.InvoiceNumber</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Vendor</span>
+            <span class="pe-field__value">@(inv.Vendor?.Name ?? "—")</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Invoice Date</span>
+            <span class="pe-field__value">@inv.InvoiceDate.ToString("MMM dd, yyyy")</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Due Date</span>
+            <span class="pe-field__value @(inv.DueDate < DateTime.Today && inv.BalanceDue > 0 ? "text-danger" : "")">@inv.DueDate.ToString("MMM dd, yyyy")</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Payment Terms</span>
+            <span class="pe-field__value">@inv.PaymentTerms</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Currency</span>
+            <span class="pe-field__value">@inv.Currency</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Received Date</span>
+            <span class="pe-field__value">@inv.ReceivedDate.ToString("MMM dd, yyyy")</span>
+        </div>
+        <div class="pe-field">
+            <span class="pe-field__label">Company</span>
+            <span class="pe-field__value">@(inv.Company?.Name ?? "—")</span>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(inv.Notes))
+{
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <span class="pe-card__title">Notes</span>
+        </div>
+        <div class="pe-card__body">
+            <p>@inv.Notes</p>
+        </div>
+    </div>
+}
+
+<div class="premium-table-card">
+    <div class="premium-table-card__header">
+        <span class="premium-table-card__title"><span class="accent-dot accent-dot--blue"></span> Line Items</span>
+        <span class="premium-table-card__badge">@inv.Lines.Count LINES</span>
+    </div>
+    @if (inv.Lines.Any())
+    {
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>PO Reference</th>
+                    <th>GL Account</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var line in inv.Lines.OrderBy(l => l.LineNumber))
+                {
+                    <tr>
+                        <td>@line.LineNumber</td>
+                        <td>@line.Description</td>
+                        <td>@(line.PurchaseOrderLine?.PurchaseOrder?.PONumber ?? "—")</td>
+                        <td>@(line.GlAccount != null ? $"{line.GlAccount.AccountNumber} - {line.GlAccount.Name}" : "—")</td>
+                        <td class="text-right">@line.Quantity.ToString("N2")</td>
+                        <td class="text-right">@line.UnitPrice.ToString("C2")</td>
+                        <td class="text-right">@line.LineTotal.ToString("C2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6" class="text-right"><strong>Subtotal</strong></td>
+                    <td class="text-right"><strong>@inv.Subtotal.ToString("C2")</strong></td>
+                </tr>
+                <tr>
+                    <td colspan="6" class="text-right">Tax</td>
+                    <td class="text-right">@inv.TaxAmount.ToString("C2")</td>
+                </tr>
+                <tr>
+                    <td colspan="6" class="text-right">Shipping</td>
+                    <td class="text-right">@inv.ShippingAmount.ToString("C2")</td>
+                </tr>
+                <tr>
+                    <td colspan="6" class="text-right"><strong>Total</strong></td>
+                    <td class="text-right"><strong>@inv.Total.ToString("C2")</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    }
+    else
+    {
+        <div class="premium-table-card__empty">
+            <p>No line items on this invoice.</p>
+        </div>
+    }
+</div>
+
+<div class="premium-table-card">
+    <div class="premium-table-card__header">
+        <span class="premium-table-card__title"><span class="accent-dot accent-dot--green"></span> 3-Way PO Matching</span>
+        @{
+            var matchBadgeClass = inv.MatchStatus switch
+            {
+                InvoiceMatchStatus.FullyMatched => "badge-success",
+                InvoiceMatchStatus.PartialMatch => "badge-warning",
+                InvoiceMatchStatus.Exception => "badge-danger",
+                _ => "badge-neutral"
+            };
+        }
+        <span class="badge @matchBadgeClass">@inv.MatchStatus</span>
+    </div>
+    <div class="pe-card__body">
+        @if (inv.Status != InvoiceStatus.Voided)
+        {
+            <div class="pe-action-bar">
+                <form method="post" asp-page-handler="AutoMatch">
+                    <input type="hidden" name="id" value="@inv.Id" />
+                    <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align: text-bottom;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Auto-Match to PO
+                    </button>
+                </form>
+            </div>
+        }
+
+        @if (inv.Lines.Any())
+        {
+            <div class="pe-table-wrap">
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Invoice Line</th>
+                        <th class="text-right">Inv Qty</th>
+                        <th class="text-right">Inv Amount</th>
+                        <th>Linked PO Line</th>
+                        <th class="text-right">PO Qty × Price</th>
+                        <th>Linked GR Line</th>
+                        <th class="text-right">GR Qty</th>
+                        <th class="text-center">Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in inv.Lines.OrderBy(l => l.LineNumber))
+                    {
+                        var poLine = line.PurchaseOrderLine;
+                        var grLine = line.GoodsReceiptLine;
+                        var isLinked = poLine != null;
+                        var isFullyLinked = poLine != null && grLine != null;
+
+                        var lineMatchIcon = "";
+                        var lineMatchClass = "";
+                        if (isFullyLinked)
+                        {
+                            bool qtyOk = line.Quantity == poLine!.QuantityOrdered && grLine!.QuantityReceived >= poLine.QuantityOrdered;
+                            decimal poTotal = poLine.QuantityOrdered * poLine.UnitPrice;
+                            bool amtOk = Math.Abs(line.LineTotal - poTotal) <= 0.01m;
+                            if (qtyOk && amtOk)
+                            {
+                                lineMatchIcon = "✓";
+                                lineMatchClass = "text-success";
+                            }
+                            else
+                            {
+                                lineMatchIcon = "⚠";
+                                lineMatchClass = "text-danger";
+                            }
+                        }
+
+                        <tr>
+                            <td>@line.LineNumber</td>
+                            <td>@line.Description</td>
+                            <td class="text-right">@line.Quantity.ToString("N2")</td>
+                            <td class="text-right">@line.LineTotal.ToString("C2")</td>
+                            <td>
+                                @if (poLine != null)
+                                {
+                                    <span>@(poLine.PurchaseOrder?.PONumber ?? "PO") — @poLine.Description</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not linked</span>
+                                }
+                            </td>
+                            <td class="text-right">
+                                @if (poLine != null)
+                                {
+                                    @($"{poLine.QuantityOrdered:N2} × {poLine.UnitPrice:C2} = {(poLine.QuantityOrdered * poLine.UnitPrice):C2}")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (grLine != null)
+                                {
+                                    <span>@(grLine.GoodsReceipt?.ReceiptNumber ?? "GR")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not linked</span>
+                                }
+                            </td>
+                            <td class="text-right">
+                                @if (grLine != null)
+                                {
+                                    @grLine.QuantityReceived.ToString("N2")
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(lineMatchIcon))
+                                {
+                                    <span class="@lineMatchClass" style="font-size: 1.1rem; font-weight: 700;">@lineMatchIcon</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>
+                                @if (inv.Status != InvoiceStatus.Voided)
+                                {
+                                    @if (isLinked)
+                                    {
+                                        <form method="post" asp-page-handler="UnlinkLine" style="display: inline;">
+                                            <input type="hidden" name="id" value="@inv.Id" />
+                                            <input type="hidden" name="invoiceLineId" value="@line.Id" />
+                                            <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Unlink</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="toggleLinkForm(@line.Id, '@line.Description.Replace("'", "\\'")')">Link</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                        @if (!isLinked && inv.Status != InvoiceStatus.Voided)
+                        {
+                            <tr id="linkForm-@line.Id" style="display: none;">
+                                <td colspan="10">
+                                    <div class="pe-card" style="margin: 0.5rem 0; border: 1px solid var(--info); border-radius: 8px;">
+                                        <div class="pe-card__header" style="padding: 0.75rem 1rem;">
+                                            <span class="pe-card__title" style="font-size: 0.8rem;">Link "@line.Description" to PO</span>
+                                            <button type="button" class="btn-p btn-p--ghost btn-p--xs" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">✕</button>
+                                        </div>
+                                        <div class="pe-card__body" style="padding: 1rem;">
+                                            <form method="post" asp-page-handler="LinkLine">
+                                                <input type="hidden" name="id" value="@inv.Id" />
+                                                <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                                                <input type="hidden" name="invoiceLineId" value="@line.Id" />
+                                                <div class="form-grid form-grid--2">
+                                                    <div class="form-group-p">
+                                                        <label class="form-label-p">PO Line</label>
+                                                        <select name="poLineId" class="form-input-p" required onchange="filterGRLines(this, @line.Id)">
+                                                            <option value="">Select PO line...</option>
+                                                            @foreach (var pol in Model.AvailablePOLines)
+                                                            {
+                                                                <option value="@pol.Id" data-po-line-id="@pol.Id">@pol.PONumber — @pol.Description (@pol.QuantityOrdered.ToString("N0") × @pol.UnitPrice.ToString("C2"))</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group-p">
+                                                        <label class="form-label-p">Goods Receipt Line</label>
+                                                        <select name="grLineId" id="grSelect-@line.Id" class="form-input-p">
+                                                            <option value="">Select receipt line (optional)...</option>
+                                                            @foreach (var grl in Model.AvailableGRLines)
+                                                            {
+                                                                <option value="@grl.Id" data-po-line-id="@grl.PurchaseOrderLineId">@grl.ReceiptNumber — Qty @grl.QuantityReceived.ToString("N0")</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="pe-action-bar" style="padding-top: 0.75rem;">
+                                                    <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">Cancel</button>
+                                                    <button type="submit" class="btn-p btn-p--primary btn-p--sm">Link Line</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+            </div>
+        }
+        else
+        {
+            <div class="premium-table-card__empty">
+                <p>No invoice lines to match. Add line items first.</p>
+            </div>
+        }
+
+        @if (inv.Lines.Any())
+        {
+            var invoiceTotal = inv.Lines.Sum(l => l.LineTotal);
+            var linkedPOLines = inv.Lines.Where(l => l.PurchaseOrderLine != null).ToList();
+            var poTotal = linkedPOLines.Sum(l => l.PurchaseOrderLine!.QuantityOrdered * l.PurchaseOrderLine.UnitPrice);
+            var linkedGRLines = inv.Lines.Where(l => l.GoodsReceiptLine != null).ToList();
+            var grTotal = linkedGRLines.Sum(l => l.GoodsReceiptLine!.QuantityReceived * (l.PurchaseOrderLine?.UnitPrice ?? 0));
+            var variance = invoiceTotal - poTotal;
+
+            <div class="pe-card" style="margin-top: 1rem;">
+                <div class="pe-card__header">
+                    <span class="pe-card__title">Match Summary</span>
+                </div>
+                <div class="pe-card__body">
+                    <div class="pe-fields pe-fields--4">
+                        <div class="pe-field">
+                            <span class="pe-field__label">Invoice Total</span>
+                            <span class="pe-field__value">@invoiceTotal.ToString("C2")</span>
+                        </div>
+                        <div class="pe-field">
+                            <span class="pe-field__label">PO Total (linked)</span>
+                            <span class="pe-field__value">@poTotal.ToString("C2")</span>
+                        </div>
+                        <div class="pe-field">
+                            <span class="pe-field__label">GR Value (linked)</span>
+                            <span class="pe-field__value">@grTotal.ToString("C2")</span>
+                        </div>
+                        <div class="pe-field">
+                            <span class="pe-field__label">Variance</span>
+                            <span class="pe-field__value @(Math.Abs(variance) > 0.01m ? "text-danger" : "text-success")">
+                                @variance.ToString("C2")
+                                @if (Math.Abs(variance) <= 0.01m && linkedPOLines.Any())
+                                {
+                                    <span style="margin-left: 0.25rem;">✓</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="line-section">
+    <div class="line-section__header">
+        <h3 class="line-section__title">
+            <i class="fas fa-money-check-alt"></i> Payments
+        </h3>
+        <div class="line-section__summary">
+            <span class="line-section__count">@inv.Payments.Count payments</span>
+            <span class="line-section__total">@inv.AmountPaid.ToString("C2")</span>
+        </div>
+    </div>
+
+
+    @if (inv.Status == InvoiceStatus.Approved && inv.BalanceDue > 0)
+    {
+        <div class="line-section__add line-section__add--above">
+            <div class="line-section__add-label">+ Record Payment</div>
+            <form method="post" asp-page-handler="RecordPayment" class="line-add-form">
+                <input type="hidden" name="id" value="@inv.Id" />
+                <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                <div class="line-add-form__row">
+                    <div class="line-add-form__field line-add-form__field--narrow">
+                        <label class="line-add-form__label">AMOUNT *</label>
+                        <input type="number" name="amount" class="line-add-form__input line-add-form__input--right" step="0.01" min="0" max="@inv.BalanceDue" value="@inv.BalanceDue" required />
+                    </div>
+                    <div class="line-add-form__field">
+                        <label class="line-add-form__label">PAYMENT METHOD</label>
+                        <select name="paymentMethod" class="line-add-form__input" asp-items="Model.PaymentMethodOptions"></select>
+                    </div>
+                    <div class="line-add-form__field">
+                        <label class="line-add-form__label">REFERENCE #</label>
+                        <input type="text" name="referenceNumber" class="line-add-form__input" placeholder="Check #, Transaction ID..." />
+                    </div>
+                    <div class="line-add-form__field">
+                        <label class="line-add-form__label">NOTES</label>
+                        <input type="text" name="notes" class="line-add-form__input" placeholder="Optional notes..." />
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--action">
+                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                            <i class="fas fa-plus"></i> Record Payment
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    }
+
+    <div class="line-section__body">
+        @if (inv.Payments.Any())
+        {
+            <table class="line-table">
+                <thead>
+                    <tr>
+                        <th class="line-table__th" style="width: 120px;">DATE</th>
+                        <th class="line-table__th line-table__th--right" style="width: 120px;">AMOUNT</th>
+                        <th class="line-table__th" style="width: 120px;">METHOD</th>
+                        <th class="line-table__th" style="width: 150px;">REFERENCE #</th>
+                        <th class="line-table__th">NOTES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var payment in inv.Payments.OrderByDescending(p => p.PaymentDate))
+                    {
+                        <tr class="line-table__row">
+                            <td class="line-table__td line-table__td--muted">@payment.PaymentDate.ToString("MMM dd, yyyy")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@payment.Amount.ToString("N2")</td>
+                            <td class="line-table__td">@(payment.PaymentMethod ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono">@(payment.ReferenceNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--muted">@(payment.Notes ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="line-table__total-row">
+                        <td class="line-table__td line-table__td--right" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL PAID</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@inv.AmountPaid.ToString("N2")</td>
+                        <td colspan="3"></td>
+                    </tr>
+                    <tr>
+                        <td class="line-table__td line-table__td--right" style="font-weight: 700; font-size: 0.8rem;">BALANCE DUE</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono" style="font-weight: 700; font-size: 1rem; color: @(inv.BalanceDue > 0 ? "var(--status-danger, #ef4444)" : "var(--status-success, #22c55e)");">@inv.BalanceDue.ToString("N2")</td>
+                        <td colspan="3"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        }
+        else
+        {
+            <div class="line-section__empty">
+                No payments recorded yet. Use the form above to record one.
+            </div>
+        }
+    </div>
+
+@section Scripts {
+<script>
+function toggleLinkForm(lineId, description) {
+    var form = document.getElementById('linkForm-' + lineId);
+    form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+function filterGRLines(poSelect, lineId) {
+    var poLineId = poSelect.value;
+    var grSelect = document.getElementById('grSelect-' + lineId);
+    var options = grSelect.querySelectorAll('option[data-po-line-id]');
+    options.forEach(function(opt) {
+        if (!poLineId || opt.getAttribute('data-po-line-id') === poLineId) {
+            opt.style.display = '';
+        } else {
+            opt.style.display = 'none';
+        }
+    });
+    grSelect.value = '';
+}
+</script>
+}
+
+--- Pages/AccountsPayable/Details.cshtml.cs ---
+--- Pages/AccountsPayable/Details.cshtml ---
+  line-section: 10
+  line-table: 17
+  line-add-form: 15
+  premium-table: 11
+  pe-card: 13
+  workspace: 0
+0
+  modal: 0
+0
+
+########################################
+# FILE SIZES
+########################################
+  425 lines — Pages/Purchasing/Details.cshtml
+  457 lines — Pages/Purchasing/Details.cshtml.cs
+  658 lines — Pages/WorkOrders/Details.cshtml
+  507 lines — Pages/WorkOrders/Details.cshtml.cs
+  678 lines — Pages/CIP/Details.cshtml
+  302 lines — Pages/CIP/Details.cshtml.cs
+  547 lines — Pages/AccountsPayable/Details.cshtml
+  288 lines — Pages/AccountsPayable/Details.cshtml.cs
+  2871 lines — wwwroot/css/modules/premium-enterprise.css
+
+########################################
+# LAYOUT: Which layout does each page use?
+########################################
+
+--- Pages/Purchasing/Details.cshtml ---
+
+--- Pages/WorkOrders/Details.cshtml ---
+
+--- Pages/CIP/Details.cshtml ---
+
+--- Pages/AccountsPayable/Details.cshtml ---
+
+============================================

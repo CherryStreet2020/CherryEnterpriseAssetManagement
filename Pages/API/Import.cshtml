@@ -1,0 +1,156 @@
+@page
+@model Abs.FixedAssets.Pages.API.ImportModel
+@{
+    ViewData["Title"] = "Import Assets";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Import Assets" },
+        { "Subtitle", "Upload a CSV file to bulk import assets into your system" },
+        { "TypeLabel", "API Integration" },
+        { "StatusText", "CSV Import" },
+        { "StatusTone", "info" },
+        { "KpisPartial", "API/_ApiImportKpis" },
+        { "ActionsPartial", "API/_ApiImportActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (Model.Result != null)
+{
+    <div class="alert @(Model.Result.HasErrors ? "alert-warning" : "alert-success")" style="margin-bottom: 1.5rem;">
+        <strong>Import Complete</strong><br/>
+        Imported: @Model.Result.ImportedCount | Skipped: @Model.Result.SkippedCount | Failed: @Model.Result.FailedCount
+        @if (Model.Result.Errors.Any())
+        {
+            <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                @foreach (var error in Model.Result.Errors.Take(10))
+                {
+                    <li>@error</li>
+                }
+                @if (Model.Result.Errors.Count > 10)
+                {
+                    <li>... and @(Model.Result.Errors.Count - 10) more errors</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+<div class="section-card" style="margin-bottom: 24px;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Upload CSV File
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <form method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Select CSV File</label>
+                <input type="file" name="csvFile" accept=".csv" class="form-control" required />
+            </div>
+            <button type="submit" class="btn-p btn-p--primary">Import Assets</button>
+        </form>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            CSV Format Requirements
+        </h3>
+        <span class="status-badge info">9 COLUMNS</span>
+    </div>
+    <div class="section-card-body">
+        <p>Your CSV file should include a header row with these column names (case-insensitive):</p>
+        
+        <table class="data-table" style="margin-top: 1rem;">
+            <thead>
+                <tr>
+                    <th>Column</th>
+                    <th>Required</th>
+                    <th>Description</th>
+                    <th>Example</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>AssetNumber</code></td>
+                    <td><span class="badge badge-danger">Yes</span></td>
+                    <td>Unique asset identifier</td>
+                    <td>FA-1001</td>
+                </tr>
+                <tr>
+                    <td><code>Description</code></td>
+                    <td><span class="badge badge-danger">Yes</span></td>
+                    <td>Asset description</td>
+                    <td>CNC Milling Machine</td>
+                </tr>
+                <tr>
+                    <td><code>AcquisitionCost</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Purchase price</td>
+                    <td>125000.00</td>
+                </tr>
+                <tr>
+                    <td><code>InServiceDate</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Date placed in service</td>
+                    <td>2026-01-15</td>
+                </tr>
+                <tr>
+                    <td><code>UsefulLife</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Useful life in years</td>
+                    <td>10</td>
+                </tr>
+                <tr>
+                    <td><code>Location</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Physical location</td>
+                    <td>Building A</td>
+                </tr>
+                <tr>
+                    <td><code>Department</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Department code</td>
+                    <td>Manufacturing</td>
+                </tr>
+                <tr>
+                    <td><code>Model</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Equipment model</td>
+                    <td>VMC-850</td>
+                </tr>
+                <tr>
+                    <td><code>SerialNumber</code></td>
+                    <td><span class="badge badge-neutral">No</span></td>
+                    <td>Manufacturer serial</td>
+                    <td>SN12345678</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h4 style="margin-top: 1.5rem;">Sample CSV</h4>
+        <pre style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+AssetNumber,Description,AcquisitionCost,InServiceDate,UsefulLife,Location
+FA-1001,CNC Milling Machine,125000,2026-01-15,10,Building A
+FA-1002,Forklift Model 500,45000,2026-02-01,7,Warehouse
+FA-1003,Office Furniture Set,8500,2026-01-20,5,Admin Building</pre>
+
+        <p style="margin-top: 1rem;">
+            <a href="/api/v1/assets?page=1&pageSize=5" target="_blank" class="btn-p btn-p--secondary">Download Sample Template</a>
+        </p>
+    </div>
+</div>
+

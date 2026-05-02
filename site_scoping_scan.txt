@@ -1,0 +1,82 @@
+=== SITE SCOPING AUDIT ===
+
+--- 1. Does PurchaseOrder have SiteId? ---
+62:        public int? ShipToSiteId { get; set; }
+74:        public int? BillToSiteId { get; set; }
+
+--- 2. Does GoodsReceipt have SiteId? ---
+NO SiteId on GoodsReceipt
+
+--- 3. Which models HAVE SiteId? ---
+Models/ItemApprovedVendor.cs:26:    public int? SiteId { get; set; }
+Models/LessonLearned.cs:12:    public int? SiteId { get; set; }
+Models/OutboxEvent.cs:24:    public int? SiteId { get; set; }
+Models/PMSchedule.cs:31:        public int? SiteId { get; set; }
+Models/PMSchedule.cs:102:        public int? SiteId { get; set; }
+Models/WorkRequest.cs:45:    public int? SiteId { get; set; }
+Models/OrgNode.cs:45:        public int? SiteId { get; set; }
+Models/Customer.cs:103:        public int? SiteId { get; set; }
+Models/GlAccount.cs:263:        public int? SiteId { get; set; }
+Models/ConstructionInProgress.cs:79:        public int? SiteId { get; set; }
+Models/Asset.cs:212:        public int? SiteId { get; set; }
+Models/Technician.cs:54:        public int? SiteId { get; set; }
+
+--- 4. Does ITenantContext have SiteId? ---
+14:    public int DefaultSiteId { get; set; } = 1;
+21:    int? SiteId { get; }
+23:    int? AssignedSiteId { get; }
+25:    List<int> VisibleSiteIds { get; }
+31:    void SetSiteHierarchyContext(int? assignedSiteId, List<int> visibleSiteIds);
+45:    public int? SiteId { get; set; }
+60:            SiteId = siteId,
+106:    private int? _assignedSiteId;
+108:    private List<int> _visibleSiteIds = new();
+147:    public int? SiteId
+154:                return overrideValues.SiteId;
+163:    public int? AssignedSiteId => _assignedSiteId;
+167:    public List<int> VisibleSiteIds => _visibleSiteIds;
+198:    public void SetSiteHierarchyContext(int? assignedSiteId, List<int> visibleSiteIds)
+200:        _assignedSiteId = assignedSiteId;
+201:        _visibleSiteIds = visibleSiteIds;
+
+--- 5. How does Receiving/Index filter? ---
+34:            var visibleIds = _tenantContext.VisibleCompanyIds;
+39:                .Where(p => visibleIds.Contains(p.CompanyId ?? 0) && receivableStatuses.Contains(p.Status))
+47:                .Where(g => visibleIds.Contains(g.CompanyId ?? 0))
+52:                .Where(g => visibleIds.Contains(g.CompanyId ?? 0) && g.ReceiptDate >= weekAgo)
+
+--- 6. How do OTHER modules filter by site? (first example) ---
+Pages/Assets/Index.cshtml.cs:51:            if (_tenantContext.SiteId.HasValue)
+Pages/Assets/Index.cshtml.cs:52:                query = query.Where(a => a.SiteId == _tenantContext.SiteId.Value);
+Pages/Assets/Dispose.cshtml.cs:73:            Asset = await _db.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Dispose.cshtml.cs:90:            Asset = await _db.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Improve.cshtml.cs:67:        Asset = await _db.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Improve.cshtml.cs:78:        Asset = await _db.Assets.Where(a => a.Id == AssetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Delete.cshtml.cs:41:            var asset = await _context.Assets.Where(m => m.Id == id && _tenantContext.VisibleCompanyIds.Contains(m.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || m.SiteId == _tenantContext.SiteId.Value)).OrderBy(m => m.Id).FirstOrDefaultAsync();
+Pages/Assets/Delete.cshtml.cs:60:            var asset = await _context.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Transfer.cshtml.cs:65:        Asset = await _db.Assets.Include(a => a.LocationRef).Include(a => a.DepartmentRef).Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).OrderBy(a => a.Id).FirstOrDefaultAsync();
+Pages/Assets/Transfer.cshtml.cs:76:        Asset = await _db.Assets.Include(a => a.LocationRef).Include(a => a.DepartmentRef).Where(a => a.Id == AssetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).OrderBy(a => a.Id).FirstOrDefaultAsync();
+Pages/Assets/Asset.cshtml.cs:150:                    .FirstOrDefaultAsync(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value));
+Pages/Assets/Asset.cshtml.cs:412:                Asset.SiteId = _tenantContext.SiteId;
+Pages/Assets/Asset.cshtml.cs:422:                var existingAsset = await _context.Assets.Where(a => a.Id == Asset.Id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Asset.cshtml.cs:438:                    bool exists = await _context.Assets.AnyAsync(e => e.Id == Asset.Id && _tenantContext.VisibleCompanyIds.Contains(e.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || e.SiteId == _tenantContext.SiteId.Value));
+Pages/Assets/Asset.cshtml.cs:450:                .Where(a => a.Id == assetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value))
+Pages/Assets/Asset.cshtml.cs:528:                .Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value))
+Pages/Assets/Asset.cshtml.cs:609:            var asset = await _context.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Assets/Asset.cshtml.cs:649:            var asset = await _context.Assets.Where(a => a.Id == id && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value)).FirstOrDefaultAsync();
+Pages/Reports/Export.cshtml.cs:51:            if (_tenantContext.SiteId.HasValue)
+Pages/Reports/Export.cshtml.cs:52:                exportQuery = exportQuery.Where(a => a.SiteId == _tenantContext.SiteId.Value);
+
+--- 7. Sidebar site selector code ---
+122:    <link rel="stylesheet" href="~/css/modules/site-selector.css" asp-append-version="true" />
+170:            <div class="site-selector-wrapper" id="siteSelectorWrapper" style="display:none;">
+171:                <button class="site-selector-btn" id="siteSelectorBtn" type="button">
+172:                    <i class="fas fa-map-marker-alt site-selector-icon"></i>
+173:                    <span class="site-selector-label" id="siteSelectorLabel">All Sites</span>
+174:                    <i class="fas fa-chevron-down site-selector-arrow"></i>
+176:                <div class="site-selector-dropdown" id="siteSelectorDropdown" style="display:none;">
+177:                    <div class="site-selector-list" id="siteSelectorList"></div>
+653:    <script src="~/js/site-selector.js" asp-append-version="true"></script>
+
+--- 8. PO model ShipToSiteId field ---
+62:        public int? ShipToSiteId { get; set; }

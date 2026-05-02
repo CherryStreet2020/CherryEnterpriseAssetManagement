@@ -1,0 +1,18 @@
+@model Abs.FixedAssets.Pages.Materials.ItemsModel
+@{
+    var totalItems = Model.TotalCount;
+    var activeItems = Model.ActiveCount;
+    var withRevisions = Model.WithRevisionsCount;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalItems</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeItems</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">With Revisions</div>
+    <div class="kpi-value">@withRevisions</div>
+</div>

@@ -1,0 +1,27 @@
+@using Abs.FixedAssets.Models
+@{
+    var wr = ViewData["WorkRequest"] as WorkRequest;
+}
+@if (wr != null)
+{
+    <div class="screen-header__actions">
+        <div class="hero-btns">
+            @if (wr.Status == WorkRequestStatus.New || wr.Status == WorkRequestStatus.InReview)
+            {
+                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="SmartAssist" asp-route-id="@wr.Id" style="display: inline;">
+                    <button type="submit" class="btn btn-primary gradient-btn-blue" style="border: none;">
+                        <i class="fas fa-magic"></i> Smart Assist - Generate Work Order
+                    </button>
+                </form>
+                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="ConvertToWO" asp-route-id="@wr.Id" style="display: inline;">
+                    <button type="submit" class="btn btn-primary gradient-btn-green" style="border: none;">
+                        <i class="fas fa-exchange-alt"></i> Convert to Work Order
+                    </button>
+                </form>
+            }
+            <a asp-page="/Maintenance/WorkRequests/Index" class="btn-p btn-p--secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+}

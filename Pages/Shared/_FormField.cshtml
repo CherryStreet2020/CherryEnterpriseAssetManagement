@@ -1,0 +1,107 @@
+@using Microsoft.AspNetCore.Html
+@{
+    var id = ViewData["Id"] as string ?? "";
+    var name = ViewData["Name"] as string ?? id;
+    var label = ViewData["Label"] as string ?? "";
+    var type = ViewData["Type"] as string ?? "text";
+    var value = ViewData["Value"] as string ?? "";
+    var placeholder = ViewData["Placeholder"] as string ?? "";
+    var help = ViewData["Help"] as string ?? "";
+    var error = ViewData["Error"] as string ?? "";
+    var isRequired = ViewData["Required"] is bool req && req;
+    var isFullWidth = ViewData["FullWidth"] is bool fw && fw;
+    var renderMode = ViewData["RenderMode"] as string ?? "input";
+    var customHtml = ViewData["CustomHtml"] as IHtmlContent;
+    var selectOptions = ViewData["SelectOptions"] as IEnumerable<(string value, string label, bool selected)>;
+
+    var hasError = !string.IsNullOrEmpty(error);
+    var hasHelp = !string.IsNullOrEmpty(help);
+
+    var fieldClasses = "form-field";
+    if (isFullWidth) fieldClasses += " form-field--full";
+    if (hasError) fieldClasses += " form-field--error";
+
+    var describedBy = new List<string>();
+    if (hasError) describedBy.Add($"{id}-error");
+    if (hasHelp) describedBy.Add($"{id}-help");
+    var ariaDescribedBy = describedBy.Count > 0 ? string.Join(" ", describedBy) : null;
+}
+
+<div class="@fieldClasses">
+    <label class="form-field__label" for="@id">
+        @label
+        @if (isRequired)
+        {
+            <span class="form-field__required" aria-label="required">*</span>
+        }
+    </label>
+
+    @switch (renderMode)
+    {
+        case "textarea":
+            <textarea 
+                id="@id" 
+                name="@name" 
+                class="form-control form-field__input"
+                placeholder="@placeholder"
+                @(isRequired ? "required" : null)
+                @(hasError ? Html.Raw("aria-invalid=\"true\"") : null)
+                @(ariaDescribedBy != null ? Html.Raw($"aria-describedby=\"{ariaDescribedBy}\"") : null)
+            >@value</textarea>
+            break;
+
+        case "select":
+            <select 
+                id="@id" 
+                name="@name" 
+                class="form-control form-field__input"
+                @(isRequired ? "required" : null)
+                @(hasError ? Html.Raw("aria-invalid=\"true\"") : null)
+                @(ariaDescribedBy != null ? Html.Raw($"aria-describedby=\"{ariaDescribedBy}\"") : null)
+            >
+                @if (selectOptions != null)
+                {
+                    foreach (var opt in selectOptions)
+                    {
+                        if (opt.selected)
+                        {
+                            <option value="@opt.value" selected>@opt.label</option>
+                        }
+                        else
+                        {
+                            <option value="@opt.value">@opt.label</option>
+                        }
+                    }
+                }
+            </select>
+            break;
+
+        case "custom":
+            @customHtml
+            break;
+
+        default:
+            <input 
+                type="@type"
+                id="@id" 
+                name="@name" 
+                value="@value"
+                class="form-control form-field__input"
+                placeholder="@placeholder"
+                @(isRequired ? "required" : null)
+                @(hasError ? Html.Raw("aria-invalid=\"true\"") : null)
+                @(ariaDescribedBy != null ? Html.Raw($"aria-describedby=\"{ariaDescribedBy}\"") : null)
+            />
+            break;
+    }
+
+    @if (hasHelp)
+    {
+        <div class="form-field__help" id="@id-help">@help</div>
+    }
+
+    @if (hasError)
+    {
+        <div class="form-field__error" id="@id-error" role="alert">@error</div>
+    }
+</div>

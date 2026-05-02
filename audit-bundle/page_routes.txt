@@ -1,0 +1,61 @@
+=== PAGE ROUTES REGISTERED ===
+/home/runner/workspace/Pages/Assets/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Assets/Dispose.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Assets/Transfer.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Assets/Improve.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Assets/Schedule.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Assets/Delete.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Assets/Asset.cshtml:1:@page "{id:int?}"
+/home/runner/workspace/Pages/Books/Create.cshtml:1:@page
+/home/runner/workspace/Pages/Books/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Books/GlAccounts.cshtml:1:@page "{bookId:int}"
+/home/runner/workspace/Pages/Books/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Books/Delete.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Books/Edit.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Journals/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Journals/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Journals/Generate.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/Export.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/Builder.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/DepreciationPreview.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/ReportHub.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/ChartOfAccounts.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/Form4562.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/T2Schedule8.cshtml:1:@page
+/home/runner/workspace/Pages/Reports/Compliance.cshtml:1:@page
+/home/runner/workspace/Pages/CCA/ClassReport.cshtml:1:@page
+/home/runner/workspace/Pages/CCA/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Account/Logout.cshtml:1:@page
+/home/runner/workspace/Pages/Account/AccessDenied.cshtml:1:@page
+/home/runner/workspace/Pages/Account/Login.cshtml:1:@page
+/home/runner/workspace/Pages/Help/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Help/Implementation.cshtml:1:@page
+/home/runner/workspace/Pages/Help/Tasks.cshtml:1:@page
+/home/runner/workspace/Pages/Help/Topic.cshtml:1:@page
+/home/runner/workspace/Pages/UsTax/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Inventory/List.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Inventory/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/Assignments/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/WorkRequests/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/Maintenance/WorkRequests/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/WorkRequests/Create.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/Schedules.cshtml:1:@page
+/home/runner/workspace/Pages/Maintenance/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/CIP/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/CIP/CostDetails.cshtml:1:@page "{projectId:int}/{costId:int}"
+/home/runner/workspace/Pages/CIP/CostTypeDetails.cshtml:1:@page
+/home/runner/workspace/Pages/CIP/Index.cshtml:1:@page
+/home/runner/workspace/Pages/CIP/Costs.cshtml:1:@page
+/home/runner/workspace/Pages/BulkOperations/Index.cshtml:1:@page
+/home/runner/workspace/Pages/BulkOperations/Details.cshtml:1:@page "{id:int}"
+/home/runner/workspace/Pages/AI/Index.cshtml:1:@page
+/home/runner/workspace/Pages/API/Import.cshtml:1:@page
+/home/runner/workspace/Pages/API/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Integrations/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Integrations/Inbound.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Integrations/Maps.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Outbox/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Webhooks/Index.cshtml:1:@page
+/home/runner/workspace/Pages/Admin/Webhooks/Deliveries.cshtml:1:@page

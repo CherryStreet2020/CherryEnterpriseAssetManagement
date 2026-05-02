@@ -1,0 +1,2621 @@
+@page "{id:int?}"
+@model Abs.FixedAssets.Pages.Assets.AssetModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Helpers
+@{
+    var assetNumber = Model.Asset?.AssetNumber ?? "";
+    var assetDesc = Model.Asset?.Description ?? "";
+    ViewData["Title"] = UiTerms.AssetManagement;
+    ViewData["TabTitle"] = Model.IsCreateMode 
+        ? $"New {UiTerms.AssetSingular}" 
+        : UiTerms.GetAssetTabTitle(assetNumber);
+    var isEditable = Model.IsEditMode || Model.IsCreateMode;
+    var hasHealthScore = Model.Asset?.PredictiveHealthScore.HasValue == true;
+    var healthScore = Model.Asset?.PredictiveHealthScore ?? 0;
+    var healthColor = healthScore >= 80 ? "#10b981" : healthScore >= 60 ? "#f59e0b" : "#ef4444";
+    ViewData["ReturnUrl"] = Model.ReturnUrl;
+    ViewData["FallbackPage"] = "/Assets";
+    ViewData["FallbackLabel"] = "Assets";
+    
+    // View/Edit mode: use ScreenHeader inside asset-hero
+    // Create mode: show breadcrumb for context
+    if (!Model.IsCreateMode)
+    {
+        ViewData["HasScreenHeader"] = true;
+        // Do NOT set Breadcrumb - suppresses the header-breadcrumb row
+    }
+    else
+    {
+        ViewData["Breadcrumb"] = UiTerms.AssetManagement;
+        ViewData["HasScreenHeader"] = true;
+    }
+}
+
+@if (!Model.IsCreateMode)
+{
+    <div style="padding: 1rem 2rem 0;">
+        @await Html.PartialAsync("_BackLink")
+    </div>
+}
+
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success" style="margin-bottom: 20px;">@TempData["Success"]</div>
+}
+
+<div class="asset-page">
+    @if (!Model.IsCreateMode)
+    {
+        <!-- Rebuilt Asset Hero Card -->
+        <div class="asset-hero">
+            <div class="asset-hero-main">
+                <div class="asset-hero-image">
+                    @if (!string.IsNullOrEmpty(Model.Asset!.ImageUrl))
+                    {
+                        <img src="@Model.Asset.ImageUrl" alt="@Model.Asset.Description" id="assetImage" />
+                    }
+                    else
+                    {
+                        <div class="asset-photo-placeholder" id="assetImage">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="opacity:0.3;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span style="font-size:0.75rem;color:var(--lux-text-muted);margin-top:0.25rem;">No Photo</span>
+                        </div>
+                    }
+                    <div class="image-upload-overlay" onclick="document.getElementById('imageUploadInput').click()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span>Change Image</span>
+                    </div>
+                    <form id="imageUploadForm" method="post" asp-page-handler="UploadImage" asp-route-id="@Model.Asset.Id" enctype="multipart/form-data" style="display:none;">
+                        <input type="file" id="imageUploadInput" name="imageFile" accept="image/*" onchange="document.getElementById('imageUploadForm').submit();" />
+                    </form>
+                    <div class="qr-code-badge" onclick="var p=document.getElementById('qrPanel');p.style.display=p.style.display==='none'?'':'none';" title="View QR Code">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=64x64&data=@Uri.EscapeDataString($"ASSET:{Model.Asset.AssetNumber}")" alt="QR" />
+                    </div>
+                    @if (hasHealthScore)
+                    {
+                        <div class="health-ring">
+                            <span class="health-ring-value">@healthScore</span>
+                            <span class="health-ring-label">Health</span>
+                        </div>
+                    }
+                </div>
+                <div class="asset-hero-info">
+                    @{
+                        var statusTone = Model.Asset.Status switch {
+                            AssetStatus.Active => "success",
+                            AssetStatus.FullyDepreciated => "info",
+                            AssetStatus.Disposed => "danger",
+                            AssetStatus.Transferred => "warning",
+                            AssetStatus.WrittenOff => "danger",
+                            AssetStatus.Impaired => "warning",
+                            AssetStatus.Held => "muted",
+                            _ => "info"
+                        };
+                        var heroHeaderVd = new ViewDataDictionary(ViewData)
+                        {
+                            ["HeaderTitle"] = Model.Asset.AssetNumber,
+                            ["Subtitle"] = Model.Asset.Description,
+                            ["TypeLabel"] = $"{Model.Asset.AssetType} Asset",
+                            ["StatusText"] = Model.Asset.Status.ToString(),
+                            ["StatusTone"] = statusTone,
+                            ["ContextPartial"] = "Assets/_AssetHeroContext",
+                            ["KpisPartial"] = "Assets/_AssetHeroKpis",
+                            ["ActionsPartial"] = "Assets/_AssetHeroActions"
+                        };
+                    }
+                    @await Html.PartialAsync("Shared/_ScreenHeader", heroHeaderVd)
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats Row - Best of Breed Feature -->
+        <div class="quick-stats-row">
+            <div class="quick-stat-card">
+                <div class="quick-stat-icon work-orders">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                </div>
+                <div class="quick-stat-content">
+                    <div class="quick-stat-value @(Model.OpenWorkOrderCount > 0 ? "has-count" : "")">@Model.OpenWorkOrderCount</div>
+                    <div class="quick-stat-label">Open Work Orders</div>
+                </div>
+            </div>
+            <div class="quick-stat-card">
+                <div class="quick-stat-icon next-pm @(Model.DaysUntilNextPM >= 0 && Model.DaysUntilNextPM <= 7 ? "urgent" : "")">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </div>
+                <div class="quick-stat-content">
+                    @if (Model.DaysUntilNextPM >= 0)
+                    {
+                        <div class="quick-stat-value @(Model.DaysUntilNextPM <= 7 ? "warn" : "")">@Model.DaysUntilNextPM days</div>
+                        <div class="quick-stat-label">Next PM Due</div>
+                    }
+                    else
+                    {
+                        <div class="quick-stat-value muted">—</div>
+                        <div class="quick-stat-label">No PM Scheduled</div>
+                    }
+                </div>
+            </div>
+            <div class="quick-stat-card">
+                <div class="quick-stat-icon last-maint">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </div>
+                <div class="quick-stat-content">
+                    @if (Model.LastMaintenanceDate.HasValue)
+                    {
+                        <div class="quick-stat-value">@Model.LastMaintenanceDate.Value.ToString("MMM d, yyyy")</div>
+                    }
+                    else
+                    {
+                        <div class="quick-stat-value muted">—</div>
+                    }
+                    <div class="quick-stat-label">Last Maintenance</div>
+                </div>
+            </div>
+            <div class="quick-stat-card">
+                <div class="quick-stat-icon cost-ytd">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div class="quick-stat-content">
+                    <div class="quick-stat-value">@Model.FormatMoney(Model.TotalMaintenanceCostYTD, Model.Asset.Currency)</div>
+                    <div class="quick-stat-label">Maintenance Cost YTD</div>
+                </div>
+            </div>
+            <div class="quick-stat-card clickable" onclick="document.querySelector('[data-tab=attachments]')?.click()">
+                <div class="quick-stat-icon attachments">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                </div>
+                <div class="quick-stat-content">
+                    <div class="quick-stat-value">@Model.Attachments.Count</div>
+                    <div class="quick-stat-label">Attachments</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Timeline - Best of Breed Feature -->
+        @if (Model.RecentActivity.Any())
+        {
+            <div class="activity-timeline-card">
+                <div class="activity-header">
+                    <h3 class="activity-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Recent Activity
+                    </h3>
+                    <a href="/operations/maintenance?assetId=@Model.Asset.Id" class="activity-view-all">View All</a>
+                </div>
+                <div class="activity-list">
+                    @foreach (var activity in Model.RecentActivity)
+                    {
+                        <div class="activity-item">
+                            <div class="activity-dot @activity.Status.ToString().ToLower()"></div>
+                            <div class="activity-content">
+                                <div class="activity-desc">@activity.Description</div>
+                                <div class="activity-meta">
+                                    <span class="activity-type">@activity.Type</span>
+                                    <span class="activity-date">@activity.CreatedAt.ToString("MMM d, yyyy")</span>
+                                </div>
+                            </div>
+                            <div class="activity-status @activity.Status.ToString().ToLower()">@activity.Status</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <!-- Create Mode Header -->
+        var createHeaderVd = new ViewDataDictionary(ViewData)
+        {
+            ["HeaderTitle"] = "Register Capital Asset",
+            ["Subtitle"] = "Add a new machine, equipment, or capital asset to your inventory",
+            ["TypeLabel"] = "New Asset",
+            ["ShowBackLink"] = true,
+            ["BackLinkFallback"] = ViewData["FallbackPage"] ?? "/Assets",
+            ["BackLinkLabel"] = ViewData["FallbackLabel"] ?? "Assets"
+        };
+        @await Html.PartialAsync("Shared/_ScreenHeader", createHeaderVd)
+    }
+
+    @{
+        var activeTab = Request.Query["tab"].FirstOrDefault() ?? "general";
+    }
+    <!-- Premium Tabs Card -->
+    <div class="premium-tabs">
+        <form method="post">
+            <input type="hidden" asp-for="Asset.Id" />
+            <input type="hidden" asp-for="Mode" />
+            <input type="hidden" asp-for="Asset.CreatedAt" />
+            <input type="hidden" asp-for="Asset.CreatedBy" />
+
+            @{
+                var assetTabs = new List<(string keyOrHref, string label, bool active, int? count, string? icon)> {
+                    ("general", "General", activeTab == "general", null, null),
+                    ("location", "Location", activeTab == "location", null, null),
+                    ("financial", "Financial", activeTab == "financial", null, null),
+                    ("technical", "Technical", activeTab == "technical", null, null),
+                    ("mes", "MES/OEE", activeTab == "mes", null, null),
+                    ("iot", "IoT", activeTab == "iot", null, null),
+                    ("safety", "Safety", activeTab == "safety", null, null),
+                    ("warranty", "Warranty", activeTab == "warranty", null, null)
+                };
+                if (!Model.IsCreateMode)
+                {
+                    assetTabs.Add(("hierarchy", "Hierarchy", activeTab == "hierarchy", null, null));
+                    assetTabs.Add(("attachments", "Attachments", activeTab == "attachments", null, null));
+                    assetTabs.Add(("transactions", "Transactions", activeTab == "transactions", null, null));
+                }
+            }
+            @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+                { "TabId", "asset-tabs" },
+                { "Mode", "button" },
+                { "UrlParam", "tab" },
+                { "AriaLabel", "Asset detail sections" },
+                { "Tabs", assetTabs }
+            })
+
+                <!-- General Tab -->
+                <div class="tab-panel @(activeTab == "general" ? "active" : "")" id="panel-general" role="tabpanel" aria-labelledby="asset-tabs-general" @(activeTab != "general" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--blue"></span>
+                            <span class="spec-title">Basic Information</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Basic Information</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Asset Number *</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.AssetNumber" class="form-control" placeholder="e.g., AST-00001" />
+                                    <span asp-validation-for="Asset.AssetNumber" class="form-error"></span>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.Asset!.AssetNumber</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Tag Number</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.TagNumber" class="form-control" placeholder="Physical barcode tag" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.TagNumber ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Status</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.StatusLookupValueId" asp-items="Model.StatusOptions" class="form-select"></select>
+                                }
+                                else
+                                {
+                                    <div class="form-value"><span class="badge @(Model.Asset!.Status == AssetStatus.Active ? "badge-success" : "badge-secondary")">@Model.Asset!.Status</span></div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 2;">
+                                <label class="form-label">Description *</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Description" class="form-control" placeholder="Short description" />
+                                    <span asp-validation-for="Asset.Description" class="form-error"></span>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.Asset!.Description</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Asset Type</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.AssetTypeLookupValueId" asp-items="Model.AssetTypeOptions" class="form-control" data-cherry-select data-placeholder="Search asset types...">
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.AssetType ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Long Description</label>
+                                @if (isEditable)
+                                {
+                                    <textarea asp-for="Asset.LongDescription" class="form-control" rows="2" placeholder="Detailed description"></textarea>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.LongDescription ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--emerald"></span>
+                            <span class="spec-title">Identification</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Identification</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Model</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Model" class="form-control" placeholder="Model number" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Model ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Serial Number</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.SerialNumber" class="form-control" placeholder="Serial number" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.SerialNumber ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Classification Code</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.ClassificationCode" class="form-control" placeholder="e.g., MACH-CNC" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.ClassificationCode ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Manufacturer</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.ManufacturerId" class="form-control" data-cherry-select data-placeholder="Search manufacturers...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var m in Model.Manufacturers)
+                                        {
+                                            <option value="@m.Id" selected="@(Model.Asset!.ManufacturerId == m.Id)">@m.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Manufacturer?.Name ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Vendor</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.VendorId" class="form-control" data-cherry-select data-placeholder="Search vendors...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var v in Model.Vendors)
+                                        {
+                                            <option value="@v.Id" selected="@(Model.Asset!.VendorId == v.Id)">@v.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.VendorRef?.Name ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Category</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.AssetCategoryId" class="form-control" data-cherry-select data-placeholder="Search categories...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var c in Model.Categories)
+                                        {
+                                            <option value="@c.Id" selected="@(Model.Asset!.AssetCategoryId == c.Id)">@c.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.AssetCategory?.Name ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Classification & Priority</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Classification & Priority</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Priority (1=Critical, 5=Low)</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.AssetPriorityLookupValueId" asp-items="Model.AssetPriorityOptions" class="form-control">
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value"><span class="badge @(Model.Asset!.Priority <= 2 ? "badge-danger" : "badge-secondary")">@Model.Asset!.Priority</span></div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Condition</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.ConditionLookupValueId" asp-items="Model.ConditionOptions" class="form-select" data-cherry-select data-placeholder="Search conditions..."></select>
+                                }
+                                else
+                                {
+                                    <div class="form-value"><span class="badge badge-secondary">@Model.Asset!.Condition</span></div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.IsCritical" type="checkbox" />
+                                        <span class="checkbox-text">Critical Asset</span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.IsRotating" type="checkbox" />
+                                        <span class="checkbox-text">Rotating Equipment</span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.IsLinear" type="checkbox" />
+                                        <span class="checkbox-text">Linear Asset</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Critical Asset</label>
+                                    <div class="form-value">@(Model.Asset!.IsCritical ? "Yes" : "No")</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Rotating Equipment</label>
+                                    <div class="form-value">@(Model.Asset.IsRotating ? "Yes" : "No")</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Linear Asset</label>
+                                    <div class="form-value">@(Model.Asset.IsLinear ? "Yes" : "No")</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                        @if (Model.IsCreateMode)
+                        {
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Parent Asset</label>
+                                    <select asp-for="Asset.ParentAssetId" class="form-control" data-cherry-select data-placeholder="Search parent assets...">
+                                        <option value="">-- No Parent --</option>
+                                        @foreach (var a in Model.ParentAssets)
+                                        {
+                                            <option value="@a.Id">@a.AssetNumber - @a.Description</option>
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Location Tab -->
+                <div class="tab-panel @(activeTab == "location" ? "active" : "")" id="panel-location" role="tabpanel" aria-labelledby="asset-tabs-location" @(activeTab != "location" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">Organization</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Organization</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Company</label>
+                                <div class="form-value">@(Model.Asset!.Company?.Name ?? "-")</div>
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Site</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.SiteId" class="form-control" data-cherry-select data-placeholder="Search sites...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var s in Model.Sites)
+                                        {
+                                            <option value="@s.Id" selected="@(Model.Asset!.SiteId == s.Id)">@s.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Site?.Name ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Location</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.LocationId" class="form-control" data-cherry-select data-placeholder="Search locations...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var l in Model.Locations)
+                                        {
+                                            <option value="@l.Id" selected="@(Model.Asset!.LocationId == l.Id)">@l.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.LocationRef?.Name ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--cyan"></span>
+                            <span class="spec-title">Precise Location</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Precise Location</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Bay</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Bay" class="form-control" placeholder="e.g., Bay 1" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Bay ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Row</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Row" class="form-control" placeholder="e.g., Row A" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Row ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Aisle</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Aisle" class="form-control" placeholder="e.g., Aisle 3" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Aisle ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Position</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.Position" class="form-control" placeholder="e.g., Position 5" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.Position ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Cost Allocation</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Cost Allocation</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Department</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.DepartmentId" class="form-control" data-cherry-select data-placeholder="Search departments...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var d in Model.Departments)
+                                        {
+                                            <option value="@d.Id" selected="@(Model.Asset!.DepartmentId == d.Id)">@d.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.DepartmentRef?.Name ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Cost Center</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.CostCenterId" class="form-control" data-cherry-select data-placeholder="Search cost centers...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var c in Model.CostCenters)
+                                        {
+                                            <option value="@c.Id" selected="@(Model.Asset!.CostCenterId == c.Id)">@c.Code - @c.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.CostCenterRef != null ? $"{Model.Asset!.CostCenterRef.Code} - {Model.Asset!.CostCenterRef.Name}" : "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Tab -->
+                <div class="tab-panel @(activeTab == "financial" ? "active" : "")" id="panel-financial" role="tabpanel" aria-labelledby="asset-tabs-financial" @(activeTab != "financial" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--blue"></span>
+                            <span class="spec-title">Acquisition</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Acquisition</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Purchase Date</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.PurchaseDate" type="date" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatDate(Model.Asset!.PurchaseDate)</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">In-Service Date *</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.InServiceDate" type="date" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatDate(Model.Asset!.InServiceDate)</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Install Date</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.InstallDate" type="date" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatDate(Model.Asset!.InstallDate)</div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">PO Number</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.PurchaseOrderNumber" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.PurchaseOrderNumber ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Invoice Number</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.InvoiceNumber" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.InvoiceNumber ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Currency</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.Currency" asp-items="Model.CurrencyOptions" class="form-control">
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.Asset!.Currency</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--emerald"></span>
+                            <span class="spec-title">Values</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Values</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Acquisition Cost *</label>
+                                @if (isEditable)
+                                {
+                                    <div class="input-group">
+                                        <span class="input-prefix">$</span>
+                                        <input asp-for="Asset.AcquisitionCost" class="form-control" step="0.01" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.AcquisitionCost, Model.Asset!.Currency)</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Salvage Value</label>
+                                @if (isEditable)
+                                {
+                                    <div class="input-group">
+                                        <span class="input-prefix">$</span>
+                                        <input asp-for="Asset.SalvageValue" class="form-control" step="0.01" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.SalvageValue, Model.Asset!.Currency)</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Replacement Cost</label>
+                                @if (isEditable)
+                                {
+                                    <div class="input-group">
+                                        <span class="input-prefix">$</span>
+                                        <input asp-for="Asset.ReplacementCost" class="form-control" step="0.01" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.ReplacementCost, Model.Asset!.Currency)</div>
+                                }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Fair Market Value</label>
+                                @if (isEditable)
+                                {
+                                    <div class="input-group">
+                                        <span class="input-prefix">$</span>
+                                        <input asp-for="Asset.FairMarketValue" class="form-control" step="0.01" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.FairMarketValue ?? 0, Model.Asset!.Currency)</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Insured Value</label>
+                                @if (isEditable)
+                                {
+                                    <div class="input-group">
+                                        <span class="input-prefix">$</span>
+                                        <input asp-for="Asset.InsuredValue" class="form-control" step="0.01" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.InsuredValue ?? 0, Model.Asset!.Currency)</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Depreciation</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Depreciation</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Method</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.DepreciationMethodLookupValueId" asp-items="Model.DepreciationMethodOptions" class="form-select" data-cherry-select data-placeholder="Search depreciation methods..."></select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.Asset!.DepreciationMethod</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Useful Life (Months) *</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.UsefulLifeMonths" type="number" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@Model.Asset!.UsefulLifeMonths months</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Depreciation Rate %</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.DepreciationRate" type="number" step="0.01" class="form-control" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.DepreciationRate?.ToString("N2") ?? "-")%</div>
+                                }
+                            </div>
+                        </div>
+                        @if (!Model.IsCreateMode)
+                        {
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Accumulated Depreciation</label>
+                                    <div class="form-value">@Model.FormatMoney(Model.Asset!.AccumulatedDepreciation, Model.Asset!.Currency)</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Book Value</label>
+                                    <div class="form-value"><strong>@Model.FormatMoney(Model.Asset.BookValue ?? 0, Model.Asset.Currency)</strong></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">GL Accounts</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">GL Accounts</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Asset Account</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.GLAssetAccount" class="form-control" placeholder="e.g., 1510" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.GLAssetAccount ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Accum. Depr. Account</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.GLAccumDepAccount" class="form-control" placeholder="e.g., 1515" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.GLAccumDepAccount ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Depr. Expense Account</label>
+                                @if (isEditable)
+                                {
+                                    <input asp-for="Asset.GLDepExpenseAccount" class="form-control" placeholder="e.g., 6100" />
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.GLDepExpenseAccount ?? "-")</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technical Tab -->
+                <div class="tab-panel @(activeTab == "technical" ? "active" : "")" id="panel-technical" role="tabpanel" aria-labelledby="asset-tabs-technical" @(activeTab != "technical" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Electrical</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Electrical</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Horsepower</label>
+                                @if (isEditable) { <input asp-for="Asset.Horsepower" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.Horsepower?.ToString("N2") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Kilowatt Rating</label>
+                                @if (isEditable) { <input asp-for="Asset.KilowattRating" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.KilowattRating?.ToString("N2") ?? "-") kW</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Voltage</label>
+                                @if (isEditable) { <input asp-for="Asset.Voltage" type="number" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.Voltage?.ToString() ?? "-") V</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Amperage</label>
+                                @if (isEditable) { <input asp-for="Asset.Amperage" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.Amperage?.ToString("N2") ?? "-") A</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--cyan"></span>
+                            <span class="spec-title">Physical</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Physical</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">RPM</label>
+                                @if (isEditable) { <input asp-for="Asset.RPM" type="number" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.RPM?.ToString() ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Capacity</label>
+                                @if (isEditable) { <input asp-for="Asset.Capacity" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.Capacity?.ToString("N2") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Capacity UOM</label>
+                                @if (isEditable) { <input asp-for="Asset.CapacityUOM" class="form-control" placeholder="e.g., tons" /> }
+                                else { <div class="form-value">@(Model.Asset!.CapacityUOM ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Weight</label>
+                                @if (isEditable) { <input asp-for="Asset.Weight" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.Weight?.ToString("N2") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Weight UOM</label>
+                                @if (isEditable) { <input asp-for="Asset.WeightUOM" class="form-control" placeholder="e.g., lbs" /> }
+                                else { <div class="form-value">@(Model.Asset!.WeightUOM ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label class="form-label">Dimensions (L x W x H)</label>
+                                @if (isEditable) { <input asp-for="Asset.Dimensions" class="form-control" placeholder='e.g., 120" L x 60" W x 72" H' /> }
+                                else { <div class="form-value">@(Model.Asset!.Dimensions ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">Meter Tracking</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Meter Tracking</h4>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.HasMeter" type="checkbox" />
+                                        <span class="checkbox-text">Has Meter</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Has Meter</label>
+                                    <div class="form-value">@(Model.Asset!.HasMeter ? "Yes" : "No")</div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Meter Type</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.MeterType" asp-items="Model.MeterUomOptions" class="form-control">
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">@(Model.Asset!.MeterType ?? "-")</div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Current Reading</label>
+                                @if (isEditable) { <input asp-for="Asset.CurrentMeterReading" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value"><strong>@(Model.Asset!.CurrentMeterReading?.ToString("N0") ?? "-")</strong></div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Last Reading Date</label>
+                                @if (isEditable) { <input asp-for="Asset.LastMeterReadingDate" type="date" class="form-control" /> }
+                                else { <div class="form-value">@Model.FormatDate(Model.Asset!.LastMeterReadingDate)</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    @if (!Model.IsCreateMode && Model.Asset!.HasMeter)
+                    {
+                        <div class="spec-card collapsed">
+                            <div class="spec-header">
+                                <span class="accent-dot accent-dot--indigo"></span>
+                                <span class="spec-title">Meter Reading History (@Model.MeterReadings.Count)</span>
+                                <span class="spec-chevron">▾</span>
+                            </div>
+                            <div class="spec-body">
+                                <div id="meterReadingHistoryPlaceholder"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Machine Specifications (inside main form for view mode, separate form below for edit) -->
+
+                <!-- MES/OEE Tab -->
+                <div class="tab-panel @(activeTab == "mes" ? "active" : "")" id="panel-mes" role="tabpanel" aria-labelledby="asset-tabs-mes" @(activeTab != "mes" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Work Center Assignment</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Work Center Assignment</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Work Center ID</label>
+                                @if (isEditable) { <input asp-for="Asset.WorkCenterId" class="form-control" placeholder="e.g., WC-001" /> }
+                                else { <div class="form-value">@(Model.Asset!.WorkCenterId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Work Center Name</label>
+                                @if (isEditable) { <input asp-for="Asset.WorkCenterName" class="form-control" placeholder="e.g., CNC Machining" /> }
+                                else { <div class="form-value">@(Model.Asset!.WorkCenterName ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Production Line</label>
+                                @if (isEditable) { <input asp-for="Asset.ProductionLineId" class="form-control" placeholder="e.g., LINE-A" /> }
+                                else { <div class="form-value">@(Model.Asset!.ProductionLineName ?? Model.Asset!.ProductionLineId ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Cell ID</label>
+                                @if (isEditable) { <input asp-for="Asset.CellId" class="form-control" placeholder="e.g., CELL-01" /> }
+                                else { <div class="form-value">@(Model.Asset!.CellId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Process ID</label>
+                                @if (isEditable) { <input asp-for="Asset.ProcessId" class="form-control" placeholder="e.g., PROC-100" /> }
+                                else { <div class="form-value">@(Model.Asset!.ProcessId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Operation ID</label>
+                                @if (isEditable) { <input asp-for="Asset.OperationId" class="form-control" placeholder="e.g., OP-010" /> }
+                                else { <div class="form-value">@(Model.Asset!.OperationId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Routing Sequence</label>
+                                @if (isEditable) { <input asp-for="Asset.RoutingSequence" type="number" class="form-control" placeholder="e.g., 10" /> }
+                                else { <div class="form-value">@(Model.Asset!.RoutingSequence?.ToString() ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Shift Calendar</label>
+                                @if (isEditable) { <input asp-for="Asset.ShiftCalendarId" class="form-control" placeholder="e.g., 3-SHIFT" /> }
+                                else { <div class="form-value">@(Model.Asset!.ShiftCalendarId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Planned Hours/Day</label>
+                                @if (isEditable) { <input asp-for="Asset.PlannedProductionHoursPerDay" type="number" class="form-control" placeholder="e.g., 16" /> }
+                                else { <div class="form-value">@(Model.Asset!.PlannedProductionHoursPerDay?.ToString() ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">OEE Configuration</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">OEE Configuration</h4>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.OEETracked" type="checkbox" />
+                                        <span class="checkbox-text">OEE Tracked</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">OEE Tracked</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.OEETracked ? "badge-success" : "badge-secondary")">@(Model.Asset!.OEETracked ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Standard Run Rate</label>
+                                @if (isEditable) { <input asp-for="Asset.StandardRunRate" type="number" step="0.0001" class="form-control" placeholder="Units per hour" /> }
+                                else { <div class="form-value">@(Model.Asset!.StandardRunRate?.ToString("N2") ?? "-") @(Model.Asset!.StandardRunRateUOM ?? "units/hr")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Ideal Cycle Time (sec)</label>
+                                @if (isEditable) { <input asp-for="Asset.IdealCycleTimeSeconds" type="number" step="0.0001" class="form-control" placeholder="Seconds per unit" /> }
+                                else { <div class="form-value">@(Model.Asset!.IdealCycleTimeSeconds?.ToString("N2") ?? "-") sec</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Target Availability %</label>
+                                @if (isEditable) { <input asp-for="Asset.TargetAvailability" type="number" step="0.01" class="form-control" placeholder="e.g., 90.00" /> }
+                                else { <div class="form-value">@(Model.Asset!.TargetAvailability?.ToString("N1") ?? "-")%</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Target Performance %</label>
+                                @if (isEditable) { <input asp-for="Asset.TargetPerformance" type="number" step="0.01" class="form-control" placeholder="e.g., 95.00" /> }
+                                else { <div class="form-value">@(Model.Asset!.TargetPerformance?.ToString("N1") ?? "-")%</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Target Quality %</label>
+                                @if (isEditable) { <input asp-for="Asset.TargetQuality" type="number" step="0.01" class="form-control" placeholder="e.g., 99.50" /> }
+                                else { <div class="form-value">@(Model.Asset!.TargetQuality?.ToString("N1") ?? "-")%</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Target OEE %</label>
+                                @if (isEditable) { <input asp-for="Asset.TargetOEE" type="number" step="0.01" class="form-control" placeholder="e.g., 85.00" /> }
+                                else { <div class="form-value"><strong>@(Model.Asset!.TargetOEE?.ToString("N1") ?? "-")%</strong></div> }
+                            </div>
+                        </div>
+                        @if (!Model.IsCreateMode && !isEditable)
+                        {
+                            <div class="form-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Current Availability</label>
+                                    <div class="form-value">@(Model.Asset!.CurrentAvailability?.ToString("N1") ?? "-")%</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Current Performance</label>
+                                    <div class="form-value">@(Model.Asset.CurrentPerformance?.ToString("N1") ?? "-")%</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Current Quality</label>
+                                    <div class="form-value">@(Model.Asset.CurrentQuality?.ToString("N1") ?? "-")%</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Current OEE</label>
+                                    <div class="form-value"><strong>@(Model.Asset.CurrentOEE?.ToString("N1") ?? "-")%</strong></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Predictive Maintenance Thresholds</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Predictive Maintenance Thresholds</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Vibration Warning (mm/s)</label>
+                                @if (isEditable) { <input asp-for="Asset.VibrationWarningThreshold" type="number" step="0.001" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.VibrationWarningThreshold?.ToString("N2") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Vibration Alarm (mm/s)</label>
+                                @if (isEditable) { <input asp-for="Asset.VibrationAlarmThreshold" type="number" step="0.001" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.VibrationAlarmThreshold?.ToString("N2") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Temp Warning (°C)</label>
+                                @if (isEditable) { <input asp-for="Asset.TemperatureWarningThreshold" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.TemperatureWarningThreshold?.ToString("N1") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Temp Alarm (°C)</label>
+                                @if (isEditable) { <input asp-for="Asset.TemperatureAlarmThreshold" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.TemperatureAlarmThreshold?.ToString("N1") ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Pressure Warning</label>
+                                @if (isEditable) { <input asp-for="Asset.PressureWarningThreshold" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.PressureWarningThreshold?.ToString("N1") ?? "-") @(Model.Asset!.PressureUOM ?? "PSI")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Pressure Alarm</label>
+                                @if (isEditable) { <input asp-for="Asset.PressureAlarmThreshold" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.PressureAlarmThreshold?.ToString("N1") ?? "-") @(Model.Asset!.PressureUOM ?? "PSI")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Pressure UOM</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.PressureUOM" asp-items="Model.PressureUnitOptions" class="form-control">
+                                    </select>
+                                }
+                                else { <div class="form-value">@(Model.Asset!.PressureUOM ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IoT Tab -->
+                <div class="tab-panel @(activeTab == "iot" ? "active" : "")" id="panel-iot" role="tabpanel" aria-labelledby="asset-tabs-iot" @(activeTab != "iot" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--cyan"></span>
+                            <span class="spec-title">IoT Device Configuration</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">IoT Device Configuration</h4>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.IoTEnabled" type="checkbox" />
+                                        <span class="checkbox-text">IoT Enabled</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">IoT Enabled</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.IoTEnabled ? "badge-success" : "badge-secondary")">@(Model.Asset!.IoTEnabled ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Device ID</label>
+                                @if (isEditable) { <input asp-for="Asset.IoTDeviceId" class="form-control" placeholder="e.g., DEV-001-CNC" /> }
+                                else { <div class="form-value">@(Model.Asset!.IoTDeviceId ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Gateway ID</label>
+                                @if (isEditable) { <input asp-for="Asset.IoTGatewayId" class="form-control" placeholder="e.g., GW-PLANT1" /> }
+                                else { <div class="form-value">@(Model.Asset!.IoTGatewayId ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Protocol</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.IoTProtocol" asp-items="Model.IoTProtocolOptions" class="form-control">
+                                    </select>
+                                }
+                                else { <div class="form-value">@(Model.Asset!.IoTProtocol ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 2;">
+                                <label class="form-label">Endpoint URL</label>
+                                @if (isEditable) { <input asp-for="Asset.IoTEndpointUrl" class="form-control" placeholder="e.g., opc.tcp://192.168.1.100:4840" /> }
+                                else { <div class="form-value">@(Model.Asset!.IoTEndpointUrl ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">IP Address</label>
+                                @if (isEditable) { <input asp-for="Asset.IPAddress" class="form-control" placeholder="e.g., 192.168.1.100" /> }
+                                else { <div class="form-value">@(Model.Asset!.IPAddress ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">MAC Address</label>
+                                @if (isEditable) { <input asp-for="Asset.MACAddress" class="form-control" placeholder="e.g., 00:1A:2B:3C:4D:5E" /> }
+                                else { <div class="form-value">@(Model.Asset!.MACAddress ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Polling Interval (sec)</label>
+                                @if (isEditable) { <input asp-for="Asset.IoTPollingIntervalSeconds" type="number" class="form-control" placeholder="e.g., 60" /> }
+                                else { <div class="form-value">@(Model.Asset!.IoTPollingIntervalSeconds?.ToString() ?? "-") sec</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--cyan"></span>
+                            <span class="spec-title">Data Integration</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Data Integration</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Data Historian Tag</label>
+                                @if (isEditable) { <input asp-for="Asset.DataHistorianTag" class="form-control" placeholder="e.g., PLANT1.CNC01.TEMP" /> }
+                                else { <div class="form-value">@(Model.Asset!.DataHistorianTag ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">SCADA Tag</label>
+                                @if (isEditable) { <input asp-for="Asset.SCADATag" class="form-control" placeholder="e.g., CNC01_STATUS" /> }
+                                else { <div class="form-value">@(Model.Asset!.SCADATag ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    @if (!Model.IsCreateMode && !isEditable)
+                    {
+                        <div class="spec-card collapsed">
+                            <div class="spec-header">
+                                <span class="accent-dot accent-dot--cyan"></span>
+                                <span class="spec-title">Connection Status</span>
+                                <span class="spec-chevron">▾</span>
+                            </div>
+                            <div class="spec-body">
+                        <div class="form-section">
+                            <h4 class="form-section-title">Connection Status</h4>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Status</label>
+                                    <div class="form-value">
+                                        @{
+                                            var iotStatus = Model.Asset!.IoTConnectionStatus ?? "Unknown";
+                                            var iotStatusClass = iotStatus == "Online" ? "badge-success" : iotStatus == "Offline" ? "badge-danger" : "badge-secondary";
+                                        }
+                                        <span class="badge @iotStatusClass">@iotStatus</span>
+                                    </div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Last Communication</label>
+                                    <div class="form-value">@(Model.Asset.LastIoTCommunication?.ToString("g") ?? "-")</div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+
+                        <div class="spec-card collapsed">
+                            <div class="spec-header">
+                                <span class="accent-dot accent-dot--cyan"></span>
+                                <span class="spec-title">Current Sensor Readings</span>
+                                <span class="spec-chevron">▾</span>
+                            </div>
+                            <div class="spec-body">
+                        <div class="form-section">
+                            <h4 class="form-section-title">Current Sensor Readings</h4>
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Temperature</label>
+                                    <div class="form-value">@(Model.Asset.CurrentTemperature?.ToString("N1") ?? "-") °C</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Vibration</label>
+                                    <div class="form-value">@(Model.Asset.CurrentVibration?.ToString("N2") ?? "-") mm/s</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Pressure</label>
+                                    <div class="form-value">@(Model.Asset.CurrentPressure?.ToString("N1") ?? "-") @(Model.Asset.PressureUOM ?? "PSI")</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Last Updated</label>
+                                    <div class="form-value">@(Model.Asset.SensorReadingsLastUpdated?.ToString("g") ?? "-")</div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Safety Tab -->
+                <div class="tab-panel @(activeTab == "safety" ? "active" : "")" id="panel-safety" role="tabpanel" aria-labelledby="asset-tabs-safety" @(activeTab != "safety" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Safety Classification</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Safety Classification</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Safety Class</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.SafetyClassification" asp-items="Model.SafetyClassOptions" class="form-control">
+                                    </select>
+                                }
+                                else
+                                {
+                                    <div class="form-value">
+                                        @{
+                                            var safetyClass = Model.Asset!.SafetyClassification ?? "Not Classified";
+                                            var safetyBadge = safetyClass == "Critical" ? "badge-danger" : safetyClass == "High" ? "badge-warning" : "badge-secondary";
+                                        }
+                                        <span class="badge @safetyBadge">@safetyClass</span>
+                                    </div>
+                                }
+                            </div>
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input asp-for="Asset.LockoutTagoutRequired" type="checkbox" />
+                                        <span class="checkbox-text">LOTO Required</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">LOTO Required</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.LockoutTagoutRequired ? "badge-danger" : "badge-secondary")">@(Model.Asset!.LockoutTagoutRequired ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">LOTO Procedure ID</label>
+                                @if (isEditable) { <input asp-for="Asset.LOTOProcedureId" class="form-control" placeholder="e.g., LOTO-CNC-001" /> }
+                                else { <div class="form-value">@(Model.Asset!.LOTOProcedureId ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.ConfinedSpaceEntry" type="checkbox" /><span class="checkbox-text">Confined Space Entry</span></label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.HotWorkPermitRequired" type="checkbox" /><span class="checkbox-text">Hot Work Permit</span></label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.HighVoltage" type="checkbox" /><span class="checkbox-text">High Voltage</span></label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Confined Space</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.ConfinedSpaceEntry ? "badge-warning" : "badge-secondary")">@(Model.Asset!.ConfinedSpaceEntry ? "Yes" : "No")</span></div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Hot Work Permit</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset.HotWorkPermitRequired ? "badge-warning" : "badge-secondary")">@(Model.Asset.HotWorkPermitRequired ? "Yes" : "No")</span></div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">High Voltage</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset.HighVoltage ? "badge-danger" : "badge-secondary")">@(Model.Asset.HighVoltage ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Safety Notes</label>
+                                @if (isEditable) { <textarea asp-for="Asset.SafetyNotes" class="form-control" rows="2" placeholder="Special safety requirements..."></textarea> }
+                                else { <div class="form-value">@(Model.Asset!.SafetyNotes ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Environmental & Regulatory</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Environmental & Regulatory</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Environmental Class</label>
+                                @if (isEditable) { <input asp-for="Asset.EnvironmentalClass" class="form-control" placeholder="e.g., Class I" /> }
+                                else { <div class="form-value">@(Model.Asset!.EnvironmentalClass ?? "-")</div> }
+                            </div>
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.EmissionsMonitored" type="checkbox" /><span class="checkbox-text">Emissions Monitored</span></label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Emissions Monitored</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.EmissionsMonitored ? "badge-warning" : "badge-secondary")">@(Model.Asset!.EmissionsMonitored ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">EPA Permit #</label>
+                                @if (isEditable) { <input asp-for="Asset.EPAPermitNumber" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.EPAPermitNumber ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">OSHA Classification</label>
+                                @if (isEditable) { <input asp-for="Asset.OSHAClassification" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.OSHAClassification ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Calibration</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Calibration</h4>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.CalibrationRequired" type="checkbox" /><span class="checkbox-text">Calibration Required</span></label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Calibration Required</label>
+                                    <div class="form-value"><span class="badge @(Model.Asset!.CalibrationRequired ? "badge-primary" : "badge-secondary")">@(Model.Asset!.CalibrationRequired ? "Yes" : "No")</span></div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Calibration Type</label>
+                                @if (isEditable) { <input asp-for="Asset.CalibrationType" class="form-control" placeholder="e.g., Annual" /> }
+                                else { <div class="form-value">@(Model.Asset!.CalibrationType ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Frequency (Days)</label>
+                                @if (isEditable) { <input asp-for="Asset.CalibrationFrequencyDays" type="number" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.CalibrationFrequencyDays?.ToString() ?? "-") days</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Last Calibration</label>
+                                @if (isEditable) { <input asp-for="Asset.LastCalibrationDate" type="date" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.LastCalibrationDate?.ToString("yyyy-MM-dd") ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Next Due</label>
+                                @if (isEditable) { <input asp-for="Asset.NextCalibrationDue" type="date" class="form-control" /> }
+                                else
+                                {
+                                    <div class="form-value">
+                                        @if (Model.Asset!.NextCalibrationDue.HasValue)
+                                        {
+                                            var isCalOverdue = Model.Asset.NextCalibrationDue.Value < DateTime.Today;
+                                            <span class="badge @(isCalOverdue ? "badge-danger" : "badge-success")">@Model.Asset.NextCalibrationDue.Value.ToString("yyyy-MM-dd") @(isCalOverdue ? "(Overdue)" : "")</span>
+                                        }
+                                        else { <text>-</text> }
+                                    </div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Certificate #</label>
+                                @if (isEditable) { <input asp-for="Asset.CalibrationCertificateNumber" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.CalibrationCertificateNumber ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Calibration Vendor</label>
+                                @if (isEditable) { <input asp-for="Asset.CalibrationVendor" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.CalibrationVendor ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Energy Management</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Energy Management</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Energy Class</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.EnergyClass" asp-items="Model.EnergyEfficiencyOptions" class="form-control">
+                                    </select>
+                                }
+                                else { <div class="form-value">@(Model.Asset!.EnergyClass ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Rated Power (kW)</label>
+                                @if (isEditable) { <input asp-for="Asset.RatedPowerConsumptionKW" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.RatedPowerConsumptionKW?.ToString("N2") ?? "-") kW</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Idle Power (kW)</label>
+                                @if (isEditable) { <input asp-for="Asset.IdlePowerConsumptionKW" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.IdlePowerConsumptionKW?.ToString("N2") ?? "-") kW</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Standby Power (kW)</label>
+                                @if (isEditable) { <input asp-for="Asset.StandbyPowerConsumptionKW" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.StandbyPowerConsumptionKW?.ToString("N2") ?? "-") kW</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label"><input asp-for="Asset.HasStandbyMode" type="checkbox" /><span class="checkbox-text">Has Standby Mode</span></label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Has Standby Mode</label>
+                                    <div class="form-value">@(Model.Asset!.HasStandbyMode ? "Yes" : "No")</div>
+                                </div>
+                            }
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Annual Energy (kWh)</label>
+                                @if (isEditable) { <input asp-for="Asset.AnnualEnergyConsumptionKWH" type="number" step="0.01" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.AnnualEnergyConsumptionKWH?.ToString("N0") ?? "-") kWh</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Energy Meter ID</label>
+                                @if (isEditable) { <input asp-for="Asset.EnergyMeterId" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.EnergyMeterId ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warranty Tab -->
+                <div class="tab-panel @(activeTab == "warranty" ? "active" : "")" id="panel-warranty" role="tabpanel" aria-labelledby="asset-tabs-warranty" @(activeTab != "warranty" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">Warranty Information</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Warranty Information</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Warranty Start</label>
+                                @if (isEditable) { <input asp-for="Asset.WarrantyStartDate" type="date" class="form-control" /> }
+                                else { <div class="form-value">@Model.FormatDate(Model.Asset!.WarrantyStartDate)</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Warranty End</label>
+                                @if (isEditable) { <input asp-for="Asset.WarrantyEndDate" type="date" class="form-control" /> }
+                                else
+                                {
+                                    <div class="form-value">
+                                        @if (Model.Asset!.WarrantyEndDate.HasValue)
+                                        {
+                                            var isExpired = Model.Asset.WarrantyEndDate.Value < DateTime.Now;
+                                            <span class="badge @(isExpired ? "badge-danger" : "badge-success")">@Model.Asset.WarrantyEndDate.Value.ToString("yyyy-MM-dd") @(isExpired ? "(Expired)" : "(Active)")</span>
+                                        }
+                                        else { <text>-</text> }
+                                    </div>
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Contract #</label>
+                                @if (isEditable) { <input asp-for="Asset.WarrantyContractNumber" class="form-control" /> }
+                                else { <div class="form-value">@(Model.Asset!.WarrantyContractNumber ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Warranty Vendor</label>
+                                @if (isEditable)
+                                {
+                                    <select asp-for="Asset.WarrantyVendorId" class="form-control" data-cherry-select data-placeholder="Search warranty vendors...">
+                                        <option value="">-- Select --</option>
+                                        @foreach (var v in Model.Vendors)
+                                        {
+                                            <option value="@v.Id" selected="@(Model.Asset!.WarrantyVendorId == v.Id)">@v.Name</option>
+                                        }
+                                    </select>
+                                }
+                                else { <div class="form-value">-</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">Notes</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Notes</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                @if (isEditable) { <textarea asp-for="Asset.Notes" class="form-control" rows="4" placeholder="Additional notes..."></textarea> }
+                                else { <div class="form-value" style="white-space: pre-wrap;">@(Model.Asset!.Notes ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!Model.IsCreateMode)
+                {
+                    <!-- Hierarchy Tab -->
+                    <div class="tab-panel @(activeTab == "hierarchy" ? "active" : "")" id="panel-hierarchy" role="tabpanel" aria-labelledby="asset-tabs-hierarchy" @(activeTab != "hierarchy" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                        <div class="spec-card collapsed">
+                            <div class="spec-header">
+                                <span class="accent-dot accent-dot--blue"></span>
+                                <span class="spec-title">Parent Asset</span>
+                                <span class="spec-chevron">▾</span>
+                            </div>
+                            <div class="spec-body">
+                        <div class="form-section">
+                            <h4 class="form-section-title">Parent Asset</h4>
+                            @if (isEditable)
+                            {
+                                <select asp-for="Asset.ParentAssetId" class="form-control" style="max-width: 400px;" data-cherry-select data-placeholder="Search parent assets...">
+                                    <option value="">-- No Parent --</option>
+                                    @foreach (var a in Model.ParentAssets)
+                                    {
+                                        <option value="@a.Id" selected="@(Model.Asset!.ParentAssetId == a.Id)">@a.AssetNumber - @a.Description</option>
+                                    }
+                                </select>
+                            }
+                            else if (Model.ParentAsset != null)
+                            {
+                                <a href="/assets/asset/@Model.ParentAsset.Id" class="hierarchy-link">
+                                    <span class="hierarchy-number">@Model.ParentAsset.AssetNumber</span>
+                                    <span class="hierarchy-desc">@Model.ParentAsset.Description</span>
+                                </a>
+                            }
+                            else
+                            {
+                                <p class="text-muted">No parent asset assigned.</p>
+                            }
+                        </div>
+                            </div>
+                        </div>
+                        <div class="spec-card collapsed">
+                            <div class="spec-header">
+                                <span class="accent-dot accent-dot--blue"></span>
+                                <span class="spec-title">Child Assets (@Model.ChildAssets.Count)</span>
+                                <span class="spec-chevron">▾</span>
+                            </div>
+                            <div class="spec-body">
+                        <div class="form-section">
+                            <h4 class="form-section-title">Child Assets (@Model.ChildAssets.Count)</h4>
+                            @if (Model.ChildAssets.Any())
+                            {
+                                <div class="hierarchy-list">
+                                    @foreach (var child in Model.ChildAssets)
+                                    {
+                                        <a href="/assets/asset/@child.Id" class="hierarchy-link">
+                                            <span class="hierarchy-number">@child.AssetNumber</span>
+                                            <span class="hierarchy-desc">@child.Description</span>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted">No child assets.</p>
+                            }
+                        </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @if (isEditable)
+                {
+                    <div class="form-actions bg-surface-alt" style="padding: 24px 32px; border-top: 1px solid var(--lux-border, #e2e8f0);">
+                        @if (Model.IsCreateMode)
+                        {
+                            <a asp-page="Index" class="btn-p btn-p--secondary">Cancel</a>
+                        }
+                        else
+                        {
+                            <a href="?id=@Model.Asset!.Id&mode=view" class="btn-p btn-p--secondary">Cancel</a>
+                        }
+                        <button type="submit" class="btn-p btn-p--primary">
+                            @(Model.IsCreateMode ? "Create Asset" : "Save Changes")
+                        </button>
+                    </div>
+                }
+        </form>
+
+        @if (!Model.IsCreateMode && Model.Asset!.HasMeter)
+        {
+            <div id="meterReadingContent" style="display:none;">
+                <div class="form-section">
+                    <h4 class="form-section-title">Record New Reading</h4>
+                </div>
+                <form method="post" asp-page-handler="AddMeterReading" asp-route-id="@Model.Asset.Id" class="form-section" style="margin-bottom: 1rem;">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">New Reading *</label>
+                            <input asp-for="NewMeterReading" type="number" step="0.01" min="0" class="form-control" required placeholder="e.g., 12500" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Reading Date</label>
+                            <input asp-for="NewMeterReadingDate" type="date" class="form-control" value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Source</label>
+                            <select asp-for="NewMeterSource" class="form-control">
+                                <option value="Manual">Manual</option>
+                                <option value="IoT">IoT</option>
+                                <option value="Import">Import</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label class="form-label">Notes</label>
+                            <input asp-for="NewMeterNotes" class="form-control" placeholder="Optional notes" />
+                        </div>
+                        <div class="form-group" style="flex: 0 0 auto; display: flex; align-items: flex-end;">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add Reading</button>
+                        </div>
+                    </div>
+                </form>
+
+                @if (Model.MeterReadings.Any())
+                {
+                    <div class="table-responsive" style="margin-top: 0.5rem;">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Reading</th>
+                                    <th>Previous</th>
+                                    <th>Delta</th>
+                                    <th>Recorded By</th>
+                                    <th>Source</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var mr in Model.MeterReadings)
+                                {
+                                    <tr>
+                                        <td>@mr.ReadingDate.ToString("MMM d, yyyy HH:mm")</td>
+                                        <td><strong>@mr.Reading.ToString("N2")</strong></td>
+                                        <td>@(mr.PreviousReading?.ToString("N2") ?? "—")</td>
+                                        <td>
+                                            @if (mr.IsRollover)
+                                            {
+                                                <span class="badge badge-warning" title="Meter rollover detected">Rollover</span>
+                                            }
+                                            else if (mr.Delta.HasValue)
+                                            {
+                                                <span>@mr.Delta.Value.ToString("N2")</span>
+                                            }
+                                            else
+                                            {
+                                                <span>—</span>
+                                            }
+                                        </td>
+                                        <td>@(mr.RecordedBy ?? "—")</td>
+                                        <td>@(mr.Source ?? "—")</td>
+                                        <td>@(mr.Notes ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-muted" style="padding: 1rem; text-align: center;">No meter readings recorded yet.</div>
+                }
+            </div>
+        }
+
+        @if (!Model.IsCreateMode)
+        {
+            <!-- Machine Specifications (outside main form to avoid nesting) -->
+            <div class="tab-panel @(activeTab == "technical" ? "active" : "")" id="panel-technical-machinespec" role="tabpanel" aria-labelledby="asset-tabs-technical" data-linked-panel="panel-technical" @(activeTab != "technical" ? Html.Raw("hidden") : null)>
+                <form method="post" asp-page-handler="SaveMachineSpec">
+                    <input type="hidden" name="assetId" value="@Model.Asset!.Id" />
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--blue"></span>
+                            <span class="spec-title">CNC Control & Capabilities</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">CNC Control & Capabilities</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">CNC Control System</label>
+                                @if (isEditable) { <input type="text" name="machineSpec.CncControlSystem" value="@Model.MachineSpec.CncControlSystem" class="form-control" placeholder="e.g., FANUC Oi-MF" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.CncControlSystem ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Machine Type</label>
+                                @if (isEditable) {
+                                    <select name="machineSpec.MachineTypeLookupValueId" class="form-control" data-cherry-select data-placeholder="Search machine types...">
+                                        @foreach (var opt in Model.MachineTypeOptions)
+                                        {
+                                            <option value="@opt.Value" selected="@opt.Selected">@opt.Text</option>
+                                        }
+                                    </select>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MachineTypeCode ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">ATC Pocket Count</label>
+                                @if (isEditable) { <input type="number" name="machineSpec.AtcPocketCount" value="@Model.MachineSpec.AtcPocketCount" class="form-control" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.AtcPocketCount?.ToString() ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            @if (isEditable)
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="machineSpec.FiveAxisCapable" value="true" @(Model.MachineSpec.FiveAxisCapable ? "checked" : "") />
+                                        <span class="checkbox-text">5-Axis Capable</span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="machineSpec.SyncFeedTapping" value="true" @(Model.MachineSpec.SyncFeedTapping ? "checked" : "") />
+                                        <span class="checkbox-text">Synchronous Feed Tapping</span>
+                                    </label>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" name="machineSpec.CoolantThroughSpindle" value="true" @(Model.MachineSpec.CoolantThroughSpindle ? "checked" : "") />
+                                        <span class="checkbox-text">Coolant Through Spindle</span>
+                                    </label>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">5-Axis Capable</label>
+                                    <div class="form-value">@(Model.MachineSpec.FiveAxisCapable ? "Yes" : "No")</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Sync Feed Tapping</label>
+                                    <div class="form-value">@(Model.MachineSpec.SyncFeedTapping ? "Yes" : "No")</div>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Coolant Through Spindle</label>
+                                    <div class="form-value">@(Model.MachineSpec.CoolantThroughSpindle ? "Yes" : "No")</div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--amber"></span>
+                            <span class="spec-title">Spindle</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Spindle</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Spindle Taper</label>
+                                @if (isEditable) {
+                                    <select name="machineSpec.SpindleTaperLookupValueId" class="form-control">
+                                        @foreach (var opt in Model.SpindleTaperOptions)
+                                        {
+                                            <option value="@opt.Value" selected="@opt.Selected">@opt.Text</option>
+                                        }
+                                    </select>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.SpindleTaper ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Spindle Diameter (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.SpindleDiameterMm" value="@Model.MachineSpec.SpindleDiameterMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.SpindleDiameterMm.HasValue ? $"({(Model.MachineSpec.SpindleDiameterMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.SpindleDiameterMm.HasValue ? $"{Model.MachineSpec.SpindleDiameterMm:N2} mm ({(Model.MachineSpec.SpindleDiameterMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Spindle Speed (RPM)</label>
+                                @if (isEditable) { <input type="number" name="machineSpec.MaxSpindleSpeedRpm" value="@Model.MachineSpec.MaxSpindleSpeedRpm" class="form-control" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxSpindleSpeedRpm.HasValue ? $"{Model.MachineSpec.MaxSpindleSpeedRpm:N0} RPM" : "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Spindle Motor (HP)</label>
+                                @if (isEditable) { <input type="number" name="machineSpec.SpindleMotorHp" value="@Model.MachineSpec.SpindleMotorHp" class="form-control" step="0.01" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.SpindleMotorHp.HasValue ? $"{Model.MachineSpec.SpindleMotorHp:N2} HP" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;"></div>
+                            <div class="form-group" style="flex: 1;"></div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--emerald"></span>
+                            <span class="spec-title">Machine Envelope — Axis Travel</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Machine Envelope — Axis Travel</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">X-Axis Travel (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.XAxisTravelMm" value="@Model.MachineSpec.XAxisTravelMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.XAxisTravelMm.HasValue ? $"({(Model.MachineSpec.XAxisTravelMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.XAxisTravelMm.HasValue ? $"{Model.MachineSpec.XAxisTravelMm:N2} mm ({(Model.MachineSpec.XAxisTravelMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Y-Axis Travel (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.YAxisTravelMm" value="@Model.MachineSpec.YAxisTravelMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.YAxisTravelMm.HasValue ? $"({(Model.MachineSpec.YAxisTravelMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.YAxisTravelMm.HasValue ? $"{Model.MachineSpec.YAxisTravelMm:N2} mm ({(Model.MachineSpec.YAxisTravelMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Z-Axis Travel (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.ZAxisTravelMm" value="@Model.MachineSpec.ZAxisTravelMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.ZAxisTravelMm.HasValue ? $"({(Model.MachineSpec.ZAxisTravelMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.ZAxisTravelMm.HasValue ? $"{Model.MachineSpec.ZAxisTravelMm:N2} mm ({(Model.MachineSpec.ZAxisTravelMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">W-Axis Travel (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.WAxisTravelMm" value="@Model.MachineSpec.WAxisTravelMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.WAxisTravelMm.HasValue ? $"({(Model.MachineSpec.WAxisTravelMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.WAxisTravelMm.HasValue ? $"{Model.MachineSpec.WAxisTravelMm:N2} mm ({(Model.MachineSpec.WAxisTravelMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--rose"></span>
+                            <span class="spec-title">Capacity & Size Limits</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Capacity & Size Limits</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Swing Diameter (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MaxSwingDiameterMm" value="@Model.MachineSpec.MaxSwingDiameterMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MaxSwingDiameterMm.HasValue ? $"({(Model.MachineSpec.MaxSwingDiameterMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxSwingDiameterMm.HasValue ? $"{Model.MachineSpec.MaxSwingDiameterMm:N2} mm ({(Model.MachineSpec.MaxSwingDiameterMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Between Columns (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MaxBetweenColumnsMm" value="@Model.MachineSpec.MaxBetweenColumnsMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MaxBetweenColumnsMm.HasValue ? $"({(Model.MachineSpec.MaxBetweenColumnsMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxBetweenColumnsMm.HasValue ? $"{Model.MachineSpec.MaxBetweenColumnsMm:N2} mm ({(Model.MachineSpec.MaxBetweenColumnsMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Height Table-to-Ram (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MaxHeightTableToRamMm" value="@Model.MachineSpec.MaxHeightTableToRamMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MaxHeightTableToRamMm.HasValue ? $"({(Model.MachineSpec.MaxHeightTableToRamMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxHeightTableToRamMm.HasValue ? $"{Model.MachineSpec.MaxHeightTableToRamMm:N2} mm ({(Model.MachineSpec.MaxHeightTableToRamMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Cutting Diameter (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MaxCuttingDiameterMm" value="@Model.MachineSpec.MaxCuttingDiameterMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MaxCuttingDiameterMm.HasValue ? $"({(Model.MachineSpec.MaxCuttingDiameterMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxCuttingDiameterMm.HasValue ? $"{Model.MachineSpec.MaxCuttingDiameterMm:N2} mm ({(Model.MachineSpec.MaxCuttingDiameterMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Max Cutting Length (mm)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MaxCuttingLengthMm" value="@Model.MachineSpec.MaxCuttingLengthMm" class="form-control" step="0.01" oninput="updateInches(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MaxCuttingLengthMm.HasValue ? $"({(Model.MachineSpec.MaxCuttingLengthMm.Value / 25.4m):F1} in)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MaxCuttingLengthMm.HasValue ? $"{Model.MachineSpec.MaxCuttingLengthMm:N2} mm ({(Model.MachineSpec.MaxCuttingLengthMm.Value / 25.4m):F1} in)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;"></div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--cyan"></span>
+                            <span class="spec-title">Table</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Table</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Table Size</label>
+                                @if (isEditable) { <input type="text" name="machineSpec.TableSize" value="@Model.MachineSpec.TableSize" class="form-control" placeholder="e.g., 3000 x 3000 mm" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.TableSize ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Table Weight Capacity (kg)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.TableWeightCapacityKg" value="@Model.MachineSpec.TableWeightCapacityKg" class="form-control" step="0.01" oninput="updateTons(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.TableWeightCapacityKg.HasValue ? $"({(Model.MachineSpec.TableWeightCapacityKg.Value / 1000m):F1} T)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.TableWeightCapacityKg.HasValue ? $"{Model.MachineSpec.TableWeightCapacityKg:N0} kg ({(Model.MachineSpec.TableWeightCapacityKg.Value / 1000m):F1} T)" : "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Machine Weight Capacity (kg)</label>
+                                @if (isEditable) {
+                                    <input type="number" name="machineSpec.MachineWeightCapacityKg" value="@Model.MachineSpec.MachineWeightCapacityKg" class="form-control" step="0.01" oninput="updateTons(this)" />
+                                    <span class="unit-conversion text-muted" style="font-size:0.8rem;">@(Model.MachineSpec.MachineWeightCapacityKg.HasValue ? $"({(Model.MachineSpec.MachineWeightCapacityKg.Value / 1000m):F1} T)" : "")</span>
+                                }
+                                else { <div class="form-value">@(Model.MachineSpec.MachineWeightCapacityKg.HasValue ? $"{Model.MachineSpec.MachineWeightCapacityKg:N0} kg ({(Model.MachineSpec.MachineWeightCapacityKg.Value / 1000m):F1} T)" : "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    <div class="spec-card collapsed">
+                        <div class="spec-header">
+                            <span class="accent-dot accent-dot--violet"></span>
+                            <span class="spec-title">Accessories & Notes</span>
+                            <span class="spec-chevron">▾</span>
+                        </div>
+                        <div class="spec-body">
+                    <div class="form-section">
+                        <h4 class="form-section-title">Accessories & Notes</h4>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Equipped Heads</label>
+                                @if (isEditable) { <textarea name="machineSpec.EquippedHeads" class="form-control" rows="2" placeholder="e.g., Universal Head, Right Angle Head">@Model.MachineSpec.EquippedHeads</textarea> }
+                                else { <div class="form-value">@(Model.MachineSpec.EquippedHeads ?? "-")</div> }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Probing System</label>
+                                @if (isEditable) { <input type="text" name="machineSpec.ProbingSystem" value="@Model.MachineSpec.ProbingSystem" class="form-control" placeholder="e.g., Renishaw, Marposs" /> }
+                                else { <div class="form-value">@(Model.MachineSpec.ProbingSystem ?? "-")</div> }
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Details/Sketch Link</label>
+                                @if (isEditable) { <input type="text" name="machineSpec.DetailsSketchLink" value="@Model.MachineSpec.DetailsSketchLink" class="form-control" placeholder="URL or file path" /> }
+                                else {
+                                    @if (!string.IsNullOrEmpty(Model.MachineSpec.DetailsSketchLink)) {
+                                        <div class="form-value"><a href="@Model.MachineSpec.DetailsSketchLink" target="_blank">@Model.MachineSpec.DetailsSketchLink</a></div>
+                                    } else {
+                                        <div class="form-value">-</div>
+                                    }
+                                }
+                            </div>
+                            <div class="form-group" style="flex: 1;">
+                                <label class="form-label">Comments</label>
+                                @if (isEditable) { <textarea name="machineSpec.Comments" class="form-control" rows="2" placeholder="Additional notes">@Model.MachineSpec.Comments</textarea> }
+                                else { <div class="form-value">@(Model.MachineSpec.Comments ?? "-")</div> }
+                            </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+                    @if (isEditable)
+                    {
+                        <div style="margin-top: 16px; display: flex; gap: 12px;">
+                            <button type="submit" class="btn-p btn-p--primary">Save Machine Specifications</button>
+                        </div>
+                    }
+                </form>
+            </div>
+
+            <!-- Attachments Tab (outside main form to avoid nesting) -->
+            <div class="tab-panel @(activeTab == "attachments" ? "active" : "")" id="panel-attachments" role="tabpanel" aria-labelledby="asset-tabs-attachments" @(activeTab != "attachments" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                <div class="spec-card collapsed">
+                    <div class="spec-header">
+                        <span class="accent-dot accent-dot--emerald"></span>
+                        <span class="spec-title">Upload Attachment</span>
+                        <span class="spec-chevron">▾</span>
+                    </div>
+                    <div class="spec-body">
+                <div class="form-section">
+                    <h4 class="form-section-title">Upload Attachment</h4>
+                    <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Asset!.Id" enctype="multipart/form-data" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="flex: 2; min-width: 200px;">
+                            <label class="form-label">File</label>
+                            <input type="file" name="file" class="form-control" required />
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 150px;">
+                            <label class="form-label">Category</label>
+                            <select name="category" asp-items="Model.AttachmentTypeOptions" class="form-control">
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 2; min-width: 200px;">
+                            <label class="form-label">Description</label>
+                            <input type="text" name="description" class="form-control" placeholder="Optional description" />
+                        </div>
+                        <button type="submit" class="btn-p btn-p--primary">Upload</button>
+                    </form>
+                </div>
+                    </div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-header">
+                        <span class="accent-dot accent-dot--emerald"></span>
+                        <span class="spec-title">Attachments (@Model.Attachments.Count)</span>
+                        <span class="spec-chevron">▾</span>
+                    </div>
+                    <div class="spec-body">
+                <div class="form-section">
+                    <h4 class="form-section-title">Attachments (@Model.Attachments.Count)</h4>
+                    @if (Model.Attachments.Any())
+                    {
+                        <div class="attachment-grid">
+                            @foreach (var att in Model.Attachments)
+                            {
+                                <div class="attachment-item">
+                                    <span class="attachment-icon">
+                                        @if (att.ContentType?.StartsWith("image/") == true) { <text>🖼️</text> }
+                                        else if (att.ContentType == "application/pdf") { <text>📄</text> }
+                                        else { <text>📎</text> }
+                                    </span>
+                                    <div class="attachment-info">
+                                        <span class="attachment-name">@att.FileName</span>
+                                        <span class="attachment-meta">@att.Category - @((att.FileSize / 1024.0).ToString("N0")) KB</span>
+                                    </div>
+                                    <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Asset.Id" asp-route-attachmentId="@att.Id" style="margin: 0;">
+                                        <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Delete this attachment?');">Delete</button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted">No attachments.</p>
+                    }
+                </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Transactions Tab -->
+            <div class="tab-panel @(activeTab == "transactions" ? "active" : "")" id="panel-transactions" role="tabpanel" aria-labelledby="asset-tabs-transactions" @(activeTab != "transactions" ? Html.Raw("hidden") : null)>
+                    <div class="spec-controls">
+                        <button type="button" class="spec-control-btn" onclick="expandAllSections(this)">Expand All</button>
+                        <button type="button" class="spec-control-btn" onclick="collapseAllSections(this)">Collapse All</button>
+                    </div>
+                <div class="spec-card collapsed">
+                    <div class="spec-header">
+                        <span class="accent-dot accent-dot--blue"></span>
+                        <span class="spec-title">Transaction History (@Model.TransactionHistory.Count records)</span>
+                        <span class="spec-chevron">▾</span>
+                    </div>
+                    <div class="spec-body">
+                
+                @if (Model.TransactionHistory.Any())
+                {
+                    <div class="transaction-list">
+                        @foreach (var txn in Model.TransactionHistory)
+                        {
+                            <div class="transaction-item">
+                                <div class="transaction-date">
+                                    <div class="transaction-date-day">@txn.Date.Day</div>
+                                    <div class="transaction-date-month">@txn.Date.ToString("MMM yyyy")</div>
+                                </div>
+                                <div class="transaction-type">
+                                    <span class="transaction-type-badge @txn.TypeClass">@txn.Type</span>
+                                </div>
+                                <div class="transaction-details">
+                                    <div class="transaction-summary">@txn.Summary</div>
+                                    @if (txn.AttachmentCount > 0)
+                                    {
+                                        <div class="transaction-attachments">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                            </svg>
+                                            @txn.AttachmentCount receipt(s)
+                                        </div>
+                                    }
+                                </div>
+                                <div class="transaction-amount">
+                                    @if (txn.Amount.HasValue)
+                                    {
+                                        <span class="@(txn.Amount >= 0 ? "text-success" : "text-danger")">
+                                            @(txn.Amount >= 0 ? "+" : "")@txn.Amount.Value.ToString("C0")
+                                        </span>
+                                    }
+                                </div>
+                                <div class="transaction-actions">
+                                    <a href="@txn.Link" class="btn-p btn-p--secondary btn-p--sm">View</a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="pe-empty" style="padding:2rem;">
+                        <i class="fas fa-exchange-alt pe-empty__icon" style="font-size:1.5rem;"></i>
+                        <div class="pe-empty__title">No Transactions Yet</div>
+                        <div class="pe-empty__text">Improvements, transfers, and disposals will appear here.</div>
+                    </div>
+                }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+
+<script>
+function updateInches(el) {
+    var mm = parseFloat(el.value);
+    var span = el.nextElementSibling;
+    if (span && span.classList.contains('unit-conversion')) {
+        span.textContent = !isNaN(mm) ? '(' + (mm / 25.4).toFixed(1) + ' in)' : '';
+    }
+}
+function updateTons(el) {
+    var kg = parseFloat(el.value);
+    var span = el.nextElementSibling;
+    if (span && span.classList.contains('unit-conversion')) {
+        span.textContent = !isNaN(kg) ? '(' + (kg / 1000).toFixed(1) + ' T)' : '';
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.spec-header').forEach(function(header) {
+        header.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+            this.closest('.spec-card').classList.toggle('collapsed');
+        });
+    });
+
+    document.querySelectorAll('.spec-card .form-value').forEach(function(el) {
+        var text = el.textContent.trim();
+        if (text === '-' || text === '—' || text === '' ||
+            text.match(/^-\s*(kW|V|A|kg|mm|T|HP|RPM)?$/)) {
+            el.style.opacity = '0.25';
+        }
+    });
+});
+
+function getTabPanels(btn) {
+    var container = btn.closest('.tab-panel') || btn.closest('[role="tabpanel"]');
+    if (!container) {
+        container = btn.parentElement;
+        while (container && !container.querySelector('.spec-card')) {
+            container = container.parentElement;
+        }
+    }
+    var panels = [container];
+    if (container && container.id) {
+        document.querySelectorAll('.tab-panel[data-linked-panel="' + container.id + '"]').forEach(function(p) {
+            panels.push(p);
+        });
+    }
+    return panels;
+}
+
+function expandAllSections(btn) {
+    getTabPanels(btn).forEach(function(container) {
+        if (container) {
+            container.querySelectorAll('.spec-card.collapsed').forEach(function(card) {
+                card.classList.remove('collapsed');
+            });
+        }
+    });
+}
+
+function collapseAllSections(btn) {
+    getTabPanels(btn).forEach(function(container) {
+        if (container) {
+            container.querySelectorAll('.spec-card:not(.collapsed)').forEach(function(card) {
+                card.classList.add('collapsed');
+            });
+        }
+    });
+}
+
+(function() {
+    var src = document.getElementById('meterReadingContent');
+    var dest = document.getElementById('meterReadingHistoryPlaceholder');
+    if (src && dest) {
+        while (src.firstChild) { dest.appendChild(src.firstChild); }
+        src.remove();
+    }
+})();
+</script>
+
+@if (!Model.IsCreateMode)
+{
+    <div id="qrPanel" class="pe-card" style="display:none; max-width:320px; margin:1rem auto; text-align:center;">
+        <div class="pe-card__body" style="padding:1.5rem;">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=@Uri.EscapeDataString($"ASSET:{Model.Asset!.AssetNumber}|ID:{Model.Asset!.Id}|TAG:{Model.Asset!.TagNumber}")" alt="Asset QR Code" style="border-radius:8px;" />
+            <h4 style="margin:0.75rem 0 0.25rem; font-size:0.95rem; color:var(--text-primary);">@Model.Asset.AssetNumber</h4>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.75rem;">Scan to view asset in CherryAI mobile app</p>
+            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('qrPanel').style.display='none'">Close</button>
+        </div>
+    </div>
+}

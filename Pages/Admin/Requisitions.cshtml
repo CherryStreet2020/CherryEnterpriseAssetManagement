@@ -1,0 +1,281 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.RequisitionsModel
+@{
+    ViewData["Title"] = "Purchase Requisitions";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalRequisitions = Model.Requisitions.Count;
+    var pendingRequisitions = Model.Requisitions.Count(r => r.Status == Abs.FixedAssets.Models.RequisitionStatus.Pending);
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Purchase Requisitions" },
+        { "Subtitle", "Manage purchase requisitions and approval workflows" },
+        { "StatusText", $"{pendingRequisitions} Pending" },
+        { "StatusTone", "warning" },
+        { "ContextPartial", "Admin/_AdminRequisitionsContext" },
+        { "KpisPartial", "Admin/_AdminRequisitionsKpis" },
+        { "ActionsPartial", "Admin/_AdminRequisitionsActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Requisition List
+        </h3>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <select id="statusFilter" class="form-control" style="width: auto;" onchange="filterByStatus()" asp-items="Model.StatusOptions"></select>
+            <span class="status-badge info">@totalRequisitions REQUISITIONS</span>
+        </div>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table" id="reqGrid">
+            <thead>
+                <tr>
+                    <th>Requisition #</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Source</th>
+                    <th>Requestor</th>
+                    <th style="text-align: right;">Total</th>
+                    <th>Vendor</th>
+                    <th style="width: 180px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var req in Model.Requisitions)
+                {
+                    var statusClass = req.Status switch
+                    {
+                        Abs.FixedAssets.Models.RequisitionStatus.Draft => "badge-secondary",
+                        Abs.FixedAssets.Models.RequisitionStatus.Pending => "badge-warning",
+                        Abs.FixedAssets.Models.RequisitionStatus.Approved => "badge-success",
+                        Abs.FixedAssets.Models.RequisitionStatus.Rejected => "badge-danger",
+                        Abs.FixedAssets.Models.RequisitionStatus.Converted => "badge-info",
+                        _ => "badge-secondary"
+                    };
+                    var priorityClass = req.Priority switch
+                    {
+                        Abs.FixedAssets.Models.RequisitionPriority.Urgent => "badge-danger",
+                        Abs.FixedAssets.Models.RequisitionPriority.Emergency => "badge-danger",
+                        Abs.FixedAssets.Models.RequisitionPriority.High => "badge-warning",
+                        _ => "badge-outline"
+                    };
+                    <tr data-id="@req.Id" data-status="@((int)req.Status)">
+                        <td><strong class="text-primary">@req.RequisitionNumber</strong></td>
+                        <td>@req.RequisitionDate.ToString("MM/dd/yy")</td>
+                        <td><span class="badge @statusClass">@req.Status</span></td>
+                        <td><span class="badge @priorityClass">@req.Priority</span></td>
+                        <td><span class="badge badge-outline">@req.Source</span></td>
+                        <td>@(req.Requestor ?? "-")</td>
+                        <td class="text-green" style="text-align: right; font-weight: 600;">@req.TotalAmount.ToString("C2")</td>
+                        <td>@(req.SuggestedVendor?.Name ?? "-")</td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                @if (req.Status == Abs.FixedAssets.Models.RequisitionStatus.Pending)
+                                {
+                                    <form method="post" asp-page-handler="Approve" style="display: inline;">
+                                        <input type="hidden" name="id" value="@req.Id" />
+                                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">Approve</button>
+                                    </form>
+                                }
+                                @if (req.Status == Abs.FixedAssets.Models.RequisitionStatus.Approved)
+                                {
+                                    <form method="post" asp-page-handler="ConvertToPO" style="display: inline;">
+                                        <input type="hidden" name="id" value="@req.Id" />
+                                        <button type="submit" class="btn btn-sm btn-primary">To PO</button>
+                                    </form>
+                                }
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="viewReq(@req.Id)">View</button>
+                                <form method="post" asp-page-handler="Duplicate" style="display: inline;">
+                                    <input type="hidden" name="id" value="@req.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm" onclick="return confirm('Duplicate this requisition?')">Duplicate</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Model.Requisitions.Any())
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-file-alt pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">
+                    <h3>No Requisitions</h3>
+                    <p>Create your first purchase requisition to get started.</p>
+                    <button class="btn-p btn-p--primary" onclick="toggleInlineForm('addReqForm')">Create Requisition</button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.ReorderAlerts.Any(a => !a.IsAcknowledged))
+{
+<div class="section-card" style="margin-top: 24px;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Reorder Alerts
+        </h3>
+        <span class="status-badge warning">@Model.ReorderAlerts.Count(a => !a.IsAcknowledged) ACTIVE</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table" id="alertGrid">
+            <thead>
+                <tr>
+                    <th>Part #</th>
+                    <th>Description</th>
+                    <th style="text-align: right;">Current Stock</th>
+                    <th style="text-align: right;">Reorder Point</th>
+                    <th style="text-align: right;">Suggested Qty</th>
+                    <th>Alert Type</th>
+                    <th style="width: 180px;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var alert in Model.ReorderAlerts.Where(a => !a.IsAcknowledged))
+                {
+                    <tr>
+                        <td>
+                            <strong class="text-primary">@alert.Item?.PartNumber</strong>
+                            @if (!string.IsNullOrEmpty(alert.Item?.ManufacturerPartNumber))
+                            {
+                                <br/><span class="text-theme-muted" style="font-size: 0.75rem;">Mfr: @alert.Item.ManufacturerPartNumber</span>
+                            }
+                        </td>
+                        <td>@alert.Item?.Description</td>
+                        <td class="text-red" style="text-align: right; font-weight: 700;">@alert.CurrentStock.ToString("N2")</td>
+                        <td style="text-align: right;">@alert.ReorderPoint.ToString("N2")</td>
+                        <td style="text-align: right; font-weight: 700;">@alert.SuggestedQuantity.ToString("N2")</td>
+                        <td><span class="badge badge-warning">@alert.AlertType</span></td>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <form method="post" asp-page-handler="CreateReqFromAlert" style="display: inline;">
+                                    <input type="hidden" name="alertId" value="@alert.Id" />
+                                    <button type="submit" class="btn-p btn-p--primary btn-p--sm">Create Req</button>
+                                </form>
+                                <form method="post" asp-page-handler="AcknowledgeAlert" style="display: inline;">
+                                    <input type="hidden" name="alertId" value="@alert.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Dismiss</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+}
+
+<div class="inline-form-panel" id="addReqForm" style="display: none;">
+    <div class="inline-form-panel-content" style="max-width: 800px;">
+        <div class="inline-form-header">
+            <h3 class="inline-form-title">Create Requisition</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addReqForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label">Priority</label>
+                        <select name="priorityLookupValueId" class="form-control" asp-items="Model.PriorityOptions"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Vendor</label>
+                        <select name="vendorId" class="form-control" data-cherry-select data-placeholder="Search vendors...">
+                            <option value="">-- Select Vendor --</option>
+                            @foreach (var vendor in Model.Vendors)
+                            {
+                                <option value="@vendor.Id">@vendor.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="3"></textarea>
+                </div>
+                <div style="background: var(--lux-surface-alt, #f8fafc); padding: 16px; border-radius: 8px; margin-top: 16px;">
+                    <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">Add Line Items</h4>
+                    <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label">Item</label>
+                            <select name="itemId" class="form-control" data-cherry-select data-placeholder="Search items...">
+                                <option value="">-- Select Item --</option>
+                                @foreach (var item in Model.Items)
+                                {
+                                    <option value="@item.Id">@item.PartNumber - @item.Description</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" name="quantity" class="form-control" value="1" min="1" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Unit Price</label>
+                            <input type="number" name="unitPrice" class="form-control" value="0" min="0" step="0.01" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addReqForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Requisition</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script src="/js/enhanced-grid.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof initEnhancedGrid === 'function') {
+            initEnhancedGrid('reqGrid', {
+                searchable: true,
+                sortable: true,
+                exportable: true
+            });
+        }
+    });
+
+    function filterByStatus() {
+        const status = document.getElementById('statusFilter').value;
+        const rows = document.querySelectorAll('#reqGrid tbody tr');
+        rows.forEach(row => {
+            if (!status || row.dataset.status === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function viewReq(id) {
+        alert('View requisition ' + id);
+    }
+</script>
+}

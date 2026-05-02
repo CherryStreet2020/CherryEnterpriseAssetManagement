@@ -1,0 +1,84 @@
+@* Assets summary header (dark-mode friendly).
+   - No reliance on Asset.Cost/Asset.Salvage property names.
+   - Sums using several likely property names via reflection. *@
+@using Abs.FixedAssets.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext Db
+
+@functions {
+    decimal GetDecimal(object obj, params string[] names)
+    {
+        if (obj == null || names == null) return 0m;
+
+        var t = obj.GetType();
+        foreach (var n in names)
+        {
+            var p = t.GetProperty(n);
+            if (p == null) continue;
+
+            var v = p.GetValue(obj);
+            if (v == null) continue;
+
+            // Decimal / nullable decimal
+            if (v is decimal d) return d;
+            if (v is decimal?)
+            {
+                var nd = (decimal?)v;
+                if (nd.HasValue) return nd.Value;
+            }
+
+            // Other numeric/string fallbacks
+            if (v is double dbl) return (decimal)dbl;
+            if (v is float flt) return (decimal)flt;
+
+            if (decimal.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return 0m;
+    }
+
+    string Money(decimal v) =>
+        string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0:C}", v);
+}
+
+@{
+    var assets = await Db.Assets.AsNoTracking().ToListAsync();
+
+    var assetCount       = assets.Count;
+    var totalAcquisition = assets.Sum(a =>
+        GetDecimal(a, "Acquisition", "AcquisitionCost", "PurchaseCost", "OriginalCost", "Cost"));
+
+    var totalSalvage     = assets.Sum(a =>
+        GetDecimal(a, "Salvage", "SalvageValue", "Residual", "ResidualValue"));
+}
+
+<div class="panel-hero" style="padding:16px; margin-bottom:16px;">
+  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+    <h2 style="margin:0; font-size:1.25rem; font-weight:700;">Assets</h2>
+    <div style="flex:1 1 auto;"></div>
+    <a class="btn-p btn-p--primary" href="/Assets/Asset?mode=create">+ New Asset</a>
+  </div>
+
+  <div style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+    <div class="summary-tile" style="padding:16px;">
+      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Active assets</div>
+      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@assetCount</div>
+    </div>
+
+    <div class="summary-tile" style="padding:16px;">
+      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total acquisition</div>
+      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalAcquisition)</div>
+    </div>
+
+    <div class="summary-tile" style="padding:16px;">
+      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total salvage</div>
+      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalSalvage)</div>
+    </div>
+  </div>
+
+  <div style="display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-top:14px;">
+    <a class="btn-p btn-p--secondary" href="/Assets">Browse &amp; search</a>
+    <a class="btn-p btn-p--secondary" href="/Assets/Asset?mode=create">Add new equipment</a>
+    <a class="btn-p btn-p--secondary" href="/Books">GAAP &amp; tax settings</a>
+    <a class="btn-p btn-p--secondary" href="/Reports">Exports &amp; summaries</a>
+  </div>
+</div>

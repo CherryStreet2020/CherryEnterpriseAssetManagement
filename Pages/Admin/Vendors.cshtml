@@ -1,0 +1,105 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.VendorsModel
+@{
+    ViewData["Title"] = "Vendors";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalVendors = Model.Vendors.Count;
+    var activeVendors = Model.Vendors.Count(v => v.IsActive);
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Vendors",
+        ["Subtitle"] = "Manage vendor directory for purchasing and maintenance",
+        ["TypeLabel"] = "Materials & Purchasing",
+        ["StatusText"] = $"{activeVendors} Active",
+        ["StatusTone"] = "active",
+        ["ContextPartial"] = "/Pages/Admin/_AdminVendorsContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_AdminVendorsKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_AdminVendorsActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Vendor Directory
+        </h3>
+        <span class="status-badge info">@totalVendors VENDORS</span>
+    </div>
+    <div class="section-card-body pe-card__body" style="padding: 0;">
+        <table class="data-table premium-table" id="vendorGrid" data-enhanced-grid="true">
+            <thead>
+                <tr>
+                    <th style="width: 100px;" data-col="Code" data-filter="text">Code</th>
+                    <th style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
+                    <th style="width: 120px;" data-col="Type" data-filter="select" data-filter-options="Supplier|Contractor|Manufacturer|ServiceProvider">Type</th>
+                    <th style="min-width: 140px;" data-col="Contact" data-filter="text">Contact</th>
+                    <th style="width: 130px; white-space: nowrap;" data-col="Phone" data-filter="text">Phone</th>
+                    <th style="min-width: 180px;" data-col="Email" data-filter="text">Email</th>
+                    <th style="width: 100px;" data-col="Terms" data-filter="select" data-filter-options="Net30|Net45|Net60|Net90|DueOnReceipt">Terms</th>
+                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var vendor in Model.Vendors)
+                {
+                    <tr class="clickable-row" onclick="window.location='/Materials/Vendors/Edit/@vendor.Id'">
+                        <td><strong class="text-primary">@vendor.Code</strong></td>
+                        <td style="font-weight: 500;">@vendor.Name</td>
+                        <td><span class="badge badge-outline">@vendor.VendorType</span></td>
+                        <td>@(vendor.ContactName ?? "—")</td>
+                        <td style="white-space: nowrap;">@(vendor.Phone ?? "—")</td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(vendor.Email))
+                            {
+                                <span class="text-primary">@vendor.Email</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </td>
+                        <td><span class="badge badge-secondary">@vendor.PaymentTerms</span></td>
+                        <td>
+                            @if (vendor.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initEnhancedGrid('vendorGrid', {
+        searchable: true,
+        sortable: true,
+        exportable: true,
+        clickableRows: false
+    });
+});
+</script>
+}

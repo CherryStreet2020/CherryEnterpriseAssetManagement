@@ -1,0 +1,18 @@
+@model Abs.FixedAssets.Pages.UsTax.IndexModel
+
+<div class="kpi-card">
+    <div class="kpi-label">Section 179</div>
+    <div class="kpi-value money">@Model.CurrentSection179Limit.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Bonus Rate</div>
+    <div class="kpi-value success">@Model.CurrentBonusRate%</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Tax Year</div>
+    <div class="kpi-value">@Model.CurrentYear</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Assets</div>
+    <div class="kpi-value info">@Model.AssetsWithUsTax</div>
+</div>

@@ -1,0 +1,160 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Integrations.MapsModel
+@{
+    ViewData["Title"] = "Integration Mappings";
+    ViewData["TabTitle"] = "ID Mappings";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Integration Mappings" },
+        { "Subtitle", "Map external IDs to internal CherryAI entities" },
+        { "TypeLabel", "Integrations" },
+        { "StatusText", Model.IsLabEnvironment ? "LAB" : "" },
+        { "StatusTone", "info" },
+        { "ActionsPartial", "Admin/Integrations/_AdminIntegrationsMapsActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!Model.IsLabEnvironment)
+{
+    <div class="content-area">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <h2 class="text-xl font-bold text-red-700 mb-2">Access Restricted</h2>
+            <p class="text-red-600">Integration mapping is only available in LAB environment.</p>
+        </div>
+    </div>
+    return;
+}
+
+<div class="content-area">
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700">
+            @Model.SuccessMessage
+        </div>
+    }
+
+    @if (Model.SelectedEndpointId == null)
+    {
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Select Integration Endpoint</label>
+            <div class="flex flex-wrap gap-2">
+                @foreach (var ep in Model.Endpoints)
+                {
+                    <a href="?endpointId=@ep.Id" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm hover:bg-slate-50">
+                        @ep.Name
+                    </a>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="mb-4 flex items-center gap-4">
+            <span class="text-sm text-slate-600">Showing mappings for:</span>
+            <span class="font-medium">@Model.SelectedEndpoint?.Name</span>
+            <a href="/Admin/Integrations/Maps" class="text-xs text-blue-600 hover:underline">Change</a>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Type</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">External ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Internal ID</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Internal Code</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Notes</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Created</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    @foreach (var mapping in Model.Mappings)
+                    {
+                        <tr>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-700">@mapping.MappingType</span>
+                            </td>
+                            <td class="px-4 py-3 text-sm font-mono">@mapping.ExternalId</td>
+                            <td class="px-4 py-3 text-sm">@(mapping.InternalId?.ToString() ?? "-")</td>
+                            <td class="px-4 py-3 text-sm font-mono">@(mapping.InternalCode ?? "-")</td>
+                            <td class="px-4 py-3 text-xs text-slate-500">@(mapping.Notes ?? "-")</td>
+                            <td class="px-4 py-3 text-xs text-slate-500">@mapping.CreatedAt.ToString("MMM d, HH:mm")</td>
+                            <td class="px-4 py-3 text-right">
+                                <form method="post" asp-page-handler="Delete" class="inline">
+                                    <input type="hidden" name="mappingId" value="@mapping.Id" />
+                                    <input type="hidden" name="endpointId" value="@Model.SelectedEndpointId" />
+                                    <button type="submit" class="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50" onclick="return confirm('Delete this mapping?')">
+                                        Delete
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Mappings.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+                                No mappings configured for this endpoint. Add mappings to translate external IDs.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div id="createFormPanel" class="inline-form-panel" style="display: none;">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Add Mapping</h2>
+        <form method="post" asp-page-handler="Create">
+            <input type="hidden" name="endpointId" value="@Model.SelectedEndpointId" />
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Mapping Type</label>
+                    <select name="mappingType" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500" asp-items="Model.EntityTypeOptions">
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">External ID</label>
+                    <input type="text" name="externalId" required class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono" placeholder="e.g., ERP-SITE-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Internal ID (numeric)</label>
+                    <input type="number" name="internalId" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="e.g., 123">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Internal Code (optional)</label>
+                    <input type="text" name="internalCode" class="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono" placeholder="e.g., SITE-001">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Notes (optional)</label>
+                    <input type="text" name="notes" class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="Optional notes">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="hideCreateForm()" class="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Add Mapping</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showCreateForm() {
+        document.getElementById('createFormPanel').style.display = '';
+        document.getElementById('createFormPanel');
+    }
+    function hideCreateForm() {
+        document.getElementById('createFormPanel').style.display = 'none';
+        document.getElementById('createFormPanel');
+    }
+</script>

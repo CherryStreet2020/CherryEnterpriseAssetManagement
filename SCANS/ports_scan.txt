@@ -1,0 +1,10 @@
+Ports Scan (non-5000)
+Target: /home/runner/workspace/.tmp_prescan_bundle.zip
+
+--- SCAN STATISTICS ---
+Total files scanned: 1014
+Total bytes scanned: 23,276,070
+
+Allowed port: 5000
+
+RESULT: PASS - 0 non-5000 ports found

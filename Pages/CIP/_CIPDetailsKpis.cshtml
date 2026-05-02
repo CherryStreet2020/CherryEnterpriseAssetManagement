@@ -1,0 +1,22 @@
+@using Abs.FixedAssets.Models
+@{
+    var project = ViewData["Project"] as CipProject;
+    var percentSpent = (decimal)(ViewData["PercentSpent"] ?? 0m);
+    if (project == null) return;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Budget</div>
+    <div class="kpi-value money">@project.BudgetAmount.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Spent</div>
+    <div class="kpi-value warning">@project.TotalCosts.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Remaining</div>
+    <div class="kpi-value success">@((project.BudgetAmount - project.TotalCosts).ToString("C0"))</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">% Spent</div>
+    <div class="kpi-value @(percentSpent > 100 ? "danger" : percentSpent > 80 ? "warning" : "")">@percentSpent.ToString("F0")%</div>
+</div>

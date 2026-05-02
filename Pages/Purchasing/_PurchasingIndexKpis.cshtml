@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Purchasing.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Open POs</div>
+    <div class="kpi-value">@Model.OpenPOCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Pending</div>
+    <div class="kpi-value warning">@Model.PendingApprovalCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Received</div>
+    <div class="kpi-value success">@Model.ReceivedThisMonth</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">PO Value</div>
+    <div class="kpi-value money">@Model.OpenPOValue.ToString("C0")</div>
+</div>

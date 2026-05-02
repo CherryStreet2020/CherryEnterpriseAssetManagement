@@ -1,0 +1,19 @@
+@using Abs.FixedAssets.Services.Navigation
+@{
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    var fallbackPage = ViewData["FallbackPage"] as string ?? "/";
+    var fallbackLabel = ViewData["FallbackLabel"] as string ?? "Back";
+    var currentPath = Context.Request.Path.Value ?? "/";
+    
+    var backUrl = ReturnUrlHelper.GetBackUrl(returnUrl, currentPath);
+    var backLabel = !string.IsNullOrEmpty(returnUrl) && ReturnUrlHelper.IsSafeLocalReturnUrl(returnUrl) 
+        ? "Back to results" 
+        : fallbackLabel;
+}
+
+<a href="@backUrl" class="back-link" title="@backLabel">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+    <span>@backLabel</span>
+</a>

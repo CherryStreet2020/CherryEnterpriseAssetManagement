@@ -1,0 +1,139 @@
+{
+  "lookupKey": "DepreciationMethod",
+  "name": "Depreciation Method",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "Straight-Line",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "Declining Balance",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Sum-of-Years-Digits",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Units of Production",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "4",
+      "name": "Double Declining Balance",
+      "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "5",
+      "name": "MACRS (General)",
+      "sortOrder": 6,
+      "isActive": true
+    },
+    {
+      "code": "6",
+      "name": "MACRS (ADS)",
+      "sortOrder": 7,
+      "isActive": true
+    },
+    {
+      "code": "7",
+      "name": "150% Declining Balance",
+      "sortOrder": 8,
+      "isActive": true
+    },
+    {
+      "code": "8",
+      "name": "ACRS",
+      "sortOrder": 9,
+      "isActive": true
+    },
+    {
+      "code": "9",
+      "name": "Section 179",
+      "sortOrder": 10,
+      "isActive": true
+    },
+    {
+      "code": "10",
+      "name": "Bonus Depreciation",
+      "sortOrder": 11,
+      "isActive": true
+    },
+    {
+      "code": "11",
+      "name": "Amortization",
+      "sortOrder": 12,
+      "isActive": true
+    },
+    {
+      "code": "12",
+      "name": "Canadian Declining Balance",
+      "sortOrder": 13,
+      "isActive": true
+    },
+    {
+      "code": "13",
+      "name": "CCA Class Method",
+      "sortOrder": 14,
+      "isActive": true
+    },
+    {
+      "code": "14",
+      "name": "Immediate Write-Off",
+      "sortOrder": 15,
+      "isActive": true
+    },
+    {
+      "code": "15",
+      "name": "No Depreciation",
+      "sortOrder": 16,
+      "isActive": true
+    },
+    {
+      "code": "16",
+      "name": "Sinking Fund",
+      "sortOrder": 17,
+      "isActive": true
+    },
+    {
+      "code": "17",
+      "name": "Group/Composite",
+      "sortOrder": 18,
+      "isActive": true
+    },
+    {
+      "code": "18",
+      "name": "Modified Straight-Line",
+      "sortOrder": 19,
+      "isActive": true
+    },
+    {
+      "code": "19",
+      "name": "Income Forecast",
+      "sortOrder": 20,
+      "isActive": true
+    },
+    {
+      "code": "20",
+      "name": "Replacement Cost",
+      "sortOrder": 21,
+      "isActive": true
+    },
+    {
+      "code": "21",
+      "name": "Custom Formula",
+      "sortOrder": 22,
+      "isActive": true
+    }
+  ]
+}

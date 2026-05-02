@@ -1,0 +1,21 @@
+@using Abs.FixedAssets.Models
+@{
+    var inv = ViewData["Invoice"] as VendorInvoice;
+    if (inv == null) return;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Subtotal</div>
+    <div class="kpi-value money">@inv.Subtotal.ToString("C2")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Tax</div>
+    <div class="kpi-value money">@inv.TaxAmount.ToString("C2")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value money">@inv.Total.ToString("C2")</div>
+</div>
+<div class="kpi-card @(inv.BalanceDue > 0 ? "warning" : "success")">
+    <div class="kpi-label">Balance Due</div>
+    <div class="kpi-value money">@inv.BalanceDue.ToString("C2")</div>
+</div>

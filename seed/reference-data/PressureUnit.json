@@ -1,0 +1,10 @@
+{
+  "lookupKey": "PressureUnit",
+  "name": "Pressure Unit",
+  "isSystem": true,
+  "values": [
+    { "code": "PSI", "name": "PSI", "sortOrder": 1, "isActive": true },
+    { "code": "BAR", "name": "Bar", "sortOrder": 2, "isActive": true },
+    { "code": "KPA", "name": "kPa", "sortOrder": 3, "isActive": true }
+  ]
+}

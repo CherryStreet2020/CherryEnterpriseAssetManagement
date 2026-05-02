@@ -1,0 +1,21 @@
+@using Abs.FixedAssets.Services
+@{
+    var stats = ViewData["Stats"] as BulkOperationStats;
+    if (stats == null) return;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Operations</div>
+    <div class="kpi-value">@stats.TotalBulkOperations</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Assets</div>
+    <div class="kpi-value success">@stats.TotalAssetsAffected</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Disposals</div>
+    <div class="kpi-value warning">@stats.TotalPartialDisposals</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Proceeds</div>
+    <div class="kpi-value money">@stats.TotalProceedsFromPartialDisposals.ToString("C0")</div>
+</div>

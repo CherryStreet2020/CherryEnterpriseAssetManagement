@@ -1,0 +1,161 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.BulkOperations.DetailsModel
+@{
+    ViewData["Title"] = "Bulk Operation Details";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var statusClass = Model.Operation.OperationType.ToString().ToLower() == "transfer" ? "info" : "success";
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = $"{Model.Operation.OperationType} Operation",
+        ["Subtitle"] = Model.Operation.Description ?? $"Bulk {Model.Operation.OperationType.ToString().ToLower()} operation performed on {Model.Operation.OperationDate:MMM dd, yyyy}",
+        ["TypeLabel"] = "Bulk Operations",
+        ["StatusText"] = Model.Operation.OperationType.ToString(),
+        ["StatusTone"] = statusClass,
+        ["ContextPartial"] = "BulkOperations/_BulkOpsDetailsContext",
+        ["KpisPartial"] = "BulkOperations/_BulkOpsDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Operation"] = Model.Operation },
+        ["ActionsPartial"] = "BulkOperations/_BulkOpsDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["Operation"] = Model.Operation },
+        ["Breadcrumbs"] = ViewData["Breadcrumbs"],
+        ["ShowBackLink"] = ViewData["ShowBackLink"],
+        ["BackLinkFallback"] = ViewData["BackLinkFallback"],
+        ["BackLinkLabel"] = ViewData["BackLinkLabel"]
+    };
+    ViewData["Operation"] = Model.Operation;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="grid-2">
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Operation Details
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Operation Type</span>
+                    <span class="detail-value">
+                        <span class="badge badge-@(Model.Operation.OperationType.ToString().ToLower() == "transfer" ? "primary" : "neutral")">
+                            @Model.Operation.OperationType
+                        </span>
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Date Performed</span>
+                    <span class="detail-value">@Model.Operation.OperationDate.ToString("MM/dd/yyyy")</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Assets Affected</span>
+                    <span class="detail-value">@Model.Operation.AssetsAffected</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Processed By</span>
+                    <span class="detail-value">@(Model.Operation.ProcessedBy ?? "-")</span>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.Operation.NewLocation))
+                {
+                    <div class="detail-item">
+                        <span class="detail-label">New Location</span>
+                        <span class="detail-value">@Model.Operation.NewLocation</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Operation.NewDepartment))
+                {
+                    <div class="detail-item">
+                        <span class="detail-label">New Department</span>
+                        <span class="detail-value">@Model.Operation.NewDepartment</span>
+                    </div>
+                }
+                @if (Model.Operation.NewStatus.HasValue)
+                {
+                    <div class="detail-item">
+                        <span class="detail-label">New Status</span>
+                        <span class="detail-value">
+                            <span class="badge badge-@(Model.Operation.NewStatus.ToString()?.ToLower() == "active" ? "success" : "neutral")">
+                                @Model.Operation.NewStatus
+                            </span>
+                        </span>
+                    </div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Operation.Description))
+            {
+                <div class="detail-description" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-primary, #e2e8f0);">
+                    <span class="detail-label">Description</span>
+                    <p class="text-theme-primary" style="margin: 8px 0 0 0;">@Model.Operation.Description</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Timestamp
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Created At</span>
+                    <span class="detail-value">@Model.Operation.CreatedAt.ToString("MM/dd/yyyy h:mm tt")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.AffectedAssets.Any())
+{
+    <div class="section-card" style="margin-top: 24px;">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Affected Assets
+            </h3>
+            <span class="status-badge info">@Model.AffectedAssets.Count() ASSETS</span>
+        </div>
+        <div class="section-card-body" style="padding: 0;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Asset Number</th>
+                        <th>Description</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Original Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var asset in Model.AffectedAssets)
+                    {
+                        <tr class="clickable-row" onclick="window.location.href='/Assets/Asset/@asset.Id'">
+                            <td><span class="asset-number-link">@asset.AssetNumber</span></td>
+                            <td>@asset.Description</td>
+                            <td>@(asset.LocationRef?.Name ?? "-")</td>
+                            <td>
+                                <span class="badge badge-@(asset.Status.ToString().ToLower() == "active" ? "success" : asset.Status.ToString().ToLower() == "inactive" ? "neutral" : "warning")">
+                                    @asset.Status
+                                </span>
+                            </td>
+                            <td class="text-right tabular-nums">@asset.AcquisitionCost.ToString("C2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+

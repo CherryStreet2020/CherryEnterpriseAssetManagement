@@ -1,0 +1,445 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Purchasing.DetailsModel
+@using System.Text.Json
+@using Abs.FixedAssets.Models
+@{
+    var po = Model.PurchaseOrder!;
+    ViewData["Title"] = po.PONumber;
+    ViewData["TabTitle"] = $"{po.PONumber} — Purchase Order";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+
+    var canEdit = po.Status == POStatus.Draft;
+    var lineCount = po.Lines?.Count ?? 0;
+
+    var statusTone = po.Status switch {
+        POStatus.Draft => "info",
+        POStatus.PendingApproval => "warning",
+        POStatus.Approved => "success",
+        POStatus.Received => "success",
+        POStatus.Closed => "muted",
+        POStatus.Cancelled => "danger",
+        _ => "info"
+    };
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = po.PONumber,
+        ["Subtitle"] = po.Vendor?.Name ?? "No vendor assigned",
+        ["TypeLabel"] = "Purchase Order",
+        ["StatusText"] = po.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Purchasing/_PODetailsContext.cshtml",
+        ["KpisPartial"] = "/Pages/Purchasing/_PODetailsKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Purchasing/_PODetailsActions.cshtml",
+        ["PurchaseOrder"] = po,
+        ["CanEdit"] = canEdit
+    };
+
+    var itemCatalog = Model.Items.Select(i => new {
+        id = i.Id,
+        pn = i.PartNumber ?? "",
+        desc = i.Description ?? "",
+        uom = i.StockUOM ?? "EA",
+        price = i.LastPurchaseCost > 0 ? i.LastPurchaseCost : i.StandardCost,
+        mfr = i.ManufacturerPartNumber ?? "",
+        rev = i.Revision ?? "",
+        wh = i.Warehouse ?? "",
+        loc = i.DefaultLocation ?? ""
+    });
+}
+
+<script id="__items" type="application/json">@Html.Raw(JsonSerializer.Serialize(itemCatalog))</script>
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null) {
+    <div class="alert alert-success" style="margin-bottom:1rem;">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null || TempData["ErrorMessage"] != null) {
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@(TempData["Error"] ?? TempData["ErrorMessage"])</div>
+}
+
+<!-- LINE ITEMS SECTION — Unified Pattern -->
+<div class="line-section">
+    <div class="line-section__header">
+        <h3 class="line-section__title">
+            <i class="fas fa-list"></i> Line Items
+        </h3>
+        <div class="line-section__summary">
+            <span class="line-section__count">@lineCount item@(lineCount != 1 ? "s" : "")</span>
+            <span class="line-section__total">@po.Subtotal.ToString("C2")</span>
+        </div>
+    </div>
+
+    @* ── COLLAPSED ADD TOGGLE — click to expand ── *@
+    @if (canEdit) {
+        <div class="line-section__add-toggle" id="addLineToggle" onclick="toggleAddForm()">
+            <span class="line-section__add-toggle__label">
+                <i class="fas fa-plus"></i> Add Line Item
+            </span>
+            <i class="fas fa-chevron-right line-section__add-toggle__chevron" id="addFormChevron"></i>
+        </div>
+
+        <div class="line-section__add line-section__add--above" id="addLineSection" data-collapsible>
+            @* ── PART SEARCH ── *@
+            <div style="margin-bottom:0.75rem;">
+                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                    <span class="line-add-form__label" style="margin-bottom:0;">SEARCH PARTS</span>
+                    <span style="font-size:0.7rem; color:var(--text-muted);">— or skip to enter a freetext line below</span>
+                </div>
+                <div style="position:relative;">
+                    <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85rem;"></i>
+                    <input type="text" id="partSearchInput" class="line-add-form__input" placeholder="Search by part number, description, manufacturer part..."
+                           style="padding-left:2.25rem;" oninput="filterParts(this.value)" />
+                </div>
+                <div id="partSearchResults" style="display:none; max-height:320px; overflow-y:auto; margin-top:0.5rem; border:1px solid var(--border-default, rgba(255,255,255,0.1)); border-radius:8px;">
+                    <table class="line-table" id="partResultsTable">
+                        <thead>
+                            <tr>
+                                <th class="line-table__th">Part #</th>
+                                <th class="line-table__th">Rev</th>
+                                <th class="line-table__th">Description</th>
+                                <th class="line-table__th">MFR Part #</th>
+                                <th class="line-table__th">UOM</th>
+                                <th class="line-table__th">Warehouse</th>
+                                <th class="line-table__th line-table__th--right">Last Price</th>
+                            </tr>
+                        </thead>
+                        <tbody id="partResultsBody"></tbody>
+                    </table>
+                </div>
+                <div id="selectedPartCard" style="display:none; margin-top:0.75rem; padding:0.75rem 1rem; background:var(--surface-hover, rgba(255,255,255,0.03)); border:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-left:3px solid var(--cherry-red, #cf3339); border-radius:8px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong id="selectedPN" class="td-mono"></strong>
+                            <span id="selectedDesc" style="margin-left:0.75rem; color:var(--text-secondary);"></span>
+                        </div>
+                        <button type="button" class="line-table__action-btn" onclick="clearPartSelection()" title="Clear selection"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div style="display:flex; gap:1.5rem; margin-top:0.35rem; font-size:0.8rem; color:var(--text-muted);">
+                        <span id="selectedRevWrap" style="display:none;">Rev: <strong id="selectedRev" class="td-mono" style="color:var(--text-primary);"></strong></span>
+                        <span>UOM: <strong id="selectedUOM" style="color:var(--text-primary);"></strong></span>
+                        <span>Last Price: <strong id="selectedPrice" class="td-mono" style="color:var(--text-primary);"></strong></span>
+                        <span id="selectedMfrWrap" style="display:none;">MFR#: <strong id="selectedMfr" style="color:var(--text-primary);"></strong></span>
+                        <span id="selectedWhWrap" style="display:none;">Warehouse: <strong id="selectedWh" style="color:var(--text-primary);"></strong></span>
+                    </div>
+                </div>
+            </div>
+
+            @* ── ADD LINE FORM ── *@
+            <form method="post" asp-page-handler="AddLine" id="addLineForm" class="line-add-form">
+                <input type="hidden" name="id" value="@po.Id" />
+                <input type="hidden" name="itemId" id="frm_itemId" />
+                <input type="hidden" name="mfrPartNumber" id="frm_mfr" />
+
+                <div class="line-add-form__row">
+                    <div class="line-add-form__field">
+                        <label class="line-add-form__label">PART NUMBER</label>
+                        <input type="text" name="partNumber" id="frm_pn" class="line-add-form__input" placeholder="Enter or select from search" />
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--narrow">
+                        <label class="line-add-form__label">REVISION</label>
+                        <input type="text" name="revision" id="frm_rev" class="line-add-form__input line-add-form__input--right" placeholder="Rev" />
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--wide">
+                        <label class="line-add-form__label">DESCRIPTION *</label>
+                        <input type="text" name="description" id="frm_desc" class="line-add-form__input" required placeholder="Line item description" />
+                    </div>
+                </div>
+
+                <div class="line-add-form__row">
+                    <div class="line-add-form__field line-add-form__field--narrow">
+                        <label class="line-add-form__label">QTY *</label>
+                        <input type="number" name="quantity" id="frm_qty" class="line-add-form__input line-add-form__input--right" step="0.01" min="0.01" value="1" required />
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--narrow">
+                        <label class="line-add-form__label">UOM</label>
+                        <input type="text" name="uom" id="frm_uom" class="line-add-form__input" value="EA" />
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--narrow">
+                        <label class="line-add-form__label">UNIT PRICE *</label>
+                        <input type="number" name="unitPrice" id="frm_price" class="line-add-form__input line-add-form__input--right" step="0.01" min="0" required placeholder="0.00" />
+                    </div>
+                    <div class="line-add-form__field">
+                        <label class="line-add-form__label">GL ACCOUNT</label>
+                        <select name="glAccountId" class="line-add-form__input" data-cherry-select data-placeholder="Search GL accounts...">
+                            <option value="">— None —</option>
+                            @foreach (var gl in Model.GlAccounts) {
+                                <option value="@gl.Id">@gl.AccountNumber — @gl.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="line-add-form__field line-add-form__field--action">
+                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                            <i class="fas fa-plus"></i> Add Line
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    }
+
+    @* ── LINE ITEMS TABLE ── *@
+    <div class="line-section__body">
+        @if (po.Lines?.Any() ?? false) {
+            <table class="line-table" id="linesTable">
+                <thead>
+                    <tr>
+                        <th class="line-table__th" style="width:30px"></th>
+                        <th class="line-table__th" style="width:40px">#</th>
+                        <th class="line-table__th" style="width:130px">PART #</th>
+                        <th class="line-table__th" style="width:50px">REV</th>
+                        <th class="line-table__th">DESCRIPTION</th>
+                        <th class="line-table__th line-table__th--right" style="width:70px">QTY</th>
+                        <th class="line-table__th" style="width:50px">UOM</th>
+                        <th class="line-table__th line-table__th--right" style="width:100px">UNIT PRICE</th>
+                        <th class="line-table__th line-table__th--right" style="width:110px">TOTAL</th>
+                        <th class="line-table__th line-table__th--right" style="width:60px">RCVD</th>
+                        @if (canEdit) { <th class="line-table__th" style="width:40px"></th> }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ln in po.Lines.OrderBy(l => l.LineNumber)) {
+                        var relCount = ln.Releases?.Count ?? 0;
+                        <tr class="line-table__row">
+                            <td class="line-table__td" style="text-align:center; cursor:pointer;" onclick="toggleReleases(@ln.Id)" title="@(relCount > 0 ? $"{relCount} releases" : "No releases")">
+                                <i class="fas fa-chevron-right" id="chevron-@ln.Id" style="font-size:0.65rem; color:var(--text-muted); transition:transform 0.15s;"></i>
+                            </td>
+                            <td class="line-table__td line-table__td--muted">@ln.LineNumber</td>
+                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(ln.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono line-table__td--muted">@(ln.Revision ?? "")</td>
+                            <td class="line-table__td line-table__td--primary">@ln.Description</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono">@ln.QuantityOrdered.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--muted">@ln.UOM</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono">@ln.UnitPrice.ToString("N2")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@ln.LineTotal.ToString("N2")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">@ln.QuantityReceived.ToString("N0")</td>
+                            @if (canEdit) {
+                                <td class="line-table__td line-table__td--actions">
+                                    <form method="post" asp-page-handler="DeleteLine" style="display:inline"
+                                          onsubmit="return confirm('Delete line #@ln.LineNumber?')">
+                                        <input type="hidden" name="id" value="@po.Id" />
+                                        <input type="hidden" name="lineId" value="@ln.Id" />
+                                        <button type="submit" class="line-table__action-btn" title="Delete line">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            }
+                        </tr>
+
+                        @* ── RELEASES SUB-TABLE ── *@
+                        <tr class="release-section" id="releases-@ln.Id" style="display:none;">
+                            <td colspan="@(canEdit ? 11 : 10)" style="padding:0;">
+                                <div style="background:var(--surface-sunken, rgba(0,0,0,0.1)); border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+                                    <div style="padding:0.6rem 1.25rem; display:flex; justify-content:space-between; align-items:center;">
+                                        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);">
+                                            Releases — Line #@ln.LineNumber · @ln.Description
+                                        </span>
+                                        <span style="font-size:0.8rem; color:var(--text-muted);">
+                                            <strong class="td-mono" style="color:var(--text-primary);">@ln.QuantityOrdered.ToString("N0")</strong> ordered ·
+                                            <strong class="td-mono" style="color:var(--text-primary);">@(ln.Releases?.Sum(r => r.Quantity).ToString("N0") ?? "0")</strong> released ·
+                                            <strong class="td-mono" style="color:var(--text-primary);">@ln.QuantityReceived.ToString("N0")</strong> received
+                                        </span>
+                                    </div>
+
+                                    @if (ln.Releases?.Any() ?? false) {
+                                        <table class="line-table" style="margin:0;">
+                                            <thead>
+                                                <tr>
+                                                    <th class="line-table__th" style="width:70px">RELEASE</th>
+                                                    <th class="line-table__th">SHIP TO</th>
+                                                    <th class="line-table__th" style="width:110px">DUE DATE</th>
+                                                    <th class="line-table__th line-table__th--right" style="width:70px">QTY</th>
+                                                    <th class="line-table__th" style="width:90px">STATUS</th>
+                                                    @if (canEdit) { <th class="line-table__th" style="width:40px"></th> }
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var rel in ln.Releases.OrderBy(r => r.ReleaseNumber)) {
+                                                    var relBadge = rel.Status == ReleaseStatus.Open ? "badge-neutral" : rel.Status == ReleaseStatus.PartiallyReceived ? "badge-warning" : "badge-success";
+                                                    <tr class="line-table__row">
+                                                        <td class="line-table__td line-table__td--mono" style="font-weight:600;">R@rel.ReleaseNumber</td>
+                                                        <td class="line-table__td">@(rel.ShipToLocation?.Name ?? "—")</td>
+                                                        <td class="line-table__td line-table__td--muted">@(rel.DueDate?.ToString("MMM dd, yyyy") ?? "—")</td>
+                                                        <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@rel.Quantity.ToString("N0")</td>
+                                                        <td class="line-table__td"><span class="badge @relBadge">@rel.Status</span></td>
+                                                        @if (canEdit) {
+                                                            <td class="line-table__td line-table__td--actions">
+                                                                <form method="post" asp-page-handler="DeleteRelease" style="display:inline"
+                                                                      onsubmit="return confirm('Delete R@(rel.ReleaseNumber)?')">
+                                                                    <input type="hidden" name="id" value="@po.Id" />
+                                                                    <input type="hidden" name="lineId" value="@ln.Id" />
+                                                                    <input type="hidden" name="releaseId" value="@rel.Id" />
+                                                                    <button type="submit" class="line-table__action-btn" title="Delete release">
+                                                                        <i class="fas fa-times"></i>
+                                                                    </button>
+                                                                </form>
+                                                            </td>
+                                                        }
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    } else {
+                                        <div style="padding:0.75rem 1.25rem; font-size:0.85rem; color:var(--text-muted);">No releases for this line.</div>
+                                    }
+
+                                    @if (canEdit) {
+                                        <div style="padding:0.6rem 1.25rem; border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+                                            <form method="post" asp-page-handler="AddRelease" class="line-add-form" style="margin:0;">
+                                                <input type="hidden" name="id" value="@po.Id" />
+                                                <input type="hidden" name="lineId" value="@ln.Id" />
+                                                <div class="line-add-form__row" style="margin-bottom:0;">
+                                                    <div class="line-add-form__field line-add-form__field--narrow" style="flex:0 0 auto;">
+                                                        <span class="line-add-form__label">+ ADD RELEASE</span>
+                                                    </div>
+                                                    <div class="line-add-form__field">
+                                                        <select name="shipToLocationId" class="line-add-form__input">
+                                                            <option value="">Location...</option>
+                                                            @foreach (var loc in Model.Locations) { <option value="@loc.Id">@loc.Name</option> }
+                                                        </select>
+                                                    </div>
+                                                    <div class="line-add-form__field line-add-form__field--narrow">
+                                                        <input type="number" name="quantity" class="line-add-form__input line-add-form__input--right" value="1" min="1" required />
+                                                    </div>
+                                                    <div class="line-add-form__field">
+                                                        <input type="date" name="dueDate" class="line-add-form__input" />
+                                                    </div>
+                                                    <div class="line-add-form__field line-add-form__field--action">
+                                                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add</button>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="line-table__total-row">
+                        <td colspan="8" class="line-table__td line-table__td--right" style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">SUBTOTAL</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@po.Subtotal.ToString("N2")</td>
+                        <td></td>
+                        @if (canEdit) { <td></td> }
+                    </tr>
+                </tfoot>
+            </table>
+        } else {
+            <div class="line-section__empty">
+                No line items yet. Click <strong>+ Add Line Item</strong> above to start adding parts and materials.
+            </div>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(po.Notes)) {
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Notes</span>
+        </div>
+        <div class="pe-card__body">
+            <p style="margin:0; white-space:pre-wrap;">@po.Notes</p>
+        </div>
+    </div>
+}
+
+@section Scripts {
+<script>
+var ITEMS = [];
+try { ITEMS = JSON.parse(document.getElementById('__items').textContent); } catch(e) {}
+
+function toggleAddForm() {
+    var s = document.getElementById('addLineSection');
+    var t = document.getElementById('addLineToggle');
+    var c = document.getElementById('addFormChevron');
+    if (!s) return;
+    var isOpen = s.classList.contains('open');
+    if (isOpen) {
+        s.classList.remove('open');
+        t.classList.remove('active');
+    } else {
+        s.classList.add('open');
+        t.classList.add('active');
+        var inp = document.getElementById('partSearchInput');
+        if (inp) setTimeout(function(){ inp.focus(); }, 100);
+    }
+}
+
+function toggleReleases(id) {
+    var r = document.getElementById('releases-' + id);
+    var c = document.getElementById('chevron-' + id);
+    if (!r) return;
+    if (r.style.display === 'none') { r.style.display = ''; if (c) c.style.transform = 'rotate(90deg)'; }
+    else { r.style.display = 'none'; if (c) c.style.transform = 'rotate(0deg)'; }
+}
+
+function filterParts(q) {
+    var res = document.getElementById('partSearchResults'), body = document.getElementById('partResultsBody');
+    if (!q || q.length < 1) { res.style.display = 'none'; return; }
+    var lc = q.toLowerCase();
+    var m = ITEMS.filter(function(i) {
+        return (i.pn||'').toLowerCase().indexOf(lc)>=0 || (i.desc||'').toLowerCase().indexOf(lc)>=0 || (i.mfr||'').toLowerCase().indexOf(lc)>=0;
+    });
+    if (!m.length) {
+        body.innerHTML = '<tr><td colspan="7" class="line-table__td" style="text-align:center; padding:1rem; color:var(--text-muted);">No parts found. Enter a freetext line below.</td></tr>';
+    } else {
+        body.innerHTML = m.slice(0,50).map(function(i) {
+            return '<tr class="line-table__row" style="cursor:pointer;" onclick="selectPart('+i.id+')">'
+            +'<td class="line-table__td line-table__td--mono" style="font-weight:600;">'+esc(i.pn)+'</td>'
+            +'<td class="line-table__td line-table__td--mono line-table__td--muted">'+esc(i.rev||'')+'</td>'
+            +'<td class="line-table__td">'+esc(i.desc)+'</td>'
+            +'<td class="line-table__td line-table__td--mono line-table__td--muted">'+esc(i.mfr||'—')+'</td>'
+            +'<td class="line-table__td line-table__td--muted">'+esc(i.uom)+'</td>'
+            +'<td class="line-table__td line-table__td--muted">'+esc(i.wh||'—')+'</td>'
+            +'<td class="line-table__td line-table__td--right line-table__td--mono">'+(i.price?'$'+i.price.toFixed(2):'—')+'</td></tr>';
+        }).join('');
+    }
+    res.style.display = '';
+}
+
+function selectPart(id) {
+    var item = ITEMS.find(function(i){return i.id===id;});
+    if (!item) return;
+    document.getElementById('partSearchResults').style.display='none';
+    document.getElementById('partSearchInput').value='';
+    document.getElementById('selectedPN').textContent=item.pn;
+    document.getElementById('selectedDesc').textContent=item.desc;
+    document.getElementById('selectedUOM').textContent=item.uom;
+    document.getElementById('selectedPrice').textContent=item.price?'$'+item.price.toFixed(2):'—';
+    if(item.mfr){document.getElementById('selectedMfr').textContent=item.mfr;document.getElementById('selectedMfrWrap').style.display='';}else{document.getElementById('selectedMfrWrap').style.display='none';}
+    if(item.rev){document.getElementById('selectedRev').textContent=item.rev;document.getElementById('selectedRevWrap').style.display='';}else{document.getElementById('selectedRevWrap').style.display='none';}
+    if(item.wh){document.getElementById('selectedWh').textContent=item.wh;document.getElementById('selectedWhWrap').style.display='';}else{document.getElementById('selectedWhWrap').style.display='none';}
+    document.getElementById('selectedPartCard').style.display='';
+    document.getElementById('frm_desc').value=item.desc;
+    document.getElementById('frm_pn').value=item.pn;
+    document.getElementById('frm_rev').value=item.rev||'';
+    document.getElementById('frm_uom').value=item.uom;
+    document.getElementById('frm_price').value=item.price?item.price.toFixed(2):'';
+    document.getElementById('frm_itemId').value=item.id;
+    document.getElementById('frm_mfr').value=item.mfr||'';
+    document.getElementById('frm_qty').focus();
+    document.getElementById('frm_qty').select();
+}
+
+function clearPartSelection() {
+    document.getElementById('selectedPartCard').style.display='none';
+    document.getElementById('frm_itemId').value='';
+    document.getElementById('frm_mfr').value='';
+    document.getElementById('frm_rev').value='';
+    document.getElementById('frm_desc').value='';
+    document.getElementById('frm_pn').value='';
+    document.getElementById('frm_uom').value='EA';
+    document.getElementById('frm_price').value='';
+    document.getElementById('partSearchInput').focus();
+}
+
+function esc(s){if(!s)return '';var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+document.addEventListener('click',function(e){
+    if(!e.target.closest('#partSearchInput,#partSearchResults'))document.getElementById('partSearchResults').style.display='none';
+});
+</script>
+}

@@ -1,0 +1,38 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Assets.DeleteModel
+@{
+    ViewData["Title"] = "Delete Asset";
+    ViewData["HasScreenHeader"] = true;
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "HeaderTitle", "Delete Asset" },
+        { "Subtitle", "This action cannot be undone." }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="container my-5">
+    <div class="card shadow-sm border-danger">
+        <div class="card-body">
+            <dl class="row mb-4">
+                <dt class="col-sm-3">Asset #</dt>
+                <dd class="col-sm-9">@Model.Asset.AssetNumber</dd>
+
+                <dt class="col-sm-3">Description</dt>
+                <dd class="col-sm-9">@Model.Asset.Description</dd>
+
+                <dt class="col-sm-3">In Service</dt>
+                <dd class="col-sm-9">@Model.Asset.InServiceDate.ToString("yyyy-MM-dd")</dd>
+            </dl>
+
+            <form method="post" class="d-flex gap-2">
+                <input type="hidden" asp-for="Asset.Id" />
+                <button type="submit" class="btn-p btn-p--danger">
+                    <i class="fa fa-trash me-1"></i> Delete
+                </button>
+                <a asp-page="Index" class="btn-p btn-p--secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>

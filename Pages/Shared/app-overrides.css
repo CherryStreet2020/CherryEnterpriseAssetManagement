@@ -1,0 +1,132 @@
+/* wwwroot/css/app-overrides.css
+   Neon industrial dark theme for ABS Machining
+*/
+
+/* ====== PALETTE ====== */
+:root {
+  --bg-0: #0b0f1a;       /* deep navy */
+  --bg-1: #0f1526;       /* panel base */
+  --ink-0: #ced8ff;      /* primary text */
+  --ink-1: #97a0c4;      /* secondary text */
+  --grid: rgba(113, 173, 255, 0.08);
+  --edge: rgba(255,255,255,.06);
+
+  --accent-1: #56ccf2;   /* cyan */
+  --accent-2: #3a86ff;   /* blue */
+  --accent-3: #b5179e;   /* magenta */
+  --ok: #2dd4bf;
+  --warn: #ffb020;
+  --bad: #ff5d5d;
+
+  --radius-xl: 18px;
+  --radius-lg: 14px;
+  --shadow-1: 0 12px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* ====== BASE ====== */
+html, body { height: 100%; }
+body.mf-dark {
+  background: radial-gradient(800px 600px at 10% -10%, rgba(181,23,158,.12), transparent 60%),
+              radial-gradient(1000px 500px at 110% -10%, rgba(86,204,242,.10), transparent 55%),
+              var(--bg-0);
+  color: var(--ink-0);
+}
+
+/* Subtle grid glow behind everything */
+.mf-grid-bg {
+  position: fixed; inset: 0; z-index: -1;
+  background:
+    linear-gradient(transparent 24px, var(--grid) 25px, transparent 26px) 0 0 / 26px 26px,
+    linear-gradient(90deg, transparent 24px, var(--grid) 25px, transparent 26px) 0 0 / 26px 26px;
+  mask-image: radial-gradient(900px 900px at 50% -10%, black 0, transparent 75%);
+}
+
+/* ====== NAVBAR / TOPBAR ====== */
+.mf-topbar {
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)) border-box,
+              linear-gradient(120deg, rgba(86,204,242,.5), rgba(58,134,255,.5)) padding-box;
+  border-bottom: 1px solid var(--edge);
+  backdrop-filter: blur(8px);
+}
+.navbar { padding-top: .65rem; padding-bottom: .65rem; }
+.mf-brand { color: var(--ink-0); text-decoration: none; }
+.mf-brand .text-muted-lean { color: var(--ink-1) !important; font-weight: 500; }
+.mf-brand-dot {
+  width: .8rem; height: .8rem; display:inline-block; border-radius: 999px;
+  background: radial-gradient(circle at 30% 30%, #fff 0, var(--accent-1) 30%, var(--accent-2) 70%);
+  box-shadow: 0 0 18px rgba(86,204,242,.65), 0 0 30px rgba(58,134,255,.35);
+}
+
+.mf-toggler { border: 1px solid var(--edge); }
+.navbar-dark .navbar-toggler-icon { filter: drop-shadow(0 0 2px rgba(255,255,255,.2)); }
+
+.navbar .nav-link {
+  color: var(--ink-1);
+  border-radius: 10px;
+  padding: .55rem .8rem;
+  transition: color .15s, background .15s, transform .12s;
+}
+.navbar .nav-link:hover { color: var(--ink-0); background: rgba(86,204,242,.10); transform: translateY(-1px); }
+.navbar .nav-link.active {
+  color: #06121d;
+  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  box-shadow: 0 6px 18px rgba(58,134,255,.35);
+}
+
+/* ====== STAGE / PANEL ====== */
+.mf-stage { min-height: calc(100vh - 120px); }
+.mf-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-1);
+}
+
+/* ====== FOOTER ====== */
+.mf-footer {
+  border-top: 1px solid var(--edge);
+  background: linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.04));
+  color: var(--ink-1);
+}
+.link-quiet { color: var(--accent-1); text-decoration: none; }
+.link-quiet:hover { color: var(--accent-2); text-decoration: underline; }
+
+/* ====== TABLES ====== */
+.table { color: var(--ink-0); }
+.table thead th {
+  color: #d8e4ff;
+  border-bottom: 1px solid var(--edge);
+  background: linear-gradient(180deg, rgba(86,204,242,.10), rgba(58,134,255,.08));
+  font-weight: 600;
+}
+.table tbody tr { border-color: var(--edge); }
+.table tbody tr:hover { background: rgba(86,204,242,.06); }
+
+/* badges for boolean/status if you use them */
+.badge-status { font-size:.76rem; padding:.4rem .6rem; border-radius: 999px; }
+.badge-ok    { background: rgba(45,212,191,.12); color: var(--ok); border:1px solid rgba(45,212,191,.35); }
+.badge-warn  { background: rgba(255,176,32,.12); color: var(--warn); border:1px solid rgba(255,176,32,.35); }
+.badge-bad   { background: rgba(255,93,93,.12); color: var(--bad); border:1px solid rgba(255,93,93,.35); }
+
+/* ====== FORMS & BUTTONS ====== */
+.form-control, .form-select {
+  background: #0f172a; color: var(--ink-0);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+}
+.form-control:focus, .form-select:focus {
+  border-color: rgba(86,204,242,.6);
+  box-shadow: 0 0 0 .25rem rgba(58,134,255,.25);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-2), var(--accent-1));
+  border: 0; color: #03131d;
+  font-weight: 700; border-radius: 12px;
+}
+.btn-primary:hover { filter: brightness(1.03) saturate(1.05); }
+.btn-outline-light { border-color: var(--edge); color: var(--ink-0); }
+.btn-outline-light:hover { background: rgba(255,255,255,.08); }
+
+/* ====== UTIL ====== */
+.text-muted-lean { color: var(--ink-1) !important; }

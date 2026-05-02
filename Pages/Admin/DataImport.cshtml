@@ -1,0 +1,324 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.DataImportModel
+@{
+    ViewData["Title"] = "Master Data Import";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var statusText = Model.EnvironmentProfile == "LAB" ? "LAB Environment" :
+                     Model.EnvironmentProfile == "DEMO" ? "DEMO (Protected)" :
+                     Model.EnvironmentProfile;
+    var statusTone = Model.EnvironmentProfile == "LAB" ? "info" :
+                     Model.EnvironmentProfile == "DEMO" ? "warning" : "";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Master Data Import" },
+        { "Subtitle", "Idempotent data seeding for system reference and EAM core masters" },
+        { "StatusText", statusText },
+        { "StatusTone", statusTone },
+        { "ContextPartial", "Admin/_AdminDataImportContext" },
+        { "KpisPartial", "Admin/_AdminDataImportKpis" },
+        { "ActionsPartial", "Admin/_AdminDataImportActions" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mb-4">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger mb-4">@TempData["Error"]</div>
+}
+
+@if (Model.GuardResult != null && !Model.GuardResult.Allowed)
+{
+    <div class="section-card mb-4" style="border: 2px solid #f59e0b; background: var(--lux-surface-alt, #fffbeb);">
+        <div class="section-card-header bg-amber-soft">
+            <h3 class="section-card-title text-dark-amber">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Seed Guard Active - Protected Environment
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <p class="text-dark-amber" style="margin-bottom: 1rem; font-weight: 500;">@Model.GuardResult.Reason</p>
+            <p class="text-dark-amber" style="font-size: 0.875rem;">
+                To enable seeding in this environment, set <code class="bg-yellow-soft" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem;">ALLOW_DEMO_SEED=true</code> in your environment variables.
+            </p>
+        </div>
+    </div>
+}
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            One-Click Seed Packs
+        </h3>
+        <span class="status-badge @(Model.GuardResult?.Allowed == true ? "success" : "warning")">
+            @(Model.GuardResult?.Allowed == true ? "Ready" : "Locked")
+        </span>
+    </div>
+    <div class="section-card-body">
+        <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+            Select a seed pack to quickly populate your LAB environment with test data. All packs are <strong>idempotent</strong> - safe to run multiple times without creating duplicates.
+        </p>
+        <div class="grid grid-cols-3 gap-4">
+            @foreach (var pack in Model.SeedPacks)
+            {
+                <div class="seed-pack-card @(Model.GuardResult?.Allowed != true ? "disabled" : "")">
+                    <div class="seed-pack-header">
+                        <span class="seed-pack-icon @pack.ColorClass">
+                            @if (pack.Id == "small") { <text>S</text> }
+                            else if (pack.Id == "midsize") { <text>M</text> }
+                            else { <text>E</text> }
+                        </span>
+                        <div>
+                            <h4 class="seed-pack-title">@pack.Name</h4>
+                            <p class="seed-pack-size">@pack.AssetCount assets, @pack.CompanyCount company(s)</p>
+                        </div>
+                    </div>
+                    <p class="seed-pack-desc">@pack.Description</p>
+                    <div class="seed-pack-stats">
+                        <span>@pack.SiteCount sites</span>
+                        <span>@pack.LocationCount locations</span>
+                        <span>@pack.VendorCount vendors</span>
+                        <span>@pack.MaintenanceEventCount maint events</span>
+                    </div>
+                    <form method="post" asp-page-handler="RunSeedPack" asp-route-packId="@pack.Id">
+                        <button type="submit" class="hero-btn @(pack.Id == "enterprise" ? "hero-btn-primary" : "hero-btn-secondary")" 
+                                style="width: 100%; margin-top: 1rem;"
+                                @(Model.GuardResult?.Allowed != true ? "disabled" : "")>
+                            Run @pack.Name
+                        </button>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.ImportReport != null)
+{
+    <div class="section-card mb-4">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Import Report</h3>
+            <span class="status-badge @(Model.ImportReport.Success ? "success" : "danger")">
+                @(Model.ImportReport.Success ? "Success" : "Has Errors")
+            </span>
+        </div>
+        <div class="section-card-body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Domain</th>
+                        <th>Total</th>
+                        <th>Inserted</th>
+                        <th>Updated</th>
+                        <th>Skipped</th>
+                        <th>Failed</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var result in Model.ImportReport.Results)
+                    {
+                        <tr>
+                            <td><strong>@result.Domain</strong></td>
+                            <td>@result.TotalRecords</td>
+                            <td class="text-success">@result.Inserted</td>
+                            <td class="text-info">@result.Updated</td>
+                            <td class="text-muted">@result.Skipped</td>
+                            <td class="@(result.Failed > 0 ? "text-danger" : "")">@result.Failed</td>
+                            <td>
+                                @if (result.Success)
+                                {
+                                    <span class="status-badge success">OK</span>
+                                }
+                                else
+                                {
+                                    <span class="status-badge danger">Error</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="font-weight: bold; background: var(--lux-surface-alt, #f8fafc);">
+                        <td>TOTAL</td>
+                        <td>@Model.ImportReport.Results.Sum(r => r.TotalRecords)</td>
+                        <td class="text-success">@Model.ImportReport.TotalInserted</td>
+                        <td class="text-info">@Model.ImportReport.TotalUpdated</td>
+                        <td class="text-muted">@Model.ImportReport.Results.Sum(r => r.Skipped)</td>
+                        <td class="@(Model.ImportReport.TotalFailed > 0 ? "text-danger" : "")">@Model.ImportReport.TotalFailed</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="grid grid-cols-3 gap-4 mb-4">
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                System Reference Seed
+            </h3>
+            <span class="status-badge info">Safe Always</span>
+        </div>
+        <div class="section-card-body">
+            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+                Seeds safe default reference data: work order types, failure/cause codes, priority levels, crafts, 
+                numbering sequences, payment terms, currencies, Section 179 limits, and bonus depreciation rates.
+            </p>
+            <p class="text-emerald" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+                Idempotent: Safe to run multiple times. Skips existing records.
+            </p>
+            <form method="post" asp-page-handler="SystemReferenceSeed">
+                <button type="submit" class="hero-btn hero-btn-primary" style="width: 100%;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    Run System Reference Seed
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+                EAM Core Masters Load
+            </h3>
+            <span class="status-badge warning">On Demand</span>
+        </div>
+        <div class="section-card-body">
+            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+                Seeds organization-specific master data: GL accounts (Chart of Accounts), sites, departments, 
+                cost centers, and asset categories.
+            </p>
+            <p class="text-amber" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+                Idempotent: Safe to run multiple times. Will not overwrite existing data.
+            </p>
+            <form method="post" asp-page-handler="CustomerMasterLoad">
+                <button type="submit" class="hero-btn hero-btn-secondary" style="width: 100%;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Run EAM Core Masters Load
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Demo Seed
+            </h3>
+            <span class="status-badge danger">Dev Only</span>
+        </div>
+        <div class="section-card-body">
+            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+                Seeds sample PM templates for demonstration and testing purposes.
+            </p>
+            <p class="text-red" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+                Development only. Do not run in production.
+            </p>
+            <form method="post" asp-page-handler="DemoSeed">
+                <button type="submit" class="hero-btn hero-btn-ghost" style="width: 100%; border: 1px dashed var(--text-muted, #94a3b8);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                    Run Demo Seed
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            CSV Templates
+        </h3>
+        <span class="status-badge info">Download</span>
+    </div>
+    <div class="section-card-body">
+        <p class="text-theme-muted" style="margin-bottom: 1rem;">
+            Download CSV templates to prepare your master data for import. Templates include all required columns with sample data.
+        </p>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="/data/templates/ChartOfAccounts.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+                Chart of Accounts
+            </a>
+            <a href="/data/templates/Sites.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+                Sites
+            </a>
+            <a href="/data/templates/Locations.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+                Locations
+            </a>
+            <a href="/data/templates/Vendors.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+                Vendors
+            </a>
+            <a href="/data/templates/AssetCategories.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+                Asset Categories
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Current Data Status</h3>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr><th>Domain</th><th>Count</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.DataStatus)
+                {
+                    <tr>
+                        <td>@item.Key</td>
+                        <td>@item.Value</td>
+                        <td>
+                            @if (item.Value > 0)
+                            {
+                                <span class="status-badge success">Has Data</span>
+                            }
+                            else
+                            {
+                                <span class="status-badge warning">Empty</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

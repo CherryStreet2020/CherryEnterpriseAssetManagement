@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Reports.BuilderModel
+<div class="kpi-card">
+    <div class="kpi-label">Fields</div>
+    <div class="kpi-value">@Model.AvailableFields.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Selected</div>
+    <div class="kpi-value info">@Model.SelectedFields.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Records</div>
+    <div class="kpi-value success">@Model.ReportData.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Locations</div>
+    <div class="kpi-value">@Model.Locations.Count</div>
+</div>

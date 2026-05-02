@@ -1,0 +1,187 @@
+@page
+@model Abs.FixedAssets.Pages.Assets.IndexModel
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = UiTerms.AssetManagement;
+    ViewData["TabTitle"] = "Asset Register";
+    ViewData["Breadcrumb"] = UiTerms.AssetManagement;
+    ViewData["HasScreenHeader"] = true;
+    
+    var activeCount = Model.AllAssets.Count(a => a.Active);
+    var statusText = $"{activeCount} Active";
+    var statusTone = activeCount > 0 ? "success" : "neutral";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Asset Register",
+        ["Subtitle"] = "Browse and manage all fixed assets across your organization",
+        ["TypeLabel"] = "Asset Management",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Assets/_AssetsIndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/Assets/_AssetsIndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Assets/_AssetsIndexActions.cshtml"
+    };
+}
+
+@{
+    var baseUrl = "/Assets";
+    var activeUrl = "/Assets?filter=active";
+    var totalCost = Model.AllAssets.Sum(a => a.AcquisitionCost);
+    var totalDepreciation = Model.AllAssets.Sum(a => a.AccumulatedDepreciation);
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="quick-stats-row-4">
+    <a href="@baseUrl" class="quick-stat-card clickable @(Model.Filter == null ? "stat-active" : "")">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.AllAssets.Count.ToString("N0")</div>
+            <div class="quick-stat-label">Total Assets</div>
+        </div>
+    </a>
+    <a href="@activeUrl" class="quick-stat-card clickable @(Model.Filter == "active" ? "stat-active" : "")">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@activeCount.ToString("N0")</div>
+            <div class="quick-stat-label">Active Assets</div>
+        </div>
+    </a>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@totalCost.ToString("C0")</div>
+            <div class="quick-stat-label">Total Cost</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value danger">@totalDepreciation.ToString("C0")</div>
+            <div class="quick-stat-label">Accumulated Depreciation</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            @Model.FilterLabel
+        </h3>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
+            @(Model.Filter != null ? "Filtered view" : "Browse and manage all fixed assets")
+        </p>
+    </div>
+    
+    <div style="overflow-x: auto;">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        <table class="data-table" id="assetGrid" data-enhanced-grid="true" data-row-click="true">
+            <thead>
+                <tr>
+                    <th style="width: 110px;" data-col="Asset #" data-filter="text">Asset #</th>
+                    <th style="min-width: 200px;" data-col="Description" data-filter="text">Description</th>
+                    <th style="width: 130px;" data-col="Model" data-filter="text">Model</th>
+                    <th style="width: 130px;" data-col="Location" data-filter="text">Location</th>
+                    <th style="width: 70px;" data-col="Year" data-filter="number">Year</th>
+                    <th style="text-align: right; width: 120px;" data-col="Cost" data-filter="number">Cost</th>
+                    <th style="text-align: right; width: 120px;" data-col="Book Value" data-filter="number">Book Value</th>
+                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.Assets)
+                {
+                    <tr data-row-id="@a.Id" data-row-href="@Url.Page("/Assets/Asset", new { id = a.Id, returnUrl = returnUrl })">
+                        <td><strong class="text-primary">@a.AssetNumber</strong></td>
+                        <td style="max-width: 280px;">
+                            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@a.Description">
+                                @a.Description
+                            </div>
+                        </td>
+                        <td style="color: var(--text-secondary);">@(a.Model ?? "-")</td>
+                        <td>
+                            @if (a.LocationRef != null)
+                            {
+                                <span class="badge badge-secondary">@a.LocationRef.Name</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>@(a.FiscalPurchaseYear?.ToString() ?? "-")</td>
+                        <td style="text-align: right; font-weight: 600;">@a.AcquisitionCost.ToString("C2")</td>
+                        <td style="text-align: right; color: var(--text-secondary); font-weight: 500;">@((a.BookValue ?? 0).ToString("C2"))</td>
+                        <td>
+                            @if (a.Active)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    
+    @if (!Model.Assets.Any())
+    {
+        <div class="pe-empty" style="padding:2rem;">
+            <i class="fas fa-box-open pe-empty__icon" style="font-size:1.5rem;"></i>
+            <div class="pe-empty__title">No assets found</div>
+            <div class="pe-empty__text">Get started by adding your first asset</div>
+            <a asp-page="./Asset" asp-route-mode="create" class="btn-premium btn-premium-primary">Add First Asset</a>
+        </div>
+    }
+</div>
+
+<div class="section-card">
+    <div class="section-card-body" style="padding: 16px 24px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--primary)">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <strong style="color: var(--primary);">Tip:</strong>
+                <span style="color: var(--text-secondary);">Use the search bar to quickly find assets by number, description, or location. Click on any asset to view its full depreciation schedule.</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initEnhancedGrid('assetGrid', {
+        searchable: true,
+        sortable: true,
+        exportable: true,
+        columnVisibility: true,
+        clickableRows: true
+    });
+});
+</script>
+}

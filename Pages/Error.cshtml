@@ -1,0 +1,21 @@
+@page
+@model Abs.FixedAssets.Pages.ErrorModel
+@{
+    ViewData["Title"] = "Error";
+    ViewData["HideDefaultPageHeader"] = true;
+}
+
+<section class="container mx-auto max-w-5xl px-4 py-10">
+    <h1 class="text-2xl font-semibold mb-4">Something went wrong</h1>
+
+    <p class="mb-6">
+        An unexpected error occurred while processing your request.
+        @if (Model.ShowRequestId)
+        {
+            <span class="block mt-2 text-sm text-gray-500">Request ID: <code>@Model.RequestId</code></span>
+        }
+    </p>
+
+    <a class="inline-flex items-center rounded-lg border px-4 py-2 hover:bg-gray-50"
+       href="javascript:history.back()">Go back</a>
+</section>

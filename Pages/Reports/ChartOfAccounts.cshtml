@@ -1,0 +1,148 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.ChartOfAccountsModel
+@{
+    ViewData["Title"] = "Chart of Accounts";
+    ViewData["Breadcrumb"] = "Reports / Chart of Accounts";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Chart of Accounts" },
+        { "Subtitle", "Complete listing of GL accounts with types, categories, and balances" },
+        { "TypeLabel", "Financial" },
+        { "StatusText", "Active" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "Reports/_ReportsChartOfAccountsKpis" },
+        { "ActionsPartial", "Reports/_ReportsChartOfAccountsActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="card-title">Filter Accounts</h3>
+    </div>
+    <div class="section-card-body">
+        <form method="get" class="filter-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Search</label>
+                    <input type="text" name="Search" value="@Model.Search" class="form-control" placeholder="Account number or name...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Account Type</label>
+                    <select name="FilterType" class="form-control">
+                        <option value="">All Types</option>
+                        @foreach (var type in Enum.GetValues<Abs.FixedAssets.Models.GlAccountType>())
+                        {
+                            <option value="@type" selected="@(Model.FilterType == type.ToString())">@type</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="FilterCategory" class="form-control">
+                        <option value="">All Categories</option>
+                        @foreach (var cat in Enum.GetValues<Abs.FixedAssets.Models.GlAccountCategory>())
+                        {
+                            <option value="@cat" selected="@(Model.FilterCategory == cat.ToString())">@cat</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group" style="align-self: flex-end;">
+                    <button type="submit" class="btn-p btn-p--primary">Apply Filters</button>
+                    <a asp-page="/Reports/ChartOfAccounts" class="btn-p btn-p--secondary">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="section-card" style="margin-top: 1.5rem;">
+    <div class="section-card-header">
+        <h3 class="card-title">GL Accounts (@Model.Accounts.Count)</h3>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.Accounts.Any())
+        {
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Account #</th>
+                            <th>Account Name</th>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Normal Balance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var account in Model.Accounts)
+                        {
+                            <tr class="clickable-row" onclick="window.location.href='/Books/GlAccounts'">
+                                <td><strong>@account.AccountNumber</strong></td>
+                                <td>@account.Name</td>
+                                <td>
+                                    <span class="badge @GetTypeBadgeClass(account.AccountType)">
+                                        @account.AccountType
+                                    </span>
+                                </td>
+                                <td>@FormatCategory(account.Category)</td>
+                                <td>
+                                    <span class="badge @(account.NormalBalance == Abs.FixedAssets.Models.NormalBalance.Debit ? "badge-primary" : "badge-success")">
+                                        @account.NormalBalance
+                                    </span>
+                                </td>
+                                <td>
+                                    @if (account.IsActive)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:2rem;">
+                <i class="fas fa-calculator pe-empty__icon" style="font-size:1.5rem;"></i>
+                <div class="pe-empty__title">No Accounts Found</div>
+                <div class="pe-empty__text">No GL accounts match your filter criteria.</div>
+                <a asp-page="/Reports/ChartOfAccounts" class="btn-p btn-p--primary">Clear Filters</a>
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    string GetTypeBadgeClass(Abs.FixedAssets.Models.GlAccountType type)
+    {
+        return type switch
+        {
+            Abs.FixedAssets.Models.GlAccountType.Asset => "badge-primary",
+            Abs.FixedAssets.Models.GlAccountType.Liability => "badge-warning",
+            Abs.FixedAssets.Models.GlAccountType.Equity => "badge-info",
+            Abs.FixedAssets.Models.GlAccountType.Revenue => "badge-success",
+            Abs.FixedAssets.Models.GlAccountType.Expense => "badge-danger",
+            Abs.FixedAssets.Models.GlAccountType.ContraAsset => "badge-secondary",
+            _ => "badge-secondary"
+        };
+    }
+
+    string FormatCategory(Abs.FixedAssets.Models.GlAccountCategory category)
+    {
+        var name = category.ToString();
+        return System.Text.RegularExpressions.Regex.Replace(name, "([a-z])([A-Z])", "$1 $2");
+    }
+}

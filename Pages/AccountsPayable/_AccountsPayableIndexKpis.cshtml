@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.AccountsPayable.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Open</div>
+    <div class="kpi-value">@Model.OpenInvoiceCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Past Due</div>
+    <div class="kpi-value danger">@Model.PastDueCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Payable</div>
+    <div class="kpi-value warning">@Model.TotalPayable.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Paid MTD</div>
+    <div class="kpi-value success">@Model.PaidThisMonth.ToString("C0")</div>
+</div>

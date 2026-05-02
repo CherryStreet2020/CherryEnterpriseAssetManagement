@@ -1,0 +1,27 @@
+@model Abs.FixedAssets.Models.PurchaseOrder
+@{
+    var statusClass = Model.Status switch {
+        Models.POStatus.Draft => "status-badge-p--draft",
+        Models.POStatus.PendingApproval => "status-badge-p--pending",
+        Models.POStatus.Approved => "status-badge-p--approved",
+        Models.POStatus.Sent => "status-badge-p--info",
+        Models.POStatus.PartiallyReceived => "status-badge-p--pending",
+        Models.POStatus.Received => "status-badge-p--approved",
+        Models.POStatus.Cancelled => "status-badge-p--danger",
+        _ => "status-badge-p--draft"
+    };
+}
+<div class="cockpit__card"
+     data-id="@Model.Id" data-po="@Model.PONumber" data-vendor="@(Model.Vendor?.Name ?? "")"
+     onclick="selectPO(@Model.Id)">
+    <div class="cockpit__card-row">
+        <span class="cockpit__card-po">@Model.PONumber</span>
+        <span class="status-badge-p @statusClass" style="font-size:0.55rem;">@Model.Status</span>
+    </div>
+    <div class="cockpit__card-vendor">@(Model.Vendor?.Name ?? "—")</div>
+    <div class="cockpit__card-meta">
+        <span>Date: <strong>@Model.OrderDate.ToString("MM/dd")</strong></span>
+        <span>Lines: <strong>@(Model.Lines?.Count ?? 0)</strong></span>
+        <span>Total: <strong>$@Model.Total.ToString("N0")</strong></span>
+    </div>
+</div>

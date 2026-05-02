@@ -1,0 +1,24 @@
+@{
+    var costTypeName = ViewData["CostTypeName"]?.ToString();
+    var totalAmount = ViewData["TotalAmount"] as decimal? ?? 0;
+    var entryCount = ViewData["EntryCount"] as int? ?? 0;
+    var avgPerEntry = entryCount > 0 ? totalAmount / entryCount : 0;
+}
+<div class="screen-header__kpis">
+    <div class="kpi-card">
+        <div class="kpi-label">Cost Type</div>
+        <div class="kpi-value" style="font-size: 14px;">@costTypeName</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Total Amount</div>
+        <div class="kpi-value money">@totalAmount.ToString("C0")</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Entries</div>
+        <div class="kpi-value">@entryCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Avg per Entry</div>
+        <div class="kpi-value">@avgPerEntry.ToString("C0")</div>
+    </div>
+</div>

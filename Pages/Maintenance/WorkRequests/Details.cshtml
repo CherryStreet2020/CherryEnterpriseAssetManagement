@@ -1,0 +1,120 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Maintenance.WorkRequests.DetailsModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = $"Request {Model.WorkRequest.RequestNumber}";
+    ViewData["HasScreenHeader"] = true;
+    ViewData["TabTitle"] = Model.WorkRequest.RequestNumber;
+    ViewData["ReturnUrl"] = Model.ReturnUrl;
+    ViewData["FallbackPage"] = "/Maintenance/WorkRequests";
+    ViewData["FallbackLabel"] = "Work Requests";
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.WorkRequest.RequestNumber,
+        ["Subtitle"] = $"Submitted {Model.WorkRequest.RequestedAt:MMMM dd, yyyy} by {Model.WorkRequest.RequestedBy}",
+        ["TypeLabel"] = "Work Request",
+        ["StatusText"] = Model.WorkRequest.Status.ToString(),
+        ["StatusTone"] = Model.WorkRequest.Status == WorkRequestStatus.ConvertedToWO ? "success" : "info",
+        ["Breadcrumbs"] = new (string, string)[] { ("Maintenance", "/Maintenance"), ("Work Requests", "/Maintenance/WorkRequests"), (Model.WorkRequest.RequestNumber ?? "Details", "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Maintenance/WorkRequests",
+        ["BackLinkLabel"] = "Back to results",
+        ["ContextPartial"] = "Maintenance/WorkRequests/_WorkRequestDetailsContext",
+        ["ActionsPartial"] = "Maintenance/WorkRequests/_WorkRequestDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["WorkRequest"] = Model.WorkRequest }
+    };
+    ViewData["WorkRequest"] = Model.WorkRequest;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="content-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+    <div class="content-card">
+        <h3 style="margin-bottom: 20px;"><i class="fas fa-file-alt text-blue"></i> Request Details</h3>
+        
+        <div class="detail-row" style="margin-bottom: 24px;">
+            <label class="field-label-styled" style="margin-bottom: 8px;">Description</label>
+            <div class="bg-surface-alt" style="padding: 16px; border-radius: 8px; line-height: 1.6;">
+                @Model.WorkRequest.RequestText
+            </div>
+        </div>
+
+        <div class="detail-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div>
+                <label class="field-label-styled">Status</label>
+                <span class="status-badge status-@Model.WorkRequest.Status.ToString().ToLower()">@Model.WorkRequest.Status</span>
+            </div>
+            <div>
+                <label class="field-label-styled">Priority</label>
+                <span class="priority-badge priority-@Model.WorkRequest.Priority.ToString().ToLower()">@Model.WorkRequest.Priority</span>
+            </div>
+            <div>
+                <label class="field-label-styled">Site</label>
+                <div>@(Model.WorkRequest.Site?.Name ?? "Not specified")</div>
+            </div>
+            <div>
+                <label class="field-label-styled">Asset</label>
+                <div>@(Model.WorkRequest.Asset != null ? $"{Model.WorkRequest.Asset.AssetNumber} - {Model.WorkRequest.Asset.Description}" : "Not specified")</div>
+            </div>
+            <div>
+                <label class="field-label-styled">Contact Phone</label>
+                <div>@(Model.WorkRequest.ContactPhone ?? "-")</div>
+            </div>
+            <div>
+                <label class="field-label-styled">Contact Email</label>
+                <div>@(Model.WorkRequest.ContactEmail ?? "-")</div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        @if (Model.WorkRequest.GeneratedWorkOrder != null)
+        {
+            <div class="content-card bg-green-soft" style="border: 1px solid var(--success, #22c55e);">
+                <h4 class="text-green" style="margin: 0 0 12px 0;">
+                    <i class="fas fa-check-circle"></i> Work Order Generated
+                </h4>
+                <div class="text-green" style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">
+                    @Model.WorkRequest.GeneratedWorkOrder.WorkOrderNumber
+                </div>
+                <a href="/Maintenance/Details/@Model.WorkRequest.GeneratedWorkOrderId" class="btn-p btn-p--primary btn-p--sm">
+                    <i class="fas fa-external-link-alt"></i> View Work Order
+                </a>
+            </div>
+        }
+
+        @if (Model.WorkRequest.IsAIAssisted)
+        {
+            <div class="content-card gradient-btn-navy" style="color: white; margin-top: 16px;">
+                <h4 style="margin: 0 0 12px 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-robot"></i> AI Analysis
+                    <span style="background: @(Model.WorkRequest.AIConfidence == "High" ? "var(--success, #22c55e)" : Model.WorkRequest.AIConfidence == "Medium" ? "var(--warning, #f59e0b)" : "var(--danger, #ef4444)"); padding: 2px 8px; border-radius: 8px; font-size: 11px;">
+                        @Model.WorkRequest.AIConfidence Confidence
+                    </span>
+                </h4>
+                <div style="font-size: 13px; opacity: 0.9; white-space: pre-line;">
+                    @Model.WorkRequest.AIExplanation
+                </div>
+            </div>
+        }
+
+        <div class="content-card" style="margin-top: 16px;">
+            <h4 style="margin: 0 0 12px 0;"><i class="fas fa-history text-theme-muted"></i> Timeline</h4>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div style="font-weight: 600;">Created</div>
+                    <div class="text-theme-secondary" style="font-size: 13px;">@Model.WorkRequest.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+                    <div class="text-theme-muted" style="font-size: 12px;">by @Model.WorkRequest.CreatedBy</div>
+                </div>
+                @if (Model.WorkRequest.ModifiedAt != null)
+                {
+                    <div class="timeline-item" style="margin-top: 12px;">
+                        <div style="font-weight: 600;">Last Modified</div>
+                        <div class="text-theme-secondary" style="font-size: 13px;">@Model.WorkRequest.ModifiedAt?.ToString("MMM dd, yyyy h:mm tt")</div>
+                        <div class="text-theme-muted" style="font-size: 12px;">by @Model.WorkRequest.ModifiedBy</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

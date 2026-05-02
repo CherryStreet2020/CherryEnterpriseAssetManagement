@@ -1,0 +1,34 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Books.DeleteModel
+@{
+    ViewData["Title"] = "Delete Book";
+    ViewData["HasScreenHeader"] = true;
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "HeaderTitle", "Delete Book" },
+        { "Subtitle", "This action cannot be undone." }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="container-xxl py-4">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <p class="text-danger">Are you sure you want to delete this book?</p>
+
+            <dl class="row">
+                <dt class="col-sm-3">Code</dt><dd class="col-sm-9">@Model.Book.Code</dd>
+                <dt class="col-sm-3">Name</dt><dd class="col-sm-9">@Model.Book.Name</dd>
+            </dl>
+
+            <form method="post">
+                <input type="hidden" asp-for="Book.Id" />
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn-p btn-p--danger">Delete</button>
+                    <a class="btn-p btn-p--secondary" href="@Url.Page("./Index")">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

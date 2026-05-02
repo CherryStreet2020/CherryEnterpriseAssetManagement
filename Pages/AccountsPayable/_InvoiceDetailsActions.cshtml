@@ -1,0 +1,55 @@
+@using Abs.FixedAssets.Models
+@{
+    var inv = ViewData["Invoice"] as VendorInvoice;
+    var backUrl = ViewData["BackUrl"]?.ToString() ?? "/AccountsPayable";
+    var canEdit = inv != null && (inv.Status == InvoiceStatus.Draft || inv.Status == InvoiceStatus.PendingApproval);
+    if (inv == null) return;
+}
+<div class="hero-tags">
+    <span class="hero-tag @(inv.MatchStatus == InvoiceMatchStatus.FullyMatched ? "success" : inv.MatchStatus == InvoiceMatchStatus.PartialMatch ? "warning" : "info")">
+        @inv.MatchStatus.ToString().ToUpper()
+    </span>
+</div>
+<div class="hero-btns">
+    <a href="@backUrl" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+    </a>
+    @if (inv.Status == InvoiceStatus.PendingApproval)
+    {
+        <form method="post" asp-page-handler="Approve">
+            <input type="hidden" name="id" value="@inv.Id" />
+            <input type="hidden" name="returnUrl" value="@backUrl" />
+            <button type="submit" class="hero-btn hero-btn-success">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Approve
+            </button>
+        </form>
+    }
+    @if (inv.Status == InvoiceStatus.Approved && inv.BalanceDue > 0)
+    {
+        <button type="button" class="hero-btn hero-btn-primary" onclick="togglePaymentForm(); document.getElementById('inlinePaymentForm').scrollIntoView({behavior:'smooth'});">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Record Payment
+        </button>
+    }
+    @if (canEdit)
+    {
+        <form method="post" asp-page-handler="Void" onsubmit="return confirm('Void this invoice? This cannot be undone.')">
+            <input type="hidden" name="id" value="@inv.Id" />
+            <input type="hidden" name="returnUrl" value="@backUrl" />
+            <button type="submit" class="hero-btn hero-btn-danger">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                Void
+            </button>
+        </form>
+    }
+</div>

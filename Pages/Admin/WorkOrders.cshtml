@@ -1,0 +1,107 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.WorkOrdersModel
+@{
+    ViewData["Title"] = "Work Orders";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalWorkOrders = Model.WorkOrders.Count;
+}
+
+<div class="legacy-banner" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span style="font-weight: 500;">Legacy page: not used in the current workflow.</span>
+    </div>
+    <a href="/Maintenance" class="legacy-banner-link">Go to Maintenance</a>
+</div>
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Work Orders" },
+        { "Subtitle", "Manage maintenance work orders and track parts usage" },
+        { "TypeLabel", "Administration" },
+        { "StatusText", $"{Model.OpenCount} Open" },
+        { "StatusTone", "warning" },
+        { "KpisPartial", "Admin/_AdminWorkOrdersKpis" },
+        { "ActionsPartial", "Admin/_AdminWorkOrdersActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            All Work Orders
+        </h3>
+        <span class="status-badge info">@totalWorkOrders WORK ORDERS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        @if (Model.WorkOrders.Any())
+        {
+            <table class="data-table" id="workOrdersTable" data-enhanced-grid="true" data-row-click="true">
+                <thead>
+                    <tr>
+                        <th data-col="WO #" data-filter="text">WO #</th>
+                        <th data-col="Asset" data-filter="text">Asset</th>
+                        <th data-col="Type" data-filter="text">Type</th>
+                        <th data-col="Description" data-filter="text">Description</th>
+                        <th data-col="Assigned To" data-filter="text">Assigned To</th>
+                        <th data-col="Status" data-filter="select" data-filter-options="Open|InProgress|Completed|Cancelled">Status</th>
+                        <th data-col="Parts Used" data-filter="number">Parts Used</th>
+                        <th data-col="Created" data-filter="text">Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var wo in Model.WorkOrders)
+                    {
+                        var statusClass = wo.Status switch {
+                            "Open" => "badge-primary",
+                            "InProgress" => "badge-warning",
+                            "Completed" => "badge-success",
+                            "Cancelled" => "badge-secondary",
+                            _ => "badge-secondary"
+                        };
+                        <tr data-row-id="@wo.Id" data-row-href="@Url.Page("/WorkOrders/Details", new { id = wo.Id, returnUrl = returnUrl })">
+                            <td><strong>@wo.WorkOrderNumber</strong></td>
+                            <td>@wo.AssetTag</td>
+                            <td>@wo.Type</td>
+                            <td>@wo.Description</td>
+                            <td>@wo.AssignedTo</td>
+                            <td><span class="badge @statusClass">@wo.Status</span></td>
+                            <td>@wo.PartsCount parts</td>
+                            <td>@wo.CreatedDate.ToString("MM/dd/yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-clipboard-list pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">
+                    <h3>No Work Orders</h3>
+                    <p>Create your first work order from the Maintenance page.</p>
+                    <a href="/Maintenance" class="btn-p btn-p--primary">Go to Maintenance</a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof initEnhancedGrid === 'function') {
+            initEnhancedGrid('workOrdersTable');
+        }
+    });
+</script>
+}

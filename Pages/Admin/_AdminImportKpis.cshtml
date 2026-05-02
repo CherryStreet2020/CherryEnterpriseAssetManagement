@@ -1,0 +1,12 @@
+@model Abs.FixedAssets.Pages.Admin.ImportModel
+@{
+    var historyCount = Model.ImportHistory.Count();
+}
+<div class="kpi-card">
+    <div class="kpi-label">Import Types</div>
+    <div class="kpi-value">3</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Import History</div>
+    <div class="kpi-value">@historyCount</div>
+</div>

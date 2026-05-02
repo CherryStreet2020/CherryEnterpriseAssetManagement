@@ -1,0 +1,511 @@
+ PurchaseOrderReleases        | Status                           | integer                     | NO          | 
+ PurchaseOrderReleases        | Notes                            | character varying           | YES         | 
+ PurchaseOrderReleases        | CreatedAt                        | timestamp with time zone    | NO          | 
+ PurchaseOrders               | Id                               | integer                     | NO          | 
+ PurchaseOrders               | PONumber                         | character varying           | NO          | 
+ PurchaseOrders               | POType                           | integer                     | NO          | 
+ PurchaseOrders               | Status                           | integer                     | NO          | 
+ PurchaseOrders               | VendorId                         | integer                     | NO          | 
+ PurchaseOrders               | OrderDate                        | timestamp with time zone    | NO          | 
+ PurchaseOrders               | RequiredDate                     | timestamp with time zone    | YES         | 
+ PurchaseOrders               | PromiseDate                      | timestamp with time zone    | YES         | 
+ PurchaseOrders               | Currency                         | character varying           | NO          | 
+ PurchaseOrders               | Subtotal                         | numeric                     | NO          | 
+ PurchaseOrders               | TaxAmount                        | numeric                     | NO          | 
+ PurchaseOrders               | ShippingAmount                   | numeric                     | NO          | 
+ PurchaseOrders               | Total                            | numeric                     | NO          | 
+ PurchaseOrders               | Notes                            | character varying           | YES         | 
+ PurchaseOrders               | InternalNotes                    | character varying           | YES         | 
+ PurchaseOrders               | WorkOrderId                      | integer                     | YES         | 
+ PurchaseOrders               | CipProjectId                     | integer                     | YES         | 
+ PurchaseOrders               | RequestedById                    | integer                     | YES         | 
+ PurchaseOrders               | ApprovedById                     | integer                     | YES         | 
+ PurchaseOrders               | ApprovedAt                       | timestamp with time zone    | YES         | 
+ PurchaseOrders               | CompanyId                        | integer                     | YES         | 
+ PurchaseOrders               | CreatedAt                        | timestamp with time zone    | NO          | 
+ PurchaseOrders               | UpdatedAt                        | timestamp with time zone    | YES         | 
+ PurchaseOrders               | BillToAddress                    | character varying           | YES         | 
+ PurchaseOrders               | BillToSiteId                     | integer                     | YES         | 
+ PurchaseOrders               | DefaultShipToLocationId          | integer                     | YES         | 
+ PurchaseOrders               | ShipToAddress                    | character varying           | YES         | 
+ PurchaseOrders               | ShipToSiteId                     | integer                     | YES         | 
+ PurchaseRequisitionLines     | Id                               | integer                     | NO          | 
+ PurchaseRequisitionLines     | RequisitionId                    | integer                     | NO          | 
+ PurchaseRequisitionLines     | LineNumber                       | integer                     | NO          | 
+ PurchaseRequisitionLines     | IsNonItemMaster                  | boolean                     | NO          | 
+ PurchaseRequisitionLines     | ItemId                           | integer                     | YES         | 
+ PurchaseRequisitionLines     | PartNumber                       | character varying           | YES         | 
+ PurchaseRequisitionLines     | Description                      | character varying           | YES         | 
+ PurchaseRequisitionLines     | ManufacturerPartNumber           | character varying           | YES         | 
+ PurchaseRequisitionLines     | VendorPartNumber                 | character varying           | YES         | 
+ PurchaseRequisitionLines     | Revision                         | character varying           | YES         | 
+ PurchaseRequisitionLines     | ExpenseCategoryId                | integer                     | YES         | 
+ PurchaseRequisitionLines     | Quantity                         | numeric                     | NO          | 
+ PurchaseRequisitionLines     | UOM                              | character varying           | NO          | 
+ PurchaseRequisitionLines     | UnitPrice                        | numeric                     | NO          | 
+ PurchaseRequisitionLines     | SuggestedVendorId                | integer                     | YES         | 
+ PurchaseRequisitionLines     | CurrentStock                     | numeric                     | YES         | 
+ PurchaseRequisitionLines     | ReorderPoint                     | numeric                     | YES         | 
+ PurchaseRequisitionLines     | RequiredDate                     | timestamp with time zone    | YES         | 
+ PurchaseRequisitionLines     | DeliverTo                        | character varying           | YES         | 
+ PurchaseRequisitionLines     | Notes                            | character varying           | YES         | 
+ PurchaseRequisitionLines     | GlAccountId                      | integer                     | YES         | 
+ PurchaseRequisitionLines     | CostCenterId                     | integer                     | YES         | 
+ PurchaseRequisitionLines     | CreatedAt                        | timestamp with time zone    | NO          | 
+ PurchaseRequisitions         | Id                               | integer                     | NO          | 
+ PurchaseRequisitions         | RequisitionNumber                | character varying           | NO          | 
+ PurchaseRequisitions         | Status                           | integer                     | NO          | 
+ PurchaseRequisitions         | Priority                         | integer                     | NO          | 
+ PurchaseRequisitions         | Source                           | integer                     | NO          | 
+ PurchaseRequisitions         | RequisitionDate                  | timestamp with time zone    | NO          | 
+ PurchaseRequisitions         | RequiredDate                     | timestamp with time zone    | YES         | 
+ PurchaseRequisitions         | Requestor                        | character varying           | YES         | 
+ PurchaseRequisitions         | RequestorId                      | integer                     | YES         | 
+ PurchaseRequisitions         | Department                       | character varying           | YES         | 
+ PurchaseRequisitions         | DepartmentId                     | integer                     | YES         | 
+ PurchaseRequisitions         | Buyer                            | character varying           | YES         | 
+ PurchaseRequisitions         | BuyerId                          | integer                     | YES         | 
+ PurchaseRequisitions         | SuggestedVendorId                | integer                     | YES         | 
+ PurchaseRequisitions         | TotalAmount                      | numeric                     | NO          | 
+ PurchaseRequisitions         | Justification                    | character varying           | YES         | 
+ PurchaseRequisitions         | Notes                            | character varying           | YES         | 
+ PurchaseRequisitions         | DeliverTo                        | character varying           | YES         | 
+ PurchaseRequisitions         | DeliveryAddress                  | character varying           | YES         | 
+ PurchaseRequisitions         | WorkOrderReference               | character varying           | YES         | 
+ PurchaseRequisitions         | WorkOrderId                      | integer                     | YES         | 
+ PurchaseRequisitions         | PMScheduleReference              | character varying           | YES         | 
+ PurchaseRequisitions         | ApprovedBy                       | character varying           | YES         | 
+ PurchaseRequisitions         | ApprovedDate                     | timestamp with time zone    | YES         | 
+ PurchaseRequisitions         | RejectionReason                  | character varying           | YES         | 
+ PurchaseRequisitions         | ConvertedToPOId                  | integer                     | YES         | 
+ PurchaseRequisitions         | ConvertedDate                    | timestamp with time zone    | YES         | 
+ PurchaseRequisitions         | ExportedToERP                    | boolean                     | NO          | 
+ PurchaseRequisitions         | ERPExportDate                    | timestamp with time zone    | YES         | 
+ PurchaseRequisitions         | ERPReference                     | character varying           | YES         | 
+ PurchaseRequisitions         | CompanyId                        | integer                     | YES         | 
+ PurchaseRequisitions         | CreatedAt                        | timestamp with time zone    | NO          | 
+ PurchaseRequisitions         | UpdatedAt                        | timestamp with time zone    | YES         | 
+ PurchaseRequisitions         | CreatedBy                        | character varying           | YES         | 
+ PurchaseRequisitions         | UpdatedBy                        | character varying           | YES         | 
+ PurchaseRequisitions         | DeliverToLocationId              | integer                     | YES         | 
+ PurchaseRequisitions         | DeliverToSiteId                  | integer                     | YES         | 
+ ReorderAlerts                | Id                               | integer                     | NO          | 
+ ReorderAlerts                | ItemId                           | integer                     | NO          | 
+ ReorderAlerts                | AlertType                        | integer                     | NO          | 
+ ReorderAlerts                | CurrentStock                     | numeric                     | NO          | 
+ ReorderAlerts                | ReorderPoint                     | numeric                     | NO          | 
+ ReorderAlerts                | SafetyStock                      | numeric                     | NO          | 
+ ReorderAlerts                | SuggestedQuantity                | numeric                     | NO          | 
+ ReorderAlerts                | IsAcknowledged                   | boolean                     | NO          | 
+ ReorderAlerts                | AcknowledgedBy                   | character varying           | YES         | 
+ ReorderAlerts                | AcknowledgedDate                 | timestamp with time zone    | YES         | 
+ ReorderAlerts                | RequisitionId                    | integer                     | YES         | 
+ ReorderAlerts                | CompanyId                        | integer                     | YES         | 
+ ReorderAlerts                | CreatedAt                        | timestamp with time zone    | NO          | 
+ Section179Limits             | Id                               | integer                     | NO          | 
+ Section179Limits             | TaxYear                          | integer                     | NO          | 
+ Section179Limits             | MaxDeduction                     | numeric                     | NO          | 
+ Section179Limits             | PhaseoutThreshold                | numeric                     | NO          | 
+ Section179Limits             | SuvLimit                         | numeric                     | NO          | 
+ Section179Limits             | AutoDepreciationCap              | numeric                     | NO          | 
+ Section179Limits             | TruckDepreciationCap             | numeric                     | NO          | 
+ ShippingMethods              | Id                               | integer                     | NO          | 
+ ShippingMethods              | Code                             | character varying           | NO          | 
+ ShippingMethods              | Name                             | character varying           | NO          | 
+ ShippingMethods              | Description                      | character varying           | YES         | 
+ ShippingMethods              | Carrier                          | character varying           | YES         | 
+ ShippingMethods              | EstimatedDays                    | integer                     | NO          | 
+ ShippingMethods              | DefaultCost                      | numeric                     | YES         | 
+ ShippingMethods              | IsDefault                        | boolean                     | NO          | 
+ ShippingMethods              | IsActive                         | boolean                     | NO          | 
+ ShippingMethods              | SortOrder                        | integer                     | NO          | 
+ Sites                        | Id                               | integer                     | NO          | 
+ Sites                        | SiteCode                         | character varying           | NO          | 
+ Sites                        | Name                             | character varying           | NO          | 
+ Sites                        | Description                      | character varying           | YES         | 
+ Sites                        | Type                             | integer                     | NO          | 
+ Sites                        | Status                           | integer                     | NO          | 
+ Sites                        | CompanyId                        | integer                     | NO          | 
+ Sites                        | Address1                         | character varying           | YES         | 
+ Sites                        | Address2                         | character varying           | YES         | 
+ Sites                        | City                             | character varying           | YES         | 
+ Sites                        | StateProvince                    | character varying           | YES         | 
+ Sites                        | PostalCode                       | character varying           | YES         | 
+ Sites                        | Country                          | character varying           | YES         | 
+ Sites                        | TimeZone                         | character varying           | YES         | 
+ Sites                        | SiteManager                      | character varying           | YES         | 
+ Sites                        | ManagerEmail                     | character varying           | YES         | 
+ Sites                        | ManagerPhone                     | character varying           | YES         | 
+ Sites                        | MainPhone                        | character varying           | YES         | 
+ Sites                        | Fax                              | character varying           | YES         | 
+ Sites                        | SquareFootage                    | integer                     | YES         | 
+ Sites                        | NumberOfBuildings                | integer                     | YES         | 
+ Sites                        | EmployeeCount                    | integer                     | YES         | 
+ Sites                        | IsPrimarySite                    | boolean                     | NO          | 
+ Sites                        | Latitude                         | numeric                     | YES         | 
+ Sites                        | Longitude                        | numeric                     | YES         | 
+ Sites                        | OperatingHours                   | character varying           | YES         | 
+ Sites                        | NumberOfShifts                   | integer                     | NO          | 
+ Sites                        | ShiftPattern                     | character varying           | YES         | 
+ Sites                        | Is24x7                           | boolean                     | NO          | 
+ Sites                        | AssetCapacity                    | integer                     | YES         | 
+ Sites                        | CurrentAssetCount                | integer                     | NO          | 
+ Sites                        | ProductionCapacity               | character varying           | YES         | 
+ Sites                        | LoadingDocks                     | integer                     | YES         | 
+ Sites                        | ParkingSpaces                    | integer                     | YES         | 
+ Sites                        | EmergencyContact                 | character varying           | YES         | 
+ Sites                        | EmergencyPhone                   | character varying           | YES         | 
+ Sites                        | HasFireSuppression               | boolean                     | NO          | 
+ Sites                        | HasSecuritySystem                | boolean                     | NO          | 
+ Sites                        | HasClimateControl                | boolean                     | NO          | 
+ Sites                        | CreatedAt                        | timestamp with time zone    | NO          | 
+ Sites                        | CreatedBy                        | text                        | YES         | 
+ Sites                        | ModifiedAt                       | timestamp with time zone    | YES         | 
+ Sites                        | ModifiedBy                       | text                        | YES         | 
+ Skills                       | Id                               | integer                     | NO          | 
+ Skills                       | Code                             | character varying           | NO          | 
+ Skills                       | Name                             | character varying           | NO          | 
+ Skills                       | Description                      | character varying           | YES         | 
+ Skills                       | Level                            | integer                     | NO          | 
+ Skills                       | CraftId                          | integer                     | YES         | 
+ Skills                       | RequiresTraining                 | boolean                     | NO          | 
+ Skills                       | TrainingHoursRequired            | integer                     | YES         | 
+ Skills                       | RequiresCertification            | boolean                     | NO          | 
+ Skills                       | CertificationName                | character varying           | YES         | 
+ Skills                       | CertificationValidityMonths      | integer                     | YES         | 
+ Skills                       | IsActive                         | boolean                     | NO          | 
+ Skills                       | SortOrder                        | integer                     | NO          | 
+ TaxCodes                     | Id                               | integer                     | NO          | 
+ TaxCodes                     | Code                             | character varying           | NO          | 
+ TaxCodes                     | Name                             | character varying           | NO          | 
+ TaxCodes                     | Description                      | character varying           | YES         | 
+ TaxCodes                     | Rate                             | numeric                     | NO          | 
+ TaxCodes                     | Type                             | integer                     | NO          | 
+ TaxCodes                     | TaxAuthority                     | character varying           | YES         | 
+ TaxCodes                     | GlAccountId                      | integer                     | YES         | 
+ TaxCodes                     | IsRecoverable                    | boolean                     | NO          | 
+ TaxCodes                     | IsActive                         | boolean                     | NO          | 
+ TaxCodes                     | SortOrder                        | integer                     | NO          | 
+ Technicians                  | Id                               | integer                     | NO          | 
+ Technicians                  | Name                             | character varying           | NO          | 
+ Technicians                  | Email                            | character varying           | YES         | 
+ Technicians                  | Phone                            | character varying           | YES         | 
+ Technicians                  | Specialty                        | character varying           | YES         | 
+ Technicians                  | Department                       | character varying           | YES         | 
+ Technicians                  | DepartmentId                     | integer                     | YES         | 
+ Technicians                  | CostCenterId                     | integer                     | YES         | 
+ Technicians                  | HourlyRate                       | numeric                     | YES         | 
+ Technicians                  | Notes                            | character varying           | YES         | 
+ Technicians                  | Active                           | boolean                     | NO          | 
+ Technicians                  | CreatedAt                        | timestamp with time zone    | NO          | 
+ Tenants                      | Id                               | integer                     | NO          | nextval('"Tenants_Id_seq"'::regclass)
+ Tenants                      | Name                             | character varying           | NO          | 
+ Tenants                      | Code                             | character varying           | NO          | 
+ Tenants                      | Description                      | character varying           | YES         | 
+ Tenants                      | IsActive                         | boolean                     | YES         | true
+ Tenants                      | CreatedAt                        | timestamp without time zone | YES         | now()
+ Tenants                      | CreatedBy                        | character varying           | YES         | 
+ Tenants                      | ModifiedAt                       | timestamp without time zone | YES         | 
+ Tenants                      | ModifiedBy                       | character varying           | YES         | 
+ UOMDefinitions               | Id                               | integer                     | NO          | 
+ UOMDefinitions               | Code                             | character varying           | NO          | 
+ UOMDefinitions               | Name                             | character varying           | NO          | 
+ UOMDefinitions               | Description                      | character varying           | YES         | 
+ UOMDefinitions               | Type                             | integer                     | NO          | 
+ UOMDefinitions               | IsBaseUnit                       | boolean                     | NO          | 
+ UOMDefinitions               | BaseUnitId                       | integer                     | YES         | 
+ UOMDefinitions               | ConversionFactor                 | numeric                     | NO          | 
+ UOMDefinitions               | IsActive                         | boolean                     | NO          | 
+ UOMDefinitions               | SortOrder                        | integer                     | NO          | 
+ UsTaxSettings                | Id                               | integer                     | NO          | 
+ UsTaxSettings                | AssetId                          | integer                     | NO          | 
+ UsTaxSettings                | PropertyClass                    | integer                     | NO          | 
+ UsTaxSettings                | Convention                       | integer                     | NO          | 
+ UsTaxSettings                | UseADS                           | boolean                     | NO          | 
+ UsTaxSettings                | Section179Amount                 | numeric                     | NO          | 
+ UsTaxSettings                | Section179Elected                | boolean                     | NO          | 
+ UsTaxSettings                | BonusDepreciationPercent         | numeric                     | NO          | 
+ UsTaxSettings                | BonusDepreciationAmount          | numeric                     | NO          | 
+ UsTaxSettings                | QualifiedImprovementProperty     | boolean                     | NO          | 
+ UsTaxSettings                | ListedProperty                   | boolean                     | NO          | 
+ UsTaxSettings                | BusinessUsePercent               | numeric                     | NO          | 
+ UsTaxSettings                | PlacedInServiceDate              | timestamp with time zone    | YES         | 
+ UsTaxSettings                | TaxYear                          | integer                     | NO          | 
+ UsTaxSettings                | DepreciableBasis                 | numeric                     | NO          | 
+ UsTaxSettings                | AccumulatedTaxDepreciation       | numeric                     | NO          | 
+ UsTaxSettings                | Notes                            | character varying           | YES         | 
+ UsefulLifeEntries            | Id                               | integer                     | NO          | 
+ UsefulLifeEntries            | UsefulLifeTableId                | integer                     | NO          | 
+ UsefulLifeEntries            | AssetClassCode                   | character varying           | NO          | 
+ UsefulLifeEntries            | AssetClassName                   | character varying           | NO          | 
+ UsefulLifeEntries            | Description                      | character varying           | YES         | 
+ UsefulLifeEntries            | GaapLifeMonths                   | integer                     | NO          | 
+ UsefulLifeEntries            | TaxLifeMonths                    | integer                     | YES         | 
+ UsefulLifeEntries            | MacrsRecoveryYears               | integer                     | YES         | 
+ UsefulLifeEntries            | CcaClassNumber                   | integer                     | YES         | 
+ UsefulLifeEntries            | CcaRate                          | numeric                     | YES         | 
+ UsefulLifeEntries            | RecommendedMethod                | integer                     | NO          | 
+ UsefulLifeEntries            | RecommendedConvention            | integer                     | NO          | 
+ UsefulLifeEntries            | IrsAssetClass                    | character varying           | YES         | 
+ UsefulLifeEntries            | CraAssetClass                    | character varying           | YES         | 
+ UsefulLifeEntries            | IsActive                         | boolean                     | NO          | 
+ UsefulLifeEntries            | SortOrder                        | integer                     | NO          | 
+ UsefulLifeTables             | Id                               | integer                     | NO          | 
+ UsefulLifeTables             | Code                             | character varying           | NO          | 
+ UsefulLifeTables             | Name                             | character varying           | NO          | 
+ UsefulLifeTables             | Description                      | character varying           | YES         | 
+ UsefulLifeTables             | Jurisdiction                     | integer                     | NO          | 
+ UsefulLifeTables             | Source                           | integer                     | NO          | 
+ UsefulLifeTables             | IsActive                         | boolean                     | NO          | 
+ Users                        | Id                               | integer                     | NO          | 
+ Users                        | Username                         | character varying           | NO          | 
+ Users                        | PasswordHash                     | character varying           | NO          | 
+ Users                        | FullName                         | character varying           | YES         | 
+ Users                        | Email                            | character varying           | YES         | 
+ Users                        | Role                             | character varying           | NO          | 
+ Users                        | IsActive                         | boolean                     | NO          | 
+ Users                        | CreatedAt                        | timestamp with time zone    | NO          | 
+ Users                        | LastLoginAt                      | timestamp with time zone    | YES         | 
+ Users                        | Language                         | character varying           | NO          | 
+ Users                        | TimeZone                         | character varying           | YES         | 
+ Users                        | CompanyId                        | integer                     | YES         | 
+ Users                        | MustChangePassword               | boolean                     | NO          | 
+ Users                        | PasswordChangedAt                | timestamp with time zone    | YES         | 
+ VendorInvoiceLines           | Id                               | integer                     | NO          | 
+ VendorInvoiceLines           | VendorInvoiceId                  | integer                     | NO          | 
+ VendorInvoiceLines           | LineNumber                       | integer                     | NO          | 
+ VendorInvoiceLines           | Description                      | character varying           | NO          | 
+ VendorInvoiceLines           | Quantity                         | numeric                     | NO          | 
+ VendorInvoiceLines           | UnitPrice                        | numeric                     | NO          | 
+ VendorInvoiceLines           | LineTotal                        | numeric                     | NO          | 
+ VendorInvoiceLines           | PurchaseOrderLineId              | integer                     | YES         | 
+ VendorInvoiceLines           | GoodsReceiptLineId               | integer                     | YES         | 
+ VendorInvoiceLines           | GlAccountId                      | integer                     | YES         | 
+ VendorInvoiceLines           | CostCenterId                     | integer                     | YES         | 
+ VendorInvoiceLines           | Notes                            | character varying           | YES         | 
+ VendorInvoices               | Id                               | integer                     | NO          | 
+ VendorInvoices               | InvoiceNumber                    | character varying           | NO          | 
+ VendorInvoices               | VendorId                         | integer                     | NO          | 
+ VendorInvoices               | Status                           | integer                     | NO          | 
+ VendorInvoices               | MatchStatus                      | integer                     | NO          | 
+ VendorInvoices               | InvoiceDate                      | timestamp with time zone    | NO          | 
+ VendorInvoices               | ReceivedDate                     | timestamp with time zone    | NO          | 
+ VendorInvoices               | DueDate                          | timestamp with time zone    | NO          | 
+ VendorInvoices               | PaymentTerms                     | integer                     | NO          | 
+ VendorInvoices               | Currency                         | character varying           | NO          | 
+ VendorInvoices               | Subtotal                         | numeric                     | NO          | 
+ VendorInvoices               | TaxAmount                        | numeric                     | NO          | 
+ VendorInvoices               | ShippingAmount                   | numeric                     | NO          | 
+ VendorInvoices               | Total                            | numeric                     | NO          | 
+ VendorInvoices               | AmountPaid                       | numeric                     | NO          | 
+ VendorInvoices               | BalanceDue                       | numeric                     | NO          | 
+ VendorInvoices               | Notes                            | character varying           | YES         | 
+ VendorInvoices               | InternalNotes                    | character varying           | YES         | 
+ VendorInvoices               | ApprovedById                     | integer                     | YES         | 
+ VendorInvoices               | ApprovedAt                       | timestamp with time zone    | YES         | 
+ VendorInvoices               | CompanyId                        | integer                     | YES         | 
+ VendorInvoices               | CreatedAt                        | timestamp with time zone    | NO          | 
+ VendorInvoices               | UpdatedAt                        | timestamp with time zone    | YES         | 
+ VendorItemParts              | Id                               | integer                     | NO          | 
+ VendorItemParts              | VendorId                         | integer                     | NO          | 
+ VendorItemParts              | ItemId                           | integer                     | NO          | 
+ VendorItemParts              | VendorPartNumber                 | character varying           | NO          | 
+ VendorItemParts              | ItemManufacturerPartId           | integer                     | YES         | 
+ VendorItemParts              | VendorUom                        | character varying           | YES         | 
+ VendorItemParts              | PackQty                          | numeric                     | YES         | 
+ VendorItemParts              | LeadTimeDays                     | integer                     | YES         | 
+ VendorItemParts              | MinOrderQty                      | numeric                     | YES         | 
+ VendorItemParts              | Preferred                        | boolean                     | NO          | 
+ VendorItemParts              | UnitPrice                        | numeric                     | YES         | 
+ VendorItemParts              | ProductPageUrl                   | character varying           | YES         | 
+ VendorItemParts              | IsActive                         | boolean                     | NO          | 
+ VendorItemParts              | CreatedAtUtc                     | timestamp with time zone    | NO          | 
+ VendorItemParts              | UpdatedAtUtc                     | timestamp with time zone    | YES         | 
+ VendorItemParts              | CreatedBy                        | character varying           | YES         | 
+ VendorItemParts              | ImageUrl                         | character varying           | YES         | 
+ VendorItemParts              | CatalogUrl                       | character varying           | YES         | 
+ VendorItemParts              | ExternalImageUrl                 | character varying           | YES         | 
+ VendorItemParts              | ExtractedMpn                     | character varying           | YES         | 
+ VendorItemParts              | ExtractedSku                     | character varying           | YES         | 
+ VendorItemParts              | LastEnrichedUtc                  | timestamp with time zone    | YES         | 
+ VendorItemParts              | LastEnrichStatus                 | character varying           | YES         | 
+ VendorItemParts              | PriceEffectiveDate               | timestamp with time zone    | YES         | 
+ VendorItemParts              | DatasheetUrl                     | text                        | YES         | 
+ VendorItemParts              | EnrichmentNotes                  | text                        | YES         | 
+ Vendors                      | Id                               | integer                     | NO          | 
+ Vendors                      | Code                             | character varying           | NO          | 
+ Vendors                      | Name                             | character varying           | NO          | 
+ Vendors                      | LegalName                        | character varying           | YES         | 
+ Vendors                      | VendorType                       | integer                     | NO          | 
+ Vendors                      | Status                           | integer                     | NO          | 
+ Vendors                      | ContactName                      | character varying           | YES         | 
+ Vendors                      | Phone                            | character varying           | YES         | 
+ Vendors                      | Fax                              | character varying           | YES         | 
+ Vendors                      | Email                            | character varying           | YES         | 
+ Vendors                      | Website                          | character varying           | YES         | 
+ Vendors                      | Address                          | character varying           | YES         | 
+ Vendors                      | City                             | character varying           | YES         | 
+ Vendors                      | State                            | character varying           | YES         | 
+ Vendors                      | PostalCode                       | character varying           | YES         | 
+ Vendors                      | Country                          | character varying           | YES         | 
+ Vendors                      | TaxId                            | character varying           | YES         | 
+ Vendors                      | PaymentTerms                     | integer                     | NO          | 
+ Vendors                      | Currency                         | character varying           | NO          | 
+ Vendors                      | CreditLimit                      | numeric                     | YES         | 
+ Vendors                      | AccountNumber                    | character varying           | YES         | 
+ Vendors                      | Notes                            | character varying           | YES         | 
+ Vendors                      | DefaultGlAccountId               | integer                     | YES         | 
+ Vendors                      | CompanyId                        | integer                     | YES         | 
+ Vendors                      | IsPreferred                      | boolean                     | NO          | 
+ Vendors                      | Is1099Vendor                     | boolean                     | NO          | 
+ Vendors                      | IsActive                         | boolean                     | NO          | 
+ Vendors                      | SortOrder                        | integer                     | NO          | 
+ Vendors                      | CreatedAt                        | timestamp with time zone    | NO          | 
+ Vendors                      | UpdatedAt                        | timestamp with time zone    | YES         | 
+ WebhookDeliveryLogs          | Id                               | integer                     | NO          | 
+ WebhookDeliveryLogs          | WebhookSubscriptionId            | integer                     | NO          | 
+ WebhookDeliveryLogs          | OutboxEventId                    | integer                     | NO          | 
+ WebhookDeliveryLogs          | AttemptNumber                    | integer                     | NO          | 
+ WebhookDeliveryLogs          | ResponseStatusCode               | integer                     | YES         | 
+ WebhookDeliveryLogs          | DurationMs                       | integer                     | NO          | 
+ WebhookDeliveryLogs          | Error                            | character varying           | YES         | 
+ WebhookDeliveryLogs          | CreatedAt                        | timestamp with time zone    | NO          | 
+ WebhookDeliveryLogs          | PayloadSent                      | text                        | YES         | 
+ WebhookSubscriptions         | Id                               | integer                     | NO          | 
+ WebhookSubscriptions         | CompanyId                        | integer                     | NO          | 
+ WebhookSubscriptions         | Name                             | character varying           | NO          | 
+ WebhookSubscriptions         | Url                              | character varying           | NO          | 
+ WebhookSubscriptions         | IsActive                         | boolean                     | NO          | 
+ WebhookSubscriptions         | EventTypesCsv                    | character varying           | NO          | 
+ WebhookSubscriptions         | Secret                           | character varying           | NO          | 
+ WebhookSubscriptions         | CreatedAt                        | timestamp with time zone    | NO          | 
+ WebhookSubscriptions         | CreatedBy                        | character varying           | YES         | 
+ WebhookSubscriptions         | LastDeliveryAt                   | timestamp with time zone    | YES         | 
+ WebhookSubscriptions         | ConsecutiveFailures              | integer                     | NO          | 0
+ WebhookSubscriptions         | DisabledAt                       | timestamp with time zone    | YES         | 
+ WebhookSubscriptions         | DisabledReason                   | character varying           | YES         | 
+ WebhookSubscriptions         | FailureCountLifetime             | integer                     | NO          | 0
+ WebhookSubscriptions         | MaxConsecutiveFailures           | integer                     | NO          | 0
+ WebhookSubscriptions         | SuccessCountLifetime             | integer                     | NO          | 0
+ WorkOrderOperationLabors     | Id                               | integer                     | NO          | nextval('"WorkOrderOperationLabor_Id_seq"'::regclass)
+ WorkOrderOperationLabors     | WorkOrderOperationId             | integer                     | NO          | 
+ WorkOrderOperationLabors     | TechnicianId                     | integer                     | YES         | 
+ WorkOrderOperationLabors     | CraftId                          | integer                     | YES         | 
+ WorkOrderOperationLabors     | LaborTypeId                      | integer                     | YES         | 
+ WorkOrderOperationLabors     | WorkDate                         | timestamp with time zone    | NO          | now()
+ WorkOrderOperationLabors     | StartTime                        | interval                    | YES         | 
+ WorkOrderOperationLabors     | EndTime                          | interval                    | YES         | 
+ WorkOrderOperationLabors     | Hours                            | numeric                     | NO          | 0
+ WorkOrderOperationLabors     | HourlyRate                       | numeric                     | NO          | 0
+ WorkOrderOperationLabors     | Notes                            | character varying           | YES         | 
+ WorkOrderOperationLabors     | CreatedAt                        | timestamp with time zone    | NO          | now()
+ WorkOrderOperationLabors     | CreatedBy                        | character varying           | YES         | 
+ WorkOrderOperationParts      | Id                               | integer                     | NO          | nextval('"WorkOrderOperationParts_Id_seq"'::regclass)
+ WorkOrderOperationParts      | WorkOrderOperationId             | integer                     | NO          | 
+ WorkOrderOperationParts      | ItemId                           | integer                     | NO          | 
+ WorkOrderOperationParts      | QuantityPlanned                  | numeric                     | NO          | 0
+ WorkOrderOperationParts      | QuantityIssued                   | numeric                     | NO          | 0
+ WorkOrderOperationParts      | QuantityUsed                     | numeric                     | NO          | 0
+ WorkOrderOperationParts      | QuantityReturned                 | numeric                     | NO          | 0
+ WorkOrderOperationParts      | UnitCost                         | numeric                     | NO          | 0
+ WorkOrderOperationParts      | IssuedFromLocationId             | integer                     | YES         | 
+ WorkOrderOperationParts      | LotNumber                        | character varying           | YES         | 
+ WorkOrderOperationParts      | SerialNumber                     | character varying           | YES         | 
+ WorkOrderOperationParts      | Notes                            | character varying           | YES         | 
+ WorkOrderOperationParts      | IssuedBy                         | character varying           | YES         | 
+ WorkOrderOperationParts      | IssuedAt                         | timestamp with time zone    | YES         | 
+ WorkOrderOperationParts      | CreatedAt                        | timestamp with time zone    | NO          | now()
+ WorkOrderOperationTools      | Id                               | integer                     | NO          | nextval('"WorkOrderOperationTools_Id_seq"'::regclass)
+ WorkOrderOperationTools      | WorkOrderOperationId             | integer                     | NO          | 
+ WorkOrderOperationTools      | ToolName                         | character varying           | NO          | 
+ WorkOrderOperationTools      | ToolAssetTag                     | character varying           | YES         | 
+ WorkOrderOperationTools      | ToolAssetId                      | integer                     | YES         | 
+ WorkOrderOperationTools      | QuantityRequired                 | integer                     | NO          | 1
+ WorkOrderOperationTools      | QuantityUsed                     | integer                     | NO          | 0
+ WorkOrderOperationTools      | IsCheckedOut                     | boolean                     | NO          | false
+ WorkOrderOperationTools      | CheckedOutAt                     | timestamp with time zone    | YES         | 
+ WorkOrderOperationTools      | ReturnedAt                       | timestamp with time zone    | YES         | 
+ WorkOrderOperationTools      | CheckedOutBy                     | character varying           | YES         | 
+ WorkOrderOperationTools      | Notes                            | character varying           | YES         | 
+ WorkOrderOperationTools      | CreatedAt                        | timestamp with time zone    | NO          | now()
+ WorkOrderOperations          | Id                               | integer                     | NO          | nextval('"WorkOrderOperations_Id_seq"'::regclass)
+ WorkOrderOperations          | MaintenanceEventId               | integer                     | NO          | 
+ WorkOrderOperations          | OperationNumber                  | character varying           | NO          | 
+ WorkOrderOperations          | Sequence                         | integer                     | NO          | 10
+ WorkOrderOperations          | Type                             | integer                     | NO          | 0
+ WorkOrderOperations          | Title                            | character varying           | NO          | 
+ WorkOrderOperations          | Description                      | character varying           | YES         | 
+ WorkOrderOperations          | Instructions                     | character varying           | YES         | 
+ WorkOrderOperations          | Status                           | integer                     | NO          | 0
+ WorkOrderOperations          | AssignedTechnicianId             | integer                     | YES         | 
+ WorkOrderOperations          | CraftId                          | integer                     | YES         | 
+ WorkOrderOperations          | PlannedHours                     | numeric                     | NO          | 0
+ WorkOrderOperations          | ActualHours                      | numeric                     | NO          | 0
+ WorkOrderOperations          | PlannedStartDate                 | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | PlannedEndDate                   | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | ActualStartDate                  | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | ActualEndDate                    | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | RequiresShutdown                 | boolean                     | NO          | false
+ WorkOrderOperations          | RequiresLOTO                     | boolean                     | NO          | false
+ WorkOrderOperations          | LOTOProcedureId                  | character varying           | YES         | 
+ WorkOrderOperations          | RequiresConfinedSpaceEntry       | boolean                     | NO          | false
+ WorkOrderOperations          | RequiresHotWorkPermit            | boolean                     | NO          | false
+ WorkOrderOperations          | Notes                            | character varying           | YES         | 
+ WorkOrderOperations          | CompletedBy                      | character varying           | YES         | 
+ WorkOrderOperations          | CompletedAt                      | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | CreatedAt                        | timestamp with time zone    | NO          | now()
+ WorkOrderOperations          | CreatedBy                        | character varying           | YES         | 
+ WorkOrderOperations          | ModifiedAt                       | timestamp with time zone    | YES         | 
+ WorkOrderOperations          | ModifiedBy                       | character varying           | YES         | 
+ WorkOrderParts               | Id                               | integer                     | NO          | 
+ WorkOrderParts               | MaintenanceEventId               | integer                     | NO          | 
+ WorkOrderParts               | ItemId                           | integer                     | NO          | 
+ WorkOrderParts               | QuantityPlanned                  | numeric                     | NO          | 
+ WorkOrderParts               | QuantityIssued                   | numeric                     | NO          | 
+ WorkOrderParts               | QuantityUsed                     | numeric                     | NO          | 
+ WorkOrderParts               | QuantityReturned                 | numeric                     | NO          | 
+ WorkOrderParts               | UnitCost                         | numeric                     | NO          | 
+ WorkOrderParts               | IssuedFromLocationId             | integer                     | YES         | 
+ WorkOrderParts               | LotNumber                        | character varying           | YES         | 
+ WorkOrderParts               | SerialNumber                     | character varying           | YES         | 
+ WorkOrderParts               | Notes                            | character varying           | YES         | 
+ WorkOrderParts               | IssuedBy                         | character varying           | YES         | 
+ WorkOrderParts               | IssuedDate                       | timestamp with time zone    | YES         | 
+ WorkOrderParts               | CreatedAt                        | timestamp with time zone    | NO          | 
+ WorkOrderParts               | UpdatedAt                        | timestamp with time zone    | YES         | 
+ WorkOrderTypes               | Id                               | integer                     | NO          | 
+ WorkOrderTypes               | Code                             | character varying           | NO          | 
+ WorkOrderTypes               | Name                             | character varying           | NO          | 
+ WorkOrderTypes               | Description                      | character varying           | YES         | 
+ WorkOrderTypes               | Category                         | integer                     | NO          | 
+ WorkOrderTypes               | RequiresApproval                 | boolean                     | NO          | 
+ WorkOrderTypes               | ApprovalThreshold                | numeric                     | YES         | 
+ WorkOrderTypes               | DefaultPriorityId                | integer                     | YES         | 
+ WorkOrderTypes               | IsActive                         | boolean                     | NO          | 
+ WorkOrderTypes               | SortOrder                        | integer                     | NO          | 
+ WorkRequests                 | Id                               | integer                     | NO          | 
+ WorkRequests                 | RequestNumber                    | character varying           | NO          | 
+ WorkRequests                 | RequestText                      | character varying           | NO          | 
+ WorkRequests                 | Status                           | integer                     | NO          | 
+ WorkRequests                 | Priority                         | integer                     | NO          | 
+ WorkRequests                 | SiteId                           | integer                     | YES         | 
+ WorkRequests                 | LocationId                       | integer                     | YES         | 
+ WorkRequests                 | AssetId                          | integer                     | YES         | 
+ WorkRequests                 | RequestedBy                      | character varying           | YES         | 
+ WorkRequests                 | RequestedAt                      | timestamp with time zone    | NO          | 
+ WorkRequests                 | ContactPhone                     | character varying           | YES         | 
+ WorkRequests                 | ContactEmail                     | character varying           | YES         | 
+ WorkRequests                 | AttachmentPaths                  | character varying           | YES         | 
+ WorkRequests                 | GeneratedWorkOrderId             | integer                     | YES         | 
+ WorkRequests                 | IsAIAssisted                     | boolean                     | NO          | 
+ WorkRequests                 | AIConfidence                     | character varying           | YES         | 
+ WorkRequests                 | AIExplanation                    | character varying           | YES         | 
+ WorkRequests                 | CreatedBy                        | character varying           | YES         | 
+ WorkRequests                 | CreatedAt                        | timestamp with time zone    | NO          | 
+ WorkRequests                 | ModifiedBy                       | character varying           | YES         | 
+ WorkRequests                 | ModifiedAt                       | timestamp with time zone    | YES         | 
+ WorkRequests                 | CompanyId                        | integer                     | YES         | 
+ __EFMigrationsHistory        | MigrationId                      | character varying           | NO          | 
+ __EFMigrationsHistory        | ProductVersion                   | character varying           | NO          | 
+(2022 rows)
+

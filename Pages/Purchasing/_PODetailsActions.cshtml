@@ -1,0 +1,41 @@
+@using Abs.FixedAssets.Models
+@{
+    var po = ViewData["PurchaseOrder"] as PurchaseOrder;
+    var canEdit = (bool)(ViewData["CanEdit"] ?? false);
+    if (po == null) return;
+}
+<div class="hero-tags">
+    <span class="hero-tag @(po.Status == POStatus.Approved ? "success" : po.Status == POStatus.PendingApproval ? "priority" : "info")">@po.Status.ToString().ToUpper()</span>
+</div>
+<div class="hero-btns">
+    <a href="/Purchasing" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to List
+    </a>
+    @if (canEdit && po.Lines.Any())
+    {
+        <form method="post" asp-page-handler="SubmitForApproval" style="display: inline;">
+            <input type="hidden" name="id" value="@po.Id" />
+            <button type="submit" class="hero-btn hero-btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Submit for Approval
+            </button>
+        </form>
+    }
+    @if (po.Status == POStatus.PendingApproval)
+    {
+        <form method="post" asp-page-handler="Approve" style="display: inline;">
+            <input type="hidden" name="id" value="@po.Id" />
+            <button type="submit" class="hero-btn hero-btn-success">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Approve PO
+            </button>
+        </form>
+    }
+</div>

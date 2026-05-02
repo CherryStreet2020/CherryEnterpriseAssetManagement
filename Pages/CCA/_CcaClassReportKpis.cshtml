@@ -1,0 +1,19 @@
+@model Abs.FixedAssets.Pages.CCA.ClassReportModel
+@{
+}
+<div class="kpi-card">
+    <div class="kpi-label">Opening UCC</div>
+    <div class="kpi-value">@Model.TotalOpeningUcc.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Additions</div>
+    <div class="kpi-value success">@Model.TotalAdditions.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">CCA Claimed</div>
+    <div class="kpi-value warning">@Model.TotalCcaClaimed.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Closing UCC</div>
+    <div class="kpi-value info">@Model.TotalClosingUcc.ToString("C0")</div>
+</div>

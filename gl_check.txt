@@ -1,0 +1,93 @@
+=== GL ACCOUNT MODEL CHECK ===
+
+--- GlAccount class boundaries ---
+6:    public class GlAccount
+139:    public class CostCenter
+196:    public class Department
+247:    public class Location
+386:    public class AssetCategory
+428:}
+
+--- SiteId in GlAccount.cs (with line numbers) ---
+263:        public int? SiteId { get; set; }
+
+--- GlAccount class specifically (first 70 lines) ---
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Abs.FixedAssets.Models
+{
+    public class GlAccount
+    {
+        public int Id { get; set; }
+
+        [Required, StringLength(20)]
+        [Display(Name = "Account Number")]
+        public string AccountNumber { get; set; } = string.Empty;
+
+        [Required, StringLength(100)]
+        [Display(Name = "Account Name")]
+        public string Name { get; set; } = string.Empty;
+
+        [StringLength(500)]
+        public string? Description { get; set; }
+
+        public GlAccountType AccountType { get; set; }
+        public int? AccountTypeLookupValueId { get; set; }
+
+        public GlAccountCategory Category { get; set; }
+
+        public GlAccountSubCategory SubCategory { get; set; }
+
+        [Display(Name = "Normal Balance")]
+        public NormalBalance NormalBalance { get; set; }
+
+        public bool IsActive { get; set; } = true;
+
+        public bool IsSystemAccount { get; set; } = false;
+
+        public bool AllowManualEntry { get; set; } = true;
+
+        [Display(Name = "Requires Cost Center")]
+        public bool RequiresCostCenter { get; set; } = false;
+
+        [Display(Name = "Requires Department")]
+        public bool RequiresDepartment { get; set; } = false;
+
+        [Display(Name = "Requires Asset Category")]
+        public bool RequiresAssetCategory { get; set; } = false;
+
+        public int? ParentAccountId { get; set; }
+        public GlAccount? ParentAccount { get; set; }
+
+        public int SortOrder { get; set; } = 0;
+
+        public int? CompanyId { get; set; }
+        public Company? Company { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+
+        public ICollection<GlAccount> ChildAccounts { get; set; } = new List<GlAccount>();
+    }
+
+    public enum GlAccountType
+    {
+        Asset = 1,
+        Liability = 2,
+        Equity = 3,
+        Revenue = 4,
+        Expense = 5,
+        ContraAsset = 6,
+        ContraRevenue = 7,
+        ContraExpense = 8
+    }
+
+--- Any pending migrations referencing GlAccount + SiteId? ---
+-rw-r--r-- 1 runner runner 464749 Mar 10 00:54 Migrations/AppDbContextModelSnapshot.cs
+-rw-r--r-- 1 runner runner   5881 Mar  8 19:37 Migrations/20260308192037_EnrichTechnicianModel.cs
+-rw-r--r-- 1 runner runner 464866 Mar  8 19:20 Migrations/20260308192037_EnrichTechnicianModel.Designer.cs
+-rw-r--r-- 1 runner runner   2150 Mar  8 17:29 Migrations/20260309000001_AddUserAssignedSiteId.cs
+-rw-r--r-- 1 runner runner   2225 Mar  8 13:48 Migrations/20260308000001_AddCompanyHierarchy.cs
+
+--- Database: does GlAccounts table have SiteId column? ---

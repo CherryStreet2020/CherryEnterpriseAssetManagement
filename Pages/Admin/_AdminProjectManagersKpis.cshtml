@@ -1,0 +1,9 @@
+@model Abs.FixedAssets.Pages.Admin.ProjectManagersModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.ProjectManagers.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.ProjectManagers.Count(pm => pm.Active)</div>
+</div>

@@ -1,0 +1,216 @@
+@page
+@model Abs.FixedAssets.Pages.AI.IndexModel
+@{
+    ViewData["Title"] = "AI Assistant";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Intelligence" },
+        { "HeaderTitle", "CherryAI Assistant" },
+        { "Subtitle", "Ask questions about your assets, maintenance, and financial data" },
+        { "StatusText", "Online" },
+        { "StatusTone", "active" },
+        { "ContextPartial", "AI/_AiIndexContext" },
+        { "KpisPartial", "AI/_AiIndexKpis" },
+        { "ActionsPartial", "AI/_AiIndexActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-body" style="padding: 0;">
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant-message">
+                    <div class="message-avatar">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-.628.105a9 9 0 01-2.507 0l-.628-.105c-1.717-.293-2.3-2.379-1.067-3.61L16.2 15.3" />
+                        </svg>
+                    </div>
+                    <div class="message-content">
+                        <strong>CherryAI</strong>
+                        <p>Hello! I'm your AI assistant for CherryAI Fixed Assets. I have access to your asset database and can help you with questions about:</p>
+                        <ul>
+                            <li>Asset values and depreciation</li>
+                            <li>Maintenance schedules and overdue items</li>
+                            <li>Location and department summaries</li>
+                            <li>Financial insights and trends</li>
+                        </ul>
+                        <p>What would you like to know?</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-suggestions">
+                <button class="suggestion-chip" onclick="askQuestion('What is the total value of our assets?')">Total asset value</button>
+                <button class="suggestion-chip" onclick="askQuestion('Are there any overdue maintenance items?')">Overdue maintenance</button>
+                <button class="suggestion-chip" onclick="askQuestion('Which location has the most assets?')">Assets by location</button>
+                <button class="suggestion-chip" onclick="askQuestion('What are our most valuable assets?')">Top assets</button>
+                <button class="suggestion-chip" onclick="askQuestion('How much depreciation has been recorded?')">Depreciation summary</button>
+            </div>
+            
+            <form id="chatForm" class="chat-input-container" onsubmit="submitQuestion(event)">
+                <input type="text" id="questionInput" class="chat-input" placeholder="Ask about your assets, maintenance, depreciation..." autocomplete="off" />
+                <button type="submit" class="chat-send-btn" id="sendBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    let conversationHistory = '';
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function isValidInternalLink(url) {
+        const allowedPrefixes = ['/Assets', '/CIP', '/Maintenance', '/Reports', '/Admin', '/Inventory', '/Help'];
+        return allowedPrefixes.some(prefix => url.startsWith(prefix));
+    }
+    
+    function formatMarkdown(text) {
+        let escaped = escapeHtml(text);
+        
+        escaped = escaped.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function(match, linkText, url) {
+            if (isValidInternalLink(url)) {
+                return '<a href="' + url + '" class="ai-link">' + linkText + '</a>';
+            }
+            return linkText;
+        });
+        
+        escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        escaped = escaped.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        escaped = escaped.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        const lines = escaped.split('\n');
+        let result = [];
+        let inList = false;
+        
+        for (let line of lines) {
+            line = line.trim();
+            if (line.startsWith('- ') || line.startsWith('* ')) {
+                if (!inList) {
+                    result.push('<ul>');
+                    inList = true;
+                }
+                result.push('<li>' + line.substring(2) + '</li>');
+            } else {
+                if (inList) {
+                    result.push('</ul>');
+                    inList = false;
+                }
+                if (line) {
+                    result.push('<p>' + line + '</p>');
+                }
+            }
+        }
+        if (inList) result.push('</ul>');
+        
+        return result.join('');
+    }
+    
+    function addMessage(content, isUser) {
+        const messagesDiv = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+        
+        const formattedContent = isUser ? `<p>${content}</p>` : formatMarkdown(content);
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                ${isUser ? 
+                    '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>' :
+                    '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-.628.105a9 9 0 01-2.507 0l-.628-.105c-1.717-.293-2.3-2.379-1.067-3.61L16.2 15.3" /></svg>'
+                }
+            </div>
+            <div class="message-content">
+                <strong>${isUser ? 'You' : 'CherryAI'}</strong>
+                ${formattedContent}
+            </div>
+        `;
+        
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    function addLoadingMessage() {
+        const messagesDiv = document.getElementById('chatMessages');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'message assistant-message';
+        loadingDiv.id = 'loadingMessage';
+        loadingDiv.innerHTML = `
+            <div class="message-avatar">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611l-.628.105a9 9 0 01-2.507 0l-.628-.105c-1.717-.293-2.3-2.379-1.067-3.61L16.2 15.3" /></svg>
+            </div>
+            <div class="message-content">
+                <strong>CherryAI</strong>
+                <div class="loading-dots">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        `;
+        messagesDiv.appendChild(loadingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+    
+    function removeLoadingMessage() {
+        const loading = document.getElementById('loadingMessage');
+        if (loading) loading.remove();
+    }
+    
+    async function askQuestion(question) {
+        document.getElementById('questionInput').value = question;
+        await submitQuestion(new Event('submit'));
+    }
+    
+    async function submitQuestion(event) {
+        event.preventDefault();
+        
+        const input = document.getElementById('questionInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const question = input.value.trim();
+        
+        if (!question) return;
+        
+        addMessage(question, true);
+        input.value = '';
+        sendBtn.disabled = true;
+        addLoadingMessage();
+        
+        try {
+            const response = await fetch('/AI?handler=Ask', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify({ question: question, history: conversationHistory })
+            });
+            
+            const data = await response.json();
+            removeLoadingMessage();
+            addMessage(data.answer, false);
+            
+            conversationHistory += `User: ${question}\nAssistant: ${data.answer}\n`;
+        } catch (error) {
+            removeLoadingMessage();
+            addMessage('Sorry, I encountered an error. Please try again.', false);
+        }
+        
+        sendBtn.disabled = false;
+        input.focus();
+    }
+</script>
+
+@Html.AntiForgeryToken()

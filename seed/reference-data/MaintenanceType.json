@@ -1,0 +1,55 @@
+{
+  "lookupKey": "MaintenanceType",
+  "name": "Maintenance Type",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "Preventative",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "Corrective",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Predictive",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Emergency",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "4",
+      "name": "Calibration",
+      "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "5",
+      "name": "Inspection",
+      "sortOrder": 6,
+      "isActive": true
+    },
+    {
+      "code": "6",
+      "name": "Overhaul",
+      "sortOrder": 7,
+      "isActive": true
+    },
+    {
+      "code": "7",
+      "name": "Modification",
+      "sortOrder": 8,
+      "isActive": true
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+@{
+    var receipt = ViewData["Receipt"] as Abs.FixedAssets.Models.GoodsReceipt;
+}
+<span class="loc-pill">
+    <i class="fas fa-calendar"></i>
+    @(receipt?.ReceiptDate.ToString("MMM dd, yyyy") ?? "—")
+</span>
+<span class="loc-divider">/</span>
+<span class="loc-pill">
+    <i class="fas fa-user"></i>
+    @(receipt?.ReceivedBy ?? "—")
+</span>

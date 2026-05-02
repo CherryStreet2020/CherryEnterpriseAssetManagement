@@ -1,0 +1,101 @@
+@* 
+    Asset Maintenance Module Header with Breadcrumbs, Status Pill, and Pill Navigation
+    Uses centralized terminology from Abs.FixedAssets.Helpers.UiTerms
+    
+    Usage: @await Html.PartialAsync("_AssetMaintenanceHeader", new ViewDataDictionary(ViewData) { 
+        { "ActivePill", "WorkOrders" }, 
+        { "Subtitle", "Manage work orders and track maintenance" },
+        { "Breadcrumbs", new[] { ("Asset Maintenance", "/Maintenance"), ("Work Orders", "") } },
+        { "StatusText", "InProgress" },
+        { "StatusTone", "warning" }
+    })
+    
+    ActivePill values: "WorkOrders", "PMTemplates", "Assignments", "Schedules"
+    StatusTone values: "info", "warning", "success", "danger", "muted"
+    Breadcrumbs: array of tuples (label, href) - last item should have empty href for current page
+    Root label MUST be "Asset Maintenance" (UiTerms.ModuleName), linking to /Maintenance
+*@
+@using Abs.FixedAssets.Helpers
+
+@{
+    var activePill = ViewData["ActivePill"]?.ToString() ?? "WorkOrders";
+    var subtitle = ViewData["Subtitle"]?.ToString() ?? UiTerms.WorkOrderPlural;
+    var breadcrumbs = ViewData["Breadcrumbs"] as (string Label, string Href)[];
+    var statusText = ViewData["StatusText"]?.ToString();
+    var statusTone = ViewData["StatusTone"]?.ToString() ?? "info";
+}
+
+<div class="module-header">
+    @if (breadcrumbs != null && breadcrumbs.Length > 0)
+    {
+        <nav class="module-breadcrumbs" aria-label="Breadcrumb">
+            @for (int i = 0; i < breadcrumbs.Length; i++)
+            {
+                var crumb = breadcrumbs[i];
+                var isLast = i == breadcrumbs.Length - 1;
+                
+                @if (i > 0)
+                {
+                    <span class="breadcrumb-sep" aria-hidden="true">/</span>
+                }
+                
+                @if (!string.IsNullOrEmpty(crumb.Href) && !isLast)
+                {
+                    <a href="@crumb.Href">@crumb.Label</a>
+                }
+                else
+                {
+                    <span class="breadcrumb-current" aria-current="page">@crumb.Label</span>
+                }
+            }
+        </nav>
+    }
+    
+    <div class="module-header-top">
+        <div class="module-header-left">
+            <h1 class="module-header-title">@UiTerms.ModuleName</h1>
+            <p class="module-header-subtitle">@subtitle</p>
+        </div>
+        @if (!string.IsNullOrEmpty(statusText))
+        {
+            <div class="module-header-right">
+                <span class="status-pill tone-@statusTone">@statusText</span>
+            </div>
+        }
+    </div>
+    
+    <nav class="module-pills" role="navigation" aria-label="@UiTerms.ModuleName navigation">
+        <a href="/Maintenance" 
+           class="module-pill @(activePill == "WorkOrders" ? "active" : "")"
+           aria-current="@(activePill == "WorkOrders" ? "page" : "false")">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            @UiTerms.WorkOrderPlural
+        </a>
+        <a href="/Maintenance/PMTemplates" 
+           class="module-pill @(activePill == "PMTemplates" ? "active" : "")"
+           aria-current="@(activePill == "PMTemplates" ? "page" : "false")">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            @UiTerms.PMTemplates
+        </a>
+        <a href="/Maintenance/Assignments" 
+           class="module-pill @(activePill == "Assignments" ? "active" : "")"
+           aria-current="@(activePill == "Assignments" ? "page" : "false")">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            PM Assignments
+        </a>
+        <a href="/Maintenance/Schedules" 
+           class="module-pill @(activePill == "Schedules" ? "active" : "")"
+           aria-current="@(activePill == "Schedules" ? "page" : "false")">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @UiTerms.Schedules
+        </a>
+    </nav>
+</div>

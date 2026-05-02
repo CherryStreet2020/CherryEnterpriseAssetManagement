@@ -1,0 +1,8 @@
+Code,Name,DefaultUsefulLife,MacrsClass,AssetGlAccount,AccumDeprGlAccount,IsActive
+MACH,Machinery & Equipment,7,7-Year,1510,1610,true
+VEH,Vehicles,5,5-Year,1520,1620,true
+FURN,Furniture & Fixtures,7,7-Year,1530,1630,true
+COMP,Computer Equipment,5,5-Year,1540,1640,true
+BLDG,Buildings,39,Nonresidential Real Property,1550,1650,true
+LAND,Land,0,N/A,1560,,true
+TOOL,Tools & Dies,3,3-Year,1510,1610,true

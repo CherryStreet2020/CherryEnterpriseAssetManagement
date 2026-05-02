@@ -1,0 +1,19 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.ExportModel;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Assets</div>
+    <div class="kpi-value">@(model?.AssetCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Items</div>
+    <div class="kpi-value">@(model?.ItemCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Vendors</div>
+    <div class="kpi-value">@(model?.VendorCount ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Maintenance</div>
+    <div class="kpi-value">@(model?.MaintenanceCount ?? 0)</div>
+</div>

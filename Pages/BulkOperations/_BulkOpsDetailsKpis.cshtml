@@ -1,0 +1,30 @@
+@{
+    var op = ViewData["Operation"] as Abs.FixedAssets.Models.BulkOperation;
+}
+@if (op != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Assets Affected</div>
+            <div class="kpi-value">@op.AssetsAffected</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Operation Type</div>
+            <div class="kpi-value info">@op.OperationType</div>
+        </div>
+        @if (!string.IsNullOrEmpty(op.NewLocation))
+        {
+            <div class="kpi-card">
+                <div class="kpi-label">New Location</div>
+                <div class="kpi-value">@op.NewLocation</div>
+            </div>
+        }
+        @if (op.NewStatus.HasValue)
+        {
+            <div class="kpi-card">
+                <div class="kpi-label">New Status</div>
+                <div class="kpi-value success">@op.NewStatus</div>
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,17 @@
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.DataImportModel;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Seed Guard</div>
+    <div class="kpi-value @(model?.GuardResult?.Allowed == true ? "success" : "danger")">
+        @(model?.GuardResult?.Allowed == true ? "Unlocked" : "Locked")
+    </div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">System Ref</div>
+    <div class="kpi-value success">@(model?.SystemRefStatus ?? "-")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">EAM Core Masters</div>
+    <div class="kpi-value">@(model?.CoreMastersStatus ?? "-")</div>
+</div>

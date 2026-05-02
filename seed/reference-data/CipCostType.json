@@ -1,0 +1,19 @@
+{
+  "lookupKey": "CipCostType",
+  "name": "CIP Cost Type",
+  "isSystem": true,
+  "values": [
+    { "code": "CONSTRUCTION", "name": "Construction", "sortOrder": 1, "isActive": true },
+    { "code": "ENGINEERING", "name": "Engineering", "sortOrder": 2, "isActive": true },
+    { "code": "EQUIPMENT", "name": "Equipment", "sortOrder": 3, "isActive": true },
+    { "code": "LABOR", "name": "Labor", "sortOrder": 4, "isActive": true },
+    { "code": "MATERIALS", "name": "Materials", "sortOrder": 5, "isActive": true },
+    { "code": "FREIGHT", "name": "Freight", "sortOrder": 6, "isActive": true },
+    { "code": "INSTALLATION", "name": "Installation", "sortOrder": 7, "isActive": true },
+    { "code": "TESTING", "name": "Testing", "sortOrder": 8, "isActive": true },
+    { "code": "PERMITS", "name": "Permits", "sortOrder": 9, "isActive": true },
+    { "code": "PROFESSIONAL", "name": "Professional", "sortOrder": 10, "isActive": true },
+    { "code": "INTEREST", "name": "Interest", "sortOrder": 11, "isActive": true },
+    { "code": "OTHER", "name": "Other", "sortOrder": 12, "isActive": true }
+  ]
+}

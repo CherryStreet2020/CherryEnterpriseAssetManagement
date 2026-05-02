@@ -1,0 +1,9 @@
+@model Abs.FixedAssets.Pages.Admin.TechniciansModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.Technicians.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@Model.Technicians.Count(t => t.Active)</div>
+</div>

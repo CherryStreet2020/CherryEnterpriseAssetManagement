@@ -1,0 +1,134 @@
+@page
+@model Abs.FixedAssets.Pages.CCA.IndexModel
+@{
+    ViewData["Title"] = "Canadian CCA";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Tax Compliance" },
+        { "HeaderTitle", "Canadian CCA" },
+        { "Subtitle", "Capital Cost Allowance classes and rates per CRA guidelines" },
+        { "StatusText", "CRA" },
+        { "StatusTone", "info" },
+        { "ContextPartial", "CCA/_CcaIndexContext" },
+        { "KpisPartial", "CCA/_CcaIndexKpis" },
+        { "ActionsPartial", "CCA/_CcaIndexActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            CRA CCA Classes
+        </h3>
+        <span class="status-badge info">@Model.CcaClasses.Count CLASSES</span>
+    </div>
+    <div class="section-card-body" style="padding: 0; overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px;">Class</th>
+                    <th>Description</th>
+                    <th style="text-align: right;">Rate</th>
+                    <th style="text-align: center;">Method</th>
+                    <th style="text-align: center;">Half-Year</th>
+                    <th style="text-align: center;">Accelerated</th>
+                    <th style="text-align: right;">Assets</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model.CcaClasses)
+                {
+                    var assetCount = Model.AssetCountByClass.GetValueOrDefault(c.Id, 0);
+                    <tr>
+                        <td>
+                            <span class="badge badge-primary" style="font-size: 14px; padding: 8px 12px;">@c.ClassNumber</span>
+                        </td>
+                        <td>
+                            <div style="max-width: 400px;">
+                                @c.Description
+                                @if (!string.IsNullOrEmpty(c.Notes))
+                                {
+                                    <div class="text-theme-muted" style="font-size: 12px; margin-top: 4px;">
+                                        @c.Notes
+                                    </div>
+                                }
+                            </div>
+                        </td>
+                        <td style="text-align: right; font-weight: 600; font-size: 16px;">
+                            @((c.Rate * 100).ToString("0.##"))%
+                        </td>
+                        <td style="text-align: center;">
+                            @if (c.IsDecliningBalance)
+                            {
+                                <span class="badge badge-secondary">Declining</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Straight-Line</span>
+                            }
+                        </td>
+                        <td style="text-align: center;">
+                            @if (c.HalfYearRuleApplies)
+                            {
+                                <span class="badge badge-success">Yes</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">No</span>
+                            }
+                        </td>
+                        <td style="text-align: center;">
+                            @if (c.IsAcceleratedInvestmentIncentive)
+                            {
+                                <span class="badge badge-warning">AII</span>
+                            }
+                            else
+                            {
+                                <span class="text-theme-muted">-</span>
+                            }
+                        </td>
+                        <td style="text-align: right;">
+                            @if (assetCount > 0)
+                            {
+                                <a asp-page="./ClassReport" asp-route-id="@c.Id" class="link">@assetCount</a>
+                            }
+                            else
+                            {
+                                <span class="text-theme-muted">0</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-body">
+        <div style="display: flex; gap: 16px; align-items: flex-start;">
+            <div class="icon-circle icon-bg-cyan">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div>
+                <h4 class="text-theme-primary" style="margin: 0 0 8px 0;">About CCA (Capital Cost Allowance)</h4>
+                <p class="text-theme-secondary" style="margin: 0; line-height: 1.6;">
+                    CCA is the tax deduction that Canadian businesses can claim for the depreciation of capital assets. 
+                    Assets are grouped into classes with prescribed rates set by the CRA. The <strong>half-year rule</strong> limits 
+                    CCA claims in the year of acquisition to 50% of the normal amount. Some classes qualify for the 
+                    <strong>Accelerated Investment Incentive (AII)</strong> which provides enhanced first-year deductions.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,476 @@
+@page
+@model Abs.FixedAssets.Pages.Purchasing.IndexModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Purchase Orders";
+    ViewData["TabTitle"] = "Purchasing Cockpit";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Purchasing Cockpit",
+        ["Subtitle"] = "Create, approve, and track purchase orders",
+        ["TypeLabel"] = "Procurement",
+        ["StatusText"] = $"{Model.OpenPOCount} Open",
+        ["StatusTone"] = Model.OpenPOCount > 0 ? "info" : "success"
+    };
+
+    // Group POs by workflow stage
+    var needsAction = Model.PurchaseOrders.Where(p => p.Status == Models.POStatus.PendingApproval).ToList();
+    var drafts = Model.PurchaseOrders.Where(p => p.Status == Models.POStatus.Draft).ToList();
+    var active = Model.PurchaseOrders.Where(p => p.Status == Models.POStatus.Approved || p.Status == Models.POStatus.Sent || p.Status == Models.POStatus.PartiallyReceived).ToList();
+    var completed = Model.PurchaseOrders.Where(p => p.Status == Models.POStatus.Received || p.Status == Models.POStatus.Closed || p.Status == Models.POStatus.Cancelled).Take(20).ToList();
+
+    // PO detail data for JS preview
+    var poDetails = Model.PurchaseOrders.Select(p => new {
+        id = p.Id,
+        num = p.PONumber,
+        vendor = p.Vendor?.Name ?? "—",
+        orderDate = p.OrderDate.ToString("MMM dd, yyyy"),
+        requiredDate = p.RequiredDate?.ToString("MMM dd, yyyy") ?? "—",
+        status = p.Status.ToString(),
+        total = p.Total.ToString("N2"),
+        subtotal = p.Subtotal.ToString("N2"),
+        tax = p.TaxAmount.ToString("N2"),
+        shipping = p.ShippingAmount.ToString("N2"),
+        notes = p.Notes ?? "",
+        lines = p.Lines?.Count ?? 0,
+        created = p.CreatedAt.ToString("MMM dd, yyyy")
+    }).ToList();
+}
+
+<script id="__poData" type="application/json">@Html.Raw(JsonSerializer.Serialize(poDetails))</script>
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+}
+
+<!-- KPI STRIP -->
+<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.75rem; margin-bottom:1rem;">
+    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
+        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open POs</div>
+        <div style="font-size:1.5rem; font-weight:700; color:var(--info); font-variant-numeric:tabular-nums;">@Model.OpenPOCount</div>
+    </div>
+    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
+        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Pending Approval</div>
+        <div style="font-size:1.5rem; font-weight:700; color:@(Model.PendingApprovalCount > 0 ? "var(--warning)" : "var(--text-muted)"); font-variant-numeric:tabular-nums;">@Model.PendingApprovalCount</div>
+    </div>
+    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
+        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open Value</div>
+        <div style="font-size:1.5rem; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">$@Model.OpenPOValue.ToString("N0")</div>
+    </div>
+    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
+        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Received This Month</div>
+        <div style="font-size:1.5rem; font-weight:700; color:var(--success); font-variant-numeric:tabular-nums;">@Model.ReceivedThisMonth</div>
+    </div>
+</div>
+
+<div class="cockpit">
+    <!-- LEFT PANEL — PO LIST -->
+    <div class="cockpit__queue">
+        <div class="cockpit__queue-header">
+            <h3 class="cockpit__queue-title"><i class="fas fa-file-invoice-dollar"></i> Purchase Orders</h3>
+            <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm">
+                <i class="fas fa-plus"></i> New PO
+            </a>
+        </div>
+
+        <div class="cockpit__search">
+            <i class="fas fa-search cockpit__search-icon"></i>
+            <input type="text" id="poSearch" class="cockpit__search-input" placeholder="Search PO#, vendor..." oninput="filterQueue(this.value)" autocomplete="off" />
+        </div>
+
+        <!-- Status filter tabs -->
+        <div class="cockpit__tabs">
+            <button class="cockpit__tab cockpit__tab--active" onclick="filterByStatus(this, 'all')">All (@Model.PurchaseOrders.Count)</button>
+            <button class="cockpit__tab" onclick="filterByStatus(this, 'action')">Needs Action (@needsAction.Count)</button>
+            <button class="cockpit__tab" onclick="filterByStatus(this, 'active')">Active (@active.Count)</button>
+            <button class="cockpit__tab" onclick="filterByStatus(this, 'draft')">Drafts (@drafts.Count)</button>
+        </div>
+
+        <div class="cockpit__queue-list" id="queueList">
+            @if (needsAction.Any())
+            {
+                <div class="cockpit__group" data-group="action">
+                    <div class="cockpit__group-label cockpit__group-label--warning">
+                        <i class="fas fa-bell"></i> Needs Approval (@needsAction.Count)
+                    </div>
+                    @foreach (var po in needsAction) { @await Html.PartialAsync("/Pages/Purchasing/_POCard.cshtml", po) }
+                </div>
+            }
+            @if (drafts.Any())
+            {
+                <div class="cockpit__group" data-group="draft">
+                    <div class="cockpit__group-label">
+                        <i class="fas fa-pencil-alt"></i> Drafts (@drafts.Count)
+                    </div>
+                    @foreach (var po in drafts) { @await Html.PartialAsync("/Pages/Purchasing/_POCard.cshtml", po) }
+                </div>
+            }
+            @if (active.Any())
+            {
+                <div class="cockpit__group" data-group="active">
+                    <div class="cockpit__group-label cockpit__group-label--info">
+                        <i class="fas fa-paper-plane"></i> Active (@active.Count)
+                    </div>
+                    @foreach (var po in active) { @await Html.PartialAsync("/Pages/Purchasing/_POCard.cshtml", po) }
+                </div>
+            }
+            @if (completed.Any())
+            {
+                <div class="cockpit__group" data-group="completed">
+                    <div class="cockpit__group-label" style="color:var(--success);">
+                        <i class="fas fa-check-circle"></i> Completed (@completed.Count)
+                    </div>
+                    @foreach (var po in completed) { @await Html.PartialAsync("/Pages/Purchasing/_POCard.cshtml", po) }
+                </div>
+            }
+            @if (!Model.PurchaseOrders.Any())
+            {
+                <div class="cockpit__empty">
+                    <i class="fas fa-file-invoice" style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem; opacity:0.4;"></i>
+                    <div>No purchase orders found.</div>
+                    <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm" style="margin-top:0.75rem;">Create First PO</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL — PO PREVIEW -->
+    <div class="cockpit__main">
+        <!-- Welcome state -->
+        <div id="mainWelcome" class="cockpit__welcome">
+            <div class="cockpit__welcome-icon"><i class="fas fa-file-invoice-dollar"></i></div>
+            <h2 class="cockpit__welcome-title">Select a PO to preview</h2>
+            <p class="cockpit__welcome-sub">Click a purchase order from the list to see details, line items, and take action.</p>
+            <div class="cockpit__welcome-stats">
+                <div class="cockpit__stat">
+                    <span class="cockpit__stat-value" style="color:var(--warning);">@needsAction.Count</span>
+                    <span class="cockpit__stat-label">Needs Approval</span>
+                </div>
+                <div class="cockpit__stat">
+                    <span class="cockpit__stat-value">@drafts.Count</span>
+                    <span class="cockpit__stat-label">Drafts</span>
+                </div>
+                <div class="cockpit__stat">
+                    <span class="cockpit__stat-value" style="color:var(--info);">@active.Count</span>
+                    <span class="cockpit__stat-label">Active</span>
+                </div>
+                <div class="cockpit__stat">
+                    <span class="cockpit__stat-value" style="color:var(--success);">@completed.Count</span>
+                    <span class="cockpit__stat-label">Completed</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PO Preview -->
+        <div id="mainPreview" style="display:none; flex:1; flex-direction:column;">
+            <div class="cockpit__preview-header">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <span class="cockpit__preview-po" id="pvPoNum"></span>
+                    <span class="cockpit__preview-status" id="pvStatus"></span>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <a id="pvEditBtn" href="#" class="btn-p btn-p--secondary btn-p--sm">
+                        <i class="fas fa-edit"></i> Edit / Details
+                    </a>
+                    <a id="pvReceiveBtn" href="#" class="btn-p btn-p--primary btn-p--sm" style="display:none;">
+                        <i class="fas fa-box-open"></i> Receive
+                    </a>
+                </div>
+            </div>
+
+            <div class="cockpit__preview-info">
+                <div class="cockpit__preview-field">
+                    <span class="cockpit__preview-label">Vendor</span>
+                    <span class="cockpit__preview-value" id="pvVendor"></span>
+                </div>
+                <div class="cockpit__preview-field">
+                    <span class="cockpit__preview-label">Order Date</span>
+                    <span class="cockpit__preview-value" id="pvOrderDate"></span>
+                </div>
+                <div class="cockpit__preview-field">
+                    <span class="cockpit__preview-label">Required Date</span>
+                    <span class="cockpit__preview-value" id="pvReqDate"></span>
+                </div>
+                <div class="cockpit__preview-field">
+                    <span class="cockpit__preview-label">Lines</span>
+                    <span class="cockpit__preview-value" id="pvLines"></span>
+                </div>
+                <div class="cockpit__preview-field">
+                    <span class="cockpit__preview-label">Created</span>
+                    <span class="cockpit__preview-value" id="pvCreated"></span>
+                </div>
+            </div>
+
+            <!-- Financial summary -->
+            <div class="cockpit__preview-financials">
+                <div class="cockpit__preview-fin-row">
+                    <span>Subtotal</span><span id="pvSubtotal" class="cockpit__preview-value--mono"></span>
+                </div>
+                <div class="cockpit__preview-fin-row">
+                    <span>Tax</span><span id="pvTax" class="cockpit__preview-value--mono"></span>
+                </div>
+                <div class="cockpit__preview-fin-row">
+                    <span>Shipping</span><span id="pvShipping" class="cockpit__preview-value--mono"></span>
+                </div>
+                <div class="cockpit__preview-fin-row cockpit__preview-fin-row--total">
+                    <span>Total</span><span id="pvTotal" class="cockpit__preview-value--mono"></span>
+                </div>
+            </div>
+
+            <!-- Notes -->
+            <div id="pvNotesWrap" style="display:none; padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+                <span class="cockpit__preview-label">Notes</span>
+                <p id="pvNotes" style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;"></p>
+            </div>
+
+            <!-- Quick actions based on status -->
+            <div class="cockpit__preview-actions" id="pvActions"></div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Reuse cockpit styles from Receiving + additions */
+.cockpit {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    gap: 1rem;
+    height: calc(100vh - 340px);
+    min-height: 500px;
+}
+
+.cockpit__queue {
+    background: var(--surface-card, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+}
+.cockpit__queue-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.cockpit__queue-title {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 0.5rem;
+}
+.cockpit__queue-title i { color: var(--cherry-red, #cf3339); font-size: 0.8rem; }
+
+.cockpit__search { position: relative; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); }
+.cockpit__search-icon { position: absolute; left: 1.25rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.75rem; }
+.cockpit__search-input {
+    width: 100%; padding: 0.45rem 0.75rem 0.45rem 2rem; font-size: 0.85rem;
+    background: var(--surface-input, rgba(255,255,255,0.05)); border: 1px solid var(--border-default, rgba(255,255,255,0.1));
+    border-radius: 6px; color: var(--text-primary); outline: none;
+}
+.cockpit__search-input:focus { border-color: var(--cherry-red, #cf3339); box-shadow: 0 0 0 2px rgba(207, 51, 57, 0.15); }
+
+/* Status filter tabs */
+.cockpit__tabs {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    overflow-x: auto;
+}
+.cockpit__tab {
+    flex: 1; padding: 0.5rem 0.25rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted); background: none; border: none;
+    border-bottom: 2px solid transparent; cursor: pointer; transition: all 0.15s; white-space: nowrap;
+}
+.cockpit__tab:hover { color: var(--text-primary); }
+.cockpit__tab--active { color: var(--cherry-red, #cf3339); border-bottom-color: var(--cherry-red, #cf3339); }
+
+.cockpit__queue-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+.cockpit__group { margin-bottom: 0.25rem; }
+.cockpit__group-label {
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); padding: 0.4rem 0.5rem; display: flex; align-items: center; gap: 0.4rem;
+}
+.cockpit__group-label--warning { color: var(--warning, #f59e0b); }
+.cockpit__group-label--info { color: var(--info, #3b82f6); }
+
+.cockpit__card {
+    padding: 0.6rem 0.75rem; margin-bottom: 0.3rem; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.15s;
+}
+.cockpit__card:hover { background: var(--surface-hover, rgba(255,255,255,0.04)); border-color: var(--border-default, rgba(255,255,255,0.1)); }
+.cockpit__card--active { background: var(--cherry-red, #cf3339) !important; border-color: var(--cherry-red, #cf3339) !important; }
+.cockpit__card--active * { color: #fff !important; }
+.cockpit__card-row { display: flex; justify-content: space-between; align-items: center; }
+.cockpit__card-po { font-weight: 700; font-size: 0.85rem; color: var(--text-primary); }
+.cockpit__card-vendor { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.15rem; }
+.cockpit__card-meta { display: flex; gap: 0.75rem; margin-top: 0.25rem; font-size: 0.7rem; }
+.cockpit__card-meta span { color: var(--text-muted); }
+.cockpit__card-meta strong { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.cockpit__empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center; }
+
+/* Main panel */
+.cockpit__main {
+    background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: 10px; overflow: hidden; display: flex; flex-direction: column;
+}
+.cockpit__welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 3rem; text-align: center; }
+.cockpit__welcome-icon { font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem; opacity: 0.4; }
+.cockpit__welcome-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin: 0 0 0.5rem; }
+.cockpit__welcome-sub { font-size: 0.85rem; color: var(--text-muted); max-width: 400px; margin: 0 0 2rem; }
+.cockpit__welcome-stats { display: flex; gap: 2rem; }
+.cockpit__stat { display: flex; flex-direction: column; align-items: center; }
+.cockpit__stat-value { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cockpit__stat-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-top: 0.2rem; }
+
+.cockpit__preview-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.cockpit__preview-po { font-weight: 700; font-size: 1.1rem; color: var(--text-primary); }
+.cockpit__preview-status { font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 10px; text-transform: uppercase; }
+
+.cockpit__preview-info {
+    display: flex; gap: 1.5rem; padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); flex-wrap: wrap;
+}
+.cockpit__preview-field { display: flex; flex-direction: column; }
+.cockpit__preview-label { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.1rem; }
+.cockpit__preview-value { font-size: 0.85rem; color: var(--text-primary); font-weight: 500; }
+.cockpit__preview-value--mono { font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* Financials */
+.cockpit__preview-financials {
+    padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.cockpit__preview-fin-row {
+    display: flex; justify-content: space-between; padding: 0.2rem 0; font-size: 0.85rem; color: var(--text-secondary);
+}
+.cockpit__preview-fin-row--total {
+    border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    margin-top: 0.3rem; padding-top: 0.4rem; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);
+}
+
+/* Quick actions */
+.cockpit__preview-actions {
+    padding: 1rem 1.25rem; display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+
+/* Light mode */
+html:not(.dark) .cockpit__queue,
+html:not(.dark) .cockpit__main { background: #fff; border-color: #e2e8f0; }
+html:not(.dark) .cockpit__card:hover { background: #f8fafc; }
+html:not(.dark) .cockpit__search-input { background: #fff; border-color: #e2e8f0; }
+html:not(.dark) .pe-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; }
+</style>
+
+@section Scripts {
+<script>
+var PO_DATA = [];
+try { PO_DATA = JSON.parse(document.getElementById('__poData').textContent); } catch(e) {}
+
+function filterQueue(q) {
+    var lc = (q || '').toLowerCase();
+    document.querySelectorAll('.cockpit__card').forEach(function(card) {
+        var po = (card.getAttribute('data-po') || '').toLowerCase();
+        var vendor = (card.getAttribute('data-vendor') || '').toLowerCase();
+        card.style.display = (lc.length === 0 || po.indexOf(lc) >= 0 || vendor.indexOf(lc) >= 0) ? '' : 'none';
+    });
+    document.querySelectorAll('.cockpit__group').forEach(function(g) {
+        g.style.display = g.querySelectorAll('.cockpit__card:not([style*="display: none"])').length > 0 ? '' : 'none';
+    });
+}
+
+function filterByStatus(btn, group) {
+    document.querySelectorAll('.cockpit__tab').forEach(function(t) { t.classList.remove('cockpit__tab--active'); });
+    btn.classList.add('cockpit__tab--active');
+
+    if (group === 'all') {
+        document.querySelectorAll('.cockpit__group').forEach(function(g) { g.style.display = ''; });
+    } else {
+        document.querySelectorAll('.cockpit__group').forEach(function(g) {
+            g.style.display = g.getAttribute('data-group') === group ? '' : 'none';
+        });
+    }
+}
+
+function selectPO(id) {
+    document.querySelectorAll('.cockpit__card').forEach(function(c) { c.classList.remove('cockpit__card--active'); });
+    var card = document.querySelector('.cockpit__card[data-id="' + id + '"]');
+    if (card) card.classList.add('cockpit__card--active');
+
+    var po = PO_DATA.find(function(p) { return p.id === id; });
+    if (!po) return;
+
+    document.getElementById('mainWelcome').style.display = 'none';
+    document.getElementById('mainPreview').style.display = 'flex';
+
+    document.getElementById('pvPoNum').textContent = po.num;
+    document.getElementById('pvEditBtn').href = '/Purchasing/Details/' + id;
+
+    // Receive button — only for receivable statuses
+    var rcvBtn = document.getElementById('pvReceiveBtn');
+    var receivable = ['Approved', 'Sent', 'PartiallyReceived'];
+    if (receivable.indexOf(po.status) >= 0) {
+        rcvBtn.style.display = '';
+        rcvBtn.href = '/Receiving/Receive/' + id;
+    } else {
+        rcvBtn.style.display = 'none';
+    }
+
+    var statusEl = document.getElementById('pvStatus');
+    statusEl.textContent = po.status;
+    var statusMap = {
+        'Draft': 'status-badge-p--draft',
+        'PendingApproval': 'status-badge-p--pending',
+        'Approved': 'status-badge-p--approved',
+        'Sent': 'status-badge-p--info',
+        'PartiallyReceived': 'status-badge-p--pending',
+        'Received': 'status-badge-p--approved',
+        'Closed': 'status-badge-p--draft',
+        'Cancelled': 'status-badge-p--danger'
+    };
+    statusEl.className = 'cockpit__preview-status status-badge-p ' + (statusMap[po.status] || 'status-badge-p--draft');
+
+    document.getElementById('pvVendor').textContent = po.vendor;
+    document.getElementById('pvOrderDate').textContent = po.orderDate;
+    document.getElementById('pvReqDate').textContent = po.requiredDate;
+    document.getElementById('pvLines').textContent = po.lines + ' lines';
+    document.getElementById('pvCreated').textContent = po.created;
+
+    document.getElementById('pvSubtotal').textContent = '$' + po.subtotal;
+    document.getElementById('pvTax').textContent = '$' + po.tax;
+    document.getElementById('pvShipping').textContent = '$' + po.shipping;
+    document.getElementById('pvTotal').textContent = '$' + po.total;
+
+    var notesWrap = document.getElementById('pvNotesWrap');
+    if (po.notes) {
+        document.getElementById('pvNotes').textContent = po.notes;
+        notesWrap.style.display = '';
+    } else {
+        notesWrap.style.display = 'none';
+    }
+
+    // Context-sensitive actions
+    var actions = document.getElementById('pvActions');
+    var html = '';
+    if (po.status === 'Draft') {
+        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-edit"></i> Edit PO</a>'
+             + '<span style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem 0;">Add lines and submit for approval</span>';
+    } else if (po.status === 'PendingApproval') {
+        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-check"></i> Review & Approve</a>'
+             + '<span style="font-size:0.8rem; color:var(--warning); padding:0.35rem 0;"><i class="fas fa-bell"></i> Awaiting approval</span>';
+    } else if (po.status === 'Approved' || po.status === 'Sent') {
+        html = '<a href="/Receiving/Receive/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-box-open"></i> Receive Goods</a>'
+             + '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+    } else if (po.status === 'PartiallyReceived') {
+        html = '<a href="/Receiving/Receive/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-box-open"></i> Continue Receiving</a>'
+             + '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+    } else {
+        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+    }
+    actions.innerHTML = html;
+}
+</script>
+}

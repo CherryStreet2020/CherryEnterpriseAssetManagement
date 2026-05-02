@@ -1,0 +1,266 @@
+@page
+@model Abs.FixedAssets.Pages.Inventory.IndexModel
+@{
+    ViewData["Title"] = "Physical Inventory";
+    ViewData["TabTitle"] = "Physical Inventory";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var statusText = $"{Model.Stats.TotalAssets} Assets";
+    var statusTone = Model.Stats.TotalAssets > 0 ? "active" : "neutral";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Physical Inventory",
+        ["Subtitle"] = "Barcode tracking, inventory lists, and asset reconciliation",
+        ["TypeLabel"] = "Inventory",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Inventory/_InventoryIndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/Inventory/_InventoryIndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Inventory/_InventoryIndexActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div id="newListForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>New Inventory List</h3>
+                    <p>Create a new physical inventory count</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('newListForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="CreateList">
+            <div class="inline-form-body">
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">List Information</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group full-width">
+                            <label>List Name</label>
+                            <input type="text" name="name" class="form-control" required placeholder="e.g., Q1 2026 Physical Inventory" />
+                        </div>
+                        <div class="form-group full-width">
+                            <label>Description</label>
+                            <textarea name="description" class="form-control" rows="2" placeholder="Purpose and scope of this inventory count..."></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="inline-form-section">
+                    <div class="inline-form-section-title">Assignment</div>
+                    <div class="inline-form-grid">
+                        <div class="form-group">
+                            <label>Location Filter</label>
+                            <input type="text" name="location" class="form-control" placeholder="e.g., Plant A (leave blank for all)" />
+                        </div>
+                        <div class="form-group">
+                            <label>Assigned To</label>
+                            <input type="text" name="assignedTo" class="form-control" placeholder="e.g., John Smith" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('newListForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create List</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="content-section">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon icon-bg-blue">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-blue" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Total Assets</span>
+                <span class="stat-value">@Model.Stats.TotalAssets</span>
+            </div>
+        </div>
+        <div class="stat-card stat-success">
+            <div class="stat-icon icon-bg-green">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-green" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Assets with Barcode</span>
+                <span class="stat-value">@Model.Stats.AssetsWithBarcode</span>
+            </div>
+        </div>
+        <div class="stat-card stat-warning">
+            <div class="stat-icon icon-bg-amber">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-amber" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Recent Scans (30 days)</span>
+                <span class="stat-value">@Model.Stats.RecentScans</span>
+            </div>
+        </div>
+        <div class="stat-card stat-pink">
+            <div class="stat-icon icon-bg-pink">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-pink" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+            </div>
+            <div class="stat-content">
+                <span class="stat-label">Open Inventory Lists</span>
+                <span class="stat-value">@Model.Stats.OpenInventories</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-section">
+    <div class="section-header">
+        <h2>Quick Actions</h2>
+    </div>
+    <div class="grid-3">
+        <div class="card action-card">
+            <div class="card-body">
+                <h3>Generate Barcodes</h3>
+                <p>Automatically generate barcode numbers for all assets that don't have one yet.</p>
+                <form method="post" asp-page-handler="GenerateBarcodes">
+                    <button type="submit" class="btn-p btn-p--secondary">
+                        Generate Barcodes
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="card action-card">
+            <div class="card-body">
+                <h3>New Inventory List</h3>
+                <p>Create a new physical inventory count for a location or department.</p>
+                <a href="/Inventory/CreateList" class="btn-p btn-p--secondary">
+                    Create Inventory List
+                </a>
+            </div>
+        </div>
+        <div class="card action-card">
+            <div class="card-body">
+                <h3>Scan Asset</h3>
+                <p>Record a barcode scan to update asset location and condition.</p>
+                <a href="/Inventory/Scan" class="btn-p btn-p--secondary">
+                    Start Scanning
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Message != null)
+{
+    <div class="content-section">
+        <div class="alert alert-success">
+            @Model.Message
+        </div>
+    </div>
+}
+
+<div class="content-section">
+    <div class="section-header">
+        <h2>Inventory Lists</h2>
+    </div>
+    @if (Model.InventoryLists.Any())
+    {
+        <div class="card">
+            @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+            <table class="data-table" id="inventoryGrid" data-enhanced-grid="true" data-row-click="true">
+                <thead>
+                    <tr>
+                        <th data-col="Name" data-filter="text">Name</th>
+                        <th data-col="Location" data-filter="text">Location</th>
+                        <th data-col="Status" data-filter="select" data-filter-options="Open|InProgress|Completed">Status</th>
+                        <th data-col="Total Assets" data-filter="number">Total Assets</th>
+                        <th data-col="Scanned" data-filter="number">Scanned</th>
+                        <th data-col="Found" data-filter="number">Found</th>
+                        <th data-col="Missing" data-filter="number">Missing</th>
+                        <th data-col="Created" data-filter="text">Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var list in Model.InventoryLists)
+                    {
+                        <tr data-row-id="@list.Id" data-row-href="@Url.Page("/Inventory/List", new { id = list.Id, returnUrl = returnUrl })">
+                            <td><strong class="text-primary">@list.Name</strong></td>
+                            <td>@(list.Location ?? "-")</td>
+                            <td>
+                                <span class="badge @(list.Status == InventoryStatus.Completed ? "badge-success" : list.Status == InventoryStatus.InProgress ? "badge-warning" : "badge-neutral")">
+                                    @list.Status
+                                </span>
+                            </td>
+                            <td>@list.TotalAssets</td>
+                            <td>@list.ScannedAssets</td>
+                            <td class="text-success">@list.FoundAssets</td>
+                            <td class="text-danger">@list.MissingAssets</td>
+                            <td>@list.CreatedDate.ToString("MM/dd/yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div class="pe-empty" style="padding:1.5rem;">
+            <i class="fas fa-box-open pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty__text">No inventory lists yet. Create your first physical inventory list to start tracking assets.</div>
+        </div>
+    }
+</div>
+
+<div class="content-section">
+    <div class="section-header">
+        <h2>Barcode Standards</h2>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <div class="grid-2">
+                <div>
+                    <h4>Supported Barcode Types</h4>
+                    <ul class="feature-list">
+                        <li><strong>Code 128</strong> - Standard for asset tags (default)</li>
+                        <li><strong>QR Code</strong> - For mobile scanning</li>
+                        <li><strong>Code 39</strong> - Legacy systems</li>
+                        <li><strong>Data Matrix</strong> - High density labels</li>
+                    </ul>
+                </div>
+                <div>
+                    <h4>Barcode Number Format</h4>
+                    <p>Default format: <code>FA-000001</code></p>
+                    <p class="text-muted">FA = Fixed Asset prefix<br>6-digit sequential number</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('inventoryGrid')) {
+        initEnhancedGrid('inventoryGrid', {
+            searchable: true,
+            sortable: true,
+            exportable: true,
+            columnVisibility: true,
+            clickableRows: true
+        });
+    }
+});
+</script>
+}

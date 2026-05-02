@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Maintenance.IndexModel
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@Model.Stats.TotalEvents</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Overdue</div>
+    <div class="kpi-value danger">@Model.Stats.OverdueCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Scheduled</div>
+    <div class="kpi-value warning">@Model.Stats.ScheduledCount</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Completed</div>
+    <div class="kpi-value success">@Model.Stats.CompletedThisMonth</div>
+</div>

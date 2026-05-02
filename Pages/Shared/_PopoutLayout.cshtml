@@ -1,0 +1,28 @@
+@{
+    /* _PopoutLayout.cshtml — Minimal layout for popout windows. No sidebar, no nav, edge-to-edge. */
+}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] — ABS Machining EAM</title>
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/base.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/cherryai-theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/cherryai-dark-compliance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" />
+    <link rel="icon" type="image/png" href="/images/cherry-favicon.png" />
+    @await RenderSectionAsync("Styles", required: false)
+    <style>
+        html, body { margin: 0; padding: 0; height: 100vh; overflow: hidden; background: var(--bg-primary, #0f1729); color: var(--text-primary, #e2e8f0); }
+        .popout-wrap { padding: 0.5rem; height: 100vh; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <div class="popout-wrap">
+        @RenderBody()
+    </div>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

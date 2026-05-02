@@ -1,0 +1,25 @@
+@{
+    var cost = ViewData["Cost"] as Abs.FixedAssets.Models.CipCost;
+    var percentOfProject = ViewData["PercentOfProject"] as decimal? ?? 0;
+}
+@if (cost != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Cost Type</div>
+            <div class="kpi-value">@cost.CostType</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Amount</div>
+            <div class="kpi-value money">@cost.Amount.ToString("C0")</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">% of Project</div>
+            <div class="kpi-value">@percentOfProject.ToString("F1")%</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Vendor</div>
+            <div class="kpi-value" style="font-size: 14px;">@(cost.Vendor ?? "N/A")</div>
+        </div>
+    </div>
+}

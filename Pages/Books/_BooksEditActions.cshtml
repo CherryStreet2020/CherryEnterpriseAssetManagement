@@ -1,0 +1,32 @@
+@{
+    var book = ViewData["Book"] as Abs.FixedAssets.Models.Book;
+}
+@if (book != null)
+{
+    <div class="screen-header__actions">
+        <div class="hero-tags">
+            @if (book.CalculateOnlyNoPosting)
+            {
+                <span class="hero-tag info">Calculate Only</span>
+            }
+            @if (book.RequireApprovalToPost)
+            {
+                <span class="hero-tag priority">Requires Approval</span>
+            }
+        </div>
+        <div class="hero-btns">
+            <a href="/Books" class="hero-btn hero-btn-ghost">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Books
+            </a>
+            <a asp-page="./GlAccounts" asp-route-bookId="@book.Id" class="hero-btn hero-btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                Configure GL Accounts
+            </a>
+        </div>
+    </div>
+}

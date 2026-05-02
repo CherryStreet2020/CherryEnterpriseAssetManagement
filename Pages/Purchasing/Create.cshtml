@@ -1,0 +1,88 @@
+@page
+@model Abs.FixedAssets.Pages.Purchasing.CreateModel
+@{
+    ViewData["Title"] = "Create Purchase Order";
+    ViewData["TabTitle"] = "New PO";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Create Purchase Order",
+        ["Subtitle"] = "Fill in the details below to create a new purchase order",
+        ["TypeLabel"] = "Procurement",
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Purchasing",
+        ["BackLinkLabel"] = "Purchase Orders"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@TempData["Error"]</div>
+}
+
+<form method="post">
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Vendor Information</span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p">Vendor <span class="required">*</span></label>
+                <select name="vendorId" data-cherry-select data-placeholder="Search vendors..." required>
+                    <option value="">Search vendors...</option>
+                    @foreach (var v in Model.Vendors)
+                    {
+                        <option value="@v.Id">@v.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Order Details</span></div>
+        <div class="pe-card__body">
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">PO Type</label>
+                    <select name="poTypeLookupValueId" data-cherry-select data-placeholder="Select type..." class="form-input-p">
+                        <option value="">Select type...</option>
+                        @foreach (var opt in Model.POTypeOptions)
+                        {
+                            <option value="@opt.Value">@opt.Text</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Order Date <span class="required">*</span></label>
+                    <input type="date" name="orderDate" class="form-input-p" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+            </div>
+            <div class="form-row-p" style="margin-top:1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Required Date</label>
+                    <input type="date" name="requiredDate" class="form-input-p" />
+                </div>
+                <div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--green"></span> Additional Information</span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p">Notes</label>
+                <textarea name="notes" class="form-input-p" rows="3" placeholder="Optional notes for this purchase order..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions-sticky">
+        <a href="/Purchasing" class="btn-p btn-p--secondary">Cancel</a>
+        <button type="submit" class="btn-p btn-p--primary">
+            <i class="fas fa-plus"></i> Create Purchase Order
+        </button>
+    </div>
+</form>

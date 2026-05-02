@@ -1,0 +1,378 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.IndexModel
+@{
+    ViewData["Title"] = "Admin Hub";
+    ViewData["TabTitle"] = "Admin Hub";
+    ViewData["Breadcrumb"] = "Admin Hub";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Admin Hub",
+        ["Subtitle"] = "Manage company settings, users, and system configuration",
+        ["TypeLabel"] = "System Configuration",
+        ["StatusText"] = "Active",
+        ["StatusTone"] = "success",
+        ["ContextPartial"] = "/Pages/Admin/_AdminIndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_AdminIndexKpis.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="premium-admin-grid">
+    <a href="/Admin/Company" class="premium-admin-card">
+        <div class="premium-admin-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>Company Settings</h3>
+            <p>Configure company information, fiscal year, currency, and tax registration</p>
+        </div>
+    </a>
+
+    <a href="/Admin/Users" class="premium-admin-card">
+        <div class="premium-admin-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>User Management</h3>
+            <p>Add, edit, and manage user accounts and access permissions</p>
+        </div>
+    </a>
+
+    <a href="/Admin/ExchangeRates" class="premium-admin-card">
+        <div class="premium-admin-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>Exchange Rates</h3>
+            <p>Manage currency exchange rates for multi-currency reporting</p>
+        </div>
+    </a>
+
+    <a href="/Admin/AuditLog" class="premium-admin-card">
+        <div class="premium-admin-icon danger">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>Audit Log</h3>
+            <p>View system activity log and track changes for compliance</p>
+        </div>
+    </a>
+
+    <a href="/Admin/SystemSettings" class="premium-admin-card">
+        <div class="premium-admin-icon secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>System Settings</h3>
+            <p>Configure depreciation defaults, period locking, and system behavior</p>
+        </div>
+    </a>
+
+    <a href="/Admin/Approvals" class="premium-admin-card">
+        <div class="premium-admin-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="premium-admin-content">
+            <h3>Approval Workflows</h3>
+            <p>Configure approval requirements for disposals and transfers</p>
+        </div>
+    </a>
+</div>
+
+<div class="premium-section">
+    <div class="premium-section-header">
+        <h2 class="premium-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-theme-muted">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+            </svg>
+            Master Files
+        </h2>
+        <p class="premium-section-subtitle">Configure GL accounts, cost centers, departments, and asset categories for financial tracking</p>
+    </div>
+    <div class="premium-admin-grid">
+        <a href="/Admin/GlAccounts" class="premium-admin-card">
+            <div class="premium-admin-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>GL Accounts</h3>
+                <p>Manage general ledger accounts for asset tracking and financial reporting</p>
+            </div>
+        </a>
+
+        <a href="/Admin/CostCenters" class="premium-admin-card">
+            <div class="premium-admin-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Cost Centers</h3>
+                <p>Define plants, buildings, and production lines for multi-site tracking</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Departments" class="premium-admin-card">
+            <div class="premium-admin-icon warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Departments</h3>
+                <p>Organize assets by department for cost allocation and reporting</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Sites" class="premium-admin-card">
+            <div class="premium-admin-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Sites</h3>
+                <p>Manage facility sites, manufacturing plants, warehouses, and distribution centers</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Locations" class="premium-admin-card">
+            <div class="premium-admin-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Locations</h3>
+                <p>Manage physical locations, buildings, bays, and storage bins for asset placement</p>
+            </div>
+        </a>
+
+        <a href="/Admin/AssetCategories" class="premium-admin-card">
+            <div class="premium-admin-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Asset Categories</h3>
+                <p>Configure asset types with default depreciation rules and GL mappings</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="premium-section">
+    <div class="premium-section-header">
+        <h2 class="premium-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-theme-muted">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Tax Setup
+        </h2>
+        <p class="premium-section-subtitle">Configure tax rules and depreciation schedules for US and Canadian compliance</p>
+    </div>
+    <div class="premium-admin-grid">
+        <a href="/UsTax/Index" class="premium-admin-card">
+            <div class="premium-admin-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>MACRS (US)</h3>
+                <p>Modified Accelerated Cost Recovery System for US tax depreciation</p>
+            </div>
+        </a>
+
+        <a href="/CCA/Index" class="premium-admin-card">
+            <div class="premium-admin-icon danger">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>CCA (Canada)</h3>
+                <p>Capital Cost Allowance classes and rates for Canadian tax compliance</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="premium-section">
+    <div class="premium-section-header">
+        <h2 class="premium-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-theme-muted">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Personnel & Resources
+        </h2>
+        <p class="premium-section-subtitle">Manage technicians, project managers, and equipment manufacturers</p>
+    </div>
+    <div class="premium-admin-grid">
+        <a href="/Admin/Technicians" class="premium-admin-card">
+            <div class="premium-admin-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Technicians</h3>
+                <p>Manage maintenance technicians, specialties, and hourly rates</p>
+            </div>
+        </a>
+
+        <a href="/Admin/ProjectManagers" class="premium-admin-card">
+            <div class="premium-admin-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Project Managers</h3>
+                <p>Manage capital project managers and their assignments</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Manufacturers" class="premium-admin-card">
+            <div class="premium-admin-icon warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Manufacturers</h3>
+                <p>Manage equipment manufacturers for asset tracking</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Vendors" class="premium-admin-card">
+            <div class="premium-admin-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Vendors</h3>
+                <p>Manage suppliers and vendors for asset procurement</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="premium-section">
+    <div class="premium-section-header">
+        <h2 class="premium-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-theme-muted">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            Inventory & Parts
+        </h2>
+        <p class="premium-section-subtitle">Manage spare parts catalog, PM templates, and maintenance job plans</p>
+    </div>
+    <div class="premium-admin-grid">
+        <a href="/Admin/Items" class="premium-admin-card">
+            <div class="premium-admin-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Item Master</h3>
+                <p>Manage spare parts, consumables, and inventory items with vendor pricing</p>
+            </div>
+        </a>
+
+        <a href="/Admin/ItemCategories" class="premium-admin-card">
+            <div class="premium-admin-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Item Categories</h3>
+                <p>Organize parts into hierarchical categories with GL account mappings</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Inventory" class="premium-admin-card">
+            <div class="premium-admin-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Stock Levels</h3>
+                <p>View on-hand quantities, low stock alerts, and record inventory transactions</p>
+            </div>
+        </a>
+
+        <a href="/Admin/PMTemplates" class="premium-admin-card">
+            <div class="premium-admin-icon warning">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>PM Templates</h3>
+                <p>Define preventive maintenance job plans with parts lists and schedules</p>
+            </div>
+        </a>
+
+        <a href="/Admin/Requisitions" class="premium-admin-card">
+            <div class="premium-admin-icon purple">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>Purchase Requisitions</h3>
+                <p>Create and approve purchase requests with auto-reorder alerts</p>
+            </div>
+        </a>
+    </div>
+</div>
+
+<div class="premium-section">
+    <div class="premium-section-header">
+        <h2 class="premium-section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-theme-muted">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            Integrations
+        </h2>
+        <p class="premium-section-subtitle">Connect with external systems and APIs</p>
+    </div>
+    <div class="premium-admin-grid">
+        <a href="/API/Index" class="premium-admin-card">
+            <div class="premium-admin-icon secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <div class="premium-admin-content">
+                <h3>API & Integrations</h3>
+                <p>Configure REST API access, ERP connections, and third-party integrations</p>
+            </div>
+        </a>
+    </div>
+</div>

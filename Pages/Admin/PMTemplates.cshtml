@@ -1,0 +1,162 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.PMTemplatesModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Models.Revisions
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = UiTerms.PMTemplates;
+    ViewData["TabTitle"] = UiTerms.PMTemplates;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var totalTemplates = Model.Templates.Count;
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = UiTerms.PMTemplates,
+        ["Subtitle"] = "Configure preventive maintenance templates and schedules",
+        ["TypeLabel"] = "Work Execution",
+        ["Breadcrumbs"] = new[] { ("Asset Maintenance", "/Maintenance"), ("PM Templates", "") },
+        ["ContextPartial"] = "/Pages/Admin/_PMTemplatesContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_PMTemplatesKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_PMTemplatesActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="module-header">
+    <nav class="module-pills" role="navigation" aria-label="@UiTerms.ModuleName navigation">
+        <a href="/Maintenance" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            @UiTerms.WorkOrderPlural
+        </a>
+        <a href="/Admin/PMTemplates" class="module-pill active" aria-current="page">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            @UiTerms.PMTemplates
+        </a>
+        <a href="/Maintenance/Assignments" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            PM Assignments
+        </a>
+        <a href="/Maintenance/Schedules" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @UiTerms.Schedules
+        </a>
+    </nav>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Template Library
+        </h3>
+        <span class="status-badge info">@totalTemplates TEMPLATES</span>
+    </div>
+    <div class="section-card-body section-card-body--flush">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        <table class="data-table" id="templateGrid" data-enhanced-grid="true" data-row-click="true">
+            <thead>
+                <tr>
+                    <th data-col="Code" data-filter="text">Code</th>
+                    <th data-col="Name" data-filter="text">Name</th>
+                    <th data-col="Revision" data-filter="text">Revision</th>
+                    <th data-col="Type" data-filter="text">Type</th>
+                    <th data-col="Trigger" data-filter="select" data-filter-options="Calendar|Meter|CalendarOrMeter|Manual">Trigger</th>
+                    <th data-col="Interval" data-filter="text">Interval</th>
+                    <th data-col="Est. Hours" data-filter="number">Est. Hours</th>
+                    <th data-col="Est. Cost" data-filter="number">Est. Cost</th>
+                    <th data-col="Priority" data-filter="select" data-filter-options="Low|Medium|High|Critical">Priority</th>
+                    <th class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var template in Model.Templates)
+                {
+                    var priorityClass = template.Priority == PMPriority.Critical ? "badge-danger" :
+                                       template.Priority == PMPriority.High ? "badge-warning" :
+                                       template.Priority == PMPriority.Medium ? "badge-info" : "badge-secondary";
+                    var interval = template.TriggerType switch {
+                        PMTriggerType.Calendar => $"Every {template.CalendarIntervalValue} {template.CalendarInterval}",
+                        PMTriggerType.Meter => $"Every {template.MeterInterval:N0} {template.MeterType}",
+                        PMTriggerType.CalendarOrMeter => $"{template.CalendarIntervalValue} {template.CalendarInterval} or {template.MeterInterval:N0} {template.MeterType}",
+                        _ => "Manual"
+                    };
+                    <tr data-row-id="@template.Id" data-row-href="@Url.Page("/Admin/PMTemplateEdit", new { id = template.Id, returnUrl = returnUrl })">
+                        <td><strong>@template.Code</strong></td>
+                        <td>@template.Name</td>
+                        <td>
+                            @if (template.CurrentReleasedRevision != null)
+                            {
+                                <span class="badge badge-success" title="Released @template.CurrentReleasedRevision.ReleasedAtUtc?.ToString("g")">
+                                    @template.CurrentReleasedRevision.RevisionCode
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary" title="No released revision">-</span>
+                            }
+                        </td>
+                        <td>@template.Type</td>
+                        <td><span class="badge badge-info">@template.TriggerType</span></td>
+                        <td>@interval</td>
+                        <td class="text-right">@template.EstimatedHours.ToString("N1")</td>
+                        <td class="text-right">@(((template.EstimatedLaborCost ?? 0) + (template.EstimatedPartsCost ?? 0)).ToString("C2"))</td>
+                        <td><span class="badge @priorityClass">@template.Priority</span></td>
+                        <td>
+                            @if (template.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (!Model.Templates.Any())
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-cogs pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No PM templates. Create preventive maintenance templates to standardize your maintenance procedures.</div>
+                <a href="/Admin/PMTemplateEdit" class="btn-p btn-p--primary" style="margin-top:0.75rem;">Create First Template</a>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="/js/enhanced-grid.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initEnhancedGrid('templateGrid', {
+                searchable: true,
+                sortable: true,
+                exportable: true,
+                clickableRows: false
+            });
+        });
+    </script>
+}

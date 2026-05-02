@@ -1,0 +1,22 @@
+@{
+    var receipt = ViewData["Receipt"] as Abs.FixedAssets.Models.GoodsReceipt;
+    var totalValue = (decimal)(ViewData["TotalValue"] ?? 0m);
+    var totalQtyReceived = (decimal)(ViewData["TotalQtyReceived"] ?? 0m);
+    var totalQtyRejected = (decimal)(ViewData["TotalQtyRejected"] ?? 0m);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Lines</div>
+    <div class="kpi-value">@(receipt?.Lines?.Count ?? 0)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Qty Received</div>
+    <div class="kpi-value">@totalQtyReceived.ToString("N0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Qty Rejected</div>
+    <div class="kpi-value @(totalQtyRejected > 0 ? "danger" : "")">@totalQtyRejected.ToString("N0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Value</div>
+    <div class="kpi-value success">@totalValue.ToString("C0")</div>
+</div>

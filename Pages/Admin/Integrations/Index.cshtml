@@ -1,0 +1,190 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Integrations.IndexModel
+@{
+    ViewData["Title"] = "Integration Endpoints";
+    ViewData["TabTitle"] = "Integrations";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Integration Endpoints" },
+        { "Subtitle", "Manage inbound webhook integrations from external systems" },
+        { "TypeLabel", "Administration" },
+        { "StatusText", Model.IsLabEnvironment ? "LAB" : "" },
+        { "StatusTone", "info" },
+        { "ActionsPartial", "Admin/Integrations/_AdminIntegrationsIndexActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!Model.IsLabEnvironment)
+{
+    <div class="content-area">
+        <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+            <h2 class="text-xl font-bold text-red-700 mb-2">Access Restricted</h2>
+            <p class="text-red-600">Integration management is only available in LAB environment.</p>
+        </div>
+    </div>
+    return;
+}
+
+<div class="content-area">
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700">
+            @Model.SuccessMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.NewSecret))
+    {
+        <div class="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <p class="font-medium text-amber-800">Copy your secret now - it won't be shown again!</p>
+                    <code class="block mt-2 p-2 bg-white border border-amber-200 rounded font-mono text-sm text-slate-900 select-all">@Model.NewSecret</code>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <table class="min-w-full divide-y divide-slate-200">
+            <thead class="bg-slate-50">
+                <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Integration Key</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Event Types</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Stats</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Last Event</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+                @foreach (var endpoint in Model.Endpoints)
+                {
+                    <tr>
+                        <td class="px-4 py-3 text-sm font-medium text-slate-900">@endpoint.Name</td>
+                        <td class="px-4 py-3">
+                            <code class="text-xs bg-slate-100 px-2 py-1 rounded font-mono">@endpoint.IntegrationKey</code>
+                        </td>
+                        <td class="px-4 py-3">
+                            @if (endpoint.IsActive)
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">Active</span>
+                            }
+                            else
+                            {
+                                <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">Inactive</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-600">
+                            @(string.IsNullOrEmpty(endpoint.AllowedEventTypesCsv) ? "All" : endpoint.AllowedEventTypesCsv)
+                        </td>
+                        <td class="px-4 py-3 text-xs">
+                            <span class="text-green-600">@endpoint.EventsProcessedCount processed</span>
+                            @if (endpoint.EventsFailedCount > 0)
+                            {
+                                <span class="text-red-600 ml-2">@endpoint.EventsFailedCount failed</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-xs text-slate-500">
+                            @(endpoint.LastEventAt.HasValue ? endpoint.LastEventAt.Value.ToString("MMM d, HH:mm") : "Never")
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <form method="post" asp-page-handler="ToggleActive" class="inline">
+                                    <input type="hidden" name="endpointId" value="@endpoint.Id" />
+                                    <button type="submit" class="text-xs px-2 py-1 rounded border @(endpoint.IsActive ? "border-red-200 text-red-600 hover:bg-red-50" : "border-green-200 text-green-600 hover:bg-green-50")">
+                                        @(endpoint.IsActive ? "Disable" : "Enable")
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="RegenerateSecret" class="inline">
+                                    <input type="hidden" name="endpointId" value="@endpoint.Id" />
+                                    <button type="submit" class="text-xs px-2 py-1 rounded border border-amber-200 text-amber-600 hover:bg-amber-50" onclick="return confirm('Regenerate secret? External systems will need to be updated.')">
+                                        Regenerate Secret
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" class="inline">
+                                    <input type="hidden" name="endpointId" value="@endpoint.Id" />
+                                    <button type="submit" class="text-xs px-2 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50" onclick="return confirm('Delete this integration endpoint?')">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @if (!Model.Endpoints.Any())
+                {
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+                            No integration endpoints configured. Create one to start receiving inbound webhooks.
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+        <h3 class="text-sm font-medium text-slate-700 mb-2">Webhook Endpoint URL Format</h3>
+        <code class="text-xs bg-white px-3 py-2 rounded border border-slate-200 block font-mono">
+            POST @(Request.Scheme)://@(Request.Host)/api/integrations/inbound/{integrationKey}
+        </code>
+        <p class="text-xs text-slate-500 mt-2">
+            Required headers: <code>X-CherryAI-Timestamp</code>, <code>X-CherryAI-Signature</code>, <code>Idempotency-Key</code>
+        </p>
+    </div>
+</div>
+
+<div id="createFormPanel" class="inline-form-panel" style="display: none;">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+        <h2 class="text-lg font-bold text-slate-900 mb-4">Create Integration Endpoint</h2>
+        <form method="post" asp-page-handler="Create">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                    <input type="text" name="name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="e.g., ERP System">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Integration Key</label>
+                    <input type="text" name="integrationKey" required pattern="[a-z0-9-]+" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono" placeholder="e.g., erp-system">
+                    <p class="text-xs text-slate-500 mt-1">Lowercase letters, numbers, and hyphens only</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Allowed Event Types (optional)</label>
+                    <input type="text" name="allowedEventTypes" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="asset.updated,workorder.status.updated">
+                    <p class="text-xs text-slate-500 mt-1">Comma-separated list. Leave empty to allow all types.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Description (optional)</label>
+                    <textarea name="description" rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Description of this integration..."></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="hideCreateForm()" class="px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 rounded-lg">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Create Endpoint</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showCreateForm() {
+        document.getElementById('createFormPanel').style.display = '';
+        document.getElementById('createFormPanel');
+    }
+    function hideCreateForm() {
+        document.getElementById('createFormPanel').style.display = 'none';
+        document.getElementById('createFormPanel');
+    }
+</script>

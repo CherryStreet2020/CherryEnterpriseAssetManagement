@@ -1,0 +1,18 @@
+@model Abs.FixedAssets.Pages.Assets.AssetModel
+
+<div class="kpi-card">
+    <div class="kpi-label">Acquisition Cost</div>
+    <div class="kpi-value money">@Model.FormatMoney(Model.Asset.AcquisitionCost, Model.Asset.Currency)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Book Value</div>
+    <div class="kpi-value money">@Model.FormatMoney(Model.Asset.BookValue ?? 0, Model.Asset.Currency)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Useful Life</div>
+    <div class="kpi-value">@Model.Asset.UsefulLifeMonths mo</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Depreciation</div>
+    <div class="kpi-value">@Model.Asset.DepreciationMethod</div>
+</div>

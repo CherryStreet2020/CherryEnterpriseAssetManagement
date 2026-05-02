@@ -1,0 +1,94 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Journals.DetailsModel
+@{
+    ViewData["Title"] = "Journal Details";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    Func<DateTime, string> nd = d => d.ToString("MM/dd/yyyy");
+    Func<decimal, string> money = v => v.ToString("C2");
+}
+
+@if (Model.Entry is null)
+{
+    <div class="section-card">
+        <div class="section-card-body pe-empty">
+            <p class="pe-empty__title">Journal not found.</p>
+        </div>
+    </div>
+}
+else
+{
+    var statusTone = Model.IsBalanced ? "success" : "danger";
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = Model.Entry.Batch,
+        ["Subtitle"] = Model.Entry.Description,
+        ["TypeLabel"] = "Journal Entry",
+        ["StatusText"] = Model.IsBalanced ? "Balanced" : "Unbalanced",
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "Journals/_JournalsDetailsContext",
+        ["KpisPartial"] = "Journals/_JournalsDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Entry"] = Model.Entry, ["TotalDebit"] = Model.TotalDebit, ["TotalCredit"] = Model.TotalCredit },
+        ["ActionsPartial"] = "Journals/_JournalsDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["Entry"] = Model.Entry },
+        ["Breadcrumbs"] = ViewData["Breadcrumbs"],
+        ["ShowBackLink"] = ViewData["ShowBackLink"],
+        ["BackLinkFallback"] = ViewData["BackLinkFallback"],
+        ["BackLinkLabel"] = ViewData["BackLinkLabel"]
+    };
+    ViewData["Entry"] = Model.Entry;
+    @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="premium-table-card">
+    <div class="premium-table-card__header">
+        <h3 class="premium-table-card__title">
+            <span class="accent-dot accent-dot--blue"></span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Journal Lines
+        </h3>
+    </div>
+    <div class="pe-card__body--flush">
+        <table class="premium-table">
+            <thead>
+                <tr>
+                    <th>Line</th>
+                    <th>Account</th>
+                    <th>Description</th>
+                    <th class="td-right">Debit</th>
+                    <th class="td-right">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+            @{
+                var i = 1;
+                foreach (var l in (Model.Entry.Lines ?? new List<Abs.FixedAssets.Models.JournalLine>()))
+                {
+                    <tr>
+                        <td>@i</td>
+                        <td><strong class="text-primary">@l.Account</strong></td>
+                        <td>@l.Description</td>
+                        <td class="td-right td-bold">@money(l.Debit)</td>
+                        <td class="td-right td-bold">@money(l.Credit)</td>
+                    </tr>
+                    i++;
+                }
+            }
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="td-right">Totals</td>
+                    <td class="td-right">@money(Model.TotalDebit)</td>
+                    <td class="td-right">@money(Model.TotalCredit)</td>
+                </tr>
+                <tr>
+                    <td colspan="5" style="text-align: right; color: @(Model.IsBalanced ? "var(--text-success)" : "var(--text-danger)"); font-weight: 600;">
+                        @(Model.IsBalanced ? "Balanced" : "Out of balance")
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+}

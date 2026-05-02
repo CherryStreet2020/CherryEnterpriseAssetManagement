@@ -1,0 +1,21 @@
+@model Abs.FixedAssets.Models.PurchaseOrder
+@{
+    var isOverdue = Model.RequiredDate.HasValue && Model.RequiredDate.Value < DateTime.Today;
+    var statusClass = Model.Status == Models.POStatus.PartiallyReceived ? "status-badge-p--pending"
+        : Model.Status == Models.POStatus.Sent ? "status-badge-p--info"
+        : "status-badge-p--approved";
+}
+<div class="cockpit__card @(isOverdue ? "cockpit__card--overdue" : "")"
+     data-id="@Model.Id" data-po="@Model.PONumber" data-vendor="@(Model.Vendor?.Name ?? "")"
+     onclick="selectPO(@Model.Id)">
+    <div class="cockpit__card-row">
+        <span class="cockpit__card-po">@Model.PONumber</span>
+        <span class="status-badge-p @statusClass" style="font-size:0.55rem;">@Model.Status</span>
+    </div>
+    <div class="cockpit__card-vendor">@(Model.Vendor?.Name ?? "—")</div>
+    <div class="cockpit__card-meta">
+        <span>Required: <strong>@(Model.RequiredDate?.ToString("MM/dd") ?? "—")</strong></span>
+        <span>Lines: <strong>@(Model.Lines?.Count ?? 0)</strong></span>
+        <span>Value: <strong>$@Model.Total.ToString("N0")</strong></span>
+    </div>
+</div>

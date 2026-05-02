@@ -1,0 +1,21 @@
+@model Abs.FixedAssets.Pages.Reports.DepreciationPreviewModel
+@{
+    string ShortDate(DateTime dt) => dt.ToString("MM/dd/yy", System.Globalization.CultureInfo.InvariantCulture);
+    string Money(decimal v) => v.ToString("C2", System.Globalization.CultureInfo.CurrentCulture);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Preview Date</div>
+    <div class="kpi-value">@ShortDate(Model.AsOf)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Month End</div>
+    <div class="kpi-value">@ShortDate(Model.AsOfMonthEnd)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Accumulated</div>
+    <div class="kpi-value warning">@Money(Model.TotalAccumulated)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Net Book Value</div>
+    <div class="kpi-value success">@Money(Model.TotalEndNbv)</div>
+</div>

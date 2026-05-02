@@ -1,0 +1,203 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.SchedulesModel
+@using Abs.FixedAssets.Helpers
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = UiTerms.Schedules;
+    ViewData["TabTitle"] = UiTerms.Schedules;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var statusText = Model.Overdue > 0 ? $"{Model.Overdue} Overdue" : "All Current";
+    var statusTone = Model.Overdue > 0 ? "danger" : "success";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = UiTerms.Schedules,
+        ["Subtitle"] = "View scheduled preventive maintenance assignments and due dates",
+        ["TypeLabel"] = "Work Execution",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["ContextPartial"] = "/Pages/Maintenance/_MaintenanceSchedulesContext.cshtml",
+        ["KpisPartial"] = "/Pages/Maintenance/_MaintenanceSchedulesKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Maintenance/_MaintenanceSchedulesActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="module-header">
+    <nav class="module-pills" role="navigation" aria-label="@UiTerms.ModuleName navigation">
+        <a href="/Maintenance" class="module-pill" aria-current="false">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            @UiTerms.WorkOrderPlural
+        </a>
+        <a href="/Maintenance/PMTemplates" class="module-pill" aria-current="false">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            @UiTerms.PMTemplates
+        </a>
+        <a href="/Maintenance/Assignments" class="module-pill" aria-current="false">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            PM Assignments
+        </a>
+        <a href="/Maintenance/Schedules" class="module-pill active" aria-current="page">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @UiTerms.Schedules
+        </a>
+    </nav>
+</div>
+
+<div class="quick-stats-row-4">
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.TotalSchedules</div>
+            <div class="quick-stat-label">Total Schedules</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Model.ActiveTemplates</div>
+            <div class="quick-stat-label">Active Templates</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Model.DueThisWeek</div>
+            <div class="quick-stat-label">Due This Week</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon danger">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value danger">@Model.Overdue</div>
+            <div class="quick-stat-label">Overdue</div>
+        </div>
+    </div>
+</div>
+
+@if (Model.Schedules.Count == 0)
+{
+    var emptyVd = new ViewDataDictionary(ViewData);
+    emptyVd["Icon"] = "calendar";
+    emptyVd["Title"] = "No PM Schedules Yet";
+    emptyVd["Description"] = "Create PM schedules to set up recurring preventive maintenance work orders based on your PM templates.";
+    emptyVd["PrimaryAction"] = "Create PM Schedule";
+    emptyVd["PrimaryUrl"] = "/Maintenance/Schedules";
+    emptyVd["SecondaryAction"] = "Manage PM Templates";
+    emptyVd["SecondaryUrl"] = "/Maintenance/PMTemplates";
+    @await Html.PartialAsync("_EmptyState", emptyVd)
+}
+else
+{
+    <div class="premium-tabs" style="margin-top: 1.5rem;">
+        @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
+        <table id="pmSchedulesGrid" class="data-table premium-table" data-enhanced-grid="true" data-row-click="true">
+            <thead>
+                <tr>
+                    <th data-col="Schedule Name" data-filter="text">Schedule Name</th>
+                    <th data-col="PM Template" data-filter="text">PM Template</th>
+                    <th data-col="Company / Site" data-filter="text">Company / Site</th>
+                    <th data-col="Cadence" data-filter="text">Cadence</th>
+                    <th data-col="Next Due" data-filter="text">Next Due</th>
+                    <th data-col="Status" data-filter="select" data-filter-options="On Track|Due Soon|Overdue">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var schedule in Model.Schedules)
+                {
+                    var statusClass = schedule.IsOverdue ? "badge-danger" : (schedule.IsDueSoon ? "badge-warning" : "badge-success");
+                    var rowStatusText = schedule.IsOverdue ? "Overdue" : (schedule.IsDueSoon ? "Due Soon" : "On Track");
+                    <tr data-row-id="@schedule.Id" data-row-href="@Url.Page("/Maintenance/PMScheduleEdit", new { id = schedule.Id, returnUrl })">
+                        <td>
+                            <strong>@schedule.ScheduleName</strong>
+                        </td>
+                        <td>
+                            <code class="text-blue" style="font-size: 0.8rem;">@schedule.TemplateCode</code>
+                            <div class="text-theme-muted" style="font-size: 0.8rem; margin-top: 0.125rem;">@schedule.TemplateName</div>
+                        </td>
+                        <td>
+                            <strong>@schedule.CompanyName</strong>
+                            @if (!string.IsNullOrEmpty(schedule.SiteName))
+                            {
+                                <div class="text-theme-muted" style="font-size: 0.8rem;">@schedule.SiteName</div>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge badge-info">
+                                @switch (schedule.CadenceType)
+                                {
+                                    case PMCadenceType.IntervalDays:
+                                        <text>Every @(schedule.IntervalDays ?? 30) days</text>
+                                        break;
+                                    case PMCadenceType.Weekly:
+                                        <text>Weekly</text>
+                                        break;
+                                    case PMCadenceType.Monthly:
+                                        <text>Monthly</text>
+                                        break;
+                                }
+                            </span>
+                        </td>
+                        <td>
+                            @if (schedule.NextDueDate.HasValue)
+                            {
+                                <span class="@(schedule.IsOverdue ? "text-danger" : schedule.IsDueSoon ? "text-warning" : "")">
+                                    @schedule.NextDueDate.Value.ToString("MMM dd, yyyy")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not set</span>
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @statusClass">@rowStatusText</span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof initEnhancedGrid === 'function' && document.getElementById('pmSchedulesGrid')) {
+                initEnhancedGrid('pmSchedulesGrid', {
+                    searchable: true,
+                    sortable: true,
+                    exportable: true,
+                    columnVisibility: true,
+                    clickableRows: true
+                });
+            }
+        });
+    </script>
+}

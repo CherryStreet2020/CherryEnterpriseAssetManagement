@@ -1,0 +1,324 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.WorkRequests.IndexModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Work Requests";
+    ViewData["TabTitle"] = "Work Requests";
+    ViewData["HasScreenHeader"] = true;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/work-requests.css" />
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Work Requests" },
+        { "Subtitle", "Triage requests and convert to Work Orders with Smart Assist." },
+        { "TypeLabel", "Maintenance" },
+        { "StatusText", $"{Model.NewCount} Pending" },
+        { "StatusTone", "active" },
+        { "KpisPartial", "Maintenance/WorkRequests/_WorkRequestsIndexKpis" },
+        { "ActionsPartial", "Maintenance/WorkRequests/_WorkRequestsIndexActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="quick-stats-row-4">
+    <a asp-page="./Index" asp-route-view="@Model.View" class="quick-stat-card clickable @(string.IsNullOrEmpty(Model.StatusFilter) ? "stat-active" : "")">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.TotalCount.ToString("N0")</div>
+            <div class="quick-stat-label">Total Requests</div>
+        </div>
+    </a>
+    <a asp-page="./Index" asp-route-view="@Model.View" asp-route-StatusFilter="New" class="quick-stat-card clickable @(Model.StatusFilter == "New" ? "stat-active" : "")">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Model.NewCount.ToString("N0")</div>
+            <div class="quick-stat-label">New</div>
+        </div>
+    </a>
+    <a asp-page="./Index" asp-route-view="@Model.View" asp-route-StatusFilter="InReview" class="quick-stat-card clickable @(Model.StatusFilter == "InReview" ? "stat-active" : "")">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value info">@Model.InReviewCount.ToString("N0")</div>
+            <div class="quick-stat-label">In Review</div>
+        </div>
+    </a>
+    <a asp-page="./Index" asp-route-view="@Model.View" asp-route-StatusFilter="ConvertedToWO" class="quick-stat-card clickable @(Model.StatusFilter == "ConvertedToWO" ? "stat-active" : "")">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Model.ConvertedCount.ToString("N0")</div>
+            <div class="quick-stat-label">Converted</div>
+        </div>
+    </a>
+</div>
+
+<div class="section-card pe-card">
+    <div class="section-card-header pe-card__header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            @(string.IsNullOrEmpty(Model.StatusFilter) ? "All Requests" : $"{Model.StatusFilter} Requests")
+        </h3>
+        <div class="wr-view-toggle">
+            <a asp-page="./Index" asp-route-view="board" asp-route-SearchTerm="@Model.SearchTerm" asp-route-StatusFilter="@Model.StatusFilter" class="btn-p btn-p--secondary btn-p--sm @(Model.ViewMode == "Board" ? "active" : "")">
+                <i class="fas fa-th-large"></i> Board
+            </a>
+            <a asp-page="./Index" asp-route-view="list" asp-route-SearchTerm="@Model.SearchTerm" asp-route-StatusFilter="@Model.StatusFilter" class="btn-p btn-p--secondary btn-p--sm @(Model.ViewMode == "List" ? "active" : "")">
+                <i class="fas fa-list"></i> List
+            </a>
+        </div>
+    </div>
+    
+    <div class="grid-filter-toolbar">
+        <form method="get" class="grid-filter-form">
+            <input type="hidden" name="view" value="@Model.View" />
+            <div class="grid-filter-left">
+                <input type="text" name="SearchTerm" value="@Model.SearchTerm" class="form-control form-control-sm grid-filter-search" placeholder="Search requests..." />
+                <select name="StatusFilter" class="form-control form-control-sm" asp-items="Model.StatusOptions"></select>
+            </div>
+            <div class="grid-filter-right">
+                <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                @if (!string.IsNullOrEmpty(Model.StatusFilter) || !string.IsNullOrEmpty(Model.SearchTerm))
+                {
+                    <a asp-page="./Index" asp-route-view="@Model.View" class="btn-p btn-p--secondary btn-p--sm">
+                        <i class="fas fa-times"></i> Clear
+                    </a>
+                }
+            </div>
+        </form>
+    </div>
+
+    @if (Model.WorkRequests.Count == 0)
+    {
+        <div class="pe-empty" style="padding:1.5rem;">
+            <i class="fas fa-tasks pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty__text">No work requests found. Click "New Request" to submit your first maintenance request.</div>
+            <a asp-page="./Create" class="btn-p btn-p--primary" style="margin-top:0.75rem;">
+                <i class="fas fa-plus"></i> Create First Request
+            </a>
+        </div>
+    }
+    else if (Model.ViewMode == "Board")
+    {
+        <div class="wr-board">
+            <div class="wr-board__col wr-board__col--new">
+                <div class="wr-board__col-header">
+                    <span class="wr-board__col-title">
+                        <i class="fas fa-inbox"></i> New
+                    </span>
+                    <span class="wr-board__col-count">@Model.NewRequests.Count</span>
+                </div>
+                <div class="wr-board__col-body">
+                    @if (Model.NewRequests.Count == 0)
+                    {
+                        <div class="wr-board__empty">
+                            <svg class="wr-board__empty-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <span class="wr-board__empty-text">No new requests</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var req in Model.NewRequests)
+                        {
+                            <partial name="_WorkRequestCard" model="req" />
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="wr-board__col wr-board__col--review">
+                <div class="wr-board__col-header">
+                    <span class="wr-board__col-title">
+                        <i class="fas fa-search"></i> In Review
+                    </span>
+                    <span class="wr-board__col-count">@Model.InReviewRequests.Count</span>
+                </div>
+                <div class="wr-board__col-body">
+                    @if (Model.InReviewRequests.Count == 0)
+                    {
+                        <div class="wr-board__empty">
+                            <svg class="wr-board__empty-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <span class="wr-board__empty-text">No requests in review</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var req in Model.InReviewRequests)
+                        {
+                            <partial name="_WorkRequestCard" model="req" />
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="wr-board__col wr-board__col--approved">
+                <div class="wr-board__col-header">
+                    <span class="wr-board__col-title">
+                        <i class="fas fa-check"></i> Approved
+                    </span>
+                    <span class="wr-board__col-count">@Model.ApprovedRequests.Count</span>
+                </div>
+                <div class="wr-board__col-body">
+                    @if (Model.ApprovedRequests.Count == 0)
+                    {
+                        <div class="wr-board__empty">
+                            <svg class="wr-board__empty-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span class="wr-board__empty-text">No approved requests</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var req in Model.ApprovedRequests)
+                        {
+                            <partial name="_WorkRequestCard" model="req" />
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="wr-board__col wr-board__col--converted">
+                <div class="wr-board__col-header">
+                    <span class="wr-board__col-title">
+                        <i class="fas fa-exchange-alt"></i> Converted
+                    </span>
+                    <span class="wr-board__col-count">@Model.ConvertedRequests.Count</span>
+                </div>
+                <div class="wr-board__col-body">
+                    @if (Model.ConvertedRequests.Count == 0)
+                    {
+                        <div class="wr-board__empty">
+                            <svg class="wr-board__empty-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="wr-board__empty-text">No converted requests</span>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var req in Model.ConvertedRequests)
+                        {
+                            <partial name="_WorkRequestCard" model="req" />
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
+        <div class="table-container">
+            <table class="data-table premium-table" id="workRequestsGrid" data-enhanced-grid="true" data-row-click="true">
+                <thead>
+                    <tr>
+                        <th data-col="Request #" data-filter="text">Request #</th>
+                        <th data-col="Description" data-filter="text">Description</th>
+                        <th data-col="Site" data-filter="text">Site</th>
+                        <th data-col="Asset" data-filter="text">Asset</th>
+                        <th data-col="Status" data-filter="select" data-filter-options="New|InReview|Approved|ConvertedToWO|Rejected">Status</th>
+                        <th data-col="Priority" data-filter="select" data-filter-options="Low|Medium|High|Critical|Emergency">Priority</th>
+                        <th data-col="Requested" data-filter="text">Requested</th>
+                        <th data-col="Work Order" data-filter="text">Work Order</th>
+                        <th class="no-sort" data-filter="none" data-export="false">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in Model.WorkRequests)
+                    {
+                        var statusBadgeClass = req.Status switch
+                        {
+                            WorkRequestStatus.New => "status-badge warning",
+                            WorkRequestStatus.InReview => "status-badge info",
+                            WorkRequestStatus.Approved => "status-badge success",
+                            WorkRequestStatus.ConvertedToWO => "status-badge success",
+                            WorkRequestStatus.Rejected => "status-badge danger",
+                            _ => "status-badge secondary"
+                        };
+                        var priorityClass = req.Priority switch
+                        {
+                            WorkRequestPriority.Critical => "asset-flag flag-critical",
+                            WorkRequestPriority.Emergency => "asset-flag flag-critical",
+                            WorkRequestPriority.High => "asset-flag flag-priority",
+                            WorkRequestPriority.Medium => "asset-flag flag-warning",
+                            _ => "asset-flag"
+                        };
+                        <tr data-row-id="@req.Id" data-row-href="@Url.Page("/Maintenance/WorkRequests/Details", new { id = req.Id, returnUrl = returnUrl })">
+                            <td><strong class="text-primary">@req.RequestNumber</strong></td>
+                            <td class="cell-truncate">
+                                <div class="truncate-text" title="@req.RequestText">
+                                    @(req.RequestText.Length > 80 ? req.RequestText[..80] + "..." : req.RequestText)
+                                </div>
+                                @if (req.IsAIAssisted)
+                                {
+                                    <span class="badge badge-ai" data-no-row-nav>
+                                        <i class="fas fa-robot"></i> AI
+                                    </span>
+                                }
+                            </td>
+                            <td>@(req.Site?.Name ?? "-")</td>
+                            <td>@(req.Asset?.AssetNumber ?? "-")</td>
+                            <td>
+                                <span class="@statusBadgeClass">@req.Status</span>
+                            </td>
+                            <td>
+                                <span class="@priorityClass">@req.Priority</span>
+                            </td>
+                            <td>
+                                <div>@req.RequestedAt.ToString("MMM dd, yyyy")</div>
+                                <small class="text-muted">@req.RequestedBy</small>
+                            </td>
+                            <td>
+                                @if (req.GeneratedWorkOrder != null)
+                                {
+                                    <a href="/Maintenance/Details/@req.GeneratedWorkOrderId" class="link-primary" data-no-row-nav>
+                                        @req.GeneratedWorkOrder.WorkOrderNumber
+                                    </a>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="action-buttons" data-no-row-nav>
+                                    <a asp-page="./Details" asp-route-id="@req.Id" asp-route-returnUrl="@returnUrl" class="btn-p btn-p--secondary btn-p--sm" title="View">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

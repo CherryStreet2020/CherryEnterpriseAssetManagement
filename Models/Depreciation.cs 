@@ -1,0 +1,9 @@
+namespace Abs.FixedAssets.Models
+{
+    public enum DepreciationMethod
+    {
+        StraightLine = 0,
+        DoubleDecliningBalance = 1,
+        SumOfYearsDigits = 2
+    }
+}

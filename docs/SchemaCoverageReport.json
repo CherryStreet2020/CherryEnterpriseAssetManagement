@@ -1,0 +1,86 @@
+{
+  "generated": "2026-01-24T00:00:00Z",
+  "summary": {
+    "razorPagesWithBindings": 18,
+    "uniqueUIFieldBindings": 260,
+    "efCoreEntities": 113,
+    "postgresqlTables": 108,
+    "totalColumns": 1800
+  },
+  "coreOperationalTables": [
+    {
+      "name": "Assets",
+      "rows": 321,
+      "totalColumns": 158,
+      "nullableColumns": 129,
+      "requiredColumns": 29
+    },
+    {
+      "name": "MaintenanceEvents",
+      "rows": 240,
+      "totalColumns": 54,
+      "nullableColumns": 44,
+      "requiredColumns": 10
+    },
+    {
+      "name": "Items",
+      "rows": 150,
+      "totalColumns": 99,
+      "nullableColumns": 60,
+      "requiredColumns": 39
+    },
+    {
+      "name": "Vendors",
+      "rows": 10,
+      "totalColumns": 30,
+      "nullableColumns": 18,
+      "requiredColumns": 12
+    },
+    {
+      "name": "Locations",
+      "rows": 21,
+      "totalColumns": 36,
+      "nullableColumns": 23,
+      "requiredColumns": 13
+    },
+    {
+      "name": "WorkRequests",
+      "rows": 1,
+      "totalColumns": 22,
+      "nullableColumns": 14,
+      "requiredColumns": 8
+    }
+  ],
+  "computedFieldsAllowlist": [
+    {"field": "Asset.BookValue", "reason": "Computed: AcquisitionCost - AccumulatedDepreciation"},
+    {"field": "Asset.CurrentOEE", "reason": "Computed from Availability × Performance × Quality"},
+    {"field": "Asset.CurrentAvailability", "reason": "Computed from OEE calculation"},
+    {"field": "Asset.CurrentPerformance", "reason": "Computed from OEE calculation"},
+    {"field": "Asset.CurrentQuality", "reason": "Computed from OEE calculation"},
+    {"field": "Asset.PredictiveHealthScore", "reason": "ML model calculated"},
+    {"field": "Asset.PredictedFailureDate", "reason": "ML model calculated"},
+    {"field": "AssetHint", "reason": "UI search helper, not persisted"},
+    {"field": "AttachmentNotes", "reason": "Transient input, not persisted"}
+  ],
+  "unmappedDBColumns": [
+    {"table": "AssetBookSettings", "column": "BookId1", "reason": "EF Core shadow FK for navigation"}
+  ],
+  "driftStatus": {
+    "orphanUIFields": 0,
+    "orphanEFProperties": 0,
+    "orphanDBColumns": 1,
+    "allDocumented": true
+  },
+  "seedCoverage": {
+    "Assets": {"requiredPopulated": true, "nullableCoverage": 100},
+    "MaintenanceEvents": {"requiredPopulated": true, "nullableCoverage": 91},
+    "Items": {"requiredPopulated": true, "nullableCoverage": 92},
+    "Vendors": {"requiredPopulated": true, "nullableCoverage": 100},
+    "Locations": {"requiredPopulated": true, "nullableCoverage": 87}
+  },
+  "guardrailTests": [
+    "UI Field Persistence Audit",
+    "Seed Data Coverage Audit",
+    "Schema Integrity → Key Columns Exist"
+  ]
+}

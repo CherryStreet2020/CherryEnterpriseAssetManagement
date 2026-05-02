@@ -1,0 +1,14 @@
+@using Abs.FixedAssets.Models
+@{
+    var model = ViewData["PageModel"] as Abs.FixedAssets.Pages.Admin.CompanyModel;
+    var totalCompanies = model?.AllCompanies.Count ?? 0;
+    var subsidiaries = model?.AllCompanies.Where(c => c.ParentCompanyId != null).Count() ?? 0;
+}
+<div class="kpi-card">
+    <div class="kpi-label">Companies</div>
+    <div class="kpi-value">@totalCompanies</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Subsidiaries</div>
+    <div class="kpi-value info">@subsidiaries</div>
+</div>

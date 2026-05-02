@@ -1,0 +1,11 @@
+{
+  "lookupKey": "MeterUOM",
+  "name": "Meter Unit of Measure",
+  "isSystem": true,
+  "values": [
+    { "code": "HOURS", "name": "Run Hours", "sortOrder": 1, "isActive": true },
+    { "code": "COUNT", "name": "Cycle Count", "sortOrder": 2, "isActive": true },
+    { "code": "MILES", "name": "Miles", "sortOrder": 3, "isActive": true },
+    { "code": "KM", "name": "Kilometers", "sortOrder": 4, "isActive": true }
+  ]
+}

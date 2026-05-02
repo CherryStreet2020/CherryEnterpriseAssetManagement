@@ -1,0 +1,224 @@
+=== FULL APP-WIDE SITE SCOPING AUDIT ===
+
+============================================
+PART 1: Models that HAVE SiteId
+============================================
+Models/Asset.cs
+Models/ConstructionInProgress.cs
+Models/Customer.cs
+Models/GlAccount.cs
+Models/ItemApprovedVendor.cs
+Models/LessonLearned.cs
+Models/OrgNode.cs
+Models/OutboxEvent.cs
+Models/PMSchedule.cs
+Models/Technician.cs
+Models/WorkRequest.cs
+
+============================================
+PART 2: Page models that DO filter by SiteId
+(These are wired correctly)
+============================================
+Pages/Admin/Locations.cshtml.cs
+Pages/Admin/Outbox/Index.cshtml.cs
+Pages/Admin/PMScheduleEdit.cshtml.cs
+Pages/Admin/PMSchedules.cshtml.cs
+Pages/Admin/Sites.cshtml.cs
+Pages/Admin/SmokeTests.cshtml.cs
+Pages/Admin/Technicians.cshtml.cs
+Pages/Admin/Users.cshtml.cs
+Pages/Assets/Asset.cshtml.cs
+Pages/Assets/Delete.cshtml.cs
+Pages/Assets/Dispose.cshtml.cs
+Pages/Assets/Improve.cshtml.cs
+Pages/Assets/Index.cshtml.cs
+Pages/Assets/Transfer.cshtml.cs
+Pages/BulkOperations/Index.cshtml.cs
+Pages/CIP/Index.cshtml.cs
+Pages/Index.cshtml.cs
+Pages/Maintenance/Create.cshtml.cs
+Pages/Maintenance/Details.cshtml.cs
+Pages/Maintenance/Index.cshtml.cs
+Pages/Maintenance/Schedules.cshtml.cs
+Pages/Maintenance/Technicians/Index.cshtml.cs
+Pages/Maintenance/WorkRequests/Create.cshtml.cs
+Pages/Maintenance/WorkRequests/Details.cshtml.cs
+Pages/Maintenance/WorkRequests/Index.cshtml.cs
+Pages/Purchasing/Details.cshtml.cs
+Pages/Reports/Export.cshtml.cs
+
+============================================
+PART 3: Page models that filter by CompanyId
+but DO NOT filter by SiteId
+(These are GAPS if the entity has SiteId)
+============================================
+  [NO SITE FILTER] Pages/AccountsPayable/Create.cshtml.cs
+  [NO SITE FILTER] Pages/AccountsPayable/Details.cshtml.cs
+  [NO SITE FILTER] Pages/AccountsPayable/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/AssetCategories.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/CostCenters.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Departments.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Export.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/GlAccounts.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Kits.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/PMTemplateEdit.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Requisitions.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Vendors.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Webhooks/Deliveries.cshtml.cs
+  [NO SITE FILTER] Pages/Admin/Webhooks/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Assets/Schedule.cshtml.cs
+  [NO SITE FILTER] Pages/Books/Create.cshtml.cs
+  [NO SITE FILTER] Pages/Books/Delete.cshtml.cs
+  [NO SITE FILTER] Pages/Books/Details.cshtml.cs
+  [NO SITE FILTER] Pages/Books/Edit.cshtml.cs
+  [NO SITE FILTER] Pages/Books/GlAccounts.cshtml.cs
+  [NO SITE FILTER] Pages/Books/Index.cshtml.cs
+  [NO SITE FILTER] Pages/BulkOperations/Details.cshtml.cs
+  [NO SITE FILTER] Pages/CCA/ClassReport.cshtml.cs
+  [NO SITE FILTER] Pages/CCA/Index.cshtml.cs
+  [NO SITE FILTER] Pages/CIP/CostDetails.cshtml.cs
+  [NO SITE FILTER] Pages/CIP/Costs.cshtml.cs
+  [NO SITE FILTER] Pages/CIP/CostTypeDetails.cshtml.cs
+  [NO SITE FILTER] Pages/CIP/Details.cshtml.cs
+  [NO SITE FILTER] Pages/CIP/PartyDrilldown.cshtml.cs
+  [NO SITE FILTER] Pages/Inventory/List.cshtml.cs
+  [NO SITE FILTER] Pages/Journals/Details.cshtml.cs
+  [NO SITE FILTER] Pages/Journals/Generate.cshtml.cs
+  [NO SITE FILTER] Pages/Journals/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Maintenance/Assignments/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Maintenance/Technicians/Profile.cshtml.cs
+  [NO SITE FILTER] Pages/Materials/ItemEdit.cshtml.cs
+  [NO SITE FILTER] Pages/Materials/Items.cshtml.cs
+  [NO SITE FILTER] Pages/Materials/Vendors/Edit.cshtml.cs
+  [NO SITE FILTER] Pages/Purchasing/Create.cshtml.cs
+  [NO SITE FILTER] Pages/Purchasing/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Receiving/Details.cshtml.cs
+  [NO SITE FILTER] Pages/Receiving/History.cshtml.cs
+  [NO SITE FILTER] Pages/Receiving/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Receiving/Inspect.cshtml.cs
+  [NO SITE FILTER] Pages/Receiving/Receive.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/Builder.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/ChartOfAccounts.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/DepreciationPreview.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/DepreciationSchedule.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/Form4562.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/Index.cshtml.cs
+  [NO SITE FILTER] Pages/Reports/T2Schedule8.cshtml.cs
+  [NO SITE FILTER] Pages/WorkOrders/Details.cshtml.cs
+
+============================================
+PART 4: Detailed gap analysis per module
+============================================
+
+--- Purchasing ---
+  Pages/Purchasing/Create.cshtml.cs — CompanyFilter:6 SiteFilter:0
+  Pages/Purchasing/Details.cshtml.cs — CompanyFilter:22 SiteFilter:1
+  Pages/Purchasing/Index.cshtml.cs — CompanyFilter:8 SiteFilter:0
+
+--- Maintenance ---
+  Pages/Maintenance/Assignments/Index.cshtml.cs — CompanyFilter:11 SiteFilter:0
+  Pages/Maintenance/Create.cshtml.cs — CompanyFilter:9 SiteFilter:2
+  Pages/Maintenance/Details.cshtml.cs — CompanyFilter:15 SiteFilter:2
+  Pages/Maintenance/Index.cshtml.cs — CompanyFilter:9 SiteFilter:2
+  Pages/Maintenance/Schedules.cshtml.cs — CompanyFilter:2 SiteFilter:2
+  Pages/Maintenance/Technicians/Index.cshtml.cs — CompanyFilter:3 SiteFilter:5
+  Pages/Maintenance/Technicians/Profile.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Maintenance/WorkRequests/Create.cshtml.cs — CompanyFilter:20 SiteFilter:22
+  Pages/Maintenance/WorkRequests/Details.cshtml.cs — CompanyFilter:3 SiteFilter:3
+  Pages/Maintenance/WorkRequests/Index.cshtml.cs — CompanyFilter:3 SiteFilter:4
+
+--- WorkOrders ---
+  Pages/WorkOrders/Details.cshtml.cs — CompanyFilter:23 SiteFilter:0
+
+--- CIP ---
+  Pages/CIP/CostDetails.cshtml.cs — CompanyFilter:6 SiteFilter:0
+  Pages/CIP/Costs.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/CIP/CostTypeDetails.cshtml.cs — CompanyFilter:3 SiteFilter:0
+  Pages/CIP/Details.cshtml.cs — CompanyFilter:11 SiteFilter:0
+  Pages/CIP/Index.cshtml.cs — CompanyFilter:5 SiteFilter:2
+  Pages/CIP/PartyDrilldown.cshtml.cs — CompanyFilter:2 SiteFilter:0
+
+--- AccountsPayable ---
+  Pages/AccountsPayable/Create.cshtml.cs — CompanyFilter:5 SiteFilter:0
+  Pages/AccountsPayable/Details.cshtml.cs — CompanyFilter:12 SiteFilter:0
+  Pages/AccountsPayable/Index.cshtml.cs — CompanyFilter:2 SiteFilter:0
+
+--- Materials ---
+  Pages/Materials/ItemEdit.cshtml.cs — CompanyFilter:36 SiteFilter:0
+  Pages/Materials/Items.cshtml.cs — CompanyFilter:6 SiteFilter:0
+  Pages/Materials/Vendors/Create.cshtml.cs — CompanyFilter:3 SiteFilter:0
+  Pages/Materials/Vendors/Edit.cshtml.cs — CompanyFilter:5 SiteFilter:0
+
+--- Admin ---
+  Pages/Admin/Approvals.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/AssetCategories.cshtml.cs — CompanyFilter:4 SiteFilter:0
+  Pages/Admin/AuditLog.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Admin/Barcodes.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Admin/Companies.cshtml.cs — CompanyFilter:9 SiteFilter:0
+  Pages/Admin/Company.cshtml.cs — CompanyFilter:6 SiteFilter:0
+  Pages/Admin/CostCenters.cshtml.cs — CompanyFilter:4 SiteFilter:0
+  Pages/Admin/DataImport.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/DemoData.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Departments.cshtml.cs — CompanyFilter:4 SiteFilter:0
+  Pages/Admin/Diagnostics.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/EnvironmentStatus.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/ExchangeRates.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Export.cshtml.cs — CompanyFilter:9 SiteFilter:0
+  Pages/Admin/GlAccounts.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Admin/Import.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Index.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Integrations/Inbound.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Integrations/Index.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Integrations/Maps.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Inventory.cshtml.cs — CompanyFilter:7 SiteFilter:0
+  Pages/Admin/ItemCategories.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Items.cshtml.cs — CompanyFilter:7 SiteFilter:0
+  Pages/Admin/Kits.cshtml.cs — CompanyFilter:3 SiteFilter:0
+  Pages/Admin/Locations.cshtml.cs — CompanyFilter:2 SiteFilter:2
+  Pages/Admin/Lookups/EditValues.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Lookups/Index.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Admin/Manufacturers.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Outbox/Index.cshtml.cs — CompanyFilter:4 SiteFilter:1
+  Pages/Admin/PMScheduleEdit.cshtml.cs — CompanyFilter:7 SiteFilter:12
+  Pages/Admin/PMSchedules.cshtml.cs — CompanyFilter:7 SiteFilter:6
+  Pages/Admin/PMTemplateEdit.cshtml.cs — CompanyFilter:4 SiteFilter:0
+  Pages/Admin/PMTemplates.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/ProjectManagers.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Requisitions.cshtml.cs — CompanyFilter:14 SiteFilter:0
+  Pages/Admin/SeedData.cshtml.cs — CompanyFilter:11 SiteFilter:0
+  Pages/Admin/Sites.cshtml.cs — CompanyFilter:12 SiteFilter:1
+  Pages/Admin/SmokeTests.cshtml.cs — CompanyFilter:7 SiteFilter:7
+  Pages/Admin/StockLevels.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Admin/SystemSettings.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Technicians.cshtml.cs — CompanyFilter:3 SiteFilter:1
+  Pages/Admin/Tenants.cshtml.cs — CompanyFilter:0 SiteFilter:0
+  Pages/Admin/Users.cshtml.cs — CompanyFilter:5 SiteFilter:4
+  Pages/Admin/Vendors.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Webhooks/Deliveries.cshtml.cs — CompanyFilter:1 SiteFilter:0
+  Pages/Admin/Webhooks/Index.cshtml.cs — CompanyFilter:7 SiteFilter:0
+  Pages/Admin/WorkOrders.cshtml.cs — CompanyFilter:0 SiteFilter:0
+
+--- Receiving ---
+  Pages/Receiving/Details.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Receiving/History.cshtml.cs — CompanyFilter:2 SiteFilter:0
+  Pages/Receiving/Index.cshtml.cs — CompanyFilter:4 SiteFilter:0
+  Pages/Receiving/Inspect.cshtml.cs — CompanyFilter:10 SiteFilter:0
+  Pages/Receiving/Receive.cshtml.cs — CompanyFilter:7 SiteFilter:0
+
+============================================
+PART 5: Which entities should be site-filtered?
+(Entity has SiteId or ShipToSiteId)
+============================================
+Asset — SiteId: 1
+PurchaseOrder — ShipToSiteId: 1
+GoodsReceipt — SiteId: 0
+MaintenanceEvent/WO — SiteId: 0
+PMSchedule — SiteId: 4
+ConstructionInProgress — SiteId: 1
+Technician — SiteId: 1
+WorkRequest — SiteId: 1
+GlAccount — SiteId: 1
+Item — SiteId: 0
+VendorInvoice — SiteId: 0
+0
+Location — SiteId: 0

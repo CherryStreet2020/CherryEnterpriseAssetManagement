@@ -1,0 +1,35 @@
+@* _QuickStat.cshtml - Single quick stat card *@
+@* Usage: Pass via ViewData or render inline with model *@
+@{
+    var value = (string?)ViewData["QuickStatValue"] ?? "0";
+    var label = (string?)ViewData["QuickStatLabel"] ?? "Label";
+    var icon = (string?)ViewData["QuickStatIcon"] ?? "primary";
+    var url = (string?)ViewData["QuickStatUrl"];
+    var isActive = ViewData["QuickStatActive"] as bool? ?? false;
+    var variant = (string?)ViewData["QuickStatVariant"] ?? "primary";
+}
+
+@if (!string.IsNullOrEmpty(url))
+{
+    <a href="@url" class="quick-stat-card clickable @(isActive ? "stat-active" : "")">
+        <div class="quick-stat-icon @variant">
+            @await Html.PartialAsync("_QuickStatIcon", new ViewDataDictionary(ViewData) { { "Icon", icon } })
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value @variant">@value</div>
+            <div class="quick-stat-label">@label</div>
+        </div>
+    </a>
+}
+else
+{
+    <div class="quick-stat-card @(isActive ? "stat-active" : "")">
+        <div class="quick-stat-icon @variant">
+            @await Html.PartialAsync("_QuickStatIcon", new ViewDataDictionary(ViewData) { { "Icon", icon } })
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value @variant">@value</div>
+            <div class="quick-stat-label">@label</div>
+        </div>
+    </div>
+}

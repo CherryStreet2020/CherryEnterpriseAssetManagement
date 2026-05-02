@@ -1,0 +1,194 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.AuditLogModel
+@{
+    ViewData["Title"] = "Audit Log";
+    ViewData["TabTitle"] = "Audit Log";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var statusText = $"{Model.TotalCount} Entries";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Audit Log",
+        ["Subtitle"] = "Track system activity and changes for compliance",
+        ["TypeLabel"] = "Administration",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = "info",
+        ["ContextPartial"] = "/Pages/Admin/_AdminAuditLogContext.cshtml",
+        ["KpisPartial"] = "/Pages/Admin/_AdminAuditLogKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_AdminAuditLogActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card" style="margin-bottom: 24px;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filters
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <form method="get" class="filter-form">
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>Entity Type</label>
+                    <select name="EntityType" class="form-control">
+                        <option value="">All Types</option>
+                        @foreach (var type in Model.EntityTypes)
+                        {
+                            <option value="@type" selected="@(Model.EntityType == type)">@type</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Action</label>
+                    <select name="Action" class="form-control">
+                        <option value="">All Actions</option>
+                        @foreach (var action in Model.Actions)
+                        {
+                            <option value="@action" selected="@(Model.Action == action)">@action</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" name="Username" class="form-control" value="@Model.Username" placeholder="Search user..." />
+                </div>
+                <div class="form-group">
+                    <label>From Date</label>
+                    <input type="date" name="FromDate" class="form-control" value="@Model.FromDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group">
+                    <label>To Date</label>
+                    <input type="date" name="ToDate" class="form-control" value="@Model.ToDate?.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group filter-actions">
+                    <button type="submit" class="btn-p btn-p--primary">Filter</button>
+                    <a href="/Admin/AuditLog" class="btn-p btn-p--secondary">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Activity Log
+        </h3>
+        <span class="status-badge info">@Model.TotalCount ENTRIES</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.Logs.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Entity ID</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var log in Model.Logs)
+                    {
+                        <tr>
+                            <td class="timestamp">@log.Timestamp.ToString("MMM dd, yyyy h:mm:ss tt")</td>
+                            <td>@(log.Username ?? "System")</td>
+                            <td>
+                                <span class="badge @GetActionBadgeClass(log.Action)">@log.Action</span>
+                            </td>
+                            <td>@log.EntityType</td>
+                            <td>@log.EntityId</td>
+                            <td class="details-cell">
+                                @if (!string.IsNullOrEmpty(log.BeforeJson) || !string.IsNullOrEmpty(log.AfterJson))
+                                {
+                                    <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="toggleDetails(@log.Id)">View</button>
+                                    <div id="details-@log.Id" class="details-content" style="display: none;">
+                                        @if (!string.IsNullOrEmpty(log.BeforeJson))
+                                        {
+                                            <div class="detail-section">
+                                                <strong>Before:</strong>
+                                                <pre>@log.BeforeJson</pre>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(log.AfterJson))
+                                        {
+                                            <div class="detail-section">
+                                                <strong>After:</strong>
+                                                <pre>@log.AfterJson</pre>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else if (!string.IsNullOrEmpty(log.Description))
+                                {
+                                    <span class="text-muted">@log.Description</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (Model.TotalCount > Model.PageSize)
+            {
+                var totalPages = (int)Math.Ceiling((double)Model.TotalCount / Model.PageSize);
+                <div class="pagination">
+                    @for (int i = 1; i <= totalPages && i <= 10; i++)
+                    {
+                        <a href="?page=@i&EntityType=@Model.EntityType&Action=@Model.Action&Username=@Model.Username&FromDate=@Model.FromDate?.ToString("yyyy-MM-dd")&ToDate=@Model.ToDate?.ToString("yyyy-MM-dd")"
+                           class="page-link @(Model.CurrentPage == i ? "active" : "")">@i</a>
+                    }
+                    @if (totalPages > 10)
+                    {
+                        <span class="page-ellipsis">...</span>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1rem;">
+                <div class="pe-empty__text">No audit log entries found matching your filters.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+function toggleDetails(id) {
+    var el = document.getElementById('details-' + id);
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+
+@functions {
+    string GetActionBadgeClass(string action)
+    {
+        return action switch
+        {
+            "Create" => "badge-success",
+            "Update" => "badge-primary",
+            "Delete" => "badge-danger",
+            "Transfer" => "badge-warning",
+            "Dispose" => "badge-danger",
+            "Login" => "badge-neutral",
+            "Logout" => "badge-neutral",
+            _ => "badge-secondary"
+        };
+    }
+}

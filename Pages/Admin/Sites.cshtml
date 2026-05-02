@@ -1,0 +1,481 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.SitesModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Sites";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalSites = Model.Sites.Count;
+    var activeSites = Model.Sites.Count(s => s.Status == SiteStatus.Active);
+    var manufacturingSites = Model.Sites.Where(s => s.Type == SiteType.Manufacturing).Count();
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Sites" },
+        { "Subtitle", "Manage facility sites across your organization" },
+        { "StatusText", $"{activeSites} Active" },
+        { "StatusTone", "active" },
+        { "ContextPartial", "Admin/_AdminSitesContext" },
+        { "KpisPartial", "Admin/_AdminSitesKpis" },
+        { "ActionsPartial", "Admin/_AdminSitesActions" }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            Facility Sites
+        </h3>
+        <span class="status-badge info">@totalSites SITES</span>
+    </div>
+    <div class="section-card-body">
+        @if (!Model.Sites.Any())
+        {
+            <div class="text-theme-muted" style="text-align: center; padding: 40px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5;">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <p style="margin: 0; font-weight: 500;">No sites configured</p>
+                <p style="margin: 4px 0 0; font-size: 0.875rem;">Add your first site to start organizing your facilities</p>
+            </div>
+        }
+        else
+        {
+            <div class="sites-grid">
+                @foreach (var site in Model.Sites)
+                {
+                    <div class="site-card" onclick="editSite(this)"
+                         data-id="@site.Id"
+                         data-sitecode="@site.SiteCode"
+                         data-name="@site.Name"
+                         data-description="@(site.Description ?? "")"
+                         data-type="@(site.TypeLookupValueId ?? 0)"
+                         data-status="@(site.StatusLookupValueId ?? 0)"
+                         data-companyid="@site.CompanyId"
+                         data-address1="@(site.Address1 ?? "")"
+                         data-address2="@(site.Address2 ?? "")"
+                         data-city="@(site.City ?? "")"
+                         data-stateprovince="@(site.StateProvince ?? "")"
+                         data-postalcode="@(site.PostalCode ?? "")"
+                         data-country="@(site.Country ?? "")"
+                         data-timezone="@(site.TimeZone ?? "")"
+                         data-sitemanager="@(site.SiteManager ?? "")"
+                         data-manageremail="@(site.ManagerEmail ?? "")"
+                         data-managerphone="@(site.ManagerPhone ?? "")"
+                         data-mainphone="@(site.MainPhone ?? "")"
+                         data-squarefootage="@(site.SquareFootage ?? 0)"
+                         data-numberofbuildings="@(site.NumberOfBuildings ?? 0)"
+                         data-employeecount="@(site.EmployeeCount ?? 0)"
+                         data-isprimarysite="@(site.IsPrimarySite ? "true" : "false")">
+                        <div class="site-header">
+                            <div>
+                                <div class="site-code">@site.SiteCode</div>
+                                <div class="site-name">@site.Name</div>
+                            </div>
+                            <span class="badge @(site.Status == SiteStatus.Active ? "badge-success" : site.Status == SiteStatus.UnderConstruction ? "badge-warning" : "badge-secondary")">
+                                @site.Status
+                            </span>
+                        </div>
+                        <div class="site-location">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                            @(site.City ?? "No location"), @(site.StateProvince ?? "")
+                        </div>
+                        <div class="site-meta">
+                            <div class="site-meta-item">
+                                Company
+                                <span>@(site.Company?.Name ?? "N/A")</span>
+                            </div>
+                            <div class="site-meta-item">
+                                Type
+                                <span>@site.Type</span>
+                            </div>
+                            @if (site.SquareFootage.HasValue)
+                            {
+                                <div class="site-meta-item">
+                                    Sq Ft
+                                    <span>@site.SquareFootage.Value.ToString("N0")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<div id="addSiteForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content" style="max-width: 700px;">
+        <div class="inline-form-header">
+            <h3>Add Site</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('addSiteForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
+                <h4 class="text-theme-muted" style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Code *</label>
+                            <input type="text" name="siteCode" class="form-field__input" required maxlength="20" placeholder="e.g., MISS-01" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Name *</label>
+                            <input type="text" name="name" class="form-field__input" required maxlength="100" placeholder="e.g., Mississippi Manufacturing" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Description</label>
+                        <textarea name="description" class="form-field__input" rows="2" maxlength="500" placeholder="Optional description"></textarea>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Company *</label>
+                            <select name="companyId" class="form-field__input" required>
+                                @foreach (var c in Model.Companies)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Type</label>
+                            <select name="typeLookupValueId" class="form-field__input" asp-items="Model.SiteTypeOptions" data-cherry-select data-placeholder="Search types..."></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Status</label>
+                            <select name="statusLookupValueId" class="form-field__input" asp-items="Model.SiteStatusOptions"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Address Line 1</label>
+                        <input type="text" name="address1" class="form-field__input" maxlength="200" placeholder="Street address" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Address Line 2</label>
+                        <input type="text" name="address2" class="form-field__input" maxlength="200" placeholder="Suite, building, floor" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">City</label>
+                            <input type="text" name="city" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">State/Province</label>
+                            <input type="text" name="stateProvince" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Postal Code</label>
+                            <input type="text" name="postalCode" class="form-field__input" maxlength="20" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Country</label>
+                            <input type="text" name="country" class="form-field__input" value="United States" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Time Zone</label>
+                            <select name="timeZone" class="form-field__input" asp-items="Model.TimezoneOptions">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Manager</label>
+                            <input type="text" name="siteManager" class="form-field__input" maxlength="100" placeholder="Manager name" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Manager Email</label>
+                            <input type="email" name="managerEmail" class="form-field__input" maxlength="50" placeholder="manager@company.com" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Manager Phone</label>
+                            <input type="tel" name="managerPhone" class="form-field__input" maxlength="30" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Main Phone</label>
+                            <input type="tel" name="mainPhone" class="form-field__input" maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Square Footage</label>
+                            <input type="number" name="squareFootage" class="form-field__input" min="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label"># of Buildings</label>
+                            <input type="number" name="numberOfBuildings" class="form-field__input" min="0" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Employee Count</label>
+                            <input type="number" name="employeeCount" class="form-field__input" min="0" />
+                        </div>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" name="isPrimarySite" value="true" class="form-check-input" id="createIsPrimarySite" />
+                            <label class="form-check-label" for="createIsPrimarySite">Primary Site</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addSiteForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Create Site</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="editSiteForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content" style="max-width: 700px;">
+        <div class="inline-form-header">
+            <h3>Edit Site</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('editSiteForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Update">
+            <input type="hidden" name="id" id="editId" />
+            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
+                <h4 class="text-theme-muted" style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Code *</label>
+                            <input type="text" name="siteCode" id="editSiteCode" class="form-field__input" required maxlength="20" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Name *</label>
+                            <input type="text" name="name" id="editName" class="form-field__input" required maxlength="100" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Description</label>
+                        <textarea name="description" id="editDescription" class="form-field__input" rows="2" maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Company *</label>
+                            <select name="companyId" id="editCompanyId" class="form-field__input" required>
+                                @foreach (var c in Model.Companies)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Type</label>
+                            <select name="typeLookupValueId" id="editType" class="form-field__input" asp-items="Model.SiteTypeOptions" data-cherry-select data-placeholder="Search types..."></select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Status</label>
+                            <select name="statusLookupValueId" id="editStatus" class="form-field__input" asp-items="Model.SiteStatusOptions"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Address Line 1</label>
+                        <input type="text" name="address1" id="editAddress1" class="form-field__input" maxlength="200" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="form-field">
+                        <label class="form-field__label">Address Line 2</label>
+                        <input type="text" name="address2" id="editAddress2" class="form-field__input" maxlength="200" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">City</label>
+                            <input type="text" name="city" id="editCity" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">State/Province</label>
+                            <input type="text" name="stateProvince" id="editStateProvince" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Postal Code</label>
+                            <input type="text" name="postalCode" id="editPostalCode" class="form-field__input" maxlength="20" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Country</label>
+                            <input type="text" name="country" id="editCountry" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Time Zone</label>
+                            <select name="timeZone" id="editTimeZone" class="form-field__input" asp-items="Model.TimezoneOptions">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Site Manager</label>
+                            <input type="text" name="siteManager" id="editSiteManager" class="form-field__input" maxlength="100" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Manager Email</label>
+                            <input type="email" name="managerEmail" id="editManagerEmail" class="form-field__input" maxlength="50" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Manager Phone</label>
+                            <input type="tel" name="managerPhone" id="editManagerPhone" class="form-field__input" maxlength="30" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-field">
+                            <label class="form-field__label">Main Phone</label>
+                            <input type="tel" name="mainPhone" id="editMainPhone" class="form-field__input" maxlength="50" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Square Footage</label>
+                        <input type="number" name="squareFootage" id="editSquareFootage" class="form-control" min="0" />
+                    </div>
+                </div>
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                    <div class="form-group">
+                        <label class="form-label"># of Buildings</label>
+                        <input type="number" name="numberOfBuildings" id="editNumberOfBuildings" class="form-control" min="0" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Employee Count</label>
+                        <input type="number" name="employeeCount" id="editEmployeeCount" class="form-control" min="0" />
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="isPrimarySite" id="editIsPrimarySite" value="true" />
+                            <span>Primary Site</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('editSiteForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Update Site</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function editSite(el) {
+    document.getElementById('editId').value = el.dataset.id;
+    document.getElementById('editSiteCode').value = el.dataset.sitecode;
+    document.getElementById('editName').value = el.dataset.name;
+    document.getElementById('editDescription').value = el.dataset.description;
+    document.getElementById('editType').value = el.dataset.type;
+    document.getElementById('editStatus').value = el.dataset.status;
+    document.getElementById('editCompanyId').value = el.dataset.companyid;
+    document.getElementById('editAddress1').value = el.dataset.address1;
+    document.getElementById('editAddress2').value = el.dataset.address2;
+    document.getElementById('editCity').value = el.dataset.city;
+    document.getElementById('editStateProvince').value = el.dataset.stateprovince;
+    document.getElementById('editPostalCode').value = el.dataset.postalcode;
+    document.getElementById('editCountry').value = el.dataset.country;
+    document.getElementById('editTimeZone').value = el.dataset.timezone;
+    document.getElementById('editSiteManager').value = el.dataset.sitemanager;
+    document.getElementById('editManagerEmail').value = el.dataset.manageremail;
+    document.getElementById('editManagerPhone').value = el.dataset.managerphone;
+    document.getElementById('editMainPhone').value = el.dataset.mainphone;
+    document.getElementById('editSquareFootage').value = el.dataset.squarefootage;
+    document.getElementById('editNumberOfBuildings').value = el.dataset.numberofbuildings;
+    document.getElementById('editEmployeeCount').value = el.dataset.employeecount;
+    document.getElementById('editIsPrimarySite').checked = el.dataset.isprimarysite === 'true';
+    toggleInlineForm('editSiteForm');
+}
+</script>

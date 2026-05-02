@@ -1,0 +1,106 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.CreateModel
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = "Create Work Order";
+    ViewData["TabTitle"] = "New Work Order";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Create Work Order",
+        ["Subtitle"] = "Fill in the details below to create a new maintenance work order",
+        ["TypeLabel"] = "Maintenance",
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Maintenance",
+        ["BackLinkLabel"] = @UiTerms.WorkOrderPlural
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@TempData["Error"]</div>
+}
+
+<form method="post">
+    @if (Model.PmtaId.HasValue)
+    {
+        <input type="hidden" name="pmtaId" value="@Model.PmtaId.Value" />
+    }
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Asset & Type</span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p">Asset <span class="required">*</span></label>
+                <select name="assetId" data-cherry-select data-placeholder="Search assets..." required>
+                    <option value="">Search assets...</option>
+                    @foreach (var asset in Model.Assets)
+                    {
+                        <option value="@asset.Id" selected="@(Model.CreateFor == asset.Id)">@asset.AssetNumber - @asset.Description</option>
+                    }
+                </select>
+            </div>
+            <div class="form-row-p" style="margin-top:1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Maintenance Type <span class="required">*</span></label>
+                    <select name="typeLookupValueId" data-cherry-select data-placeholder="Select type..." class="form-input-p" required asp-items="Model.MaintenanceTypeOptions">
+                    </select>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Priority</label>
+                    <select name="priorityLookupValueId" data-cherry-select data-placeholder="Select priority..." class="form-input-p" asp-items="Model.PriorityOptions">
+                    </select>
+                </div>
+            </div>
+            <div class="form-group-p" style="margin-top:1rem;">
+                <label class="form-label-p">Description <span class="required">*</span></label>
+                <textarea name="description" class="form-input-p" rows="3" required placeholder="Describe the maintenance work..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Schedule & Assignment</span></div>
+        <div class="pe-card__body">
+            <div class="form-row-p">
+                <div class="form-group-p">
+                    <label class="form-label-p">Scheduled Date <span class="required">*</span></label>
+                    <input type="date" name="scheduledDate" class="form-input-p" required value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Assigned Technician</label>
+                    <select name="technicianId" data-cherry-select data-placeholder="Search technicians..." class="form-input-p">
+                        <option value="">-- Select Technician --</option>
+                        @foreach (var tech in Model.Technicians)
+                        {
+                            <option value="@tech.Id">@tech.Name (@tech.Specialty)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="form-row-p" style="margin-top:1rem;">
+                <div class="form-group-p">
+                    <label class="form-label-p">Estimated Cost</label>
+                    <div class="input-group-currency">
+                        <span class="currency-prefix">$</span>
+                        <input type="number" name="estimatedCost" class="form-input-p" step="0.01" min="0" placeholder="0.00" />
+                    </div>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Vendor</label>
+                    <input type="text" name="vendor" class="form-input-p" placeholder="e.g., ABC Services" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions-sticky">
+        <a href="/Maintenance" class="btn-p btn-p--secondary">Cancel</a>
+        <button type="submit" class="btn-p btn-p--primary">
+            <i class="fas fa-plus"></i> Create Work Order
+        </button>
+    </div>
+</form>

@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Reports.ReportHubModel
+<div class="kpi-card">
+    <div class="kpi-label">Depreciation</div>
+    <div class="kpi-value">@Model.DepreciationReports.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Asset</div>
+    <div class="kpi-value success">@Model.AssetReports.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Financial</div>
+    <div class="kpi-value warning">@Model.FinancialReports.Count</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value info">@(Model.DepreciationReports.Count + Model.AssetReports.Count + Model.FinancialReports.Count)</div>
+</div>

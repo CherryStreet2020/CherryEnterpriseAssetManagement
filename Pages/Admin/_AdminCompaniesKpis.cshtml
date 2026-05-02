@@ -1,0 +1,22 @@
+@model Abs.FixedAssets.Pages.Admin.CompaniesModel
+@{
+    var totalCompanies = Model.Companies.Count;
+    var activeCompanies = Model.Companies.Count(c => c.IsActive);
+    var totalSites = Model.CompanySiteCounts.Values.Sum();
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalCompanies</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeCompanies</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Sites</div>
+    <div class="kpi-value info">@totalSites</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Current</div>
+    <div class="kpi-value primary">@Model.CurrentCompanyId</div>
+</div>

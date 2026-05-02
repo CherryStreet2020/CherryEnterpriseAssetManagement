@@ -1,0 +1,27 @@
+@{
+    var entry = ViewData["Entry"] as Abs.FixedAssets.Models.JournalEntry;
+    var totalDebit = ViewData["TotalDebit"] as decimal? ?? 0;
+    var totalCredit = ViewData["TotalCredit"] as decimal? ?? 0;
+    Func<decimal, string> money = v => v.ToString("C2");
+}
+@if (entry != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Ref</div>
+            <div class="kpi-value" style="font-size: 14px;">@entry.Reference</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total Debit</div>
+            <div class="kpi-value money">@money(totalDebit)</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Total Credit</div>
+            <div class="kpi-value success">@money(totalCredit)</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Lines</div>
+            <div class="kpi-value">@(entry.Lines?.Count ?? 0)</div>
+        </div>
+    </div>
+}

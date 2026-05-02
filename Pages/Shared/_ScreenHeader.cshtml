@@ -1,0 +1,151 @@
+@*
+    Unified Screen Header Partial (ADR-008)
+    
+    Usage:
+    var vd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Page Title",
+        ["Subtitle"] = "Description text",
+        ["TypeLabel"] = "Module Name",
+        ["StatusText"] = "Active",
+        ["StatusTone"] = "success"
+    };
+    @await Html.PartialAsync("_ScreenHeader", vd)
+    
+    Required ViewData:
+    - HeaderTitle (string): Page title - renders as single <h1>
+      NOTE: Do NOT use "Title" - it conflicts with ViewData["Title"] set by pages for layout.
+      Fallback: if HeaderTitle is null/empty, falls back to ViewData["Title"].
+    
+    Optional ViewData:
+    - Subtitle (string): Description below title
+    - TypeLabel (string): Module/category label (e.g., "Procurement", "Materials Management")
+    - StatusText (string): Status badge text
+    - StatusTone (string): info|warning|success|danger|muted (default: info)
+    - ContextText (string): Simple context line (replaces page-hero-location)
+    - ContextPartial (string): Partial name for complex context content
+    - Breadcrumbs (array of tuples): (Label, Href) - empty href for current page
+    - ShowBackLink (bool): Whether to render _BackLink partial (default: false)
+    - BackLinkFallback (string): Fallback URL for back link
+    - BackLinkLabel (string): Label for back link
+    - KpisPartial (string): Partial name for KPI strip
+    - KpisViewData (ViewDataDictionary): ViewData to pass to KPI partial
+    - ActionsPartial (string): Partial name for actions row
+    - ActionsViewData (ViewDataDictionary): ViewData to pass to actions partial
+    
+    Status tones use existing .status-pill.tone-* classes from premium-components.css.
+    No inline styles. No <style> blocks.
+*@
+@{
+    var headerTitle = ViewData["HeaderTitle"]?.ToString();
+    var title = !string.IsNullOrWhiteSpace(headerTitle) ? headerTitle : (ViewData["Title"]?.ToString() ?? "Page");
+    var subtitle = ViewData["Subtitle"]?.ToString();
+    var typeLabel = ViewData["TypeLabel"]?.ToString();
+    var statusText = ViewData["StatusText"]?.ToString();
+    var statusTone = ViewData["StatusTone"]?.ToString() ?? "info";
+    var contextText = ViewData["ContextText"]?.ToString();
+    var contextPartial = ViewData["ContextPartial"]?.ToString();
+    var breadcrumbs = ViewData["Breadcrumbs"] as IEnumerable<(string Label, string Href)>;
+    var showBackLink = ViewData["ShowBackLink"] as bool? ?? false;
+    var backLinkFallback = ViewData["BackLinkFallback"]?.ToString();
+    var backLinkLabel = ViewData["BackLinkLabel"]?.ToString();
+    var kpisPartial = ViewData["KpisPartial"]?.ToString();
+    var kpisViewData = ViewData["KpisViewData"] as ViewDataDictionary;
+    var actionsPartial = ViewData["ActionsPartial"]?.ToString();
+    var actionsViewData = ViewData["ActionsViewData"] as ViewDataDictionary;
+}
+
+<header class="screen-header">
+    @if (showBackLink)
+    {
+        var backLinkVd = new ViewDataDictionary(ViewData);
+        if (!string.IsNullOrEmpty(backLinkFallback))
+        {
+            backLinkVd["FallbackPage"] = backLinkFallback;
+        }
+        if (!string.IsNullOrEmpty(backLinkLabel))
+        {
+            backLinkVd["FallbackLabel"] = backLinkLabel;
+        }
+        @await Html.PartialAsync("_BackLink", backLinkVd)
+    }
+    
+    @if (breadcrumbs != null && breadcrumbs.Any())
+    {
+        <nav class="screen-header__breadcrumbs" aria-label="Breadcrumb">
+            <ol>
+                @foreach (var crumb in breadcrumbs)
+                {
+                    if (!string.IsNullOrEmpty(crumb.Href))
+                    {
+                        <li><a href="@crumb.Href">@crumb.Label</a></li>
+                    }
+                    else
+                    {
+                        <li aria-current="page">@crumb.Label</li>
+                    }
+                }
+            </ol>
+        </nav>
+    }
+    
+    <div class="screen-header__main">
+        <div class="screen-header__info">
+            @if (!string.IsNullOrEmpty(typeLabel) || !string.IsNullOrEmpty(statusText))
+            {
+                <div class="screen-header__meta">
+                    @if (!string.IsNullOrEmpty(typeLabel))
+                    {
+                        <span class="screen-header__type">@typeLabel</span>
+                    }
+                    @if (!string.IsNullOrEmpty(statusText))
+                    {
+                        <span class="status-pill tone-@statusTone">@statusText</span>
+                    }
+                </div>
+            }
+            <h1 class="screen-header__title">@title</h1>
+            @if (!string.IsNullOrEmpty(subtitle))
+            {
+                <p class="screen-header__subtitle">@subtitle</p>
+            }
+            @if (!string.IsNullOrEmpty(contextText))
+            {
+                <div class="screen-header__context">@contextText</div>
+            }
+            else if (!string.IsNullOrEmpty(contextPartial))
+            {
+                <div class="screen-header__context">
+                    @await Html.PartialAsync(contextPartial)
+                </div>
+            }
+        </div>
+        
+        @if (!string.IsNullOrEmpty(kpisPartial))
+        {
+            <div class="screen-header__kpis">
+                @if (kpisViewData != null)
+                {
+                    @await Html.PartialAsync(kpisPartial, kpisViewData)
+                }
+                else
+                {
+                    @await Html.PartialAsync(kpisPartial)
+                }
+            </div>
+        }
+    </div>
+    
+    @if (!string.IsNullOrEmpty(actionsPartial))
+    {
+        <div class="screen-header__actions">
+            @if (actionsViewData != null)
+            {
+                @await Html.PartialAsync(actionsPartial, actionsViewData)
+            }
+            else
+            {
+                @await Html.PartialAsync(actionsPartial)
+            }
+        </div>
+    }
+</header>

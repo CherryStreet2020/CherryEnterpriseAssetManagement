@@ -1,0 +1,31 @@
+@* _EmptyState.cshtml - Standard empty state component *@
+@{
+    var icon = (string?)ViewData["EmptyStateIcon"] ?? "inbox";
+    var title = (string?)ViewData["EmptyStateTitle"] ?? "No Data";
+    var message = (string?)ViewData["EmptyStateMessage"] ?? "No items to display.";
+    var actionUrl = (string?)ViewData["EmptyStateActionUrl"];
+    var actionLabel = (string?)ViewData["EmptyStateActionLabel"];
+
+    var faIcon = icon switch
+    {
+        "inbox" => "fa-inbox",
+        "search" => "fa-search",
+        "folder" => "fa-folder-open",
+        "document" => "fa-file-alt",
+        "calendar" => "fa-calendar-alt",
+        "wrench" => "fa-wrench",
+        _ => "fa-inbox"
+    };
+}
+
+<div class="pe-empty" style="padding:2rem;">
+    <i class="fas @faIcon pe-empty__icon" style="font-size:1.5rem;"></i>
+    <div class="pe-empty__title">@title</div>
+    <div class="pe-empty__text">@message</div>
+    @if (!string.IsNullOrEmpty(actionUrl) && !string.IsNullOrEmpty(actionLabel))
+    {
+        <a href="@actionUrl" class="btn-p btn-p--primary">
+            @actionLabel
+        </a>
+    }
+</div>

@@ -1,0 +1,56 @@
+@page
+@model Abs.FixedAssets.Pages.Help.TasksModel
+@{
+    ViewData["Title"] = Model.Title;
+    ViewData["TabTitle"] = Model.Title;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = Model.Title,
+        ["Subtitle"] = "Step-by-step instructions with detailed guidance",
+        ["TypeLabel"] = "Task Guide",
+        ["StatusText"] = "Step-by-Step",
+        ["StatusTone"] = "success",
+        ["ContextPartial"] = "/Pages/Help/_HelpTasksContext.cshtml",
+        ["KpisPartial"] = "/Pages/Help/_HelpTasksKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Help/_HelpTasksActions.cshtml"
+    };
+}
+
+<link rel="stylesheet" href="/css/help-enterprise.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-body" style="padding: 2rem;">
+        @Html.Raw(Model.ContentHtml)
+    </div>
+</div>
+
+@if (Model.RelatedTasks.Any())
+{
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Related Tasks
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                @foreach (var task in Model.RelatedTasks)
+                {
+                    <a href="/Help/Tasks?id=@task.Key" class="hero-btn hero-btn-ghost text-blue" style="background: rgba(59,130,246,0.1);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
+                        @task.Value
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+}

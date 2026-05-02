@@ -1,0 +1,25 @@
+@model Abs.FixedAssets.Pages.Admin.PMSchedulesModel
+
+@{
+    var totalSchedules = Model.Schedules.Count;
+    var activeSchedules = Model.Schedules.Count(s => s.Active);
+    var dueSoon = Model.Previews.Count(p => !p.AlreadyExists);
+    var alreadyGenerated = Model.Previews.Count(p => p.AlreadyExists);
+}
+
+<div class="kpi-card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi-value">@totalSchedules</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi-value success">@activeSchedules</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Due Soon</div>
+    <div class="kpi-value warning">@dueSoon</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Generated</div>
+    <div class="kpi-value">@alreadyGenerated</div>
+</div>

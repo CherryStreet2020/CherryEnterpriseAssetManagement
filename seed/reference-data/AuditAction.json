@@ -1,0 +1,61 @@
+{
+  "lookupKey": "AuditAction",
+  "name": "Audit Action",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "Created",
+      "name": "Created",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "Updated",
+      "name": "Updated",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "Deleted",
+      "name": "Deleted",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "Activated",
+      "name": "Activated",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "Deactivated",
+      "name": "Deactivated",
+      "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "Transferred",
+      "name": "Transferred",
+      "sortOrder": 6,
+      "isActive": true
+    },
+    {
+      "code": "Disposed",
+      "name": "Disposed",
+      "sortOrder": 7,
+      "isActive": true
+    },
+    {
+      "code": "Approved",
+      "name": "Approved",
+      "sortOrder": 8,
+      "isActive": true
+    },
+    {
+      "code": "Rejected",
+      "name": "Rejected",
+      "sortOrder": 9,
+      "isActive": true
+    }
+  ]
+}

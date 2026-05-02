@@ -1,0 +1,219 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.Assignments.IndexModel
+@using Abs.FixedAssets.Helpers
+@{
+    ViewData["Title"] = "PM Assignments";
+    ViewData["TabTitle"] = "PM Assignments";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "PM Assignments",
+        ["Subtitle"] = "Assign PM templates to assets for scheduled maintenance",
+        ["TypeLabel"] = "Work Execution",
+        ["Breadcrumbs"] = new[] { ("Asset Maintenance", "/Maintenance"), ("PM Assignments", "") },
+        ["ContextPartial"] = "/Pages/Maintenance/Assignments/_MaintenanceAssignmentsContext.cshtml",
+        ["KpisPartial"] = "/Pages/Maintenance/Assignments/_MaintenanceAssignmentsKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Maintenance/Assignments/_MaintenanceAssignmentsActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="module-header">
+    <nav class="module-pills" role="navigation" aria-label="@UiTerms.ModuleName navigation">
+        <a href="/Maintenance" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            @UiTerms.WorkOrderPlural
+        </a>
+        <a href="/Maintenance/PMTemplates" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            @UiTerms.PMTemplates
+        </a>
+        <a href="/Maintenance/Assignments" class="module-pill active" aria-current="page">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            PM Assignments
+        </a>
+        <a href="/Maintenance/Schedules" class="module-pill">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @UiTerms.Schedules
+        </a>
+    </nav>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">
+        @Model.SuccessMessage
+    </div>
+}
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-error">
+        @TempData["ErrorMessage"]
+    </div>
+}
+
+@if (Model.Assignments.Count == 0)
+{
+    @await Html.PartialAsync("_EmptyState", new ViewDataDictionary(ViewData) {
+        { "Icon", "clipboard" },
+        { "Title", "No PM Assignments Yet" },
+        { "Description", "Create assignments to link PM templates to specific assets for scheduled maintenance." },
+        { "PrimaryAction", "Create First Assignment" },
+        { "PrimaryUrl", "#" },
+        { "PrimaryOnClick", "toggleInlineForm('createForm')" }
+    })
+}
+else
+{
+    <div class="premium-tabs">
+        <table id="pmAssignmentsGrid" class="data-table" data-enhanced-grid="true">
+            <thead>
+                <tr>
+                    <th>Asset</th>
+                    <th>PM Template</th>
+                    <th>Next Due</th>
+                    <th>Last Completed</th>
+                    <th>Status</th>
+                    <th class="no-sort">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.Assignments)
+                {
+                    <tr>
+                        <td>
+                            <strong>@a.AssetNumber</strong>
+                            <div class="table-cell-secondary">@(a.AssetDescription.Length > 30 ? a.AssetDescription.Substring(0, 30) + "..." : a.AssetDescription)</div>
+                        </td>
+                        <td>
+                            <code class="code-inline">@a.TemplateCode</code>
+                            <div class="table-cell-secondary">@a.TemplateName</div>
+                        </td>
+                        <td>
+                            @if (a.NextDueDate.HasValue)
+                            {
+                                <span>@a.NextDueDate.Value.ToString("MMM dd, yyyy")</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Not set</span>
+                            }
+                        </td>
+                        <td>
+                            @if (a.LastCompletedDate.HasValue)
+                            {
+                                <span>@a.LastCompletedDate.Value.ToString("MMM dd, yyyy")</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">Never</span>
+                            }
+                        </td>
+                        <td>
+                            @if (a.IsActive)
+                            {
+                                <span class="badge badge-success">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-secondary">Inactive</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="table-actions">
+                                <form method="post" asp-page-handler="ToggleActive" class="inline-form">
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                                        @(a.IsActive ? "Deactivate" : "Activate")
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="Delete" class="inline-form" onsubmit="return confirm('Delete this assignment?');">
+                                    <input type="hidden" name="id" value="@a.Id" />
+                                    <button type="submit" class="btn-p btn-p--danger btn-p--sm">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div id="createForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3>Create PM Assignment</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('createForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Create">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Asset</label>
+                    <select name="assetId" class="form-control" required data-cherry-select data-placeholder="Search assets...">
+                        <option value="">Select an asset...</option>
+                        @foreach (var asset in Model.AvailableAssets)
+                        {
+                            <option value="@asset.Id">@asset.AssetNumber - @asset.Description</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>PM Template</label>
+                    <select name="pmTemplateId" class="form-control" required data-cherry-select data-placeholder="Search PM templates...">
+                        <option value="">Select a template...</option>
+                        @foreach (var t in Model.AvailableTemplates)
+                        {
+                            <option value="@t.Id">@t.Code - @t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Next Due Date (optional)</label>
+                    <input type="date" name="nextDueDate" class="form-control" />
+                    <small class="form-help">If not set, will be calculated from template interval.</small>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-secondary" onclick="toggleInlineForm('createForm')">Cancel</button>
+                <button type="submit" class="btn-primary">Create Assignment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function toggleInlineForm(id) {
+            document.getElementById(id).hidden = false;
+            document.getElementById(id).style.display = 'flex';
+        }
+        function toggleInlineForm(id) {
+            document.getElementById(id).hidden = true;
+            document.getElementById(id).style.display = 'none';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof initEnhancedGrid === 'function' && document.getElementById('pmAssignmentsGrid')) {
+                initEnhancedGrid('pmAssignmentsGrid', {
+                    searchable: true,
+                    sortable: true,
+                    exportable: true,
+                    columnVisibility: true,
+                    clickableRows: false
+                });
+            }
+        });
+    </script>
+}

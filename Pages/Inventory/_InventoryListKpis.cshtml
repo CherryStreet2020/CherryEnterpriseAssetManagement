@@ -1,0 +1,24 @@
+@{
+    var list = ViewData["InventoryList"] as Abs.FixedAssets.Models.InventoryList;
+}
+@if (list != null)
+{
+    <div class="screen-header__kpis">
+        <div class="kpi-card">
+            <div class="kpi-label">Total Assets</div>
+            <div class="kpi-value">@list.TotalAssets</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Scanned</div>
+            <div class="kpi-value info">@list.ScannedAssets</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Found</div>
+            <div class="kpi-value success">@list.FoundAssets</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Missing</div>
+            <div class="kpi-value @(list.MissingAssets > 0 ? "danger" : "")">@list.MissingAssets</div>
+        </div>
+    </div>
+}

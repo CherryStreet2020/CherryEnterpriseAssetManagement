@@ -1,0 +1,31 @@
+@model Abs.FixedAssets.Pages.CCA.ClassReportModel
+@{
+}
+<div class="hero-tags">
+    <form method="get" style="display: flex; gap: 8px; align-items: center;">
+        <label style="font-weight: 500; color: rgba(255,255,255,0.7);">Fiscal Year:</label>
+        <select name="fiscalYear" class="form-select" style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+            @foreach (var year in Model.AvailableYears)
+            {
+                <option value="@year" selected="@(year == Model.FiscalYear)" style="color: black;">@year</option>
+            }
+        </select>
+    </form>
+</div>
+<div class="hero-btns">
+    <form method="post" asp-page-handler="Calculate" style="display: inline;">
+        <input type="hidden" name="fiscalYear" value="@Model.FiscalYear" />
+        <button type="submit" class="hero-btn hero-btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Calculate CCA
+        </button>
+    </form>
+    <a asp-page="./Index" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+        </svg>
+        Back to CCA Classes
+    </a>
+</div>

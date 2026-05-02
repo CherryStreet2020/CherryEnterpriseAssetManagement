@@ -1,0 +1,24 @@
+@model Abs.FixedAssets.Pages.Materials.ItemsModel
+<div class="hero-tags">
+    @if (Model.HasFilters)
+    {
+        <span class="hero-tag info">FILTERED</span>
+    }
+</div>
+<div class="hero-btns">
+    @if (Model.HasFilters)
+    {
+        <a href="/Materials/Items" class="hero-btn hero-btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filter
+        </a>
+    }
+    <a href="/Materials/ItemEdit" class="hero-btn hero-btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        New Item
+    </a>
+</div>

@@ -1,0 +1,17 @@
+@model Abs.FixedAssets.Pages.Reports.Form4562Model
+<div class="kpi-card">
+    <div class="kpi-label">Section 179</div>
+    <div class="kpi-value success">@Model.TotalSection179.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Bonus Depr.</div>
+    <div class="kpi-value warning">@Model.TotalBonusDepreciation.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">MACRS</div>
+    <div class="kpi-value info">@Model.TotalMacrsDepreciation.ToString("C0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Bonus Rate</div>
+    <div class="kpi-value">@Model.BonusRate.ToString("0")%</div>
+</div>

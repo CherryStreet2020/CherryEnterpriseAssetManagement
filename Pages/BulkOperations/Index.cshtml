@@ -1,0 +1,451 @@
+@page
+@model Abs.FixedAssets.Pages.BulkOperations.IndexModel
+@{
+    ViewData["Title"] = "Bulk Operations";
+    Layout = "_ModernLayout";
+    ViewData["HasScreenHeader"] = true;
+    
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = "Bulk Operations",
+        ["Subtitle"] = "Perform bulk transfers, status changes, and partial disposals",
+        ["TypeLabel"] = "Asset Management",
+        ["StatusText"] = "Active",
+        ["StatusTone"] = "success",
+        ["ContextText"] = $"{Model.Stats.TotalBulkOperations} Operations / {Model.Stats.TotalAssetsAffected} Assets",
+        ["KpisPartial"] = "BulkOperations/_BulkOpsKpis",
+        ["ActionsPartial"] = "BulkOperations/_BulkOpsActions"
+    };
+    ViewData["Stats"] = Model.Stats;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Quick Actions
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <div class="grid-3">
+            <div class="card action-card" onclick="toggleInlineForm('bulkTransferForm')">
+                <div class="card-body">
+                    <div class="action-icon icon-bg-blue">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 32px; height: 32px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                    </div>
+                    <h4>Bulk Transfer</h4>
+                    <p class="text-muted">Move multiple assets to a new location</p>
+                </div>
+            </div>
+            <div class="card action-card" onclick="toggleInlineForm('bulkStatusForm')">
+                <div class="card-body">
+                    <div class="action-icon icon-bg-amber">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 32px; height: 32px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h4>Bulk Status Change</h4>
+                    <p class="text-muted">Change status of multiple assets at once</p>
+                </div>
+            </div>
+            <div class="card action-card" onclick="toggleInlineForm('partialDisposalForm')">
+                <div class="card-body">
+                    <div class="action-icon icon-bg-red">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 32px; height: 32px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </div>
+                    <h4>Partial Disposal</h4>
+                    <p class="text-muted">Dispose of a portion of an asset</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Recent Bulk Operations
+        </h3>
+        <span class="status-badge info">@Model.RecentOperations.Count() OPERATIONS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.RecentOperations.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Assets</th>
+                        <th>Processed By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var op in Model.RecentOperations)
+                    {
+                        <tr class="clickable-row" onclick="window.location.href='/BulkOperations/Details/@op.Id?returnUrl=/BulkOperations'">
+                            <td>@op.OperationDate.ToString("MM/dd/yyyy")</td>
+                            <td><span class="badge badge-neutral">@op.OperationType</span></td>
+                            <td>@op.Description</td>
+                            <td>@op.AssetsAffected</td>
+                            <td>@(op.ProcessedBy ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-boxes pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No bulk operations yet. Use the quick actions above to perform your first bulk operation.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="bulkTransferForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon icon-bg-blue">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#2563eb">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Bulk Transfer</h3>
+                    <p>Move multiple assets to a new location</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('bulkTransferForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="BulkTransfer" id="bulkTransferForm">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Select Assets to Transfer</label>
+                    <div class="asset-selector">
+                        <div class="asset-selector-header">
+                            <div class="asset-selector-search">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="search-icon">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input type="text" id="transferSearchInput" class="asset-search-input" placeholder="Search by asset number, description, or location..." oninput="filterTransferAssets()" />
+                            </div>
+                            <div class="asset-selector-actions">
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="selectAllTransfer()">Select All</button>
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="deselectAllTransfer()">Clear All</button>
+                            </div>
+                        </div>
+                        <div class="selected-count" id="transferSelectedCount">0 assets selected</div>
+                        <div class="asset-list" id="transferAssetList">
+                            @foreach (var asset in Model.Assets)
+                            {
+                                <label class="asset-item" data-search="@asset.AssetNumber.ToLower() @asset.Description.ToLower() @(asset.LocationRef?.Name.ToLower() ?? "")">
+                                    <input type="checkbox" name="assetIds" value="@asset.Id" class="asset-checkbox transfer-checkbox" onchange="updateTransferCount()" />
+                                    <div class="asset-item-content">
+                                        <div class="asset-item-primary">
+                                            <span class="asset-number">@asset.AssetNumber</span>
+                                            <span class="asset-description">@asset.Description</span>
+                                        </div>
+                                        <div class="asset-item-meta">
+                                            <span class="asset-location">@(asset.LocationRef?.Name ?? "No Location")</span>
+                                            <span class="asset-status badge badge-@(asset.Status.ToString().ToLower() == "active" ? "success" : "neutral")">@asset.Status</span>
+                                        </div>
+                                    </div>
+                                    <div class="asset-check-indicator">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                </label>
+                            }
+                            <div class="asset-list-empty" id="transferEmpty" style="display: none;">
+                                <p>No assets match your search</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>New Location</label>
+                        <input type="text" name="newLocation" class="form-control" required placeholder="e.g., Plant B" />
+                    </div>
+                    <div class="form-group">
+                        <label>New Department (optional)</label>
+                        <input type="text" name="newDepartment" class="form-control" placeholder="e.g., Production" />
+                    </div>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('bulkTransferForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary" id="transferSubmitBtn" disabled>Transfer Assets</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="bulkStatusForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon icon-bg-amber">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#d97706">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Bulk Status Change</h3>
+                    <p>Update status for multiple assets at once</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('bulkStatusForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="BulkStatusChange" id="bulkStatusForm">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Select Assets</label>
+                    <div class="asset-selector">
+                        <div class="asset-selector-header">
+                            <div class="asset-selector-search">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="search-icon">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input type="text" id="statusSearchInput" class="asset-search-input" placeholder="Search by asset number, description, or status..." oninput="filterStatusAssets()" />
+                            </div>
+                            <div class="asset-selector-actions">
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="selectAllStatus()">Select All</button>
+                                <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="deselectAllStatus()">Clear All</button>
+                            </div>
+                        </div>
+                        <div class="selected-count" id="statusSelectedCount">0 assets selected</div>
+                        <div class="asset-list" id="statusAssetList">
+                            @foreach (var asset in Model.Assets)
+                            {
+                                <label class="asset-item" data-search="@asset.AssetNumber.ToLower() @asset.Description.ToLower() @asset.Status.ToString().ToLower()">
+                                    <input type="checkbox" name="assetIds" value="@asset.Id" class="asset-checkbox status-checkbox" onchange="updateStatusCount()" />
+                                    <div class="asset-item-content">
+                                        <div class="asset-item-primary">
+                                            <span class="asset-number">@asset.AssetNumber</span>
+                                            <span class="asset-description">@asset.Description</span>
+                                        </div>
+                                        <div class="asset-item-meta">
+                                            <span class="asset-current-status">Current: <span class="badge badge-@(asset.Status.ToString().ToLower() == "active" ? "success" : asset.Status.ToString().ToLower() == "inactive" ? "neutral" : "warning")">@asset.Status</span></span>
+                                        </div>
+                                    </div>
+                                    <div class="asset-check-indicator">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                </label>
+                            }
+                            <div class="asset-list-empty" id="statusEmpty" style="display: none;">
+                                <p>No assets match your search</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>New Status</label>
+                    <select name="newStatus" class="form-control" required asp-items="Model.AssetStatusOptions">
+                    </select>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('bulkStatusForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary" id="statusSubmitBtn" disabled>Update Status</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="partialDisposalForm" class="inline-form-panel" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <div class="inline-form-header-content">
+                <div class="inline-form-header-icon icon-bg-red">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#dc2626">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <div class="inline-form-header-text">
+                    <h3>Partial Disposal</h3>
+                    <p>Dispose of a portion of an asset</p>
+                </div>
+            </div>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('partialDisposalForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="PartialDisposal" id="partialDisposalForm">
+            <input type="hidden" name="assetId" id="disposalAssetId" />
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label>Select Asset</label>
+                    <div class="searchable-select">
+                        <div class="searchable-select-trigger" onclick="toggleDisposalDropdown()">
+                            <span id="disposalSelectedText">Select an asset...</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="dropdown-arrow">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <div class="searchable-select-dropdown" id="disposalDropdown">
+                            <div class="dropdown-search-wrapper">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="search-icon">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input type="text" id="disposalSearchInput" class="dropdown-search-input" placeholder="Search assets..." oninput="filterDisposalAssets()" />
+                            </div>
+                            <div class="dropdown-options" id="disposalOptions">
+                                @foreach (var asset in Model.Assets)
+                                {
+                                    <div class="dropdown-option" data-value="@asset.Id" data-search="@asset.AssetNumber.ToLower() @asset.Description.ToLower()" data-display="@asset.AssetNumber - @asset.Description (Cost: @asset.AcquisitionCost.ToString("C2"))" onclick="selectDisposalAsset(this)">
+                                        <div class="option-primary">
+                                            <span class="option-number">@asset.AssetNumber</span>
+                                            <span class="option-description">@asset.Description</span>
+                                        </div>
+                                        <div class="option-meta">
+                                            <span class="option-cost">Cost: @asset.AcquisitionCost.ToString("C2")</span>
+                                        </div>
+                                    </div>
+                                }
+                                <div class="dropdown-empty" id="disposalEmpty" style="display: none;">
+                                    <p>No assets match your search</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Percentage to Dispose (%)</label>
+                        <input type="number" name="percentage" class="form-control" min="1" max="99" step="1" required placeholder="e.g., 25" />
+                    </div>
+                    <div class="form-group">
+                        <label>Sale Proceeds</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="saleProceeds" class="form-control" step="0.01" min="0" required placeholder="0.00" />
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <select name="reason" class="form-control" asp-items="Model.DisposalTypeOptions">
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Buyer (optional)</label>
+                    <input type="text" name="buyer" class="form-control" placeholder="e.g., ABC Corp" />
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Additional details..."></textarea>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('partialDisposalForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--danger" id="disposalSubmitBtn" disabled>Process Disposal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+@section Scripts {
+<script>
+function toggleInlineForm('bulkTransferForm') { document.getElementById('bulkTransferForm').style.display = ''; }
+function toggleInlineForm('bulkTransferForm') { document.getElementById('bulkTransferForm').style.display = 'none'; }
+function toggleInlineForm('bulkStatusForm') { document.getElementById('bulkStatusForm').style.display = ''; }
+function toggleInlineForm('bulkStatusForm') { document.getElementById('bulkStatusForm').style.display = 'none'; }
+function toggleInlineForm('partialDisposalForm') { document.getElementById('partialDisposalForm').style.display = ''; }
+function toggleInlineForm('partialDisposalForm') { document.getElementById('partialDisposalForm').style.display = 'none'; }
+
+function updateTransferCount() {
+    var checked = document.querySelectorAll('.transfer-checkbox:checked').length;
+    document.getElementById('transferSelectedCount').textContent = checked + ' assets selected';
+    document.getElementById('transferSubmitBtn').disabled = checked === 0;
+}
+function updateStatusCount() {
+    var checked = document.querySelectorAll('.status-checkbox:checked').length;
+    document.getElementById('statusSelectedCount').textContent = checked + ' assets selected';
+    document.getElementById('statusSubmitBtn').disabled = checked === 0;
+}
+function selectAllTransfer() {
+    document.querySelectorAll('.transfer-checkbox').forEach(function(cb) { cb.checked = true; });
+    updateTransferCount();
+}
+function deselectAllTransfer() {
+    document.querySelectorAll('.transfer-checkbox').forEach(function(cb) { cb.checked = false; });
+    updateTransferCount();
+}
+function selectAllStatus() {
+    document.querySelectorAll('.status-checkbox').forEach(function(cb) { cb.checked = true; });
+    updateStatusCount();
+}
+function deselectAllStatus() {
+    document.querySelectorAll('.status-checkbox').forEach(function(cb) { cb.checked = false; });
+    updateStatusCount();
+}
+function filterTransferAssets() {
+    var query = document.getElementById('transferSearchInput').value.toLowerCase();
+    var items = document.querySelectorAll('#transferAssetList .asset-item');
+    var visible = 0;
+    items.forEach(function(item) {
+        var match = item.dataset.search.includes(query);
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    document.getElementById('transferEmpty').style.display = visible === 0 ? '' : 'none';
+}
+function filterStatusAssets() {
+    var query = document.getElementById('statusSearchInput').value.toLowerCase();
+    var items = document.querySelectorAll('#statusAssetList .asset-item');
+    var visible = 0;
+    items.forEach(function(item) {
+        var match = item.dataset.search.includes(query);
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    document.getElementById('statusEmpty').style.display = visible === 0 ? '' : 'none';
+}
+function toggleDisposalDropdown() {
+    document.getElementById('disposalDropdown').classList.toggle('show');
+}
+function selectDisposalAsset(el) {
+    document.getElementById('disposalAssetId').value = el.dataset.value;
+    document.getElementById('disposalSelectedText').textContent = el.dataset.display;
+    document.getElementById('disposalDropdown').classList.remove('show');
+    document.getElementById('disposalSubmitBtn').disabled = false;
+}
+function filterDisposalAssets() {
+    var query = document.getElementById('disposalSearchInput').value.toLowerCase();
+    var items = document.querySelectorAll('#disposalOptions .dropdown-option');
+    var visible = 0;
+    items.forEach(function(item) {
+        var match = item.dataset.search.includes(query);
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    document.getElementById('disposalEmpty').style.display = visible === 0 ? '' : 'none';
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.searchable-select')) {
+        document.querySelectorAll('.searchable-select-dropdown').forEach(function(d) { d.classList.remove('show'); });
+    }
+    if (e.target.classList.contains('inline-form-panel')) {
+        e.target.style.display = 'none';
+    }
+});
+</script>
+}

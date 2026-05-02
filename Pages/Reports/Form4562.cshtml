@@ -1,0 +1,277 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.Form4562Model
+@{
+    ViewData["Title"] = "Form 4562 - Depreciation and Amortization";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Form 4562" },
+        { "Subtitle", $"Depreciation and Amortization - Property placed in service during {Model.TaxYear}" },
+        { "TypeLabel", "Tax Reports" },
+        { "StatusText", "IRS Form" },
+        { "StatusTone", "info" },
+        { "KpisPartial", "Reports/_ReportsForm4562Kpis" },
+        { "ActionsPartial", "Reports/_ReportsForm4562Actions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="quick-stats-row-4">
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.TaxYear</div>
+            <div class="quick-stat-label">Tax Year</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Model.TotalSection179.ToString("C0")</div>
+            <div class="quick-stat-label">Section 179 Elected</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Model.TotalBonusDepreciation.ToString("C0")</div>
+            <div class="quick-stat-label">Bonus Depreciation</div>
+        </div>
+    </div>
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value info">@Model.TotalMacrsDepreciation.ToString("C0")</div>
+            <div class="quick-stat-label">MACRS Depreciation</div>
+        </div>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Part I - Election to Expense Certain Property (Section 179)
+        </h3>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Line</th>
+                    <th>Description</th>
+                    <th style="text-align: right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Maximum amount (see instructions)</td>
+                    <td style="text-align: right;">@Model.Section179Limit.ToString("C0")</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Total cost of section 179 property placed in service</td>
+                    <td style="text-align: right;">@Model.TotalSection179Cost.ToString("C0")</td>
+                </tr>
+                <tr>
+                    <td>3</td>
+                    <td>Threshold cost of section 179 property before reduction</td>
+                    <td style="text-align: right;">@Model.Section179Threshold.ToString("C0")</td>
+                </tr>
+                <tr class="totals-row">
+                    <td>5</td>
+                    <td>Dollar limitation for tax year (adjusted)</td>
+                    <td style="text-align: right;">@Model.Section179LimitAdjusted.ToString("C0")</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        @if (Model.Section179Assets.Any())
+        {
+            <div class="border-theme" style="padding: 16px; border-top: 1px solid var(--lux-border, rgba(0,0,0,0.1));">
+                <h4 style="margin-bottom: 12px; font-weight: 600;">Section 179 Property Elections</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Asset Number</th>
+                            <th>Description</th>
+                            <th>Date Placed in Service</th>
+                            <th style="text-align: right;">Cost</th>
+                            <th style="text-align: right;">Elected Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var a in Model.Section179Assets)
+                        {
+                            <tr>
+                                <td><span class="badge badge-primary">@a.Asset?.AssetNumber</span></td>
+                                <td>@a.Asset?.Description</td>
+                                <td>@a.PlacedInServiceDate?.ToString("MM/dd/yyyy")</td>
+                                <td style="text-align: right;">@a.DepreciableBasis.ToString("C2")</td>
+                                <td style="text-align: right; font-weight: 600;">@a.Section179Amount.ToString("C2")</td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr class="totals-row">
+                            <td colspan="4">Total Section 179 Expense</td>
+                            <td style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Part II - Special Depreciation Allowance (Bonus Depreciation)
+        </h3>
+        <span class="status-badge warning">@Model.BonusRate.ToString("0")% Rate</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.BonusDepreciationAssets.Any())
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Asset Number</th>
+                        <th>Description</th>
+                        <th>Date Placed in Service</th>
+                        <th style="text-align: right;">Basis After 179</th>
+                        <th style="text-align: center;">Bonus %</th>
+                        <th style="text-align: right;">Bonus Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.BonusDepreciationAssets)
+                    {
+                        <tr>
+                            <td><span class="badge badge-primary">@a.Asset?.AssetNumber</span></td>
+                            <td>@a.Asset?.Description</td>
+                            <td>@a.PlacedInServiceDate?.ToString("MM/dd/yyyy")</td>
+                            <td style="text-align: right;">@((a.DepreciableBasis - a.Section179Amount).ToString("C2"))</td>
+                            <td style="text-align: center;">@a.BonusDepreciationPercent.ToString("0")%</td>
+                            <td style="text-align: right; font-weight: 600;">@a.BonusDepreciationAmount.ToString("C2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="totals-row">
+                        <td colspan="5">Total Special Depreciation Allowance</td>
+                        <td style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        }
+        else
+        {
+            <div class="text-theme-muted" style="padding: 24px; text-align: center;">
+                No assets with bonus depreciation for this tax year.
+            </div>
+        }
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Part III - MACRS Depreciation
+        </h3>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Recovery Period</th>
+                    <th>Convention</th>
+                    <th style="text-align: right;">Basis</th>
+                    <th style="text-align: right;"># Assets</th>
+                    <th style="text-align: right;">Current Year Deduction</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in Model.MacrsClassSummary)
+                {
+                    <tr>
+                        <td><span class="badge badge-secondary">@g.RecoveryPeriod-Year</span></td>
+                        <td>@g.Convention</td>
+                        <td style="text-align: right;">@g.TotalBasis.ToString("C0")</td>
+                        <td style="text-align: right;">@g.AssetCount</td>
+                        <td style="text-align: right; font-weight: 600;">@g.CurrentYearDepreciation.ToString("C2")</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr class="totals-row">
+                    <td colspan="4">Total MACRS Depreciation</td>
+                    <td style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Summary
+        </h3>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <tbody>
+                <tr>
+                    <td>Section 179 Expense Deduction</td>
+                    <td style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
+                </tr>
+                <tr>
+                    <td>Special Depreciation Allowance (Bonus)</td>
+                    <td style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
+                </tr>
+                <tr>
+                    <td>MACRS Depreciation</td>
+                    <td style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
+                </tr>
+                <tr style="font-weight: 700; font-size: 18px; background: var(--btn-primary-bg, #cf3339); color: white;">
+                    <td>Total Depreciation and Amortization</td>
+                    <td style="text-align: right;">@((Model.TotalSection179 + Model.TotalBonusDepreciation + Model.TotalMacrsDepreciation).ToString("C2"))</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

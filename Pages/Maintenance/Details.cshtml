@@ -1,0 +1,744 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Maintenance.DetailsModel
+@using Abs.FixedAssets.Services.Maintenance
+@{
+    ViewData["Title"] = $"Work Order {Model.Event.WorkOrderNumber ?? $"#{Model.Event.Id}"}";
+    ViewData["ReturnUrl"] = Model.ReturnUrl;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var isOverdue = Model.Event.ScheduledDate < DateTime.UtcNow && Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled;
+    var totalActual = (Model.Event.LaborCost ?? 0) + (Model.Event.MaterialsCost ?? 0) + (Model.Event.PartsCost ?? 0) + (Model.Event.OutsideVendorCost ?? 0);
+    var activeTab = Model.Tab.ToLowerInvariant();
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/work-order-details.css" asp-append-version="true" />
+}
+
+@{
+    var statusTone = Model.Event.Status == MaintenanceStatus.Completed ? "success" : isOverdue ? "danger" : Model.Event.Status == MaintenanceStatus.InProgress ? "warning" : "info";
+    var woLabel = Model.Event.WorkOrderNumber ?? $"Event #{Model.Event.Id}";
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        ["HeaderTitle"] = woLabel,
+        ["Subtitle"] = Model.Event.Description,
+        ["TypeLabel"] = $"{Model.Event.Type} Maintenance",
+        ["StatusText"] = isOverdue ? "Overdue" : Model.Event.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["Breadcrumbs"] = new (string, string)[] { ("Maintenance", "/Maintenance"), (woLabel, "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Maintenance",
+        ["BackLinkLabel"] = "Back to results",
+        ["ContextPartial"] = "Maintenance/_MaintenanceDetailsContext",
+        ["KpisPartial"] = "Maintenance/_MaintenanceDetailsKpis",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) { ["Event"] = Model.Event },
+        ["ActionsPartial"] = "Maintenance/_MaintenanceDetailsActions",
+        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["Event"] = Model.Event, ["Origin"] = Model.Origin }
+    };
+    ViewData["Event"] = Model.Event;
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<!-- Execution Cockpit -->
+<div class="wo-cockpit">
+    <div class="wo-cockpit-main">
+        <!-- Tab Navigation (unified via _TabNav partial - ADR-007) -->
+        @{
+            var iconOverview = "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z\" /></svg>";
+            var iconOperations = "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01\" /></svg>";
+            var iconParts = "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4\" /></svg>";
+            var iconClock = "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z\" /></svg>";
+            var iconCloseout = "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z\" /></svg>";
+        }
+        @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
+            { "TabId", "wo-details-tabs" },
+            { "Mode", "button" },
+            { "UrlParam", "tab" },
+            { "AriaLabel", "Work order details tabs" },
+            { "Tabs", new (string keyOrHref, string label, bool active, int? count, string? icon)[] {
+                ("overview", "Overview", activeTab == "overview", null, iconOverview),
+                ("operations", "Operations", activeTab == "operations", Model.Operations.Count > 0 ? Model.Operations.Count : (int?)null, iconOperations),
+                ("parts", "Parts", activeTab == "parts", Model.Parts.Count > 0 ? Model.Parts.Count : (int?)null, iconParts),
+                ("labor", "Labor", activeTab == "labor", null, iconClock),
+                ("closeout", "Closeout", activeTab == "closeout", null, iconCloseout),
+                ("history", "History", activeTab == "history", Model.Attachments.Count > 0 ? Model.Attachments.Count : (int?)null, iconClock)
+            }}
+        })
+
+        <!-- Overview Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "overview" ? "active" : "")" id="panel-overview" role="tabpanel" aria-labelledby="wo-details-tabs-overview" @(activeTab != "overview" ? Html.Raw("hidden") : null)>
+            <div class="pe-card">
+                <div class="pe-card__header">
+                    <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Event Details</h3>
+                    <span class="badge @(Model.Event.Status == MaintenanceStatus.Completed ? "badge-success" : Model.Event.Status == MaintenanceStatus.InProgress ? "badge-warning" : isOverdue ? "badge-danger" : Model.Event.Status == MaintenanceStatus.Cancelled ? "badge-secondary" : "badge-neutral")">
+                        @(isOverdue ? "Overdue" : Model.Event.Status.ToString())
+                    </span>
+                </div>
+                <div class="pe-card__body">
+                    <div class="wo-detail-grid">
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Asset</span>
+                            <span class="wo-detail-value">
+                                <a href="/Assets/Asset/@Model.Event.AssetId">@Model.Event.Asset?.AssetNumber - @Model.Event.Asset?.Description</a>
+                            </span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Maintenance Type</span>
+                            <span class="wo-detail-value">@Model.Event.Type</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Priority</span>
+                            <span class="wo-detail-value">
+                                <span class="badge @(Model.Event.Priority == MaintenancePriority.Critical ? "badge-danger" : Model.Event.Priority == MaintenancePriority.High ? "badge-warning" : "badge-neutral")">
+                                    @Model.Event.Priority
+                                </span>
+                            </span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Scheduled Date</span>
+                            <span class="wo-detail-value @(isOverdue ? "text-danger" : "")">@Model.Event.ScheduledDate.ToString("MMM dd, yyyy")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Completed Date</span>
+                            <span class="wo-detail-value">@(Model.Event.CompletedDate?.ToString("MMM dd, yyyy") ?? "-")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Work Order #</span>
+                            <span class="wo-detail-value">@(Model.Event.WorkOrderNumber ?? "-")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Vendor</span>
+                            <span class="wo-detail-value">@(Model.Event.Vendor ?? "-")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Technician</span>
+                            <span class="wo-detail-value">@(Model.Event.Technician?.Name ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="wo-detail-description">
+                        <span class="wo-detail-label">Description</span>
+                        <p>@Model.Event.Description</p>
+                    </div>
+                    @if (!string.IsNullOrEmpty(Model.Event.Notes))
+                    {
+                        <div class="wo-detail-description">
+                            <span class="wo-detail-label">Notes</span>
+                            <p>@Model.Event.Notes</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Operations Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "operations" ? "active" : "")" id="panel-operations" role="tabpanel" aria-labelledby="wo-details-tabs-operations" @(activeTab != "operations" ? Html.Raw("hidden") : null)>
+            <div class="card pe-card">
+                <div class="card-header pe-card__header">
+                    <h3 class="card-title">Operations (@Model.Operations.Count)</h3>
+                </div>
+                <div class="card-body pe-card__body">
+                    @if (Model.Operations.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="data-table premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Op #</th>
+                                        <th>Type</th>
+                                        <th>Title</th>
+                                        <th>Technician</th>
+                                        <th>Planned Hrs</th>
+                                        <th>Actual Hrs</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var op in Model.Operations)
+                                    {
+                                        <tr>
+                                            <td>@op.OperationNumber</td>
+                                            <td>@op.Type</td>
+                                            <td>@op.Title</td>
+                                            <td>@(op.AssignedTechnician?.Name ?? "Unassigned")</td>
+                                            <td>@op.PlannedHours.ToString("0.0")</td>
+                                            <td>@op.ActualHours.ToString("0.0")</td>
+                                            <td>
+                                                <span class="badge @(op.Status == OperationStatus.Completed ? "badge-success" : op.Status == OperationStatus.InProgress ? "badge-warning" : "badge-neutral")">
+                                                    @op.Status
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#128203;</div>
+                            <h4 class="pe-empty__title">No Operations Yet</h4>
+                            <p class="pe-empty__text">
+                                @if (Model.Origin.Origin == WorkOrderOrigin.PMSchedule)
+                                {
+                                    @:This scheduled work order has no operations defined. Operations can be added from the PM template or manually.
+                                }
+                                else
+                                {
+                                    @:No operations have been added to this work order. Add operations to break down the work into trackable steps.
+                                }
+                            </p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Parts Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "parts" ? "active" : "")" id="panel-parts" role="tabpanel" aria-labelledby="wo-details-tabs-parts" @(activeTab != "parts" ? Html.Raw("hidden") : null)>
+            <div class="card pe-card">
+                <div class="card-header pe-card__header">
+                    <h3 class="card-title">Parts / Materials (@Model.Parts.Count)</h3>
+                </div>
+                <div class="card-body pe-card__body">
+                    @if (Model.Parts.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="data-table premium-table">
+                                <thead>
+                                    <tr>
+                                        <th>Part Number</th>
+                                        <th>Description</th>
+                                        <th class="text-right">Qty Used</th>
+                                        <th class="text-right">Unit Cost</th>
+                                        <th class="text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var part in Model.Parts)
+                                    {
+                                        <tr>
+                                            <td class="font-medium">@(part.Item?.PartNumber ?? $"Item #{part.ItemId}")</td>
+                                            <td>@(part.Item?.Description ?? "-")</td>
+                                            <td class="text-right">@part.QuantityUsed</td>
+                                            <td class="text-right">@part.UnitCost.ToString("C2")</td>
+                                            <td class="text-right font-semibold">@((part.QuantityUsed * part.UnitCost).ToString("C2"))</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#128230;</div>
+                            <h4 class="pe-empty__title">No Parts Recorded</h4>
+                            <p class="pe-empty__text">Parts and materials used for this work order will appear here once recorded.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Labor Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "labor" ? "active" : "")" id="panel-labor" role="tabpanel" aria-labelledby="wo-details-tabs-labor" @(activeTab != "labor" ? Html.Raw("hidden") : null)>
+            <div class="card pe-card">
+                <div class="card-header pe-card__header">
+                    <h3 class="card-title">Labor / Time</h3>
+                </div>
+                <div class="card-body pe-card__body">
+                    @if (Model.Event.LaborHours.HasValue && Model.Event.LaborHours > 0)
+                    {
+                        <div class="wo-detail-grid">
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Labor Hours</span>
+                                <span class="wo-detail-value">@Model.Event.LaborHours?.ToString("0.0") hrs</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Overtime Hours</span>
+                                <span class="wo-detail-value">@(Model.Event.OvertimeHours?.ToString("0.0") ?? "0") hrs</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Downtime</span>
+                                <span class="wo-detail-value">@(Model.Event.DowntimeHours?.ToString("0.0") ?? "0") hrs</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Labor Cost</span>
+                                <span class="wo-detail-value">@((Model.Event.LaborCost ?? 0).ToString("C2"))</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#9200;</div>
+                            <h4 class="pe-empty__title">No Labor Recorded</h4>
+                            <p class="pe-empty__text">Labor time and costs will appear here once the work order is completed.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Closeout Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "closeout" ? "active" : "")" id="panel-closeout" role="tabpanel" aria-labelledby="wo-details-tabs-closeout" @(activeTab != "closeout" ? Html.Raw("hidden") : null)>
+            <div class="card pe-card">
+                <div class="card-header pe-card__header">
+                    <h3 class="card-title">Closeout Summary</h3>
+                </div>
+                <div class="card-body pe-card__body">
+                    @if (Model.Event.Status == MaintenanceStatus.Completed && !string.IsNullOrEmpty(Model.Event.Resolution))
+                    {
+                        <div class="wo-closeout-summary">
+                            <h4>Resolution</h4>
+                            <p>@Model.Event.Resolution</p>
+                        </div>
+                        <div class="wo-detail-grid">
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Completed Date</span>
+                                <span class="wo-detail-value">@(Model.Event.CompletedDate?.ToString("MMM dd, yyyy") ?? "-")</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Completed By</span>
+                                <span class="wo-detail-value">@(Model.Event.CompletedBy ?? "-")</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Final Cost</span>
+                                <span class="wo-detail-value">@totalActual.ToString("C2")</span>
+                            </div>
+                            <div class="wo-detail-item">
+                                <span class="wo-detail-label">Variance</span>
+                                @{
+                                    var variance = totalActual - Model.Event.EstimatedCost;
+                                }
+                                <span class="wo-detail-value @(variance > 0 ? "text-danger" : variance < 0 ? "text-success" : "")">
+                                    @(variance >= 0 ? "+" : "")@variance.ToString("C2")
+                                </span>
+                            </div>
+                        </div>
+                    }
+                    else if (Model.Event.Status == MaintenanceStatus.Cancelled)
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#10060;</div>
+                            <h4 class="pe-empty__title">Work Order Cancelled</h4>
+                            <p class="pe-empty__text">This work order was cancelled and does not have a closeout summary.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#9989;</div>
+                            <h4 class="pe-empty__title">Pending Closeout</h4>
+                            <p class="pe-empty__text">Complete the work order to record resolution details and final costs.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- History Tab -->
+        <div class="wo-tab-panel tab-panel @(activeTab == "history" ? "active" : "")" id="panel-history" role="tabpanel" aria-labelledby="wo-details-tabs-history" @(activeTab != "history" ? Html.Raw("hidden") : null)>
+            <div class="card pe-card">
+                <div class="card-header pe-card__header">
+                    <h3 class="card-title">Attachments (@Model.Attachments.Count)</h3>
+                    <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('inlineUploadForm').toggleAttribute('hidden')">Upload File</button>
+                </div>
+                <div class="card-body pe-card__body">
+                    <div id="inlineUploadForm" class="pe-card" hidden style="margin-bottom: 1rem; border: 1px solid var(--border-primary);">
+                        <div class="pe-card__header">
+                            <h4 class="pe-card__title">Upload Attachment</h4>
+                            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineUploadForm').setAttribute('hidden','')">Cancel</button>
+                        </div>
+                        <div class="pe-card__body">
+                            <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Event.Id" enctype="multipart/form-data">
+                                <div class="form-grid form-grid--2">
+                                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                                        <label class="form-label-p">File <span class="required">*</span></label>
+                                        <input type="file" name="file" class="form-input-p" required />
+                                    </div>
+                                    <div class="form-group-p">
+                                        <label class="form-label-p">Category</label>
+                                        <select name="category" class="form-input-p" asp-items="Model.AttachmentCategoryOptions"></select>
+                                    </div>
+                                    <div class="form-group-p">
+                                        <label class="form-label-p">Description (optional)</label>
+                                        <input type="text" name="description" class="form-input-p" placeholder="Brief description..." />
+                                    </div>
+                                </div>
+                                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                                    <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('inlineUploadForm').setAttribute('hidden','')">Cancel</button>
+                                    <button type="submit" class="btn-p btn-p--primary btn-p--sm">Upload</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    @if (Model.Attachments.Any())
+                    {
+                        <div class="wo-attachment-grid">
+                            @foreach (var att in Model.Attachments)
+                            {
+                                <div class="wo-attachment-item">
+                                    @if (att.ContentType.StartsWith("image/"))
+                                    {
+                                        <a href="@att.FilePath" target="_blank" class="wo-attachment-preview">
+                                            <img src="@att.FilePath" alt="@att.FileName" />
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a href="@att.FilePath" target="_blank" class="wo-attachment-icon">
+                                            <i class="fa @(att.ContentType.Contains("pdf") ? "fa-file-pdf" : att.ContentType.Contains("word") ? "fa-file-word" : att.ContentType.Contains("excel") ? "fa-file-excel" : "fa-file")"></i>
+                                        </a>
+                                    }
+                                    <div class="wo-attachment-info">
+                                        <a href="@att.FilePath" target="_blank" class="wo-attachment-name">@att.FileName</a>
+                                        <span class="wo-attachment-meta">@att.Category - @att.UploadedAt.ToString("MMM dd, yyyy")</span>
+                                    </div>
+                                    <form method="post" asp-page-handler="DeleteAttachment" asp-route-id="@Model.Event.Id" class="wo-attachment-delete">
+                                        <input type="hidden" name="attachmentId" value="@att.Id" />
+                                        <button type="submit" class="wo-btn-icon" title="Delete" onclick="return confirm('Delete this attachment?')">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pe-empty">
+                            <div class="pe-empty__icon">&#128206;</div>
+                            <h4 class="pe-empty__title">No Attachments</h4>
+                            <p class="pe-empty__text">Upload receipts, work orders, photos, or other documents related to this work order.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="wo-cockpit-sidebar">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Cost Breakdown</h3>
+            </div>
+            <div class="card-body">
+                <div class="wo-budget-stat">
+                    <span class="wo-budget-label">Estimated</span>
+                    <span class="wo-budget-value">@Model.Event.EstimatedCost.ToString("C2")</span>
+                </div>
+                <div class="wo-budget-divider"></div>
+                <div class="wo-budget-stat">
+                    <span class="wo-budget-label">Labor</span>
+                    <span class="wo-budget-value">@((Model.Event.LaborCost ?? 0).ToString("C2"))</span>
+                </div>
+                <div class="wo-budget-stat">
+                    <span class="wo-budget-label">Materials</span>
+                    <span class="wo-budget-value">@((Model.Event.MaterialsCost ?? 0).ToString("C2"))</span>
+                </div>
+                <div class="wo-budget-stat">
+                    <span class="wo-budget-label">Parts</span>
+                    <span class="wo-budget-value">@((Model.Event.PartsCost ?? 0).ToString("C2"))</span>
+                </div>
+                <div class="wo-budget-stat">
+                    <span class="wo-budget-label">Outside Vendor</span>
+                    <span class="wo-budget-value">@((Model.Event.OutsideVendorCost ?? 0).ToString("C2"))</span>
+                </div>
+                <div class="wo-budget-divider"></div>
+                <div class="wo-budget-stat wo-budget-total">
+                    <span class="wo-budget-label">Total Actual</span>
+                    <span class="wo-budget-value">@totalActual.ToString("C2")</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dispatch Card -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Dispatch</h3>
+            </div>
+            <div class="card-body">
+                @if (Model.Event.Status == MaintenanceStatus.Completed || Model.Event.Status == MaintenanceStatus.Cancelled)
+                {
+                    <div class="wo-actions-info">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        Dispatch locked
+                    </div>
+                    <div class="wo-detail-grid wo-dispatch-locked-grid">
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Technician</span>
+                            <span class="wo-detail-value">@(Model.Technicians.FirstOrDefault(t => t.Id == Model.Event.TechnicianId)?.Name ?? "Unassigned")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Scheduled</span>
+                            <span class="wo-detail-value">@Model.Event.ScheduledDate.ToString("MMM d, yyyy")</span>
+                        </div>
+                        <div class="wo-detail-item">
+                            <span class="wo-detail-label">Priority</span>
+                            <span class="wo-detail-value">@Model.Event.Priority</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <form method="post" asp-page-handler="DispatchUpdate" asp-route-id="@Model.Event.Id">
+                        <input type="hidden" name="tab" value="@activeTab" />
+                        <div class="form-group">
+                            <label>Technician</label>
+                            <select name="technicianId" class="form-control">
+                                <option value="">Unassigned</option>
+                                @foreach (var tech in Model.Technicians)
+                                {
+                                    <option value="@tech.Id" selected="@(Model.Event.TechnicianId == tech.Id)">@tech.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Scheduled Date</label>
+                            <input type="date" name="scheduledDate" class="form-control" value="@Model.Event.ScheduledDate.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="form-group">
+                            <label>Priority</label>
+                            <select name="priorityLookupValueId" class="form-control" asp-items="Model.PriorityOptions"></select>
+                        </div>
+                        <button type="submit" class="btn-p btn-p--primary">Save Dispatch</button>
+                        <p class="text-muted wo-dispatch-helper">Updates technician, priority, and schedule only.</p>
+                    </form>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Actions</h3>
+            </div>
+            <div class="card-body">
+                <div class="wo-actions-stack">
+                    @if (Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled)
+                    {
+                        <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineEditForm').toggleAttribute('hidden')">Edit Event</button>
+                    }
+                    @if (Model.Event.Status == MaintenanceStatus.Scheduled)
+                    {
+                        <form method="post" asp-page-handler="Start" asp-route-id="@Model.Event.Id">
+                            <button type="submit" class="btn-p btn-p--primary">Start Work</button>
+                        </form>
+                        <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Event.Id">
+                            <button type="submit" class="btn-p btn-p--secondary">Cancel Event</button>
+                        </form>
+                    }
+                    @if (Model.Event.Status == MaintenanceStatus.InProgress)
+                    {
+                        <button type="button" class="btn-p btn-p--primary" onclick="document.getElementById('inlineCompleteForm').toggleAttribute('hidden')">Mark Complete</button>
+                    }
+                    @if (Model.Event.Status == MaintenanceStatus.Completed)
+                    {
+                        <div class="wo-actions-info">This event has been completed.</div>
+                        @if (Model.Event.AssetId > 0 && !Model.IsCapitalized)
+                        {
+                            <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineCapitalizeForm').toggleAttribute('hidden')">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="mr-1">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Capitalize to Asset
+                            </button>
+                        }
+                        @if (Model.IsCapitalized)
+                        {
+                            <div class="wo-actions-info success">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Capitalized as Asset Improvement
+                            </div>
+                        }
+                    }
+                    @if (Model.Event.Status == MaintenanceStatus.Cancelled)
+                    {
+                        <div class="wo-actions-info">This event was cancelled.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Inline Edit Form (replaces editModal) -->
+@if (Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled)
+{
+    <div id="inlineEditForm" class="pe-card" hidden style="margin-top: 1rem;">
+        <div class="pe-card__header">
+            <h3 class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Edit Work Order</h3>
+            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineEditForm').setAttribute('hidden','')">Cancel</button>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="Edit" asp-route-id="@Model.Event.Id">
+                <div class="form-grid form-grid--2">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Maintenance Type</label>
+                        <select name="maintenanceTypeLookupValueId" class="form-input-p" asp-items="Model.MaintenanceTypeOptions"></select>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Priority</label>
+                        <select name="priorityLookupValueId" class="form-input-p" asp-items="Model.PriorityOptions"></select>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Scheduled Date</label>
+                        <input type="date" name="scheduledDate" class="form-input-p" value="@Model.Event.ScheduledDate.ToString("yyyy-MM-dd")" required />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Estimated Cost</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="estimatedCost" class="form-input-p" step="0.01" min="0" value="@Model.Event.EstimatedCost" />
+                        </div>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Work Order #</label>
+                        <input type="text" name="workOrderNumber" class="form-input-p" value="@Model.Event.WorkOrderNumber" placeholder="WO-XXXX" />
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Vendor</label>
+                        <input type="text" name="vendor" class="form-input-p" value="@Model.Event.Vendor" placeholder="Vendor name..." />
+                    </div>
+                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                        <label class="form-label-p">Technician</label>
+                        <select name="technicianId" class="form-input-p" data-cherry-select data-placeholder="Select technician...">
+                            <option value="">-- Select Technician --</option>
+                            @foreach (var tech in Model.Technicians)
+                            {
+                                if (Model.Event.TechnicianId == tech.Id)
+                                {
+                                    <option value="@tech.Id" selected>@tech.Name (@tech.Specialty)</option>
+                                }
+                                else
+                                {
+                                    <option value="@tech.Id">@tech.Name (@tech.Specialty)</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                        <label class="form-label-p">Description</label>
+                        <textarea name="description" class="form-input-p" rows="2" placeholder="Describe the maintenance work...">@Model.Event.Description</textarea>
+                    </div>
+                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                        <label class="form-label-p">Notes</label>
+                        <textarea name="notes" class="form-input-p" rows="2" placeholder="Additional notes...">@Model.Event.Notes</textarea>
+                    </div>
+                </div>
+                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                    <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineEditForm').setAttribute('hidden','')">Cancel</button>
+                    <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- Inline Complete Form (replaces completeModal) -->
+@if (Model.Event.Status == MaintenanceStatus.InProgress)
+{
+    <div id="inlineCompleteForm" class="pe-card" hidden style="margin-top: 1rem;">
+        <div class="pe-card__header">
+            <h3 class="pe-card__title"><span class="accent-dot accent-dot--green"></span> Complete Work Order</h3>
+            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineCompleteForm').setAttribute('hidden','')">Cancel</button>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="Complete" asp-route-id="@Model.Event.Id">
+                <div class="form-grid form-grid--full">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Resolution / Work Performed</label>
+                        <textarea name="resolution" class="form-input-p" rows="3" placeholder="Describe the work completed..."></textarea>
+                    </div>
+                </div>
+                <div class="form-grid form-grid--2" style="margin-top: 1rem;">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Labor Cost</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="laborCost" class="form-input-p" step="0.01" min="0" placeholder="0.00" />
+                        </div>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Materials Cost</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="materialsCost" class="form-input-p" step="0.01" min="0" placeholder="0.00" />
+                        </div>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Parts Cost</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="partsCost" class="form-input-p" step="0.01" min="0" placeholder="0.00" />
+                        </div>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Outside Vendor Cost</label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            <input type="number" name="outsideVendorCost" class="form-input-p" step="0.01" min="0" placeholder="0.00" />
+                        </div>
+                    </div>
+                </div>
+                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                    <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineCompleteForm').setAttribute('hidden','')">Cancel</button>
+                    <button type="submit" class="btn-p btn-p--success">Complete Event</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}
+
+<!-- Inline Capitalize Form (replaces capitalizeModal) -->
+@if (Model.Event.Status == MaintenanceStatus.Completed && Model.Event.AssetId > 0 && !Model.IsCapitalized)
+{
+    <div id="inlineCapitalizeForm" class="pe-card" hidden style="margin-top: 1rem;">
+        <div class="pe-card__header">
+            <h3 class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Capitalize to Asset</h3>
+            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineCapitalizeForm').setAttribute('hidden','')">Cancel</button>
+        </div>
+        <div class="pe-card__body">
+            <form method="post" asp-page-handler="Capitalize" asp-route-id="@Model.Event.Id">
+                <div class="pe-alert pe-alert--info" style="margin-bottom: 1rem;">
+                    <strong>Asset:</strong> @Model.Event.Asset?.AssetNumber - @Model.Event.Asset?.Description
+                </div>
+                <div class="form-grid form-grid--full">
+                    <div class="form-group-p">
+                        <label class="form-label-p">Amount to Capitalize <span class="required">*</span></label>
+                        <div class="input-group-currency">
+                            <span class="currency-prefix">$</span>
+                            @{
+                                var suggestedAmount = (Model.Event.LaborCost ?? 0) + (Model.Event.MaterialsCost ?? 0) + (Model.Event.PartsCost ?? 0) + (Model.Event.OutsideVendorCost ?? 0);
+                            }
+                            <input type="number" name="amount" class="form-input-p" step="0.01" min="0.01" required
+                                   value="@suggestedAmount.ToString("F2")" placeholder="0.00" />
+                        </div>
+                        <small class="text-muted">Suggested: Actual cost from work order</small>
+                    </div>
+                    <div class="form-group-p">
+                        <label class="form-label-p">Description</label>
+                        <input type="text" name="description" class="form-input-p"
+                               value="@($"WO {Model.Event.WorkOrderNumber}: {Model.Event.Description}")"
+                               placeholder="Brief description of improvement..." />
+                    </div>
+                </div>
+                <div class="pe-alert pe-alert--warning" style="margin-top: 1rem;">
+                    <strong>What happens when you capitalize:</strong>
+                    A Capital Improvement record is created, the asset's cost basis is increased, and this work order is linked to the improvement.
+                </div>
+                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                    <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineCapitalizeForm').setAttribute('hidden','')">Cancel</button>
+                    <button type="submit" class="btn-p btn-p--primary" style="background: var(--warning); color: #fff;">Capitalize to Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

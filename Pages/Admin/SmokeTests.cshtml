@@ -1,0 +1,397 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.SmokeTestsModel
+@{
+    ViewData["Title"] = "Smoke Tests";
+    ViewData["TabTitle"] = "Smoke Tests";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    
+    var statusText = Model.IsDevelopment ? "LAB Environment" : "Protected";
+    var statusTone = Model.IsDevelopment ? "info" : "warning";
+    
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Smoke Tests",
+        ["Subtitle"] = "Automated integration tests with transaction rollback",
+        ["TypeLabel"] = "Administration",
+        ["StatusText"] = statusText,
+        ["StatusTone"] = statusTone,
+        ["KpisPartial"] = "/Pages/Admin/_AdminSmokeTestsKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/Admin/_AdminSmokeTestsActions.cshtml"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.DeprecationMessage))
+{
+    <div class="alert alert-info" style="margin-bottom: 24px;">
+        <strong>Notice:</strong> @Model.DeprecationMessage
+    </div>
+}
+
+@if (!Model.CanRunTests)
+{
+    <div class="alert alert-warning" style="margin-bottom: 24px;">
+        <strong>Tests Blocked:</strong> @Model.BlockedReason
+    </div>
+}
+
+<div id="progressSection" class="section-card" style="margin-bottom: 24px; display: none;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg class="spinner spinner-animate" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--primary)">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Running Tests...
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <div style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span id="currentTestLabel" style="color: var(--text-muted); font-size: 13px;">Initializing...</span>
+                <span id="progressCount" style="color: var(--text-muted); font-size: 13px;">0 / @Model.TotalTestCount</span>
+            </div>
+            <div style="height: 8px; background: var(--bg-muted); border-radius: 4px; overflow: hidden;">
+                <div id="progressBar" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="resultsSection" style="display: none;">
+    <div class="section-card" style="margin-bottom: 24px;">
+        <div class="section-card-header">
+            <h3 class="section-card-title" id="resultsSummaryTitle">
+                Test Results
+            </h3>
+        </div>
+        <div class="section-card-body" style="padding: 0;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Status</th>
+                        <th>Test Name</th>
+                        <th style="width: 80px; text-align: right;">Time</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="section-card" id="rollbackSection">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Rollback Verification
+                <span id="rollbackBadge" class="badge" style="margin-left: 8px;"></span>
+            </h3>
+        </div>
+        <div class="section-card-body">
+            <p id="rollbackDetails" style="margin-bottom: 16px; color: var(--text-muted); font-size: 13px;"></p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Before Test</h4>
+                    <div id="beforeCounts"></div>
+                </div>
+                <div>
+                    <h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">After Test</h4>
+                    <div id="afterCounts"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="readySection" class="section-card" style="@(Model.CanRunTests ? "" : "display: none;")">
+    <div class="section-card-body" style="text-align: center; padding: 48px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" style="margin-bottom: 16px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <h3 style="margin-bottom: 8px;">Ready to Run Tests</h3>
+        <p style="color: var(--text-muted);">Click "Run Tests" to execute the smoke test suite. All changes are rolled back automatically.</p>
+    </div>
+</div>
+
+<div id="errorSection" class="alert alert-danger" style="margin-bottom: 24px; display: none;">
+    <strong>Error:</strong> <span id="errorMessage"></span>
+</div>
+
+<script>
+(function() {
+    const runBtn = document.getElementById('runTestsBtn');
+    const cancelBtn = document.getElementById('cancelTestsBtn');
+    const progressSection = document.getElementById('progressSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const readySection = document.getElementById('readySection');
+    const errorSection = document.getElementById('errorSection');
+    const heroKpis = document.getElementById('heroKpis');
+
+    let currentRunId = null;
+    let pollInterval = null;
+
+    if (runBtn) {
+        runBtn.addEventListener('click', startRun);
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', cancelRun);
+    }
+
+    async function startRun() {
+        runBtn.disabled = true;
+        runBtn.innerHTML = '<svg class="spinner spinner-animate" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Starting...';
+
+        try {
+            const response = await fetch('/Admin/SmokeTests?handler=StartRun', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': getAntiForgeryToken()
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                currentRunId = data.runId;
+                showProgress();
+                startPolling();
+            } else {
+                showError(data.error || 'Failed to start test run');
+                resetRunButton();
+            }
+        } catch (err) {
+            showError('Failed to start test run: ' + err.message);
+            resetRunButton();
+        }
+    }
+
+    async function cancelRun() {
+        if (!currentRunId) return;
+
+        try {
+            await fetch('/Admin/SmokeTests?handler=CancelRun&runId=' + currentRunId, {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': getAntiForgeryToken()
+                }
+            });
+        } catch (err) {
+            console.error('Failed to cancel run:', err);
+        }
+    }
+
+    function showProgress() {
+        readySection.style.display = 'none';
+        resultsSection.style.display = 'none';
+        errorSection.style.display = 'none';
+        progressSection.style.display = 'block';
+        heroKpis.style.display = 'none';
+        runBtn.style.display = 'none';
+        cancelBtn.style.display = 'inline-flex';
+    }
+
+    function showResults() {
+        progressSection.style.display = 'none';
+        resultsSection.style.display = 'block';
+        readySection.style.display = 'none';
+        heroKpis.style.display = 'flex';
+        cancelBtn.style.display = 'none';
+        runBtn.style.display = 'inline-flex';
+        resetRunButton();
+    }
+
+    function showError(message) {
+        progressSection.style.display = 'none';
+        errorSection.style.display = 'block';
+        document.getElementById('errorMessage').textContent = message;
+        cancelBtn.style.display = 'none';
+        runBtn.style.display = 'inline-flex';
+        resetRunButton();
+    }
+
+    function resetRunButton() {
+        runBtn.disabled = false;
+        runBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> Run Tests';
+    }
+
+    function startPolling() {
+        pollInterval = setInterval(pollStatus, 1000);
+    }
+
+    function stopPolling() {
+        if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+        }
+    }
+
+    async function pollStatus() {
+        if (!currentRunId) {
+            stopPolling();
+            return;
+        }
+
+        try {
+            const response = await fetch('/Admin/SmokeTests?handler=Status&runId=' + currentRunId);
+            const data = await response.json();
+
+            if (data.error) {
+                stopPolling();
+                showError(data.error);
+                return;
+            }
+
+            updateProgress(data);
+
+            if (data.status === 'Completed' || data.status === 'Failed' || data.status === 'Cancelled') {
+                stopPolling();
+
+                if (data.status === 'Completed' && data.hasResults) {
+                    await fetchResults();
+                } else if (data.status === 'Failed') {
+                    showError(data.errorMessage || 'Test run failed');
+                } else if (data.status === 'Cancelled') {
+                    showError('Test run was cancelled');
+                }
+            }
+        } catch (err) {
+            console.error('Poll error:', err);
+        }
+    }
+
+    function updateProgress(data) {
+        const currentTestLabel = document.getElementById('currentTestLabel');
+        const progressCount = document.getElementById('progressCount');
+        const progressBar = document.getElementById('progressBar');
+
+        if (data.currentTestName) {
+            currentTestLabel.textContent = data.currentTestName;
+        }
+
+        progressCount.textContent = data.completedCount + ' / ' + data.totalCount;
+
+        if (data.totalCount > 0) {
+            const pct = (data.completedCount / data.totalCount) * 100;
+            progressBar.style.width = pct + '%';
+        }
+    }
+
+    async function fetchResults() {
+        try {
+            const response = await fetch('/Admin/SmokeTests?handler=Results&runId=' + currentRunId);
+            const data = await response.json();
+
+            if (data.error) {
+                showError(data.error);
+                return;
+            }
+
+            renderResults(data);
+            showResults();
+        } catch (err) {
+            showError('Failed to fetch results: ' + err.message);
+        }
+    }
+
+    function renderResults(data) {
+        document.getElementById('kpiPassed').textContent = data.passedTests;
+        document.getElementById('kpiFailed').textContent = data.failedTests;
+        document.getElementById('kpiFailed').style.color = data.failedTests > 0 ? 'var(--danger)' : 'var(--text-muted)';
+        document.getElementById('kpiDuration').innerHTML = data.totalDurationMs + '<span style="font-size: 0.6em;">ms</span>';
+
+        const titleEl = document.getElementById('resultsSummaryTitle');
+        if (data.allPassed) {
+            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--success)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span style="color: var(--success);">All Tests Passed</span>';
+        } else {
+            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--danger)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span style="color: var(--danger);">' + data.failedTests + ' Test(s) Failed</span>';
+        }
+
+        const tbody = document.getElementById('resultsTableBody');
+        tbody.innerHTML = '';
+
+        data.results.forEach(function(test) {
+            const tr = document.createElement('tr');
+            if (!test.passed) {
+                tr.style.background = 'var(--danger-light)';
+            }
+
+            const statusTd = document.createElement('td');
+            statusTd.innerHTML = test.passed
+                ? '<span class="badge badge-success">PASS</span>'
+                : '<span class="badge badge-danger">FAIL</span>';
+            tr.appendChild(statusTd);
+
+            const nameTd = document.createElement('td');
+            const details = document.createElement('details');
+            const summary = document.createElement('summary');
+            summary.style.cursor = 'pointer';
+            summary.textContent = test.testName;
+            if (test.error) {
+                const errorSpan = document.createElement('span');
+                errorSpan.style.color = 'var(--danger)';
+                errorSpan.style.marginLeft = '8px';
+                errorSpan.textContent = test.error;
+                summary.appendChild(errorSpan);
+            }
+            details.appendChild(summary);
+
+            const pre = document.createElement('pre');
+            pre.style.cssText = 'margin-top: 8px; padding: 12px; background: var(--bg-muted); border-radius: 6px; font-size: 11px; white-space: pre-wrap; color: var(--text-muted);';
+            pre.textContent = test.details || '(no details)';
+            details.appendChild(pre);
+            nameTd.appendChild(details);
+            tr.appendChild(nameTd);
+
+            const timeTd = document.createElement('td');
+            timeTd.style.textAlign = 'right';
+            timeTd.style.color = 'var(--text-muted)';
+            timeTd.textContent = test.durationMs + ' ms';
+            tr.appendChild(timeTd);
+
+            tbody.appendChild(tr);
+        });
+
+        const rollbackBadge = document.getElementById('rollbackBadge');
+        const rollbackDetails = document.getElementById('rollbackDetails');
+        if (data.rollbackVerified) {
+            rollbackBadge.className = 'badge badge-success';
+            rollbackBadge.textContent = 'Verified';
+        } else {
+            rollbackBadge.className = 'badge badge-danger';
+            rollbackBadge.textContent = 'Failed';
+        }
+        rollbackDetails.textContent = data.rollbackDetails || '';
+
+        const beforeCountsEl = document.getElementById('beforeCounts');
+        const afterCountsEl = document.getElementById('afterCounts');
+        beforeCountsEl.innerHTML = '';
+        afterCountsEl.innerHTML = '';
+
+        for (const key in data.beforeCounts) {
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-light); font-size: 13px;';
+            div.innerHTML = '<span>' + key + '</span><span style="font-family: monospace;">' + data.beforeCounts[key] + '</span>';
+            beforeCountsEl.appendChild(div);
+        }
+
+        for (const key in data.afterCounts) {
+            const changed = data.beforeCounts[key] !== data.afterCounts[key];
+            const div = document.createElement('div');
+            div.style.cssText = 'display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-light); font-size: 13px;' + (changed ? ' color: var(--danger);' : '');
+            div.innerHTML = '<span>' + key + '</span><span style="font-family: monospace;">' + data.afterCounts[key] + '</span>';
+            afterCountsEl.appendChild(div);
+        }
+    }
+
+    function getAntiForgeryToken() {
+        const input = document.querySelector('input[name="__RequestVerificationToken"]');
+        return input ? input.value : '';
+    }
+})();
+</script>
+
+@Html.AntiForgeryToken()

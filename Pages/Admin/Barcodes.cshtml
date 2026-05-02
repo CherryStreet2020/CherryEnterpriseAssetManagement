@@ -1,0 +1,177 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.BarcodesModel
+@{
+    ViewData["Title"] = "Barcode Labels";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Barcode Labels" },
+        { "Subtitle", "Generate and print barcode labels for inventory items" },
+        { "StatusText", $"{Model.ItemsWithBarcodes} Labeled" },
+        { "StatusTone", "active" },
+        { "ContextPartial", "Admin/_AdminBarcodesContext" },
+        { "KpisPartial", "Admin/_AdminBarcodesKpis" },
+        { "ActionsPartial", "Admin/_AdminBarcodesActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Items Ready for Labeling
+        </h3>
+        <span class="status-badge info">@Model.Items.Count ITEMS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.Items.Any())
+        {
+            <table class="data-table" id="itemsTable">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" /></th>
+                        <th>Part Number</th>
+                        <th>Description</th>
+                        <th>Barcode</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.Items)
+                    {
+                        <tr>
+                            <td><input type="checkbox" class="item-select" value="@item.Id" /></td>
+                            <td><strong>@item.PartNumber</strong></td>
+                            <td>@item.Description</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(item.Barcode))
+                                {
+                                    <code>@item.Barcode</code>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Not assigned</span>
+                                }
+                            </td>
+                            <td>@item.BarcodeType</td>
+                            <td>
+                                <button class="btn-p btn-p--secondary btn-p--sm" onclick="printLabel(@item.Id)">Print</button>
+                                <button class="btn-p btn-p--secondary btn-p--sm" onclick="generateBarcode(@item.Id)">Generate</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-barcode pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">
+                    <h3>No Items Found</h3>
+                    <p>Add items to the Item Master first to generate barcode labels.</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div id="barcodePreviewArea" style="display: none; margin: 16px 0; padding: 16px; border-radius: 8px; background: var(--lux-card-bg, #fff);"></div>
+
+<div class="inline-form-panel" id="generateForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3 class="inline-form-title">Generate Barcode Labels</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('generateForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="Generate">
+            <div class="inline-form-body">
+                <div class="form-group">
+                    <label class="form-label">Barcode Type</label>
+                    <select name="BarcodeType" class="form-control" asp-items="Model.BarcodeFormatOptions">
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Label Size</label>
+                    <select name="LabelSize" class="form-control" asp-items="Model.BarcodeSizeOptions">
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-check">
+                        <input type="checkbox" name="IncludeDescription" checked />
+                        Include description on label
+                    </label>
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('generateForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Generate Labels</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="inline-form-panel" id="batchPrintForm" style="display: none;">
+    <div class="inline-form-panel-content">
+        <div class="inline-form-header">
+            <h3 class="inline-form-title">Batch Print Labels</h3>
+            <button type="button" class="inline-form-close" onclick="toggleInlineForm('batchPrintForm')">&times;</button>
+        </div>
+        <form method="post" asp-page-handler="BatchPrint">
+            <div class="inline-form-body">
+                <p>Select items from the table and configure print settings:</p>
+                <input type="hidden" name="ItemIds" id="selectedItemIds" />
+                <div class="form-group">
+                    <label class="form-label">Copies per Item</label>
+                    <input type="number" name="Copies" class="form-control" value="1" min="1" max="100" />
+                </div>
+            </div>
+            <div class="inline-form-footer">
+                <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('batchPrintForm')">Cancel</button>
+                <button type="submit" class="btn-p btn-p--primary">Print Selected</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof initEnhancedGrid === 'function') {
+            initEnhancedGrid('itemsTable');
+        }
+        
+        document.getElementById('selectAll')?.addEventListener('change', function() {
+            document.querySelectorAll('.item-select').forEach(cb => cb.checked = this.checked);
+        });
+    });
+    
+    function printLabel(id) {
+        var previewArea = document.getElementById('barcodePreviewArea');
+        previewArea.style.display = 'block';
+        previewArea.innerHTML = '<iframe src="/api/barcode/label/' + id + '" style="width: 100%; height: 300px; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px;"></iframe><button class="btn-p btn-p--secondary btn-p--sm" style="margin-top: 8px;" onclick="this.parentElement.style.display=\'none\'">Close Preview</button>';
+    }
+    
+    function generateBarcode(id) {
+        var previewArea = document.getElementById('barcodePreviewArea');
+        previewArea.style.display = 'block';
+        previewArea.innerHTML = '<p>Generating barcode...</p>';
+        fetch('/api/barcode/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId: id, format: 'Code128' })
+        }).then(r => r.blob()).then(blob => {
+            var url = URL.createObjectURL(blob);
+            previewArea.innerHTML = '<img src="' + url + '" style="max-width: 100%; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; padding: 16px;" /><br/><button class="btn-p btn-p--secondary btn-p--sm" style="margin-top: 8px;" onclick="this.parentElement.style.display=\'none\'">Close Preview</button>';
+        });
+    }
+</script>
+}

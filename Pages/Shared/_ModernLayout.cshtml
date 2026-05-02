@@ -1,0 +1,665 @@
+@* _ModernLayout.cshtml — Modern Navigation Overhaul: grouped sidebar IA, command palette, search stub *@
+@inject Abs.FixedAssets.Data.AppDbContext DbContext
+@inject Abs.FixedAssets.Services.ISeedGuardService SeedGuard
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@using System.Security.Claims
+@{
+    var appEnv = Environment.GetEnvironmentVariable("APP_ENVIRONMENT");
+    var envProfile = !string.IsNullOrEmpty(appEnv) ? appEnv.ToUpper() : SeedGuard.GetEnvironmentProfile();
+    var isDefaultedEnv = string.IsNullOrEmpty(appEnv);
+    var envBannerClass = envProfile.Contains("LAB") ? "env-banner-lab" : 
+                         envProfile.Contains("DEMO") ? "env-banner-demo" : 
+                         envProfile.Contains("PROD") ? "env-banner-prod" : "env-banner-unknown";
+    
+    var dbConnString = Configuration.GetConnectionString("DefaultConnection") 
+                       ?? Environment.GetEnvironmentVariable("DATABASE_URL") ?? "";
+    var dbHost = "";
+    var dbName = "";
+    
+    if (!string.IsNullOrEmpty(dbConnString))
+    {
+        if (dbConnString.StartsWith("postgres://") || dbConnString.StartsWith("postgresql://"))
+        {
+            try
+            {
+                var uri = new Uri(dbConnString);
+                dbHost = uri.Host;
+                dbName = uri.AbsolutePath.TrimStart('/').Split('?')[0];
+            }
+            catch { }
+        }
+        else
+        {
+            var parts = dbConnString.Split(';')
+                .Select(p => p.Split(new[] {'='}, 2))
+                .Where(p => p.Length == 2)
+                .ToDictionary(p => p[0].Trim().ToLower(), p => p[1].Trim(), StringComparer.OrdinalIgnoreCase);
+            parts.TryGetValue("host", out dbHost);
+            if (string.IsNullOrEmpty(dbHost)) parts.TryGetValue("server", out dbHost);
+            parts.TryGetValue("database", out dbName);
+            
+            if (!string.IsNullOrEmpty(dbHost))
+            {
+                if (dbHost.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) 
+                    dbHost = dbHost.Substring(4);
+                var commaIdx = dbHost.IndexOf(',');
+                if (commaIdx > 0) dbHost = dbHost.Substring(0, commaIdx);
+                var colonIdx = dbHost.LastIndexOf(':');
+                if (colonIdx > 0 && colonIdx < dbHost.Length - 1)
+                {
+                    var afterColon = dbHost.Substring(colonIdx + 1);
+                    if (int.TryParse(afterColon, out _)) dbHost = dbHost.Substring(0, colonIdx);
+                }
+            }
+        }
+    }
+    
+    if (string.IsNullOrEmpty(dbHost)) dbHost = Environment.GetEnvironmentVariable("PGHOST") ?? "";
+    if (string.IsNullOrEmpty(dbName)) dbName = Environment.GetEnvironmentVariable("PGDATABASE") ?? "";
+    
+    var maskedHost = string.IsNullOrEmpty(dbHost) ? "unknown" :
+        dbHost.Length >= 6 ? dbHost.Substring(0, 3) + "***" + dbHost.Substring(dbHost.Length - 2) :
+        dbHost.Length >= 4 ? dbHost.Substring(0, 2) + "**" + dbHost.Substring(dbHost.Length - 1) :
+        "***";
+    
+    if (string.IsNullOrEmpty(dbName)) dbName = "unknown";
+    var company = DbContext.Companies.OrderBy(c => c.Id).FirstOrDefault();
+    var enablePurchasing = company?.EnablePurchasing ?? true;
+    var enableAP = company?.EnableAccountsPayable ?? true;
+    var enableVendors = company?.EnableVendors ?? true;
+    var enableWorkOrders = company?.EnableWorkOrders ?? true;
+    var enableInventory = company?.EnableInventory ?? true;
+    
+    var currentPage = ViewContext.RouteData.Values["page"]?.ToString() ?? "";
+    
+    bool IsPage(string prefix) => currentPage.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+    bool IsExactPage(string path) => currentPage.Equals(path, StringComparison.OrdinalIgnoreCase);
+    bool IsAny(params string[] prefixes) => prefixes.Any(p => IsPage(p));
+    
+    var isAuthenticated = User.Identity?.IsAuthenticated ?? false;
+    var roleFromIsInRole = User.IsInRole("Admin");
+    var roleClaims = User.Claims.Where(c => c.Type == ClaimTypes.Role || c.Type == "role").Select(c => c.Value).ToList();
+    var roleFromClaims = roleClaims.Any(r => r.Equals("Admin", StringComparison.OrdinalIgnoreCase));
+    var isAdmin = isAuthenticated && (roleFromIsInRole || roleFromClaims);
+}
+<!DOCTYPE html>
+<html lang="en" class="@(Context.Request.Query.ContainsKey("theme") ? Context.Request.Query["theme"] == "dark" ? "dark" : "" : "")">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@(ViewData["TabTitle"] ?? ViewData["Title"] ?? "Dashboard") - ABS Machining EAM</title>
+    <script>
+        (function(){var u=new URLSearchParams(window.location.search);var t=u.get('theme')||localStorage.getItem('cherryai_theme');if(t==='dark'||(!t&&!window.matchMedia)){document.documentElement.classList.add('dark')}else if(t!=='light'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.classList.add('dark')}})();
+    </script>
+    
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/base.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modern.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/premium-components.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/sidebar-nav.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/tour.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/forms.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/dashboard.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/assets.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/finance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/reports.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/help.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/tax.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/inventory.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/maintenance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/technicians.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/cip.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/admin.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/api.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/ai.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/bulk-operations.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/purchasing.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/workorders.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/tabs.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/layout-components.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/headers.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/org-selector.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/site-selector.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/command-palette.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/asset-premium.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/utility-theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/modules/premium-enterprise.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" crossorigin="anonymous" />
+    <link rel="stylesheet" href="~/css/modules/tom-select-premium.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/cherryai-theme.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/cherryai-dark-compliance.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" />
+    <link rel="icon" type="image/png" href="/images/cherry-favicon.png" />
+    
+    <link rel="stylesheet" href="~/css/modules/premium-polish.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <div class="app-container">
+        <aside class="sidebar cherryai-sidebar" id="mainSidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand-logo-wrap" style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1;">
+                    <img src="/images/abs-logo-icon.png" alt="ABS" style="height:32px; flex-shrink:0;" />
+                    <div style="min-width:0;">
+                        <div class="sidebar-brand-text" style="font-size:1.25rem; font-weight:700; letter-spacing:0.08em;">EAM</div>
+                        <div class="sidebar-brand-module" style="font-size:0.55rem; opacity:0.5; letter-spacing:0.05em;">&copy; Powered by CherryAI</div>
+                    </div>
+                </div>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" type="button" title="Collapse sidebar" aria-label="Toggle sidebar">
+                    <svg class="collapse-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none">
+                        <path d="M11 4L6 9L11 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="org-selector-wrapper" id="orgSelectorWrapper">
+                <button class="org-selector-btn" id="orgSelectorBtn" type="button">
+                    <i class="fas fa-sitemap org-selector-icon"></i>
+                    <span class="org-selector-label" id="orgSelectorLabel">Loading...</span>
+                    <i class="fas fa-chevron-down org-selector-arrow"></i>
+                </button>
+                <div class="org-selector-dropdown" id="orgSelectorDropdown" style="display:none;">
+                    <div class="org-selector-search">
+                        <input type="text" id="orgSearchInput" placeholder="Search companies..." autocomplete="off" />
+                    </div>
+                    <div class="org-selector-list" id="orgSelectorList"></div>
+                </div>
+            </div>
+
+            <div class="site-selector-wrapper" id="siteSelectorWrapper" style="display:none;">
+                <button class="site-selector-btn" id="siteSelectorBtn" type="button">
+                    <i class="fas fa-map-marker-alt site-selector-icon"></i>
+                    <span class="site-selector-label" id="siteSelectorLabel">All Sites</span>
+                    <i class="fas fa-chevron-down site-selector-arrow"></i>
+                </button>
+                <div class="site-selector-dropdown" id="siteSelectorDropdown" style="display:none;">
+                    <div class="site-selector-list" id="siteSelectorList"></div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav" id="sidebarNav">
+                <a href="/" class="nav-item nav-item-overview @(IsExactPage("/Index") ? "active" : "")" data-nav-route="/">
+                    <span class="nav-item-icon"><i class="fas fa-gauge-high"></i></span>
+                    <span class="nav-item-label">Dashboard</span>
+                </a>
+                
+                <div class="nav-section-label">OPERATIONS</div>
+                
+                <div class="menu-group @(IsPage("/Assets") || IsPage("/BulkOperations") || IsPage("/Admin/Locations") || IsPage("/Assets/Locations") || IsPage("/Admin/AssetCategories") || IsPage("/Admin/Barcodes") ? "expanded" : "")" data-section="assets">
+                    <div class="menu-group-header" data-tooltip="Assets" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-boxes-stacked"></i></span>
+                        <span class="menu-group-title">Assets</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/Assets" class="menu-item @(IsPage("/Assets") && !IsPage("/Assets/Locations") && !IsPage("/Assets/Categories") && !IsPage("/Assets/Barcodes") ? "active" : "")" data-nav-route="/Assets">
+                            <i class="fas fa-list menu-item-icon"></i>
+                            <span>Asset Register</span>
+                        </a>
+                        <a href="/Assets/Locations" class="menu-item @(IsPage("/Admin/Locations") || IsPage("/Assets/Locations") ? "active" : "")" data-nav-route="/Assets/Locations">
+                            <i class="fas fa-location-dot menu-item-icon"></i>
+                            <span>Locations</span>
+                        </a>
+                        <a href="/Assets/Categories" class="menu-item @(IsPage("/Admin/AssetCategories") ? "active" : "")" data-nav-route="/Assets/Categories">
+                            <i class="fas fa-tags menu-item-icon"></i>
+                            <span>Asset Categories</span>
+                        </a>
+                        <a href="/BulkOperations" class="menu-item @(IsPage("/BulkOperations") ? "active" : "")" data-nav-route="/BulkOperations">
+                            <i class="fas fa-layer-group menu-item-icon"></i>
+                            <span>Bulk Operations</span>
+                        </a>
+                        <a href="/Assets/Barcodes" class="menu-item @(IsPage("/Admin/Barcodes") ? "active" : "")" data-nav-route="/Assets/Barcodes">
+                            <i class="fas fa-barcode menu-item-icon"></i>
+                            <span>Barcodes</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="menu-group @(IsAny("/Books", "/Journals", "/UsTax", "/CCA", "/Reports", "/AccountsPayable") || IsPage("/Admin/GlAccounts") ? "expanded" : "")" data-section="finance">
+                    <div class="menu-group-header" data-tooltip="Finance" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-calculator"></i></span>
+                        <span class="menu-group-title">Finance</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/Books" class="menu-item @(IsPage("/Books") ? "active" : "")" data-nav-route="/Books">
+                            <i class="fas fa-book-open menu-item-icon"></i>
+                            <span>Depreciation Books</span>
+                        </a>
+                        <a href="/Books/GlAccounts" class="menu-item @(IsPage("/Admin/GlAccounts") ? "active" : "")" data-nav-route="/Books/GlAccounts">
+                            <i class="fas fa-file-lines menu-item-icon"></i>
+                            <span>GL Accounts</span>
+                        </a>
+                        <a href="/Journals" class="menu-item @(IsPage("/Journals") ? "active" : "")" data-nav-route="/Journals">
+                            <i class="fas fa-book menu-item-icon"></i>
+                            <span>Journals</span>
+                        </a>
+                        @if (enableAP)
+                        {
+                        <a href="/AccountsPayable" class="menu-item @(IsPage("/AccountsPayable") ? "active" : "")" data-nav-route="/AccountsPayable">
+                            <i class="fas fa-file-invoice-dollar menu-item-icon"></i>
+                            <span>Accounts Payable</span>
+                        </a>
+                        }
+                        <a href="/Reports/ReportHub" class="menu-item @(IsPage("/Reports") ? "active" : "")" data-nav-route="/Reports/ReportHub">
+                            <i class="fas fa-chart-bar menu-item-icon"></i>
+                            <span>Reports</span>
+                        </a>
+                        <a href="/UsTax" class="menu-item @(IsPage("/UsTax") ? "active" : "")" data-nav-route="/UsTax">
+                            <i class="fas fa-landmark menu-item-icon"></i>
+                            <span>US Tax</span>
+                        </a>
+                        <a href="/CCA" class="menu-item @(IsPage("/CCA") ? "active" : "")" data-nav-route="/CCA">
+                            <i class="fas fa-maple-leaf menu-item-icon"></i>
+                            <span>Canadian CCA</span>
+                        </a>
+                    </div>
+                </div>
+                
+                @if (enableInventory || enablePurchasing || enableVendors)
+                {
+                <div class="menu-group @(IsAny("/Materials", "/Inventory", "/Purchasing", "/Receiving") || IsPage("/Admin/Vendors") || IsPage("/Admin/Requisitions") || IsPage("/Admin/Kits") || IsPage("/Admin/StockLevels") || IsPage("/Admin/ItemCategories") ? "expanded" : "")" data-section="materials">
+                    <div class="menu-group-header" data-tooltip="Materials & Purchasing" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-cubes"></i></span>
+                        <span class="menu-group-title">Materials & Purchasing</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        @if (enableInventory)
+                        {
+                        <a href="/Materials/Items" class="menu-item @(IsPage("/Materials/Items") || IsPage("/Materials/Index") ? "active" : "")" data-nav-route="/Materials/Items">
+                            <i class="fas fa-box-open menu-item-icon"></i>
+                            <span>Items / Parts Catalog</span>
+                        </a>
+                        }
+                        @if (enableVendors)
+                        {
+                        <a href="/Materials/Vendors" class="menu-item @(IsPage("/Admin/Vendors") || IsAny("/Materials/Vendors") ? "active" : "")" data-nav-route="/Materials/Vendors">
+                            <i class="fas fa-building menu-item-icon"></i>
+                            <span>Vendors</span>
+                        </a>
+                        }
+                        @if (enablePurchasing)
+                        {
+                        <a href="/Purchasing" class="menu-item @(IsPage("/Purchasing") && !IsPage("/Purchasing/Requisitions") ? "active" : "")" data-nav-route="/Purchasing">
+                            <i class="fas fa-file-invoice menu-item-icon"></i>
+                            <span>Purchase Orders</span>
+                        </a>
+                        <a href="/Receiving" class="menu-item @(IsPage("/Receiving") ? "active" : "")" data-nav-route="/Receiving">
+                            <i class="fas fa-truck-ramp-box menu-item-icon"></i>
+                            <span>Receiving</span>
+                        </a>
+                        <a href="/Purchasing/Requisitions" class="menu-item @(IsPage("/Admin/Requisitions") ? "active" : "")" data-nav-route="/Purchasing/Requisitions">
+                            <i class="fas fa-clipboard-question menu-item-icon"></i>
+                            <span>Requisitions</span>
+                        </a>
+                        }
+                        @if (enableInventory)
+                        {
+                        <a href="/Inventory" class="menu-item @(IsPage("/Inventory") && !IsPage("/Inventory/StockLevels") ? "active" : "")" data-nav-route="/Inventory">
+                            <i class="fas fa-warehouse menu-item-icon"></i>
+                            <span>Inventory / Warehouses</span>
+                        </a>
+                        <a href="/Inventory/StockLevels" class="menu-item @(IsPage("/Admin/StockLevels") ? "active" : "")" data-nav-route="/Inventory/StockLevels">
+                            <i class="fas fa-chart-simple menu-item-icon"></i>
+                            <span>Stock Levels</span>
+                        </a>
+                        <a href="/Materials/Kits" class="menu-item @(IsPage("/Admin/Kits") ? "active" : "")" data-nav-route="/Materials/Kits">
+                            <i class="fas fa-toolbox menu-item-icon"></i>
+                            <span>Kits</span>
+                        </a>
+                        <a href="/Materials/Categories" class="menu-item @(IsPage("/Admin/ItemCategories") ? "active" : "")" data-nav-route="/Materials/Categories">
+                            <i class="fas fa-folder-tree menu-item-icon"></i>
+                            <span>Item Categories</span>
+                        </a>
+                        }
+                    </div>
+                </div>
+                }
+
+                @if (enableWorkOrders)
+                {
+                <div class="menu-group @(IsAny("/Maintenance", "/WorkOrders") || IsPage("/Admin/Technicians") || IsPage("/Admin/PMTemplate") || IsPage("/Admin/PMSchedule") ? "expanded" : "")" data-section="work">
+                    <div class="menu-group-header" data-tooltip="Work Management" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-wrench"></i></span>
+                        <span class="menu-group-title">Work Management</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/Maintenance" class="menu-item @(IsAny("/Maintenance/Index", "/Maintenance/Details") && !IsPage("/Maintenance/WorkRequests") && !IsPage("/Maintenance/Schedules") && !IsPage("/Maintenance/Assignments") && !IsPage("/Maintenance/PMTemplates") && !IsPage("/Maintenance/Technicians") ? "active" : "")" data-nav-route="/Maintenance">
+                            <i class="fas fa-clipboard-list menu-item-icon"></i>
+                            <span>Work Orders</span>
+                        </a>
+                        <a href="/Maintenance/WorkRequests" class="menu-item @(IsPage("/Maintenance/WorkRequests") ? "active" : "")" data-nav-route="/Maintenance/WorkRequests">
+                            <i class="fas fa-inbox menu-item-icon"></i>
+                            <span>Work Requests</span>
+                        </a>
+                        <a href="/Maintenance/PMTemplates" class="menu-item @(IsPage("/Admin/PMTemplate") || IsPage("/Maintenance/PMTemplates") ? "active" : "")" data-nav-route="/Maintenance/PMTemplates">
+                            <i class="fas fa-clock-rotate-left menu-item-icon"></i>
+                            <span>PM Templates</span>
+                        </a>
+                        <a href="/Maintenance/Schedules" class="menu-item @(IsPage("/Maintenance/Schedules") || IsPage("/Admin/PMSchedules") ? "active" : "")" data-nav-route="/Maintenance/Schedules">
+                            <i class="fas fa-calendar-days menu-item-icon"></i>
+                            <span>PM Schedules</span>
+                        </a>
+                        <a href="/Maintenance/Assignments" class="menu-item @(IsPage("/Maintenance/Assignments") ? "active" : "")" data-nav-route="/Maintenance/Assignments">
+                            <i class="fas fa-user-check menu-item-icon"></i>
+                            <span>PM Assignments</span>
+                        </a>
+                        <a href="/Maintenance/ScheduleBoard" class="menu-item @(IsPage("/Maintenance/ScheduleBoard") ? "active" : "")" data-nav-route="/Maintenance/ScheduleBoard">
+                            <i class="fas fa-calendar-alt menu-item-icon"></i>
+                            <span>Schedule Board</span>
+                        </a>
+                        <a href="/Maintenance/Technicians" class="menu-item @(IsPage("/Maintenance/Technicians") || IsPage("/Admin/Technicians") ? "active" : "")" data-nav-route="/Maintenance/Technicians">
+                            <i class="fas fa-hard-hat menu-item-icon"></i>
+                            <span>Technicians</span>
+                        </a>
+                    </div>
+                </div>
+                }
+                
+                <div class="menu-group @(IsAny("/CIP") ? "expanded" : "")" data-section="projects">
+                    <div class="menu-group-header" data-tooltip="Projects" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-diagram-project"></i></span>
+                        <span class="menu-group-title">Projects</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/CIP" class="menu-item @(IsPage("/CIP") && !IsPage("/CIP/Costs") && !IsPage("/CIP/PartyDrilldown") ? "active" : "")" data-nav-route="/CIP">
+                            <i class="fas fa-building-columns menu-item-icon"></i>
+                            <span>CIP Projects</span>
+                        </a>
+                        <a href="/CIP/Costs" class="menu-item @(IsAny("/CIP/Costs", "/CIP/CostDetails") ? "active" : "")" data-nav-route="/CIP/Costs">
+                            <i class="fas fa-coins menu-item-icon"></i>
+                            <span>Cost Tracking</span>
+                        </a>
+                        <a href="/CIP/PartyDrilldown" class="menu-item @(IsPage("/CIP/PartyDrilldown") ? "active" : "")" data-nav-route="/CIP/PartyDrilldown">
+                            <i class="fas fa-chart-line menu-item-icon"></i>
+                            <span>Cost Analytics</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="menu-group @(IsAny("/AI", "/API") || IsPage("/Admin/Webhooks") || IsPage("/Admin/Integrations") ? "expanded" : "")" data-section="ai-integrations">
+                    <div class="menu-group-header" data-tooltip="AI & Integrations" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-robot"></i></span>
+                        <span class="menu-group-title">AI & Integrations</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/AI" class="menu-item @(IsPage("/AI") ? "active" : "")" data-nav-route="/AI">
+                            <i class="fas fa-brain menu-item-icon"></i>
+                            <span>AI Assistant</span>
+                        </a>
+                        <a href="/API" class="menu-item @(IsPage("/API") ? "active" : "")" data-nav-route="/API">
+                            <i class="fas fa-code menu-item-icon"></i>
+                            <span>API Hub</span>
+                        </a>
+                        <a href="/Admin/Webhooks" class="menu-item @(IsPage("/Admin/Webhooks") ? "active" : "")" data-nav-route="/Admin/Webhooks">
+                            <i class="fas fa-satellite-dish menu-item-icon"></i>
+                            <span>Webhooks</span>
+                        </a>
+                        <a href="/Admin/Integrations" class="menu-item @(IsPage("/Admin/Integrations") ? "active" : "")" data-nav-route="/Admin/Integrations">
+                            <i class="fas fa-plug menu-item-icon"></i>
+                            <span>Integration Hub</span>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="nav-section-label">SYSTEM</div>
+                
+                @if (isAdmin)
+                {
+                <div class="menu-group @(IsPage("/Admin") && !IsPage("/Admin/Locations") && !IsPage("/Admin/Vendors") && !IsPage("/Admin/PMTemplate") && !IsPage("/Admin/Technicians") && !IsPage("/Admin/Requisitions") && !IsPage("/Admin/Kits") && !IsPage("/Admin/StockLevels") && !IsPage("/Admin/ItemCategories") && !IsPage("/Admin/AssetCategories") && !IsPage("/Admin/Barcodes") && !IsPage("/Admin/Webhooks") && !IsPage("/Admin/Integrations") ? "expanded" : "")" data-section="admin">
+                    <div class="menu-group-header" data-tooltip="Administration" role="button" tabindex="0" aria-expanded="false">
+                        <span class="menu-group-icon"><i class="fas fa-gear"></i></span>
+                        <span class="menu-group-title">Administration</span>
+                        <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+                    </div>
+                    <div class="menu-items">
+                        <a href="/Admin/Sites" class="menu-item @(IsAny("/Admin/Sites") ? "active" : "")" data-nav-route="/Admin/Sites">
+                            <i class="fas fa-sitemap menu-item-icon"></i>
+                            <span>Organization & Sites</span>
+                        </a>
+                        <a href="/Admin/Companies" class="menu-item @(IsPage("/Admin/Companies") || IsPage("/Admin/Company") ? "active" : "")" data-nav-route="/Admin/Companies">
+                            <i class="fas fa-building menu-item-icon"></i>
+                            <span>Companies</span>
+                        </a>
+                        <a href="/Admin/Departments" class="menu-item @(IsPage("/Admin/Departments") ? "active" : "")" data-nav-route="/Admin/Departments">
+                            <i class="fas fa-people-group menu-item-icon"></i>
+                            <span>Departments</span>
+                        </a>
+                        <a href="/Admin/CostCenters" class="menu-item @(IsPage("/Admin/CostCenters") ? "active" : "")" data-nav-route="/Admin/CostCenters">
+                            <i class="fas fa-bullseye menu-item-icon"></i>
+                            <span>Cost Centers</span>
+                        </a>
+                        <a href="/Admin/Users" class="menu-item @(IsPage("/Admin/Users") ? "active" : "")" data-nav-route="/Admin/Users">
+                            <i class="fas fa-users menu-item-icon"></i>
+                            <span>Users & Roles</span>
+                        </a>
+                        <a href="/Admin/Lookups" class="menu-item @(IsPage("/Admin/Lookups") ? "active" : "")" data-nav-route="/Admin/Lookups">
+                            <i class="fas fa-table-list menu-item-icon"></i>
+                            <span>Lookups</span>
+                        </a>
+                        <a href="/Admin/SystemSettings" class="menu-item @(IsPage("/Admin/SystemSettings") ? "active" : "")" data-nav-route="/Admin/SystemSettings">
+                            <i class="fas fa-cogs menu-item-icon"></i>
+                            <span>System Settings</span>
+                        </a>
+                        <a href="/Admin/DataManagement" class="menu-item @(IsPage("/Admin/DataManagement") ? "active" : "")" data-nav-route="/Admin/DataManagement">
+                            <i class="fas fa-database menu-item-icon"></i>
+                            <span>Data Management</span>
+                        </a>
+                        <a href="/Admin/AuditLog" class="menu-item @(IsPage("/Admin/AuditLog") ? "active" : "")" data-nav-route="/Admin/AuditLog">
+                            <i class="fas fa-clipboard-check menu-item-icon"></i>
+                            <span>Audit Log</span>
+                        </a>
+                        <a href="/Admin/Manufacturers" class="menu-item @(IsPage("/Admin/Manufacturers") ? "active" : "")" data-nav-route="/Admin/Manufacturers">
+                            <i class="fas fa-industry menu-item-icon"></i>
+                            <span>Manufacturers</span>
+                        </a>
+                        <a href="/Admin/ProjectManagers" class="menu-item @(IsPage("/Admin/ProjectManagers") ? "active" : "")" data-nav-route="/Admin/ProjectManagers">
+                            <i class="fas fa-user-tie menu-item-icon"></i>
+                            <span>Project Managers</span>
+                        </a>
+                    </div>
+                </div>
+                }
+                
+                <div id="recentNavSection" class="recent-nav-section" style="display:none;">
+                    <div class="nav-section-label">RECENT</div>
+                    <div id="recentNavList" class="recent-nav-list"></div>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="/Help" class="nav-item @(IsPage("/Help") ? "active" : "")" data-nav-route="/Help">
+                    <span class="nav-item-icon"><i class="fas fa-circle-question"></i></span>
+                    <span class="nav-item-label">Help Center</span>
+                </a>
+                @if (!isAuthenticated)
+                {
+                <a href="/Account/Login" class="nav-item nav-item-signin @(IsPage("/Account/Login") ? "active" : "")" data-nav-route="/Account/Login">
+                    <span class="nav-item-icon"><i class="fas fa-right-to-bracket"></i></span>
+                    <span class="nav-item-label">Sign In</span>
+                </a>
+                }
+                @if (isAuthenticated)
+                {
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpper()</div>
+                    <div class="sidebar-user-details">
+                        <span class="sidebar-user-name">@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)</span>
+                        <span class="sidebar-user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                    </div>
+                </div>
+                }
+            </div>
+        </aside>
+        
+        <main class="main-content" id="mainContent">
+            <header class="main-header" id="mainHeader">
+                <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                @{
+                    var hasScreenHeader = ViewData["HasScreenHeader"] as bool? ?? false;
+                    var hideDefaultPageHeader = ViewData["HideDefaultPageHeader"] as bool? ?? false;
+                }
+                @if (!hasScreenHeader && !hideDefaultPageHeader)
+                {
+                    <h1 class="header-title">@ViewData["Title"]</h1>
+                }
+                @if (ViewData["Breadcrumb"] != null)
+                {
+                    <span class="header-breadcrumb">@ViewData["Breadcrumb"]</span>
+                }
+                
+                <div class="header-actions">
+                    <div class="global-search-wrapper">
+                        <i class="fas fa-search global-search-icon"></i>
+                        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search..." autocomplete="off" />
+                        <kbd class="global-search-kbd">/</kbd>
+                    </div>
+                    <button class="cmd-palette-trigger" id="cmdPaletteTrigger" type="button" title="Command palette (Ctrl+K)">
+                        <i class="fas fa-terminal"></i>
+                        <kbd>Ctrl+K</kbd>
+                    </button>
+                    <button class="theme-toggle-btn" id="themeToggleBtn" type="button" title="Toggle dark/light mode" aria-label="Toggle dark/light mode" aria-pressed="false">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    @{
+                        var helpTopic = currentPage switch
+                        {
+                            var p when p.StartsWith("/Index") || p == "/" => "dashboard",
+                            var p when p.StartsWith("/Assets") => "assets",
+                            var p when p.StartsWith("/Books") => "books",
+                            var p when p.StartsWith("/Journals") => "journals",
+                            var p when p.StartsWith("/CCA") => "cca",
+                            var p when p.StartsWith("/Reports") => "reports",
+                            var p when p.StartsWith("/Maintenance") => "maintenance",
+                            var p when p.StartsWith("/CIP") => "cip",
+                            var p when p.StartsWith("/Inventory") => "inventory",
+                            var p when p.StartsWith("/AI") => "ai-assistant",
+                            var p when p.StartsWith("/Depreciation") => "depreciation",
+                            var p when p.StartsWith("/Admin/Company") => "company-settings",
+                            var p when p.StartsWith("/Admin/Users") => "admin",
+                            var p when p.StartsWith("/Admin") => "admin",
+                            _ => ""
+                        };
+                    }
+                    @if (!string.IsNullOrEmpty(helpTopic))
+                    {
+                        <a href="/Help/Topic?id=@helpTopic" class="btn-p btn-p--secondary btn-p--sm header-help-btn" title="Get help for this page">
+                            <i class="fas fa-circle-question"></i>
+                        </a>
+                    }
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="user-dropdown">
+                            <button class="user-btn" onclick="toggleUserMenu()" type="button">
+                                <div class="user-avatar">@User.Identity.Name?.Substring(0, 1).ToUpper()</div>
+                            </button>
+                            <div class="user-menu" id="userMenu" style="display: none;">
+                                <div class="user-menu-header">
+                                    <strong>@(User.FindFirst("FullName")?.Value ?? User.Identity.Name)</strong>
+                                    <span>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                                </div>
+                                <a asp-page="/Account/Logout" class="user-menu-item">
+                                    <i class="fas fa-right-from-bracket"></i>
+                                    Sign Out
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </header>
+            
+            <div class="page-content">
+                @RenderBody()
+            </div>
+            
+            <footer class="app-footer">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <p style="margin: 0;">&copy; 2026 ABS Machining EAM, powered by <a href="https://cherrystreetconsulting.com" style="color: var(--text-muted); text-decoration: none;">CherryAI</a> &mdash; a division of Cherry Street Consulting, New York, NY. All Rights Reserved.</p>
+                </div>
+            </footer>
+        </main>
+    </div>
+    
+    <div id="commandPaletteOverlay" class="command-palette-overlay" style="display:none;">
+        <div class="command-palette" aria-label="Command palette">
+            <div class="command-palette-header">
+                <i class="fas fa-search command-palette-search-icon"></i>
+                <input type="text" id="commandPaletteInput" class="command-palette-input" placeholder="Type a command or page name..." autocomplete="off" autofocus />
+                <kbd class="command-palette-esc">Esc</kbd>
+            </div>
+            <div class="command-palette-results" id="commandPaletteResults"></div>
+            <div class="command-palette-footer">
+                <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> Navigate</span>
+                <span><kbd>Enter</kbd> Open</span>
+                <span><kbd>Esc</kbd> Close</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="helpPanel" class="help-panel" style="display: none;">
+        <div class="help-panel-content">
+            <div class="help-panel-header">
+                <h2>Help & Support</h2>
+                <button onclick="toggleHelp()" class="btn-close">&times;</button>
+            </div>
+            <div class="help-panel-body">
+                <div class="help-section">
+                    <h3>Getting Started</h3>
+                    <p>Welcome to ABS Machining EAM. Use the sidebar to navigate between different sections.</p>
+                </div>
+                <div class="help-section">
+                    <h3>Keyboard Shortcuts</h3>
+                    <ul>
+                        <li><kbd>/</kbd> — Focus global search</li>
+                        <li><kbd>Ctrl+K</kbd> — Open command palette</li>
+                        <li><kbd>Esc</kbd> — Close panel / clear search</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleHelp() {
+            const panel = document.getElementById('helpPanel');
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        }
+        function toggleUserMenu() {
+            const menu = document.getElementById('userMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        document.addEventListener('click', function(e) {
+            const dropdown = document.querySelector('.user-dropdown');
+            const menu = document.getElementById('userMenu');
+            if (dropdown && menu && !dropdown.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+    </script>
+    
+    <script src="~/js/enhanced-grid.js" asp-append-version="true"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/modal.js" asp-append-version="true"></script>
+    <script src="~/js/tour.js" asp-append-version="true"></script>
+    <script src="~/js/sidebar-nav.js" asp-append-version="true"></script>
+    <script src="~/js/org-selector.js" asp-append-version="true"></script>
+    <script src="~/js/site-selector.js" asp-append-version="true"></script>
+    <script src="~/js/tabs.js" asp-append-version="true"></script>
+    <script src="~/js/command-palette.js" asp-append-version="true"></script>
+    <script src="~/js/recent-nav.js" asp-append-version="true"></script>
+    <script src="~/js/return-path.js" asp-append-version="true"></script>
+    <script src="~/js/theme-toggle.js" asp-append-version="true"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js" crossorigin="anonymous"></script>
+    <script src="~/js/cherry-typeahead.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

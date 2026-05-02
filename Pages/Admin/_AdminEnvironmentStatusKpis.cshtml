@@ -1,0 +1,15 @@
+@model Abs.FixedAssets.Pages.Admin.EnvironmentStatusModel
+<div class="kpi-card">
+    <div class="kpi-label">Total Rows</div>
+    <div class="kpi-value">@Model.TableCounts.Values.Sum().ToString("N0")</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Seed Guard</div>
+    <div class="kpi-value" style="color: @(Model.GuardResult?.Allowed == true ? "var(--success)" : "var(--danger)");">
+        @(Model.GuardResult?.Allowed == true ? "Unlocked" : "Locked")
+    </div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Checked</div>
+    <div class="kpi-value" style="font-size: 18px;">@Model.CheckedAt.ToString("HH:mm:ss")</div>
+</div>

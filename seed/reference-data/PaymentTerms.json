@@ -1,0 +1,14 @@
+{
+  "lookupKey": "PaymentTerms",
+  "name": "Payment Terms",
+  "isSystem": true,
+  "values": [
+    { "code": "0", "name": "Net 30", "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "Net 45", "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Net 60", "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Net 90", "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Due on Receipt", "sortOrder": 5, "isActive": true },
+    { "code": "5", "name": "Prepaid", "sortOrder": 6, "isActive": true },
+    { "code": "6", "name": "COD", "sortOrder": 7, "isActive": true }
+  ]
+}

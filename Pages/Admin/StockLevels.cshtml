@@ -1,0 +1,140 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.StockLevelsModel
+@{
+    ViewData["Title"] = "Stock Levels";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalItems = Model.AllItems.Count();
+
+    var statusText = Model.OutOfStockCount > 0 ? $"{Model.OutOfStockCount} Out of Stock" : Model.LowStockCount > 0 ? $"{Model.LowStockCount} Low Stock" : "All Stocked";
+    var statusTone = Model.OutOfStockCount > 0 ? "danger" : Model.LowStockCount > 0 ? "warning" : "active";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Parts & Inventory" },
+        { "HeaderTitle", "Stock Levels" },
+        { "Subtitle", "Monitor inventory quantities and reorder alerts across all locations" },
+        { "StatusText", statusText },
+        { "StatusTone", statusTone },
+        { "ContextPartial", "Admin/_AdminStockLevelsContext" },
+        { "KpisPartial", "Admin/_AdminStockLevelsKpis" },
+        { "ActionsPartial", "Admin/_AdminStockLevelsActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (Model.LowStockItems.Any())
+{
+<div class="section-card mb-4">
+    <div class="section-card-header" style="background: rgba(245, 158, 11, 0.1);">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-amber">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Reorder Alerts
+        </h3>
+        <span class="status-badge warning">@Model.LowStockItems.Count() ITEMS NEED ATTENTION</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Part Number</th>
+                    <th>Description</th>
+                    <th>On Hand</th>
+                    <th>Reorder Point</th>
+                    <th>Suggested Order</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.LowStockItems)
+                {
+                    <tr>
+                        <td><strong>@item.PartNumber</strong></td>
+                        <td>@item.Description</td>
+                        <td class="@(item.OnHand <= 0 ? "text-danger" : "text-warning")">@item.OnHand</td>
+                        <td>@item.ReorderPoint</td>
+                        <td>@item.SuggestedOrder</td>
+                        <td>
+                            <a href="/Admin/Requisitions?createFor=@item.ItemId" class="btn btn-sm btn-primary">
+                                Create Requisition
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            All Items Inventory
+        </h3>
+        <span class="status-badge info">@totalItems ITEMS</span>
+    </div>
+    <div class="section-card-body" style="padding: 0;">
+        @if (Model.AllItems.Any())
+        {
+            <table class="data-table" id="stockTable">
+                <thead>
+                    <tr>
+                        <th>Part Number</th>
+                        <th>Mfr Part #</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th style="text-align: right;">On Hand</th>
+                        <th style="text-align: right;">Reorder Pt</th>
+                        <th style="text-align: right;">Unit Cost</th>
+                        <th style="text-align: right;">Total Value</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model.AllItems)
+                    {
+                        var statusClass = item.OnHand <= 0 ? "badge-danger" : 
+                                         item.OnHand <= item.ReorderPoint ? "badge-warning" : "badge-success";
+                        var itemStatusText = item.OnHand <= 0 ? "Out of Stock" : 
+                                        item.OnHand <= item.ReorderPoint ? "Low Stock" : "In Stock";
+                        <tr>
+                            <td><strong>@item.PartNumber</strong></td>
+                            <td><span class="text-muted" style="font-size: 0.85em;">@(item.MfrPartNumber ?? "-")</span></td>
+                            <td>@item.Description</td>
+                            <td>@item.Category</td>
+                            <td style="text-align: right;">@item.OnHand.ToString("N0")</td>
+                            <td style="text-align: right;">@item.ReorderPoint.ToString("N0")</td>
+                            <td style="text-align: right;">@item.UnitCost.ToString("C2")</td>
+                            <td style="text-align: right;">@item.TotalValue.ToString("C2")</td>
+                            <td><span class="badge @statusClass">@itemStatusText</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="pe-empty" style="padding:1.5rem;">
+                <i class="fas fa-chart-line pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty__text">No inventory data. Add items and record inventory transactions to see stock levels.</div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof initEnhancedGrid === 'function') {
+            initEnhancedGrid('stockTable');
+        }
+    });
+</script>
+}

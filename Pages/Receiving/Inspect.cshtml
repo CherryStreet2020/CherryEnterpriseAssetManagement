@@ -1,0 +1,151 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Receiving.InspectModel
+@{
+    var gr = Model.Receipt;
+    ViewData["Title"] = $"Inspect — {gr.ReceiptNumber}";
+    ViewData["TabTitle"] = "Quality Inspection";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = $"Inspect {gr.ReceiptNumber}",
+        ["Subtitle"] = $"PO {gr.PurchaseOrder?.PONumber ?? "—"} — {gr.PurchaseOrder?.Vendor?.Name ?? "Unknown"}",
+        ["TypeLabel"] = "Quality Inspection",
+        ["StatusText"] = "Inspecting",
+        ["StatusTone"] = "warning",
+        ["Breadcrumbs"] = new (string, string)[] { ("Materials", "/Purchasing"), ("Receipt History", "/Receiving/History"), (gr.ReceiptNumber, $"/Receiving/Details/{gr.Id}"), ("Inspect", "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = $"/Receiving/Details/{gr.Id}",
+        ["BackLinkLabel"] = "Back to receipt"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+}
+
+<form method="post" asp-page-handler="Inspect" asp-route-id="@gr.Id">
+    @Html.AntiForgeryToken()
+
+    <div class="line-section">
+        <div class="line-section__header">
+            <h3 class="line-section__title">
+                <i class="fas fa-search-plus"></i> Inspection Lines
+            </h3>
+            <div class="line-section__summary">
+                <span class="line-section__count">@Model.Lines.Count line@(Model.Lines.Count != 1 ? "s" : "")</span>
+            </div>
+        </div>
+
+        <div class="line-section__body">
+            <table class="line-table">
+                <thead>
+                    <tr>
+                        <th class="line-table__th" style="width:35px">#</th>
+                        <th class="line-table__th" style="width:120px">PART #</th>
+                        <th class="line-table__th">DESCRIPTION</th>
+                        <th class="line-table__th line-table__th--right" style="width:80px">QTY RCVD</th>
+                        <th class="line-table__th line-table__th--right" style="width:90px">QTY ACCEPTED</th>
+                        <th class="line-table__th line-table__th--right" style="width:90px">QTY REJECTED</th>
+                        <th class="line-table__th" style="width:150px">REJECTION REASON</th>
+                        <th class="line-table__th" style="width:130px">DISPOSITION</th>
+                        <th class="line-table__th" style="width:120px">NOTES</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var line = Model.Lines[i];
+                        <tr class="line-table__row">
+                            <td class="line-table__td line-table__td--muted">
+                                <input type="hidden" name="lines[@i].LineId" value="@line.LineId" />
+                                @(i + 1)
+                            </td>
+                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--primary">@(line.Description ?? "—")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@line.QuantityReceived.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--right">
+                                <input type="number" name="lines[@i].QuantityAccepted" value="@line.QuantityAccepted"
+                                       min="0" max="@line.QuantityReceived" step="any"
+                                       class="line-add-form__input line-add-form__input--right"
+                                       style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
+                                       oninput="syncRejected(this, @i, @line.QuantityReceived)" />
+                            </td>
+                            <td class="line-table__td line-table__td--right">
+                                <input type="number" name="lines[@i].QuantityRejected" value="@line.QuantityRejected"
+                                       min="0" max="@line.QuantityReceived" step="any"
+                                       class="line-add-form__input line-add-form__input--right"
+                                       style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
+                                       id="rejected_@i" />
+                            </td>
+                            <td class="line-table__td">
+                                <input type="text" name="lines[@i].RejectionReason" value="@line.RejectionReason"
+                                       class="line-add-form__input" placeholder="Reason..."
+                                       style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
+                            </td>
+                            <td class="line-table__td">
+                                <select name="lines[@i].Disposition" class="line-add-form__input" style="padding:0.35rem 0.5rem; font-size:0.8rem;">
+                                    <option value="">— Select —</option>
+                                    @foreach (var opt in Model.DispositionOptions)
+                                    {
+                                        <option value="@opt.Value" selected="@(opt.Value == line.Disposition)">@opt.Text</option>
+                                    }
+                                </select>
+                            </td>
+                            <td class="line-table__td">
+                                <input type="text" name="lines[@i].Notes" value="@line.Notes"
+                                       class="line-add-form__input" placeholder="Notes..."
+                                       style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
+        <a href="/Receiving/Details/@gr.Id" class="btn-p btn-p--secondary">
+            <i class="fas fa-arrow-left"></i> Back to Receipt
+        </a>
+        <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn-p btn-p--ghost" onclick="acceptAll()">
+                <i class="fas fa-check-double"></i> Accept All
+            </button>
+            <button type="submit" class="btn-p btn-p--primary">
+                <i class="fas fa-clipboard-check"></i> Complete Inspection
+            </button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+function syncRejected(input, idx, totalReceived) {
+    var accepted = parseFloat(input.value) || 0;
+    var rejectedInput = document.getElementById('rejected_' + idx);
+    if (rejectedInput) {
+        rejectedInput.value = Math.max(0, totalReceived - accepted);
+    }
+}
+
+function acceptAll() {
+    var acceptInputs = document.querySelectorAll('input[name$=".QuantityAccepted"]');
+    var rejectInputs = document.querySelectorAll('input[name$=".QuantityRejected"]');
+    acceptInputs.forEach(function(inp) {
+        inp.value = inp.getAttribute('max') || inp.value;
+    });
+    rejectInputs.forEach(function(inp) {
+        inp.value = '0';
+    });
+}
+</script>
+}

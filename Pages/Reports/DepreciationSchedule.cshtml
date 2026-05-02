@@ -1,0 +1,146 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.DepreciationScheduleModel
+@{
+    ViewData["Title"] = "Depreciation Schedule";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Depreciation Schedule" },
+        { "Subtitle", Model.AssetNumber != null
+            ? $"{Model.AssetNumber} — {Model.Description}"
+            : "Select an asset to view its depreciation schedule" },
+        { "TypeLabel", "Reports" },
+        { "StatusText", "Schedule" },
+        { "StatusTone", "info" }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+    <form method="get" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <label for="id" style="font-weight: 600;">Asset ID</label>
+        <input name="id" id="id" type="number" value="@(HttpContext.Request.Query["id"])" min="1"
+               class="form-control" style="width: 100px;" placeholder="ID" />
+        <label for="asOf" style="font-weight: 600;">As Of</label>
+        <input name="asOf" id="asOf" type="date" value="@(Model.AsOf > DateTime.MinValue ? Model.AsOf.ToString("yyyy-MM-dd") : DateTime.Today.ToString("yyyy-MM-dd"))"
+               class="form-control" style="width: 160px;" />
+        <button type="submit" class="btn-p btn-p--primary">Run</button>
+    </form>
+</div>
+
+@if (Model.ScheduleRows.Any())
+{
+    <div class="quick-stats-row-4" style="margin-bottom: 1.5rem;">
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value primary">@Model.ScheduleRows.Count</div>
+                <div class="quick-stat-label">Periods</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value success">@DepreciationScheduleModel.Money(Model.ScheduleRows.Sum(r => r.DepreciationAmount))</div>
+                <div class="quick-stat-label">Total Depreciation</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value warning">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().AccumulatedDepreciation)</div>
+                <div class="quick-stat-label">Accum. Depreciation</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value info">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().EndingBookValue)</div>
+                <div class="quick-stat-label">Ending Book Value</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+            <h3 class="card-title">Depreciation Schedule</h3>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;">Period</th>
+                        <th>Period Start</th>
+                        <th>Period End</th>
+                        <th style="text-align: right;">Begin NBV</th>
+                        <th style="text-align: right;">Depreciation</th>
+                        <th style="text-align: right;">Accum. Depr</th>
+                        <th style="text-align: right;">Ending NBV</th>
+                        <th>Method</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.ScheduleRows)
+                    {
+                        <tr>
+                            <td style="text-align: center;">@row.PeriodNumber</td>
+                            <td>@DepreciationScheduleModel.ShortDate(row.PeriodStart)</td>
+                            <td>@DepreciationScheduleModel.ShortDate(row.PeriodEnd)</td>
+                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.BeginNBV)</td>
+                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.DepreciationAmount)</td>
+                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.AccumulatedDepreciation)</td>
+                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.EndingBookValue)</td>
+                            <td>
+                                @row.MethodUsed
+                                @if (row.SwitchedToSL)
+                                {
+                                    <span class="badge badge-warning" style="margin-left: 4px; font-size: 0.7rem;">→SL</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="totals-row">
+                        <td colspan="4" style="text-align: right;">Totals</td>
+                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Sum(r => r.DepreciationAmount))</td>
+                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().AccumulatedDepreciation)</td>
+                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().EndingBookValue)</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+}
+else if (HttpContext.Request.Query.ContainsKey("id"))
+{
+    <div class="card" style="padding: 2rem; text-align: center;">
+        <p class="text-muted">No depreciation schedule data found for this asset. Make sure the asset has a valid in-service date, cost, and useful life.</p>
+    </div>
+}
+else
+{
+    <div class="card" style="padding: 2rem; text-align: center;">
+        <p class="text-muted">Enter an Asset ID and click <strong>Run</strong> to generate the depreciation schedule.</p>
+    </div>
+}

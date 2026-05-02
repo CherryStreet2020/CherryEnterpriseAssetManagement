@@ -1,0 +1,179 @@
+@page
+@model Abs.FixedAssets.Pages.CCA.ClassReportModel
+@{
+    ViewData["Title"] = "CCA Schedule";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var statusText = Model.Balances.Any() ? "Calculated" : "Pending";
+    var statusTone = Model.Balances.Any() ? "active" : "warning";
+}
+
+@{
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "CCA Schedule" },
+        { "Subtitle", $"UCC rollforward report for fiscal year {Model.FiscalYear}" },
+        { "TypeLabel", "Tax (CCA)" },
+        { "StatusText", statusText },
+        { "StatusTone", statusTone },
+        { "KpisPartial", "CCA/_CcaClassReportKpis" },
+        { "ActionsPartial", "CCA/_CcaClassReportActions" }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (Model.Balances.Any())
+{
+    <div class="quick-stats-row-4">
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value primary">@Model.TotalOpeningUcc.ToString("C0")</div>
+                <div class="quick-stat-label">Opening UCC</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon success">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value success">@Model.TotalAdditions.ToString("C0")</div>
+                <div class="quick-stat-label">Additions</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon warning">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value warning">@Model.TotalCcaClaimed.ToString("C0")</div>
+                <div class="quick-stat-label">CCA Claimed</div>
+            </div>
+        </div>
+        <div class="quick-stat-card">
+            <div class="quick-stat-icon info">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="quick-stat-content">
+                <div class="quick-stat-value info">@Model.TotalClosingUcc.ToString("C0")</div>
+                <div class="quick-stat-label">Closing UCC</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card">
+        <div class="section-card-header">
+            <h3 class="section-card-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                </svg>
+                CCA Schedule by Class
+            </h3>
+            <span class="status-badge info">@Model.Balances.Count CLASSES</span>
+        </div>
+        <div class="section-card-body" style="padding: 0;">
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th style="text-align: right;">Opening UCC</th>
+                            <th style="text-align: right;">Additions</th>
+                            <th style="text-align: right;">Dispositions</th>
+                            <th style="text-align: right;">Half-Year Adj.</th>
+                            <th style="text-align: right;">Base for CCA</th>
+                            <th style="text-align: right;">CCA Claimed</th>
+                            <th style="text-align: right;">Closing UCC</th>
+                            <th style="text-align: center;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.Balances)
+                        {
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <span class="badge badge-primary">@b.CcaClass.ClassNumber</span>
+                                        <span class="text-theme-secondary" style="font-size: 12px;">@((b.CcaClass.Rate * 100).ToString("0.##"))%</span>
+                                    </div>
+                                </td>
+                                <td style="text-align: right;">@b.OpeningUcc.ToString("C2")</td>
+                                <td class="text-green" style="text-align: right;">@b.Additions.ToString("C2")</td>
+                                <td class="text-red" style="text-align: right;">@b.Dispositions.ToString("C2")</td>
+                                <td class="text-theme-muted" style="text-align: right;">(@b.HalfYearAdjustment.ToString("C2"))</td>
+                                <td style="text-align: right; font-weight: 500;">@b.BaseForCca.ToString("C2")</td>
+                                <td class="text-red" style="text-align: right; font-weight: 600;">@b.CcaClaimed.ToString("C2")</td>
+                                <td style="text-align: right; font-weight: 600;">@b.ClosingUcc.ToString("C2")</td>
+                                <td style="text-align: center;">
+                                    @if (b.IsPosted)
+                                    {
+                                        <span class="badge badge-success">Posted</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-warning">Draft</span>
+                                    }
+                                </td>
+                            </tr>
+                            @if (b.Recapture.HasValue && b.Recapture.Value > 0)
+                            {
+                                <tr class="row-highlight-red">
+                                    <td class="text-red" colspan="9" style="font-weight: 500; padding-left: 48px;">
+                                        ⚠️ Recapture: @b.Recapture.Value.ToString("C2")
+                                    </td>
+                                </tr>
+                            }
+                            @if (b.TerminalLoss.HasValue && b.TerminalLoss.Value > 0)
+                            {
+                                <tr class="row-highlight-green">
+                                    <td class="text-green" colspan="9" style="font-weight: 500; padding-left: 48px;">
+                                        ✓ Terminal Loss: @b.TerminalLoss.Value.ToString("C2")
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                    <tfoot class="bg-surface-tertiary" style="font-weight: 600;">
+                        <tr>
+                            <td>TOTAL</td>
+                            <td style="text-align: right;">@Model.TotalOpeningUcc.ToString("C2")</td>
+                            <td style="text-align: right;">@Model.TotalAdditions.ToString("C2")</td>
+                            <td style="text-align: right;">@Model.TotalDispositions.ToString("C2")</td>
+                            <td style="text-align: right;">-</td>
+                            <td style="text-align: right;">-</td>
+                            <td class="text-red" style="text-align: right;">@Model.TotalCcaClaimed.ToString("C2")</td>
+                            <td style="text-align: right;">@Model.TotalClosingUcc.ToString("C2")</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="section-card">
+        <div class="section-card-body">
+            <div class="pe-empty" style="padding:2rem;">
+                <i class="fas fa-file-invoice-dollar pe-empty__icon" style="font-size:1.5rem;"></i>
+                <div class="pe-empty__title">No CCA Data for @Model.FiscalYear</div>
+                <div class="pe-empty__text">Click "Calculate CCA" to generate CCA calculations for this fiscal year, or assign assets to CCA classes first.</div>
+                <form method="post" asp-page-handler="Calculate">
+                    <input type="hidden" name="fiscalYear" value="@Model.FiscalYear" />
+                    <button type="submit" class="btn-p btn-p--primary">Calculate CCA for @Model.FiscalYear</button>
+                </form>
+            </div>
+        </div>
+    </div>
+}

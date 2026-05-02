@@ -1,0 +1,820 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.DataManagementModel
+@{
+    ViewData["Title"] = "Data Management";
+    Layout = "_ModernLayout";
+
+    /* ── Step metadata ───────────────────────────────── */
+    var steps = new[] {
+        new { Key = "Company",           Icon = "fa-building",       Label = "Companies" },
+        new { Key = "Site",              Icon = "fa-map-marker-alt", Label = "Sites" },
+        new { Key = "Location",          Icon = "fa-warehouse",      Label = "Locations" },
+        new { Key = "Department",        Icon = "fa-sitemap",        Label = "Departments" },
+        new { Key = "GlAccount",         Icon = "fa-calculator",     Label = "GL Accounts" },
+        new { Key = "Manufacturer",      Icon = "fa-industry",       Label = "Manufacturers" },
+        new { Key = "AssetCategory",     Icon = "fa-tags",           Label = "Asset Categories" },
+        new { Key = "Asset",             Icon = "fa-cogs",           Label = "Assets" },
+        new { Key = "DepreciationBook",  Icon = "fa-book",           Label = "Dep. Books" },
+        new { Key = "Vendor",            Icon = "fa-truck",          Label = "Vendors" },
+        new { Key = "Item",              Icon = "fa-box",            Label = "Items" },
+        new { Key = "ApprovedVendorList",Icon = "fa-clipboard-check",Label = "AVL Records" },
+        new { Key = "Technician",        Icon = "fa-hard-hat",       Label = "Technicians" },
+        new { Key = "PMTemplate",        Icon = "fa-calendar-check", Label = "PM Templates" },
+        new { Key = "CIPProject",        Icon = "fa-project-diagram",Label = "CIP Projects" }
+    };
+
+    var currentStep = Model.CurrentStep;
+    var activeTab   = Model.ActiveTab ?? "import";
+}
+
+<!-- ═══════════════════════════════════════════════════
+     SCREEN HEADER
+     ═══════════════════════════════════════════════════ -->
+@{
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Data Management",
+        ["Subtitle"] = "Import master data, download templates, and export records",
+        ["TypeLabel"] = "Admin",
+        ["StatusText"] = "",
+        ["StatusTone"] = ""
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<!-- ═══════════════════════════════════════════════════
+     TAB STRIP
+     ═══════════════════════════════════════════════════ -->
+<div class="dm-tabs">
+    <a href="/Admin/DataManagement?tab=import"
+       class="dm-tabs__item @(activeTab == "import" ? "dm-tabs__item--active" : "")">
+        <i class="fas fa-file-import"></i> Import Data
+    </a>
+    <a href="/Admin/DataManagement?tab=export"
+       class="dm-tabs__item @(activeTab == "export" ? "dm-tabs__item--active" : "")">
+        <i class="fas fa-file-export"></i> Export Data
+    </a>
+</div>
+
+@* ═══════════════════════════════════════════════════
+   TAB: IMPORT
+   ═══════════════════════════════════════════════════ *@
+@if (activeTab == "import")
+{
+    <div class="dm-import-layout">
+
+        <!-- ── Left rail: step sidebar ─────────────────── -->
+        <div class="dm-import-layout__sidebar">
+            <div class="dm-sidebar-label">
+                <i class="fas fa-layer-group"></i> IMPORT ORDER
+            </div>
+            <div class="dm-sidebar-divider dm-sidebar-divider--first">
+                <span>FIXED ASSETS</span>
+            </div>
+            @for (int i = 0; i < steps.Length; i++)
+            {
+                var s      = steps[i];
+                var state  = i < currentStep ? "done" : i == currentStep ? "active" : "pending";
+
+                @* Phase divider between Fixed Assets (0-8) and Maintenance (9-14) *@
+                @if (i == 9)
+                {
+                    <div class="dm-sidebar-divider">
+                        <span>MAINTENANCE &amp; PURCHASING</span>
+                    </div>
+                }
+
+                <a href="/Admin/DataManagement?tab=import&step=@i"
+                   class="dm-step @(state == "active" ? "dm-step--active" : "") @(state == "done" ? "dm-step--done" : "")">
+                    <span class="dm-step__num">
+                        @if (state == "done")
+                        {
+                            <i class="fas fa-check"></i>
+                        }
+                        else
+                        {
+                            @(i + 1)
+                        }
+                    </span>
+                    <span class="dm-step__icon"><i class="fas @s.Icon"></i></span>
+                    <span class="dm-step__label">@s.Label</span>
+                </a>
+            }
+        </div>
+
+        <!-- ── Main panel ──────────────────────────────── -->
+        <div class="dm-import-layout__main">
+
+            <!-- Step header -->
+            <div class="dm-step-header">
+                <div class="dm-step-header__left">
+                    <span class="dm-step-header__badge">Step @(currentStep + 1) of @steps.Length</span>
+                    <h2 class="dm-step-header__title">
+                        <i class="fas @steps[currentStep].Icon"></i>
+                        @steps[currentStep].Label
+                    </h2>
+                </div>
+                <div class="dm-step-header__actions">
+                    <a href="/Admin/DataManagement?handler=DownloadTemplate&template=@steps[currentStep].Key"
+                       class="btn-p btn-p--outline btn-p--sm">
+                        <i class="fas fa-download"></i> Download Template
+                    </a>
+                </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="dm-progress">
+                <div class="dm-progress__bar" style="width: @((currentStep * 100) / Math.Max(steps.Length - 1, 1))%;"></div>
+            </div>
+
+            <!-- Upload & Import card -->
+            <div class="pe-card" style="margin-top: 1rem;">
+                <div class="pe-card__body">
+
+                    <!-- Instructions -->
+                    <div class="dm-instructions">
+                        <div class="dm-instructions__step">
+                            <span class="dm-instructions__num">1</span>
+                            <span>Download the <strong>@steps[currentStep].Label</strong> template above</span>
+                        </div>
+                        <div class="dm-instructions__step">
+                            <span class="dm-instructions__num">2</span>
+                            <span>Fill in your data (follow column headers exactly)</span>
+                        </div>
+                        <div class="dm-instructions__step">
+                            <span class="dm-instructions__num">3</span>
+                            <span>Upload the completed file below and click <strong>Validate</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Upload form -->
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        <input type="hidden" name="step" value="@currentStep" />
+                        <input type="hidden" name="template" value="@steps[currentStep].Key" />
+
+                        <div class="dm-upload-zone" id="dropZone">
+                            <i class="fas fa-cloud-upload-alt dm-upload-zone__icon"></i>
+                            <div class="dm-upload-zone__text">
+                                Drag &amp; drop your <strong>.xlsx</strong> file here
+                            </div>
+                            <div class="dm-upload-zone__or">or</div>
+                            <label class="btn-p btn-p--outline btn-p--sm dm-upload-zone__btn">
+                                <i class="fas fa-folder-open"></i> Browse Files
+                                <input type="file" name="file" accept=".xlsx,.xls,.csv"
+                                       style="display:none;" id="fileInput" />
+                            </label>
+                            <div class="dm-upload-zone__filename" id="fileName"></div>
+                        </div>
+
+                        <!-- Validation results -->
+                        @if (Model.ValidationResult != null)
+                        {
+                            <div class="dm-validation @(Model.ValidationResult.IsValid ? "dm-validation--success" : "dm-validation--error")">
+                                <div class="dm-validation__header">
+                                    <i class="fas @(Model.ValidationResult.IsValid ? "fa-check-circle" : "fa-exclamation-triangle")"></i>
+                                    @if (Model.ValidationResult.IsValid)
+                                    {
+                                        <span><strong>@Model.ValidationResult.RowCount rows</strong> validated successfully</span>
+                                    }
+                                    else
+                                    {
+                                        <span><strong>@Model.ValidationResult.Errors.Count errors</strong> found — fix and re-upload</span>
+                                    }
+                                </div>
+                                @if (!Model.ValidationResult.IsValid)
+                                {
+                                    <ul class="dm-validation__errors">
+                                        @foreach (var err in Model.ValidationResult.Errors.Take(20))
+                                        {
+                                            <li>@err</li>
+                                        }
+                                        @if (Model.ValidationResult.Errors.Count > 20)
+                                        {
+                                            <li class="dm-validation__more">
+                                                … and @(Model.ValidationResult.Errors.Count - 20) more errors
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+                            </div>
+                        }
+
+                        <!-- Import result -->
+                        @if (Model.ImportResult != null)
+                        {
+                            <div class="dm-validation dm-validation--success">
+                                <div class="dm-validation__header">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>
+                                        <strong>@Model.ImportResult.ImportedCount records</strong> imported successfully
+                                        @if (Model.ImportResult.SkippedCount > 0)
+                                        {
+                                            <text> — @Model.ImportResult.SkippedCount skipped (duplicates)</text>
+                                        }
+                                    </span>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Action buttons -->
+                        <div class="dm-actions">
+                            <button type="submit" class="btn-p btn-p--primary btn-p--sm"
+                                    asp-page-handler="Validate">
+                                <i class="fas fa-check-double"></i> Validate
+                            </button>
+
+                            @if (Model.ValidationResult?.IsValid == true)
+                            {
+                                <button type="submit" class="btn-p btn-p--success btn-p--sm"
+                                        asp-page-handler="Import">
+                                    <i class="fas fa-file-import"></i> Import @steps[currentStep].Label
+                                </button>
+                            }
+
+                            <div class="dm-actions__spacer"></div>
+
+                            @if (currentStep > 0)
+                            {
+                                <a href="/Admin/DataManagement?tab=import&step=@(currentStep - 1)"
+                                   class="btn-p btn-p--ghost btn-p--sm">
+                                    <i class="fas fa-arrow-left"></i> Previous
+                                </a>
+                            }
+                            @if (currentStep < steps.Length - 1)
+                            {
+                                <a href="/Admin/DataManagement?tab=import&step=@(currentStep + 1)"
+                                   class="btn-p btn-p--outline btn-p--sm">
+                                    Skip <i class="fas fa-arrow-right"></i>
+                                </a>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Download Master Workbook -->
+            <div class="pe-card" style="margin-top: 1rem;">
+                <div class="pe-card__body" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:0.2rem;">
+                            <i class="fas fa-file-excel" style="color:var(--cherry-red, #cf3339); margin-right:0.4rem;"></i>
+                            Download Master Import Workbook
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-muted);">
+                            One workbook, all 15 sheets — branded, color-coded, with instructions and example data
+                        </div>
+                    </div>
+                    <a href="/Admin/DataManagement?handler=DownloadWorkbook"
+                       class="btn-p btn-p--primary btn-p--sm">
+                        <i class="fas fa-download"></i> Download Workbook
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════
+   TAB: EXPORT
+   ═══════════════════════════════════════════════════ *@
+@if (activeTab == "export")
+{
+    <div class="dm-export-layout">
+        <div class="pe-card">
+            <div class="pe-card__header">
+                <h3 class="pe-card__title"><i class="fas fa-file-export"></i> Export Data</h3>
+            </div>
+            <div class="pe-card__body">
+                <p class="dm-export-intro">
+                    Select a data category to export as an Excel file. All exports respect your current
+                    company scope and include only records visible to your account.
+                </p>
+
+                <div class="dm-export-grid">
+                    @for (int i = 0; i < steps.Length; i++)
+                    {
+                        var s = steps[i];
+                        <form method="post" asp-page-handler="Export" class="dm-export-card">
+                            <input type="hidden" name="template" value="@s.Key" />
+                            <div class="dm-export-card__icon">
+                                <i class="fas @s.Icon"></i>
+                            </div>
+                            <div class="dm-export-card__label">@s.Label</div>
+                            <button type="submit" class="dm-export-card__btn">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ═══════════════════════════════════════════════════
+   INLINE CSS
+   (Zero hardcoded colors — CSS variables only)
+   ═══════════════════════════════════════════════════ *@
+<style>
+    /* ── Tab strip ─────────────────────────────────── */
+    .dm-tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid var(--border-subtle, rgba(255,255,255,0.06));
+    }
+    .dm-tabs__item {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        text-decoration: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: color 0.2s, border-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .dm-tabs__item:hover {
+        color: var(--text-primary);
+    }
+    .dm-tabs__item--active {
+        color: var(--cherry-red, #cf3339);
+        border-bottom-color: var(--cherry-red, #cf3339);
+    }
+
+    /* ── Import layout ────────────────────────────── */
+    .dm-import-layout {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+    @@media (max-width: 900px) {
+        .dm-import-layout {
+            grid-template-columns: 1fr;
+        }
+        .dm-import-layout__sidebar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+    }
+
+    /* ── Step sidebar ──────────────────────────────── */
+    .dm-import-layout__sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        background: var(--surface-card, rgba(255,255,255,0.03));
+        border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+        border-radius: 10px;
+        padding: 0.75rem;
+        position: sticky;
+        top: 80px;
+        max-height: calc(100vh - 120px);
+        overflow-y: auto;
+    }
+    .dm-sidebar-label {
+        font-size: 0.55rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-muted);
+        padding: 0.5rem 0.5rem 0.4rem;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .dm-step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.5rem;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        font-weight: 500;
+        transition: background 0.15s, color 0.15s;
+    }
+    .dm-step:hover {
+        background: var(--surface-hover, rgba(255,255,255,0.04));
+        color: var(--text-primary);
+    }
+    .dm-step--active {
+        background: var(--cherry-red-soft, rgba(207,51,57,0.12));
+        color: var(--cherry-red, #cf3339);
+        font-weight: 600;
+    }
+    .dm-step--done {
+        color: var(--status-success, #22c55e);
+    }
+    .dm-step__num {
+        flex: 0 0 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        font-weight: 700;
+        background: var(--surface-hover, rgba(255,255,255,0.06));
+        color: var(--text-muted);
+    }
+    .dm-step--active .dm-step__num {
+        background: var(--cherry-red, #cf3339);
+        color: var(--text-on-primary, #fff);
+    }
+    .dm-step--done .dm-step__num {
+        background: var(--status-success, #22c55e);
+        color: var(--text-on-primary, #fff);
+    }
+    .dm-step__icon {
+        font-size: 0.7rem;
+        width: 16px;
+        text-align: center;
+    }
+    .dm-step__label {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Sidebar phase dividers ────────────────────── */
+    .dm-sidebar-divider {
+        padding: 0.6rem 0.5rem 0.25rem;
+        margin-top: 0.4rem;
+        border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    }
+    .dm-sidebar-divider--first {
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0.2rem;
+    }
+    .dm-sidebar-divider span {
+        font-size: 0.5rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--cherry-red, #cf3339);
+    }
+
+    /* ── Step header ───────────────────────────────── */
+    .dm-step-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .dm-step-header__badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        background: var(--surface-hover, rgba(255,255,255,0.05));
+        padding: 0.15rem 0.6rem;
+        border-radius: 20px;
+    }
+    .dm-step-header__title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0.25rem 0 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .dm-step-header__title i {
+        color: var(--cherry-red, #cf3339);
+        font-size: 0.95rem;
+    }
+
+    /* ── Progress bar ──────────────────────────────── */
+    .dm-progress {
+        height: 4px;
+        background: var(--surface-hover, rgba(255,255,255,0.06));
+        border-radius: 2px;
+        margin-top: 1rem;
+        overflow: hidden;
+    }
+    .dm-progress__bar {
+        height: 100%;
+        background: var(--cherry-red, #cf3339);
+        border-radius: 2px;
+        transition: width 0.4s ease;
+        min-width: 2%;
+    }
+
+    /* ── Instructions ──────────────────────────────── */
+    .dm-instructions {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+    }
+    .dm-instructions__step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    .dm-instructions__num {
+        flex: 0 0 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        font-weight: 700;
+        background: var(--surface-hover, rgba(255,255,255,0.08));
+        color: var(--text-muted);
+    }
+
+    /* ── Upload zone ───────────────────────────────── */
+    .dm-upload-zone {
+        border: 2px dashed var(--border-default, rgba(255,255,255,0.1));
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        transition: border-color 0.2s, background 0.2s;
+        margin-bottom: 1rem;
+    }
+    .dm-upload-zone:hover,
+    .dm-upload-zone.dm-upload-zone--drag {
+        border-color: var(--cherry-red, #cf3339);
+        background: var(--cherry-red-soft, rgba(207,51,57,0.04));
+    }
+    .dm-upload-zone__icon {
+        font-size: 2rem;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    .dm-upload-zone__text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.5rem;
+    }
+    .dm-upload-zone__or {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 0.5rem;
+    }
+    .dm-upload-zone__btn {
+        cursor: pointer;
+    }
+    .dm-upload-zone__filename {
+        margin-top: 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--cherry-red, #cf3339);
+        min-height: 1.2em;
+    }
+
+    /* ── Validation results ────────────────────────── */
+    .dm-validation {
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .dm-validation--success {
+        background: rgba(34,197,94,0.08);
+        border: 1px solid rgba(34,197,94,0.2);
+    }
+    .dm-validation--error {
+        background: rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.2);
+    }
+    .dm-validation__header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    .dm-validation--success .dm-validation__header { color: var(--status-success, #22c55e); }
+    .dm-validation--error .dm-validation__header   { color: var(--status-danger, #ef4444); }
+    .dm-validation__errors {
+        margin: 0.75rem 0 0 1.75rem;
+        padding: 0;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    .dm-validation__errors li {
+        margin-bottom: 0.3rem;
+    }
+    .dm-validation__more {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    /* ── Action buttons ────────────────────────────── */
+    .dm-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .dm-actions__spacer {
+        flex: 1;
+    }
+
+    /* ── Template chips ────────────────────────────── */
+    .dm-template-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .dm-template-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        background: var(--surface-hover, rgba(255,255,255,0.04));
+        border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+        text-decoration: none;
+        transition: background 0.15s, border-color 0.15s;
+    }
+    .dm-template-chip:hover {
+        background: var(--cherry-red-soft, rgba(207,51,57,0.08));
+        border-color: var(--cherry-red, #cf3339);
+        color: var(--cherry-red, #cf3339);
+    }
+    .dm-template-chip__dl {
+        font-size: 0.6rem;
+        opacity: 0.4;
+    }
+    .dm-template-chip:hover .dm-template-chip__dl {
+        opacity: 1;
+    }
+
+    /* ── Legend ─────────────────────────────────────── */
+    .dm-legend {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .dm-legend__item {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .dm-legend__dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+    }
+    .dm-legend__dot--req { background: #dc3545; }
+    .dm-legend__dot--rec { background: #ffc107; }
+    .dm-legend__dot--opt { background: var(--surface-hover, rgba(255,255,255,0.08)); border: 1px solid var(--border-default, rgba(255,255,255,0.1)); }
+    .dm-legend__hint {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+
+    /* ── Export layout ─────────────────────────────── */
+    .dm-export-intro {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin: 0 0 1.25rem;
+        line-height: 1.5;
+    }
+    .dm-export-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 0.75rem;
+    }
+    .dm-export-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1.25rem 1rem;
+        border-radius: 8px;
+        background: var(--surface-hover, rgba(255,255,255,0.03));
+        border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+        transition: border-color 0.15s, background 0.15s;
+    }
+    .dm-export-card:hover {
+        border-color: var(--cherry-red, #cf3339);
+        background: var(--cherry-red-soft, rgba(207,51,57,0.04));
+    }
+    .dm-export-card__icon {
+        font-size: 1.4rem;
+        color: var(--text-muted);
+    }
+    .dm-export-card:hover .dm-export-card__icon {
+        color: var(--cherry-red, #cf3339);
+    }
+    .dm-export-card__label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        text-align: center;
+    }
+    .dm-export-card__btn {
+        padding: 0.3rem 0.75rem;
+        border-radius: 4px;
+        border: 1px solid var(--border-default, rgba(255,255,255,0.1));
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 0.7rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .dm-export-card__btn:hover {
+        background: var(--cherry-red, #cf3339);
+        border-color: var(--cherry-red, #cf3339);
+        color: var(--text-on-primary, #fff);
+    }
+
+    /* ── Light mode ────────────────────────────────── */
+    html:not(.dark) .dm-import-layout__sidebar {
+        background: var(--surface-card, #ffffff);
+        border-color: var(--border-default, #e2e8f0);
+    }
+    html:not(.dark) .dm-upload-zone {
+        border-color: var(--border-default, #e2e8f0);
+    }
+    html:not(.dark) .dm-upload-zone:hover,
+    html:not(.dark) .dm-upload-zone.dm-upload-zone--drag {
+        border-color: var(--cherry-red, #cf3339);
+        background: rgba(207,51,57,0.03);
+    }
+    html:not(.dark) .dm-step__num {
+        background: var(--surface-hover, #f1f5f9);
+    }
+    html:not(.dark) .dm-template-chip {
+        background: var(--surface-hover, #f1f5f9);
+        border-color: var(--border-default, #e2e8f0);
+    }
+    html:not(.dark) .dm-export-card {
+        background: var(--surface-hover, #f8fafc);
+        border-color: var(--border-default, #e2e8f0);
+    }
+</style>
+
+@* ═══════════════════════════════════════════════════
+   JAVASCRIPT — drag-and-drop
+   ═══════════════════════════════════════════════════ *@
+<script>
+(function() {
+    var fileInput = document.getElementById('fileInput');
+    var fileName  = document.getElementById('fileName');
+    var dropZone  = document.getElementById('dropZone');
+
+    if (!fileInput || !dropZone) return;
+
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            fileName.textContent = this.files[0].name +
+                ' (' + (this.files[0].size / 1024).toFixed(1) + ' KB)';
+        } else {
+            fileName.textContent = '';
+        }
+    });
+
+    ['dragenter','dragover'].forEach(function(evt) {
+        dropZone.addEventListener(evt, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dm-upload-zone--drag');
+        });
+    });
+    ['dragleave','drop'].forEach(function(evt) {
+        dropZone.addEventListener(evt, function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dm-upload-zone--drag');
+        });
+    });
+    dropZone.addEventListener('drop', function(e) {
+        var dt = e.dataTransfer;
+        if (dt.files.length > 0) {
+            fileInput.files = dt.files;
+            fileName.textContent = dt.files[0].name +
+                ' (' + (dt.files[0].size / 1024).toFixed(1) + ' KB)';
+        }
+    });
+})();
+</script>

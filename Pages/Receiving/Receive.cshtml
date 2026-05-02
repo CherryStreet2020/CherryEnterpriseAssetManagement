@@ -1,0 +1,209 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Receiving.ReceiveModel
+@{
+    ViewData["Title"] = $"Receive — {Model.PO.PONumber}";
+    ViewData["TabTitle"] = "Receive Goods";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var statusTone = Model.PO.Status == Models.POStatus.PartiallyReceived ? "warning" : "info";
+    var totalOrdered = Model.Lines.Sum(l => l.QuantityOrdered * l.UnitPrice);
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Receive Goods",
+        ["Subtitle"] = $"PO {Model.PO.PONumber} — {Model.PO.Vendor?.Name ?? "Unknown Vendor"}",
+        ["TypeLabel"] = "Receiving",
+        ["StatusText"] = Model.PO.Status.ToString(),
+        ["StatusTone"] = statusTone,
+        ["Breadcrumbs"] = new (string, string)[] { ("Materials", "/Purchasing"), ("Receiving", "/Receiving"), ("Receive", "") },
+        ["ShowBackLink"] = true,
+        ["BackLinkFallback"] = "/Receiving",
+        ["BackLinkLabel"] = "Back to Receiving"
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] is string success)
+{
+    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+}
+@if (TempData["Error"] is string error)
+{
+    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+}
+
+<form method="post" asp-page-handler="Receive" asp-route-id="@Model.PO.Id" id="receiveForm">
+    @Html.AntiForgeryToken()
+
+    <!-- SHIPMENT DETAILS -->
+    <div class="pe-card" style="margin-bottom:1rem;">
+        <div class="pe-card__header">
+            <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Shipment Details</span>
+        </div>
+        <div class="pe-card__body">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+                <div>
+                    <label class="line-add-form__label">RECEIPT DATE *</label>
+                    <input type="date" name="receiptDate" class="line-add-form__input" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div>
+                    <label class="line-add-form__label">SHIPPING CARRIER</label>
+                    <input type="text" name="shippingCarrier" class="line-add-form__input" placeholder="e.g. UPS, FedEx, LTL..." />
+                </div>
+                <div>
+                    <label class="line-add-form__label">TRACKING NUMBER</label>
+                    <input type="text" name="trackingNumber" class="line-add-form__input" placeholder="Tracking #..." />
+                </div>
+                <div>
+                    <label class="line-add-form__label">PACKING SLIP #</label>
+                    <input type="text" name="packingSlipNumber" class="line-add-form__input" placeholder="Vendor packing slip..." />
+                </div>
+            </div>
+            <div>
+                <label class="line-add-form__label">NOTES</label>
+                <input type="text" name="headerNotes" class="line-add-form__input" placeholder="Shipment notes, damage reports, special instructions..." />
+            </div>
+        </div>
+    </div>
+
+    <!-- RECEIVE LINE ITEMS -->
+    <div class="line-section">
+        <div class="line-section__header">
+            <h3 class="line-section__title">
+                <i class="fas fa-boxes"></i> Receive Line Items
+            </h3>
+            <div class="line-section__summary">
+                <span class="line-section__count">@Model.Lines.Count line@(Model.Lines.Count != 1 ? "s" : "")</span>
+                <span class="line-section__total">@totalOrdered.ToString("C2")</span>
+            </div>
+        </div>
+
+        <div class="line-section__body">
+            <table class="line-table">
+                <thead>
+                    <tr>
+                        <th class="line-table__th" style="width:35px">#</th>
+                        <th class="line-table__th" style="width:110px">PART #</th>
+                        <th class="line-table__th">DESCRIPTION</th>
+                        <th class="line-table__th line-table__th--right" style="width:70px">ORDERED</th>
+                        <th class="line-table__th line-table__th--right" style="width:70px">PREV RCVD</th>
+                        <th class="line-table__th line-table__th--right" style="width:75px">REMAINING</th>
+                        <th class="line-table__th line-table__th--right" style="width:85px">QTY RECEIVE</th>
+                        <th class="line-table__th line-table__th--right" style="width:75px">QTY REJECT</th>
+                        <th class="line-table__th" style="width:130px">PUT-AWAY LOCATION</th>
+                        <th class="line-table__th" style="width:90px">LOT #</th>
+                        <th class="line-table__th" style="width:90px">SERIAL #</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.Lines.Count; i++)
+                    {
+                        var line = Model.Lines[i];
+                        var isComplete = line.QuantityRemaining <= 0;
+
+                        // Build default put-away from Item Master (Warehouse + DefaultLocation + Bin)
+                        var poLine = Model.PO.Lines?.FirstOrDefault(l => l.Id == line.POLineId);
+                        var item = poLine?.Item;
+                        var defaultPutaway = "";
+                        if (item != null)
+                        {
+                            var parts = new List<string>();
+                            if (!string.IsNullOrEmpty(item.Warehouse)) parts.Add(item.Warehouse);
+                            if (!string.IsNullOrEmpty(item.DefaultLocation)) parts.Add(item.DefaultLocation);
+                            if (!string.IsNullOrEmpty(item.Bin)) parts.Add(item.Bin);
+                            defaultPutaway = string.Join(" / ", parts);
+                        }
+
+                        <tr class="line-table__row" style="@(isComplete ? "opacity:0.4;" : "")">
+                            <td class="line-table__td line-table__td--muted">
+                                <input type="hidden" name="lines[@i].POLineId" value="@line.POLineId" />
+                                @(i + 1)
+                            </td>
+                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--primary">
+                                @line.ItemDescription
+                                @if (!string.IsNullOrEmpty(line.UOM))
+                                {
+                                    <span style="color:var(--text-muted); font-size:0.75rem; margin-left:0.35rem;">@line.UOM</span>
+                                }
+                            </td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono">@line.QuantityOrdered.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">@line.QuantityPreviouslyReceived.ToString("N0")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono">
+                                @if (isComplete)
+                                {
+                                    <span class="status-badge-p status-badge-p--approved" style="font-size:0.6rem;">DONE</span>
+                                }
+                                else
+                                {
+                                    <strong>@line.QuantityRemaining.ToString("N0")</strong>
+                                }
+                            </td>
+                            <td class="line-table__td line-table__td--right">
+                                <input type="number" name="lines[@i].QuantityToReceive" value="0"
+                                       min="0" max="@line.QuantityRemaining" step="any"
+                                       class="line-add-form__input line-add-form__input--right"
+                                       style="width:65px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                                       @(isComplete ? "disabled" : "") />
+                            </td>
+                            <td class="line-table__td line-table__td--right">
+                                <input type="number" name="lines[@i].QuantityRejected" value="0"
+                                       min="0" step="any"
+                                       class="line-add-form__input line-add-form__input--right"
+                                       style="width:60px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                                       @(isComplete ? "disabled" : "") />
+                            </td>
+                            <td class="line-table__td">
+                                <input type="text" name="lines[@i].StorageLocation" value="@defaultPutaway"
+                                       class="line-add-form__input" placeholder="Warehouse / Location / Bin"
+                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       title="@(defaultPutaway != "" ? $"Default from Item Master: {defaultPutaway}" : "No default location set on Item Master")"
+                                       @(isComplete ? "disabled" : "") />
+                            </td>
+                            <td class="line-table__td">
+                                <input type="text" name="lines[@i].LotNumber" value=""
+                                       class="line-add-form__input" placeholder="Lot#"
+                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       @(isComplete ? "disabled" : "") />
+                            </td>
+                            <td class="line-table__td">
+                                <input type="text" name="lines[@i].SerialNumber" value=""
+                                       class="line-add-form__input" placeholder="Serial#"
+                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       @(isComplete ? "disabled" : "") />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ACTION BAR -->
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
+        <a href="/Receiving" class="btn-p btn-p--secondary">
+            <i class="fas fa-arrow-left"></i> Back to Receiving
+        </a>
+        <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn-p btn-p--ghost" onclick="fillAllRemaining()">
+                <i class="fas fa-fill-drip"></i> Receive All Remaining
+            </button>
+            <button type="submit" class="btn-p btn-p--primary">
+                <i class="fas fa-check"></i> Receive Selected Items
+            </button>
+        </div>
+    </div>
+</form>
+
+@section Scripts {
+<script>
+function fillAllRemaining() {
+    var inputs = document.querySelectorAll('input[name$=".QuantityToReceive"]:not([disabled])');
+    inputs.forEach(function(inp) {
+        var max = parseFloat(inp.getAttribute('max')) || 0;
+        if (max > 0) inp.value = max;
+    });
+}
+</script>
+}

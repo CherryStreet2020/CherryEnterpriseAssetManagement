@@ -1,0 +1,250 @@
+@page
+@model Abs.FixedAssets.Pages.Maintenance.ScheduleBoardModel
+@{
+    ViewData["Title"] = "Schedule Board";
+    Layout = Model.IsPopout ? "~/Pages/Shared/_PopoutLayout.cshtml" : "_ModernLayout";
+    var prevWeek = Model.CurrentWeekStart.AddDays(-7).ToString("yyyy-MM-dd");
+    var nextWeek = Model.CurrentWeekStart.AddDays(7).ToString("yyyy-MM-dd");
+}
+
+@section Styles {
+<style>
+*{box-sizing:border-box}
+.sb{display:grid;grid-template-columns:380px 1fr;height:calc(100vh - 140px);min-height:550px;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);box-shadow:0 4px 28px rgba(0,0,0,0.18)}
+.sb--pop{height:calc(100vh - 20px);border-radius:10px}
+.sb-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;margin-bottom:8px}
+.sb-hdr__l{display:flex;align-items:center;gap:12px}
+.sb-hdr__ic{width:44px;height:44px;border-radius:11px;background:linear-gradient(135deg,#cf3339,#9f1b20);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 3px 12px rgba(207,51,57,0.4)}
+.sb-hdr h1{font-size:20px;font-weight:800;color:var(--text-primary,#e2e8f0);margin:0}
+.sb-hdr p{font-size:14px;color:var(--text-muted,#94a3b8);margin:0}
+.sb-hdr__pop{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:14px;font-weight:600;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:transparent;color:var(--text-muted);cursor:pointer;transition:all 0.15s}
+.sb-hdr__pop:hover{background:#cf3339;color:#fff;border-color:#cf3339}
+.sb-left{display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,0.08);background:rgba(0,0,0,0.12);overflow:hidden}
+.sb-left__hd{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center}
+.sb-left__hd h2{font-size:16px;font-weight:700;color:var(--text-primary);margin:0;display:flex;align-items:center;gap:8px}
+.sb-left__hd h2 i{color:#cf3339}
+.sb-bdg{font-size:14px;font-weight:700;background:#cf3339;color:#fff;padding:3px 10px;border-radius:12px}
+.sb-pills{padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;gap:6px;overflow-x:auto;flex-shrink:0;scrollbar-width:none}
+.sb-pills::-webkit-scrollbar{display:none}
+.sb-pill{font-size:14px;font-weight:600;padding:6px 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#94a3b8;cursor:pointer;transition:all 0.15s;white-space:nowrap;flex-shrink:0}
+.sb-pill:hover,.sb-pill.on{color:#fff;border-color:var(--pc,#cf3339);background:var(--pc,#cf3339)}
+.sb-srch{padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.sb-srch input{width:100%;padding:10px 14px;font-size:15px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:var(--text-primary,#e2e8f0);outline:none}
+.sb-srch input:focus{border-color:#cf3339;box-shadow:0 0 0 3px rgba(207,51,57,0.12)}
+.sb-cards{flex:1;overflow-y:auto;padding:10px}
+.sb-card{padding:14px 16px;margin-bottom:8px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);border-left:5px solid #6b7280;cursor:grab;transition:all 0.2s}
+.sb-card:hover{border-color:#cf3339;box-shadow:0 4px 14px rgba(207,51,57,0.12);transform:translateY(-2px)}
+.sb-card:active{cursor:grabbing}
+.sb-card--crit{border-left-color:#ef4444}.sb-card--high{border-left-color:#f97316}.sb-card--med{border-left-color:#3b82f6}
+.sb-card.dragging{opacity:0.4;transform:scale(0.96)}
+.sb-card__r1{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.sb-card__wo{font-size:14px;font-weight:700;color:var(--text-primary)}.sb-card__pri{font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;text-transform:uppercase}
+.sb-card__ti{font-size:15px;color:#cbd5e1;margin-bottom:8px;line-height:1.4}
+.sb-card__tags{display:flex;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px;color:#64748b}
+.sb-card__hint{font-size:13px;color:#475569;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(255,255,255,0.06);display:flex;align-items:center;gap:6px}
+.sb-card__hint i{color:#cf3339}
+.sb-right{display:flex;flex-direction:column;overflow:hidden}
+.sb-bar{padding:10px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0;gap:12px;flex-wrap:wrap}
+.sb-nav{display:flex;gap:6px;align-items:center}
+.sb-nav a{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;padding:8px 14px;border-radius:7px;font-size:14px;text-decoration:none;transition:all 0.15s;display:inline-block}
+.sb-nav a:hover{background:rgba(255,255,255,0.12);color:var(--text-primary)}
+.sb-date{font-size:16px;font-weight:700;color:var(--text-primary);min-width:180px;text-align:center}
+.sb-kpis{display:flex;gap:20px;align-items:center}
+.sb-kpi{text-align:center}.sb-kpi__v{font-size:22px;font-weight:800;line-height:1}.sb-kpi__l{font-size:11px;font-weight:600;text-transform:uppercase;color:#64748b}
+.sb-ai{display:inline-flex;align-items:center;gap:8px;padding:10px 18px;font-size:14px;font-weight:700;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#cf3339,#9f1b20);color:#fff;box-shadow:0 3px 14px rgba(207,51,57,0.4);text-transform:uppercase;letter-spacing:0.03em;transition:all 0.2s}
+.sb-ai:hover{box-shadow:0 5px 24px rgba(207,51,57,0.55);transform:translateY(-1px)}
+.sb-grid{flex:1;overflow:auto}
+.sb-grid table{width:100%;border-collapse:collapse;table-layout:fixed}
+.sb-grid th{padding:12px 8px;font-size:14px;font-weight:700;text-transform:uppercase;color:#64748b;border-bottom:2px solid rgba(255,255,255,0.08);text-align:center;position:sticky;top:0;background:var(--bg-primary,#0c1222);z-index:5}
+.sb-grid th.today{color:#cf3339;background:rgba(207,51,57,0.06)}
+.sb-grid th:first-child{text-align:left;padding-left:16px;width:260px}
+.sb-trow{border-bottom:1px solid rgba(255,255,255,0.04);transition:opacity 0.2s,background 0.2s}
+.sb-trow.dim{opacity:0.15}.sb-trow.best{background:rgba(16,185,129,0.04)}
+.sb-tinfo{padding:14px 16px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.06)}
+.sb-tname{font-size:16px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.sb-cbadge{font-size:11px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:0.04em}
+.sb-best{font-size:11px;font-weight:700;color:#34d399;animation:pulse 1.5s infinite}
+.sb-tmeta{font-size:13px;color:#64748b;margin-bottom:6px}
+.sb-tutil{display:flex;align-items:center;gap:8px}
+.sb-tutil__bar{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,0.06)}
+.sb-tutil__fill{height:100%;border-radius:3px;transition:width 0.3s}
+.sb-tutil__txt{font-size:12px;font-weight:600;color:#64748b;white-space:nowrap}
+.sb-cell{padding:6px;vertical-align:top;border-right:1px solid rgba(255,255,255,0.04);position:relative;transition:all 0.15s}
+.sb-cell.today-col{background:rgba(207,51,57,0.02)}
+.sb-cell.drop-hover{background:rgba(207,51,57,0.1);outline:2px dashed rgba(207,51,57,0.4);outline-offset:-2px;border-radius:8px}
+.sb-cell__drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#cf3339;pointer-events:none}
+.sb-evt{padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;color:#fff;margin-bottom:4px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.2);transition:all 0.15s}
+.sb-evt:hover{box-shadow:0 3px 12px rgba(0,0,0,0.35);filter:brightness(1.1)}
+.sb-evt__wo{font-weight:700;margin-bottom:2px}.sb-evt__ti{font-size:12px;opacity:0.9}.sb-evt__hr{font-size:11px;opacity:0.75;margin-top:2px}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:998}.sb-overlay.open{display:block}
+.sb-drawer{position:fixed;top:0;right:-460px;width:440px;height:100vh;background:#111827;border-left:1px solid rgba(255,255,255,0.08);box-shadow:-8px 0 32px rgba(0,0,0,0.4);z-index:999;display:flex;flex-direction:column;transition:right 0.3s cubic-bezier(0.4,0,0.2,1)}
+.sb-drawer.open{right:0}
+.sb-drawer__hd{padding:20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:flex-start}
+.sb-drawer__sub{font-size:12px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px}
+.sb-drawer__t{font-size:17px;font-weight:700;color:#e2e8f0;line-height:1.3}
+.sb-drawer__x{background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:4px}
+.sb-drawer__bd{flex:1;overflow-y:auto;padding:20px}
+.sb-sect{margin-bottom:20px}.sb-sect__t{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.sb-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.03)}
+.sb-row__l{font-size:15px;color:#64748b}.sb-row__v{font-size:15px;font-weight:600;color:#e2e8f0}
+.sb-toast{position:fixed;bottom:24px;right:24px;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:600;color:#fff;z-index:2000;transform:translateY(80px);opacity:0;transition:all 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.sb-toast.show{transform:translateY(0);opacity:1}
+.sb-toast--ok{background:#059669}.sb-toast--err{background:#dc2626}
+.sb-empty{text-align:center;padding:40px;color:#64748b;font-size:15px}
+@@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+html:not(.dark) .sb{background:#fff;border-color:#e2e8f0}
+html:not(.dark) .sb-left{background:#f1f5f9}
+html:not(.dark) .sb-card{background:#fff;border-color:#e2e8f0}
+html:not(.dark) .sb-drawer{background:#fff}
+html:not(.dark) .sb-grid th{background:#fff}
+</style>
+}
+
+@if(!Model.IsPopout){
+<div class="sb-hdr"><div class="sb-hdr__l"><div class="sb-hdr__ic"><i class="fas fa-calendar-alt"></i></div><div><h1>Schedule Board</h1><p>Drag work orders onto technician rows to assign</p></div></div><button class="sb-hdr__pop" onclick="window.open(location.pathname+'?mode=popout&WeekStart=@Model.CurrentWeekStart.ToString("yyyy-MM-dd")','CherryAI_Scheduler','width=1600,height=1000,menubar=no,toolbar=no')"><i class="fas fa-external-link-alt"></i> Pop Out</button></div>
+}
+<div class="sb @(Model.IsPopout?"sb--pop":"")" id="board">
+<div class="sb-left">
+<div class="sb-left__hd"><h2><i class="fas fa-inbox"></i> Unscheduled</h2><span class="sb-bdg" id="blC">@Model.TotalBacklog</span></div>
+<div class="sb-pills" id="crP"></div>
+<div class="sb-pills"><button class="sb-pill on" data-pf="all" style="--pc:#cf3339">All</button><button class="sb-pill" data-pf="Critical" style="--pc:#ef4444">Critical</button><button class="sb-pill" data-pf="High" style="--pc:#f97316">High</button><button class="sb-pill" data-pf="overdue" style="--pc:#ef4444">Overdue</button></div>
+<div class="sb-srch"><input type="text" id="qBox" placeholder="Search work orders..."/></div>
+<div class="sb-cards" id="cardList"></div>
+</div>
+<div class="sb-right">
+<div class="sb-bar">
+<div class="sb-nav"><a href="?WeekStart=@prevWeek@(Model.IsPopout?"&mode=popout":"")"><i class="fas fa-chevron-left"></i></a><a href="?@(Model.IsPopout?"mode=popout":"")">Today</a><a href="?WeekStart=@nextWeek@(Model.IsPopout?"&mode=popout":"")"><i class="fas fa-chevron-right"></i></a><span class="sb-date">@Model.CurrentWeekStart.ToString("MMM d") – @Model.CurrentWeekStart.AddDays(4).ToString("MMM d, yyyy")</span></div>
+<div class="sb-kpis"><div class="sb-kpi"><div class="sb-kpi__v" style="color:var(--text-primary)">@Model.TotalBacklog</div><div class="sb-kpi__l">Backlog</div></div><div class="sb-kpi"><div class="sb-kpi__v" style="color:#ef4444">@Model.OverdueCount</div><div class="sb-kpi__l">Overdue</div></div><div class="sb-kpi"><div class="sb-kpi__v" style="color:#10b981">@Model.AvgUtilization%</div><div class="sb-kpi__l">Util</div></div></div>
+<button class="sb-ai" id="aiBtn"><i class="fas fa-brain"></i> AI Schedule</button>
+</div>
+<div class="sb-grid"><table id="tbl"></table></div>
+</div>
+</div>
+<div class="sb-overlay" id="ov"></div>
+<div class="sb-drawer" id="dr"><div class="sb-drawer__hd"><div><div class="sb-drawer__sub">Detail</div><div class="sb-drawer__t" id="drT"></div></div><button class="sb-drawer__x" id="drX">✕</button></div><div class="sb-drawer__bd" id="drB"></div></div>
+<div class="sb-toast" id="toast"></div>
+<form id="csrf" method="post" style="display:none">@Html.AntiForgeryToken()</form>
+<script>
+var D={techs:@Html.Raw(Model.TechniciansJson),events:@Html.Raw(Model.EventsJson),backlog:@Html.Raw(Model.BacklogJson),crafts:@Html.Raw(Model.CraftsJson),days:@Html.Raw(Model.WeekDaysJson)};
+var CC={MACH:'#3b82f6',ELEC:'#f59e0b',MILL:'#10b981',HYDR:'#6366f1',WELD:'#ef4444',PIPE:'#8b5cf6',HVAC:'#06b6d4',INST:'#ec4899',PLC:'#f97316',LUBE:'#84cc16',MECH:'#3b82f6',LEAD:'#a855f7',SUPV:'#0ea5e9',ENGR:'#14b8a6',HELP:'#6b7280',OPER:'#78716c'};
+var PC={Critical:'#ef4444',High:'#f97316',Medium:'#3b82f6',Low:'#6b7280'};
+</script>
+@section Scripts{
+<script>
+(function(){
+var TK=document.querySelector('#csrf input[name="__RequestVerificationToken"]')?.value||'';
+var aC='ALL',aP='all',qV='',drag=null,hover=null;
+function toast(m,t){var e=document.getElementById('toast');e.textContent=m;e.className='sb-toast sb-toast--'+t+' show';setTimeout(function(){e.classList.remove('show')},3000)}
+function R(l,v){return'<div class="sb-row"><span class="sb-row__l">'+l+'</span><span class="sb-row__v">'+(v||'—')+'</span></div>'}
+
+// Craft pills
+var cp=document.getElementById('crP');
+function pill(c,l,clr){var b=document.createElement('button');b.className='sb-pill'+(c==='ALL'?' on':'');b.dataset.cf=c;b.style.cssText='--pc:'+(clr||'#cf3339');b.textContent=l;b.onclick=function(){cp.querySelectorAll('.sb-pill').forEach(function(p){p.classList.remove('on')});b.classList.add('on');aC=c;renderCards();renderGrid()};cp.appendChild(b)}
+pill('ALL','All','#cf3339');pill('GENERAL','General','#94a3b8');
+D.crafts.forEach(function(c){pill(c.code,c.code,CC[c.code]||'#6b7280')});
+
+// Prio pills
+document.querySelectorAll('[data-pf]').forEach(function(b){b.onclick=function(){document.querySelectorAll('[data-pf]').forEach(function(p){p.classList.remove('on')});b.classList.add('on');aP=b.dataset.pf;renderCards()}});
+document.getElementById('qBox').oninput=function(){qV=this.value;renderCards()};
+
+function renderGrid(){
+var h='<thead><tr><th>Technicians</th>';
+D.days.forEach(function(d){h+='<th'+(d.isToday?' class="today"':'')+'>'+d.dayName+' '+d.label.split(' ')[1]+(d.isToday?' <span style="font-size:11px;color:#cf3339">TODAY</span>':'')+'</th>'});
+h+='</tr></thead><tbody>';
+D.techs.forEach(function(t){
+var match=aC==='ALL'||aC==='GENERAL'||t.craft===aC||(t.secondaryCraft||'')===aC;
+var isBest=drag&&drag.craft&&(t.craft===drag.craft||(t.secondaryCraft||'')===drag.craft);
+var cls='sb-trow';if(!match&&aC!=='ALL')cls+=' dim';if(isBest)cls+=' best';
+var evts=D.events.filter(function(e){return e.techId===t.id});
+var hrs=evts.reduce(function(s,e){return s+(e.hours||0)},0);
+var pct=Math.min(100,Math.round(hrs/40*100));
+var barC=pct>80?'#ef4444':pct>50?'#f59e0b':'#10b981';
+var cc=CC[t.craft]||'#6b7280';
+var bBg=isBest?'rgba(16,185,129,0.25)':cc+'22';
+var bClr=isBest?'#34d399':cc;
+h+='<tr class="'+cls+'" data-tid="'+t.id+'"><td class="sb-tinfo"><div class="sb-tname">'+t.name+' <span class="sb-cbadge" style="background:'+bBg+';color:'+bClr+'">'+t.craft+'</span>'+(isBest?' <span class="sb-best">← BEST MATCH</span>':'')+'</div><div class="sb-tmeta">🕐 '+t.shiftStart+'–'+t.shiftEnd+' · '+t.skillCount+' skills · '+t.certCount+' certs</div><div class="sb-tutil"><div class="sb-tutil__bar"><div class="sb-tutil__fill" style="width:'+pct+'%;background:'+barC+'"></div></div><span class="sb-tutil__txt">'+hrs.toFixed(1)+'h / 40h</span></div></td>';
+D.days.forEach(function(d,di){
+var ce=evts.filter(function(e){return e.dayIdx===di});
+var isH=hover&&hover.t===t.id&&hover.d===di;
+var ccls='sb-cell'+(d.isToday?' today-col':'')+(isH&&drag?' drop-hover':'');
+h+='<td class="'+ccls+'" data-tid="'+t.id+'" data-di="'+di+'">';
+if(isH&&drag)h+='<div class="sb-cell__drop">Drop here</div>';
+ce.forEach(function(ev){h+='<div class="sb-evt" style="background:'+(PC[ev.priority]||'#6b7280')+'cc" data-eid="'+ev.id+'"><div class="sb-evt__wo">'+(ev.wo||'WO')+'</div><div class="sb-evt__ti">'+ev.title+'</div><div class="sb-evt__hr">'+ev.hours+'h</div></div>'});
+h+='</td>'});h+='</tr>'});
+h+='</tbody>';document.getElementById('tbl').innerHTML=h;
+
+// Wire cells
+document.querySelectorAll('.sb-cell').forEach(function(c){
+c.ondragover=function(e){e.preventDefault();var nh={t:parseInt(c.dataset.tid),d:parseInt(c.dataset.di)};if(!hover||hover.t!==nh.t||hover.d!==nh.d){hover=nh;renderGrid()}};
+c.ondragleave=function(){};
+c.ondrop=function(e){e.preventDefault();if(!drag)return;var tid=parseInt(c.dataset.tid),di=parseInt(c.dataset.di);var dd=D.days[di]?.date;if(!dd)return;assignOp(drag.id,tid,dd+'T08:00:00',drag.hours,di)}});
+document.querySelectorAll('.sb-evt').forEach(function(el){el.onclick=function(){var ev=D.events.find(function(e){return e.id===parseInt(el.dataset.eid)});if(ev)openDet(ev)}});
+}
+
+function renderCards(){
+var list=document.getElementById('cardList');var items=D.backlog.slice();
+if(aP==='overdue')items=items.filter(function(i){return i.overdue});
+else if(aP!=='all')items=items.filter(function(i){return i.priority===aP});
+if(aC!=='ALL'){if(aC==='GENERAL')items=items.filter(function(i){return!i.craft});else items=items.filter(function(i){return i.craft===aC||!i.craft})}
+if(qV){var q=qV.toLowerCase();items=items.filter(function(i){return(i.wo||'').toLowerCase().indexOf(q)>=0||(i.title||'').toLowerCase().indexOf(q)>=0||(i.asset||'').toLowerCase().indexOf(q)>=0})}
+document.getElementById('blC').textContent=items.length;
+if(!items.length){list.innerHTML='<div class="sb-empty">✅ No matching work</div>';return}
+var h='';items.forEach(function(it){
+var pc=it.priority==='Critical'?'crit':it.priority==='High'?'high':it.priority==='Medium'?'med':'low';
+var ic=CC[it.craft]||'#6b7280';var prc=PC[it.priority]||'#6b7280';
+var craftTag=it.craft?'<span style="padding:2px 8px;border-radius:4px;background:'+ic+'22;color:'+ic+';font-weight:700;font-size:12px">'+it.craft+'</span>':'<span style="color:#94a3b8">🔀 Any tech</span>';
+var hint=it.craft?'best match: <strong style="color:'+ic+'">'+it.craft+'</strong>':'any technician';
+h+='<div class="sb-card sb-card--'+pc+'" draggable="true" data-id="'+it.id+'"><div class="sb-card__r1"><span class="sb-card__wo">'+(it.wo||'WO-'+it.woId)+'</span><span class="sb-card__pri" style="background:'+prc+'22;color:'+prc+'">'+it.priority+'</span></div><div class="sb-card__ti">'+it.title+'</div><div class="sb-card__tags"><span>⚙️ '+it.asset+'</span>'+craftTag+'<span>🕐 '+it.hours+'h</span>'+(it.overdue?'<span style="color:#ef4444;font-weight:700">⚠️ Overdue</span>':'')+'</div><div class="sb-card__hint"><i class="fas fa-grip-vertical"></i> Drag to assign → '+hint+'</div></div>'});
+list.innerHTML=h;
+list.querySelectorAll('.sb-card').forEach(function(card){
+card.ondragstart=function(){drag=D.backlog.find(function(b){return b.id===parseInt(card.dataset.id)});card.classList.add('dragging');renderGrid()};
+card.ondragend=function(){drag=null;hover=null;card.classList.remove('dragging');renderGrid()}})
+}
+
+function assignOp(opId,techId,startDate,hours,dayIdx){
+var end=new Date(new Date(startDate).getTime()+hours*3600000).toISOString();
+fetch('?handler=Assign',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','RequestVerificationToken':TK},body:'operationId='+opId+'&technicianId='+techId+'&startDate='+startDate+'&endDate='+end
+}).then(function(r){return r.json()}).then(function(r){
+if(r.success){var it=D.backlog.find(function(b){return b.id===opId});if(it){D.events.push({id:opId,techId:techId,dayIdx:dayIdx,wo:it.wo,woId:it.woId,title:it.title,asset:it.asset,craft:it.craft,hours:it.hours,priority:it.priority,overdue:it.overdue,status:'Ready'});D.backlog=D.backlog.filter(function(b){return b.id!==opId})}renderCards();renderGrid();toast('Assigned to '+(D.techs.find(function(t){return t.id===techId})||{}).name,'ok')}else toast(r.error||'Failed','err')
+}).catch(function(e){toast('Error: '+e.message,'err')})}
+
+window.unassign=function(opId){
+fetch('?handler=Unassign',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','RequestVerificationToken':TK},body:'operationId='+opId
+}).then(function(r){return r.json()}).then(function(r){
+if(r.success){var ev=D.events.find(function(e){return e.id===opId});if(ev){D.backlog.push({id:ev.id,wo:ev.wo,woId:ev.woId,title:ev.title,asset:ev.asset,craft:ev.craft,hours:ev.hours,priority:ev.priority,overdue:ev.overdue});D.events=D.events.filter(function(e){return e.id!==opId})}closeDr();renderCards();renderGrid();toast('Unassigned','ok')}else toast(r.error||'Failed','err')
+}).catch(function(){toast('Error','err')})};
+
+function openDet(ev){
+document.getElementById('drT').textContent=(ev.wo||'WO')+' — '+ev.title;
+var h='<div class="sb-sect"><div class="sb-sect__t">Work Order</div>'+R('WO #',ev.wo)+R('Priority',ev.priority)+R('Asset',ev.asset)+R('Craft',ev.craft||'General')+R('Hours',ev.hours+'h')+'</div>';
+h+='<div class="sb-sect"><div class="sb-sect__t">Assignment</div>'+R('Technician',(D.techs.find(function(t){return t.id===ev.techId})||{}).name)+R('Day',D.days[ev.dayIdx]?.label)+'</div>';
+h+='<div style="display:flex;gap:10px;margin-top:16px"><a href="/WorkOrders/Details/'+ev.woId+'" target="_blank" rel="noopener" style="flex:1;padding:12px;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;text-align:center;text-decoration:none">↗ Open Work Order</a><button onclick="unassign('+ev.id+')" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#ef4444;font-weight:700;font-size:14px;cursor:pointer">✕ Unassign</button></div>';
+document.getElementById('drB').innerHTML=h;document.getElementById('dr').classList.add('open');document.getElementById('ov').classList.add('open')}
+
+document.getElementById('drX').onclick=closeDr;document.getElementById('ov').onclick=closeDr;
+function closeDr(){document.getElementById('dr').classList.remove('open');document.getElementById('ov').classList.remove('open')}
+
+// AI
+document.getElementById('aiBtn').onclick=function(){
+if(!D.backlog.length){toast('No work','err');return}
+var btn=this;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+setTimeout(function(){
+btn.innerHTML='<i class="fas fa-brain"></i> AI Schedule';
+document.getElementById('drT').textContent='AI Recommendations';
+var ld={};D.techs.forEach(function(t){ld[t.id]=D.events.filter(function(e){return e.techId===t.id}).reduce(function(s,e){return s+e.hours},0)});
+var sorted=D.backlog.slice().sort(function(a,b){if(a.overdue&&!b.overdue)return-1;if(!a.overdue&&b.overdue)return 1;return(b.priorityLevel||0)-(a.priorityLevel||0)});
+var h='<div style="padding:16px;border-radius:12px;background:linear-gradient(135deg,rgba(207,51,57,0.1),rgba(207,51,57,0.02));border:1px solid rgba(207,51,57,0.15);margin-bottom:16px"><div style="font-size:13px;font-weight:700;text-transform:uppercase;color:#cf3339;margin-bottom:8px">🧠 Analysis</div><div style="font-size:15px;color:#94a3b8;line-height:1.6">Matched '+D.backlog.length+' ops to '+D.techs.length+' technicians by craft, skills, and workload.</div></div>';
+sorted.slice(0,10).forEach(function(it){
+var m=D.techs.filter(function(t){return t.craft===it.craft});var p=m.length?m:D.techs;
+var best=p.reduce(function(a,b){return(ld[a.id]||0)<=(ld[b.id]||0)?a:b});
+ld[best.id]=(ld[best.id]||0)+it.hours;
+var why=[];if(m.length)why.push('craft match');if(it.overdue)why.push('overdue');why.push('load: '+((ld[best.id]||0)-it.hours).toFixed(0)+'h');
+var cc=CC[best.craft]||'#6b7280';
+h+='<div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:15px;font-weight:600;color:#e2e8f0">'+(it.wo||'WO')+' — '+it.title+'</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+(PC[it.priority]||'#6b7280')+'22;color:'+(PC[it.priority]||'#94a3b8')+'">'+it.priority+'</span></div><div style="font-size:15px;color:#94a3b8">→ <strong style="color:#e2e8f0">'+best.name+'</strong> <span style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+cc+'22;color:'+cc+'">'+best.craft+'</span> · '+it.hours+'h</div><div style="font-size:13px;color:#475569;margin-top:4px">'+why.join(' · ')+'</div></div>'});
+h+='<button class="sb-ai" style="margin-top:16px;width:100%" onclick="alert(\'Coming next release\')">✅ Accept All</button>';
+document.getElementById('drB').innerHTML=h;document.getElementById('dr').classList.add('open');document.getElementById('ov').classList.add('open')},1200)};
+
+renderCards();renderGrid();
+})();
+</script>
+}

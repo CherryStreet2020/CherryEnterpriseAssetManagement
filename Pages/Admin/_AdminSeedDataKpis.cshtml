@@ -1,0 +1,21 @@
+@model Abs.FixedAssets.Pages.Admin.SeedDataModel
+@{
+    var totalTables = Model.TableCounts.Count;
+    var tablesWithData = Model.TableCounts.Count(t => t.Value > 0);
+}
+<div class="kpi-card">
+    <div class="kpi-label">Total Tables</div>
+    <div class="kpi-value">@totalTables</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">With Data</div>
+    <div class="kpi-value success">@tablesWithData</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Empty</div>
+    <div class="kpi-value @(totalTables - tablesWithData > 0 ? "warning" : "")">@(totalTables - tablesWithData)</div>
+</div>
+<div class="kpi-card">
+    <div class="kpi-label">Operations</div>
+    <div class="kpi-value">7</div>
+</div>

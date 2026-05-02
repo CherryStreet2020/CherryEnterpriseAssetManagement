@@ -1,0 +1,32 @@
+@using Abs.FixedAssets.Models
+@{
+    var project = ViewData["Project"] as CipProject;
+    if (project == null) return;
+}
+<div class="hero-tags">
+    <span class="hero-tag info">START: @project.StartDate.ToString("MMM dd, yyyy").ToUpper()</span>
+    @if (project.EstimatedCompletionDate.HasValue)
+    {
+        <span class="hero-tag warning">EST. END: @project.EstimatedCompletionDate.Value.ToString("MMM dd, yyyy").ToUpper()</span>
+    }
+</div>
+<div class="hero-btns">
+    <a href="/CIP" class="hero-btn hero-btn-ghost">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back to Projects
+    </a>
+    <button type="button" class="hero-btn hero-btn-ghost" onclick="toggleInlineForm('editProjectInline')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        Edit Project
+    </button>
+    <a href="#line-section-costs" class="hero-btn hero-btn-primary">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Add Cost
+    </a>
+</div>

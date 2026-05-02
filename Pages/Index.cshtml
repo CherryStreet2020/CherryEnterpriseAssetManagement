@@ -1,0 +1,535 @@
+@page
+@model Abs.FixedAssets.Pages.IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    ViewData["TabTitle"] = "Dashboard";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+@if (Model.IsDatabaseEmpty)
+{
+    var emptyHeaderVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Database Not Initialized",
+        ["Subtitle"] = "The database is empty and ready for initial data setup.",
+        ["TypeLabel"] = "Enterprise Asset Management",
+        ["StatusText"] = "Setup Required",
+        ["StatusTone"] = "warning"
+    };
+    @await Html.PartialAsync("Shared/_ScreenHeader", emptyHeaderVd)
+    
+    <div class="section-card" style="margin: 2rem; max-width: 800px;">
+        <div class="section-card-header">
+            <h2 style="margin: 0; font-size: 1.25rem;">Initialize Your System</h2>
+        </div>
+        <div class="section-card-body" style="padding: 2rem;">
+            <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="gradient-btn-navy icon-circle" style="font-size: 1.5rem;">
+                    <i class="fas fa-database"></i>
+                </div>
+                <div>
+                    <h3 class="text-theme-primary" style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">Database Empty</h3>
+                    <p class="text-theme-muted" style="margin: 0; font-size: 0.95rem;">
+                        No companies, assets, or configuration data found. The system needs to be initialized before use.
+                    </p>
+                </div>
+            </div>
+            
+            @if (Model.IsDevelopment)
+            {
+                <div class="section-card" style="border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                    <h4 style="margin: 0 0 0.75rem 0; color: var(--lux-text, #0369a1); font-size: 1rem;">
+                        <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+                        Development Mode Instructions
+                    </h4>
+                    <p style="margin: 0 0 1rem 0; color: var(--lux-text-secondary, #0c4a6e); font-size: 0.9rem;">
+                        To seed demo data with sample companies, assets, and maintenance records:
+                    </p>
+                    <div style="background: var(--lux-surface-alt, #0f172a); color: var(--lux-text, #e2e8f0); padding: 0.75rem 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin-bottom: 0.75rem;">
+                        <span style="color: var(--lux-text-muted, #94a3b8);">1.</span> Set environment variable: <span class="text-green">RUN_SEED=true</span><br/>
+                        <span style="color: var(--lux-text-muted, #94a3b8);">2.</span> Restart the application
+                    </div>
+                    <p style="margin: 0; color: var(--lux-text-muted, #64748b); font-size: 0.85rem;">
+                        <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>
+                        Seeding is disabled by default for safety. This prevents accidental data overwrites.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="callout-yellow" style="padding: 1.25rem;">
+                    <h4 class="text-amber" style="margin: 0 0 0.5rem 0; font-size: 1rem;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>
+                        Production Environment
+                    </h4>
+                    <p class="text-amber" style="margin: 0; font-size: 0.9rem;">
+                        Contact your system administrator to initialize the database with your organization's data.
+                    </p>
+                </div>
+            }
+            
+            <div style="border-top: 1px solid var(--border-primary, #e2e8f0); padding-top: 1.25rem; margin-top: 0.5rem;">
+                <h4 class="text-theme-secondary" style="margin: 0 0 0.75rem 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    Available Even Now
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                    <a href="/Help" class="quick-action-card" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
+                        <i class="fas fa-book text-blue"></i> Help Center
+                    </a>
+                    <a href="/Admin/Diagnostics" class="quick-action-card" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
+                        <i class="fas fa-heartbeat text-green"></i> System Diagnostics
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Dashboard",
+        ["Subtitle"] = "Real-time overview of your fixed assets, maintenance, and capital projects",
+        ["TypeLabel"] = "Enterprise Asset Management",
+        ["StatusText"] = "Live",
+        ["StatusTone"] = "active",
+        ["ContextPartial"] = "/Pages/_IndexContext.cshtml",
+        ["KpisPartial"] = "/Pages/_IndexKpis.cshtml",
+        ["ActionsPartial"] = "/Pages/_IndexActions.cshtml"
+    };
+    @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="quick-stats-row" style="grid-template-columns: repeat(6, 1fr);">
+    <a href="/Assets" class="quick-stat-card clickable">
+        <div class="quick-stat-icon primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value primary">@Model.TotalAcquisitionCost.ToString("C0")</div>
+            <div class="quick-stat-label">Total Asset Value</div>
+        </div>
+    </a>
+    
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon success">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value success">@Model.TotalNetBookValue.ToString("C0")</div>
+            <div class="quick-stat-label">Net Book Value</div>
+        </div>
+    </div>
+    
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value warning">@Model.TotalAccumulatedDepreciation.ToString("C0")</div>
+            <div class="quick-stat-label">Accumulated Depreciation</div>
+        </div>
+    </div>
+    
+    <a href="/Maintenance" class="quick-stat-card clickable">
+        <div class="quick-stat-icon info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value">@Model.OpenMaintenance Open</div>
+            <div class="quick-stat-label">Work Orders</div>
+        </div>
+    </a>
+    
+    <a href="/CIP" class="quick-stat-card clickable">
+        <div class="quick-stat-icon purple">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value">@Model.ActiveCipProjects Active</div>
+            <div class="quick-stat-label">Capital Projects</div>
+        </div>
+    </a>
+    
+    <div class="quick-stat-card">
+        <div class="quick-stat-icon pink">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+        </div>
+        <div class="quick-stat-content">
+            <div class="quick-stat-value">@Model.TotalFairMarketValue.ToString("C0")</div>
+            <div class="quick-stat-label">Fair Market Value</div>
+        </div>
+    </div>
+</div>
+
+<!-- Maintenance KPIs Section -->
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">Maintenance KPIs</h3>
+        <a href="/Maintenance">View All</a>
+    </div>
+    <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
+        <div class="kpi-stat-card border-left-amber">
+            <div class="kpi-stat-label">Work Order Backlog</div>
+            <div class="kpi-stat-value @(Model.WorkOrderBacklog > 10 ? "text-red" : Model.WorkOrderBacklog > 5 ? "text-amber" : "text-emerald")">@Model.WorkOrderBacklog</div>
+            <div class="kpi-stat-sublabel">open work orders</div>
+        </div>
+        <div class="kpi-stat-card border-left-emerald">
+            <div class="kpi-stat-label">PM Compliance</div>
+            <div class="kpi-stat-value @(Model.PMCompliancePercent >= 90 ? "text-emerald" : Model.PMCompliancePercent >= 75 ? "text-amber" : "text-red")">@Model.PMCompliancePercent.ToString("0")%</div>
+            <div class="kpi-stat-sublabel">on-time completion</div>
+        </div>
+        <div class="kpi-stat-card border-left-blue">
+            <div class="kpi-stat-label">MTTR</div>
+            <div class="kpi-stat-value">@Model.MTTRHours.ToString("0.0")</div>
+            <div class="kpi-stat-sublabel">avg hours to repair</div>
+        </div>
+        <div class="kpi-stat-card border-left-red">
+            <div class="kpi-stat-label">Overdue WOs</div>
+            <div class="kpi-stat-value @(Model.OverdueMaintenance > 0 ? "text-red" : "text-emerald")">@Model.OverdueMaintenance</div>
+            <div class="kpi-stat-sublabel">past scheduled date</div>
+        </div>
+    </div>
+</div>
+
+<!-- PM Schedules Section -->
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">PM Schedules</h3>
+        <a href="/Maintenance/Schedules">Manage Schedules</a>
+    </div>
+    <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
+        <div class="kpi-stat-card border-left-purple">
+            <div class="kpi-stat-label">Active Schedules</div>
+            <div class="kpi-stat-value text-purple">@Model.TotalSchedules</div>
+            <div class="kpi-stat-sublabel">recurring PM plans</div>
+        </div>
+        <div class="kpi-stat-card border-left-cyan">
+            <div class="kpi-stat-label">Due This Week</div>
+            <div class="kpi-stat-value text-cyan">@Model.SchedulesDueThisWeek</div>
+            <div class="kpi-stat-sublabel">schedules upcoming</div>
+        </div>
+        <div class="kpi-stat-card border-left-red">
+            <div class="kpi-stat-label">Schedules Overdue</div>
+            <div class="kpi-stat-value @(Model.SchedulesOverdue > 0 ? "text-red" : "text-emerald")">@Model.SchedulesOverdue</div>
+            <div class="kpi-stat-sublabel">need attention</div>
+        </div>
+        <div class="kpi-stat-card border-left-emerald">
+            <div class="kpi-stat-label">Completed from Schedules</div>
+            <div class="kpi-stat-value text-emerald">@Model.ScheduledEventsCompleted</div>
+            <div class="kpi-stat-sublabel">scheduled WOs done</div>
+        </div>
+    </div>
+</div>
+
+<!-- Alerts Section -->
+@if (Model.Alerts.Any())
+{
+    <div class="alerts-section">
+        <h3 class="section-title">Alerts & Action Items</h3>
+        <div class="alerts-grid">
+            @foreach (var alert in Model.Alerts)
+            {
+                <a href="@alert.Link" class="alert-card alert-@alert.Type">
+                    <div class="alert-icon">
+                        @if (alert.Type == "danger")
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        }
+                    </div>
+                    <div class="alert-content">
+                        <strong>@alert.Title</strong>
+                        <span>@alert.Description</span>
+                    </div>
+                </a>
+            }
+        </div>
+    </div>
+}
+
+<div class="dashboard-grid">
+    <!-- Main Content Column -->
+    <div class="main-content-column">
+        <!-- Recent Assets -->
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Recent Assets
+                </h3>
+                <a asp-page="/Assets/Index" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">View All</a>
+            </div>
+            <div class="section-card-body" style="padding: 0;">
+            @if (Model.RecentAssets.Any())
+            {
+                <table class="data-table compact">
+                    <thead>
+                        <tr>
+                            <th>Asset #</th>
+                            <th>Description</th>
+                            <th>Location</th>
+                            <th>Cost</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var asset in Model.RecentAssets.Take(3))
+                        {
+                            <tr class="clickable-row" onclick="window.location='/Assets/Asset/@asset.Id'">
+                                <td><a href="/Assets/Asset/@asset.Id"><strong>@asset.AssetNumber</strong></a></td>
+                                <td>@asset.Description</td>
+                                <td>@(asset.LocationRef?.Name ?? "-")</td>
+                                <td>@asset.AcquisitionCost.ToString("C2")</td>
+                                <td>
+                                    @if (asset.Active)
+                                    {
+                                        <span class="badge badge-success">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-secondary">Inactive</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="pe-empty" style="padding:1.5rem;">
+                    <i class="fas fa-cube pe-empty__icon" style="font-size:1.2rem;"></i>
+                    <div class="pe-empty__text">
+                        <p>No assets yet. <a href="/Assets/Asset?mode=create">Add your first asset</a></p>
+                    </div>
+                </div>
+            }
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Recent Activity
+                </h3>
+                <span class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px; opacity: 0.6;" title="Available in Admin section">Recent</span>
+            </div>
+            <div class="section-card-body" style="padding: 0;">
+            <div class="activity-feed">
+                @if (Model.RecentActivity.Any())
+                {
+                    @foreach (var activity in Model.RecentActivity)
+                    {
+                        var iconPath = GetActivityIcon(activity.Action);
+                        var colorClass = GetActivityColor(activity.Action);
+                        <div class="activity-feed-item">
+                            <div class="activity-feed-icon @colorClass">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@iconPath" />
+                                </svg>
+                            </div>
+                            <div class="activity-feed-content">
+                                <div class="activity-feed-main">
+                                    <span class="activity-feed-action">@activity.Action</span>
+                                    <span class="activity-feed-entity">@activity.EntityType</span>
+                                    @if (activity.EntityId.HasValue)
+                                    {
+                                        <span class="activity-feed-id">#@activity.EntityId</span>
+                                    }
+                                </div>
+                                <div class="activity-feed-meta">
+                                    <span class="activity-feed-user">@(activity.Username ?? "System")</span>
+                                    <span class="activity-feed-separator">•</span>
+                                    <span class="activity-feed-time">@GetTimeAgo(activity.Timestamp)</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="pe-empty" style="padding:1.5rem;">
+                        <i class="fas fa-history pe-empty__icon" style="font-size:1.2rem;"></i>
+                        <div class="pe-empty__text">
+                            <p class="text-muted">No recent activity</p>
+                        </div>
+                    </div>
+                }
+            </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Widgets -->
+    <div class="sidebar-widgets">
+        <!-- Quick Actions -->
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Quick Actions
+                </h3>
+            </div>
+            <div class="section-card-body" style="padding: 16px;">
+            <div class="quick-actions-grid">
+                <a asp-page="/Assets/Asset" asp-route-mode="create" class="quick-action-card" style="--action-color: #3b82f6;">
+                    <div class="quick-action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </div>
+                    <div class="quick-action-content">
+                        <div class="quick-action-name">Add New Asset</div>
+                        <div class="quick-action-desc">Register equipment</div>
+                    </div>
+                </a>
+                <a asp-page="/Journals/Index" class="quick-action-card" style="--action-color: #22c55e;">
+                    <div class="quick-action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <div class="quick-action-content">
+                        <div class="quick-action-name">Run Depreciation</div>
+                        <div class="quick-action-desc">Generate journal entries</div>
+                    </div>
+                </a>
+                <a asp-page="/Reports/ReportHub" class="quick-action-card" style="--action-color: #f59e0b;">
+                    <div class="quick-action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div class="quick-action-content">
+                        <div class="quick-action-name">View Reports</div>
+                        <div class="quick-action-desc">Export schedules</div>
+                    </div>
+                </a>
+                <a asp-page="/Maintenance/WorkRequests/Create" class="quick-action-card" style="--action-color: #8b5cf6;">
+                    <div class="quick-action-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div class="quick-action-content">
+                        <div class="quick-action-name">Create Work Order</div>
+                        <div class="quick-action-desc">Schedule maintenance</div>
+                    </div>
+                </a>
+            </div>
+            </div>
+        </div>
+        
+        <!-- Assets by Location -->
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Assets by Location
+                </h3>
+                <a href="/Assets" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">View All</a>
+            </div>
+            <div class="section-card-body" style="padding: 0;">
+                @if (Model.LocationBreakdown.Any())
+                {
+                    <div class="location-breakdown">
+                        @foreach (var loc in Model.LocationBreakdown)
+                        {
+                            var percentage = Model.TotalAcquisitionCost > 0 ? (loc.Value / Model.TotalAcquisitionCost * 100) : 0;
+                            <div class="location-item">
+                                <div class="location-header">
+                                    <span class="location-name">@loc.Location</span>
+                                    <span class="location-count">@loc.Count assets</span>
+                                </div>
+                                <div class="location-bar-container">
+                                    <div class="location-bar" style="width: @percentage.ToString("F0")%;"></div>
+                                </div>
+                                <div class="location-value">@loc.Value.ToString("C2")</div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="pe-empty" style="padding:1.5rem;">
+                        <i class="fas fa-map-marker-alt pe-empty__icon" style="font-size:1.2rem;"></i>
+                        <div class="pe-empty__text">
+                            <p class="text-muted">No location data</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    string GetActivityColor(string action)
+    {
+        return action switch
+        {
+            "Create" => "success",
+            "Update" => "primary",
+            "Delete" => "danger",
+            "Transfer" => "warning",
+            "Depreciation" => "info",
+            "Maintenance" => "purple",
+            _ => "neutral"
+        };
+    }
+    
+    string GetActivityIcon(string action)
+    {
+        return action switch
+        {
+            "Create" => "M12 4v16m8-8H4",
+            "Update" => "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+            "Delete" => "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+            "Transfer" => "M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4",
+            "Depreciation" => "M13 17h8m0 0V9m0 8l-8-8-4 4-6-6",
+            "Maintenance" => "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0",
+            _ => "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        };
+    }
+
+    string GetTimeAgo(DateTime timestamp)
+    {
+        var diff = DateTime.UtcNow - timestamp;
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays}d ago";
+        return timestamp.ToString("MMM d");
+    }
+}
+
+}

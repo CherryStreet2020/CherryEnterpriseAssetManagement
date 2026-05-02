@@ -1,0 +1,475 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.CompanyModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Company Settings";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var totalCompanies = Model.AllCompanies.Count;
+    var holdingCompany = Model.AllCompanies.FirstOrDefault(c => c.ParentCompanyId == null);
+    var subsidiaries = Model.AllCompanies.Where(c => c.ParentCompanyId != null).ToList();
+    var isMultiCompany = Model.Company.CompanyStructure == CompanyStructure.MultiCompany;
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Company Settings" },
+        { "Subtitle", "Configure company structure, financial modes, and organizational settings" },
+        { "StatusText", isMultiCompany ? "Multi-Company" : "Single Company" },
+        { "StatusTone", isMultiCompany ? "info" : "success" },
+        { "ContextPartial", "Admin/_AdminCompanyContext" },
+        { "KpisPartial", "Admin/_AdminCompanyKpis" },
+        { "ActionsPartial", "Admin/_AdminCompanyActions" },
+        { "PageModel", Model }
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success">@Model.SuccessMessage</div>
+}
+
+@if (isMultiCompany)
+{
+<div class="section-card hierarchy-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            Corporate Structure
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <div class="hierarchy-tree">
+            @if (holdingCompany != null)
+            {
+                <div class="company-node holding">
+                    <div class="company-badge badge-holding">Holding</div>
+                    <div class="company-info">
+                        <span class="company-code">@holdingCompany.CompanyCode</span>
+                        <span class="company-name">@holdingCompany.Name</span>
+                        <span class="company-location">@holdingCompany.City, @holdingCompany.Country</span>
+                    </div>
+                </div>
+                @if (subsidiaries.Any())
+                {
+                    <div class="subsidiaries-container">
+                        @foreach (var sub in subsidiaries)
+                        {
+                            <div class="company-node operating">
+                                <div class="company-badge badge-operating">Operating</div>
+                                <div class="company-info">
+                                    <span class="company-code">@sub.CompanyCode</span>
+                                    <span class="company-name">@sub.Name</span>
+                                    <span class="company-location">@sub.City, @sub.Country (@sub.Currency)</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+}
+
+<div class="settings-layout">
+    <div class="settings-main">
+        <form method="post" id="companyForm">
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                        </svg>
+                        Company Structure
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <p class="setting-description">Choose how your organization is set up. Single company mode is simpler for standalone businesses. Multi-company mode enables holding company structures with subsidiaries.</p>
+                    <div class="structure-toggle">
+                        <label class="radio-card @(Model.Company.CompanyStructure == CompanyStructure.Single ? "selected" : "")">
+                            <input type="radio" asp-for="Company.CompanyStructure" value="@((int)CompanyStructure.Single)" />
+                            <div class="radio-card-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span class="radio-title">Single Company</span>
+                                <span class="radio-desc">One standalone manufacturing company</span>
+                            </div>
+                        </label>
+                        <label class="radio-card @(Model.Company.CompanyStructure == CompanyStructure.MultiCompany ? "selected" : "")">
+                            <input type="radio" asp-for="Company.CompanyStructure" value="@((int)CompanyStructure.MultiCompany)" />
+                            <div class="radio-card-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-left: -8px; opacity: 0.7;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <span class="radio-title">Multi-Company / Holding</span>
+                                <span class="radio-desc">Holding company with subsidiaries</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Financial Mode
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <p class="setting-description">Choose whether CherryAI runs as a standalone EAM system with full purchasing/AP functionality, or integrates with an external ERP/accounting system.</p>
+                    <div class="structure-toggle">
+                        <label class="radio-card @(Model.Company.FinancialMode == FinancialMode.Standalone ? "selected" : "")">
+                            <input type="radio" asp-for="Company.FinancialMode" value="@((int)FinancialMode.Standalone)" onchange="toggleModuleSettings()" />
+                            <div class="radio-card-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                <span class="radio-title">Standalone</span>
+                                <span class="radio-desc">Full EAM with purchasing, work orders, and A/P</span>
+                            </div>
+                        </label>
+                        <label class="radio-card @(Model.Company.FinancialMode == FinancialMode.ERPIntegration ? "selected" : "")">
+                            <input type="radio" asp-for="Company.FinancialMode" value="@((int)FinancialMode.ERPIntegration)" onchange="toggleModuleSettings()" />
+                            <div class="radio-card-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                </svg>
+                                <span class="radio-title">ERP Integration</span>
+                                <span class="radio-desc">Sync with QuickBooks, SAP, or other systems</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="erpIntegrationOptions" class="integration-options" style="display: @(Model.Company.FinancialMode == FinancialMode.ERPIntegration ? "block" : "none");">
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label asp-for="Company.IntegrationType">Integration Type</label>
+                            <select asp-for="Company.IntegrationType" class="form-control">
+                                <option value="">-- Select Integration --</option>
+                                <option value="@IntegrationType.QuickBooks">QuickBooks</option>
+                                <option value="@IntegrationType.SAP">SAP</option>
+                                <option value="@IntegrationType.Oracle">Oracle</option>
+                                <option value="@IntegrationType.NetSuite">Oracle NetSuite</option>
+                                <option value="@IntegrationType.CustomAPI">Custom API Integration</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="module-toggles" style="margin-top: 24px;">
+                        <h4 class="module-section-title">Optional Modules</h4>
+                        <p class="setting-description">Enable or disable optional modules based on your needs. In ERP Integration mode, some modules may sync data instead of managing it locally.</p>
+                        
+                        <div class="module-grid">
+                            <label class="module-toggle">
+                                <input type="checkbox" asp-for="Company.EnableWorkOrders" />
+                                <div class="module-info">
+                                    <span class="module-name">Work Orders</span>
+                                    <span class="module-desc">Maintenance requests, labor tracking, and approvals</span>
+                                </div>
+                            </label>
+                            <label class="module-toggle">
+                                <input type="checkbox" asp-for="Company.EnablePurchasing" />
+                                <div class="module-info">
+                                    <span class="module-name">Purchasing</span>
+                                    <span class="module-desc">Purchase requisitions, POs, and receiving</span>
+                                </div>
+                            </label>
+                            <label class="module-toggle">
+                                <input type="checkbox" asp-for="Company.EnableAccountsPayable" />
+                                <div class="module-info">
+                                    <span class="module-name">Accounts Payable</span>
+                                    <span class="module-desc">Vendor invoices, 3-way matching, and payments</span>
+                                </div>
+                            </label>
+                            <label class="module-toggle">
+                                <input type="checkbox" asp-for="Company.EnableVendors" />
+                                <div class="module-info">
+                                    <span class="module-name">Vendor Management</span>
+                                    <span class="module-desc">Vendor master data and payment terms</span>
+                                </div>
+                            </label>
+                            <label class="module-toggle">
+                                <input type="checkbox" asp-for="Company.EnableInventory" />
+                                <div class="module-info">
+                                    <span class="module-name">MRO Inventory</span>
+                                    <span class="module-desc">Spare parts, min/max levels, and reorder points</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Company Information
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Company Name</label>
+                            <input asp-for="Company.Name" class="form-control" placeholder="Company Name" />
+                        </div>
+                        <div class="form-group">
+                            <label>Legal Name</label>
+                            <input asp-for="Company.LegalName" class="form-control" placeholder="Legal Entity Name" />
+                        </div>
+                        <div class="form-group">
+                            <label>Address</label>
+                            <input asp-for="Company.Address" class="form-control" placeholder="Street Address" />
+                        </div>
+                        <div class="form-group">
+                            <label>City</label>
+                            <input asp-for="Company.City" class="form-control" placeholder="City" />
+                        </div>
+                        <div class="form-group">
+                            <label>State / Province</label>
+                            <input asp-for="Company.StateProvince" class="form-control" placeholder="Province/State" />
+                        </div>
+                        <div class="form-group">
+                            <label>Postal Code</label>
+                            <input asp-for="Company.PostalCode" class="form-control" placeholder="Postal Code" />
+                        </div>
+                        <div class="form-group">
+                            <label>Country</label>
+                            <select asp-for="Company.Country" class="form-control" asp-items="Model.CountryOptions">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Contact Information
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Contact Name</label>
+                            <input asp-for="Company.ContactName" class="form-control" placeholder="Primary Contact" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Email</label>
+                            <input asp-for="Company.ContactEmail" class="form-control" type="email" placeholder="Email Address" />
+                        </div>
+                        <div class="form-group">
+                            <label>Contact Phone</label>
+                            <input asp-for="Company.ContactPhone" class="form-control" placeholder="Phone Number" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                        </svg>
+                        Tax Registration
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label asp-for="Company.TaxId">Tax ID / EIN</label>
+                            <input asp-for="Company.TaxId" class="form-control" placeholder="Tax Identification Number" />
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.BusinessNumber">Business Number (CRA)</label>
+                            <input asp-for="Company.BusinessNumber" class="form-control" placeholder="123456789RC0001" />
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.GstHstNumber">GST/HST Number</label>
+                            <input asp-for="Company.GstHstNumber" class="form-control" placeholder="GST/HST Registration" />
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.PstNumber">PST/QST Number</label>
+                            <input asp-for="Company.PstNumber" class="form-control" placeholder="Provincial Tax Number" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Fiscal Settings
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label asp-for="Company.Currency">Default Currency</label>
+                            <select asp-for="Company.Currency" class="form-control" asp-items="Model.CurrencyOptions">
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.PeriodType">Accounting Period Type</label>
+                            <select asp-for="Company.PeriodType" class="form-control">
+                                <option value="@AccountingPeriodType.Standard12Month">Standard 12-Month</option>
+                                <option value="@AccountingPeriodType.Period13">13-Period</option>
+                                <option value="@AccountingPeriodType.Week445">4-4-5 Weekly</option>
+                                <option value="@AccountingPeriodType.Week454">4-5-4 Weekly</option>
+                                <option value="@AccountingPeriodType.Week544">5-4-4 Weekly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.FiscalYearStartMonth">Fiscal Year Start Month</label>
+                            <select asp-for="Company.FiscalYearStartMonth" class="form-control">
+                                @for (int i = 1; i <= 12; i++)
+                                {
+                                    <option value="@i">@System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(i)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.FiscalYearStartDay">Fiscal Year Start Day</label>
+                            <input asp-for="Company.FiscalYearStartDay" class="form-control" type="number" min="1" max="31" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Localization
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label asp-for="Company.DefaultLanguage">Default Language</label>
+                            <select asp-for="Company.DefaultLanguage" class="form-control" asp-items="Model.LanguageOptions">
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.TimeZone">Time Zone</label>
+                            <select asp-for="Company.TimeZone" class="form-control" asp-items="Model.TimezoneOptions">
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3 class="section-card-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        Depreciation Defaults
+                    </h3>
+                </div>
+                <div class="section-card-body">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label asp-for="Company.DefaultDepMethod">Default Method</label>
+                            <select asp-for="Company.DefaultDepMethod" class="form-control">
+                                <option value="@DepreciationMethod.StraightLine">Straight-Line</option>
+                                <option value="@DepreciationMethod.DoubleDecliningBalance">Double Declining Balance</option>
+                                <option value="@DepreciationMethod.MACRS">MACRS</option>
+                                <option value="@DepreciationMethod.SumOfYearsDigits">Sum of Years Digits</option>
+                                <option value="@DepreciationMethod.UnitsOfProduction">Units of Production</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label asp-for="Company.DefaultConvention">Default Convention</label>
+                            <select asp-for="Company.DefaultConvention" class="form-control">
+                                <option value="@DepreciationConvention.MidMonth">Mid-Month</option>
+                                <option value="@DepreciationConvention.HalfYear">Half-Year</option>
+                                <option value="@DepreciationConvention.HalfMonth">Half-Month</option>
+                                <option value="@DepreciationConvention.FullMonth">Full Month</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="settings-sidebar">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Company Logo</h3>
+            </div>
+            <div class="section-card-body">
+                @if (!string.IsNullOrEmpty(Model.Company.LogoPath))
+                {
+                    <div class="logo-preview">
+                        <img src="@Model.Company.LogoPath" alt="Company Logo" />
+                    </div>
+                }
+                else
+                {
+                    <div class="logo-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p>No logo uploaded</p>
+                    </div>
+                }
+                <form method="post" asp-page-handler="UploadLogo" enctype="multipart/form-data" style="margin-top: 16px;">
+                    <div class="file-upload">
+                        <label for="logoFile" class="file-upload-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Upload Logo
+                        </label>
+                        <input type="file" id="logoFile" name="logoFile" accept="image/*" onchange="this.form.submit()" style="display: none;" />
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleModuleSettings() {
+    var erpMode = document.querySelector('input[name="Company.FinancialMode"]:checked');
+    var erpOptions = document.getElementById('erpIntegrationOptions');
+    if (erpMode && erpMode.value === '@((int)FinancialMode.ERPIntegration)') {
+        erpOptions.style.display = 'block';
+    } else {
+        erpOptions.style.display = 'none';
+    }
+}
+document.querySelectorAll('.radio-card input').forEach(function(input) {
+    input.addEventListener('change', function() {
+        var name = this.getAttribute('name');
+        document.querySelectorAll('input[name="' + name + '"]').forEach(function(i) {
+            i.closest('.radio-card').classList.remove('selected');
+        });
+        this.closest('.radio-card').classList.add('selected');
+    });
+});
+</script>

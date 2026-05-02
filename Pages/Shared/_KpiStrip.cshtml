@@ -1,0 +1,18 @@
+@* _KpiStrip.cshtml - Reusable KPI strip for hero sections *@
+@* Expects ViewData["KpiCards"] as IEnumerable<(string Label, string Value, string? Variant)> *@
+@{
+    var cards = ViewData["KpiCards"] as IEnumerable<(string Label, string Value, string? Variant)>;
+}
+
+@if (cards != null && cards.Any())
+{
+    <div class="page-hero-kpis" style="grid-template-columns: repeat(@Math.Min(cards.Count(), 4), 1fr);">
+        @foreach (var (label, value, variant) in cards)
+        {
+            <div class="kpi-card">
+                <div class="kpi-label">@label</div>
+                <div class="kpi-value @(variant ?? "")">@value</div>
+            </div>
+        }
+    </div>
+}
