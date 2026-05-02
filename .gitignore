@@ -40,3 +40,4 @@ proof_bundle_*/
 REPO_SNAPSHOT.zip
 snapshot/
 *.cache
+TestResults/
