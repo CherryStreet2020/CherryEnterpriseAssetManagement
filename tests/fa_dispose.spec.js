@@ -1,5 +1,13 @@
 const { test, expect } = require('@playwright/test');
-const { login, gotoApp, dbQuery, dbOne, pickAsset, pickLookupValueId, pickAnyLookupValueId } = require('./_helpers');
+const {
+  login,
+  gotoApp,
+  dbQuery,
+  dbOne,
+  pickAsset,
+  pickLookupValueId,
+  pickAnyLookupValueId,
+} = require('./_helpers');
 
 const PROCEEDS = 25000;
 const DISPOSAL_DATE = '2026-05-15';
@@ -7,7 +15,7 @@ const DISPOSAL_DATE = '2026-05-15';
 let ASSET_ID;
 let DISPOSAL_REASON_LV_SALE;
 let original;
-let maxJeIdBefore;
+let createdJeIds = [];
 
 test.describe('FA — Dispose', () => {
   test.beforeAll(async () => {
@@ -17,23 +25,20 @@ test.describe('FA — Dispose', () => {
       (await pickLookupValueId('DisposalReason', 'SALE')) ||
       (await pickAnyLookupValueId('DisposalReason'));
     expect(DISPOSAL_REASON_LV_SALE, 'a DisposalReason lookup value must exist').toBeTruthy();
-    const max = await dbOne('SELECT COALESCE(MAX("Id"),0) AS m FROM "JournalEntries"');
-    maxJeIdBefore = Number(max.m);
   });
 
   test.afterEach(async () => {
+    // Restore the asset's exact pre-test state.
     await dbQuery(
       'UPDATE "Assets" SET "Status"=$2,"DisposalDate"=$3,"DisposalProceeds"=$4,"GainLossOnDisposal"=$5,"Active"=$6 WHERE "Id"=$1',
       [ASSET_ID, original.Status, original.DisposalDate, original.DisposalProceeds, original.GainLossOnDisposal, original.Active]
     );
-    await dbQuery(
-      'DELETE FROM "JournalLines" WHERE "JournalEntryId" IN (SELECT "Id" FROM "JournalEntries" WHERE "Id">$1 AND "Reference"=$2 AND LOWER("Source")=\'disposal\')',
-      [maxJeIdBefore, original.AssetNumber]
-    );
-    await dbQuery(
-      'DELETE FROM "JournalEntries" WHERE "Id">$1 AND "Reference"=$2 AND LOWER("Source")=\'disposal\'',
-      [maxJeIdBefore, original.AssetNumber]
-    );
+    // Delete only the journal entries this spec created (tracked by Id).
+    if (createdJeIds.length) {
+      await dbQuery('DELETE FROM "JournalLines" WHERE "JournalEntryId" = ANY($1::int[])', [createdJeIds]);
+      await dbQuery('DELETE FROM "JournalEntries" WHERE "Id" = ANY($1::int[])', [createdJeIds]);
+      createdJeIds = [];
+    }
   });
 
   test('disposal records status=Disposed, journal entry, and gain/loss', async ({ page }) => {
@@ -44,57 +49,31 @@ test.describe('FA — Dispose', () => {
     await page.fill('input[name="DisposalDate"]', DISPOSAL_DATE);
     await page.fill('input[name="Proceeds"]', String(PROCEEDS));
 
-    await page.evaluate((id) => {
-      const sel = document.querySelector('select[name="DisposalReasonLookupValueId"]');
-      sel.value = String(id);
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }, DISPOSAL_REASON_LV_SALE);
+    // Real <select> interaction. The Dispose page resolves DisposalType
+    // server-side from this lookup value's Code, so picking the value
+    // here is sufficient — no hidden inputs are injected.
+    await page.selectOption(
+      'select[name="DisposalReasonLookupValueId"]',
+      String(DISPOSAL_REASON_LV_SALE)
+    );
 
+    // Capture the chosen Book so we can assert it on the JE later.
     const bookOption = await page
       .locator('select[name="BookId"] option')
-      .filter({ hasNot: page.locator('option[value=""]') })
       .first()
       .getAttribute('value');
 
-    await page.evaluate(() => {
-      const form = document.querySelector('form[method="post"]');
-      const ensure = (name, value) => {
-        let el = form.querySelector(`[name="${name}"]`);
-        if (!el) {
-          el = document.createElement('input');
-          el.type = 'hidden';
-          el.name = name;
-          form.appendChild(el);
-        }
-        el.value = value;
-      };
-      ensure('DisposalType', 'Sale');
-      const cje = form.querySelector('input[type="checkbox"][name="CreateJournalEntry"]');
-      if (cje) cje.checked = true;
-    });
-
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState('domcontentloaded');
-
-    if (!/\/Assets\/Asset\/\d+/.test(page.url())) {
-      const formDump = await page.evaluate(() => {
-        const out = {};
-        document.querySelectorAll('form input, form select, form textarea').forEach((el) => {
-          if (!el.name) return;
-          out[el.name] = el.value;
-        });
-        const errs = [];
-        document.querySelectorAll('.text-danger, .alert-danger, .field-validation-error, .validation-summary-errors').forEach((el) => {
-          const t = (el.textContent || '').trim();
-          if (t) errs.push(t);
-        });
-        return { values: out, errs };
-      });
-      const bodySnippet = (await page.locator('body').innerText()).slice(0, 2000);
-      throw new Error(
-        `Dispose form did not redirect.\nURL=${page.url()}\n${JSON.stringify(formDump, null, 2)}\nBODY:\n${bodySnippet}`
-      );
+    // Ensure the "Create journal entry" checkbox is checked (it ships
+    // checked, but check explicitly to match the user-visible state).
+    const createJe = page.locator('#createJournal');
+    if ((await createJe.count()) > 0 && !(await createJe.isChecked())) {
+      await createJe.check();
     }
+
+    await Promise.all([
+      page.waitForURL(/\/Assets\/Asset\/\d+/),
+      page.click('button[type="submit"]'),
+    ]);
 
     const updated = await dbOne(
       'SELECT "Status","DisposalDate","DisposalProceeds","GainLossOnDisposal","Active","AcquisitionCost","AccumulatedDepreciation" FROM "Assets" WHERE "Id"=$1',
@@ -113,6 +92,7 @@ test.describe('FA — Dispose', () => {
       [original.AssetNumber]
     );
     expect(je, 'disposal journal entry should exist').toBeTruthy();
+    createdJeIds.push(je.Id);
     if (bookOption) expect(String(je.BookId)).toBe(bookOption);
 
     const lines = await dbQuery(

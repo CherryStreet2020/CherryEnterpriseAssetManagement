@@ -101,6 +101,20 @@ namespace Abs.FixedAssets.Pages.Assets
                 return Page();
             }
 
+            // Resolve the lookup-driven DisposalType BEFORE ModelState
+            // validation so users only need to pick the disposal-reason
+            // dropdown (DisposalType is computed from the lookup's Code).
+            if (DisposalReasonLookupValueId.HasValue)
+            {
+                var lvPre = await _lookupService.GetValueByIdAsync(
+                    _tenantContext.TenantId, _tenantContext.CompanyId, DisposalReasonLookupValueId.Value);
+                if (lvPre != null)
+                {
+                    DisposalType = lvPre.Code;
+                    ModelState.Remove(nameof(DisposalType));
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 await LoadBooksAsync();

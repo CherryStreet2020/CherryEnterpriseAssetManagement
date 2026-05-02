@@ -6,7 +6,6 @@ const {
   dbOne,
   pickAsset,
   pickActiveLocationOtherThan,
-  pickActiveDepartmentOtherThan,
   pickLookupValueId,
   pickAnyLookupValueId,
 } = require('./_helpers');
@@ -15,7 +14,6 @@ const NOTES = 'E2E spec transfer';
 
 let ASSET_ID;
 let TARGET_LOCATION_ID;
-let TARGET_DEPARTMENT_ID;
 let TRANSFER_REASON_LV;
 let original;
 let hasTransferHistory;
@@ -33,16 +31,11 @@ test.describe('FA — Transfer', () => {
     TARGET_LOCATION_ID = await pickActiveLocationOtherThan(original.LocationId, original.CompanyId);
     expect(TARGET_LOCATION_ID, 'a different active location must exist').toBeTruthy();
 
-    // department is optional; resolved from the actual <select> options at runtime
-    TARGET_DEPARTMENT_ID = null;
-
     TRANSFER_REASON_LV =
       (await pickLookupValueId('TransferReason', 'RELOCATION')) ||
       (await pickAnyLookupValueId('TransferReason'));
 
-    const tbl = await dbOne(
-      `SELECT to_regclass('public."AssetTransfers"') AS t`
-    );
+    const tbl = await dbOne(`SELECT to_regclass('public."AssetTransfers"') AS t`);
     hasTransferHistory = !!(tbl && tbl.t);
   });
 
@@ -63,48 +56,41 @@ test.describe('FA — Transfer', () => {
     await login(page);
     await gotoApp(page, `/Assets/Transfer/${ASSET_ID}`);
 
-    await page.evaluate((id) => {
-      const sel = document.querySelector('select[name="NewLocationId"]');
-      sel.value = String(id);
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-    }, TARGET_LOCATION_ID);
+    // Real <select> interaction (the cherry-select widget is layered on
+    // top of these native selects; selectOption posts the underlying
+    // value).
+    await page.selectOption('select[name="NewLocationId"]', String(TARGET_LOCATION_ID));
 
-    // Pick a department from the form's actual select options so we never
-    // post an Id that isn't authorized for the current tenant scope.
-    TARGET_DEPARTMENT_ID = await page.evaluate((excludeId) => {
-      const sel = document.querySelector('select[name="NewDepartmentId"]');
-      if (!sel) return null;
-      const opt = Array.from(sel.options).find(
-        (o) => o.value && o.value !== '' && Number(o.value) !== Number(excludeId)
-      );
-      if (!opt) return null;
-      sel.value = opt.value;
-      sel.dispatchEvent(new Event('change', { bubbles: true }));
-      return Number(opt.value);
-    }, original.DepartmentId);
+    // Department is optional; pick the first non-original option that the
+    // form actually offers (so we never post an Id outside the user's
+    // tenant scope).
+    const deptValues = await page.$$eval(
+      'select[name="NewDepartmentId"] option',
+      (opts) => opts.map((o) => o.value).filter((v) => v && v !== '')
+    );
+    const targetDeptValue = deptValues.find(
+      (v) => Number(v) !== Number(original.DepartmentId)
+    );
+    let TARGET_DEPARTMENT_ID = null;
+    if (targetDeptValue) {
+      await page.selectOption('select[name="NewDepartmentId"]', targetDeptValue);
+      TARGET_DEPARTMENT_ID = Number(targetDeptValue);
+    }
 
     await page.fill('input[name="NewBay"]', 'BAY-E2E');
     await page.fill('input[name="TransferDate"]', '2026-05-15');
     if (TRANSFER_REASON_LV) {
-      await page.evaluate((id) => {
-        const sel = document.querySelector('select[name="TransferReasonLookupValueId"]');
-        if (sel) {
-          sel.value = String(id);
-          sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }, TRANSFER_REASON_LV);
+      await page.selectOption(
+        'select[name="TransferReasonLookupValueId"]',
+        String(TRANSFER_REASON_LV)
+      );
     }
     await page.fill('textarea[name="Notes"]', NOTES);
 
-    await page.click('button[type="submit"]');
-    await page.waitForLoadState('domcontentloaded');
-
-    const errBanner = page.locator('.alert-danger, .text-danger').filter({ hasText: /\S/ });
-    if ((await errBanner.count()) > 0) {
-      const txt = (await errBanner.allInnerTexts()).join(' | ');
-      throw new Error(`Transfer form returned error(s): ${txt}\nURL=${page.url()}`);
-    }
-    expect(page.url()).toMatch(/\/Assets\/Asset\/\d+/);
+    await Promise.all([
+      page.waitForURL(/\/Assets\/Asset\/\d+/),
+      page.click('button[type="submit"]'),
+    ]);
 
     const updated = await dbOne(
       'SELECT "LocationId","DepartmentId","Bay" FROM "Assets" WHERE "Id"=$1',
@@ -112,7 +98,7 @@ test.describe('FA — Transfer', () => {
     );
     expect(Number(updated.LocationId)).toBe(Number(TARGET_LOCATION_ID));
     if (TARGET_DEPARTMENT_ID) {
-      expect(Number(updated.DepartmentId)).toBe(Number(TARGET_DEPARTMENT_ID));
+      expect(Number(updated.DepartmentId)).toBe(TARGET_DEPARTMENT_ID);
     }
     expect(updated.Bay).toBe('BAY-E2E');
 

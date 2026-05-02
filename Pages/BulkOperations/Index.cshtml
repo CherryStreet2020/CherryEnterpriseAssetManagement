@@ -364,12 +364,14 @@
 
 @section Scripts {
 <script>
-function toggleInlineForm('bulkTransferForm') { document.getElementById('bulkTransferForm').style.display = ''; }
-function toggleInlineForm('bulkTransferForm') { document.getElementById('bulkTransferForm').style.display = 'none'; }
-function toggleInlineForm('bulkStatusForm') { document.getElementById('bulkStatusForm').style.display = ''; }
-function toggleInlineForm('bulkStatusForm') { document.getElementById('bulkStatusForm').style.display = 'none'; }
-function toggleInlineForm('partialDisposalForm') { document.getElementById('partialDisposalForm').style.display = ''; }
-function toggleInlineForm('partialDisposalForm') { document.getElementById('partialDisposalForm').style.display = 'none'; }
+function toggleInlineForm(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var panel = el.classList && el.classList.contains('inline-form-panel')
+        ? el
+        : el.closest('.inline-form-panel') || el;
+    panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? '' : 'none';
+}
 
 function updateTransferCount() {
     var checked = document.querySelectorAll('.transfer-checkbox:checked').length;

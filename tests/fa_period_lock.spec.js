@@ -1,17 +1,27 @@
 const { test, expect } = require('@playwright/test');
-const { login, gotoApp, dbQuery, dbOne, pickAsset } = require('./_helpers');
+const {
+  login,
+  gotoApp,
+  dbQuery,
+  dbOne,
+  pickAsset,
+  pickLookupValueId,
+  pickAnyLookupValueId,
+} = require('./_helpers');
 
 // NOTE: There is no Admin Periods UI for locking a fiscal period in the
 // current build, so this test sets `FiscalPeriods.Status = 2` (Locked)
 // directly via SQL, exercises the disposal page (which is guarded by
 // IPeriodGuard), and asserts the user-visible guard error. Original
-// period status is restored in afterEach.
+// period status is restored in afterEach. Because the guard rejects the
+// post before any JE is created, no JournalEntry/JournalLine rows need
+// cleanup.
 
 let ASSET_ID;
 let originalAsset;
 let periodId;
 let originalStatus;
-let maxJeIdBefore;
+let DISPOSAL_REASON_LV;
 
 test.describe('FA — Period Lock', () => {
   test.beforeAll(async () => {
@@ -29,8 +39,11 @@ test.describe('FA — Period Lock', () => {
     expect(period, 'fiscal period covering disposal date must exist').toBeTruthy();
     periodId = period.Id;
     originalStatus = period.Status;
-    const max = await dbOne('SELECT COALESCE(MAX("Id"),0) AS m FROM "JournalEntries"');
-    maxJeIdBefore = Number(max.m);
+
+    DISPOSAL_REASON_LV =
+      (await pickLookupValueId('DisposalReason', 'SALE')) ||
+      (await pickAnyLookupValueId('DisposalReason'));
+    expect(DISPOSAL_REASON_LV, 'a DisposalReason lookup value must exist').toBeTruthy();
   });
 
   test.afterEach(async () => {
@@ -39,8 +52,6 @@ test.describe('FA — Period Lock', () => {
       'UPDATE "Assets" SET "Status"=$2,"DisposalDate"=$3,"DisposalProceeds"=$4,"GainLossOnDisposal"=$5,"Active"=$6 WHERE "Id"=$1',
       [ASSET_ID, originalAsset.Status, originalAsset.DisposalDate, originalAsset.DisposalProceeds, originalAsset.GainLossOnDisposal, originalAsset.Active]
     );
-    await dbQuery('DELETE FROM "JournalLines" WHERE "JournalEntryId">$1', [maxJeIdBefore]);
-    await dbQuery('DELETE FROM "JournalEntries" WHERE "Id">$1', [maxJeIdBefore]);
   });
 
   test('locked period blocks disposal posting and shows the period guard error', async ({ page }) => {
@@ -51,27 +62,10 @@ test.describe('FA — Period Lock', () => {
 
     await page.fill('input[name="DisposalDate"]', '2026-05-15');
     await page.fill('input[name="Proceeds"]', '1000');
-
-    await page.evaluate(() => {
-      const sel = document.querySelector('select[name="DisposalReasonLookupValueId"]');
-      const opt = sel.querySelector('option[value]:not([value=""])');
-      if (opt) {
-        sel.value = opt.value;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      const form = document.querySelector('form[method="post"]');
-      const ensure = (name, value) => {
-        let el = form.querySelector(`[name="${name}"]`);
-        if (!el) {
-          el = document.createElement('input');
-          el.type = 'hidden';
-          el.name = name;
-          form.appendChild(el);
-        }
-        el.value = value;
-      };
-      ensure('DisposalType', 'Sale');
-    });
+    await page.selectOption(
+      'select[name="DisposalReasonLookupValueId"]',
+      String(DISPOSAL_REASON_LV)
+    );
 
     await page.click('button[type="submit"]');
     await page.waitForLoadState('domcontentloaded');

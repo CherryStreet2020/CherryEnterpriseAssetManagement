@@ -1,82 +1,134 @@
 const { test, expect } = require('@playwright/test');
 const { login, gotoApp, dbQuery, dbOne, pickAsset } = require('./_helpers');
 
-// NOTE: BulkOperationsService.ProcessPartialDisposalAsync currently does NOT
-// create a child asset for the disposed portion — it only decrements the
-// parent asset's AcquisitionCost/AccumulatedDepreciation and inserts a row
-// into PartialDisposals. This test asserts the actually implemented
-// behavior; a follow-up task tracks adding child-asset creation.
-
 const PERCENTAGE = 25;
 const SALE_PROCEEDS = 4500;
-const REASON_SALE = 0;
 const NOTES = 'E2E partial disposal spec';
 
 let ASSET_ID;
 let original;
+let createdChildIds = [];
 
 test.describe('FA — Partial Disposal', () => {
-  test.beforeAll(async () => {
-    const a = await pickAsset({ rank: 3 });
-    ASSET_ID = a.Id;
-    original = await dbOne(
-      'SELECT "AssetNumber","AcquisitionCost","AccumulatedDepreciation" FROM "Assets" WHERE "Id"=$1',
-      [ASSET_ID]
-    );
-    expect(original).toBeTruthy();
-  });
+  // ASSET_ID/original are picked at the start of the test from the
+  // dropdown options the page actually renders for the logged-in user
+  // (so we never select an asset that isn't in the user's tenant scope).
 
   test.afterEach(async () => {
+    if (!ASSET_ID || !original) return;
+    // Restore parent asset to its pre-test column values.
     await dbQuery(
       'UPDATE "Assets" SET "AcquisitionCost"=$2,"AccumulatedDepreciation"=$3 WHERE "Id"=$1',
       [ASSET_ID, original.AcquisitionCost, original.AccumulatedDepreciation]
     );
+    // Remove only the PartialDisposal rows this spec created (matched by
+    // its unique Notes tag) and the child Asset rows linked to them.
+    if (createdChildIds.length) {
+      await dbQuery('DELETE FROM "Assets" WHERE "Id" = ANY($1::int[])', [createdChildIds]);
+      createdChildIds = [];
+    }
     await dbQuery('DELETE FROM "PartialDisposals" WHERE "AssetId"=$1 AND "Notes"=$2', [
       ASSET_ID,
       NOTES,
     ]);
   });
 
-  test('partial disposal decrements asset cost, creates PartialDisposal record, asset still listed', async ({ page }) => {
+  test('partial disposal decrements parent cost, creates child asset, both visible in /Assets', async ({ page }) => {
     await login(page);
     await gotoApp(page, '/BulkOperations');
 
-    // Drive the actual UI form on /BulkOperations rather than fetching
-    // directly. The form is hidden behind a JS panel and a custom searchable
-    // dropdown, so we open the panel, set the hidden assetId input, fill the
-    // visible inputs, enable the submit button, and click submit.
-    await page.evaluate(
-      ({ assetId, percentage, proceeds, notes }) => {
-        const panel = document.getElementById('partialDisposalForm');
-        if (panel) panel.style.display = '';
-        const form = document.querySelector('form#partialDisposalForm, form[id="partialDisposalForm"]')
-          || document.querySelector('form[action*="PartialDisposal"], form[asp-page-handler="PartialDisposal"]')
-          || panel?.querySelector('form');
-        const f = form || document.querySelector('form');
-        const hidden = f.querySelector('input[name="assetId"]');
-        if (hidden) hidden.value = String(assetId);
-        f.querySelector('input[name="percentage"]').value = String(percentage);
-        f.querySelector('input[name="saleProceeds"]').value = String(proceeds);
-        const buyer = f.querySelector('input[name="buyer"]');
-        if (buyer) buyer.value = 'Spec Buyer';
-        const notesEl = f.querySelector('textarea[name="notes"]');
-        if (notesEl) notesEl.value = notes;
-        const submit = f.querySelector('button[type="submit"]');
-        if (submit) submit.disabled = false;
-      },
-      { assetId: ASSET_ID, percentage: PERCENTAGE, proceeds: SALE_PROCEEDS, notes: NOTES }
+    // Drive the actual UI: click the "Partial Disposal" action card to
+    // open its inline form panel.
+    await page.locator('.action-card', { hasText: 'Partial Disposal' }).first().click();
+    const panel = page.locator('div#partialDisposalForm.inline-form-panel');
+    await expect(panel).toBeVisible();
+
+    // Open the searchable asset dropdown. The page's outside-click
+    // handler (document-level) toggles dropdowns closed when a click
+    // bubbles outside .searchable-select; we wait for the `show` class
+    // to be present so we know the dropdown actually opened.
+    const dropdown = page.locator('#disposalDropdown');
+    const trigger = panel.locator('.searchable-select-trigger');
+    await trigger.click();
+    if (!(await dropdown.evaluate((el) => el.classList.contains('show')))) {
+      await trigger.click();
+    }
+    await expect(dropdown).toHaveClass(/show/);
+    const searchInput = page.locator('#disposalSearchInput');
+    await expect(searchInput).toBeVisible();
+
+    // Pick a candidate from the dropdown options the page actually
+    // rendered for this user. We walk the rendered Asset Ids in order
+    // and pick the first one whose DB row is suitable for partial
+    // disposal (Active, undisposed, with cost > 0).
+    const optionIds = await page.$$eval(
+      '#disposalOptions .dropdown-option',
+      (els) => els.map((e) => Number(e.getAttribute('data-value'))).filter(Boolean)
     );
+    expect(optionIds.length, 'partial disposal dropdown should list assets').toBeGreaterThan(0);
 
-    await page.click('#partialDisposalForm button[type="submit"]');
-    await page.waitForLoadState('domcontentloaded');
+    for (const candidateId of optionIds) {
+      const row = await dbOne(
+        'SELECT "Id","AssetNumber","AcquisitionCost","AccumulatedDepreciation","Status","Active" FROM "Assets" WHERE "Id"=$1',
+        [candidateId]
+      );
+      if (
+        row &&
+        Number(row.Status) === 0 &&
+        row.Active === true &&
+        Number(row.AcquisitionCost) > 0
+      ) {
+        ASSET_ID = row.Id;
+        original = row;
+        break;
+      }
+    }
+    expect(ASSET_ID, 'a usable asset must exist in the dropdown').toBeTruthy();
 
-    const updated = await dbOne(
-      'SELECT "AcquisitionCost","AccumulatedDepreciation" FROM "Assets" WHERE "Id"=$1',
+    await searchInput.fill(original.AssetNumber);
+    const option = page.locator(
+      `#disposalOptions .dropdown-option[data-value="${ASSET_ID}"]`
+    );
+    await expect(option).toBeVisible();
+    await option.click();
+
+    // Submit button becomes enabled by the page's own JS once an asset is
+    // selected — assert that and then fill the rest of the form.
+    await expect(page.locator('#disposalSubmitBtn')).toBeEnabled();
+
+    await panel.locator('input[name="percentage"]').fill(String(PERCENTAGE));
+    await panel.locator('input[name="saleProceeds"]').fill(String(SALE_PROCEEDS));
+    await panel.locator('input[name="buyer"]').fill('Spec Buyer');
+    await panel.locator('textarea[name="notes"]').fill(NOTES);
+
+    // Pick the first real reason option from the visible <select>.
+    const reasonValue = await panel
+      .locator('select[name="reason"] option')
+      .first()
+      .getAttribute('value');
+    if (reasonValue) {
+      await panel.locator('select[name="reason"]').selectOption(reasonValue);
+    }
+
+    await Promise.all([
+      page.waitForURL(/\/BulkOperations/),
+      page.click('#disposalSubmitBtn'),
+    ]);
+
+    // Parent asset cost decremented.
+    const updatedParent = await dbOne(
+      'SELECT "AcquisitionCost","AccumulatedDepreciation","Status","Active" FROM "Assets" WHERE "Id"=$1',
       [ASSET_ID]
     );
     const expectedCost = Number(original.AcquisitionCost) * (1 - PERCENTAGE / 100);
-    expect(Math.round(Number(updated.AcquisitionCost) * 100)).toBe(Math.round(expectedCost * 100));
+    expect(Math.round(Number(updatedParent.AcquisitionCost) * 100)).toBe(
+      Math.round(expectedCost * 100)
+    );
+    // Parent stays Active (it is only partially disposed).
+    expect(Number(updatedParent.Status)).toBe(0);
+    expect(updatedParent.Active).toBe(true);
 
+    // PartialDisposal row exists with our unique notes tag.
     const disposal = await dbOne(
       'SELECT "Id","PercentageDisposed","SaleProceeds","Notes","Buyer" FROM "PartialDisposals" WHERE "AssetId"=$1 AND "Notes"=$2 ORDER BY "Id" DESC LIMIT 1',
       [ASSET_ID, NOTES]
@@ -86,27 +138,33 @@ test.describe('FA — Partial Disposal', () => {
     expect(Math.round(Number(disposal.PercentageDisposed) * 10000)).toBe(PERCENTAGE * 100);
     expect((disposal.Buyer || '').toLowerCase()).toBe('spec buyer');
 
-    // Asset must remain Active and listable (it is not fully disposed)
-    const stillActive = await dbOne(
-      'SELECT "Status","Active" FROM "Assets" WHERE "Id"=$1',
+    // Child asset row was created with the disposed cost portion and
+    // ParentAssetId pointing at the parent.
+    const child = await dbOne(
+      'SELECT "Id","AssetNumber","AcquisitionCost","Status","Active","ParentAssetId" FROM "Assets" WHERE "ParentAssetId"=$1 ORDER BY "Id" DESC LIMIT 1',
       [ASSET_ID]
     );
-    expect(Number(stillActive.Status)).toBe(0);
-    expect(stillActive.Active).toBe(true);
+    expect(child, 'child asset for the disposed portion should exist').toBeTruthy();
+    createdChildIds.push(child.Id);
+    expect(Number(child.ParentAssetId)).toBe(ASSET_ID);
+    expect(Math.round(Number(child.AcquisitionCost) * 100)).toBe(
+      Math.round(Number(original.AcquisitionCost) * (PERCENTAGE / 100) * 100)
+    );
+    expect(Number(child.Status)).toBe(2); // Disposed
+    expect(child.Active).toBe(false);
 
-    // The asset register (/Assets) loads without error and the asset's own
-    // detail page — which is the row's link target on the register — is
-    // still reachable and renders the asset number. Together these prove
-    // the asset remains listed/queryable in the register after a partial
-    // disposal. (The /Assets index server-renders only the first page of
-    // rows, so we verify the row by following its detail link rather than
-    // string-matching against a paginated HTML response.)
-    const listResp = await gotoApp(page, '/Assets');
-    expect(listResp.status()).toBeLessThan(400);
-
-    const detailResp = await gotoApp(page, `/Assets/Asset/${ASSET_ID}`);
-    expect(detailResp.status()).toBeLessThan(400);
-    const detailText = await page.locator('body').innerText();
-    expect(detailText).toContain(original.AssetNumber);
+    // Both parent and child are visible on the /Assets register. We hit
+    // the page via Playwright's API-level request to inspect the raw,
+    // server-rendered HTML (so we don't depend on the client-side grid's
+    // pagination/visibility behavior).
+    const reg = await page.request.get(
+      'http://127.0.0.1:5000/Assets',
+      { headers: { Cookie: (await page.context().cookies())
+          .map((c) => `${c.name}=${c.value}`).join('; ') } }
+    );
+    expect(reg.status()).toBeLessThan(400);
+    const html = await reg.text();
+    expect(html).toContain(original.AssetNumber);
+    expect(html).toContain(child.AssetNumber);
   });
 });

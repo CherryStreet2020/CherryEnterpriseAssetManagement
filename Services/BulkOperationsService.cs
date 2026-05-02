@@ -61,6 +61,62 @@ namespace Abs.FixedAssets.Services
             asset.AcquisitionCost -= costDisposed;
             asset.AccumulatedDepreciation -= accumDepDisposed;
 
+            // Create a child asset row representing the disposed portion so
+            // both the remaining (parent) and disposed (child) pieces are
+            // visible/queryable in the asset register.
+            var seq = await _context.PartialDisposals.CountAsync(p => p.AssetId == assetId) + 1;
+            var childAssetNumber = $"{asset.AssetNumber}-PD{seq}";
+            var siblingExists = await _context.Assets
+                .AnyAsync(a => a.AssetNumber == childAssetNumber && a.CompanyId == asset.CompanyId);
+            if (siblingExists)
+            {
+                childAssetNumber = $"{asset.AssetNumber}-PD{seq}-{DateTime.UtcNow.Ticks % 100000}";
+            }
+
+            var childAsset = new Asset
+            {
+                AssetNumber = childAssetNumber,
+                Description = $"{asset.Description} (Partial Disposal)",
+                LongDescription = asset.LongDescription,
+                Model = asset.Model,
+                SerialNumber = asset.SerialNumber,
+                AssetType = asset.AssetType,
+                AssetTypeLookupValueId = asset.AssetTypeLookupValueId,
+                ParentAssetId = asset.Id,
+                AcquisitionCost = costDisposed,
+                AccumulatedDepreciation = accumDepDisposed,
+                SalvageValue = asset.SalvageValue * percentageToDispose,
+                Currency = asset.Currency,
+                DepreciationMethod = asset.DepreciationMethod,
+                DepreciationMethodLookupValueId = asset.DepreciationMethodLookupValueId,
+                UsefulLifeMonths = asset.UsefulLifeMonths,
+                InServiceDate = asset.InServiceDate,
+                PurchaseDate = asset.PurchaseDate,
+                FiscalPurchaseYear = asset.FiscalPurchaseYear,
+                CompanyId = asset.CompanyId,
+                SiteId = asset.SiteId,
+                LocationId = asset.LocationId,
+                DepartmentId = asset.DepartmentId,
+                AssetCategoryId = asset.AssetCategoryId,
+                ManufacturerId = asset.ManufacturerId,
+                VendorId = asset.VendorId,
+                CostCenterId = asset.CostCenterId,
+                Status = AssetStatus.Disposed,
+                StatusLookupValueId = asset.StatusLookupValueId,
+                Active = false,
+                Priority = asset.Priority,
+                AssetPriorityLookupValueId = asset.AssetPriorityLookupValueId,
+                Condition = asset.Condition,
+                ConditionLookupValueId = asset.ConditionLookupValueId,
+                DisposalDate = DateTime.UtcNow,
+                DisposalProceeds = saleProceeds,
+                GainLossOnDisposal = gainLoss,
+                DisposalReason = reason.ToString(),
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = processedBy
+            };
+
+            _context.Assets.Add(childAsset);
             _context.PartialDisposals.Add(disposal);
             await _context.SaveChangesAsync();
 
