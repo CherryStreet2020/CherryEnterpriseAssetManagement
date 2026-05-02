@@ -26,14 +26,17 @@ namespace Abs.FixedAssets.Pages.Reports
 
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
 
-        public async Task<IActionResult> OnGetAsync(string type, string format, int? year, int? assetId)
+        public async Task<IActionResult> OnGetAsync(string? type, string? format, int? year, int? assetId)
         {
             if (!await _moduleGuard.IsModuleEnabledAsync("reports"))
                 return RedirectToPage("/ModuleDisabled", new { module = "Reports" });
 
             year ??= DateTime.Now.Year;
 
-            return type?.ToLower() switch
+            if (string.IsNullOrWhiteSpace(type))
+                return RedirectToPage("/Reports/Index");
+
+            return type.ToLowerInvariant() switch
             {
                 "assets" => await ExportAssets(format),
                 "journals" => await ExportJournals(format),
@@ -45,7 +48,7 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportAssets(string format)
+        private async Task<IActionResult> ExportAssets(string? format)
         {
             var exportQuery = _db.Assets.Where(a => _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0));
             if (_tenantContext.SiteId.HasValue)
@@ -62,13 +65,12 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportJournals(string format)
+        private async Task<IActionResult> ExportJournals(string? format)
         {
-            var companyId = GetCompanyId();
             var journals = await _db.JournalEntries
                 .Include(j => j.Book)
                 .Include(j => j.Lines)
-                .Where(j => _tenantContext.VisibleCompanyIds.Contains(j.Book.CompanyId ?? 0))
+                .Where(j => j.Book != null && _tenantContext.VisibleCompanyIds.Contains(j.Book.CompanyId ?? 0))
                 .OrderByDescending(j => j.PostingDate)
                 .ToListAsync();
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -81,7 +83,7 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportCca(string format, int year)
+        private async Task<IActionResult> ExportCca(string? format, int year)
         {
             var classes = await _db.CcaClasses.OrderBy(c => c.ClassNumber).ToListAsync();
             var balances = await _db.CcaClassBalances.Where(b => b.FiscalYear == year).ToListAsync();
@@ -95,12 +97,14 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportMaintenance(string format)
+        private async Task<IActionResult> ExportMaintenance(string? format)
         {
-            var companyId = GetCompanyId();
-            var events = await _db.MaintenanceEvents
+            var eventsQuery = _db.MaintenanceEvents
                 .Include(m => m.Asset)
-                .Where(m => _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .Where(m => m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0));
+            if (_tenantContext.SiteId.HasValue)
+                eventsQuery = eventsQuery.Where(m => m.Asset!.SiteId == _tenantContext.SiteId.Value);
+            var events = await eventsQuery
                 .OrderByDescending(m => m.ScheduledDate)
                 .ToListAsync();
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -112,9 +116,10 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportCip(string format)
+        private async Task<IActionResult> ExportCip(string? format)
         {
             var projects = await _db.CipProjects
+                .Where(p => _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0))
                 .OrderByDescending(p => p.StartDate)
                 .ToListAsync();
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -126,7 +131,7 @@ namespace Abs.FixedAssets.Pages.Reports
             };
         }
 
-        private async Task<IActionResult> ExportDepreciationSchedule(string format, int assetId)
+        private async Task<IActionResult> ExportDepreciationSchedule(string? format, int assetId)
         {
             var asset = await _db.Assets
                 .Where(a => a.Id == assetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0))

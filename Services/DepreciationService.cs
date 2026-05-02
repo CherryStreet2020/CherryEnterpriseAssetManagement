@@ -109,7 +109,12 @@ namespace Abs.FixedAssets.Services
 
                 switch (method)
                 {
+                    case DepreciationMethod.NoDepreciation:
+                        periodDep = 0m;
+                        break;
+
                     case DepreciationMethod.StraightLine:
+                    case DepreciationMethod.Amortization:
                         decimal monthlySlDep = depreciableBasis / life;
                         periodDep = ApplyFirstLastMonthConvention(monthlySlDep, convention, isFirstMonth, isLastMonth, inServiceDate);
                         break;
@@ -182,15 +187,35 @@ namespace Abs.FixedAssets.Services
                         break;
 
                     case DepreciationMethod.MACRS:
-                        periodDep = CalculateMACRSMonthly(cost, lifeYears, periodYear, i % 12 + 1);
+                    case DepreciationMethod.MACRS3Year:
+                    case DepreciationMethod.MACRS5Year:
+                    case DepreciationMethod.MACRS7Year:
+                    case DepreciationMethod.MACRS10Year:
+                    case DepreciationMethod.MACRS15Year:
+                    case DepreciationMethod.MACRS20Year:
+                    case DepreciationMethod.MACRS27_5Year:
+                    case DepreciationMethod.MACRS39Year:
+                        int macrsLifeYears = ResolveMacrsLifeYears(method, lifeYears);
+                        periodDep = CalculateMACRSMonthly(cost, macrsLifeYears, periodYear, i % 12 + 1);
                         break;
 
                     case DepreciationMethod.CCA:
-                        break;
+                        throw new InvalidOperationException(
+                            $"Asset '{asset.AssetNumber}' is configured with the CCA method but CCA is calculated by CcaService (Canadian tax book), not by DepreciationService. " +
+                            "Switch the GAAP book to a different method (e.g. StraightLine) and configure CCA on the tax book via AssetTaxSettings.");
+
+                    case DepreciationMethod.ADS:
+                    case DepreciationMethod.GroupComposite:
+                    case DepreciationMethod.Component:
+                    case DepreciationMethod.IFRSRevaluation:
+                    case DepreciationMethod.CustomSchedule:
+                        throw new NotImplementedException(
+                            $"Depreciation method '{method}' is not yet implemented for asset '{asset.AssetNumber}'. " +
+                            "Choose StraightLine, DoubleDecliningBalance, DecliningBalance150, SumOfYearsDigits, UnitsOfProduction, MACRS, Amortization, or NoDepreciation.");
 
                     default:
-                        periodDep = depreciableBasis / life;
-                        break;
+                        throw new NotSupportedException(
+                            $"Unsupported depreciation method '{method}' (value {(int)method}) on asset '{asset.AssetNumber}'.");
                 }
 
                 periodDep = Math.Max(0, Math.Min(periodDep, remainingBasis));
@@ -228,16 +253,37 @@ namespace Abs.FixedAssets.Services
                 switch (convention)
                 {
                     case DepreciationConvention.HalfYear:
+                    case DepreciationConvention.ModifiedHalfYear:
                         return baseDep * 0.5m;
                     case DepreciationConvention.HalfMonth:
                         return inServiceDate.Day <= 15 ? baseDep : baseDep * 0.5m;
                     case DepreciationConvention.MidMonth:
                         return baseDep * 0.5m;
+                    case DepreciationConvention.MidQuarter:
+                    {
+                        // Treat asset as placed in service at midpoint of the quarter:
+                        // first month = full, second = half, third = none. Then resume normally next quarter.
+                        int quarterMonth = ((inServiceDate.Month - 1) % 3) + 1;
+                        return quarterMonth switch
+                        {
+                            1 => baseDep,
+                            2 => baseDep * 0.5m,
+                            _ => 0m
+                        };
+                    }
                     case DepreciationConvention.ActualDays:
                         int daysRemaining = DateTime.DaysInMonth(inServiceDate.Year, inServiceDate.Month) - inServiceDate.Day + 1;
                         int totalDays = DateTime.DaysInMonth(inServiceDate.Year, inServiceDate.Month);
                         return baseDep * ((decimal)daysRemaining / totalDays);
+                    case DepreciationConvention.FirstDayOfMonth:
                     case DepreciationConvention.FullMonth:
+                    case DepreciationConvention.FullYear:
+                    case DepreciationConvention.NoProrate:
+                        return baseDep;
+                    case DepreciationConvention.NextMonth:
+                        return 0m; // Skip first month; depreciation begins the following month
+                    case DepreciationConvention.LastDayOfMonth:
+                        return inServiceDate.Day == DateTime.DaysInMonth(inServiceDate.Year, inServiceDate.Month) ? baseDep : 0m;
                     default:
                         return baseDep;
                 }
@@ -247,14 +293,33 @@ namespace Abs.FixedAssets.Services
                 switch (convention)
                 {
                     case DepreciationConvention.HalfYear:
+                    case DepreciationConvention.ModifiedHalfYear:
                     case DepreciationConvention.HalfMonth:
                     case DepreciationConvention.MidMonth:
+                        return baseDep * 0.5m;
+                    case DepreciationConvention.MidQuarter:
                         return baseDep * 0.5m;
                     default:
                         return baseDep;
                 }
             }
             return baseDep;
+        }
+
+        private static int ResolveMacrsLifeYears(DepreciationMethod method, int fallbackLifeYears)
+        {
+            return method switch
+            {
+                DepreciationMethod.MACRS3Year => 3,
+                DepreciationMethod.MACRS5Year => 5,
+                DepreciationMethod.MACRS7Year => 7,
+                DepreciationMethod.MACRS10Year => 10,
+                DepreciationMethod.MACRS15Year => 15,
+                DepreciationMethod.MACRS20Year => 20,
+                DepreciationMethod.MACRS27_5Year => 28,
+                DepreciationMethod.MACRS39Year => 39,
+                _ => fallbackLifeYears
+            };
         }
 
         private decimal ApplyFirstYearConvention(decimal monthlyDep, DepreciationConvention convention, int monthInYear, DateTime inServiceDate)

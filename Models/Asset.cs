@@ -2,17 +2,23 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Models
 {
+    [Index(nameof(CompanyId), nameof(AssetNumber), IsUnique = true, Name = "IX_Assets_CompanyId_AssetNumber_Unique")]
     public class Asset
     {
         public int Id { get; set; }
 
-        [Required, StringLength(50)]
+        [Required(AllowEmptyStrings = false, ErrorMessage = "Asset Number is required.")]
+        [StringLength(50, MinimumLength = 1)]
+        [RegularExpression(@"^\S+(?:.*\S)?$", ErrorMessage = "Asset Number cannot be only whitespace.")]
         public string AssetNumber { get; set; } = string.Empty;
 
-        [Required, StringLength(200)]
+        [Required(AllowEmptyStrings = false, ErrorMessage = "Description is required.")]
+        [StringLength(200, MinimumLength = 1)]
+        [RegularExpression(@"^\S+(?:.*\S)?$", ErrorMessage = "Description cannot be only whitespace.")]
         public string Description { get; set; } = string.Empty;
 
         [StringLength(500)]

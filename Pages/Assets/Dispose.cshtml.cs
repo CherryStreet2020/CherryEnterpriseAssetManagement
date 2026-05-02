@@ -16,14 +16,16 @@ namespace Abs.FixedAssets.Pages.Assets
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly IPeriodGuard _periodGuard;
 
         public DisposeModel(AppDbContext db, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard, IPeriodGuard periodGuard)
         {
             _moduleGuard = moduleGuard;
             _db = db;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
+            _periodGuard = periodGuard;
         }
 
         public int AssetId { get; set; }
@@ -105,6 +107,20 @@ namespace Abs.FixedAssets.Pages.Assets
                 return Page();
             }
 
+            // Period-locking: prevent disposal posting into closed/locked periods.
+            var assetCompanyId = Asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (assetCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, DisposalDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    ModelState.AddModelError(nameof(DisposalDate), periodCheck.Reason ?? "Posting period is not open.");
+                    ErrorMessage = periodCheck.Reason;
+                    await LoadBooksAsync();
+                    return Page();
+                }
+            }
+
             if (DisposalReasonLookupValueId.HasValue)
             {
                 var lv = await _lookupService.GetValueByIdAsync(
@@ -124,97 +140,134 @@ namespace Abs.FixedAssets.Pages.Assets
             if (CreateJournalEntry && BookId > 0)
             {
                 var book = await _db.Books.Where(b => b.Id == BookId && _tenantContext.VisibleCompanyIds.Contains(b.CompanyId ?? 0)).FirstOrDefaultAsync();
-                if (book != null)
+                if (book == null)
                 {
-                    var glAccounts = await _db.BookGlAccounts.Where(g => g.BookId == BookId).OrderBy(g => g.Id).FirstOrDefaultAsync();
-                    
-                    var entry = new JournalEntry
-                    {
-                        Batch = $"DISP-{DateTime.UtcNow:yyyyMMdd}-{Asset.AssetNumber}",
-                        Period = int.Parse(DisposalDate.ToString("yyyyMM")),
-                        PostingDate = DisposalDate,
-                        BookId = BookId,
-                        Reference = Asset.AssetNumber,
-                        Source = "Disposal",
-                        Description = $"Disposal of {Asset.AssetNumber} - {Asset.Description}"
-                    };
+                    ModelState.AddModelError(nameof(BookId), "Selected book is not accessible to your company scope.");
+                    await LoadBooksAsync();
+                    return Page();
+                }
 
-                    var lines = new List<JournalLine>();
-                    int lineNo = 1;
+                var glAccounts = await _db.BookGlAccounts.Where(g => g.BookId == BookId).OrderBy(g => g.Id).FirstOrDefaultAsync();
 
+                // Resolve every required GL account (BookGlAccount mapping > Book defaults). Fail loudly if any required one is missing.
+                string? accumDepAcct = FirstNonEmpty(glAccounts?.AccumulatedDepreciation, book.GlAccountAccumDep);
+                string? assetAcct = FirstNonEmpty(glAccounts?.Asset, book.GlAccountAssetClearing);
+                string? clearingAcct = FirstNonEmpty(glAccounts?.Clearing, book.GlAccountAssetClearing);
+                string? gainAcct = FirstNonEmpty(glAccounts?.GainOnDisposal, book.GlAccountGainOnDisposal);
+                string? lossAcct = FirstNonEmpty(glAccounts?.LossOnDisposal, book.GlAccountLossOnDisposal);
+                string? disposalExpAcct = FirstNonEmpty(glAccounts?.DepreciationExpense, book.GlAccountDepExp);
+
+                var missing = new List<string>();
+                if (string.IsNullOrWhiteSpace(accumDepAcct)) missing.Add("Accumulated Depreciation");
+                if (string.IsNullOrWhiteSpace(assetAcct)) missing.Add("Asset");
+                if (Proceeds > 0 && string.IsNullOrWhiteSpace(clearingAcct)) missing.Add("Cash/Clearing");
+                if (DisposalExpense > 0 && string.IsNullOrWhiteSpace(disposalExpAcct)) missing.Add("Disposal Expense");
+                if (gainLoss > 0 && string.IsNullOrWhiteSpace(gainAcct)) missing.Add("Gain on Disposal");
+                if (gainLoss < 0 && string.IsNullOrWhiteSpace(lossAcct)) missing.Add("Loss on Disposal");
+
+                if (missing.Count > 0)
+                {
+                    var msg = $"Cannot post disposal journal — book '{book.Code}' is missing GL account mappings: {string.Join(", ", missing)}. Configure them in Books → GL Accounts.";
+                    ModelState.AddModelError(string.Empty, msg);
+                    ErrorMessage = msg;
+                    await LoadBooksAsync();
+                    return Page();
+                }
+
+                var entry = new JournalEntry
+                {
+                    Batch = $"DISP-{DateTime.UtcNow:yyyyMMdd}-{Asset.AssetNumber}",
+                    Period = int.Parse(DisposalDate.ToString("yyyyMM")),
+                    PostingDate = DisposalDate,
+                    BookId = BookId,
+                    Reference = Asset.AssetNumber,
+                    Source = "Disposal",
+                    Description = $"Disposal of {Asset.AssetNumber} - {Asset.Description}",
+                    CreatedUtc = DateTime.UtcNow
+                };
+
+                var lines = new List<JournalLine>();
+                int lineNo = 1;
+
+                lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = accumDepAcct!,
+                    Description = $"Remove accumulated depreciation - {Asset.AssetNumber}",
+                    Debit = Asset.AccumulatedDepreciation,
+                    Credit = 0
+                });
+
+                if (Proceeds > 0)
+                {
                     lines.Add(new JournalLine
                     {
                         LineNo = lineNo++,
-                        Account = glAccounts?.AccumulatedDepreciation ?? "1500",
-                        Description = $"Remove accumulated depreciation - {Asset.AssetNumber}",
-                        Debit = Asset.AccumulatedDepreciation,
+                        Account = clearingAcct!,
+                        Description = $"Cash/AR from disposal (gross) - {Asset.AssetNumber}",
+                        Debit = Proceeds,
                         Credit = 0
                     });
+                }
 
-                    if (Proceeds > 0)
-                    {
-                        lines.Add(new JournalLine
-                        {
-                            LineNo = lineNo++,
-                            Account = "1000",
-                            Description = $"Cash/AR from disposal (gross) - {Asset.AssetNumber}",
-                            Debit = Proceeds,
-                            Credit = 0
-                        });
-                    }
-
-                    if (DisposalExpense > 0)
-                    {
-                        lines.Add(new JournalLine
-                        {
-                            LineNo = lineNo++,
-                            Account = "6510",
-                            Description = $"Disposal expense - {Asset.AssetNumber}",
-                            Debit = DisposalExpense,
-                            Credit = 0
-                        });
-                    }
-
+                if (DisposalExpense > 0)
+                {
                     lines.Add(new JournalLine
                     {
                         LineNo = lineNo++,
-                        Account = glAccounts?.Asset ?? "1400",
-                        Description = $"Remove asset cost - {Asset.AssetNumber}",
-                        Debit = 0,
-                        Credit = Asset.AcquisitionCost
+                        Account = disposalExpAcct!,
+                        Description = $"Disposal expense - {Asset.AssetNumber}",
+                        Debit = DisposalExpense,
+                        Credit = 0
                     });
-
-                    if (gainLoss > 0)
-                    {
-                        lines.Add(new JournalLine
-                        {
-                            LineNo = lineNo++,
-                            Account = glAccounts?.GainOnDisposal ?? "4500",
-                            Description = $"Gain on disposal - {Asset.AssetNumber}",
-                            Debit = 0,
-                            Credit = gainLoss
-                        });
-                    }
-                    else if (gainLoss < 0)
-                    {
-                        lines.Add(new JournalLine
-                        {
-                            LineNo = lineNo++,
-                            Account = glAccounts?.LossOnDisposal ?? "6500",
-                            Description = $"Loss on disposal - {Asset.AssetNumber}",
-                            Debit = Math.Abs(gainLoss),
-                            Credit = 0
-                        });
-                    }
-
-                    entry.Lines = lines;
-                    _db.JournalEntries.Add(entry);
                 }
+
+                lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = assetAcct!,
+                    Description = $"Remove asset cost - {Asset.AssetNumber}",
+                    Debit = 0,
+                    Credit = Asset.AcquisitionCost
+                });
+
+                if (gainLoss > 0)
+                {
+                    lines.Add(new JournalLine
+                    {
+                        LineNo = lineNo++,
+                        Account = gainAcct!,
+                        Description = $"Gain on disposal - {Asset.AssetNumber}",
+                        Debit = 0,
+                        Credit = gainLoss
+                    });
+                }
+                else if (gainLoss < 0)
+                {
+                    lines.Add(new JournalLine
+                    {
+                        LineNo = lineNo++,
+                        Account = lossAcct!,
+                        Description = $"Loss on disposal - {Asset.AssetNumber}",
+                        Debit = Math.Abs(gainLoss),
+                        Credit = 0
+                    });
+                }
+
+                entry.Lines = lines;
+                _db.JournalEntries.Add(entry);
             }
 
             await _db.SaveChangesAsync();
 
             return RedirectToPage("/Assets/Asset", new { id = Asset.Id, mode = "view" });
+        }
+
+        private static string? FirstNonEmpty(params string?[] values)
+        {
+            foreach (var v in values)
+                if (!string.IsNullOrWhiteSpace(v)) return v;
+            return null;
         }
 
         private async Task LoadBooksAsync()

@@ -15,13 +15,24 @@ namespace Abs.FixedAssets.Services
             int bookId,
             DateTime month,
             string createdBy = "system",
-            int? companyId = null)
+            int? companyId = null,
+            bool enforcePeriodLock = true)
         {
             var period  = new DateTime(month.Year, month.Month, 1);
             var posting = new DateTime(month.Year, month.Month, DateTime.DaysInMonth(month.Year, month.Month));
 
             var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookId)
                        ?? throw new InvalidOperationException("Book not found.");
+
+            // Period-locking: prevent posting depreciation into closed/locked periods (skip during historical backfill).
+            var lockCompanyId = companyId ?? book.CompanyId;
+            if (enforcePeriodLock && lockCompanyId.HasValue)
+            {
+                var fp = await db.FiscalPeriods.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.CompanyId == lockCompanyId.Value && posting >= p.StartDate && posting <= p.EndDate);
+                if (fp != null && fp.Status != PeriodStatus.Open)
+                    throw new InvalidOperationException($"Fiscal period '{fp.Name}' is {fp.Status} for {posting:yyyy-MM-dd}. Re-open the period or skip this run.");
+            }
 
             var map = await db.BookGlAccounts.AsNoTracking().FirstOrDefaultAsync(x => x.BookId == bookId)
                       ?? throw new InvalidOperationException("Book GL Account mapping not found. Go to Books → GL Accounts and fill it in.");

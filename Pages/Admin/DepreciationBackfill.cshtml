@@ -1,0 +1,153 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.DepreciationBackfillModel
+@{
+    ViewData["Title"] = "Depreciation Backfill";
+    ViewData["Section"] = "Admin";
+}
+
+<div class="page-shell">
+    <div class="breadcrumbs">
+        <a asp-page="/Index">Dashboard</a>
+        <span class="separator">/</span>
+        <a asp-page="/Admin/Index">Admin</a>
+        <span class="separator">/</span>
+        <span>Depreciation Backfill</span>
+    </div>
+
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Depreciation Backfill</h1>
+            <p class="page-subtitle">Bootstrap Books, GL mappings, and Asset-Book settings, then compute historic depreciation up to a chosen as-of date. Idempotent and safe to re-run.</p>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success" style="background:#0a3d22;color:#a7f3d0;border:1px solid #166534;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+            @Model.SuccessMessage
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" style="background:#3d0a0a;color:#fca5a5;border:1px solid #7f1d1d;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+            @Model.ErrorMessage
+        </div>
+    }
+
+    <div class="kpi-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+        <div class="stat-card">
+            <div class="stat-label">Total Active Assets</div>
+            <div class="stat-value">@Model.TotalAssets.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Books Configured</div>
+            <div class="stat-value">@Model.TotalBooks.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">GL Mappings</div>
+            <div class="stat-value">@Model.TotalBookGlMappings.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Assets w/ Book Settings</div>
+            <div class="stat-value">@Model.AssetsWithSettings.ToString("N0") / @Model.TotalAssets.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Assets w/ Depreciation</div>
+            <div class="stat-value">@Model.AssetsWithDepreciation.ToString("N0") / @Model.TotalAssets.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Acc. Depreciation</div>
+            <div class="stat-value">$@Model.TotalAccumulatedDepreciation.ToString("N0")</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Acquisition Cost</div>
+            <div class="stat-value">$@Model.TotalAcquisitionCost.ToString("N0")</div>
+        </div>
+    </div>
+
+    <div class="spec-card">
+        <div class="spec-header">
+            <span class="accent-dot" style="background:var(--brand-red);"></span>
+            <h2>Run backfill</h2>
+        </div>
+        <form method="post" class="form-grid">
+            <div class="field-row">
+                <label asp-for="AsOfDate">As-Of Date</label>
+                <input asp-for="AsOfDate" type="date" class="form-input" />
+                <small>Compute depreciation through this date for every active asset.</small>
+            </div>
+            <div class="field-row">
+                <label class="check-line">
+                    <input asp-for="CreateMissingBooks" type="checkbox" />
+                    <span>Create missing GAAP books for companies that own assets</span>
+                </label>
+                <label class="check-line">
+                    <input asp-for="CreateMissingGlMappings" type="checkbox" />
+                    <span>Create BookGlAccount mappings for books missing them</span>
+                </label>
+                <label class="check-line">
+                    <input asp-for="CreateMissingAssetBookSettings" type="checkbox" />
+                    <span>Create AssetBookSettings for assets without them</span>
+                </label>
+                <label class="check-line">
+                    <input asp-for="ComputeHistoricDepreciation" type="checkbox" />
+                    <span>Compute and stamp historic depreciation</span>
+                </label>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Run backfill now</button>
+            </div>
+        </form>
+    </div>
+
+    @if (Model.LastReport != null)
+    {
+        <div class="spec-card" style="margin-top:24px;">
+            <div class="spec-header">
+                <span class="accent-dot" style="background:#22c55e;"></span>
+                <h2>Last run report</h2>
+            </div>
+            <table class="table table-clean">
+                <tbody>
+                    <tr><td>As-Of Date</td><td><strong>@Model.LastReport.AsOfDate.ToString("yyyy-MM-dd")</strong></td></tr>
+                    <tr><td>Duration</td><td>@Model.LastReport.Duration.TotalSeconds.ToString("0.00") s</td></tr>
+                    <tr><td>Companies scanned</td><td>@Model.LastReport.CompaniesScanned</td></tr>
+                    <tr><td>GAAP books created</td><td>@Model.LastReport.GaapBooksCreated</td></tr>
+                    <tr><td>Tax books created</td><td>@Model.LastReport.TaxBooksCreated</td></tr>
+                    <tr><td>BookGlAccount mappings created</td><td>@Model.LastReport.BookGlMappingsCreated</td></tr>
+                    <tr><td>AssetBookSettings created</td><td>@Model.LastReport.AssetBookSettingsCreated</td></tr>
+                    <tr><td>AssetBookSettings already existed</td><td>@Model.LastReport.AssetBookSettingsExisting</td></tr>
+                    <tr><td>Assets recomputed</td><td><strong>@Model.LastReport.AssetsRecomputed</strong></td></tr>
+                    <tr><td>Assets skipped</td><td>@Model.LastReport.AssetsSkipped</td></tr>
+                    <tr><td>Total accumulated depreciation stamped</td><td><strong>$@Model.LastReport.TotalAccumulatedDepreciationStamped.ToString("N2")</strong></td></tr>
+                </tbody>
+            </table>
+
+            @if (Model.LastReport.Warnings.Any())
+            {
+                <h3 style="margin-top:16px;">Warnings (@Model.LastReport.Warnings.Count)</h3>
+                <ul style="font-family:var(--font-mono);font-size:12px;max-height:240px;overflow-y:auto;background:var(--bg-elev1);padding:12px;border-radius:8px;">
+                    @foreach (var w in Model.LastReport.Warnings.Take(50))
+                    {
+                        <li>@w</li>
+                    }
+                    @if (Model.LastReport.Warnings.Count > 50)
+                    {
+                        <li>… and @(Model.LastReport.Warnings.Count - 50) more</li>
+                    }
+                </ul>
+            }
+
+            @if (Model.LastReport.Errors.Any())
+            {
+                <h3 style="margin-top:16px;color:var(--brand-red);">Errors (@Model.LastReport.Errors.Count)</h3>
+                <ul style="font-family:var(--font-mono);font-size:12px;color:#fca5a5;">
+                    @foreach (var e in Model.LastReport.Errors)
+                    {
+                        <li>@e</li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>
