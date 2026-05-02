@@ -188,21 +188,27 @@ namespace Abs.FixedAssets.Services
                     return report;
                 }
 
-                // ── Multi-Canadian-company guard: until CcaClassBalance is
-                // company-scoped at the schema level (see follow-up task),
-                // running balance computation while a second Canadian company
-                // also has CCA mappings would corrupt that company's totals
-                // (balances are unique per (CcaClassId, FiscalYear) globally).
+                // ── Conflict guard: CcaClassBalance is keyed only by
+                // (CcaClassId, FiscalYear) until follow-up #9 adds CompanyId.
+                // Refuse to compute balances only when another Canadian
+                // company has actual CCA mappings — otherwise there is no
+                // collision risk.
                 if (computeBalances)
                 {
-                    var otherCanadian = await _db.Companies.AsNoTracking()
-                        .Where(c => c.Id != companyId && c.IsActive && c.Country != null && c.Country.ToUpper().Contains("CANADA"))
-                        .Select(c => new { c.Id, c.Name })
+                    var conflictingCompanies = await _db.AssetTaxSettings.AsNoTracking()
+                        .Where(t => t.Asset != null
+                                 && t.Asset.CompanyId != null
+                                 && t.Asset.CompanyId != companyId
+                                 && t.Asset.Company != null
+                                 && t.Asset.Company.Country != null
+                                 && t.Asset.Company.Country.ToUpper().Contains("CANADA"))
+                        .Select(t => new { Id = t.Asset!.CompanyId!.Value, Name = t.Asset.Company!.Name })
+                        .Distinct()
                         .ToListAsync();
-                    if (otherCanadian.Count > 0)
+                    if (conflictingCompanies.Count > 0)
                     {
-                        var others = string.Join(", ", otherCanadian.Select(c => $"{c.Name} (Co{c.Id})"));
-                        report.Errors.Add($"Multiple Canadian companies detected ({others}). Computing CCA balances is disabled until CcaClassBalance is company-scoped at the schema level. Re-run with ComputeBalances=false to only create AssetTaxSettings.");
+                        var others = string.Join(", ", conflictingCompanies.Select(c => $"{c.Name} (Co{c.Id})"));
+                        report.Errors.Add($"Another Canadian company already has CCA mappings ({others}). Computing balances would corrupt their totals because CcaClassBalance is not yet company-scoped (see follow-up task). Re-run with ComputeBalances=false to only create AssetTaxSettings.");
                         return report;
                     }
                 }
