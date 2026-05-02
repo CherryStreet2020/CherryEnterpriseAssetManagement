@@ -284,6 +284,17 @@ namespace Abs.FixedAssets.Tests
             // And must surface in the top-level errors list.
             Assert.Contains(report.Errors, e => e.Contains("BAD-MAP") && e.Contains("Bad mapping"));
 
+            // Rollback semantics in the report: every per-book summary's
+            // created/posted figures must be zeroed so the displayed report
+            // doesn't claim work that was rolled back.
+            Assert.All(report.PerBook, s =>
+            {
+                Assert.Equal(0, s.MonthsCreated);
+                Assert.Equal(0, s.MonthsToCreate);
+                Assert.Equal(0, s.MonthsZero);
+                Assert.Equal(0m, s.TotalDebit);
+            });
+
             // The good book's entries were rolled back too (… subject to InMemory provider
             // which doesn't support real transactions, so we skip the DB count assertion here.
             // Real Postgres rollback semantics are exercised in the live smoke test.)

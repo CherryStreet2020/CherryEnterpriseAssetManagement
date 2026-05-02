@@ -37,6 +37,17 @@ namespace Abs.FixedAssets.Pages.Admin
         public async Task OnGetAsync()
         {
             await LoadStatsAsync();
+
+            // Render an initial preview using the default prior month-end so operators
+            // see what would happen the moment the page loads — no extra click required.
+            try
+            {
+                Preview = await _backfill.PreviewAsync(AsOfDate);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Initial preview failed: {ex.Message}";
+            }
         }
 
         public async Task<IActionResult> OnPostAsync(string action)

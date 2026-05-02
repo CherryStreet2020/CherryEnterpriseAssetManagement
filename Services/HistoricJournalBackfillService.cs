@@ -172,6 +172,16 @@ namespace Abs.FixedAssets.Services
                 report.JournalsCreated = 0;
                 report.TotalDebit = 0m;
                 report.TotalCredit = 0m;
+                // Per-book summaries for books processed BEFORE the failure would otherwise
+                // still show created/debit values from before the rollback. Zero them so the
+                // displayed report reflects the actual on-disk state (nothing committed).
+                foreach (var s in report.PerBook)
+                {
+                    s.MonthsCreated = 0;
+                    s.MonthsToCreate = 0;
+                    s.MonthsZero = 0;
+                    s.TotalDebit = 0m;
+                }
                 try { await tx.RollbackAsync(); } catch { /* swallow */ }
             }
             finally
