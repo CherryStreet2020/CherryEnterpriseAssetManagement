@@ -85,7 +85,7 @@ namespace Abs.FixedAssets.Pages.Admin
 
         private async Task LoadStatsAsync()
         {
-            TotalBooks = await _db.Books.CountAsync(b => b.IsActive && b.BookType == BookType.Financial);
+            TotalBooks = await _db.Books.CountAsync(b => b.IsActive);
             ExistingDepJournals = await _db.JournalEntries.CountAsync(j => j.Source == "DEP");
             TotalAccumulatedDepreciation = await _db.AssetBookSettings.SumAsync(s => (decimal?)s.AccumulatedDepreciation) ?? 0m;
             PostedDebit = await _db.JournalLines

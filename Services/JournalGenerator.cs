@@ -37,13 +37,14 @@ namespace Abs.FixedAssets.Services
         }
 
         /// <summary>
-        /// Bulk-friendly overload: caller supplies the precomputed monthly total
-        /// (e.g. aggregated from <see cref="DepreciationService.BuildScheduleWithSettings"/>).
-        /// Set <paramref name="saveChanges"/> to false when running inside a larger
-        /// transaction so the caller controls the commit boundary.
-        ///
-        /// Header is fully populated (BookId + Period yyyymm + Source="DEP") so callers
-        /// can do idempotency checks against (BookId, Period, Source).
+        /// Sanctioned bulk path that the on-demand <see cref="GenerateMonthlyAsync"/> also
+        /// delegates to. Caller supplies the precomputed monthly total — used by
+        /// <see cref="HistoricJournalBackfillService"/> so the same DepreciationService
+        /// schedule that stamped <c>AssetBookSettings.AccumulatedDepreciation</c> can drive
+        /// the journal amounts (guaranteeing per-book reconciliation). Set
+        /// <paramref name="saveChanges"/> to false when running inside a larger transaction.
+        /// Header is fully populated (BookId + Period yyyymm + Source="DEP") so callers can
+        /// do idempotency checks against (BookId, Period).
         /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyWithAmountAsync(
             AppDbContext db,

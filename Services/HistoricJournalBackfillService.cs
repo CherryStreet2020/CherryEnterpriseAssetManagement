@@ -51,6 +51,14 @@ namespace Abs.FixedAssets.Services
     /// computed total is zero. Idempotent: any (BookId, Period) that already has a
     /// journal entry is skipped regardless of Source. Period locking is bypassed; the
     /// whole sweep runs in one transaction with all-or-nothing semantics.
+    ///
+    /// Header/line construction is delegated to
+    /// <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/> — the bulk-friendly
+    /// overload of <see cref="JournalGenerator.GenerateMonthlyAsync"/>. We use the bulk
+    /// overload so the per-month total computed from the same DepreciationService schedule
+    /// that stamped AssetBookSettings.AccumulatedDepreciation is the one persisted (this
+    /// is what guarantees per-book reconciliation), and so the entire sweep can share a
+    /// single SaveChanges/transaction boundary.
     /// </summary>
     public class HistoricJournalBackfillService
     {
