@@ -232,7 +232,25 @@ namespace Abs.FixedAssets.Services
                 .Select(j => j.Period)
                 .ToListAsync();
             var existingSet = new HashSet<int>(existingPeriods);
-            summary.MonthsAlreadyPosted = existingSet.Count;
+
+            // For per-book reporting, only count existing periods that fall inside the
+            // sweep window [firstMonth, lastMonth] — otherwise an old DEP entry outside
+            // the window would inflate the "already posted" count and confuse operators.
+            var firstPeriod = firstMonth.Year * 100 + firstMonth.Month;
+            var lastPeriod = lastMonth.Year * 100 + lastMonth.Month;
+            summary.MonthsAlreadyPosted = existingSet.Count(p => p >= firstPeriod && p <= lastPeriod);
+
+            // Reconciliation: include debits from PREVIOUSLY-posted DEP entries within the
+            // sweep window so the per-book "Posted vs AssetBookSettings.Acc" comparison is
+            // accurate even when a book was partially pre-seeded by an earlier sweep.
+            var existingDebitTotal = await _db.JournalLines
+                .Where(jl => jl.JournalEntry != null
+                          && jl.JournalEntry.BookId == book.Id
+                          && jl.JournalEntry.Source == "DEP"
+                          && jl.JournalEntry.Period >= firstPeriod
+                          && jl.JournalEntry.Period <= lastPeriod
+                          && jl.Debit > 0m)
+                .SumAsync(jl => (decimal?)jl.Debit) ?? 0m;
 
             // Aggregate per-asset schedules into per-month totals using the same
             // engine the Depreciation Backfill used. Months not in the dictionary
@@ -289,7 +307,8 @@ namespace Abs.FixedAssets.Services
             summary.MonthsCreated = created;
             summary.MonthsZero = zero;
             summary.MonthsToCreate = created;
-            summary.TotalDebit = bookDebitTotal;
+            // Reconciliation total = newly-created debits + previously-posted in-window debits.
+            summary.TotalDebit = bookDebitTotal + existingDebitTotal;
         }
 
         // Aggregates per-asset DepreciationService schedules into per-month totals for the book.

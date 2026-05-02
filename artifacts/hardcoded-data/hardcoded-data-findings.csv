@@ -1,5 +1,0 @@
-File,Line,EndLine,Severity,Rule,Snippet,Remediation
-.cache/ms-playwright/chromium-1208/chrome-linux64/resources/accessibility/reading_mode_gdocs_helper/content.js,5,,LOW,TODO_HARDCODED_COMMENT,// TODO(b:272150598): Investigate sharing this with,Address TODO/HACK comment; remove hardcoded/demo/mock references
-.pw-browsers/chromium-1208/chrome-linux64/resources/accessibility/reading_mode_gdocs_helper/content.js,5,,LOW,TODO_HARDCODED_COMMENT,// TODO(b:272150598): Investigate sharing this with,Address TODO/HACK comment; remove hardcoded/demo/mock references
-Pages/Admin/DemoData.cshtml,280,,LOW,TODO_HARDCODED_COMMENT,<!-- Demo Pack v2 Section -->,Address TODO/HACK comment; remove hardcoded/demo/mock references
-Program.cs,298,,LOW,TODO_HARDCODED_COMMENT,// TODO: Re-enable before production: app.MapRazorPages().RequireAuthorization();,Address TODO/HACK comment; remove hardcoded/demo/mock references
