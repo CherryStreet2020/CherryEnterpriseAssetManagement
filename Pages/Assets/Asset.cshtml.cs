@@ -427,6 +427,9 @@ namespace Abs.FixedAssets.Pages.Assets
                 Asset.ModifiedBy = User.Identity?.Name ?? "System";
                 _context.Entry(existingAsset).State = EntityState.Detached;
                 _context.Attach(Asset).State = EntityState.Modified;
+                // Tell EF the original RowVersion (xmin) was the value posted with the form so
+                // the generated UPDATE includes WHERE xmin = @posted_value.
+                _context.Entry(Asset).Property(a => a.RowVersion).OriginalValue = Asset.RowVersion;
 
                 try
                 {
@@ -435,9 +438,28 @@ namespace Abs.FixedAssets.Pages.Assets
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    bool exists = await _context.Assets.AnyAsync(e => e.Id == Asset.Id && _tenantContext.VisibleCompanyIds.Contains(e.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || e.SiteId == _tenantContext.SiteId.Value));
-                    if (!exists) return NotFound();
-                    throw;
+                    // Determine whether the row vanished or was edited by someone else.
+                    var current = await _context.Assets
+                        .AsNoTracking()
+                        .Where(e => e.Id == Asset.Id
+                                    && _tenantContext.VisibleCompanyIds.Contains(e.CompanyId ?? 0)
+                                    && (!_tenantContext.SiteId.HasValue || e.SiteId == _tenantContext.SiteId.Value))
+                        .FirstOrDefaultAsync();
+                    if (current == null) return NotFound();
+
+                    // Row still exists but was modified by another user/session. Keep the
+                    // posted form values, surface a clear message, and refresh hidden
+                    // RowVersion so the operator can re-submit after reviewing.
+                    var modifier = string.IsNullOrWhiteSpace(current.ModifiedBy) ? "another user" : current.ModifiedBy;
+                    var when = current.ModifiedAt?.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)
+                               ?? current.CreatedAt.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture);
+                    ModelState.AddModelError(string.Empty,
+                        $"This asset was modified by {modifier} at {when} after you opened the form. " +
+                        "Your changes were not saved. Review the latest values, then click Save again to apply your edits.");
+                    Asset.RowVersion = current.RowVersion;
+                    Mode = "edit";
+                    await LoadDropdownsAsync();
+                    return Page();
                 }
 
                 return RedirectToPage("./Asset", new { id = Asset.Id, mode = "view" });

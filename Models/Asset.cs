@@ -511,6 +511,15 @@ namespace Abs.FixedAssets.Models
         [StringLength(200)]
         public string? PredictedFailureReason { get; set; }
 
+        // Optimistic concurrency token. Mapped to PostgreSQL system column `xmin`.
+        // Configured in AppDbContext to be read-only and used as the concurrency token,
+        // so EF will generate UPDATE/DELETE WHERE xmin = @original and throw
+        // DbUpdateConcurrencyException when another transaction has modified the row.
+        [Column("xmin", TypeName = "xid")]
+        [ConcurrencyCheck]
+        [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
+        public uint RowVersion { get; set; }
+
         // Related Entities
         public AssetTaxSettings? TaxSettings { get; set; }
         public UsTaxSettings? UsTaxSettings { get; set; }

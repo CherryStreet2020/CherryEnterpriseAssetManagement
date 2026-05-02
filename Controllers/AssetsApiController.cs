@@ -1,8 +1,10 @@
+using System.Globalization;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 
 namespace Abs.FixedAssets.Controllers;
 
@@ -80,11 +82,25 @@ public class AssetsApiController : ControllerBase
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
         }
 
+        Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
         return Ok(new ApiResponse<AssetDto>
         {
             Success = true,
             Data = AssetDto.FromAsset(asset)
         });
+    }
+
+    private static string FormatETag(uint rowVersion) => "\"" + rowVersion.ToString(CultureInfo.InvariantCulture) + "\"";
+
+    private static bool TryParseETag(string? raw, out uint value)
+    {
+        value = 0;
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        var trimmed = raw.Trim();
+        if (trimmed.StartsWith("W/", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed.Substring(2);
+        trimmed = trimmed.Trim('"');
+        return uint.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
     }
 
     [HttpPost]
@@ -141,10 +157,41 @@ public class AssetsApiController : ControllerBase
             return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
         }
 
+        // Optimistic concurrency: clients must send the current row's version via If-Match.
+        var ifMatch = Request.Headers.IfMatch.ToString();
+        if (string.IsNullOrWhiteSpace(ifMatch))
+        {
+            return StatusCode(StatusCodes.Status428PreconditionRequired, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "If-Match header is required. GET the resource first and send the returned ETag."
+            });
+        }
+        if (!TryParseETag(ifMatch, out var expectedRowVersion))
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Malformed If-Match header." });
+        }
+
         var asset = await _context.Assets.FindAsync(id);
         if (asset == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
+        }
+
+        // Explicit precondition check: enforce If-Match even when the request body
+        // would result in a no-op update (EF would otherwise skip the UPDATE and
+        // never raise DbUpdateConcurrencyException, allowing a stale ETag to slip
+        // through). The EF concurrency token below is kept as a second safety net
+        // for true races between this read and SaveChanges.
+        if (asset.RowVersion != expectedRowVersion)
+        {
+            Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
+            return Conflict(new ApiResponse<AssetDto>
+            {
+                Success = false,
+                Message = "If-Match precondition failed. The asset has been modified since you fetched it. Re-fetch the asset and retry with the new ETag.",
+                Data = AssetDto.FromAsset(asset)
+            });
         }
 
         if (!string.IsNullOrEmpty(request.Description))
@@ -154,8 +201,26 @@ public class AssetsApiController : ControllerBase
         if (!string.IsNullOrEmpty(request.Status) && Enum.TryParse<AssetStatus>(request.Status, out var status))
             asset.Status = status;
 
-        await _context.SaveChangesAsync();
+        // Force EF to use the client-supplied xmin in the WHERE clause.
+        _context.Entry(asset).Property(a => a.RowVersion).OriginalValue = expectedRowVersion;
 
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await _context.Entry(asset).ReloadAsync();
+            Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
+            return Conflict(new ApiResponse<AssetDto>
+            {
+                Success = false,
+                Message = "The asset was modified by another client between read and save. Re-fetch the asset and retry with the new ETag.",
+                Data = AssetDto.FromAsset(asset)
+            });
+        }
+
+        Response.Headers[HeaderNames.ETag] = FormatETag(asset.RowVersion);
         return Ok(new ApiResponse<AssetDto>
         {
             Success = true,

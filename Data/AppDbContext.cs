@@ -281,6 +281,16 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(a => a.StatusLookupValueId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // Optimistic concurrency: PostgreSQL system column `xmin`. The shadow column
+                // already exists on every PG row, so this generates no schema change. EF
+                // includes RowVersion in WHERE clauses on UPDATE/DELETE and raises
+                // DbUpdateConcurrencyException on a stale token.
+                e.Property(a => a.RowVersion)
+                    .HasColumnName("xmin")
+                    .HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate()
+                    .IsConcurrencyToken();
             });
 
             // Books

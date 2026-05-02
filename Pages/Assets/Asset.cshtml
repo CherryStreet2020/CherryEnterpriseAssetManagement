@@ -230,6 +230,7 @@
             <input type="hidden" asp-for="Mode" />
             <input type="hidden" asp-for="Asset.CreatedAt" />
             <input type="hidden" asp-for="Asset.CreatedBy" />
+            <input type="hidden" asp-for="Asset.RowVersion" />
 
             @{
                 var assetTabs = new List<(string keyOrHref, string label, bool active, int? count, string? icon)> {
