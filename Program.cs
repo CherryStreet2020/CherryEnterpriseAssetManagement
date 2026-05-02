@@ -95,6 +95,7 @@ builder.Services.AddScoped<ICompanyHierarchyService, CompanyHierarchyService>();
 builder.Services.AddScoped<DepreciationService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<DepreciationBackfillService>();
+builder.Services.AddScoped<HistoricJournalBackfillService>();
 builder.Services.AddScoped<CcaService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AuditService>();
