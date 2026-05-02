@@ -412,6 +412,26 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
+        public async Task ReconciliationDrift_BeyondTolerance_EmitsWarning()
+        {
+            // Stamped Acc deliberately set to 9999 — does not match the schedule's true
+            // total — so the per-book summary should carry a Warning explaining the drift.
+            using var db = NewDb(nameof(ReconciliationDrift_BeyondTolerance_EmitsWarning));
+            var (_, _, settings) = Seed(db, "DRIFT");
+            // Seed stamps each of the 3 assets with $24,000 (computed total = $72,000).
+            // Bump them to a wildly different number so drift > $1.
+            foreach (var s in settings) s.AccumulatedDepreciation = 1m;
+            db.SaveChanges();
+
+            var preview = await MakeService(db).PreviewAsync(new DateTime(2025, 12, 31));
+            var bs = preview.PerBook.Single();
+            Assert.NotNull(bs.Warning);
+            Assert.Contains("differs from stamped Acc", bs.Warning);
+            Assert.NotEqual(0m, bs.ReconciliationDelta);
+            Assert.True(bs.ComputedScheduleTotal > 0m);
+        }
+
+        [Fact]
         public async Task PreviewAsync_SurfacesMissingGlMappingPerBook_WithoutAborting()
         {
             using var db = NewDb(nameof(PreviewAsync_SurfacesMissingGlMappingPerBook_WithoutAborting));
