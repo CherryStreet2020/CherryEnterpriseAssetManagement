@@ -21,8 +21,14 @@ test.describe('FA — Partial Disposal', () => {
       'UPDATE "Assets" SET "AcquisitionCost"=$2,"AccumulatedDepreciation"=$3 WHERE "Id"=$1',
       [ASSET_ID, original.AcquisitionCost, original.AccumulatedDepreciation]
     );
-    // Remove only the PartialDisposal rows this spec created (matched by
-    // its unique Notes tag) and the child Asset rows linked to them.
+    // Remove rows this spec produced. Match by stable markers (Notes
+    // tag for PartialDisposals, ParentAssetId + the `-PD` AssetNumber
+    // suffix for child Assets) so cleanup still runs even if the test
+    // failed before we captured the child Id.
+    await dbQuery(
+      'DELETE FROM "Assets" WHERE "ParentAssetId"=$1 AND "AssetNumber" LIKE $2',
+      [ASSET_ID, `${original.AssetNumber}-PD%`]
+    );
     if (createdChildIds.length) {
       await dbQuery('DELETE FROM "Assets" WHERE "Id" = ANY($1::int[])', [createdChildIds]);
       createdChildIds = [];

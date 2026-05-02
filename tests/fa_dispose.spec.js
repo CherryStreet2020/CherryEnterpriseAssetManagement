@@ -33,12 +33,22 @@ test.describe('FA — Dispose', () => {
       'UPDATE "Assets" SET "Status"=$2,"DisposalDate"=$3,"DisposalProceeds"=$4,"GainLossOnDisposal"=$5,"Active"=$6 WHERE "Id"=$1',
       [ASSET_ID, original.Status, original.DisposalDate, original.DisposalProceeds, original.GainLossOnDisposal, original.Active]
     );
-    // Delete only the journal entries this spec created (tracked by Id).
-    if (createdJeIds.length) {
-      await dbQuery('DELETE FROM "JournalLines" WHERE "JournalEntryId" = ANY($1::int[])', [createdJeIds]);
-      await dbQuery('DELETE FROM "JournalEntries" WHERE "Id" = ANY($1::int[])', [createdJeIds]);
-      createdJeIds = [];
+    // Delete journal entries this spec produced. We match by tracked
+    // Ids first, then by stable markers (source=Disposal + Reference =
+    // this spec's asset number) so cleanup still runs even if the test
+    // failed after the POST but before we captured the JE Id.
+    const ids = await dbQuery(
+      `SELECT "Id" FROM "JournalEntries"
+        WHERE LOWER("Source")='disposal' AND "Reference"=$1
+           OR "Id" = ANY($2::int[])`,
+      [original.AssetNumber, createdJeIds.length ? createdJeIds : [0]]
+    );
+    const allIds = ids.map((r) => r.Id);
+    if (allIds.length) {
+      await dbQuery('DELETE FROM "JournalLines" WHERE "JournalEntryId" = ANY($1::int[])', [allIds]);
+      await dbQuery('DELETE FROM "JournalEntries" WHERE "Id" = ANY($1::int[])', [allIds]);
     }
+    createdJeIds = [];
   });
 
   test('disposal records status=Disposed, journal entry, and gain/loss', async ({ page }) => {
