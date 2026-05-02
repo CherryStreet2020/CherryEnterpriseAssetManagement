@@ -46,32 +46,14 @@ namespace Abs.FixedAssets.Services
     }
 
     /// <summary>
-    /// Sweeps every active Financial Book and produces one aggregate JournalEntry per
-    /// (Book, Month) — one entry for EVERY month in [earliest in-service month, asOfDate],
-    /// even if the computed total is zero. Idempotent: existing entries (matched by
-    /// BookId + Period yyyymm + Source="DEP") are skipped.
-    ///
-    /// Per-month totals are derived by aggregating <see cref="DepreciationService.BuildScheduleWithSettings"/>
-    /// across every <see cref="AssetBookSettings"/> for the book — using the same engine that
-    /// <see cref="DepreciationBackfillService"/> uses to stamp Asset.AccumulatedDepreciation. This
-    /// guarantees that SUM(JournalLines.Debit) per book reconciles exactly to
-    /// SUM(AssetBookSettings.AccumulatedDepreciation) for that book within rounding.
-    ///
-    /// The pre-aggregated total is then handed to
-    /// <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/> so the entry/line construction
-    /// (header naming, GL mapping lookup, period-lock handling) goes through the shared
-    /// generator — keeping behavior consistent with the on-demand /Pages/Journals flow.
-    ///
-    /// Period locking is intentionally bypassed (enforcePeriodLock: false) — this is a
-    /// one-time historical load that must post into closed periods. The whole sweep is
-    /// wrapped in a single DB transaction. Any per-book error throws and the entire
-    /// transaction rolls back — this is an all-or-nothing operation.
+    /// Sweeps every active book and produces one aggregate JournalEntry per (Book, Month)
+    /// for every month in [earliest in-service month, asOfDate], including months whose
+    /// computed total is zero. Idempotent: any (BookId, Period) that already has a
+    /// journal entry is skipped regardless of Source. Period locking is bypassed; the
+    /// whole sweep runs in one transaction with all-or-nothing semantics.
     /// </summary>
     public class HistoricJournalBackfillService
     {
-        // App-wide gate: only one historic-journal sweep may run at a time.
-        // Two admins clicking "Run" simultaneously would otherwise both pass the
-        // existing-period check before either committed, queueing duplicate journals.
         private static readonly System.Threading.SemaphoreSlim _runGate = new(1, 1);
 
         private readonly AppDbContext _db;
@@ -106,8 +88,6 @@ namespace Abs.FixedAssets.Services
             };
             var sw = System.Diagnostics.Stopwatch.StartNew();
 
-            // Refuse concurrent runs — two admins racing would each pass the existing-period
-            // check independently and queue duplicate journals before either commits.
             if (!await _runGate.WaitAsync(TimeSpan.FromSeconds(2)))
             {
                 report.Errors.Add("Another historic-journal backfill is already running. Please wait for it to finish before retrying.");
@@ -117,12 +97,11 @@ namespace Abs.FixedAssets.Services
                 return report;
             }
 
-            // Single transaction — all-or-nothing. Any unhandled error rolls back the entire sweep.
             await using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
                 var books = await _db.Books
-                    .Where(b => b.IsActive && b.BookType == BookType.Financial)
+                    .Where(b => b.IsActive)
                     .OrderBy(b => b.Id)
                     .ToListAsync();
 
@@ -140,13 +119,10 @@ namespace Abs.FixedAssets.Services
 
                     try
                     {
-                        await ProcessBookAsync(book, report, summary);
+                        await ProcessBookAsync(book, report, summary, dryRun);
                     }
                     catch (Exception bookEx)
                     {
-                        // Annotate the per-book summary with a clear, named error and re-throw
-                        // with the book name embedded so the outer catch (and UI) gets a loud
-                        // "Book GAAP-PWH (3): ..." message instead of a generic exception.
                         var prefix = $"Book {book.Code} ({book.Id}) — {book.Name}";
                         summary.Error = $"{prefix}: {bookEx.Message}";
                         report.Errors.Add(summary.Error);
@@ -172,9 +148,8 @@ namespace Abs.FixedAssets.Services
                 report.JournalsCreated = 0;
                 report.TotalDebit = 0m;
                 report.TotalCredit = 0m;
-                // Per-book summaries for books processed BEFORE the failure would otherwise
-                // still show created/debit values from before the rollback. Zero them so the
-                // displayed report reflects the actual on-disk state (nothing committed).
+                // Zero per-book "created/posted" figures so the displayed report reflects
+                // the rolled-back on-disk state.
                 foreach (var s in report.PerBook)
                 {
                     s.MonthsCreated = 0;
@@ -197,13 +172,12 @@ namespace Abs.FixedAssets.Services
         private async Task ProcessBookAsync(
             Book book,
             HistoricJournalBackfillReport report,
-            HistoricJournalBookSummary summary)
+            HistoricJournalBookSummary summary,
+            bool dryRun)
         {
-            // Book MUST be Included — DepreciationService.BuildScheduleWithSettings reads
-            // AssetBookSettings.EffectiveMethod / EffectiveConvention / EffectiveUsefulLifeMonths,
-            // which fall back to Book.Method / Book.Convention / Book.UsefulLifeOverrideMonths
-            // when the per-asset overrides are null. Without Include(s.Book) the inherited values
-            // silently drop to defaults (StraightLine / MidMonth) and reconciliation breaks.
+            // Include Book so AssetBookSettings.EffectiveMethod / EffectiveConvention /
+            // EffectiveUsefulLifeMonths can fall back to the Book's values when the
+            // per-asset overrides are null.
             var settings = await _db.AssetBookSettings
                 .Include(s => s.Asset)
                 .Include(s => s.Book)
@@ -236,33 +210,20 @@ namespace Abs.FixedAssets.Services
             summary.LatestMonth = lastMonth;
             summary.MonthsInRange = MonthsBetween(firstMonth, lastMonth);
 
-            // Idempotency: skip a (Book, Period) if ANY journal entry already exists for
-            // that book and month — regardless of Source. This honors hand-made historical
-            // journals (e.g. legacy "MANUAL" or "ADJ" depreciation entries) so we never
-            // post a duplicate month. The original DEP-only filter would have created a
-            // duplicate DEP entry alongside any pre-existing manual entry for the same
-            // (book, period), which is exactly the failure mode the reviewer flagged.
+            // Skip a (Book, Period) if ANY journal entry already exists, regardless of
+            // Source — this honors hand-made historical journals so we never duplicate.
             var existingPeriods = await _db.JournalEntries
                 .Where(j => j.BookId == book.Id)
                 .Select(j => j.Period)
                 .ToListAsync();
             var existingSet = new HashSet<int>(existingPeriods);
 
-            // For per-book reporting, only count existing periods that fall inside the
-            // sweep window [firstMonth, lastMonth] — otherwise an old entry outside the
-            // window would inflate the "already posted" count and confuse operators.
             var firstPeriod = firstMonth.Year * 100 + firstMonth.Month;
             var lastPeriod = lastMonth.Year * 100 + lastMonth.Month;
             summary.MonthsAlreadyPosted = existingSet.Count(p => p >= firstPeriod && p <= lastPeriod);
 
-            // Reconciliation: include debits from ALL previously-posted entries (any
-            // source) for this book within the sweep window so the per-book
-            // "Posted vs AssetBookSettings.Acc" comparison reflects the full
-            // depreciation actually on the books, including hand-made historical
-            // entries the backfill skipped. (Convention: financial-book journals at
-            // monthly periods are presumed to represent depreciation activity; if
-            // operators post non-depreciation activity to a financial book, the
-            // displayed Δ will diverge from settings.acc and surface that mismatch.)
+            // Include previously-posted in-window debits so the per-book "Posted vs
+            // settings.Acc" delta reflects ALL depreciation on the books.
             var existingDebitTotal = await _db.JournalLines
                 .Where(jl => jl.JournalEntry != null
                           && jl.JournalEntry.BookId == book.Id
@@ -271,17 +232,12 @@ namespace Abs.FixedAssets.Services
                           && jl.Debit > 0m)
                 .SumAsync(jl => (decimal?)jl.Debit) ?? 0m;
 
-            // Aggregate per-asset schedules into per-month totals using the same
-            // engine the Depreciation Backfill used. Months not in the dictionary
-            // (e.g. before earliest in-service) get treated as zero below.
             var perMonthTotals = ComputePerMonthTotalsForBook(settings, firstMonth, lastMonth);
 
             int created = 0;
             int zero = 0;
             decimal bookDebitTotal = 0m;
 
-            // Walk EVERY month in range; create an entry even if the amount is zero,
-            // unless the (Book, Period) was already posted.
             for (var month = firstMonth; month <= lastMonth; month = month.AddMonths(1))
             {
                 report.MonthsConsidered++;
@@ -294,21 +250,23 @@ namespace Abs.FixedAssets.Services
 
                 perMonthTotals.TryGetValue(month, out var total);
                 if (total < 0m) total = 0m;
+                var rounded = Math.Round(total, 2, MidpointRounding.AwayFromZero);
 
-                // Hand the precomputed total to the shared JournalGenerator. saveChanges:false
-                // because we have a single SaveChanges at the end of the outer transaction.
-                // enforcePeriodLock:false — this is a historical load that posts into closed periods.
-                // Any failure here (missing GL mapping, etc.) propagates up and the entire sweep
-                // rolls back via the catch in RunInternalAsync — all-or-nothing.
-                await JournalGenerator.GenerateMonthlyWithAmountAsync(
-                    _db,
-                    book.Id,
-                    month,
-                    total,
-                    createdBy: "system",
-                    companyId: book.CompanyId,
-                    enforcePeriodLock: false,
-                    saveChanges: false);
+                // In dry-run, do not call the generator — it would Add tracked entities
+                // to the DbContext that could leak into a later RunAsync on the same
+                // scope. Compute counts/totals only.
+                if (!dryRun)
+                {
+                    await JournalGenerator.GenerateMonthlyWithAmountAsync(
+                        _db,
+                        book.Id,
+                        month,
+                        total,
+                        createdBy: "system",
+                        companyId: book.CompanyId,
+                        enforcePeriodLock: false,
+                        saveChanges: false);
+                }
 
                 if (total == 0m)
                 {
@@ -317,16 +275,15 @@ namespace Abs.FixedAssets.Services
                 }
 
                 created++;
-                bookDebitTotal += Math.Round(total, 2, MidpointRounding.AwayFromZero);
+                bookDebitTotal += rounded;
                 report.JournalsCreated++;
-                report.TotalDebit += Math.Round(total, 2, MidpointRounding.AwayFromZero);
-                report.TotalCredit += Math.Round(total, 2, MidpointRounding.AwayFromZero);
+                report.TotalDebit += rounded;
+                report.TotalCredit += rounded;
             }
 
             summary.MonthsCreated = created;
             summary.MonthsZero = zero;
             summary.MonthsToCreate = created;
-            // Reconciliation total = newly-created debits + previously-posted in-window debits.
             summary.TotalDebit = bookDebitTotal + existingDebitTotal;
         }
 
