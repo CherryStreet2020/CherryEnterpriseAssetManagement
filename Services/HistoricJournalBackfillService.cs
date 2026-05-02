@@ -138,7 +138,20 @@ namespace Abs.FixedAssets.Services
                     report.PerBook.Add(summary);
                     report.BooksScanned++;
 
-                    await ProcessBookAsync(book, report, summary);
+                    try
+                    {
+                        await ProcessBookAsync(book, report, summary);
+                    }
+                    catch (Exception bookEx)
+                    {
+                        // Annotate the per-book summary with a clear, named error and re-throw
+                        // with the book name embedded so the outer catch (and UI) gets a loud
+                        // "Book GAAP-PWH (3): ..." message instead of a generic exception.
+                        var prefix = $"Book {book.Code} ({book.Id}) — {book.Name}";
+                        summary.Error = $"{prefix}: {bookEx.Message}";
+                        report.Errors.Add(summary.Error);
+                        throw new InvalidOperationException($"{prefix}: {bookEx.Message}", bookEx);
+                    }
                 }
 
                 if (dryRun)
@@ -176,8 +189,14 @@ namespace Abs.FixedAssets.Services
             HistoricJournalBackfillReport report,
             HistoricJournalBookSummary summary)
         {
+            // Book MUST be Included — DepreciationService.BuildScheduleWithSettings reads
+            // AssetBookSettings.EffectiveMethod / EffectiveConvention / EffectiveUsefulLifeMonths,
+            // which fall back to Book.Method / Book.Convention / Book.UsefulLifeOverrideMonths
+            // when the per-asset overrides are null. Without Include(s.Book) the inherited values
+            // silently drop to defaults (StraightLine / MidMonth) and reconciliation breaks.
             var settings = await _db.AssetBookSettings
                 .Include(s => s.Asset)
+                .Include(s => s.Book)
                 .Where(s => s.BookId == book.Id && !s.IsExcludedFromBook && s.Asset != null)
                 .ToListAsync();
 

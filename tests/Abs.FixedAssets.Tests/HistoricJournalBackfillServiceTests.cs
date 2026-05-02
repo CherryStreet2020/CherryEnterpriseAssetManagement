@@ -181,6 +181,77 @@ namespace Abs.FixedAssets.Tests
             Assert.Equal(72000m, bookSummary.TotalDebit);
         }
 
+        /// <summary>
+        /// Regression for the production-shape: AssetBookSettings have ALL overrides null,
+        /// so EffectiveMethod / EffectiveConvention / EffectiveUsefulLifeMonths must
+        /// inherit from Book.Method / Book.Convention / Book.UsefulLifeOverrideMonths.
+        /// If the service forgets Include(s.Book), the schedule silently falls back to
+        /// defaults and reconciliation breaks. This test would FAIL with the missing Include.
+        /// </summary>
+        [Fact]
+        public async Task InheritedBookSettings_NullOverrides_StillReconcilesToAccumulated()
+        {
+            using var db = NewDb(nameof(InheritedBookSettings_NullOverrides_StillReconcilesToAccumulated));
+
+            // Book with NON-default convention (FullMonth, not the default MidMonth) and a life override.
+            var book = new Book
+            {
+                Code = "GAAP-INH",
+                Name = "Inherited",
+                Method = DepreciationMethod.StraightLine,
+                Convention = DepreciationConvention.FullMonth,
+                UsefulLifeOverrideMonths = 36,
+                BookType = BookType.Financial,
+                IsActive = true,
+                CompanyId = 1
+            };
+            db.Books.Add(book);
+            db.SaveChanges();
+            db.BookGlAccounts.Add(new BookGlAccount { BookId = book.Id, DepreciationExpense = "6500", AccumulatedDepreciation = "1510" });
+
+            // Asset has a DIFFERENT useful life (60 months) — if Book isn't loaded, the
+            // schedule would use 60 instead of the book's 36, blowing reconciliation.
+            var asset = new Asset
+            {
+                AssetNumber = "INH-001", Description = "Inherited",
+                AcquisitionCost = 36000m, SalvageValue = 0m, UsefulLifeMonths = 60,
+                InServiceDate = new DateTime(2024, 1, 1),
+                DepreciationMethod = DepreciationMethod.StraightLine,
+                Active = true, CompanyId = 1
+            };
+            db.Assets.Add(asset);
+            db.SaveChanges();
+
+            // ALL OVERRIDES NULL — must inherit from Book.
+            db.AssetBookSettings.Add(new AssetBookSettings
+            {
+                AssetId = asset.Id,
+                BookId = book.Id,
+                MethodOverride = null,
+                ConventionOverride = null,
+                UsefulLifeMonthsOverride = null,
+                // Pre-stamp as if depreciation backfill had run with book's life=36 through 2025-12
+                // (24 months × $1,000/mo with life=36 → $24,000). If life=60 was used by mistake,
+                // it would be 24 × $600 = $14,400.
+                AccumulatedDepreciation = 24000m,
+                BookValue = 12000m,
+                LastDepreciationDate = new DateTime(2025, 12, 31)
+            });
+            db.SaveChanges();
+
+            var svc = MakeService(db);
+            var report = await svc.RunAsync(new DateTime(2025, 12, 31));
+
+            Assert.False(report.Aborted, $"Expected success. Errors: {string.Join(" | ", report.Errors)}");
+            Assert.Equal(24, report.JournalsCreated);
+
+            var bookSummary = report.PerBook.Single(b => b.BookId == book.Id);
+            // With Book.UsefulLifeOverrideMonths=36 inherited, $36,000 / 36 = $1,000/mo × 24 = $24,000.
+            // Reconciles to AssetBookSettings.AccumulatedDepreciation within $1.
+            Assert.Equal(24000m, bookSummary.SettingsAccumulated);
+            Assert.InRange(bookSummary.TotalDebit - 24000m, -1m, 1m);
+        }
+
         [Fact]
         public async Task BookWithoutGlMapping_AbortsEntireSweep_AllOrNothing()
         {
@@ -204,6 +275,14 @@ namespace Abs.FixedAssets.Tests
             Assert.True(report.Aborted, $"Expected sweep to abort. Errors: {string.Join(" | ", report.Errors)}");
             Assert.NotEmpty(report.Errors);
             Assert.Equal(0, report.JournalsCreated);
+
+            // Per-book error must be annotated on the summary with book code AND name.
+            var badSummary = report.PerBook.Single(b => b.BookId == badBook.Id);
+            Assert.NotNull(badSummary.Error);
+            Assert.Contains("BAD-MAP", badSummary.Error);
+            Assert.Contains("Bad mapping", badSummary.Error);
+            // And must surface in the top-level errors list.
+            Assert.Contains(report.Errors, e => e.Contains("BAD-MAP") && e.Contains("Bad mapping"));
 
             // The good book's entries were rolled back too (… subject to InMemory provider
             // which doesn't support real transactions, so we skip the DB count assertion here.
