@@ -47,18 +47,12 @@ namespace Abs.FixedAssets.Services
 
     /// <summary>
     /// Sweeps every active book and produces one aggregate JournalEntry per (Book, Month)
-    /// for every month in [earliest in-service month, asOfDate], including months whose
-    /// computed total is zero. Idempotent: any (BookId, Period) that already has a
-    /// journal entry is skipped regardless of Source. Period locking is bypassed; the
-    /// whole sweep runs in one transaction with all-or-nothing semantics.
-    ///
-    /// Header/line construction is delegated to
-    /// <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/> — the bulk-friendly
-    /// overload of <see cref="JournalGenerator.GenerateMonthlyAsync"/>. We use the bulk
-    /// overload so the per-month total computed from the same DepreciationService schedule
-    /// that stamped AssetBookSettings.AccumulatedDepreciation is the one persisted (this
-    /// is what guarantees per-book reconciliation), and so the entire sweep can share a
-    /// single SaveChanges/transaction boundary.
+    /// for every month in [earliest in-service month, asOfDate], including zero-amount
+    /// months. Idempotent on (BookId, Period). Period locking is bypassed; the whole
+    /// sweep runs in one transaction with all-or-nothing semantics. Header/line
+    /// construction goes through <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/>
+    /// (the bulk overload that <see cref="JournalGenerator.GenerateMonthlyAsync"/> also
+    /// delegates to) so all monthly-depreciation journals share one code path.
     /// </summary>
     public class HistoricJournalBackfillService
     {
@@ -218,8 +212,7 @@ namespace Abs.FixedAssets.Services
             summary.LatestMonth = lastMonth;
             summary.MonthsInRange = MonthsBetween(firstMonth, lastMonth);
 
-            // Skip a (Book, Period) if ANY journal entry already exists, regardless of
-            // Source — this honors hand-made historical journals so we never duplicate.
+            // Skip (Book, Period) when any entry already exists (any Source).
             var existingPeriods = await _db.JournalEntries
                 .Where(j => j.BookId == book.Id)
                 .Select(j => j.Period)
@@ -230,8 +223,6 @@ namespace Abs.FixedAssets.Services
             var lastPeriod = lastMonth.Year * 100 + lastMonth.Month;
             summary.MonthsAlreadyPosted = existingSet.Count(p => p >= firstPeriod && p <= lastPeriod);
 
-            // Include previously-posted in-window debits so the per-book "Posted vs
-            // settings.Acc" delta reflects ALL depreciation on the books.
             var existingDebitTotal = await _db.JournalLines
                 .Where(jl => jl.JournalEntry != null
                           && jl.JournalEntry.BookId == book.Id
@@ -260,9 +251,7 @@ namespace Abs.FixedAssets.Services
                 if (total < 0m) total = 0m;
                 var rounded = Math.Round(total, 2, MidpointRounding.AwayFromZero);
 
-                // In dry-run, do not call the generator — it would Add tracked entities
-                // to the DbContext that could leak into a later RunAsync on the same
-                // scope. Compute counts/totals only.
+                // In dry-run, skip the generator so no tracked entities leak into a later RunAsync.
                 if (!dryRun)
                 {
                     await JournalGenerator.GenerateMonthlyWithAmountAsync(
@@ -295,12 +284,9 @@ namespace Abs.FixedAssets.Services
             summary.TotalDebit = bookDebitTotal + existingDebitTotal;
         }
 
-        // Aggregates per-asset DepreciationService schedules into per-month totals for the
-        // book. Section 179 and Bonus depreciation are upfront amounts that are baked into
-        // the schedule's running accum but never appear as a row's DepreciationAmount, so
-        // we add them onto the asset's first in-service month so SUM(monthly journals)
-        // matches AssetBookSettings.AccumulatedDepreciation (which is the schedule's
-        // last-row accum stamped by DepreciationBackfillService).
+        // Aggregates per-asset schedules into per-month totals. Section 179 and Bonus are
+        // baked into accum (DepreciationService.cs:82) but never appear as row.Depreciation,
+        // so we add them to the asset's first in-service month for reconciliation.
         private Dictionary<DateTime, decimal> ComputePerMonthTotalsForBook(
             List<AssetBookSettings> settings,
             DateTime firstMonth,
@@ -340,9 +326,6 @@ namespace Abs.FixedAssets.Services
             return totals;
         }
 
-        // ──────────────────────────────────────────────────────────────────
-        // Helpers
-        // ──────────────────────────────────────────────────────────────────
         private static DateTime MonthStart(DateTime dt) => new DateTime(dt.Year, dt.Month, 1);
         private static DateTime MonthEnd(DateTime dt) => new DateTime(dt.Year, dt.Month, DateTime.DaysInMonth(dt.Year, dt.Month));
         private static DateTime PreviousMonthEnd(DateTime today)

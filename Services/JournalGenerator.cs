@@ -37,14 +37,9 @@ namespace Abs.FixedAssets.Services
         }
 
         /// <summary>
-        /// Sanctioned bulk path that the on-demand <see cref="GenerateMonthlyAsync"/> also
-        /// delegates to. Caller supplies the precomputed monthly total — used by
-        /// <see cref="HistoricJournalBackfillService"/> so the same DepreciationService
-        /// schedule that stamped <c>AssetBookSettings.AccumulatedDepreciation</c> can drive
-        /// the journal amounts (guaranteeing per-book reconciliation). Set
-        /// <paramref name="saveChanges"/> to false when running inside a larger transaction.
-        /// Header is fully populated (BookId + Period yyyymm + Source="DEP") so callers can
-        /// do idempotency checks against (BookId, Period).
+        /// Bulk overload that <see cref="GenerateMonthlyAsync"/> delegates to. Caller
+        /// supplies the precomputed monthly total. Set <paramref name="saveChanges"/> to
+        /// false when running inside a larger transaction.
         /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyWithAmountAsync(
             AppDbContext db,
@@ -72,13 +67,22 @@ namespace Abs.FixedAssets.Services
                     throw new InvalidOperationException($"Fiscal period '{fp.Name}' is {fp.Status} for {posting:yyyy-MM-dd}. Re-open the period or skip this run.");
             }
 
-            var map = await db.BookGlAccounts.AsNoTracking().FirstOrDefaultAsync(x => x.BookId == bookId)
-                      ?? throw new InvalidOperationException("Book GL Account mapping not found. Go to Books → GL Accounts and fill it in.");
+            var map = await db.BookGlAccounts.AsNoTracking().FirstOrDefaultAsync(x => x.BookId == bookId);
 
-            if (string.IsNullOrWhiteSpace(map.DepreciationExpense) ||
-                string.IsNullOrWhiteSpace(map.AccumulatedDepreciation))
+            // Fall back to legacy Book.GlAccountDepExp / Book.GlAccountAccumDep when the
+            // BookGlAccount row is absent or has blank fields. Either source is valid.
+            var depExpense = !string.IsNullOrWhiteSpace(map?.DepreciationExpense)
+                ? map!.DepreciationExpense!
+                : book.GlAccountDepExp;
+            var accumDep = !string.IsNullOrWhiteSpace(map?.AccumulatedDepreciation)
+                ? map!.AccumulatedDepreciation!
+                : book.GlAccountAccumDep;
+
+            if (string.IsNullOrWhiteSpace(depExpense) || string.IsNullOrWhiteSpace(accumDep))
             {
-                throw new InvalidOperationException("DepreciationExpense and AccumulatedDepreciation GL accounts are required.");
+                throw new InvalidOperationException(
+                    "DepreciationExpense and AccumulatedDepreciation GL accounts are required. " +
+                    "Set them on Book.GlAccountDepExp / Book.GlAccountAccumDep or via Books → GL Accounts.");
             }
 
             monthlyTotal = Math.Round(monthlyTotal, 2, MidpointRounding.AwayFromZero);
@@ -102,7 +106,7 @@ namespace Abs.FixedAssets.Services
                 new JournalLine
                 {
                     LineNo      = 1,
-                    Account     = map.DepreciationExpense!,
+                    Account     = depExpense!,
                     Description = "Depreciation expense",
                     Debit       = monthlyTotal,
                     Credit      = 0m
@@ -110,7 +114,7 @@ namespace Abs.FixedAssets.Services
                 new JournalLine
                 {
                     LineNo      = 2,
-                    Account     = map.AccumulatedDepreciation!,
+                    Account     = accumDep!,
                     Description = "Accumulated depreciation",
                     Debit       = 0m,
                     Credit      = monthlyTotal
