@@ -1,19 +1,23 @@
 const { test, expect } = require('@playwright/test');
-const { login, gotoApp, dbQuery, dbOne } = require('./_helpers');
+const { login, gotoApp, dbQuery, dbOne, pickAsset } = require('./_helpers');
 
-const ASSET_ID = 19;
 const COST = 7500;
 const LIFE_EXTENSION = 12;
+const INVOICE = 'TEST-FA-IMPROVE';
 
+let ASSET_ID;
 let original;
 
 test.describe('FA — Improve', () => {
   test.beforeAll(async () => {
+    const a = await pickAsset({ rank: 1 });
+    ASSET_ID = a.Id;
     original = await dbOne(
       'SELECT "AcquisitionCost","UsefulLifeMonths" FROM "Assets" WHERE "Id"=$1',
       [ASSET_ID]
     );
     expect(original).toBeTruthy();
+    expect(Number(original.UsefulLifeMonths) > 0).toBeTruthy();
   });
 
   test.afterEach(async () => {
@@ -22,8 +26,8 @@ test.describe('FA — Improve', () => {
       [ASSET_ID, original.AcquisitionCost, original.UsefulLifeMonths]
     );
     await dbQuery(
-      'DELETE FROM "CapitalImprovements" WHERE "AssetId"=$1 AND "Cost"=$2 AND "InvoiceNumber"=$3',
-      [ASSET_ID, COST, 'TEST-FA-IMPROVE']
+      'DELETE FROM "CapitalImprovements" WHERE "AssetId"=$1 AND "InvoiceNumber"=$2',
+      [ASSET_ID, INVOICE]
     );
   });
 
@@ -35,7 +39,7 @@ test.describe('FA — Improve', () => {
     await page.fill('input[name="Description"]', 'E2E spec — spindle motor upgrade');
     await page.fill('input[name="Cost"]', String(COST));
     await page.fill('input[name="Vendor"]', 'Spec Vendor');
-    await page.fill('input[name="InvoiceNumber"]', 'TEST-FA-IMPROVE');
+    await page.fill('input[name="InvoiceNumber"]', INVOICE);
     await page.fill('input[name="UsefulLifeExtension"]', String(LIFE_EXTENSION));
 
     await page.click('button[type="submit"]');
@@ -59,7 +63,7 @@ test.describe('FA — Improve', () => {
 
     const audit = await dbOne(
       'SELECT "Id","Cost","Description","UsefulLifeExtensionMonths","Capitalized" FROM "CapitalImprovements" WHERE "AssetId"=$1 AND "InvoiceNumber"=$2',
-      [ASSET_ID, 'TEST-FA-IMPROVE']
+      [ASSET_ID, INVOICE]
     );
     expect(audit, 'capital improvement audit row should exist').toBeTruthy();
     expect(Number(audit.Cost)).toBe(COST);

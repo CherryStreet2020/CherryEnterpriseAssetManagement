@@ -1,22 +1,22 @@
 const { test, expect } = require('@playwright/test');
-const { BASE, login, gotoApp, dbQuery, dbOne } = require('./_helpers');
+const { login, gotoApp, dbQuery, dbOne, pickAsset, pickLookupValueId, pickAnyLookupValueId } = require('./_helpers');
 
-const ASSET_ID = 9;
-const DISPOSAL_REASON_LV_SALE = 8;
 const PROCEEDS = 25000;
 const DISPOSAL_DATE = '2026-05-15';
 
+let ASSET_ID;
+let DISPOSAL_REASON_LV_SALE;
 let original;
 let maxJeIdBefore;
 
 test.describe('FA — Dispose', () => {
   test.beforeAll(async () => {
-    original = await dbOne(
-      'SELECT "Id","AssetNumber","Status","AcquisitionCost","AccumulatedDepreciation","DisposalDate","DisposalProceeds","GainLossOnDisposal","Active","CompanyId" FROM "Assets" WHERE "Id"=$1',
-      [ASSET_ID]
-    );
-    expect(original, `seed asset ${ASSET_ID} must exist`).toBeTruthy();
-    expect(Number(original.Status)).toBe(0);
+    original = await pickAsset({ rank: 0 });
+    ASSET_ID = original.Id;
+    DISPOSAL_REASON_LV_SALE =
+      (await pickLookupValueId('DisposalReason', 'SALE')) ||
+      (await pickAnyLookupValueId('DisposalReason'));
+    expect(DISPOSAL_REASON_LV_SALE, 'a DisposalReason lookup value must exist').toBeTruthy();
     const max = await dbOne('SELECT COALESCE(MAX("Id"),0) AS m FROM "JournalEntries"');
     maxJeIdBefore = Number(max.m);
   });
@@ -91,7 +91,9 @@ test.describe('FA — Dispose', () => {
         return { values: out, errs };
       });
       const bodySnippet = (await page.locator('body').innerText()).slice(0, 2000);
-      throw new Error(`Dispose form did not redirect.\nURL=${page.url()}\nPOST status=${respStatus} headers=${JSON.stringify(respHeaders)}\n${JSON.stringify(formDump, null, 2)}\nBODY:\n${bodySnippet}`);
+      throw new Error(
+        `Dispose form did not redirect.\nURL=${page.url()}\n${JSON.stringify(formDump, null, 2)}\nBODY:\n${bodySnippet}`
+      );
     }
 
     const updated = await dbOne(

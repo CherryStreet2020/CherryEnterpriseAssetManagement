@@ -1,8 +1,7 @@
 const { test, expect } = require('@playwright/test');
-const { login, gotoApp, dbQuery, dbOne } = require('./_helpers');
+const { login, gotoApp, dbQuery, dbOne, pickAsset } = require('./_helpers');
 
-const ASSET_ID = 59;
-
+let ASSET_ID;
 let originalDescription;
 
 async function openEditPage(page) {
@@ -13,9 +12,11 @@ async function openEditPage(page) {
 
 test.describe('FA — Asset Concurrency', () => {
   test.beforeAll(async () => {
-    const a = await dbOne('SELECT "Description" FROM "Assets" WHERE "Id"=$1', [ASSET_ID]);
-    expect(a).toBeTruthy();
-    originalDescription = a.Description;
+    const a = await pickAsset({ rank: 5 });
+    ASSET_ID = a.Id;
+    const row = await dbOne('SELECT "Description" FROM "Assets" WHERE "Id"=$1', [ASSET_ID]);
+    expect(row).toBeTruthy();
+    originalDescription = row.Description;
   });
 
   test.afterEach(async () => {

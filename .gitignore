@@ -41,3 +41,7 @@ REPO_SNAPSHOT.zip
 snapshot/
 *.cache
 TestResults/
+
+# Playwright artifacts (regenerated on every test run)
+proof/ui/playwright/test-results/
+proof/ui/playwright/playwright-report/

@@ -44,4 +44,70 @@ async function dbOne(text, params = []) {
   return rows[0] || null;
 }
 
-module.exports = { BASE, login, gotoApp, dbQuery, dbOne };
+async function pickAsset({ rank = 0, status = 0, active = true, companyId = 1, requireLocation = false, requireDepartment = false } = {}) {
+  const params = [status, active, companyId];
+  let sql =
+    'SELECT * FROM "Assets" WHERE "Status"=$1 AND "Active"=$2 AND "CompanyId"=$3 AND "AcquisitionCost">0';
+  if (requireLocation) sql += ' AND "LocationId" IS NOT NULL';
+  if (requireDepartment) sql += ' AND "DepartmentId" IS NOT NULL';
+  sql += ` ORDER BY "Id" OFFSET ${Number(rank)} LIMIT 1`;
+  const row = await dbOne(sql, params);
+  if (!row) throw new Error(`pickAsset: no asset matched (rank=${rank}, status=${status}, companyId=${companyId})`);
+  return row;
+}
+
+async function pickLookupValueId(typeKey, valueCode) {
+  const row = await dbOne(
+    `SELECT lv."Id" FROM "LookupValues" lv
+       JOIN "LookupTypes" lt ON lt."Id"=lv."LookupTypeId"
+       WHERE lt."Key"=$1 AND lv."Code"=$2 AND lv."IsActive"=true LIMIT 1`,
+    [typeKey, valueCode]
+  );
+  return row ? row.Id : null;
+}
+
+async function pickAnyLookupValueId(typeKey) {
+  const row = await dbOne(
+    `SELECT lv."Id" FROM "LookupValues" lv
+       JOIN "LookupTypes" lt ON lt."Id"=lv."LookupTypeId"
+       WHERE lt."Key"=$1 AND lv."IsActive"=true ORDER BY lv."SortOrder", lv."Id" LIMIT 1`,
+    [typeKey]
+  );
+  return row ? row.Id : null;
+}
+
+async function pickActiveLocationOtherThan(locationId, companyId = 1) {
+  const row = await dbOne(
+    `SELECT "Id" FROM "Locations"
+       WHERE "IsActive"=true AND "Id" IS DISTINCT FROM $1
+         AND ("CompanyId" IS NULL OR "CompanyId"=$2)
+       ORDER BY "Id" LIMIT 1`,
+    [locationId, companyId]
+  );
+  return row ? row.Id : null;
+}
+
+async function pickActiveDepartmentOtherThan(departmentId, companyId = 1) {
+  const row = await dbOne(
+    `SELECT "Id" FROM "Departments"
+       WHERE ("IsActive" IS NULL OR "IsActive"=true)
+         AND "Id" IS DISTINCT FROM $1
+         AND ("CompanyId" IS NULL OR "CompanyId"=$2)
+       ORDER BY "Id" LIMIT 1`,
+    [departmentId, companyId]
+  );
+  return row ? row.Id : null;
+}
+
+module.exports = {
+  BASE,
+  login,
+  gotoApp,
+  dbQuery,
+  dbOne,
+  pickAsset,
+  pickLookupValueId,
+  pickAnyLookupValueId,
+  pickActiveLocationOtherThan,
+  pickActiveDepartmentOtherThan,
+};

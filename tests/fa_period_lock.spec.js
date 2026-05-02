@@ -1,15 +1,22 @@
 const { test, expect } = require('@playwright/test');
-const { login, gotoApp, dbQuery, dbOne } = require('./_helpers');
+const { login, gotoApp, dbQuery, dbOne, pickAsset } = require('./_helpers');
 
-const ASSET_ID = 49;
+// NOTE: There is no Admin Periods UI for locking a fiscal period in the
+// current build, so this test sets `FiscalPeriods.Status = 2` (Locked)
+// directly via SQL, exercises the disposal page (which is guarded by
+// IPeriodGuard), and asserts the user-visible guard error. Original
+// period status is restored in afterEach.
 
-let originalStatus;
-let periodId;
+let ASSET_ID;
 let originalAsset;
+let periodId;
+let originalStatus;
 let maxJeIdBefore;
 
 test.describe('FA — Period Lock', () => {
   test.beforeAll(async () => {
+    const a = await pickAsset({ rank: 4 });
+    ASSET_ID = a.Id;
     originalAsset = await dbOne(
       'SELECT "CompanyId","Status","DisposalDate","DisposalProceeds","GainLossOnDisposal","Active" FROM "Assets" WHERE "Id"=$1',
       [ASSET_ID]
@@ -75,6 +82,6 @@ test.describe('FA — Period Lock', () => {
     expect(body).not.toMatch(/Server Error|HTTP 500/i);
 
     const after = await dbOne('SELECT "Status" FROM "Assets" WHERE "Id"=$1', [ASSET_ID]);
-    expect(Number(after.Status)).toBe(0);
+    expect(Number(after.Status)).toBe(Number(originalAsset.Status));
   });
 });

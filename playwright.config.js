@@ -19,5 +19,13 @@ module.exports = defineConfig({
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
     },
   },
+  webServer: {
+    command: 'dotnet run --project Abs.FixedAssets.csproj',
+    url: 'http://127.0.0.1:5000/',
+    reuseExistingServer: true,
+    timeout: 120000,
+    stdout: 'ignore',
+    stderr: 'pipe',
+  },
   outputDir: 'proof/ui/playwright/test-results',
 });
