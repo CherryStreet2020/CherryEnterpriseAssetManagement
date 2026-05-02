@@ -97,6 +97,7 @@ builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();
 builder.Services.AddScoped<CcaService>();
+builder.Services.AddScoped<CcaBackfillService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<ExportService>();
