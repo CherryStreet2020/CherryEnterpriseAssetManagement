@@ -17,12 +17,13 @@ namespace Abs.FixedAssets.Services
         public int MonthsConsidered { get; set; }
         public int JournalsCreated { get; set; }
         public int JournalsSkippedExisting { get; set; }
-        public int JournalsSkippedZero { get; set; }
+        public int JournalsZeroAmount { get; set; }
         public decimal TotalDebit { get; set; }
         public decimal TotalCredit { get; set; }
         public List<HistoricJournalBookSummary> PerBook { get; } = new();
         public List<string> Warnings { get; } = new();
         public List<string> Errors { get; } = new();
+        public bool Aborted { get; set; }
         public TimeSpan Duration { get; set; }
     }
 
@@ -38,16 +39,17 @@ namespace Abs.FixedAssets.Services
         public int MonthsAlreadyPosted { get; set; }
         public int MonthsToCreate { get; set; }
         public int MonthsCreated { get; set; }
-        public int MonthsSkippedZero { get; set; }
+        public int MonthsZero { get; set; }
         public decimal TotalDebit { get; set; }
         public decimal SettingsAccumulated { get; set; }
         public string? Error { get; set; }
     }
 
     /// <summary>
-    /// Sweeps every active Financial Book and produces one aggregate JournalEntry per (Book, Month)
-    /// from the book's earliest in-service month through a chosen as-of date. Idempotent:
-    /// existing entries (matched by BookId + Period yyyymm + Source="DEP") are skipped.
+    /// Sweeps every active Financial Book and produces one aggregate JournalEntry per
+    /// (Book, Month) — one entry for EVERY month in [earliest in-service month, asOfDate],
+    /// even if the computed total is zero. Idempotent: existing entries (matched by
+    /// BookId + Period yyyymm + Source="DEP") are skipped.
     ///
     /// Per-month totals are derived by aggregating <see cref="DepreciationService.BuildScheduleWithSettings"/>
     /// across every <see cref="AssetBookSettings"/> for the book — using the same engine that
@@ -55,8 +57,15 @@ namespace Abs.FixedAssets.Services
     /// guarantees that SUM(JournalLines.Debit) per book reconciles exactly to
     /// SUM(AssetBookSettings.AccumulatedDepreciation) for that book within rounding.
     ///
-    /// Period locking is intentionally bypassed — this is a one-time historical load that must
-    /// post into closed periods. The whole sweep is wrapped in a single DB transaction.
+    /// The pre-aggregated total is then handed to
+    /// <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/> so the entry/line construction
+    /// (header naming, GL mapping lookup, period-lock handling) goes through the shared
+    /// generator — keeping behavior consistent with the on-demand /Pages/Journals flow.
+    ///
+    /// Period locking is intentionally bypassed (enforcePeriodLock: false) — this is a
+    /// one-time historical load that must post into closed periods. The whole sweep is
+    /// wrapped in a single DB transaction. Any per-book error throws and the entire
+    /// transaction rolls back — this is an all-or-nothing operation.
     /// </summary>
     public class HistoricJournalBackfillService
     {
@@ -102,13 +111,13 @@ namespace Abs.FixedAssets.Services
             if (!await _runGate.WaitAsync(TimeSpan.FromSeconds(2)))
             {
                 report.Errors.Add("Another historic-journal backfill is already running. Please wait for it to finish before retrying.");
+                report.Aborted = true;
                 sw.Stop();
                 report.Duration = sw.Elapsed;
                 return report;
             }
 
-            // Single transaction so a partial run never leaves the GL half-posted.
-            // For dryRun we still open one and roll back at the end.
+            // Single transaction — all-or-nothing. Any unhandled error rolls back the entire sweep.
             await using var tx = await _db.Database.BeginTransactionAsync();
             try
             {
@@ -116,8 +125,6 @@ namespace Abs.FixedAssets.Services
                     .Where(b => b.IsActive && b.BookType == BookType.Financial)
                     .OrderBy(b => b.Id)
                     .ToListAsync();
-
-                var glMappings = await _db.BookGlAccounts.ToDictionaryAsync(g => g.BookId);
 
                 foreach (var book in books)
                 {
@@ -131,124 +138,7 @@ namespace Abs.FixedAssets.Services
                     report.PerBook.Add(summary);
                     report.BooksScanned++;
 
-                    if (!glMappings.TryGetValue(book.Id, out var map) ||
-                        string.IsNullOrWhiteSpace(map.DepreciationExpense) ||
-                        string.IsNullOrWhiteSpace(map.AccumulatedDepreciation))
-                    {
-                        var msg = $"Book {book.Code} (id {book.Id}): missing BookGlAccount mapping or required GL accounts (DepreciationExpense / AccumulatedDepreciation). Fill these in via Books → GL Accounts before backfilling.";
-                        summary.Error = msg;
-                        report.Errors.Add(msg);
-                        report.BooksSkipped++;
-                        continue;
-                    }
-
-                    var settings = await _db.AssetBookSettings
-                        .Include(s => s.Asset)
-                        .Where(s => s.BookId == book.Id && !s.IsExcludedFromBook && s.Asset != null)
-                        .ToListAsync();
-
-                    if (settings.Count == 0)
-                    {
-                        summary.MonthsInRange = 0;
-                        continue;
-                    }
-
-                    summary.SettingsAccumulated = settings.Sum(s => s.AccumulatedDepreciation);
-
-                    var earliestInService = settings
-                        .Where(s => s.Asset != null && s.Asset.AcquisitionCost > 0 && s.Asset.UsefulLifeMonths > 0)
-                        .Select(s => s.EffectiveInServiceDate)
-                        .DefaultIfEmpty(DateTime.MinValue)
-                        .Min();
-
-                    if (earliestInService == DateTime.MinValue || earliestInService > report.AsOfDate)
-                    {
-                        summary.MonthsInRange = 0;
-                        continue;
-                    }
-
-                    var firstMonth = MonthStart(earliestInService);
-                    var lastMonth = MonthStart(report.AsOfDate);
-                    summary.EarliestMonth = firstMonth;
-                    summary.LatestMonth = lastMonth;
-                    summary.MonthsInRange = MonthsBetween(firstMonth, lastMonth);
-
-                    var existingPeriods = await _db.JournalEntries
-                        .Where(j => j.BookId == book.Id && j.Source == "DEP")
-                        .Select(j => j.Period)
-                        .ToListAsync();
-                    var existingSet = new HashSet<int>(existingPeriods);
-                    summary.MonthsAlreadyPosted = existingSet.Count;
-
-                    var perMonthTotals = ComputePerMonthTotalsForBook(settings, firstMonth, lastMonth);
-
-                    int created = 0;
-                    int skippedZero = 0;
-                    decimal bookDebitTotal = 0m;
-
-                    foreach (var (month, total) in perMonthTotals)
-                    {
-                        report.MonthsConsidered++;
-                        var period = month.Year * 100 + month.Month;
-                        if (existingSet.Contains(period))
-                        {
-                            report.JournalsSkippedExisting++;
-                            continue;
-                        }
-
-                        if (total <= 0m)
-                        {
-                            report.JournalsSkippedZero++;
-                            skippedZero++;
-                            continue;
-                        }
-
-                        var rounded = Math.Round(total, 2, MidpointRounding.AwayFromZero);
-                        var posting = MonthEnd(month);
-
-                        var entry = new JournalEntry
-                        {
-                            BookId = book.Id,
-                            Period = period,
-                            Batch = $"DEP-{book.Code}-{month:yyyyMM}",
-                            Reference = $"DEP {book.Code} {month:yyyy-MM}",
-                            Source = "DEP",
-                            Description = $"Historical monthly depreciation — {book.Name} {month:yyyy-MM}",
-                            PostingDate = posting,
-                            CreatedUtc = DateTime.UtcNow,
-                            Lines = new List<JournalLine>
-                            {
-                                new JournalLine
-                                {
-                                    LineNo = 1,
-                                    Account = map.DepreciationExpense!,
-                                    Description = "Depreciation expense (historical backfill)",
-                                    Debit = rounded,
-                                    Credit = 0m
-                                },
-                                new JournalLine
-                                {
-                                    LineNo = 2,
-                                    Account = map.AccumulatedDepreciation!,
-                                    Description = "Accumulated depreciation (historical backfill)",
-                                    Debit = 0m,
-                                    Credit = rounded
-                                }
-                            }
-                        };
-
-                        _db.JournalEntries.Add(entry);
-                        created++;
-                        bookDebitTotal += rounded;
-                        report.JournalsCreated++;
-                        report.TotalDebit += rounded;
-                        report.TotalCredit += rounded;
-                    }
-
-                    summary.MonthsCreated = created;
-                    summary.MonthsSkippedZero = skippedZero;
-                    summary.MonthsToCreate = created;
-                    summary.TotalDebit = bookDebitTotal;
+                    await ProcessBookAsync(book, report, summary);
                 }
 
                 if (dryRun)
@@ -263,8 +153,12 @@ namespace Abs.FixedAssets.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Historic journal backfill failed; rolling back");
-                report.Errors.Add($"FATAL: {ex.GetType().Name}: {ex.Message}");
+                _logger.LogError(ex, "Historic journal backfill failed; rolling back entire sweep");
+                report.Errors.Add($"FATAL — entire sweep rolled back: {ex.GetType().Name}: {ex.Message}");
+                report.Aborted = true;
+                report.JournalsCreated = 0;
+                report.TotalDebit = 0m;
+                report.TotalCredit = 0m;
                 try { await tx.RollbackAsync(); } catch { /* swallow */ }
             }
             finally
@@ -275,6 +169,108 @@ namespace Abs.FixedAssets.Services
             sw.Stop();
             report.Duration = sw.Elapsed;
             return report;
+        }
+
+        private async Task ProcessBookAsync(
+            Book book,
+            HistoricJournalBackfillReport report,
+            HistoricJournalBookSummary summary)
+        {
+            var settings = await _db.AssetBookSettings
+                .Include(s => s.Asset)
+                .Where(s => s.BookId == book.Id && !s.IsExcludedFromBook && s.Asset != null)
+                .ToListAsync();
+
+            if (settings.Count == 0)
+            {
+                summary.MonthsInRange = 0;
+                return;
+            }
+
+            summary.SettingsAccumulated = settings.Sum(s => s.AccumulatedDepreciation);
+
+            var earliestInService = settings
+                .Where(s => s.Asset != null && s.Asset.AcquisitionCost > 0 && s.Asset.UsefulLifeMonths > 0)
+                .Select(s => s.EffectiveInServiceDate)
+                .DefaultIfEmpty(DateTime.MinValue)
+                .Min();
+
+            if (earliestInService == DateTime.MinValue || earliestInService > report.AsOfDate)
+            {
+                summary.MonthsInRange = 0;
+                return;
+            }
+
+            var firstMonth = MonthStart(earliestInService);
+            var lastMonth = MonthStart(report.AsOfDate);
+            summary.EarliestMonth = firstMonth;
+            summary.LatestMonth = lastMonth;
+            summary.MonthsInRange = MonthsBetween(firstMonth, lastMonth);
+
+            // Idempotency: every existing DEP entry for this book by Period yyyymm.
+            var existingPeriods = await _db.JournalEntries
+                .Where(j => j.BookId == book.Id && j.Source == "DEP")
+                .Select(j => j.Period)
+                .ToListAsync();
+            var existingSet = new HashSet<int>(existingPeriods);
+            summary.MonthsAlreadyPosted = existingSet.Count;
+
+            // Aggregate per-asset schedules into per-month totals using the same
+            // engine the Depreciation Backfill used. Months not in the dictionary
+            // (e.g. before earliest in-service) get treated as zero below.
+            var perMonthTotals = ComputePerMonthTotalsForBook(settings, firstMonth, lastMonth);
+
+            int created = 0;
+            int zero = 0;
+            decimal bookDebitTotal = 0m;
+
+            // Walk EVERY month in range; create an entry even if the amount is zero,
+            // unless the (Book, Period) was already posted.
+            for (var month = firstMonth; month <= lastMonth; month = month.AddMonths(1))
+            {
+                report.MonthsConsidered++;
+                var period = month.Year * 100 + month.Month;
+                if (existingSet.Contains(period))
+                {
+                    report.JournalsSkippedExisting++;
+                    continue;
+                }
+
+                perMonthTotals.TryGetValue(month, out var total);
+                if (total < 0m) total = 0m;
+
+                // Hand the precomputed total to the shared JournalGenerator. saveChanges:false
+                // because we have a single SaveChanges at the end of the outer transaction.
+                // enforcePeriodLock:false — this is a historical load that posts into closed periods.
+                // Any failure here (missing GL mapping, etc.) propagates up and the entire sweep
+                // rolls back via the catch in RunInternalAsync — all-or-nothing.
+                await JournalGenerator.GenerateMonthlyWithAmountAsync(
+                    _db,
+                    book.Id,
+                    month,
+                    total,
+                    createdBy: "system",
+                    companyId: book.CompanyId,
+                    enforcePeriodLock: false,
+                    saveChanges: false);
+
+                if (total == 0m)
+                {
+                    zero++;
+                    report.JournalsZeroAmount++;
+                }
+
+                created++;
+                bookDebitTotal += Math.Round(total, 2, MidpointRounding.AwayFromZero);
+                report.JournalsCreated++;
+                report.TotalDebit += Math.Round(total, 2, MidpointRounding.AwayFromZero);
+                report.TotalCredit += Math.Round(total, 2, MidpointRounding.AwayFromZero);
+            }
+
+            summary.MonthsCreated = created;
+            summary.MonthsZero = zero;
+            summary.MonthsToCreate = created;
+            summary.TotalDebit = bookDebitTotal;
         }
 
         // Aggregates per-asset DepreciationService schedules into per-month totals for the book.
@@ -302,10 +298,7 @@ namespace Abs.FixedAssets.Services
                 }
             }
 
-            // Return ordered by month so the loop walks chronologically.
-            return totals
-                .OrderBy(kv => kv.Key)
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
+            return totals;
         }
 
         // ──────────────────────────────────────────────────────────────────

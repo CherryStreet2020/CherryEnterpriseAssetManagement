@@ -52,8 +52,15 @@ namespace Abs.FixedAssets.Pages.Admin
                 else
                 {
                     LastReport = await _backfill.RunAsync(AsOfDate);
-                    var balanced = LastReport.TotalDebit == LastReport.TotalCredit ? "balanced" : "UNBALANCED";
-                    SuccessMessage = $"Backfill complete in {LastReport.Duration.TotalSeconds:0.0}s. Created {LastReport.JournalsCreated:N0} journal entries totaling ${LastReport.TotalDebit:N2} debit / ${LastReport.TotalCredit:N2} credit ({balanced}). Skipped {LastReport.JournalsSkippedExisting:N0} existing + {LastReport.JournalsSkippedZero:N0} zero-amount months.";
+                    if (LastReport.Aborted)
+                    {
+                        ErrorMessage = $"Backfill ABORTED — entire sweep rolled back. {string.Join(" | ", LastReport.Errors)}";
+                    }
+                    else
+                    {
+                        var balanced = LastReport.TotalDebit == LastReport.TotalCredit ? "balanced" : "UNBALANCED";
+                        SuccessMessage = $"Backfill complete in {LastReport.Duration.TotalSeconds:0.0}s. Created {LastReport.JournalsCreated:N0} journal entries totaling ${LastReport.TotalDebit:N2} debit / ${LastReport.TotalCredit:N2} credit ({balanced}). Skipped {LastReport.JournalsSkippedExisting:N0} months that were already posted; {LastReport.JournalsZeroAmount:N0} of the new entries were $0 (months past full depreciation).";
+                    }
                 }
             }
             catch (Exception ex)

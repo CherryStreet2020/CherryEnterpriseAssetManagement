@@ -128,7 +128,8 @@
                     <tr><td>Months considered</td><td>@Model.LastReport.MonthsConsidered.ToString("N0")</td></tr>
                     <tr><td>Journals created</td><td><strong>@Model.LastReport.JournalsCreated.ToString("N0")</strong></td></tr>
                     <tr><td>Journals skipped (already existed)</td><td>@Model.LastReport.JournalsSkippedExisting.ToString("N0")</td></tr>
-                    <tr><td>Journals skipped (zero amount)</td><td>@Model.LastReport.JournalsSkippedZero.ToString("N0")</td></tr>
+                    <tr><td>Journals created with $0 amount</td><td>@Model.LastReport.JournalsZeroAmount.ToString("N0")</td></tr>
+                    <tr><td>Aborted (rolled back)</td><td>@(Model.LastReport.Aborted ? "✗ YES — entire sweep rolled back" : "No")</td></tr>
                     <tr><td>Total debit posted</td><td><strong>$@Model.LastReport.TotalDebit.ToString("N2")</strong></td></tr>
                     <tr><td>Total credit posted</td><td><strong>$@Model.LastReport.TotalCredit.ToString("N2")</strong></td></tr>
                     <tr><td>Balanced?</td><td>@(Model.LastReport.TotalDebit == Model.LastReport.TotalCredit ? "✓ Yes" : "✗ NO — INVESTIGATE")</td></tr>
@@ -142,7 +143,7 @@
                         <th>Book</th>
                         <th style="text-align:right;">Created</th>
                         <th style="text-align:right;">Skipped (existed)</th>
-                        <th style="text-align:right;">Skipped (zero)</th>
+                        <th style="text-align:right;">Zero amount</th>
                         <th style="text-align:right;">Total Debit</th>
                         <th style="text-align:right;">AssetBookSettings Acc.</th>
                         <th style="text-align:right;">Reconciliation Δ</th>
@@ -157,7 +158,7 @@
                         <td><strong>@b.BookCode</strong></td>
                         <td style="text-align:right;">@b.MonthsCreated.ToString("N0")</td>
                         <td style="text-align:right;">@b.MonthsAlreadyPosted.ToString("N0")</td>
-                        <td style="text-align:right;">@b.MonthsSkippedZero.ToString("N0")</td>
+                        <td style="text-align:right;">@b.MonthsZero.ToString("N0")</td>
                         <td style="text-align:right;">$@b.TotalDebit.ToString("N2")</td>
                         <td style="text-align:right;">$@b.SettingsAccumulated.ToString("N2")</td>
                         <td style="text-align:right;color:@deltaColor;">$@delta.ToString("N2")</td>

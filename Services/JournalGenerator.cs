@@ -10,6 +10,11 @@ namespace Abs.FixedAssets.Services
 {
     public static class JournalGenerator
     {
+        /// <summary>
+        /// Public, on-demand monthly depreciation entry. Computes the total internally
+        /// (via DepreciationService reflection or straight-line fallback) and persists.
+        /// Used by /Pages/Journals (manual one-shot generation).
+        /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyAsync(
             AppDbContext db,
             int bookId,
@@ -18,7 +23,39 @@ namespace Abs.FixedAssets.Services
             int? companyId = null,
             bool enforcePeriodLock = true)
         {
-            var period  = new DateTime(month.Year, month.Month, 1);
+            var period = new DateTime(month.Year, month.Month, 1);
+
+            decimal totalMonthly = await TryUseExistingDepreciationService(db, bookId, period)
+                                   ?? await FallbackStraightLineMonthlyAsync(db, bookId, period, companyId);
+
+            return await GenerateMonthlyWithAmountAsync(
+                db, bookId, month, totalMonthly,
+                createdBy: createdBy,
+                companyId: companyId,
+                enforcePeriodLock: enforcePeriodLock,
+                saveChanges: true);
+        }
+
+        /// <summary>
+        /// Bulk-friendly overload: caller supplies the precomputed monthly total
+        /// (e.g. aggregated from <see cref="DepreciationService.BuildScheduleWithSettings"/>).
+        /// Set <paramref name="saveChanges"/> to false when running inside a larger
+        /// transaction so the caller controls the commit boundary.
+        ///
+        /// Header is fully populated (BookId + Period yyyymm + Source="DEP") so callers
+        /// can do idempotency checks against (BookId, Period, Source).
+        /// </summary>
+        public static async Task<JournalEntry> GenerateMonthlyWithAmountAsync(
+            AppDbContext db,
+            int bookId,
+            DateTime month,
+            decimal monthlyTotal,
+            string createdBy = "system",
+            int? companyId = null,
+            bool enforcePeriodLock = true,
+            bool saveChanges = true)
+        {
+            var period = new DateTime(month.Year, month.Month, 1);
             var posting = new DateTime(month.Year, month.Month, DateTime.DaysInMonth(month.Year, month.Month));
 
             var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.Id == bookId)
@@ -43,15 +80,14 @@ namespace Abs.FixedAssets.Services
                 throw new InvalidOperationException("DepreciationExpense and AccumulatedDepreciation GL accounts are required.");
             }
 
-            decimal totalMonthly = await TryUseExistingDepreciationService(db, bookId, period)
-                                   ?? await FallbackStraightLineMonthlyAsync(db, bookId, period, companyId);
-
-            totalMonthly = Math.Round(totalMonthly, 2, MidpointRounding.AwayFromZero);
+            monthlyTotal = Math.Round(monthlyTotal, 2, MidpointRounding.AwayFromZero);
 
             var batch = $"DEP-{book.Code}-{period:yyyyMM}";
 
             var entry = new JournalEntry
             {
+                BookId      = bookId,
+                Period      = period.Year * 100 + period.Month,
                 Batch       = batch,
                 PostingDate = posting,
                 Reference   = $"DEP {book.Code} {period:yyyy-MM}",
@@ -64,22 +100,27 @@ namespace Abs.FixedAssets.Services
             {
                 new JournalLine
                 {
+                    LineNo      = 1,
                     Account     = map.DepreciationExpense!,
                     Description = "Depreciation expense",
-                    Debit       = totalMonthly,
+                    Debit       = monthlyTotal,
                     Credit      = 0m
                 },
                 new JournalLine
                 {
+                    LineNo      = 2,
                     Account     = map.AccumulatedDepreciation!,
                     Description = "Accumulated depreciation",
                     Debit       = 0m,
-                    Credit      = totalMonthly
+                    Credit      = monthlyTotal
                 }
             };
 
             db.JournalEntries.Add(entry);
-            await db.SaveChangesAsync();
+            if (saveChanges)
+            {
+                await db.SaveChangesAsync();
+            }
             return entry;
         }
 

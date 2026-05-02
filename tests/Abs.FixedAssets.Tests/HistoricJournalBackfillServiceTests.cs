@@ -111,28 +111,33 @@ namespace Abs.FixedAssets.Tests
             var (book, _, _) = Seed(db, "A");
 
             var svc = MakeService(db);
-            var report = await svc.RunAsync(new DateTime(2025, 12, 31));
+            // Asset is in service from 2024-01 with 36-month life. Run through 2027-12
+            // → 48 months in range (Jan-2024 through Dec-2027): 36 with depreciation +
+            // 12 zero-amount months past full depreciation.
+            var report = await svc.RunAsync(new DateTime(2027, 12, 31));
 
-            // 24 months: Jan-2024 through Dec-2025
-            Assert.Equal(24, report.JournalsCreated);
+            // Spec contract: one entry per (Book, Month) for EVERY month in range
+            Assert.Equal(48, report.JournalsCreated);
             Assert.Equal(0, report.JournalsSkippedExisting);
-            Assert.Equal(0, report.JournalsSkippedZero);
+            Assert.False(report.Aborted);
             Assert.Empty(report.Errors);
+
+            // 12 of those should be zero-amount (months 37-48, after full depreciation)
+            Assert.Equal(12, report.JournalsZeroAmount);
 
             // (b) Per-book balanced — debit == credit
             Assert.Equal(report.TotalDebit, report.TotalCredit);
 
-            // Verify ledger view too
+            // Verify ledger view: every month has an entry, including zero-amount ones
             var entries = await db.JournalEntries.Where(j => j.BookId == book.Id).ToListAsync();
-            Assert.Equal(24, entries.Count);
+            Assert.Equal(48, entries.Count);
             Assert.All(entries, e => Assert.Equal("DEP", e.Source));
             Assert.All(entries, e => Assert.StartsWith($"DEP-{book.Code}-", e.Batch));
+            Assert.All(entries, e => Assert.Equal(book.Id, e.BookId));
 
             var lines = await db.JournalLines.Where(l => l.JournalEntry!.BookId == book.Id).ToListAsync();
-            Assert.Equal(48, lines.Count); // 2 lines × 24 entries
-            var totalDebit = lines.Sum(l => l.Debit);
-            var totalCredit = lines.Sum(l => l.Credit);
-            Assert.Equal(totalDebit, totalCredit);
+            Assert.Equal(96, lines.Count); // 2 lines × 48 entries
+            Assert.Equal(lines.Sum(l => l.Debit), lines.Sum(l => l.Credit));
         }
 
         [Fact]
@@ -150,6 +155,7 @@ namespace Abs.FixedAssets.Tests
             // (a) Idempotency — second run creates zero new entries
             Assert.Equal(0, second.JournalsCreated);
             Assert.Equal(24, second.JournalsSkippedExisting);
+            Assert.False(second.Aborted);
             Assert.Empty(second.Errors);
 
             // No duplicates in the DB either
@@ -176,29 +182,32 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
-        public async Task BookWithoutGlMapping_IsSkipped_WithErrorReport()
+        public async Task BookWithoutGlMapping_AbortsEntireSweep_AllOrNothing()
         {
-            using var db = NewDb(nameof(BookWithoutGlMapping_IsSkipped_WithErrorReport));
-            // Seed a book with NO BookGlAccount mapping
-            var book = new Book
-            {
-                Code = "BAD-MAP",
-                Name = "Bad mapping",
-                BookType = BookType.Financial,
-                IsActive = true,
-                CompanyId = 1
-            };
-            db.Books.Add(book);
+            using var db = NewDb(nameof(BookWithoutGlMapping_AbortsEntireSweep_AllOrNothing));
+            // Seed one good book with full settings…
+            var (goodBook, _, _) = Seed(db, "GOOD");
+            // …and a second book WITHOUT a BookGlAccount mapping but WITH an asset/setting.
+            var badBook = new Book { Code = "BAD-MAP", Name = "Bad mapping", BookType = BookType.Financial, IsActive = true, CompanyId = 1 };
+            db.Books.Add(badBook);
+            db.SaveChanges();
+            var asset = new Asset { AssetNumber = "BAD-001", Description = "x", AcquisitionCost = 12000m, UsefulLifeMonths = 12, InServiceDate = new DateTime(2024, 1, 1), DepreciationMethod = DepreciationMethod.StraightLine, Active = true, CompanyId = 1 };
+            db.Assets.Add(asset);
+            db.SaveChanges();
+            db.AssetBookSettings.Add(new AssetBookSettings { AssetId = asset.Id, BookId = badBook.Id, MethodOverride = DepreciationMethod.StraightLine, ConventionOverride = DepreciationConvention.FullMonth });
             db.SaveChanges();
 
             var svc = MakeService(db);
             var report = await svc.RunAsync(new DateTime(2025, 12, 31));
 
-            Assert.Equal(1, report.BooksScanned);
-            Assert.Equal(1, report.BooksSkipped);
-            Assert.Equal(0, report.JournalsCreated);
+            // All-or-nothing: missing GL mapping on one book aborts the entire sweep
+            Assert.True(report.Aborted, $"Expected sweep to abort. Errors: {string.Join(" | ", report.Errors)}");
             Assert.NotEmpty(report.Errors);
-            Assert.Contains("BAD-MAP", report.Errors[0]);
+            Assert.Equal(0, report.JournalsCreated);
+
+            // The good book's entries were rolled back too (… subject to InMemory provider
+            // which doesn't support real transactions, so we skip the DB count assertion here.
+            // Real Postgres rollback semantics are exercised in the live smoke test.)
         }
 
         [Fact]
