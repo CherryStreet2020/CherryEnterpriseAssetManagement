@@ -194,6 +194,21 @@ namespace Abs.FixedAssets.Services
 
             summary.SettingsAccumulated = settings.Sum(s => s.AccumulatedDepreciation);
 
+            // Preflight GL mapping so preview surfaces missing accounts before Run aborts.
+            var map = await _db.BookGlAccounts.AsNoTracking().FirstOrDefaultAsync(x => x.BookId == book.Id);
+            var depExp = !string.IsNullOrWhiteSpace(map?.DepreciationExpense) ? map!.DepreciationExpense : book.GlAccountDepExp;
+            var accDep = !string.IsNullOrWhiteSpace(map?.AccumulatedDepreciation) ? map!.AccumulatedDepreciation : book.GlAccountAccumDep;
+            if (string.IsNullOrWhiteSpace(depExp) || string.IsNullOrWhiteSpace(accDep))
+            {
+                summary.Error = "Missing GL mapping (DepreciationExpense / AccumulatedDepreciation). Set on Book or BookGlAccount.";
+                if (dryRun)
+                {
+                    summary.MonthsInRange = 0;
+                    return;
+                }
+                throw new InvalidOperationException($"Book '{book.Code}' is missing GL mapping.");
+            }
+
             var earliestInService = settings
                 .Where(s => s.Asset != null && s.Asset.AcquisitionCost > 0 && s.Asset.UsefulLifeMonths > 0)
                 .Select(s => s.EffectiveInServiceDate)

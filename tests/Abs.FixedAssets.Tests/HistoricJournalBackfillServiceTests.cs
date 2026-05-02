@@ -412,6 +412,38 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
+        public async Task PreviewAsync_SurfacesMissingGlMappingPerBook_WithoutAborting()
+        {
+            using var db = NewDb(nameof(PreviewAsync_SurfacesMissingGlMappingPerBook_WithoutAborting));
+            var book = new Book
+            {
+                Code = "NO-GL", Name = "No GL", Method = DepreciationMethod.StraightLine,
+                Convention = DepreciationConvention.FullMonth, UsefulLifeOverrideMonths = 12,
+                BookType = BookType.Financial, IsActive = true, CompanyId = 1
+            };
+            db.Books.Add(book);
+            db.SaveChanges();
+            var asset = new Asset
+            {
+                AssetNumber = "NG-001", Description = "x",
+                AcquisitionCost = 12000m, SalvageValue = 0m, UsefulLifeMonths = 12,
+                InServiceDate = new DateTime(2024, 1, 1),
+                DepreciationMethod = DepreciationMethod.StraightLine,
+                Active = true, CompanyId = 1
+            };
+            db.Assets.Add(asset);
+            db.SaveChanges();
+            db.AssetBookSettings.Add(new AssetBookSettings { AssetId = asset.Id, BookId = book.Id });
+            db.SaveChanges();
+
+            var preview = await MakeService(db).PreviewAsync(new DateTime(2024, 12, 31));
+            Assert.False(preview.Aborted);
+            var bs = preview.PerBook.Single();
+            Assert.NotNull(bs.Error);
+            Assert.Contains("GL mapping", bs.Error);
+        }
+
+        [Fact]
         public async Task GlAccountFallback_UsesBookGlAccountDepExp_WhenBookGlAccountRowMissing()
         {
             // BookGlAccount row absent — generator must fall back to Book.GlAccountDepExp /
