@@ -350,6 +350,79 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
+        public async Task Section179AndBonus_UpfrontAmounts_ReconcileToAccumulated()
+        {
+            // Sec179 + Bonus depreciation are baked into the schedule's accum but are NOT
+            // emitted as row.DepreciationAmount. The backfill must fold those upfront
+            // amounts into the asset's first in-service month so SUM(journals) equals
+            // AssetBookSettings.AccumulatedDepreciation per book.
+            using var db = NewDb(nameof(Section179AndBonus_UpfrontAmounts_ReconcileToAccumulated));
+            var book = new Book
+            {
+                Code = "TAX-179",
+                Name = "Tax with bonus",
+                Method = DepreciationMethod.StraightLine,
+                Convention = DepreciationConvention.FullMonth,
+                UsefulLifeOverrideMonths = 60,
+                BookType = BookType.Tax,
+                IsActive = true,
+                CompanyId = 1
+            };
+            db.Books.Add(book);
+            db.SaveChanges();
+            db.BookGlAccounts.Add(new BookGlAccount { BookId = book.Id, DepreciationExpense = "6500", AccumulatedDepreciation = "1510" });
+
+            // Cost $100,000. Sec179 = $20,000. Bonus = 50% of (100k - 20k) = $40,000.
+            // Adjusted cost = $40,000 over 60 months SL = $666.67/mo.
+            // Through 2025-12 (24 months from 2024-01) → 24 × $666.67 + $20,000 + $40,000.
+            var asset = new Asset
+            {
+                AssetNumber = "S179-001", Description = "Bonus eligible",
+                AcquisitionCost = 100000m, SalvageValue = 0m, UsefulLifeMonths = 60,
+                InServiceDate = new DateTime(2024, 1, 1),
+                DepreciationMethod = DepreciationMethod.StraightLine,
+                Active = true, CompanyId = 1
+            };
+            db.Assets.Add(asset);
+            db.SaveChanges();
+
+            var s = new AssetBookSettings
+            {
+                AssetId = asset.Id,
+                BookId = book.Id,
+                MethodOverride = DepreciationMethod.StraightLine,
+                ConventionOverride = DepreciationConvention.FullMonth,
+                Section179Deduction = 20000m,
+                BonusDepreciationPercent = 50m,
+            };
+            db.AssetBookSettings.Add(s);
+            db.SaveChanges();
+
+            // Stamp AccumulatedDepreciation the same way DepreciationBackfillService would
+            // — by taking the LAST row's accum from the engine through 2025-12.
+            var depSvc = new DepreciationService();
+            var sched = depSvc.BuildScheduleWithSettings(asset, new DateTime(2025, 12, 31), s);
+            s.AccumulatedDepreciation = sched[^1].AccumulatedDepreciation;
+            db.SaveChanges();
+
+            var svc = MakeService(db);
+            var report = await svc.RunAsync(new DateTime(2025, 12, 31));
+
+            Assert.False(report.Aborted, $"Errors: {string.Join(" | ", report.Errors)}");
+            var bs = report.PerBook.Single();
+
+            // Persisted journal-line debits per book must match AccumulatedDepreciation.
+            var debitTotal = await db.JournalLines
+                .Where(jl => jl.JournalEntry!.BookId == book.Id && jl.Debit > 0m)
+                .SumAsync(jl => jl.Debit);
+            Assert.InRange(debitTotal - s.AccumulatedDepreciation, -1m, 1m);
+            Assert.InRange(bs.TotalDebit - s.AccumulatedDepreciation, -1m, 1m);
+            // Sanity: $60k upfront should be > 0 — proves the test is not trivially passing
+            // when upfront amounts are silently dropped.
+            Assert.True(s.AccumulatedDepreciation > 60000m);
+        }
+
+        [Fact]
         public async Task PreviewAsync_DoesNotMutateState_AndAvoidsLeakingIntoSubsequentRun()
         {
             // Preview must not Add tracked entities to the DbContext; otherwise a

@@ -295,7 +295,12 @@ namespace Abs.FixedAssets.Services
             summary.TotalDebit = bookDebitTotal + existingDebitTotal;
         }
 
-        // Aggregates per-asset DepreciationService schedules into per-month totals for the book.
+        // Aggregates per-asset DepreciationService schedules into per-month totals for the
+        // book. Section 179 and Bonus depreciation are upfront amounts that are baked into
+        // the schedule's running accum but never appear as a row's DepreciationAmount, so
+        // we add them onto the asset's first in-service month so SUM(monthly journals)
+        // matches AssetBookSettings.AccumulatedDepreciation (which is the schedule's
+        // last-row accum stamped by DepreciationBackfillService).
         private Dictionary<DateTime, decimal> ComputePerMonthTotalsForBook(
             List<AssetBookSettings> settings,
             DateTime firstMonth,
@@ -310,6 +315,18 @@ namespace Abs.FixedAssets.Services
 
                 var schedule = _depService.BuildScheduleWithSettings(s.Asset, lastMonth, s);
                 if (schedule.Count == 0) continue;
+
+                var assetFirstMonth = MonthStart(s.EffectiveInServiceDate);
+                var section179 = s.Section179Deduction ?? 0m;
+                var bonusPercent = s.BonusDepreciationPercent ?? 0m;
+                var adjustedCost = s.Asset.AcquisitionCost - section179;
+                var bonus = adjustedCost > 0m ? Math.Round(adjustedCost * (bonusPercent / 100m), 2, MidpointRounding.AwayFromZero) : 0m;
+                var upfront = section179 + bonus;
+                if (upfront > 0m && assetFirstMonth >= firstMonth && assetFirstMonth <= lastMonth)
+                {
+                    if (!totals.ContainsKey(assetFirstMonth)) totals[assetFirstMonth] = 0m;
+                    totals[assetFirstMonth] += upfront;
+                }
 
                 foreach (var row in schedule)
                 {
