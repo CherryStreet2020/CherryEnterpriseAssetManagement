@@ -91,22 +91,21 @@ namespace Abs.FixedAssets.Tests
         public async Task FirstRun_CreatesOneEntryPerMonthPerBook_AndIsBalanced()
         {
             using var db = NewDb(nameof(FirstRun_CreatesOneEntryPerMonthPerBook_AndIsBalanced));
-            var (book, _, settings) = Seed(db, "A");
-            var stampedTotal = settings.Sum(s => s.AccumulatedDepreciation);
+            var (book, _, _) = Seed(db, "A");
 
             var svc = MakeService(db);
-            // 48-month range (2024-01..2027-12). Engine schedule = 36 × $3k = $108k but
-            // stamped Acc = $72k, so tie-out zeroes 12 of the latest active months on top
-            // of the 12 past-life months — 24 zero / 24 non-zero, total debits == $72k.
+            // 48-month range (2024-01..2027-12). Engine schedule = 36 active × $3k =
+            // $108k + 12 zero months past life. Engine is the source of truth: backfill
+            // posts $108k and emits a drift Warning vs the stale $72k stamped Acc.
             var report = await svc.RunAsync(new DateTime(2027, 12, 31));
 
             Assert.Equal(48, report.JournalsCreated);
             Assert.Equal(0, report.JournalsSkippedExisting);
             Assert.False(report.Aborted);
             Assert.Empty(report.Errors);
-            Assert.Equal(24, report.JournalsZeroAmount);
+            Assert.Equal(12, report.JournalsZeroAmount);
             Assert.Equal(report.TotalDebit, report.TotalCredit);
-            Assert.InRange(report.TotalDebit - stampedTotal, -1m, 1m);
+            Assert.Equal(108000m, report.TotalDebit);
 
             var entries = await db.JournalEntries.Where(j => j.BookId == book.Id).ToListAsync();
             Assert.Equal(48, entries.Count);
@@ -416,37 +415,42 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
-        public async Task ReconciliationDrift_AdjustsLatestMonth_SoDebitsTieToStampedAcc()
+        public async Task DriftBetweenStampedAccAndEngine_EmitsWarning_PostsEngineAmount()
         {
-            // Stamped Acc differs from schedule. Run must reconcile by adjusting the
-            // latest allocatable month so SUM(persisted debits) == SUM(stamped Acc).
-            using var db = NewDb(nameof(ReconciliationDrift_AdjustsLatestMonth_SoDebitsTieToStampedAcc));
+            // Stamped Acc has been hand-edited to a value that differs from what the
+            // engine produces. Engine is the source of truth — the run posts engine
+            // amounts and surfaces the drift as an informational Warning rather than
+            // silently rewriting journals to lie about what depreciated when.
+            using var db = NewDb(nameof(DriftBetweenStampedAccAndEngine_EmitsWarning_PostsEngineAmount));
             var (book, _, settings) = Seed(db, "DRIFT");
             foreach (var s in settings) s.AccumulatedDepreciation = 30000m;
             db.SaveChanges();
-            var stampedTotal = settings.Sum(s => s.AccumulatedDepreciation);
+            // Engine: 3 assets × $1k/mo × 24 months = $72,000; stamped = $90,000.
 
             var run = await MakeService(db).RunAsync(new DateTime(2025, 12, 31));
 
             Assert.False(run.Aborted, $"Errors: {string.Join(" | ", run.Errors)}");
             var bs = run.PerBook.Single();
             Assert.NotNull(bs.Warning);
-            Assert.Contains("Adjusted", bs.Warning);
-            Assert.NotEqual(0m, bs.ReconciliationDelta);
+            Assert.Contains("Drift", bs.Warning);
+            Assert.Equal(72000m, bs.ComputedScheduleTotal);
+            Assert.Equal(90000m, bs.SettingsAccumulated);
+            Assert.Equal(-18000m, bs.ReconciliationDelta);
 
             var debitTotal = await db.JournalLines
                 .Where(l => l.JournalEntry!.BookId == book.Id && l.Debit > 0m)
                 .SumAsync(l => l.Debit);
-            Assert.InRange(debitTotal - stampedTotal, -1m, 1m);
+            Assert.Equal(72000m, debitTotal);
+            Assert.Contains(run.Warnings, w => w.Contains(book.Code) && w.Contains("Drift"));
         }
 
         [Fact]
-        public async Task UnsupportedMethod_LumpsStampedAccIntoFirstMonth_AndStillTiesOut()
+        public async Task UnsupportedMethod_SkipsAssetWithWarning_SweepContinues()
         {
-            // CCA throws inside DepreciationService.BuildScheduleWithSettings. The sweep
-            // must NOT abort; it should lump stamped Acc onto the asset's first month so
-            // per-book debits still tie to SUM(stamped Acc).
-            using var db = NewDb(nameof(UnsupportedMethod_LumpsStampedAccIntoFirstMonth_AndStillTiesOut));
+            // CCA isn't handled by DepreciationService.BuildScheduleWithSettings — the
+            // sweep must NOT abort. The asset is skipped, surfaced in the per-book
+            // Warning, and the book's remaining (supported) assets still post normally.
+            using var db = NewDb(nameof(UnsupportedMethod_SkipsAssetWithWarning_SweepContinues));
             var book = new Book
             {
                 Code = "TAX-CCA", Name = "CCA Tax",
@@ -459,7 +463,7 @@ namespace Abs.FixedAssets.Tests
             db.SaveChanges();
             db.BookGlAccounts.Add(new BookGlAccount { BookId = book.Id, DepreciationExpense = "6510", AccumulatedDepreciation = "1520" });
 
-            var asset = new Asset
+            var ccaAsset = new Asset
             {
                 AssetNumber = "CCA-001", Description = "CCA asset",
                 AcquisitionCost = 50000m, SalvageValue = 0m, UsefulLifeMonths = 60,
@@ -467,25 +471,34 @@ namespace Abs.FixedAssets.Tests
                 DepreciationMethod = DepreciationMethod.CCA,
                 Active = true, CompanyId = 1
             };
-            db.Assets.Add(asset);
-            db.SaveChanges();
-            db.AssetBookSettings.Add(new AssetBookSettings
+            var slAsset = new Asset
             {
-                AssetId = asset.Id, BookId = book.Id,
-                MethodOverride = DepreciationMethod.CCA,
-                AccumulatedDepreciation = 18000m
-            });
+                AssetNumber = "SL-001", Description = "SL asset",
+                AcquisitionCost = 24000m, SalvageValue = 0m, UsefulLifeMonths = 24,
+                InServiceDate = new DateTime(2024, 1, 1),
+                DepreciationMethod = DepreciationMethod.StraightLine,
+                Active = true, CompanyId = 1
+            };
+            db.Assets.AddRange(ccaAsset, slAsset);
+            db.SaveChanges();
+            db.AssetBookSettings.AddRange(
+                new AssetBookSettings { AssetId = ccaAsset.Id, BookId = book.Id, MethodOverride = DepreciationMethod.CCA, AccumulatedDepreciation = 18000m },
+                new AssetBookSettings { AssetId = slAsset.Id, BookId = book.Id, MethodOverride = DepreciationMethod.StraightLine, ConventionOverride = DepreciationConvention.FullMonth, UsefulLifeMonthsOverride = 24 });
             db.SaveChanges();
 
             var run = await MakeService(db).RunAsync(new DateTime(2025, 12, 31));
 
             Assert.False(run.Aborted, $"Errors: {string.Join(" | ", run.Errors)}");
             var bs = run.PerBook.Single();
+            Assert.NotNull(bs.Warning);
+            Assert.Contains("CCA-001", bs.Warning);
+            Assert.Contains("Skipped 1 asset", bs.Warning);
 
+            // SL asset still posts normally: $1k/mo × 24 months = $24,000.
             var debitTotal = await db.JournalLines
                 .Where(l => l.JournalEntry!.BookId == book.Id && l.Debit > 0m)
                 .SumAsync(l => l.Debit);
-            Assert.InRange(debitTotal - 18000m, -1m, 1m);
+            Assert.Equal(24000m, debitTotal);
         }
 
         [Fact]

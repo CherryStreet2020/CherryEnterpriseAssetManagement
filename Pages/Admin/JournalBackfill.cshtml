@@ -167,7 +167,7 @@
                 </tbody>
             </table>
             <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
-                Reconciliation Δ compares total debits posted in this run + previously-existing months against the AccumulatedDepreciation snapshot on AssetBookSettings. A gap appears if some months were already posted by an older non-DEP source or if the depreciation engine was changed since the last backfill.
+                Reconciliation Δ compares total debits posted (this run + previously-existing months) against the AccumulatedDepreciation snapshot on AssetBookSettings. The depreciation engine is the source of truth — backfill posts engine-computed amounts and surfaces drift here as informational. A gap means stamped Acc was hand-edited, the engine changed, or pre-existing non-DEP journals overlap; re-run Depreciation Backfill to restamp Acc, or investigate manual edits.
             </p>
 
             @if (Model.LastReport.Warnings.Any())

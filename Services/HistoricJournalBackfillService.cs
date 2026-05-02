@@ -52,10 +52,16 @@ namespace Abs.FixedAssets.Services
     /// Sweeps every active book and produces one aggregate JournalEntry per (Book, Month)
     /// for every month in [earliest in-service month, asOfDate], including zero-amount
     /// months. Idempotent on (BookId, Period). Period locking is bypassed; the whole
-    /// sweep runs in one transaction with all-or-nothing semantics. Header/line
-    /// construction goes through <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/>
-    /// (the bulk overload that <see cref="JournalGenerator.GenerateMonthlyAsync"/> also
-    /// delegates to) so all monthly-depreciation journals share one code path.
+    /// sweep runs in one transaction with all-or-nothing semantics.
+    ///
+    /// Amount source of truth: <see cref="DepreciationService.BuildScheduleWithSettings"/>
+    /// per asset, aggregated per (book, month). Header/line persistence reuses
+    /// <see cref="JournalGenerator.GenerateMonthlyWithAmountAsync"/> so every depreciation
+    /// journal — manual single-month, scheduler, or backfill — produces the same row shape.
+    /// Drift between engine output and stamped AssetBookSettings.AccumulatedDepreciation
+    /// is surfaced as an informational warning; the engine's number is posted as-is.
+    /// Assets whose method is not handled by the engine (CCA, ADS, GroupComposite, etc.)
+    /// are skipped and listed in the per-book Warning so the sweep keeps running.
     /// </summary>
     public class HistoricJournalBackfillService
     {
@@ -213,7 +219,11 @@ namespace Abs.FixedAssets.Services
             }
 
             var earliestInService = settings
-                .Where(s => s.Asset != null && s.Asset.AcquisitionCost > 0 && s.Asset.UsefulLifeMonths > 0)
+                .Where(s => s.Asset != null
+                    && (s.CostBasisOverride > 0m || s.Asset.AcquisitionCost > 0m)
+                    && (s.UsefulLifeMonthsOverride > 0
+                        || (s.Book != null && s.Book.UsefulLifeOverrideMonths > 0)
+                        || s.Asset.UsefulLifeMonths > 0))
                 .Select(s => s.EffectiveInServiceDate)
                 .DefaultIfEmpty(DateTime.MinValue)
                 .Min();
@@ -249,62 +259,32 @@ namespace Abs.FixedAssets.Services
                           && jl.Debit > 0m)
                 .SumAsync(jl => (decimal?)jl.Debit) ?? 0m;
 
-            var perMonthTotals = ComputePerMonthTotalsForBook(settings, firstMonth, lastMonth);
+            var skippedAssetNumbers = new List<string>();
+            var perMonthTotals = ComputePerMonthTotalsForBook(settings, firstMonth, lastMonth, skippedAssetNumbers);
             summary.ComputedScheduleTotal = Math.Round(perMonthTotals.Values.Sum(), 2);
 
-            // Tie-out: total persisted debits per book MUST equal stamped
-            // SUM(AssetBookSettings.AccumulatedDepreciation) within $1. Allocate any
-            // residual onto the latest allocatable (not-already-posted) month so existing
-            // hand-made journals are never overwritten.
-            var allocatableMonths = new List<DateTime>();
-            for (var m = firstMonth; m <= lastMonth; m = m.AddMonths(1))
+            // Engine is the source of truth. Surface drift between engine output and
+            // stamped AssetBookSettings.AccumulatedDepreciation as an INFORMATIONAL
+            // warning — never silently rewrite the journal amount, which would lie to
+            // auditors about what depreciated when. Operators should re-run the
+            // Depreciation Backfill (which restamps Acc) or investigate manual edits.
+            summary.ReconciliationDelta = Math.Round(summary.ComputedScheduleTotal - summary.SettingsAccumulated, 2);
+
+            var warnings = new List<string>();
+            if (Math.Abs(summary.ReconciliationDelta) > 1m)
             {
-                var p = m.Year * 100 + m.Month;
-                if (!existingSet.Contains(p)) allocatableMonths.Add(m);
+                warnings.Add($"Drift: engine total ${summary.ComputedScheduleTotal:N2} vs stamped Acc ${summary.SettingsAccumulated:N2} (Δ ${summary.ReconciliationDelta:N2}). Re-run Depreciation Backfill to restamp Acc, or investigate manual journal/Acc edits.");
             }
-
-            decimal allocatedToNew = 0m;
-            foreach (var m in allocatableMonths)
-                if (perMonthTotals.TryGetValue(m, out var v)) allocatedToNew += v;
-
-            var targetForNewMonths = summary.SettingsAccumulated - existingDebitTotal;
-            var residual = Math.Round(targetForNewMonths - allocatedToNew, 2, MidpointRounding.AwayFromZero);
-
-            if (Math.Abs(residual) >= 0.01m && allocatableMonths.Count > 0)
+            if (skippedAssetNumbers.Count > 0)
             {
-                if (residual > 0m)
-                {
-                    var adjustMonth = allocatableMonths[^1];
-                    if (!perMonthTotals.ContainsKey(adjustMonth)) perMonthTotals[adjustMonth] = 0m;
-                    perMonthTotals[adjustMonth] += residual;
-                    summary.Warning = $"Adjusted {adjustMonth:yyyy-MM} +${residual:N2} so total debits tie to stamped Acc.";
-                }
-                else
-                {
-                    // Schedule overshoots stamped Acc — walk backward reducing each month
-                    // (down to zero) until the residual is absorbed.
-                    var toRemove = -residual;
-                    for (int i = allocatableMonths.Count - 1; i >= 0 && toRemove > 0m; i--)
-                    {
-                        var m = allocatableMonths[i];
-                        if (!perMonthTotals.TryGetValue(m, out var v) || v <= 0m) continue;
-                        var take = Math.Min(v, toRemove);
-                        perMonthTotals[m] = v - take;
-                        toRemove -= take;
-                    }
-                    if (toRemove > 0.01m)
-                    {
-                        summary.Error = $"Cannot reconcile: even after zeroing all {allocatableMonths.Count} allocatable months, computed schedule overshoots stamped Acc by ${toRemove:N2}.";
-                        throw new InvalidOperationException(summary.Error);
-                    }
-                    summary.Warning = $"Redistributed -${(-residual):N2} across latest months so total debits tie to stamped Acc.";
-                }
-                summary.ReconciliationDelta = residual;
+                var preview = string.Join(", ", skippedAssetNumbers.Take(5));
+                if (skippedAssetNumbers.Count > 5) preview += $" (+{skippedAssetNumbers.Count - 5} more)";
+                warnings.Add($"Skipped {skippedAssetNumbers.Count} asset(s) with engine-unsupported method (CCA/ADS/etc): {preview}. Configure CCA on the tax book or use a supported method.");
             }
-            else if (Math.Abs(residual) >= 0.01m)
+            if (warnings.Count > 0)
             {
-                summary.Error = $"Cannot reconcile: no allocatable months available but residual is ${residual:N2}.";
-                throw new InvalidOperationException(summary.Error);
+                summary.Warning = string.Join(" | ", warnings);
+                report.Warnings.AddRange(warnings.Select(w => $"[{book.Code}] {w}"));
             }
 
             int created = 0;
@@ -358,27 +338,29 @@ namespace Abs.FixedAssets.Services
             summary.TotalDebit = bookDebitTotal + existingDebitTotal;
         }
 
-        // Aggregates per-asset schedules into per-month totals. Section 179/Bonus are
-        // baked into accum (DepreciationService.cs:82) but never appear as
-        // row.DepreciationAmount, so they are added to the asset's first in-service month.
-        // For methods DepreciationService cannot schedule (CCA, ADS, GroupComposite, etc.)
-        // we lump the asset's stamped Acc onto its first in-service month — the per-book
-        // tie-out step will redistribute the residual to the latest allocatable month.
+        // Aggregates per-asset depreciation engine output into per-month totals for the
+        // book. Section 179/Bonus are baked into accum inside DepreciationService but
+        // never appear as row.DepreciationAmount, so they are added to the asset's first
+        // in-service month (matching how the engine stamps Acc).
+        // Assets whose method DepreciationService cannot schedule (CCA, ADS, etc.) are
+        // recorded in <paramref name="skippedAssetNumbers"/> and contribute nothing to
+        // totals — the caller surfaces them in the per-book Warning.
         private Dictionary<DateTime, decimal> ComputePerMonthTotalsForBook(
             List<AssetBookSettings> settings,
             DateTime firstMonth,
-            DateTime lastMonth)
+            DateTime lastMonth,
+            List<string> skippedAssetNumbers)
         {
             var totals = new Dictionary<DateTime, decimal>();
 
             foreach (var s in settings)
             {
                 if (s.Asset == null) continue;
-                if (s.Asset.AcquisitionCost <= 0 || s.Asset.UsefulLifeMonths <= 0) continue;
+                // Use effective (book-override-aware) values so an asset with raw 0
+                // life/cost but valid book overrides still gets scheduled.
+                if (s.EffectiveCostBasis <= 0m || s.EffectiveUsefulLifeMonths <= 0) continue;
 
                 var assetFirstMonth = MonthStart(s.EffectiveInServiceDate);
-                var lumpMonth = assetFirstMonth < firstMonth ? firstMonth : assetFirstMonth;
-                if (lumpMonth > lastMonth) continue;
 
                 List<DepreciationRow> schedule;
                 try
@@ -387,13 +369,7 @@ namespace Abs.FixedAssets.Services
                 }
                 catch (Exception ex) when (ex is InvalidOperationException || ex is NotImplementedException || ex is NotSupportedException)
                 {
-                    // Method not handled by DepreciationService (e.g. CCA, ADS).
-                    // Lump stamped Acc into the asset's first in-window month.
-                    if (s.AccumulatedDepreciation > 0m)
-                    {
-                        if (!totals.ContainsKey(lumpMonth)) totals[lumpMonth] = 0m;
-                        totals[lumpMonth] += s.AccumulatedDepreciation;
-                    }
+                    skippedAssetNumbers.Add(s.Asset.AssetNumber);
                     continue;
                 }
 
