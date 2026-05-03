@@ -6,6 +6,9 @@ using Abs.FixedAssets.Services.Seeding;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -187,43 +190,62 @@ builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompre
 builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o =>
     o.Level = System.IO.Compression.CompressionLevel.Fastest);
 
-// Rate limiting — fixed-window limiter partitioned by (ClientIP, Username)
-// on POST /Account/Login to blunt credential-stuffing. The (IP, Username)
-// partition is the architect-recommended pattern: an attacker brute-forcing
-// ONE account from one IP hits a single tight counter (100/min); spraying
-// many usernames from one IP creates many counters but each one stays
-// independently throttled, and the per-username log volume makes the attack
-// trivial to detect. Test suites all log in as "admin" so they share one
-// counter — 100/min is generous enough for parallel suite fan-out (typical
-// load is well under 50 logins/min total). All non-login paths fall through
-// with no limiter (zero overhead).
-//
-// The "LoginUsername" key is populated by the small upstream middleware
-// in the request pipeline below (UseLoginUsernameSnoop) so this synchronous
-// callback can read it from HttpContext.Items.
-builder.Services.AddRateLimiter(options =>
+// Phase 4 — distributed login rate limiter. Replaces the in-process
+// PartitionedRateLimiter from Phase 3 (which only counted within one
+// container, so an attacker fanning across Replit Autoscale instances
+// trivially bypassed it). PostgresLoginRateLimiter performs an atomic
+// upsert against the "RateLimitCounters" table so the 100/min budget
+// per (IP, Username) is enforced cluster-wide. Fails open on DB outage.
+builder.Services.AddSingleton<
+    Abs.FixedAssets.Services.RateLimiting.IDistributedLoginRateLimiter,
+    Abs.FixedAssets.Services.RateLimiting.PostgresLoginRateLimiter>();
+
+// Phase 4 — OpenTelemetry traces + metrics. Service identity, ASP.NET
+// Core / HttpClient / EF Core instrumentation, and runtime metrics.
+// The OTLP/HTTP exporter is ONLY registered when OTEL_EXPORTER_OTLP_ENDPOINT
+// is set, so dev environments incur zero network traffic and zero
+// dependency on a collector. OTEL_EXPORTER_OTLP_HEADERS is honored by
+// the SDK natively for collector authentication.
 {
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
-    {
-        if (!HttpMethods.IsPost(ctx.Request.Method)
-            || !ctx.Request.Path.StartsWithSegments("/Account/Login"))
-        {
-            return System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter<string>("none");
-        }
-        var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        var username = (ctx.Items["LoginUsername"] as string ?? "").ToLowerInvariant();
-        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-            $"login:{ip}:{username}",
-            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+    var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+    var otelEnabled = !string.IsNullOrWhiteSpace(otlpEndpoint);
+    var serviceVersion = typeof(Program).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(rb => rb
+            .AddService(serviceName: "cherryai-eam", serviceVersion: serviceVersion)
+            .AddAttributes(new[]
             {
-                PermitLimit = 100,
-                Window = TimeSpan.FromMinutes(1),
-                QueueLimit = 0,
-                AutoReplenishment = true,
+                new KeyValuePair<string, object>("deployment.environment", builder.Environment.EnvironmentName),
+            }))
+        .WithTracing(t =>
+        {
+            t.AddAspNetCoreInstrumentation(opts =>
+            {
+                // Don't trace liveness/readiness probes — they're noisy and
+                // dominated by GFE pings in production.
+                opts.Filter = httpCtx =>
+                {
+                    var p = httpCtx.Request.Path.Value ?? "";
+                    return !p.StartsWith("/_live", StringComparison.OrdinalIgnoreCase)
+                        && !p.StartsWith("/healthz", StringComparison.OrdinalIgnoreCase)
+                        && !p.StartsWith("/readyz", StringComparison.OrdinalIgnoreCase);
+                };
             });
-    });
-});
+            t.AddHttpClientInstrumentation();
+            t.AddEntityFrameworkCoreInstrumentation();
+            if (otelEnabled) t.AddOtlpExporter();
+        })
+        .WithMetrics(m =>
+        {
+            m.AddAspNetCoreInstrumentation();
+            m.AddHttpClientInstrumentation();
+            m.AddRuntimeInstrumentation();
+            if (otelEnabled) m.AddOtlpExporter();
+        });
+
+    Console.WriteLine($"[Startup] OpenTelemetry registered (otlp_exporter={(otelEnabled ? "ENABLED -> " + otlpEndpoint : "disabled")})");
+}
 
 // Authentication disabled for development - using fallback policy that allows anonymous
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -355,6 +377,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 // Server-Timing header (very early so it captures total pipeline duration).
 app.UseServerTiming();
 
+// Phase 4 — security headers (CSP, X-Content-Type-Options, Referrer-Policy,
+// Permissions-Policy). Set before the body is written. CSP frame-ancestors
+// allows the Replit edge so the canvas/preview iframe keeps working; see
+// SecurityHeadersMiddleware for the full policy and rationale.
+app.UseSecurityHeaders();
+
 // Response compression must be before any middleware that writes the body.
 app.UseResponseCompression();
 
@@ -429,9 +457,10 @@ app.UseWhen(
         await next();
     }));
 
-// Rate limiter — must be after UseRouting and after the username snoop;
-// rejects burst /Account/Login POSTs per (IP, Username).
-app.UseRateLimiter();
+// Phase 4 — distributed login rate limiter. Must run after the username
+// snoop above so HttpContext.Items["LoginUsername"] is populated. Only
+// acts on POST /Account/Login; all other paths pass through.
+app.UseDistributedLoginRateLimit();
 
 app.UseAuthentication();
 app.UseApiHeaderEnforcement();
