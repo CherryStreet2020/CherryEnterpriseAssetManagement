@@ -164,13 +164,14 @@
         var previewArea = document.getElementById('barcodePreviewArea');
         previewArea.style.display = 'block';
         previewArea.innerHTML = '<p>Generating barcode...</p>';
-        fetch('/api/barcode/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ itemId: id, format: 'Code128' })
-        }).then(r => r.blob()).then(blob => {
+        fetch('/api/barcode/generate/' + id).then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.blob();
+        }).then(blob => {
             var url = URL.createObjectURL(blob);
-            previewArea.innerHTML = '<img src="' + url + '" style="max-width: 100%; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; padding: 16px;" /><br/><button class="btn-p btn-p--secondary btn-p--sm" style="margin-top: 8px;" onclick="this.parentElement.style.display=\'none\'">Close Preview</button>';
+            previewArea.innerHTML = '<img id="generatedBarcodeImg" src="' + url + '" style="max-width: 100%; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; padding: 16px;" /><br/><button class="btn-p btn-p--secondary btn-p--sm" style="margin-top: 8px;" onclick="this.parentElement.style.display=\'none\'">Close Preview</button>';
+        }).catch(err => {
+            previewArea.innerHTML = '<p style="color: var(--lux-danger, #c00);">Failed to generate barcode: ' + err.message + '</p>';
         });
     }
 </script>

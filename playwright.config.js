@@ -19,13 +19,9 @@ module.exports = defineConfig({
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
     },
   },
-  webServer: {
-    command: 'dotnet run --project Abs.FixedAssets.csproj',
-    url: 'http://127.0.0.1:5000/',
-    reuseExistingServer: true,
-    timeout: 120000,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  // No `webServer` block: tests assume the long-running `Web Server` workflow
+  // is already serving on :5000. Letting Playwright spawn its own dotnet
+  // process under parallel suite execution previously caused cascading OOMs
+  // because each suite would race to start a competing server.
   outputDir: 'proof/ui/playwright/test-results',
 });

@@ -104,12 +104,8 @@ public class TenantContextMiddleware
         }
     }
 
-    // Single-tenant deployments resolve the same (tenantId, companyId) pair
-    // for every request, but the original implementation hit the DB twice
-    // per request via FindAsync. Under parallel load that exhausted the
-    // Npgsql connection pool. Cache the resolved IDs after the first
-    // successful lookup; the underlying TenantSettings are config-driven
-    // and don't change at runtime.
+    // Memoize the resolved single-tenant (tenantId, companyId) so we don't
+    // hit the DB twice per request; only cached after a successful lookup.
     private static (int? TenantId, int? CompanyId)? _singleTenantCache;
     private static readonly SemaphoreSlim _singleTenantLock = new(1, 1);
 

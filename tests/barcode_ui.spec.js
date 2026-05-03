@@ -89,6 +89,34 @@ test.describe('UI — Barcode Labels admin page', () => {
     expect(height).toBeLessThan(4096);
   });
 
+  test('clicking Generate fetches a PNG and renders it as <img> in the preview', async ({ page }) => {
+    await login(page);
+    await page.goto(`${BASE}/Admin/Barcodes`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const genBtn = page.locator('button[onclick^="generateBarcode("]').first();
+    if (await genBtn.count() === 0) test.skip(true, 'no items rendered');
+
+    // Capture the network response triggered by the button click so we can
+    // assert the JS path actually hit /api/barcode/generate/{id} and got PNG.
+    const respPromise = page.waitForResponse(r =>
+      /\/api\/barcode\/generate\/\d+$/.test(r.url())
+    );
+    await genBtn.click();
+    const resp = await respPromise;
+    expect(resp.status()).toBe(200);
+    expect(resp.headers()['content-type']).toContain('image/png');
+    const { width, height } = parsePng(await resp.body());
+    expect(width).toBeGreaterThan(40);
+    expect(height).toBeGreaterThan(20);
+
+    // And confirm the page actually rendered the result, not an error message.
+    const img = page.locator('#generatedBarcodeImg');
+    await expect(img).toBeVisible({ timeout: 3000 });
+    const src = await img.getAttribute('src');
+    expect(src).toMatch(/^blob:/);
+  });
+
   test('clicking Print embeds a label iframe whose src returns a valid PNG', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/Admin/Barcodes`);
