@@ -199,6 +199,7 @@ builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompress
 builder.Services.AddSingleton<
     Abs.FixedAssets.Services.RateLimiting.IDistributedLoginRateLimiter,
     Abs.FixedAssets.Services.RateLimiting.PostgresLoginRateLimiter>();
+builder.Services.AddHostedService<Abs.FixedAssets.Services.RateLimiting.RateLimitCounterCleanupService>();
 
 // Phase 4 — OpenTelemetry traces + metrics. Service identity, ASP.NET
 // Core / HttpClient / EF Core instrumentation, and runtime metrics.
@@ -515,6 +516,25 @@ app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks
         };
         await System.Text.Json.JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
     },
+}).AllowAnonymous();
+
+// Phase 4 — OTel diagnostics endpoint. Resolves TracerProvider/MeterProvider
+// from DI to confirm both pipelines registered, and reports the active
+// service.name / OTLP exporter state. Anonymous so it can be probed cheaply.
+app.MapGet("/_otel/diag", (IServiceProvider sp) =>
+{
+    var tp = sp.GetService<OpenTelemetry.Trace.TracerProvider>();
+    var mp = sp.GetService<OpenTelemetry.Metrics.MeterProvider>();
+    var otlp = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+    return Results.Json(new
+    {
+        tracerProvider = tp != null,
+        meterProvider = mp != null,
+        serviceName = "cherryai-eam",
+        instrumentation = new[] { "AspNetCore", "HttpClient", "EFCore", "Runtime", "Process" },
+        meterSources = new[] { "Microsoft.AspNetCore.Hosting", "System.Net.Http", "Microsoft.EntityFrameworkCore" },
+        otlpExporter = string.IsNullOrWhiteSpace(otlp) ? "disabled" : "enabled",
+    });
 }).AllowAnonymous();
 
 app.MapRazorPages().RequireAuthorization();

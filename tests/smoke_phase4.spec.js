@@ -80,17 +80,22 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
     }
   });
 
-  test('OTel SDK boots cleanly with no OTLP exporter configured', async () => {
-    // Indirect proof: if OTel registration crashed in Program.cs the whole
-    // process would have died at startup. /_live responding 200 means the
-    // tracing/metrics pipeline registered without throwing.
+  test('OTel TracerProvider + MeterProvider registered with expected instrumentation', async () => {
     const req = await pwRequest.newContext({ baseURL: BASE });
     try {
-      const res = await req.get('/_live');
+      const res = await req.get('/_otel/diag');
       expect(res.status()).toBe(200);
-      // Server-Timing must still be present — proves OTel didn't break our
-      // existing middleware chain.
-      expect(res.headers()['server-timing']).toMatch(/total;dur=/);
+      const body = await res.json();
+      expect(body.tracerProvider, 'TracerProvider must be registered in DI').toBe(true);
+      expect(body.meterProvider, 'MeterProvider must be registered in DI').toBe(true);
+      expect(body.serviceName).toBe('cherryai-eam');
+      expect(body.instrumentation).toEqual(
+        expect.arrayContaining(['AspNetCore', 'HttpClient', 'EFCore', 'Runtime', 'Process'])
+      );
+      expect(body.meterSources).toEqual(
+        expect.arrayContaining(['Microsoft.EntityFrameworkCore'])
+      );
+      expect(body.otlpExporter).toBe('disabled');
     } finally {
       await req.dispose();
     }
