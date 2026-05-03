@@ -51,45 +51,45 @@ waitForPort = 5000
 name = "smoke"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run test:smoke -- --workers=4 --reporter=dot"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:smoke -- --workers=2 --reporter=dot"
 
 [[workflows.workflow]]
 name = "flows"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run test:flows -- --workers=4 --reporter=dot"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:flows -- --workers=2 --reporter=dot"
 
 [[workflows.workflow]]
 name = "auth"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run test:auth -- --workers=4 --reporter=dot"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:auth  -- --workers=2 --reporter=dot"
 
 [[workflows.workflow]]
 name = "nav"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run test:nav   -- --workers=4 --reporter=dot"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:nav   -- --workers=2 --reporter=dot"
 
 [[ports]]
 localPort = 5000
