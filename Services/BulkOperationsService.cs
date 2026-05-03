@@ -63,20 +63,16 @@ namespace Abs.FixedAssets.Services
 
             // Create a child asset row representing the disposed portion so
             // both the remaining (parent) and disposed (child) pieces are
-            // visible/queryable in the asset register.
+            // visible/queryable in the asset register. Asset.AssetNumber is
+            // capped at 50 chars, so we budget the suffix and truncate the
+            // parent prefix to fit, then resolve uniqueness against the DB.
             var seq = await _context.PartialDisposals.CountAsync(p => p.AssetId == assetId) + 1;
-            var childAssetNumber = $"{asset.AssetNumber}-PD{seq}";
-            var siblingExists = await _context.Assets
-                .AnyAsync(a => a.AssetNumber == childAssetNumber && a.CompanyId == asset.CompanyId);
-            if (siblingExists)
-            {
-                childAssetNumber = $"{asset.AssetNumber}-PD{seq}-{DateTime.UtcNow.Ticks % 100000}";
-            }
+            var childAssetNumber = await GenerateUniqueChildAssetNumberAsync(asset, seq);
 
             var childAsset = new Asset
             {
                 AssetNumber = childAssetNumber,
-                Description = $"{asset.Description} (Partial Disposal)",
+                Description = Truncate($"{asset.Description} (Partial Disposal)", 200),
                 LongDescription = asset.LongDescription,
                 Model = asset.Model,
                 SerialNumber = asset.SerialNumber,
@@ -102,7 +98,9 @@ namespace Abs.FixedAssets.Services
                 VendorId = asset.VendorId,
                 CostCenterId = asset.CostCenterId,
                 Status = AssetStatus.Disposed,
-                StatusLookupValueId = asset.StatusLookupValueId,
+                // Intentionally do not copy parent's StatusLookupValueId — the
+                // child is Disposed, not whatever lookup the parent carries.
+                StatusLookupValueId = null,
                 Active = false,
                 Priority = asset.Priority,
                 AssetPriorityLookupValueId = asset.AssetPriorityLookupValueId,
@@ -118,9 +116,189 @@ namespace Abs.FixedAssets.Services
 
             _context.Assets.Add(childAsset);
             _context.PartialDisposals.Add(disposal);
+
+            // Build the gain/loss journal entry for the disposed portion when
+            // the company has a usable book + GL account mapping. If config is
+            // absent the journal is simply not produced; if config is present
+            // the journal save is part of the same transaction as the disposal
+            // so accounting cannot silently diverge from the asset register.
+            var journalEntry = await BuildPartialDisposalJournalAsync(asset, childAsset, disposal);
+            if (journalEntry != null)
+            {
+                _context.JournalEntries.Add(journalEntry);
+            }
+
+            using var tx = await _context.Database.BeginTransactionAsync();
             await _context.SaveChangesAsync();
+            if (journalEntry != null)
+            {
+                disposal.JournalEntryId = journalEntry.Id;
+                await _context.SaveChangesAsync();
+            }
+            await tx.CommitAsync();
 
             return disposal;
+        }
+
+        private async Task<string> GenerateUniqueChildAssetNumberAsync(Asset parent, int seq)
+        {
+            const int maxLen = 50;
+            var suffix = $"-PD{seq}";
+            var prefix = parent.AssetNumber ?? string.Empty;
+            if (prefix.Length + suffix.Length > maxLen)
+                prefix = prefix.Substring(0, maxLen - suffix.Length);
+
+            var candidate = prefix + suffix;
+            var exists = await _context.Assets
+                .AnyAsync(a => a.AssetNumber == candidate && a.CompanyId == parent.CompanyId);
+            if (!exists) return candidate;
+
+            // Fall back to a uniqueness-safe form by appending a short token,
+            // truncating the prefix further so the final string still fits.
+            for (int attempt = 0; attempt < 10; attempt++)
+            {
+                var token = ((DateTime.UtcNow.Ticks + attempt) % 100000).ToString("D5");
+                var altSuffix = $"-PD{seq}-{token}";
+                var altPrefix = parent.AssetNumber ?? string.Empty;
+                if (altPrefix.Length + altSuffix.Length > maxLen)
+                    altPrefix = altPrefix.Substring(0, maxLen - altSuffix.Length);
+                var alt = altPrefix + altSuffix;
+                var altExists = await _context.Assets
+                    .AnyAsync(a => a.AssetNumber == alt && a.CompanyId == parent.CompanyId);
+                if (!altExists) return alt;
+            }
+
+            throw new InvalidOperationException(
+                $"Unable to generate a unique child asset number for parent '{parent.AssetNumber}'.");
+        }
+
+        private async Task<JournalEntry?> BuildPartialDisposalJournalAsync(
+            Asset parent,
+            Asset child,
+            PartialDisposal disposal)
+        {
+            var companyId = parent.CompanyId;
+            if (companyId == null) return null;
+
+            var book = await _context.Books
+                .Where(b => b.CompanyId == companyId)
+                .OrderByDescending(b => b.IsPrimaryBook)
+                .ThenBy(b => b.Id)
+                .FirstOrDefaultAsync();
+            if (book == null) return null;
+
+            var glAccounts = await _context.BookGlAccounts
+                .Where(g => g.BookId == book.Id)
+                .OrderBy(g => g.Id)
+                .FirstOrDefaultAsync();
+
+            string? accumDepAcct = FirstNonEmpty(glAccounts?.AccumulatedDepreciation, book.GlAccountAccumDep);
+            string? assetAcct = FirstNonEmpty(glAccounts?.Asset, book.GlAccountAssetClearing);
+            string? clearingAcct = FirstNonEmpty(glAccounts?.Clearing, book.GlAccountAssetClearing);
+            string? gainAcct = FirstNonEmpty(glAccounts?.GainOnDisposal, book.GlAccountGainOnDisposal);
+            string? lossAcct = FirstNonEmpty(glAccounts?.LossOnDisposal, book.GlAccountLossOnDisposal);
+
+            if (string.IsNullOrWhiteSpace(accumDepAcct) || string.IsNullOrWhiteSpace(assetAcct))
+                return null;
+            if (disposal.SaleProceeds > 0 && string.IsNullOrWhiteSpace(clearingAcct))
+                return null;
+            if (disposal.GainLoss > 0 && string.IsNullOrWhiteSpace(gainAcct))
+                return null;
+            if (disposal.GainLoss < 0 && string.IsNullOrWhiteSpace(lossAcct))
+                return null;
+
+            var posting = disposal.DisposalDate == default ? DateTime.UtcNow : disposal.DisposalDate;
+            // JournalEntry.Batch is capped at 30 chars; "PDISP-yyyyMMdd-" is
+            // 15 chars, leaving 15 for a per-disposal token. We use a short
+            // ticks-derived suffix so concurrent partial disposals on the same
+            // day don't collide.
+            var token = (DateTime.UtcNow.Ticks % 1_000_000_000).ToString("D9");
+            var batch = $"PDISP-{posting:yyyyMMdd}-{token}";
+            if (batch.Length > 30) batch = batch.Substring(0, 30);
+
+            var entry = new JournalEntry
+            {
+                BookId = book.Id,
+                Period = posting.Year * 100 + posting.Month,
+                Batch = batch,
+                PostingDate = posting,
+                Reference = Truncate(child.AssetNumber, 50),
+                Source = "PartialDisposal",
+                Description = Truncate($"Partial disposal of {parent.AssetNumber} ({disposal.PercentageDisposed:P0}) — {child.AssetNumber}", 200),
+                CreatedUtc = DateTime.UtcNow
+            };
+
+            var lines = new List<JournalLine>();
+            int lineNo = 1;
+
+            lines.Add(new JournalLine
+            {
+                LineNo = lineNo++,
+                Account = accumDepAcct!,
+                Description = $"Remove accumulated depreciation - {child.AssetNumber}",
+                Debit = disposal.AccumulatedDepreciationDisposed,
+                Credit = 0m
+            });
+
+            if (disposal.SaleProceeds > 0)
+            {
+                lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = clearingAcct!,
+                    Description = $"Cash/AR from partial disposal - {child.AssetNumber}",
+                    Debit = disposal.SaleProceeds,
+                    Credit = 0m
+                });
+            }
+
+            lines.Add(new JournalLine
+            {
+                LineNo = lineNo++,
+                Account = assetAcct!,
+                Description = $"Remove asset cost - {child.AssetNumber}",
+                Debit = 0m,
+                Credit = disposal.OriginalCostDisposed
+            });
+
+            if (disposal.GainLoss > 0)
+            {
+                lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = gainAcct!,
+                    Description = $"Gain on partial disposal - {child.AssetNumber}",
+                    Debit = 0m,
+                    Credit = disposal.GainLoss
+                });
+            }
+            else if (disposal.GainLoss < 0)
+            {
+                lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = lossAcct!,
+                    Description = $"Loss on partial disposal - {child.AssetNumber}",
+                    Debit = Math.Abs(disposal.GainLoss),
+                    Credit = 0m
+                });
+            }
+
+            entry.Lines = lines;
+            return entry;
+        }
+
+        private static string Truncate(string? value, int maxLen)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            return value!.Length <= maxLen ? value : value.Substring(0, maxLen);
+        }
+
+        private static string? FirstNonEmpty(params string?[] values)
+        {
+            foreach (var v in values)
+                if (!string.IsNullOrWhiteSpace(v)) return v;
+            return null;
         }
 
         public async Task<List<PartialDisposal>> GetPartialDisposalsAsync(int? assetId = null)

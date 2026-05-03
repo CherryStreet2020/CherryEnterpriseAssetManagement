@@ -8,6 +8,7 @@ const NOTES = 'E2E partial disposal spec';
 let ASSET_ID;
 let original;
 let createdChildIds = [];
+let createdJournalEntryIds = [];
 
 test.describe('FA — Partial Disposal', () => {
   // ASSET_ID/original are picked at the start of the test from the
@@ -25,9 +26,12 @@ test.describe('FA — Partial Disposal', () => {
     // tag for PartialDisposals, ParentAssetId + the `-PD` AssetNumber
     // suffix for child Assets) so cleanup still runs even if the test
     // failed before we captured the child Id.
+    // Match by ParentAssetId only — the service truncates the parent
+    // prefix when building child asset numbers, so a LIKE on the
+    // original AssetNumber would miss truncated children.
     await dbQuery(
-      'DELETE FROM "Assets" WHERE "ParentAssetId"=$1 AND "AssetNumber" LIKE $2',
-      [ASSET_ID, `${original.AssetNumber}-PD%`]
+      'DELETE FROM "Assets" WHERE "ParentAssetId"=$1',
+      [ASSET_ID]
     );
     if (createdChildIds.length) {
       await dbQuery('DELETE FROM "Assets" WHERE "Id" = ANY($1::int[])', [createdChildIds]);
@@ -37,6 +41,11 @@ test.describe('FA — Partial Disposal', () => {
       ASSET_ID,
       NOTES,
     ]);
+    if (createdJournalEntryIds.length) {
+      await dbQuery('DELETE FROM "JournalLines" WHERE "JournalEntryId" = ANY($1::int[])', [createdJournalEntryIds]);
+      await dbQuery('DELETE FROM "JournalEntries" WHERE "Id" = ANY($1::int[])', [createdJournalEntryIds]);
+      createdJournalEntryIds = [];
+    }
   });
 
   test('partial disposal decrements parent cost, creates child asset, both visible in /Assets', async ({ page }) => {
@@ -136,13 +145,73 @@ test.describe('FA — Partial Disposal', () => {
 
     // PartialDisposal row exists with our unique notes tag.
     const disposal = await dbOne(
-      'SELECT "Id","PercentageDisposed","SaleProceeds","Notes","Buyer" FROM "PartialDisposals" WHERE "AssetId"=$1 AND "Notes"=$2 ORDER BY "Id" DESC LIMIT 1',
+      'SELECT "Id","PercentageDisposed","SaleProceeds","Notes","Buyer","JournalEntryId" FROM "PartialDisposals" WHERE "AssetId"=$1 AND "Notes"=$2 ORDER BY "Id" DESC LIMIT 1',
       [ASSET_ID, NOTES]
     );
     expect(disposal, 'PartialDisposal record should exist').toBeTruthy();
     expect(Number(disposal.SaleProceeds)).toBe(SALE_PROCEEDS);
     expect(Math.round(Number(disposal.PercentageDisposed) * 10000)).toBe(PERCENTAGE * 100);
     expect((disposal.Buyer || '').toLowerCase()).toBe('spec buyer');
+
+    // If the parent asset's company has a Book + GL account mapping
+    // configured, the service must post a balanced gain/loss journal
+    // entry for the disposed portion and link it on PartialDisposal.
+    const parentRow = await dbOne(
+      'SELECT "CompanyId" FROM "Assets" WHERE "Id"=$1',
+      [ASSET_ID]
+    );
+    // Resolve the same Book + GL account fallbacks the service uses
+    // (BookGlAccount overrides Book.GlAccount* defaults). Then determine
+    // whether the configuration is sufficient for the proceeds + gain/loss
+    // path this test exercises.
+    const bookRow = parentRow && parentRow.CompanyId != null
+      ? await dbOne(
+          'SELECT "Id","GlAccountAccumDep","GlAccountAssetClearing","GlAccountGainOnDisposal","GlAccountLossOnDisposal" FROM "Books" WHERE "CompanyId"=$1 ORDER BY "IsPrimaryBook" DESC, "Id" ASC LIMIT 1',
+          [parentRow.CompanyId]
+        )
+      : null;
+    const bookGl = bookRow
+      ? await dbOne(
+          'SELECT "AccumulatedDepreciation","Asset","Clearing","GainOnDisposal","LossOnDisposal" FROM "BookGlAccounts" WHERE "BookId"=$1 ORDER BY "Id" ASC LIMIT 1',
+          [bookRow.Id]
+        )
+      : null;
+    const firstNonEmpty = (...vs) => vs.find((v) => v && String(v).trim().length > 0) || null;
+    const accumDepAcct = bookRow ? firstNonEmpty(bookGl?.AccumulatedDepreciation, bookRow.GlAccountAccumDep) : null;
+    const assetAcct    = bookRow ? firstNonEmpty(bookGl?.Asset, bookRow.GlAccountAssetClearing) : null;
+    const clearingAcct = bookRow ? firstNonEmpty(bookGl?.Clearing, bookRow.GlAccountAssetClearing) : null;
+    const gainAcct     = bookRow ? firstNonEmpty(bookGl?.GainOnDisposal, bookRow.GlAccountGainOnDisposal) : null;
+    const lossAcct     = bookRow ? firstNonEmpty(bookGl?.LossOnDisposal, bookRow.GlAccountLossOnDisposal) : null;
+
+    const costDisposed = Number(original.AcquisitionCost) * (PERCENTAGE / 100);
+    const accumDepDisposed = Number(original.AccumulatedDepreciation) * (PERCENTAGE / 100);
+    const expectedGainLoss = SALE_PROCEEDS - (costDisposed - accumDepDisposed);
+
+    const hasGlConfig =
+      !!accumDepAcct &&
+      !!assetAcct &&
+      (SALE_PROCEEDS <= 0 || !!clearingAcct) &&
+      (expectedGainLoss <= 0 || !!gainAcct) &&
+      (expectedGainLoss >= 0 || !!lossAcct);
+
+    if (hasGlConfig) {
+      expect(disposal.JournalEntryId, 'partial disposal should link a journal entry when GL is configured').toBeTruthy();
+      createdJournalEntryIds.push(disposal.JournalEntryId);
+      const journal = await dbOne(
+        'SELECT "Id","Source","BookId" FROM "JournalEntries" WHERE "Id"=$1',
+        [disposal.JournalEntryId]
+      );
+      expect(journal, 'journal entry row should exist').toBeTruthy();
+      expect(String(journal.Source).toLowerCase()).toBe('partialdisposal');
+      const lineRows = await dbQuery(
+        'SELECT "Account","Debit","Credit" FROM "JournalLines" WHERE "JournalEntryId"=$1',
+        [disposal.JournalEntryId]
+      );
+      expect(lineRows.length, 'journal entry should have at least 3 lines').toBeGreaterThanOrEqual(3);
+      const totalDebit = lineRows.reduce((s, r) => s + Number(r.Debit || 0), 0);
+      const totalCredit = lineRows.reduce((s, r) => s + Number(r.Credit || 0), 0);
+      expect(Math.round(totalDebit * 100)).toBe(Math.round(totalCredit * 100));
+    }
 
     // Child asset row was created with the disposed cost portion and
     // ParentAssetId pointing at the parent.
