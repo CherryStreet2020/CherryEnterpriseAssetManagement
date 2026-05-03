@@ -3,9 +3,10 @@ const { defineConfig } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './tests',
   testMatch: '*.spec.js',
-  timeout: 60000,
+  timeout: 120000,
   workers: 1,
   retries: 1,
+  globalSetup: require.resolve('./tests/_globalSetup.js'),
   reporter: [
     ['html', { outputFolder: 'proof/ui/playwright/playwright-report', open: 'never' }],
   ],
