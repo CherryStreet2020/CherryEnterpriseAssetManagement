@@ -1,7 +1,3 @@
-// UI-level coverage for the Barcode Labels admin page. Drives the page +
-// controller + SkiaSharp native lib end-to-end through an authenticated
-// browser session and asserts the rendered PNGs are real bitmap images
-// (magic bytes, content-type, body size, and decoded width/height).
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
@@ -13,8 +9,6 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 function parsePng(buf) {
   if (!buf || buf.length < 24) throw new Error('buffer too small to be a PNG');
   if (!buf.slice(0, 8).equals(PNG_MAGIC)) throw new Error('missing PNG magic bytes');
-  // IHDR chunk starts at byte 8: 4-byte length, 4-byte "IHDR" type,
-  // then width/height as big-endian uint32.
   const ihdr = buf.slice(12, 16).toString('ascii');
   if (ihdr !== 'IHDR') throw new Error(`expected IHDR chunk, got ${ihdr}`);
   return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
@@ -54,7 +48,7 @@ test.describe('UI — Barcode Labels admin page', () => {
     test.skip(!itemId, 'no Items rows to test against');
 
     const r = await page.request.get(`${BASE}/api/barcode/generate/${itemId}`);
-    expect(r.status(), 'barcode endpoint must succeed (no 503 backstop)').toBe(200);
+    expect(r.status()).toBe(200);
     expect(r.headers()['content-type']).toContain('image/png');
 
     const body = await r.body();
@@ -75,12 +69,10 @@ test.describe('UI — Barcode Labels admin page', () => {
     test.skip(!itemId, 'no Items rows to test against');
 
     const r = await page.request.get(`${BASE}/api/barcode/label/${itemId}`);
-    expect(r.status(), 'label endpoint must succeed (no 503 backstop)').toBe(200);
+    expect(r.status()).toBe(200);
     expect(r.headers()['content-type']).toContain('image/png');
 
     const body = await r.body();
-    // Labels embed the barcode plus part number and description text, so
-    // they're meaningfully larger than a bare barcode.
     expect(body.length).toBeGreaterThan(500);
     const { width, height } = parsePng(body);
     expect(width).toBeGreaterThan(80);
@@ -97,8 +89,6 @@ test.describe('UI — Barcode Labels admin page', () => {
     const genBtn = page.locator('button[onclick^="generateBarcode("]').first();
     if (await genBtn.count() === 0) test.skip(true, 'no items rendered');
 
-    // Capture the network response triggered by the button click so we can
-    // assert the JS path actually hit /api/barcode/generate/{id} and got PNG.
     const respPromise = page.waitForResponse(r =>
       /\/api\/barcode\/generate\/\d+$/.test(r.url())
     );
@@ -110,7 +100,6 @@ test.describe('UI — Barcode Labels admin page', () => {
     expect(width).toBeGreaterThan(40);
     expect(height).toBeGreaterThan(20);
 
-    // And confirm the page actually rendered the result, not an error message.
     const img = page.locator('#generatedBarcodeImg');
     await expect(img).toBeVisible({ timeout: 3000 });
     const src = await img.getAttribute('src');
@@ -131,8 +120,6 @@ test.describe('UI — Barcode Labels admin page', () => {
     const src = await iframe.getAttribute('src');
     expect(src).toMatch(/^\/api\/barcode\/label\/\d+$/);
 
-    // Follow the iframe src through the same authenticated context and
-    // assert the response is a real PNG, not a redirect to a login page.
     const r = await page.request.get(`${BASE}${src}`);
     expect(r.status()).toBe(200);
     expect(r.headers()['content-type']).toContain('image/png');

@@ -68,7 +68,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run test:smoke -- --workers=2 --reporter=dot"
+args = "npm run test:smoke   -- --workers=1 --reporter=dot"
 
 [[workflows.workflow]]
 name = "flows"
@@ -79,7 +79,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run test:flows -- --workers=2 --reporter=dot"
+args = "npm run test:flows   -- --workers=1 --reporter=dot"
 
 [[workflows.workflow]]
 name = "auth"
@@ -90,7 +90,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run test:auth  -- --workers=2 --reporter=dot"
+args = "npm run test:auth    -- --workers=1 --reporter=dot"
 
 [[workflows.workflow]]
 name = "nav"
@@ -101,40 +101,40 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run test:nav   -- --workers=2 --reporter=dot"
+args = "npm run test:nav     -- --workers=1 --reporter=dot"
 
 [[workflows.workflow]]
 name = "fa"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run test:fa      -- --workers=1 --reporter=dot"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "reports"
 author = "agent"
 
+[workflows.workflow.metadata]
+isValidation = true
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run test:reports -- --workers=1 --reporter=dot"
-
-[workflows.workflow.metadata]
-isValidation = true
 
 [[workflows.workflow]]
 name = "ui"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run test:ui      -- --workers=2 --reporter=dot"
-
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:ui      -- --workers=1 --reporter=dot"
 
 [[ports]]
 localPort = 5000
