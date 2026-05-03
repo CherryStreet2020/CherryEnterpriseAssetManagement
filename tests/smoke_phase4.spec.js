@@ -33,7 +33,7 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
       }
       expect(ok, 'some POSTs must succeed before the limit').toBeGreaterThan(0);
       expect(limited, 'distributed limiter must reject excess POSTs with 429')
-        .toBeGreaterThanOrEqual(15);
+        .toBeGreaterThanOrEqual(25);
     } finally {
       await req.dispose();
       // Clean up only this probe's counter rows so we don't pollute the

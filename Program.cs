@@ -202,10 +202,9 @@ builder.Services.AddSingleton<
 
 // Phase 4 — OpenTelemetry traces + metrics. Service identity, ASP.NET
 // Core / HttpClient / EF Core instrumentation, and runtime metrics.
-// The OTLP/HTTP exporter is ONLY registered when OTEL_EXPORTER_OTLP_ENDPOINT
-// is set, so dev environments incur zero network traffic and zero
-// dependency on a collector. OTEL_EXPORTER_OTLP_HEADERS is honored by
-// the SDK natively for collector authentication.
+// OTel: ASP.NET Core + HttpClient + EF Core traces; ASP.NET Core + HttpClient
+// + Runtime + Process metrics + EF Core meter source. OTLP/HTTP exporter only
+// registered when OTEL_EXPORTER_OTLP_ENDPOINT is set.
 {
     var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
     var otelEnabled = !string.IsNullOrWhiteSpace(otlpEndpoint);
@@ -222,8 +221,6 @@ builder.Services.AddSingleton<
         {
             t.AddAspNetCoreInstrumentation(opts =>
             {
-                // Don't trace liveness/readiness probes — they're noisy and
-                // dominated by GFE pings in production.
                 opts.Filter = httpCtx =>
                 {
                     var p = httpCtx.Request.Path.Value ?? "";
@@ -234,14 +231,23 @@ builder.Services.AddSingleton<
             });
             t.AddHttpClientInstrumentation();
             t.AddEntityFrameworkCoreInstrumentation();
-            if (otelEnabled) t.AddOtlpExporter();
+            if (otelEnabled)
+            {
+                t.AddOtlpExporter(o => o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf);
+            }
         })
         .WithMetrics(m =>
         {
             m.AddAspNetCoreInstrumentation();
             m.AddHttpClientInstrumentation();
             m.AddRuntimeInstrumentation();
-            if (otelEnabled) m.AddOtlpExporter();
+            m.AddProcessInstrumentation();
+            // EF Core 9 emits its own metrics under this Meter source.
+            m.AddMeter("Microsoft.EntityFrameworkCore");
+            if (otelEnabled)
+            {
+                m.AddOtlpExporter(o => o.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf);
+            }
         });
 
     Console.WriteLine($"[Startup] OpenTelemetry registered (otlp_exporter={(otelEnabled ? "ENABLED -> " + otlpEndpoint : "disabled")})");

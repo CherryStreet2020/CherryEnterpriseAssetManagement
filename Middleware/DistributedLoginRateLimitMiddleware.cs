@@ -2,23 +2,8 @@ using Abs.FixedAssets.Services.RateLimiting;
 
 namespace Abs.FixedAssets.Middleware;
 
-/// <summary>
-/// Replaces the in-process <c>System.Threading.RateLimiting</c> limiter
-/// from Phase 3 with a Postgres-backed counter (<see cref="PostgresLoginRateLimiter"/>)
-/// so the budget is enforced across all Replit Autoscale instances —
-/// the prior implementation only counted within one container, which an
-/// attacker could trivially bypass by spreading requests across replicas.
-///
-/// Scope: only POST /Account/Login. All other paths fall through with
-/// zero work.
-///
-/// Partition key: <c>"login:{ip}:{username}"</c>. The username is read
-/// from <c>HttpContext.Items["LoginUsername"]</c>, populated by the
-/// upstream username-snoop middleware in Program.cs.
-///
-/// Fail-open behavior is delegated to <see cref="PostgresLoginRateLimiter"/>;
-/// this middleware never converts a DB outage into a 429.
-/// </summary>
+// Throttles POST /Account/Login via PostgresLoginRateLimiter.
+// Partition key: "login:{ip}:{username}" (username sniffed by upstream middleware).
 public sealed class DistributedLoginRateLimitMiddleware
 {
     private readonly RequestDelegate _next;

@@ -6,25 +6,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Abs.FixedAssets.Migrations
 {
+    // Creates "RateLimitCounters" used by PostgresLoginRateLimiter.
+    // Idempotent (CREATE ... IF NOT EXISTS).
     [DbContext(typeof(AppDbContext))]
     [Migration("20260503120000_AddRateLimitCounters")]
-    /// <summary>
-    /// Phase 4 — distributed login rate limiter. Creates the
-    /// "RateLimitCounters" table used by <c>PostgresLoginRateLimiter</c>
-    /// to enforce the per-(IP, Username) login budget cluster-wide
-    /// across Replit Autoscale instances.
-    ///
-    /// Schema:
-    ///   PartitionKey     text   — e.g. "login:1.2.3.4:admin"
-    ///   WindowStartUtc   timestamptz  — start of the current 1-minute window
-    ///   Count            int    — number of attempts in this window
-    ///   CreatedAtUtc     timestamptz
-    ///   UpdatedAtUtc     timestamptz
-    ///   UNIQUE (PartitionKey, WindowStartUtc) — drives the atomic upsert
-    ///
-    /// Idempotent: uses CREATE TABLE / CREATE INDEX IF NOT EXISTS so it's
-    /// safe to re-run against any DB state.
-    /// </summary>
     public partial class AddRateLimitCounters : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

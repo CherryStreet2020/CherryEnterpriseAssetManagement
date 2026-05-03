@@ -3,22 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Services.RateLimiting;
 
-/// <summary>
-/// Postgres-backed implementation of <see cref="IDistributedLoginRateLimiter"/>.
-///
-/// Uses a single-roundtrip atomic upsert against the "RateLimitCounters"
-/// table (unique on (PartitionKey, WindowStartUtc)) and returns the new
-/// post-increment count via PostgreSQL's RETURNING clause. The decision
-/// (allow vs throttle) is made on that returned value.
-///
-/// Budget: <see cref="PermitLimit"/> requests per <see cref="WindowSize"/>
-/// per partition key. Default is 100 / minute (matches the previous
-/// in-process limiter from Phase 3).
-///
-/// Fail-open guarantee: any exception from the database path is swallowed
-/// and logged at Warning, and the request is allowed through. A Postgres
-/// outage must never lock every legitimate user out of /Account/Login.
-/// </summary>
+// Atomic upsert against RateLimitCounters (unique on PartitionKey+WindowStartUtc).
+// Budget: PermitLimit per WindowSize per partition key. Fails open on DB error
+// so a Postgres outage never locks everyone out of /Account/Login.
 public sealed class PostgresLoginRateLimiter : IDistributedLoginRateLimiter
 {
     public const int PermitLimit = 100;
