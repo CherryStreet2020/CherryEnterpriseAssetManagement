@@ -1,7 +1,7 @@
 # CherryAI Enterprise Asset Management
 
 ## Overview
-CherryAI Enterprise Asset Management is an ASP.NET Core Razor Pages application designed for holding companies with multiple manufacturing subsidiaries. It provides comprehensive asset lifecycle management, including GAAP & tax book depreciation (US and Canadian compliance), maintenance tracking, and capital improvement project management. The project aims to be a leading solution in the fixed asset management market by integrating with ERP systems and offering advanced features for enterprise asset management.
+CherryAI Enterprise Asset Management is an ASP.NET Core Razor Pages application for holding companies with multiple manufacturing subsidiaries. It offers comprehensive asset lifecycle management, including GAAP & tax book depreciation (US and Canadian compliance), maintenance tracking, and capital improvement project management. The project aims to be a leading solution in the fixed asset management market by integrating with ERP systems and offering advanced features for enterprise asset management.
 
 ## User Preferences
 I prefer clear and concise information. When making changes, please explain the reasoning and potential impact. I value iterative development with frequent check-ins for major architectural decisions. Ensure the codebase remains clean, well-documented, and follows established ASP.NET Core conventions.
@@ -19,7 +19,7 @@ The application is built on ASP.NET Core using Razor Pages, with PostgreSQL as t
 - Uses a UI Conformance System with shared partials and deterministic smoke tests.
 - Features a "Modern Navigation Overhaul" with grouped sidebar, command palette (Ctrl+K), global search, and responsive design.
 - All transactional entities use a unified header+detail workspace pattern with inline editing, eliminating popup modals.
-- The application supports white-label branding, with specific branding implemented for "ABS Machining EAM."
+- The application supports white-label branding.
 
 **Technical Implementations & Feature Specifications:**
 - **Organizational Hierarchy:** Supports Organization → Company → Site → Location → Asset structure.
@@ -64,17 +64,16 @@ The application is built on ASP.NET Core using Razor Pages, with PostgreSQL as t
 - **Data Management:** Unified `/Admin/DataManagement` page consolidating Import Wizard + Export into a tabbed UI, supporting 15 entity types in FK-dependency phases with premium branded static .xlsx templates and server-side validation.
 - **Technician Enrichment:** Enriched `Technician` model with detailed employee, skill, and certification information.
 - **Fixed Assets Production Hardening:** Implemented production readiness features including robust report scoping, advanced depreciation engine logic, period locking, flexible GL account lookups, strict validation, unique indexing, and an idempotent `DepreciationBackfillService`.
-- **Test Coverage:** Extensive Playwright test suite covering authentication, navigation, smoke tests, UI, core flows, fixed assets, and reports, ensuring end-to-end validation. Includes production observability checks for health and readiness endpoints and `Server-Timing` headers for performance monitoring.
-- **Production Observability:** Health and readiness endpoints expose process state to autoscale router and operators. `GET /_live` is the canonical liveness path (GFE-safe); `GET /healthz` is a legacy alias that works in dev but is intercepted by Google Front End in production (Replit Autoscale's edge). `GET /readyz` returns a JSON envelope with per-check `db` + `skia` status. `RequestIdMiddleware` echoes inbound `X-Request-Id` (or falls back to `TraceIdentifier`) and pushes `RequestId`/`RequestPath`/`RequestMethod` into the `ILogger` scope. `ServerTimingMiddleware` emits `Server-Timing: total;dur=Xms` plus `Timing-Allow-Origin: *` so the timing data survives cross-origin proxies.
+- **Test Coverage:** Extensive Playwright test suite covering authentication, navigation, smoke tests, UI, core flows, fixed assets, and reports, ensuring end-to-end validation.
+- **Production Observability:** Health and readiness endpoints expose process state to autoscale router and operators. `RequestIdMiddleware` and `ServerTimingMiddleware` are used for monitoring.
 - **Production Performance & Security:** Includes `DbCommandInterceptor` for slow query logging, `ServerTimingMiddleware` for `Server-Timing` headers, response compression (Brotli/Gzip), and `PartitionedRateLimiter` for login endpoint protection against brute-force attacks.
 - **Concurrency Hardening:** Global `QuerySplittingBehavior.SplitQuery` for EF Core, optimized Npgsql connection string, and memoization of tenant resolution to improve stability under load.
-- **Phase 4 Production Readiness:** Closes the three gaps surfaced after the Phase 3 deploy.
-  - **Distributed login rate limiter** — `PostgresLoginRateLimiter` performs an atomic `INSERT … ON CONFLICT … DO UPDATE … RETURNING` against the new `RateLimitCounters` table (unique on `(PartitionKey, WindowStartUtc)`), so the 100/min per-`(IP, Username)` budget on `POST /Account/Login` is enforced cluster-wide across every Replit Autoscale instance — the prior in-process limiter only counted within one container. Fails open on Postgres outage so a DB blip can never lock everyone out of login. Wired via `DistributedLoginRateLimitMiddleware`; the legacy `AddRateLimiter` registration was removed.
-  - **Security headers middleware** — `SecurityHeadersMiddleware` sets `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy` (camera/microphone/geolocation/payment/usb/magnetometer/gyroscope/accelerometer denied) on every response. CSP `frame-ancestors` explicitly allow-lists `'self' https://*.replit.dev https://*.replit.app https://*.repl.co https://*.replit.com` so the canvas/preview iframe keeps working — the existing `X-Frame-Options` removal in Program.cs is preserved. **Task #15**: CSP `script-src` / `style-src` no longer carry `'unsafe-inline'`; instead the middleware mints a fresh per-request 128-bit nonce, stashes it in `HttpContext.Items["CspNonce"]`, and the `NonceTagHelper` (registered via `Pages/_ViewImports.cshtml`) auto-stamps that nonce onto every `<script>` and `<style>` element rendered by Razor. Inline `style="..."` attributes and inline event handlers (`onclick=`, …) are still allowed via the narrower CSP3 directives `style-src-attr 'unsafe-inline'` and `script-src-attr 'unsafe-inline'`, which do **not** relax `script-src`/`style-src` themselves. Smoke coverage in `tests/smoke_phase4.spec.js` asserts the absence of `'unsafe-inline'` on those directives, the presence of a `'nonce-…'` source, and that two consecutive requests get distinct nonces.
-  - **OpenTelemetry traces & metrics** — `AddOpenTelemetry()` registers ASP.NET Core, HttpClient, and EF Core span instrumentation plus runtime metrics, tagged with `service.name=cherryai-eam` and `deployment.environment={env}`. The OTLP/HTTP exporter is **only** registered when `OTEL_EXPORTER_OTLP_ENDPOINT` is set, so dev environments incur zero network traffic and zero collector dependency. `OTEL_EXPORTER_OTLP_HEADERS` is honored natively by the SDK for collector authentication. Liveness/readiness probes are filtered out of traces.
-  - **Rate-limit table janitor** — `RateLimitCounterCleanupService` (BackgroundService) deletes `RateLimitCounters` rows whose `WindowStartUtc` is older than 1 hour every 10 minutes; idempotent and safe to run from every Autoscale instance.
-  - **OTel diagnostics endpoint** — `GET /_otel/diag` returns JSON with `tracerProvider`, `meterProvider`, `serviceName`, `instrumentation[]`, `meterSources[]`, and `otlpExporter` so tests can verify the pipeline registered correctly without scraping logs.
-  - **Smoke regression** — `tests/smoke_phase4.spec.js` locks the four contracts: 130-burst trips ≥25 × 429, all four security headers present on `/_live` and `/Account/Login` with CSP `frame-ancestors` containing `'self'`, and `/_otel/diag` proves TracerProvider + MeterProvider + Process/EFCore instrumentation are registered.
+- **Distributed Login Rate Limiter:** `PostgresLoginRateLimiter` enforces a per-(IP, Username) budget across all instances.
+- **Security Headers Middleware:** `SecurityHeadersMiddleware` sets `Content-Security-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy`. CSP uses nonces for scripts and styles to avoid `'unsafe-inline'`.
+- **OpenTelemetry Traces & Metrics:** `AddOpenTelemetry()` registers ASP.NET Core, HttpClient, and EF Core span instrumentation plus runtime metrics, with OTLP/HTTP exporter conditioned on `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- **Rate-limit Table Janitor:** `RateLimitCounterCleanupService` cleans up old rate limit entries.
+- **OTel Diagnostics Endpoint:** `GET /_otel/diag` returns JSON with OpenTelemetry configuration.
+- **Security Hardening (Phase 4.1):** Includes hashed PII in rate limiter logs, CDN integrity checks, OpenTelemetry dependency updates, sanitization of sensitive headers in traces, and explicit cookie security settings (`HttpOnly`, `SameSite`, `SecurePolicy`, `ExpireTimeSpan`).
 
 ## External Dependencies
 - **PostgreSQL:** Primary database.
@@ -83,4 +82,4 @@ The application is built on ASP.NET Core using Razor Pages, with PostgreSQL as t
 - **ClosedXML:** For generating Excel report exports.
 - **QuestPDF:** For generating PDF report exports.
 - **Tom Select (CDN v2.3.1):** Searchable typeahead for `<select>` elements.
-- **SkiaSharp + ZXing.Net.Bindings.SkiaSharp:** Barcode and label PNG rendering, with native library provided by `SkiaSharp.NativeAssets.Linux.NoDependencies`.
+- **SkiaSharp + ZXing.Net.Bindings.SkiaSharp:** Barcode and label PNG rendering.

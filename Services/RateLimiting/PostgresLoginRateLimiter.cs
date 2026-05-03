@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Abs.FixedAssets.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -75,11 +77,14 @@ public sealed class PostgresLoginRateLimiter : IDistributedLoginRateLimiter
         }
         catch (Exception ex)
         {
-            // Fail open. PartitionKey is intentionally NOT logged in full
-            // because it embeds the attempted username; we hash-truncate
-            // for triage instead.
-            var keyTag = partitionKey.Length > 24 ? partitionKey.Substring(0, 24) + "..." : partitionKey;
-            _logger.LogWarning(ex, "Distributed login rate limiter failed open (db error). key~={Key}", keyTag);
+            // Fail open. PartitionKey embeds the client IP and attempted
+            // username, both PII. We log only the first 12 hex chars of
+            // SHA-256(partitionKey) so operators can correlate repeated
+            // outages on the same bucket without the raw values ever
+            // hitting stdout / log shippers.
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(partitionKey));
+            var keyTag = Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
+            _logger.LogWarning(ex, "Distributed login rate limiter failed open (db error). keyHash={KeyHash}", keyTag);
             return true;
         }
     }

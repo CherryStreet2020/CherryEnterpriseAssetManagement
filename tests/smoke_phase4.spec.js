@@ -11,8 +11,10 @@
 //      is unset (no exporter, zero network). Verified by the fact that
 //      /_live still responds 200; an OTel registration crash would have
 //      taken the whole process down at startup.
+const fs = require('fs');
+const path = require('path');
 const { test, expect, request: pwRequest } = require('@playwright/test');
-const { BASE, dbQuery } = require('./_helpers');
+const { BASE, dbQuery, login } = require('./_helpers');
 
 test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel', () => {
 
@@ -129,6 +131,92 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
     } finally {
       await req.dispose();
     }
+  });
+
+  // ---------------------------------------------------------------------
+  // Task #17 — Zero-regression security hardening
+  // ---------------------------------------------------------------------
+
+  test('SRI — every CDN <link>/<script> on /Account/Login carries sha384 integrity', async () => {
+    const req = await pwRequest.newContext({ baseURL: BASE });
+    try {
+      const res = await req.get('/Account/Login');
+      expect(res.status()).toBe(200);
+      const html = await res.text();
+
+      // Find every CDN reference (cdnjs.cloudflare.com or cdn.jsdelivr.net)
+      // in the rendered HTML, and assert each tag carries an sha384 hash and
+      // crossorigin="anonymous". A naive substring search is fine here — the
+      // layouts only emit a small fixed set of pinned CDN tags.
+      const tagRe = /<(?:link|script)\b[^>]*\b(?:href|src)\s*=\s*"(https:\/\/(?:cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)[^"]+)"[^>]*>/gi;
+      const tags = [...html.matchAll(tagRe)];
+      expect(tags.length, 'login page must reference at least one pinned CDN asset').toBeGreaterThanOrEqual(2);
+      for (const m of tags) {
+        const tag = m[0];
+        const url = m[1];
+        expect(tag, `missing sha384 SRI on ${url}`).toMatch(/integrity\s*=\s*"sha384-[A-Za-z0-9+/=]+"/);
+        expect(tag, `missing crossorigin on ${url}`).toMatch(/crossorigin\s*=\s*"anonymous"/);
+      }
+    } finally {
+      await req.dispose();
+    }
+  });
+
+  test('SRI — all five layout CDN refs are pinned at file level', async () => {
+    // Defense against accidental future regressions where a developer adds
+    // a new CDN ref to a layout but forgets the integrity attribute.
+    const layouts = [
+      'Pages/Shared/_Layout.cshtml',
+      'Pages/Shared/_PopoutLayout.cshtml',
+      'Pages/Shared/_ModernLayout.cshtml',
+    ];
+    let total = 0;
+    for (const rel of layouts) {
+      const txt = fs.readFileSync(path.resolve(__dirname, '..', rel), 'utf8');
+      const tagRe = /<(?:link|script)\b[^>]*\b(?:href|src)\s*=\s*"(https:\/\/(?:cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)[^"]+)"[^>]*?\/?>/gis;
+      const tags = [...txt.matchAll(tagRe)];
+      for (const m of tags) {
+        total++;
+        expect(m[0], `missing sha384 SRI in ${rel} on ${m[1]}`).toMatch(/integrity\s*=\s*"sha384-[A-Za-z0-9+/=]+"/);
+      }
+    }
+    expect(total, 'expected exactly the five pinned CDN refs across layouts').toBe(5);
+  });
+
+  test('Auth cookie posture — HttpOnly + SameSite=Lax on successful login', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    try {
+      await login(page);
+      // Land on any post-login page to confirm the cookie was issued.
+      const cookies = await ctx.cookies();
+      const auth = cookies.find(c =>
+        c.name === '.AspNetCore.Cookies' || c.name.startsWith('.AspNetCore.Cookies'));
+      expect(auth, 'auth cookie must be present after login').toBeTruthy();
+      expect(auth.httpOnly, 'auth cookie must be HttpOnly').toBe(true);
+      // Playwright normalizes SameSite to "Lax" / "Strict" / "None".
+      expect(auth.sameSite, 'auth cookie SameSite must be Lax').toBe('Lax');
+      // ExpireTimeSpan was set to 8h finite — assert it is NOT a session
+      // cookie (Playwright reports session cookies as expires === -1).
+      expect(auth.expires, 'auth cookie must not be a session cookie').toBeGreaterThan(0);
+    } finally {
+      await page.close();
+      await ctx.close();
+    }
+  });
+
+  test('Rate limiter fail-open log redaction — partition key is hashed, not raw', () => {
+    // Static-source assertion: PostgresLoginRateLimiter must hash the
+    // partition key before logging it on the fail-open path. This guards
+    // against a future refactor that re-introduces raw username/IP in
+    // logs without anyone noticing in code review.
+    const src = fs.readFileSync(
+      path.resolve(__dirname, '..', 'Services/RateLimiting/PostgresLoginRateLimiter.cs'),
+      'utf8');
+    expect(src).toMatch(/SHA256\.HashData/);
+    expect(src).toMatch(/keyHash=\{KeyHash\}/);
+    // The old leaky pattern must be gone.
+    expect(src).not.toMatch(/partitionKey\.Substring\(0,\s*24\)/);
   });
 
   test('OTel TracerProvider + MeterProvider registered with expected instrumentation', async () => {

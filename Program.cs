@@ -229,8 +229,33 @@ builder.Services.AddHostedService<Abs.FixedAssets.Services.RateLimiting.RateLimi
                         && !p.StartsWith("/healthz", StringComparison.OrdinalIgnoreCase)
                         && !p.StartsWith("/readyz", StringComparison.OrdinalIgnoreCase);
                 };
+                // Defense in depth: even though OTel ASP.NET Core 1.10.x does
+                // not capture request/response headers by default, we eagerly
+                // null out the well-known sensitive header tag keys so that a
+                // future config change (or a custom enricher upstream) cannot
+                // accidentally export Cookie / Authorization / Set-Cookie.
+                opts.EnrichWithHttpRequest = (activity, _) =>
+                {
+                    activity.SetTag("http.request.header.cookie", null);
+                    activity.SetTag("http.request.header.authorization", null);
+                };
+                opts.EnrichWithHttpResponse = (activity, _) =>
+                {
+                    activity.SetTag("http.response.header.set_cookie", null);
+                };
             });
-            t.AddHttpClientInstrumentation();
+            t.AddHttpClientInstrumentation(opts =>
+            {
+                opts.EnrichWithHttpRequestMessage = (activity, _) =>
+                {
+                    activity.SetTag("http.request.header.cookie", null);
+                    activity.SetTag("http.request.header.authorization", null);
+                };
+                opts.EnrichWithHttpResponseMessage = (activity, _) =>
+                {
+                    activity.SetTag("http.response.header.set_cookie", null);
+                };
+            });
             t.AddEntityFrameworkCoreInstrumentation();
             if (otelEnabled)
             {
@@ -261,6 +286,22 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.LoginPath = "/Account/Login";
         options.LogoutPath = "/Account/Logout";
         options.AccessDeniedPath = "/Account/AccessDenied";
+        // Task #17 — lock auth cookie posture so a future refactor cannot
+        // silently weaken it. HttpOnly blocks XSS reads; SameSite=Lax keeps
+        // top-level GET nav working but blocks cross-site POST CSRF on the
+        // session cookie; SecurePolicy.Always in production forces TLS so the
+        // cookie can never be sent over plaintext (the Replit edge already
+        // terminates HTTPS, so the proxied http hop inside the container is
+        // irrelevant — UseForwardedHeaders restores X-Forwarded-Proto).
+        // In Development we use SameAsRequest so http://localhost:5000 in
+        // the dev workflow can still set the cookie for Playwright tests.
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction()
+            ? CookieSecurePolicy.Always
+            : CookieSecurePolicy.SameAsRequest;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
     });
 
 // Authorization with proper role-based policies
