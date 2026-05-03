@@ -59,12 +59,17 @@ builder.Services.AddRazorPages(options =>
 });
 builder.Services.AddHttpClient();
 
+// EF Core slow-query interceptor — logs any DB command >500ms with full
+// SQL+params+duration, picking up RequestId from the logger scope.
+builder.Services.AddSingleton<Abs.FixedAssets.Services.Diagnostics.SlowQueryInterceptor>();
+
 // EF Core with PostgreSQL
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     // SplitQuery globally to avoid Cartesian-product joins from multi-Include
     // detail queries; opt back into SingleQuery per-query via .AsSingleQuery().
     options.UseNpgsql(connectionString, npg => npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+    options.AddInterceptors(sp.GetRequiredService<Abs.FixedAssets.Services.Diagnostics.SlowQueryInterceptor>());
     
     // Development-only: Configure warning behavior for First/FirstOrDefault without OrderBy
     if (builder.Environment.IsDevelopment())
@@ -165,6 +170,59 @@ builder.Services.AddControllers();
 builder.Services.AddHealthChecks()
     .AddCheck<Abs.FixedAssets.Services.Health.DbHealthCheck>("db", tags: new[] { "ready" })
     .AddCheck<Abs.FixedAssets.Services.Health.SkiaHealthCheck>("skia", tags: new[] { "ready" });
+
+// Response compression — Brotli + Gzip for HTML and JSON. Saves
+// ~70-80% bandwidth on Razor pages and large API payloads.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+    options.MimeTypes = Microsoft.AspNetCore.ResponseCompression.ResponseCompressionDefaults.MimeTypes
+        .Concat(new[] { "application/json", "text/html; charset=utf-8" });
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(o =>
+    o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(o =>
+    o.Level = System.IO.Compression.CompressionLevel.Fastest);
+
+// Rate limiting — fixed-window limiter partitioned by (ClientIP, Username)
+// on POST /Account/Login to blunt credential-stuffing. The (IP, Username)
+// partition is the architect-recommended pattern: an attacker brute-forcing
+// ONE account from one IP hits a single tight counter (100/min); spraying
+// many usernames from one IP creates many counters but each one stays
+// independently throttled, and the per-username log volume makes the attack
+// trivial to detect. Test suites all log in as "admin" so they share one
+// counter — 100/min is generous enough for parallel suite fan-out (typical
+// load is well under 50 logins/min total). All non-login paths fall through
+// with no limiter (zero overhead).
+//
+// The "LoginUsername" key is populated by the small upstream middleware
+// in the request pipeline below (UseLoginUsernameSnoop) so this synchronous
+// callback can read it from HttpContext.Items.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(ctx =>
+    {
+        if (!HttpMethods.IsPost(ctx.Request.Method)
+            || !ctx.Request.Path.StartsWithSegments("/Account/Login"))
+        {
+            return System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter<string>("none");
+        }
+        var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var username = (ctx.Items["LoginUsername"] as string ?? "").ToLowerInvariant();
+        return System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            $"login:{ip}:{username}",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            });
+    });
+});
 
 // Authentication disabled for development - using fallback policy that allows anonymous
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -293,6 +351,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
                        Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
 });
 
+// Server-Timing header (very early so it captures total pipeline duration).
+app.UseServerTiming();
+
+// Response compression must be before any middleware that writes the body.
+app.UseResponseCompression();
+
 // Middleware to fix iframe loading and caching issues in Replit
 app.Use(async (context, next) =>
 {
@@ -342,6 +406,31 @@ app.UseStaticFiles();
 app.UseRouting();
 
 app.UseRequestId();
+
+// Snoop the username on POST /Account/Login so the rate limiter can
+// partition by (IP, Username). ReadFormAsync is idempotent — Razor Pages
+// will reuse the cached IFormCollection on the model-binding pass.
+app.UseWhen(
+    ctx => HttpMethods.IsPost(ctx.Request.Method)
+        && ctx.Request.Path.StartsWithSegments("/Account/Login"),
+    branch => branch.Use(async (ctx, next) =>
+    {
+        try
+        {
+            if (ctx.Request.HasFormContentType)
+            {
+                var form = await ctx.Request.ReadFormAsync();
+                var u = form["Username"].FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(u)) ctx.Items["LoginUsername"] = u;
+            }
+        }
+        catch { /* malformed form — let downstream handle it */ }
+        await next();
+    }));
+
+// Rate limiter — must be after UseRouting and after the username snoop;
+// rejects burst /Account/Login POSTs per (IP, Username).
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseApiHeaderEnforcement();
