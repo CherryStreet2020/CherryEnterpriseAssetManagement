@@ -1,0 +1,17 @@
+{
+  "lookupKey": "LocationType",
+  "name": "Location Type",
+  "isSystem": true,
+  "values": [
+    { "code": "0", "name": "Building", "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "Floor", "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Area", "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Room", "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Bay", "sortOrder": 5, "isActive": true },
+    { "code": "5", "name": "Cell", "sortOrder": 6, "isActive": true },
+    { "code": "6", "name": "Station", "sortOrder": 7, "isActive": true },
+    { "code": "7", "name": "Dock", "sortOrder": 8, "isActive": true },
+    { "code": "8", "name": "Yard", "sortOrder": 9, "isActive": true },
+    { "code": "9", "name": "Storage", "sortOrder": 10, "isActive": true }
+  ]
+}

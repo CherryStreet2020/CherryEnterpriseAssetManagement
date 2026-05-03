@@ -1,0 +1,31 @@
+{
+  "lookupKey": "AbcClass",
+  "name": "ABC Classification",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "None",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "A - Critical",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "B - Important",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Unclassified",
+      "sortOrder": 4,
+      "isActive": true
+    }
+  ]
+}

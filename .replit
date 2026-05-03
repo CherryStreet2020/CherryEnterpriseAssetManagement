@@ -143,7 +143,7 @@ externalPort = 80
 [deployment]
 deploymentTarget = "autoscale"
 run = ["dotnet", "out/Abs.FixedAssets.dll"]
-build = ["dotnet", "publish", "-c", "Release", "-o", "out"]
+build = ["dotnet", "publish", "Abs.FixedAssets.csproj", "-c", "Release", "-o", "out"]
 
 [userenv]
 

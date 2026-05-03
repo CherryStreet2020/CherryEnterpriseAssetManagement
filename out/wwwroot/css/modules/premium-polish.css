@@ -1,0 +1,61 @@
+html.dark {
+    --color-surface-0: #0b1120;
+    --color-surface-1: #131c2e;
+    --color-surface-2: #1a2540;
+    --color-surface-3: #22304d;
+    --surface-app: #0b1120;
+    --surface-primary: #131c2e;
+    --surface-secondary: #1a2540;
+    --surface-tertiary: #22304d;
+    --surface-elevated: #1e2a45;
+    --card-bg: #151f33;
+    --card-border: rgba(255,255,255,0.09);
+    --card-hover-border: rgba(255,255,255,0.16);
+    --card-shadow: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.05);
+    --border-primary: rgba(255,255,255,0.11);
+    --border-secondary: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.22);
+    --table-row-hover: rgba(255,255,255,0.055);
+    --table-border: rgba(255,255,255,0.08);
+    --table-zebra: rgba(255,255,255,0.025);
+    --table-header-bg: rgba(255,255,255,0.04);
+    --input-bg: #0f1724;
+    --input-border: rgba(255,255,255,0.12);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+    --shadow-lg: 0 12px 32px rgba(0,0,0,0.6);
+    --shadow-card: 0 2px 8px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.05);
+    --shadow-card-hover: 0 8px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.09);
+}
+.pe-card,.section-card{transition:border-color .2s ease,box-shadow .2s ease}
+.btn-p,.hero-btn,.hero-btn-primary,.hero-btn-ghost,.hero-btn-danger,.hero-btn-success{transition:all .15s ease}
+.premium-table tbody tr,.data-table tbody tr{transition:background-color .12s ease}
+.badge,.status-badge,.status-pill{transition:background-color .15s ease,color .15s ease}
+.form-input-p,.form-control,input[type="text"],input[type="number"],input[type="date"],input[type="email"],select,textarea{transition:border-color .15s ease,box-shadow .15s ease}
+html.dark .pe-card,html.dark .section-card{box-shadow:var(--shadow-card)}
+html.dark .pe-card:hover,html.dark .section-card:hover{box-shadow:var(--shadow-card-hover);border-color:var(--card-hover-border)}
+html:not(.dark) .pe-card,html:not(.dark) .section-card{box-shadow:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04)}
+html.dark .premium-table thead th,html.dark .data-table thead th{background:var(--table-header-bg)}
+html.dark .premium-table tbody tr:nth-child(even),html.dark .data-table tbody tr:nth-child(even){background:var(--table-zebra)}
+html.dark .form-input-p,html.dark .form-control,html.dark input[type="text"],html.dark input[type="number"],html.dark input[type="date"],html.dark input[type="email"],html.dark select,html.dark textarea{background:var(--input-bg);border-color:var(--input-border)}
+html.dark .form-input-p:focus,html.dark input:focus,html.dark select:focus,html.dark textarea:focus{border-color:#cf3339;box-shadow:0 0 0 3px rgba(207,51,57,0.15);outline:none}
+html:not(.dark) .form-input-p:focus,html:not(.dark) input:focus,html:not(.dark) select:focus,html:not(.dark) textarea:focus{border-color:#cf3339;box-shadow:0 0 0 3px rgba(207,51,57,0.1);outline:none}
+.screen-header{background:linear-gradient(135deg,#081e3a 0%,#0a1628 50%,#051424 100%);box-shadow:0 4px 16px rgba(0,0,0,0.3)}
+.kpi-card{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(12px)}
+.btn-p--primary:hover,.hero-btn-primary:hover{box-shadow:0 4px 12px rgba(207,51,57,0.4);transform:translateY(-1px)}
+.btn-p--primary:active,.hero-btn-primary:active{transform:translateY(0)}
+html.dark .sidebar,html.dark .cherryai-sidebar{background:linear-gradient(180deg,#070d18 0%,#0a1220 100%);border-right:1px solid rgba(255,255,255,0.07)}
+.nav-item{transition:background-color .15s ease,color .15s ease}
+html.dark .nav-item.active{background:rgba(207,51,57,0.12);border-left:3px solid #cf3339}
+html.dark .nav-item:hover:not(.active){background:rgba(255,255,255,0.04)}
+html.dark ::-webkit-scrollbar{width:8px;height:8px}
+html.dark ::-webkit-scrollbar-track{background:transparent}
+html.dark ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:4px}
+html.dark ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.2)}
+.pe-card__title .accent-dot{width:9px;height:9px;box-shadow:0 0 6px currentColor}
+.fa-chevron-right{transition:transform .2s ease;opacity:.5}
+tr:hover .fa-chevron-right{opacity:1}
+html.dark .badge-success,html.dark .status-badge.success{background:rgba(16,185,129,0.15);color:#34d399}
+html.dark .badge-warning,html.dark .status-badge.warning{background:rgba(245,158,11,0.15);color:#fbbf24}
+html.dark .badge-primary,html.dark .status-badge.primary,html.dark .status-badge.info{background:rgba(59,130,246,0.15);color:#60a5fa}
+html.dark .badge-neutral,html.dark .status-badge.neutral{background:rgba(148,163,184,0.12);color:#94a3b8}

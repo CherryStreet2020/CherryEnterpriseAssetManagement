@@ -1,0 +1,5019 @@
+/* ==========================================================================
+   CherryAI Luxury Brand Theme v3.0
+   
+   Premium enterprise theme with dark/light mode.
+   Brand: Primary Red #cf3339, Navy #081e3a, Inter typography
+   Loaded LAST to override all component CSS.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+/* ==========================================================================
+   LIGHT MODE (Default)
+   ========================================================================== */
+:root,
+html:not(.dark) {
+  --accent: #cf3339;
+  --accent-hover: #b82d32;
+  --accent-soft: rgba(207, 51, 57, 0.08);
+  --accent-glow: rgba(207, 51, 57, 0.15);
+  --brand-red: #cf3339;
+  --brand-navy: #081e3a;
+  --brand-red-light: #e26e66;
+  --ring: rgba(207, 51, 57, 0.25);
+
+  --primary: #cf3339;
+  --primary-hover: #b82d32;
+  --primary-light: #fef2f2;
+  --cherry-primary: #cf3339;
+  --cherry-secondary: #081e3a;
+  --cherry-accent: #e26e66;
+  --text-on-primary: #ffffff;
+  --purple: #8b5cf6;
+  --border-focus: #cf3339;
+  --primary-gradient: linear-gradient(135deg, #cf3339 0%, #b82d32 100%);
+  --bg-sidebar: linear-gradient(180deg, #081e3a 0%, #051424 100%);
+
+  --lux-bg: #f0f2f5;
+  --lux-surface: #ffffff;
+  --lux-surface-alt: #f7f8fa;
+  --lux-surface-elevated: #ffffff;
+  --lux-border: rgba(0, 0, 0, 0.07);
+  --lux-border-strong: rgba(0, 0, 0, 0.12);
+  --lux-text: #0f172a;
+  --lux-text-secondary: #475569;
+  --lux-text-muted: #94a3b8;
+  --lux-card-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+  --lux-card-shadow-hover: 0 2px 4px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.08), 0 16px 48px rgba(0,0,0,0.06);
+  --lux-card-shadow-elevated: 0 4px 8px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.08), 0 24px 64px rgba(0,0,0,0.06);
+  --lux-header-bg: rgba(255, 255, 255, 0.85);
+  --lux-header-border: rgba(0, 0, 0, 0.06);
+  --lux-input-bg: #ffffff;
+  --lux-input-border: rgba(0, 0, 0, 0.12);
+  --lux-table-header-bg: #f8f9fb;
+  --lux-table-stripe: rgba(0, 0, 0, 0.015);
+  --lux-table-hover: rgba(207, 51, 57, 0.025);
+  --lux-badge-bg: rgba(0, 0, 0, 0.04);
+  --lux-modal-overlay: rgba(0, 0, 0, 0.45);
+  --lux-modal-shadow: 0 24px 64px rgba(0,0,0,0.16), 0 8px 24px rgba(0,0,0,0.1);
+  --lux-tooltip-bg: #1f2937;
+  --lux-tooltip-text: #f9fafb;
+  --lux-scrollbar-track: transparent;
+  --lux-scrollbar-thumb: rgba(0, 0, 0, 0.1);
+  --lux-scrollbar-hover: rgba(0, 0, 0, 0.18);
+  --lux-kpi-bg: linear-gradient(135deg, #ffffff, #fafbfc);
+  --lux-page-header-bg: #ffffff;
+
+  --bg-primary: var(--lux-bg);
+  --bg-secondary: var(--lux-surface);
+  --bg-tertiary: var(--lux-surface-alt);
+  --text-primary: var(--lux-text);
+  --text-secondary: var(--lux-text-secondary);
+  --text-muted: var(--lux-text-muted);
+  --border: var(--lux-border-strong);
+  --border-color: var(--lux-border);
+  --border-hover: var(--lux-border-strong);
+
+  --bg: var(--lux-bg);
+  --surface: var(--lux-surface);
+  --surface-2: var(--lux-surface-alt);
+  --text: var(--lux-text);
+  --muted: var(--lux-text-muted);
+  --link: #cf3339;
+  --link-hover: #b82d32;
+}
+
+/* ==========================================================================
+   DARK MODE
+   ========================================================================== */
+html.dark {
+  color-scheme: dark;
+  --text-on-primary: #ffffff;
+  --purple: #a78bfa;
+
+  --lux-bg: #080c14;
+  --lux-surface: #111827;
+  --lux-surface-alt: #1a2234;
+  --lux-surface-elevated: #1e293b;
+  --lux-border: rgba(255, 255, 255, 0.06);
+  --lux-border-strong: rgba(255, 255, 255, 0.1);
+  --kpi-tile-bg: #283548;
+  --kpi-tile-border: rgba(148,163,184,0.25);
+  --kpi-tile-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  --lux-text: #f1f5f9;
+  --lux-text-secondary: #cbd5e1;
+  --lux-text-muted: #94a3b8;
+  --form-label-gradient-start: #94a3b8;
+  --form-label-gradient-end: #64b5f6;
+  --lux-card-shadow: 0 0 0 1px rgba(255,255,255,0.03), 0 2px 8px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.3);
+  --lux-card-shadow-hover: 0 0 0 1px rgba(255,255,255,0.06), 0 4px 16px rgba(0,0,0,0.5), 0 16px 48px rgba(0,0,0,0.35);
+  --lux-card-shadow-elevated: 0 0 0 1px rgba(255,255,255,0.06), 0 8px 32px rgba(0,0,0,0.6), 0 24px 64px rgba(0,0,0,0.4);
+  --lux-header-bg: rgba(17, 24, 39, 0.85);
+  --lux-header-border: rgba(255, 255, 255, 0.04);
+  --lux-input-bg: #0f1626;
+  --lux-input-border: rgba(255, 255, 255, 0.08);
+  --lux-table-header-bg: #131b2e;
+  --lux-table-stripe: rgba(255, 255, 255, 0.015);
+  --lux-table-hover: rgba(207, 51, 57, 0.06);
+  --lux-badge-bg: rgba(255, 255, 255, 0.06);
+  --lux-modal-overlay: rgba(0, 0, 0, 0.7);
+  --lux-modal-shadow: 0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.5);
+  --lux-tooltip-bg: #2d3748;
+  --lux-tooltip-text: #f9fafb;
+  --lux-scrollbar-track: transparent;
+  --lux-scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --lux-scrollbar-hover: rgba(255, 255, 255, 0.15);
+  --lux-kpi-bg: linear-gradient(135deg, #111827, #1a2234);
+  --lux-page-header-bg: rgba(17, 24, 39, 0.85);
+
+  --accent-soft: rgba(207, 51, 57, 0.12);
+  --accent-glow: rgba(207, 51, 57, 0.2);
+
+  --bg-sidebar: linear-gradient(180deg, #0a1020 0%, #060b14 100%);
+
+  --color-surface-0: var(--lux-bg);
+  --color-surface-1: var(--lux-surface);
+  --color-surface-2: var(--lux-surface-alt);
+  --color-surface-3: var(--lux-surface-elevated);
+  --color-border-1: var(--lux-border-strong);
+  --color-border-2: rgba(255, 255, 255, 0.12);
+  --color-border-3: var(--lux-border);
+  --color-text-1: var(--lux-text);
+  --color-text-2: var(--lux-text-secondary);
+  --color-text-3: #8896ab;
+  --color-text-4: var(--lux-text-muted);
+
+  --bg-primary: var(--lux-bg);
+  --bg-secondary: var(--lux-surface);
+  --bg-tertiary: var(--lux-surface-alt);
+  --text-primary: var(--lux-text);
+  --text-secondary: var(--lux-text-secondary);
+  --text-muted: var(--lux-text-muted);
+  --border: var(--lux-border-strong);
+}
+
+/* ==========================================================================
+   BASE / BODY
+   ========================================================================== */
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: var(--lux-text);
+  background: var(--lux-bg);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html.dark body {
+  background: var(--lux-bg);
+}
+
+/* ==========================================================================
+   MAIN CONTENT AREA
+   ========================================================================== */
+.main-content {
+  background: var(--lux-bg);
+  transition: background-color 0.3s ease;
+}
+
+.page-content {
+  color: var(--lux-text);
+}
+
+/* ==========================================================================
+   MAIN HEADER / TOP BAR — Luxury
+   ========================================================================== */
+.main-header {
+  background: var(--lux-header-bg) !important;
+  border-bottom: 1px solid var(--lux-header-border) !important;
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+html.dark .main-header {
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03), inset 0 -1px 0 rgba(255,255,255,0.02);
+}
+
+.header-title {
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   BUTTONS — Luxury Polish
+   ========================================================================== */
+.btn-primary,
+.btn.btn-primary,
+button.btn-primary {
+  background: linear-gradient(135deg, #cf3339 0%, #b82d32 100%) !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 12px rgba(207, 51, 57, 0.2);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover,
+.btn.btn-primary:hover {
+  background: linear-gradient(135deg, #b82d32 0%, #a32529 100%) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 24px rgba(207, 51, 57, 0.28);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 2px 8px rgba(207, 51, 57, 0.15);
+}
+
+.btn-secondary,
+.btn.btn-secondary {
+  background: var(--lux-surface) !important;
+  border: 1px solid var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover,
+.btn.btn-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border-strong) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.btn-success,
+.btn.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.btn-danger,
+.btn.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  border: 1px solid rgba(0,0,0,0.1) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+/* Ghost / outline button */
+.btn-outline,
+.btn-ghost {
+  background: transparent !important;
+  border: 1px solid var(--lux-border-strong) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+.btn-outline:hover,
+.btn-ghost:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   INPUTS & FORMS — Luxury
+   ========================================================================== */
+.form-control,
+.form-select,
+input:not([type="checkbox"]):not([type="radio"]):not(.command-palette-input):not(.global-search-input):not(.org-selector-search input):not(#orgSearchInput),
+select,
+textarea {
+  background: var(--lux-input-bg) !important;
+  border: 1px solid var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus,
+input:not([type="checkbox"]):not([type="radio"]):not(.command-palette-input):not(.global-search-input):focus,
+select:focus,
+textarea:focus {
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 3px rgba(207, 51, 57, 0.1) !important;
+  outline: none;
+}
+
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+label {
+  color: var(--lux-text-secondary);
+}
+
+/* ==========================================================================
+   SIDEBAR — Luxury Navy
+   ========================================================================== */
+.sidebar.cherryai-sidebar {
+  background: var(--bg-sidebar);
+  border-right: 1px solid rgba(255,255,255,0.04);
+}
+
+html.dark .sidebar.cherryai-sidebar {
+  background: linear-gradient(180deg, #0a1020 0%, #060b14 100%);
+  border-right: 1px solid rgba(255,255,255,0.03);
+}
+
+.sidebar-brand-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.menu-item.active::before,
+.nav-item.active::before {
+  background: #cf3339 !important;
+}
+
+.menu-item.active {
+  background: rgba(207, 51, 57, 0.12) !important;
+}
+
+.nav-item-overview.active {
+  background: rgba(207, 51, 57, 0.15) !important;
+}
+
+.menu-group[data-section="work"] .menu-group-icon {
+  background: linear-gradient(135deg, #cf3339, #b82d32) !important;
+}
+
+.menu-group[data-section="projects"] .menu-group-icon {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+}
+
+/* ==========================================================================
+   GLOBAL SEARCH — Luxury
+   ========================================================================== */
+.global-search-wrapper {
+  transition: all 0.2s ease;
+}
+
+.global-search-input {
+  background: var(--lux-surface-alt) !important;
+  border: 1px solid var(--lux-border) !important;
+  color: var(--lux-text) !important;
+  transition: all 0.2s ease;
+}
+
+.global-search-input:focus {
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 3px rgba(207, 51, 57, 0.08) !important;
+  background: var(--lux-surface) !important;
+}
+
+.global-search-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+.global-search-kbd {
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+  background: var(--lux-surface) !important;
+}
+
+.cmd-palette-trigger {
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+  background: var(--lux-surface-alt) !important;
+  transition: all 0.2s ease;
+}
+
+.cmd-palette-trigger:hover {
+  color: #cf3339 !important;
+  border-color: rgba(207, 51, 57, 0.2) !important;
+  background: var(--lux-surface) !important;
+}
+
+.cmd-palette-trigger kbd {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   TOPBAR THEME TOGGLE
+   ========================================================================== */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--lux-border);
+  background: var(--lux-surface-alt);
+  color: var(--lux-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.theme-toggle-btn:hover {
+  color: var(--lux-text);
+  border-color: var(--lux-border-strong);
+  background: var(--lux-surface);
+  transform: scale(1.05);
+}
+
+html.dark .theme-toggle-btn {
+  color: #f59e0b;
+}
+
+html.dark .theme-toggle-btn:hover {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+/* ==========================================================================
+   USER AVATAR — Luxury
+   ========================================================================== */
+.user-avatar,
+.sidebar-user-avatar {
+  background: linear-gradient(135deg, #cf3339, #b82d32) !important;
+  box-shadow: 0 2px 8px rgba(207, 51, 57, 0.25);
+}
+
+.user-btn {
+  transition: transform 0.2s ease;
+}
+
+.user-btn:hover {
+  transform: scale(1.05);
+}
+
+.user-menu {
+  background: var(--lux-surface-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-modal-shadow) !important;
+}
+
+.user-menu-header {
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+.user-menu-header strong {
+  color: var(--lux-text) !important;
+}
+
+.user-menu-header span {
+  color: var(--lux-text-secondary) !important;
+}
+
+.user-menu-item {
+  color: var(--lux-text-secondary) !important;
+}
+
+.user-menu-item:hover {
+  background: var(--accent-soft) !important;
+  color: #cf3339 !important;
+}
+
+/* ==========================================================================
+   SCREEN HEADERS / HERO — Always Navy (stays dark in both modes)
+   ========================================================================== */
+.screen-header {
+  background: linear-gradient(135deg, #081e3a 0%, #0f2d52 100%) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.screen-header__actions {
+  border-radius: 0 0 16px 16px !important;
+}
+
+.premium-hero-header {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.page-hero {
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+.page-hero-actions {
+  border-radius: 0 0 16px 16px !important;
+}
+
+/* ==========================================================================
+   CARDS — Luxury Surface System
+   ========================================================================== */
+.card,
+.panel,
+.stat-card,
+.section-card,
+.detail-section {
+  background: var(--lux-surface) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow) !important;
+  border-radius: 16px !important;
+  transition: box-shadow 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.3s cubic-bezier(0.4,0,0.2,1), background-color 0.3s ease;
+}
+
+.card:hover,
+.stat-card:hover {
+  box-shadow: var(--lux-card-shadow-hover) !important;
+}
+
+html.dark .card,
+html.dark .panel,
+html.dark .stat-card,
+html.dark .section-card,
+html.dark .detail-section {
+  border: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+.stat-icon.primary {
+  background: var(--accent-soft) !important;
+  color: #cf3339 !important;
+}
+
+.stat-value,
+.kpi-value {
+  color: var(--lux-text) !important;
+  font-feature-settings: 'tnum', 'lnum';
+}
+
+.stat-label,
+.kpi-label {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   QUICK STAT CARDS — Premium Dashboard KPI Row
+   ========================================================================== */
+.quick-stats-row {
+  gap: 20px !important;
+  margin-bottom: 28px !important;
+}
+
+.quick-stat-card {
+  background: var(--kpi-tile-bg, var(--lux-surface)) !important;
+  border: 1px solid var(--kpi-tile-border, var(--lux-border)) !important;
+  box-shadow: var(--kpi-tile-shadow, var(--lux-card-shadow)) !important;
+  border-radius: 16px !important;
+  padding: 24px !important;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.quick-stat-card:hover {
+  box-shadow: var(--lux-card-shadow-hover) !important;
+  transform: translateY(-3px) !important;
+}
+
+html.dark .quick-stat-card {
+  background: #283548 !important;
+  border: 1px solid rgba(148,163,184,0.25) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+html.dark .quick-stat-card:hover {
+  background: #334155 !important;
+  border-color: rgba(148,163,184,0.35) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+}
+
+.quick-stat-icon {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 14px !important;
+}
+
+.quick-stat-value {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  font-feature-settings: 'tnum', 'lnum' !important;
+}
+
+.quick-stat-label {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  color: var(--lux-text-muted) !important;
+  margin-top: 4px !important;
+}
+
+/* ==========================================================================
+   KPI STAT CARDS — Inline-styled dashboard metric cards
+   ========================================================================== */
+.kpi-stat-card {
+  background: var(--kpi-tile-bg, var(--lux-surface-alt)) !important;
+  border: 1px solid var(--kpi-tile-border, var(--lux-border)) !important;
+  border-radius: 14px !important;
+  padding: 22px !important;
+  box-shadow: var(--kpi-tile-shadow, 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.03)) !important;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  position: relative;
+}
+
+.kpi-stat-card:hover {
+  box-shadow: var(--lux-card-shadow) !important;
+  transform: translateY(-2px);
+}
+
+html.dark .kpi-stat-card {
+  background: #283548 !important;
+  border: 1px solid rgba(148,163,184,0.25) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+html.dark .kpi-stat-card:hover {
+  background: #334155 !important;
+  border-color: rgba(148,163,184,0.35) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+  transform: translateY(-2px);
+}
+
+.kpi-stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--lux-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.kpi-stat-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--lux-text);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-feature-settings: 'tnum', 'lnum';
+  margin-bottom: 4px;
+}
+
+.kpi-stat-sublabel {
+  font-size: 0.8rem;
+  color: var(--lux-text-muted);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   SECTION CARDS — Enhanced headers & depth
+   ========================================================================== */
+.section-card {
+  overflow: hidden !important;
+  margin-bottom: 28px !important;
+}
+
+.section-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom: 1px solid var(--lux-border) !important;
+  padding: 18px 24px !important;
+}
+
+html.dark .section-card-header {
+  background: rgba(255,255,255,0.02) !important;
+}
+
+.section-card-header h3 {
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--lux-text) !important;
+}
+
+.section-card-header a {
+  font-weight: 600 !important;
+  color: var(--accent) !important;
+  text-decoration: none !important;
+  font-size: 0.8rem !important;
+  letter-spacing: 0.01em !important;
+  transition: color 0.15s ease !important;
+}
+
+.section-card-header a:hover {
+  color: var(--accent-hover) !important;
+}
+
+/* ==========================================================================
+   TABLES — Luxury
+   ========================================================================== */
+.table,
+table {
+  color: var(--lux-text);
+}
+
+.table th,
+table th {
+  background: var(--lux-table-header-bg) !important;
+  color: var(--lux-text-muted) !important;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 1px solid var(--lux-border-strong) !important;
+  padding: 12px 16px !important;
+}
+
+.table td,
+table td {
+  color: var(--lux-text) !important;
+  border-bottom: 1px solid var(--lux-border) !important;
+  padding: 12px 16px !important;
+  font-size: 13.5px;
+}
+
+.table tbody tr:nth-child(even),
+table tbody tr:nth-child(even) {
+  background: var(--lux-table-stripe);
+}
+
+.table tbody tr:hover,
+table tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.clickable-row td a {
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+}
+
+/* ==========================================================================
+   PREMIUM ADMIN CARDS — Luxury
+   ========================================================================== */
+.premium-admin-grid {
+  gap: 24px !important;
+}
+
+.premium-admin-card {
+  border-radius: 16px !important;
+  padding: 28px !important;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.premium-admin-card:hover {
+  transform: translateY(-4px) !important;
+}
+
+.premium-admin-icon {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 16px !important;
+}
+
+.premium-admin-content h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.premium-admin-content p {
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+/* ==========================================================================
+   ALERT CARDS — Premium
+   ========================================================================== */
+.alert-card {
+  border-radius: 14px !important;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.alert-card:hover {
+  transform: translateY(-2px) !important;
+}
+
+html.dark .alert-card {
+  background: var(--lux-surface) !important;
+}
+
+html.dark .alert-danger {
+  background: linear-gradient(135deg, var(--lux-surface) 0%, rgba(239,68,68,0.06) 100%) !important;
+  border: 1px solid rgba(239,68,68,0.15) !important;
+}
+
+html.dark .alert-warning {
+  background: linear-gradient(135deg, var(--lux-surface) 0%, rgba(245,158,11,0.06) 100%) !important;
+  border: 1px solid rgba(245,158,11,0.15) !important;
+}
+
+/* ==========================================================================
+   LOCATION BREAKDOWN BARS — Dashboard
+   ========================================================================== */
+.location-item {
+  padding: 14px 20px !important;
+  border-bottom: 1px solid var(--lux-border) !important;
+  transition: background 0.15s ease;
+}
+
+.location-item:last-child {
+  border-bottom: none !important;
+}
+
+.location-item:hover {
+  background: var(--lux-surface-alt);
+}
+
+.location-name {
+  color: var(--lux-text) !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+}
+
+.location-count {
+  color: var(--lux-text-muted) !important;
+  font-size: 12px !important;
+}
+
+.location-value {
+  color: var(--lux-text-secondary) !important;
+  font-feature-settings: 'tnum', 'lnum' !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+.location-bar-container {
+  background: var(--lux-surface-alt) !important;
+  border-radius: 4px !important;
+  overflow: hidden;
+}
+
+html.dark .location-bar-container {
+  background: rgba(255,255,255,0.04) !important;
+}
+
+.location-bar {
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover)) !important;
+  border-radius: 4px !important;
+  min-height: 6px !important;
+}
+
+/* ==========================================================================
+   ACTIVITY FEED — Premium
+   ========================================================================== */
+.activity-feed-item {
+  padding: 16px 24px !important;
+  transition: background 0.15s ease !important;
+}
+
+.activity-feed-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+.activity-feed-action {
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+}
+
+.activity-feed-id {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.activity-feed-meta {
+  margin-top: 5px !important;
+}
+
+/* ==========================================================================
+   QUICK ACTION CARDS — Dashboard sidebar
+   ========================================================================== */
+.quick-action-card {
+  border-radius: 12px !important;
+  padding: 14px 12px !important;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+}
+
+.quick-action-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--lux-card-shadow) !important;
+}
+
+.quick-action-name {
+  font-weight: 700 !important;
+  font-size: 12.5px !important;
+}
+
+/* ==========================================================================
+   PAGE CONTENT SPACING
+   ========================================================================== */
+.page-content {
+  padding: 28px 32px !important;
+}
+
+/* ==========================================================================
+   BADGES & STATUS PILLS — Luxury
+   ========================================================================== */
+.badge-primary,
+.badge.badge-primary {
+  background: var(--accent-soft) !important;
+  color: #cf3339 !important;
+  border: 1px solid rgba(207, 51, 57, 0.15);
+  font-weight: 600;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #f59e0b !important;
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+/* ==========================================================================
+   COMMAND PALETTE — Luxury Dark Glass
+   ========================================================================== */
+.command-palette-overlay {
+  background: var(--lux-modal-overlay) !important;
+  backdrop-filter: blur(8px);
+}
+
+.command-palette {
+  background: var(--lux-surface-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-modal-shadow) !important;
+}
+
+.command-palette-input {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+.command-palette-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+.command-palette-result {
+  color: var(--lux-text) !important;
+}
+
+.command-palette-result.selected,
+.command-palette-result:hover {
+  background: var(--accent-soft) !important;
+}
+
+.command-palette-result .command-palette-result-group {
+  color: var(--lux-text-muted) !important;
+}
+
+.command-palette-footer {
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+.command-palette-footer kbd {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   LOGIN PAGE — Luxury
+   ========================================================================== */
+.login-card .login-header,
+.login-header,
+.login-hero-header {
+  background: linear-gradient(135deg, #081e3a 0%, #0f2d52 100%) !important;
+}
+
+.login-card,
+.login-hero {
+  background: var(--lux-surface) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+}
+
+.login-page-wrapper {
+  background: var(--lux-bg) !important;
+}
+
+.login-card input,
+.login-hero input {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+.login-hero-body label,
+.login-form-label {
+  color: var(--lux-text-secondary) !important;
+}
+
+.demo-account-item {
+  background: var(--lux-surface-alt) !important;
+  border: 1px solid var(--lux-border) !important;
+  color: var(--lux-text) !important;
+  transition: all 0.2s ease;
+}
+
+.demo-account-item:hover {
+  border-color: rgba(207, 51, 57, 0.3) !important;
+  background: var(--accent-soft) !important;
+  transform: translateX(4px);
+}
+
+.demo-account-item .demo-role {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   SIGN IN BUTTON IN SIDEBAR
+   ========================================================================== */
+.nav-item-signin {
+  background: rgba(207, 51, 57, 0.12) !important;
+  border: 1px solid rgba(207, 51, 57, 0.2) !important;
+  color: #e8a0a0 !important;
+}
+
+.nav-item-signin:hover {
+  background: rgba(207, 51, 57, 0.2) !important;
+  border-color: rgba(207, 51, 57, 0.4) !important;
+  color: #f0c0c0 !important;
+}
+
+/* ==========================================================================
+   PAGINATION — Luxury
+   ========================================================================== */
+.pagination .active,
+.page-item.active .page-link {
+  background: #cf3339 !important;
+  border-color: #cf3339 !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(207, 51, 57, 0.2);
+}
+
+.page-link {
+  color: var(--lux-text-secondary) !important;
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   TABS — Luxury
+   ========================================================================== */
+.nav-tabs .nav-link.active,
+.tab-btn.active {
+  border-bottom-color: #cf3339 !important;
+  color: #cf3339 !important;
+}
+
+.tab-btn,
+.nav-tabs .nav-link {
+  color: var(--lux-text-muted) !important;
+  transition: color 0.2s ease;
+}
+
+.tab-btn:hover,
+.nav-tabs .nav-link:hover {
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   ALERTS / TOASTS — Luxury
+   ========================================================================== */
+.alert-success,
+.toast-success {
+  border-left: 4px solid #10b981;
+  background: rgba(16, 185, 129, 0.08) !important;
+  color: var(--lux-text) !important;
+}
+
+.alert-danger,
+.toast-error {
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: var(--lux-text) !important;
+}
+
+.alert-warning,
+.toast-warning {
+  border-left: 4px solid #f59e0b;
+  background: rgba(245, 158, 11, 0.08) !important;
+  color: var(--lux-text) !important;
+}
+
+.alert-info,
+.toast-info {
+  border-left: 4px solid #3b82f6;
+  background: rgba(59, 130, 246, 0.08) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   MODALS — Luxury Glass
+   ========================================================================== */
+.modal-overlay,
+.help-panel {
+  background: var(--lux-modal-overlay) !important;
+  backdrop-filter: blur(8px);
+}
+
+.modal-content,
+.help-panel-content {
+  background: var(--lux-surface-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-modal-shadow) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   ORG SELECTOR — Luxury
+   ========================================================================== */
+.org-selector-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+}
+
+/* ==========================================================================
+   FOOTER — Luxury
+   ========================================================================== */
+.app-footer {
+  background: var(--lux-surface) !important;
+  border-top: 1px solid var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   ENV BANNER — Refined
+   ========================================================================== */
+.env-banner {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   DATA GRID OVERRIDES — Luxury Dark Mode
+   ========================================================================== */
+html.dark .enhanced-grid-toolbar {
+  background: #111827 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+html.dark .enhanced-grid-toolbar input,
+html.dark .enhanced-grid-toolbar select {
+  background: #0f1626 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark .enhanced-grid-toolbar button {
+  background: #1e293b !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark .enhanced-grid-toolbar button:hover {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+/* ==========================================================================
+   SECTION HEADERS in page content
+   ========================================================================== */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--lux-text);
+}
+
+/* ==========================================================================
+   LINKS — Subtle
+   ========================================================================== */
+a:not(.nav-item):not(.menu-item):not(.btn):not(.sidebar-brand):not(.user-menu-item):not(.demo-account-item) {
+  transition: color 0.15s ease;
+}
+
+/* ==========================================================================
+   CHECKBOX / TOGGLE
+   ========================================================================== */
+input[type="checkbox"]:checked {
+  background-color: #cf3339;
+  border-color: #cf3339;
+}
+
+/* ==========================================================================
+   SELECTION
+   ========================================================================== */
+::selection {
+  background: rgba(207, 51, 57, 0.12);
+  color: inherit;
+}
+
+/* ==========================================================================
+   SCROLLBARS — Refined
+   ========================================================================== */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--lux-scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--lux-scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--lux-scrollbar-hover); }
+
+/* ==========================================================================
+   SMOOTH TRANSITIONS for theme toggle
+   ========================================================================== */
+.main-content,
+.main-header,
+.app-footer,
+.card,
+.panel,
+.stat-card,
+.form-control,
+input,
+select,
+textarea,
+.table th,
+.table td,
+table th,
+table td,
+.badge,
+.command-palette,
+.global-search-input,
+.cmd-palette-trigger,
+.user-menu,
+.modal-content,
+.org-selector-dropdown {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ==========================================================================
+   DARK MODE SPECIFIC — page-level overrides
+   ========================================================================== */
+html.dark .page-hero {
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+html.dark .sidebar-brand-logo {
+  background: transparent;
+}
+
+html.dark .kpi-card,
+html.dark .stat-card {
+  background: #283548 !important;
+  border: 1px solid rgba(148,163,184,0.25) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+html.dark .success-message,
+html.dark .error-message {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark hr {
+  border-color: var(--lux-border);
+}
+
+html.dark code,
+html.dark pre {
+  background: var(--lux-surface-alt);
+  color: var(--lux-text);
+  border-color: var(--lux-border);
+}
+
+/* ==========================================================================
+   DB STATUS CHIP — Footer
+   ========================================================================== */
+.db-status-chip {
+  font-size: 11px;
+  background: var(--lux-surface-alt);
+  color: var(--lux-text-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--lux-border);
+}
+
+/* ==========================================================================
+   EMPTY STATES & MISC
+   ========================================================================== */
+.empty-state {
+  color: var(--lux-text-muted);
+}
+
+.empty-state h3 {
+  color: var(--lux-text-secondary);
+}
+
+/* ==========================================================================
+   PROGRESS BARS
+   ========================================================================== */
+.progress-bar {
+  background: linear-gradient(90deg, #cf3339, #b82d32);
+}
+
+/* ==========================================================================
+   DROPDOWN MENUS
+   ========================================================================== */
+.dropdown-menu {
+  background: var(--lux-surface-elevated) !important;
+  border: 1px solid var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+}
+
+.dropdown-item {
+  color: var(--lux-text) !important;
+}
+
+.dropdown-item:hover {
+  background: var(--accent-soft) !important;
+  color: #cf3339 !important;
+}
+
+/* ==========================================================================
+   TOOLTIPS
+   ========================================================================== */
+[data-tooltip]::after {
+  background: var(--lux-tooltip-bg);
+  color: var(--lux-tooltip-text);
+}
+
+/* ==========================================================================
+   HEADER ACTIONS ALIGNMENT
+   ========================================================================== */
+.header-actions {
+  gap: 8px;
+}
+
+/* ==========================================================================
+   ANIMATIONS — Luxury entrance
+   ========================================================================== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page-content {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* ==========================================================================
+   DARK MODE — Breadcrumb
+   ========================================================================== */
+html.dark .header-breadcrumb {
+  color: var(--lux-text-muted);
+}
+
+html.dark .breadcrumb-back {
+  color: var(--lux-text-secondary);
+  border-color: var(--lux-border);
+  background: var(--lux-surface-alt);
+}
+
+html.dark .breadcrumb-back:hover {
+  color: var(--lux-text);
+  background: var(--lux-surface-elevated);
+}
+
+/* ==========================================================================
+   DARK MODE — Section titles, small text
+   ========================================================================== */
+html.dark .section-title,
+html.dark .detail-label,
+html.dark .field-label {
+  color: var(--lux-text-muted);
+}
+
+html.dark .detail-value,
+html.dark .field-value {
+  color: var(--lux-text);
+}
+
+/* ==========================================================================
+   DARK MODE — Action bar chips / count badges
+   ========================================================================== */
+html.dark .action-chip,
+html.dark .count-badge {
+  background: var(--lux-surface-alt);
+  color: var(--lux-text-secondary);
+  border-color: var(--lux-border);
+}
+
+/* ==========================================================================
+   FOCUS VISIBLE — Accessibility
+   ========================================================================== */
+:focus-visible {
+  outline: 2px solid #cf3339;
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   DARK MODE — Dashboard
+   ========================================================================== */
+html.dark .alert-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .alert-danger {
+  background: linear-gradient(135deg, var(--lux-surface), rgba(239, 68, 68, 0.05)) !important;
+  border-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+html.dark .alert-warning {
+  background: linear-gradient(135deg, var(--lux-surface), rgba(245, 158, 11, 0.05)) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+html.dark .alert-content strong {
+  color: var(--lux-text) !important;
+}
+
+html.dark .alert-content span {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .section-card .section-header,
+html.dark .section-card h3 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .widget-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .view-all-link {
+  color: #cf3339 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — KPI / Stats panel text
+   ========================================================================== */
+html.dark .kpi-stat-value,
+html.dark .stat-number,
+html.dark .hero-stat-value,
+html.dark .metric-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .kpi-stat-label,
+html.dark .stat-text,
+html.dark .hero-stat-label,
+html.dark .metric-label {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Premium hero KPI panel
+   ========================================================================== */
+html.dark .hero-kpi-panel {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .hero-kpi-item {
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Active link badges in hero
+   ========================================================================== */
+html.dark .action-chip {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Enhanced data grid
+   ========================================================================== */
+html.dark .enhanced-grid-wrapper {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .grid-row-actions a,
+html.dark .grid-row-actions button {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .grid-row-actions a:hover,
+html.dark .grid-row-actions button:hover {
+  color: #cf3339 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Page title and description text
+   ========================================================================== */
+html.dark .page-description,
+html.dark .section-subtitle {
+  color: var(--lux-text-secondary);
+}
+
+html.dark .page-title {
+  color: var(--lux-text);
+}
+
+/* ==========================================================================
+   DARK MODE — Sidebar footer user info
+   ========================================================================== */
+html.dark .sidebar-user-details .sidebar-user-name {
+  color: rgba(255,255,255,0.9);
+}
+
+html.dark .sidebar-user-details .sidebar-user-role {
+  color: rgba(255,255,255,0.5);
+}
+
+/* ==========================================================================
+   DARK MODE — premium-components.css overrides
+   All hardcoded white/light backgrounds converted to dark surfaces
+   ========================================================================== */
+html.dark .premium-tabs {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .section-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow) !important;
+}
+
+html.dark .section-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .section-card-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-card-title svg {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .section-card-body {
+  color: var(--lux-text) !important;
+}
+
+html.dark .quick-stat-card {
+  background: #283548 !important;
+  border: 1px solid rgba(148,163,184,0.25) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+html.dark .quick-stat-card:hover {
+  background: #334155 !important;
+  border-color: rgba(148,163,184,0.35) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+}
+
+html.dark .quick-stat-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .quick-stat-value.primary { color: #60a5fa !important; }
+html.dark .quick-stat-value.success { color: #4ade80 !important; }
+html.dark .quick-stat-value.warning { color: #fbbf24 !important; }
+html.dark .quick-stat-value.danger { color: #f87171 !important; }
+html.dark .quick-stat-value.muted { color: var(--lux-text-muted) !important; }
+
+html.dark .quick-stat-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .quick-stat-icon.primary { background: rgba(59, 130, 246, 0.12) !important; color: #60a5fa !important; }
+html.dark .quick-stat-icon.success { background: rgba(34, 197, 94, 0.12) !important; color: #4ade80 !important; }
+html.dark .quick-stat-icon.warning { background: rgba(245, 158, 11, 0.12) !important; color: #fbbf24 !important; }
+html.dark .quick-stat-icon.danger { background: rgba(239, 68, 68, 0.12) !important; color: #f87171 !important; }
+html.dark .quick-stat-icon.info { background: rgba(8, 145, 178, 0.12) !important; color: #22d3ee !important; }
+html.dark .quick-stat-icon.purple { background: rgba(139, 92, 246, 0.12) !important; color: #a78bfa !important; }
+html.dark .quick-stat-icon.pink { background: rgba(236, 72, 153, 0.12) !important; color: #f472b6 !important; }
+
+html.dark .activity-timeline-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-admin-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-admin-card:hover {
+  border-color: rgba(207, 51, 57, 0.3) !important;
+  box-shadow: var(--lux-card-shadow-hover) !important;
+}
+
+html.dark .premium-admin-content h3 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .premium-admin-content p {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .premium-admin-icon.primary { background: rgba(59, 130, 246, 0.12) !important; color: #60a5fa !important; }
+html.dark .premium-admin-icon.success { background: rgba(34, 197, 94, 0.12) !important; color: #4ade80 !important; }
+html.dark .premium-admin-icon.warning { background: rgba(245, 158, 11, 0.12) !important; color: #fbbf24 !important; }
+html.dark .premium-admin-icon.danger { background: rgba(239, 68, 68, 0.12) !important; color: #f87171 !important; }
+html.dark .premium-admin-icon.info { background: rgba(8, 145, 178, 0.12) !important; color: #22d3ee !important; }
+html.dark .premium-admin-icon.purple { background: rgba(139, 92, 246, 0.12) !important; color: #a78bfa !important; }
+html.dark .premium-admin-icon.secondary { background: rgba(100, 116, 139, 0.12) !important; color: #94a3b8 !important; }
+
+html.dark .premium-section-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .premium-section-subtitle {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .premium-table-container {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-table thead {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .premium-table th {
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-table td {
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-table tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+html.dark .premium-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .btn-premium-secondary {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — modern.css overrides (forms, grids, modals, detail sections)
+   ========================================================================== */
+html.dark .grid-search-input {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-search-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-toolbar-premium .btn:hover {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+html.dark .grid-column-manager {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .modal-content {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .modal-content .form-control,
+html.dark .modal-content .form-select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .modal-content .form-control::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .detail-section {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .action-btn-secondary {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — dashboard.css overrides (timeline icons, activity feed)
+   ========================================================================== */
+html.dark .timeline-icon.success { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
+html.dark .timeline-icon.primary { background: rgba(37, 99, 235, 0.15) !important; color: #60a5fa !important; }
+html.dark .timeline-icon.danger { background: rgba(220, 38, 38, 0.15) !important; color: #f87171 !important; }
+html.dark .timeline-icon.warning { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
+html.dark .timeline-icon.info { background: rgba(8, 145, 178, 0.15) !important; color: #22d3ee !important; }
+html.dark .timeline-icon.purple { background: rgba(124, 58, 237, 0.15) !important; color: #a78bfa !important; }
+html.dark .timeline-icon.neutral { background: rgba(100, 116, 139, 0.12) !important; color: #94a3b8 !important; }
+
+html.dark .activity-feed-icon.success { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
+html.dark .activity-feed-icon.primary { background: rgba(37, 99, 235, 0.15) !important; color: #60a5fa !important; }
+html.dark .activity-feed-icon.danger { background: rgba(220, 38, 38, 0.15) !important; color: #f87171 !important; }
+html.dark .activity-feed-icon.warning { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
+html.dark .activity-feed-icon.info { background: rgba(8, 145, 178, 0.15) !important; color: #22d3ee !important; }
+html.dark .activity-feed-icon.purple { background: rgba(124, 58, 237, 0.15) !important; color: #a78bfa !important; }
+html.dark .activity-feed-icon.neutral { background: rgba(100, 116, 139, 0.12) !important; color: #94a3b8 !important; }
+
+html.dark .timeline-action {
+  color: var(--lux-text) !important;
+}
+
+html.dark .timeline-time {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .activity-feed-item {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .activity-feed-action {
+  color: var(--lux-text) !important;
+}
+
+html.dark .activity-feed-entity {
+  color: var(--lux-text-secondary) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — workorders.css overrides
+   ========================================================================== */
+html.dark .recurring-failures-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .recurring-failures-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .operation-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .operation-step-check {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — command-palette.css overrides
+   ========================================================================== */
+html.dark .command-palette {
+  background: var(--lux-surface-elevated) !important;
+  box-shadow: var(--lux-modal-shadow) !important;
+  border: 1px solid var(--lux-border) !important;
+}
+
+html.dark .command-palette-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .command-palette-search-icon {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-input {
+  color: var(--lux-text) !important;
+}
+
+html.dark .command-palette-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-esc {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-results {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .command-palette-result {
+  color: var(--lux-text) !important;
+}
+
+html.dark .command-palette-result-icon {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-result-group {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-result.selected,
+html.dark .command-palette-result:hover {
+  background: var(--accent-soft) !important;
+}
+
+html.dark .command-palette-footer {
+  background: var(--lux-surface-alt) !important;
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-footer kbd {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — item-master.css overrides
+   ========================================================================== */
+html.dark .revision-selector-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .buyability-category {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .revision-bar-btn-secondary {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .compare-section {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .release-modal {
+  background: var(--lux-surface-elevated) !important;
+}
+
+html.dark .draft-info-banner {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — KPI stat cards (dashboard inline-style overrides)
+   ========================================================================== */
+html.dark .kpi-stat-card {
+  background: #283548 !important;
+  border: 1px solid rgba(148,163,184,0.25) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+
+html.dark .kpi-stat-card:hover {
+  background: #334155 !important;
+  border-color: rgba(148,163,184,0.35) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6) !important;
+  transform: translateY(-2px);
+}
+
+html.dark .kpi-grid {
+  color: var(--lux-text);
+}
+
+/* ==========================================================================
+   DARK MODE — Form fields in modern.css
+   ========================================================================== */
+html.dark .form-control,
+html.dark .form-select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .form-control::placeholder,
+html.dark .form-select::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .form-label,
+html.dark label {
+  color: var(--lux-text-secondary) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — reports.css overrides
+   ========================================================================== */
+html.dark .depreciation-schedule .card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Quick action cards (dashboard)
+   ========================================================================== */
+html.dark .quick-action-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .quick-action-card:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .quick-action-name {
+  color: var(--lux-text) !important;
+}
+
+html.dark .quick-action-desc {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Inline style overrides (targets elements with hardcoded bg)
+   These use attribute selectors + html.dark to catch inline styles
+   ========================================================================== */
+html.dark [style*="background: #f8fafc"],
+html.dark [style*="background:#f8fafc"],
+html.dark [style*="background: #f0f9ff"],
+html.dark [style*="background:#f0f9ff"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: white"],
+html.dark [style*="background:white"] {
+  background: var(--lux-surface) !important;
+}
+
+html.dark [style*="border: 1px solid #e2e8f0"],
+html.dark [style*="border:1px solid #e2e8f0"],
+html.dark [style*="border-top: 1px solid #e2e8f0"],
+html.dark [style*="border-bottom: 1px solid #e2e8f0"] {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark [style*="color: #64748b"],
+html.dark [style*="color:#64748b"] {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark [style*="color: #475569"],
+html.dark [style*="color:#475569"] {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark [style*="color: #1e3a5f"],
+html.dark [style*="color:#1e3a5f"],
+html.dark [style*="color: #1e293b"],
+html.dark [style*="color:#1e293b"],
+html.dark [style*="color: #334155"],
+html.dark [style*="color:#334155"],
+html.dark [style*="color: #0c4a6e"],
+html.dark [style*="color:#0c4a6e"],
+html.dark [style*="color:#334155!important"] {
+  color: var(--lux-text) !important;
+}
+
+html.dark [style*="color: #94a3b8"],
+html.dark [style*="color:#94a3b8"] {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark [style*="background: #0f172a"] {
+  background: var(--lux-surface-elevated) !important;
+}
+
+html.dark [style*="background: #fefce8"],
+html.dark [style*="background:#fefce8"] {
+  background: rgba(245, 158, 11, 0.08) !important;
+}
+
+html.dark [style*="background: linear-gradient(135deg, #f0f9ff"],
+html.dark [style*="background: linear-gradient(135deg, #1e3a5f"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Activity status badges
+   ========================================================================== */
+html.dark .activity-status {
+  border-color: transparent !important;
+}
+
+/* ==========================================================================
+   DARK MODE — org selector overrides
+   ========================================================================== */
+html.dark .org-selector-btn {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .org-selector-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+}
+
+html.dark .org-selector-search input {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .org-selector-item {
+  color: var(--lux-text) !important;
+}
+
+html.dark .org-selector-item:hover {
+  background: var(--accent-soft) !important;
+}
+
+html.dark .org-selector-item.active {
+  background: var(--accent-soft) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Help center / enterprise help
+   ========================================================================== */
+html.dark .help-card,
+html.dark .guide-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .help-card:hover,
+html.dark .guide-card:hover {
+  border-color: rgba(207, 51, 57, 0.3) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Env banner refinement
+   ========================================================================== */
+html.dark .env-banner {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Links
+   ========================================================================== */
+html.dark a:not(.nav-item):not(.menu-item):not(.btn):not(.sidebar-brand):not(.user-menu-item):not(.demo-account-item):not(.quick-stat-card):not(.premium-admin-card):not(.quick-action-card) {
+  color: #60a5fa;
+}
+
+html.dark a:not(.nav-item):not(.menu-item):not(.btn):not(.sidebar-brand):not(.user-menu-item):not(.demo-account-item):not(.quick-stat-card):not(.premium-admin-card):not(.quick-action-card):hover {
+  color: #93bbfd;
+}
+
+/* ==========================================================================
+   DARK MODE — View all links in section headers
+   ========================================================================== */
+html.dark .section-card-header a {
+  color: #cf3339 !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Misc text and border colors in premium-components
+   ========================================================================== */
+html.dark .premium-table-actions {
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .premium-table-empty {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .premium-table-pagination {
+  border-top-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Tooltip for sidebar collapsed icons
+   ========================================================================== */
+html.dark .menu-group-header[data-tooltip]::after {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Mobile overlay
+   ========================================================================== */
+html.dark .sidebar-overlay {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Login page background
+   ========================================================================== */
+html.dark .login-page-wrapper {
+  background: var(--lux-bg) !important;
+}
+
+html.dark .login-hero {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .login-hero-body {
+  color: var(--lux-text) !important;
+}
+
+html.dark .login-hero-body label {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .demo-accounts-divider {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .demo-accounts-divider::before,
+html.dark .demo-accounts-divider::after {
+  background: var(--lux-border) !important;
+}
+
+html.dark .demo-account-item .demo-avatar {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .demo-account-info .demo-name {
+  color: var(--lux-text) !important;
+}
+
+html.dark .demo-account-info .demo-role {
+  color: var(--lux-text-muted) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — CIP PartyDrilldown + CIP specific overrides
+   ========================================================================== */
+html.dark .drilldown-card,
+html.dark .cost-summary-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Checkbox / Radio
+   ========================================================================== */
+html.dark input[type="checkbox"],
+html.dark input[type="radio"] {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — Nav tab bar borders
+   ========================================================================== */
+html.dark .nav-tabs {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — API/docs pages
+   ========================================================================== */
+html.dark .api-alert-warning {
+  background: rgba(245, 158, 11, 0.08) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+  color: var(--lux-text) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — COMPREHENSIVE SWEEP (v3.0)
+   Covers all remaining components across modern.css, premium-components.css,
+   modules/*.css, help-enterprise.css, work-requests.css, item-master.css, etc.
+   ========================================================================== */
+
+/* --- modern.css: Grid Toolbar Premium --- */
+html.dark .grid-toolbar-premium {
+  background: #111827 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+html.dark .grid-toolbar-premium .btn {
+  background: #1e293b !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark .grid-toolbar-premium .btn:hover {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+html.dark .grid-count {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* --- modern.css: Grid Dropdowns --- */
+html.dark .grid-filter-dropdown,
+html.dark .grid-column-dropdown,
+html.dark .grid-export-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-modal-shadow) !important;
+}
+
+html.dark .grid-dropdown-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-dropdown-footer {
+  background: var(--lux-surface-alt) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .grid-column-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .grid-column-item span {
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-export-dropdown button {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .grid-export-dropdown button:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-export-dropdown button svg {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-filter-item label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-filter-item input,
+html.dark .grid-filter-item select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- modern.css: Sortable Headers & Sticky Header --- */
+html.dark .data-table th.sortable:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .enhanced-grid thead.sticky-header th {
+  background: var(--lux-surface-alt) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* --- modern.css: Data Grid --- */
+html.dark .data-grid th {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .data-grid td {
+  color: var(--lux-text-secondary) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .data-grid tr:hover td {
+  background: rgba(207, 51, 57, 0.04) !important;
+}
+
+/* --- modern.css: Data Table --- */
+html.dark .data-table th {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .data-table td {
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .data-table tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+html.dark .data-table.enhanced-grid tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+  box-shadow: none !important;
+}
+
+/* --- modern.css: Enhanced Row Hover --- */
+html.dark .enhanced-grid tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+/* --- modern.css: Modal Content / Footer --- */
+html.dark .modal-footer {
+  background: var(--lux-surface-alt) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .modal-body .form-control,
+html.dark .modal-body .form-select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .modal-body .form-group label,
+html.dark .modal-body .form-label,
+html.dark .modal-content .form-label,
+html.dark .modal-overlay .form-label {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- modern.css: Card Header --- */
+html.dark .card-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .card-title {
+  color: var(--lux-text) !important;
+}
+
+/* --- modern.css: Detail Sections --- */
+html.dark .detail-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .detail-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .detail-value strong {
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-title {
+  color: var(--lux-text) !important;
+}
+
+/* --- modern.css: Form Controls --- */
+html.dark .form-control,
+html.dark .form-select,
+html.dark input[type="text"],
+html.dark input[type="number"],
+html.dark input[type="email"],
+html.dark input[type="date"],
+html.dark input[type="datetime-local"],
+html.dark select,
+html.dark textarea {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .form-control::placeholder,
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .form-group label,
+html.dark label.form-label {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- modern.css: Tab Nav --- */
+html.dark .tab-nav {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+/* --- modern.css: Badge Secondary --- */
+html.dark .badge-secondary {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- modern.css: Status Badges --- */
+html.dark .status-badge.inactive,
+html.dark .status-badge.disposed,
+html.dark .status-badge.cancelled {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .status-badge.active,
+html.dark .status-badge.completed,
+html.dark .status-badge.success {
+  background: rgba(22, 163, 74, 0.12) !important;
+  color: #4ade80 !important;
+}
+
+html.dark .status-badge.pending,
+html.dark .status-badge.scheduled,
+html.dark .status-badge.warning {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+}
+
+html.dark .status-badge.in-progress,
+html.dark .status-badge.working {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
+}
+
+html.dark .status-badge.overdue,
+html.dark .status-badge.error,
+html.dark .status-badge.danger {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+}
+
+/* --- modern.css: Hierarchy / Tour --- */
+html.dark .hierarchy-link {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .tour-btn {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+/* --- premium-components.css gaps --- */
+html.dark .section-card-footer {
+  background: var(--lux-surface-alt) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .field-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .field-value {
+  color: var(--lux-text) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .field-value.empty {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .section-divider-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-divider-line {
+  background: linear-gradient(90deg, var(--lux-border-strong) 0%, transparent 100%) !important;
+}
+
+html.dark .empty-state-icon {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .empty-state-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .empty-state-text {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .stat-card-premium {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .activity-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- modules/tabs.css --- */
+html.dark .tab-nav {
+  background: var(--lux-surface) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .tab-nav__item {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .tab-nav__item:hover {
+  color: var(--lux-text) !important;
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .tab-nav__item--active {
+  color: #cf3339 !important;
+  border-bottom-color: #cf3339 !important;
+}
+
+html.dark .tab-nav__count {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .tab-nav__item--active .tab-nav__count {
+  background: rgba(207, 51, 57, 0.12) !important;
+  color: #cf3339 !important;
+}
+
+html.dark .tab-nav--compact {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .tab-nav--compact .tab-nav__item--active {
+  background: var(--lux-surface) !important;
+}
+
+/* --- modules/purchasing.css --- */
+html.dark .modal-box {
+  background: var(--lux-surface-elevated) !important;
+}
+
+html.dark .modal-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .modal-header h3 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .line-row {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .line-row:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .line-row.active {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+html.dark .line-num {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- modules/bulk-operations.css --- */
+html.dark .modal {
+  background: var(--lux-surface-elevated) !important;
+}
+
+html.dark .modal-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .modal-header-text h3 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .modal-header-text p {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .modal-close {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .modal-close:hover {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+}
+
+html.dark .modal-footer {
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .asset-selector {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .asset-selector-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .asset-selector-item {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .asset-selector-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .asset-selector-item.selected {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+html.dark .asset-selector-number {
+  color: #60a5fa !important;
+}
+
+html.dark .asset-selector-desc {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .detail-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .detail-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .clickable-row:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .asset-number-link {
+  color: #60a5fa !important;
+}
+
+/* --- modules/ai.css --- */
+html.dark .chat-container {
+  background: var(--lux-surface) !important;
+}
+
+html.dark .message-content {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .assistant-message .message-content {
+  background: rgba(59, 130, 246, 0.08) !important;
+  border-color: rgba(59, 130, 246, 0.15) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .user-message .message-avatar {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .message-content code {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .chat-suggestions {
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .suggestion-chip {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .suggestion-chip:hover {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html.dark .chat-input-container {
+  border-top-color: var(--lux-border) !important;
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .chat-input {
+  border-color: var(--lux-border-strong) !important;
+  background: var(--lux-input-bg) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .chat-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .voice-btn {
+  border-color: var(--lux-border) !important;
+  background: var(--lux-surface) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .voice-btn:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .message-content a.ai-link {
+  color: #60a5fa !important;
+}
+
+html.dark .message-content a.ai-link:hover {
+  color: #93bbfd !important;
+}
+
+/* --- modules/layout-components.css --- */
+html.dark .help-panel-content {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .help-panel-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .user-btn {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .user-btn:hover {
+  background: var(--lux-surface-elevated) !important;
+}
+
+html.dark .user-name {
+  color: var(--lux-text) !important;
+}
+
+html.dark .user-role {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
+}
+
+html.dark .user-menu {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+}
+
+html.dark .user-menu-item {
+  color: var(--lux-text) !important;
+}
+
+html.dark .user-menu-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- modules/admin.css --- */
+html.dark .details-content {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/assets.css --- */
+html.dark .location-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .location-card.from {
+  background: rgba(251, 191, 36, 0.06) !important;
+  border-color: rgba(251, 191, 36, 0.2) !important;
+}
+
+html.dark .location-card.to {
+  background: rgba(34, 197, 94, 0.06) !important;
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+html.dark .preview-item.highlight-result {
+  background: var(--lux-surface) !important;
+}
+
+/* --- modules/workorders.css --- */
+html.dark .recurring-failures-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .recurring-failures-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .recurring-failures-table thead tr {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .recurring-failures-table th {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .recurring-failures-table tbody tr {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .recurring-failures-table td {
+  color: var(--lux-text) !important;
+}
+
+html.dark .failure-code-badge.danger {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #f87171 !important;
+}
+
+html.dark .failure-code-badge.warning {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+}
+
+/* --- modules/dashboard.css --- */
+html.dark .alert-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .alert-danger {
+  background: linear-gradient(135deg, var(--lux-surface) 0%, rgba(239, 68, 68, 0.04) 100%) !important;
+  border-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+html.dark .alert-warning {
+  background: linear-gradient(135deg, var(--lux-surface) 0%, rgba(245, 158, 11, 0.04) 100%) !important;
+  border-color: rgba(245, 158, 11, 0.15) !important;
+}
+
+/* --- modules/help.css --- */
+html.dark .step-content h3 {
+  color: var(--lux-text) !important;
+}
+
+/* --- help-enterprise.css --- */
+html.dark .help-container,
+html.dark .help-sidebar,
+html.dark .category-card,
+html.dark .search-result-item,
+html.dark .guide-step-card,
+html.dark .checklist-card,
+html.dark .guide-sidebar,
+html.dark .article-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .help-sidebar {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .category-card:hover,
+html.dark .guide-card:hover,
+html.dark .article-card:hover {
+  border-color: rgba(207, 51, 57, 0.3) !important;
+  box-shadow: var(--lux-card-shadow-hover) !important;
+}
+
+html.dark .help-search-wrapper {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .guide-step-header,
+html.dark .checklist-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .code-block {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .article-meta {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .sidebar-nav-item:hover,
+html.dark .sidebar-nav-subitem:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .progress-step-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .progress-step-desc {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- work-requests.css --- */
+html.dark .wr-page-container {
+  background: var(--lux-bg) !important;
+}
+
+html.dark .wr-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .wr-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .wr-card-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .wr-detail-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .wr-footer {
+  border-top-color: var(--lux-border) !important;
+}
+
+/* --- item-master.css --- */
+html.dark .item-header-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .spec-grid-item {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .cost-breakdown-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .mpn-row:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .xref-row:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .vendor-part-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .vendor-part-card:hover {
+  border-color: rgba(207, 51, 57, 0.3) !important;
+}
+
+/* --- Generic table overrides --- */
+html.dark table th {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark table td {
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark table tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+html.dark table thead {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Generic card/panel overrides --- */
+html.dark .card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow) !important;
+}
+
+html.dark .panel {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- Page Hero overrides --- */
+html.dark .page-hero {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .page-hero-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .page-hero-subtitle {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .page-hero-breadcrumb a {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .page-hero-kpi-item {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .hero-kpi-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .hero-kpi-label {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- Btn secondary/outline in dark --- */
+html.dark .btn-secondary {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html.dark .btn-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html.dark .btn-outline-secondary {
+  color: var(--lux-text-secondary) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html.dark .btn-outline-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- Action button secondary in dark --- */
+html.dark .action-btn-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Page content background --- */
+html.dark .page-content {
+  background: var(--lux-bg) !important;
+}
+
+html.dark .main-content {
+  background: var(--lux-bg) !important;
+}
+
+/* --- Footer in dark --- */
+html.dark .app-footer {
+  background: var(--lux-surface) !important;
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- Search/Global Search input --- */
+html.dark .global-search-input {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .global-search-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- Premium status badges (premium-components.css) --- */
+html.dark .status-badge.info {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
+}
+
+/* --- Enhanced grid wrapper --- */
+html.dark .enhanced-grid-wrapper {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: var(--lux-card-shadow) !important;
+}
+
+/* --- Pagination --- */
+html.dark .pagination .page-item .page-link {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .pagination .page-item.active .page-link {
+  background: #cf3339 !important;
+  border-color: #cf3339 !important;
+  color: white !important;
+}
+
+html.dark .pagination .page-item .page-link:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Grid search icon --- */
+html.dark .grid-search svg {
+  color: var(--lux-text-muted) !important;
+}
+
+/* --- Module-specific: CIP cost preview dark adaptation --- */
+html.dark .cost-preview {
+  background: rgba(34, 197, 94, 0.06) !important;
+  border-color: rgba(34, 197, 94, 0.2) !important;
+}
+
+html.dark .cost-row {
+  border-bottom-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+/* --- Misc: Progress bar track --- */
+html.dark .progress {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Inline style color overrides for darker text variants --- */
+html.dark [style*="color: #0f172a"],
+html.dark [style*="color:#0f172a"] {
+  color: var(--lux-text) !important;
+}
+
+html.dark [style*="background: #e2e8f0"],
+html.dark [style*="background:#e2e8f0"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: #f3f4f6"],
+html.dark [style*="background:#f3f4f6"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: #e5e7eb"],
+html.dark [style*="background:#e5e7eb"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: #dbeafe"],
+html.dark [style*="background:#dbeafe"] {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+html.dark [style*="background: #dcfce7"],
+html.dark [style*="background:#dcfce7"] {
+  background: rgba(34, 197, 94, 0.12) !important;
+}
+
+html.dark [style*="background: #fee2e2"],
+html.dark [style*="background:#fee2e2"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+}
+
+html.dark [style*="background: #fef3c7"],
+html.dark [style*="background:#fef3c7"] {
+  background: rgba(245, 158, 11, 0.12) !important;
+}
+
+html.dark [style*="background: #f0fdf4"],
+html.dark [style*="background:#f0fdf4"] {
+  background: rgba(34, 197, 94, 0.06) !important;
+}
+
+html.dark [style*="background: #eff6ff"],
+html.dark [style*="background:#eff6ff"] {
+  background: rgba(59, 130, 246, 0.06) !important;
+}
+
+html.dark [style*="background: #fefce8"],
+html.dark [style*="background:#fefce8"],
+html.dark [style*="background: #fffbeb"],
+html.dark [style*="background:#fffbeb"] {
+  background: rgba(245, 158, 11, 0.06) !important;
+}
+
+html.dark [style*="background: #fef2f2"],
+html.dark [style*="background:#fef2f2"] {
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+
+/* --- Container backgrounds that use inline white/light --- */
+html.dark [style*="background: #ffffff"],
+html.dark [style*="background:#ffffff"] {
+  background: var(--lux-surface) !important;
+}
+
+html.dark [style*="background: #f9fafb"],
+html.dark [style*="background:#f9fafb"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: #f4f6f9"],
+html.dark [style*="background:#f4f6f9"] {
+  background: var(--lux-bg) !important;
+}
+
+html.dark [style*="background: #f0f2f5"],
+html.dark [style*="background:#f0f2f5"] {
+  background: var(--lux-bg) !important;
+}
+
+/* --- Ensure search input border matches dark mode --- */
+html.dark .grid-search-input:focus {
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 4px rgba(207, 51, 57, 0.12) !important;
+}
+
+/* ==========================================================================
+   DARK MODE — COMPREHENSIVE SWEEP v4.0
+   Systematic fix for ALL remaining white/light backgrounds across:
+   - modern.css (headers, content areas)
+   - premium-components.css (cards, tables, forms)
+   - modules/dashboard.css, workorders.css, assets.css, admin.css, ai.css,
+     bulk-operations.css, purchasing.css, layout-components.css, reports.css,
+     help.css
+   - help-enterprise.css, tour.css
+   - Inline style attribute selectors for Razor page hardcodes
+   ========================================================================== */
+
+/* --- modern.css: Main header & content header white overlay --- */
+html.dark .main-header {
+  background: rgba(17, 24, 39, 0.85) !important;
+  border-bottom: 1px solid var(--lux-border) !important;
+}
+
+html.dark .content-header {
+  background: rgba(17, 24, 39, 0.85) !important;
+  border-bottom: 1px solid var(--lux-border) !important;
+}
+
+/* --- modern.css: Detail cards and info panels --- */
+html.dark .info-card,
+html.dark .detail-card,
+html.dark .content-card,
+html.dark .panel-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .form-actions {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- premium-components.css: All cards/sections with background: white --- */
+html.dark .hero-section {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-detail-panel {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .tab-content-wrapper,
+html.dark .premium-tab-content {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .premium-form-group {
+  background: var(--lux-surface) !important;
+}
+
+html.dark .card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- modules/dashboard.css: .dashboard-card, quick-actions-grid --- */
+html.dark .dashboard-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .dashboard-card-header {
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- modules/workorders.css: All #fff backgrounds --- */
+html.dark .wo-detail-card,
+html.dark .wo-summary-card,
+html.dark .wo-operation-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .closeout-summary-card,
+html.dark .closeout-section {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .labor-card,
+html.dark .labor-entry-form {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/assets.css: .asset-card, preview-item --- */
+html.dark .asset-card,
+html.dark .preview-item,
+html.dark .preview-item.highlight-result {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .asset-header-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/admin.css: white backgrounds --- */
+html.dark .admin-card,
+html.dark .admin-panel {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .lookup-card,
+html.dark .settings-card,
+html.dark .settings-panel {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/ai.css: white backgrounds --- */
+html.dark .ai-chat-container {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .ai-message.assistant {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .ai-message.user {
+  background: var(--lux-surface) !important;
+}
+
+html.dark .ai-input-area {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/bulk-operations.css: white bg --- */
+html.dark .bulk-operation-card,
+html.dark .bulk-summary-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .bulk-selection-panel {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/purchasing.css: white bg --- */
+html.dark .po-card,
+html.dark .po-detail-card,
+html.dark .po-summary {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .purchasing-card,
+html.dark .vendor-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/layout-components.css: white bg --- */
+html.dark .page-hero {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .page-hero-content {
+  color: var(--lux-text) !important;
+}
+
+html.dark .page-hero h1,
+html.dark .page-hero h2 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .page-hero p {
+  color: var(--lux-text-secondary) !important;
+}
+
+/* --- modules/reports.css: .card and schedule wrappers --- */
+html.dark .report-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- modules/help.css: white backgrounds --- */
+html.dark .help-section,
+html.dark .help-content-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .quick-start-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+/* --- help-enterprise.css: ALL white backgrounds --- */
+html.dark .help-enterprise-card,
+html.dark .help-sidebar,
+html.dark .help-hero-card,
+html.dark .help-topic-card,
+html.dark .task-guide-card,
+html.dark .progress-card,
+html.dark .concept-card,
+html.dark .resource-card,
+html.dark .implementation-card,
+html.dark .phase-card,
+html.dark .implementation-guide-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .help-enterprise-card h3,
+html.dark .help-enterprise-card h4,
+html.dark .concept-card h3,
+html.dark .task-guide-card h3 {
+  color: var(--lux-text) !important;
+}
+
+html.dark .help-enterprise-card p,
+html.dark .concept-card p,
+html.dark .task-guide-card p {
+  color: var(--lux-text-secondary) !important;
+}
+
+/* --- tour.css: white backgrounds --- */
+html.dark .tour-tooltip,
+html.dark .tour-card,
+html.dark .tour-step,
+html.dark .tour-modal {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- Tables: comprehensive dark override --- */
+html.dark table,
+html.dark .table {
+  color: var(--lux-text) !important;
+}
+
+html.dark table thead,
+html.dark .table thead,
+html.dark table thead tr,
+html.dark .table thead tr {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark table th,
+html.dark .table th {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark table td,
+html.dark .table td {
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark table tbody tr:hover,
+html.dark .table tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+html.dark table tbody tr,
+html.dark .table tbody tr {
+  background: transparent !important;
+}
+
+/* --- Global: Buttons in dark mode --- */
+html.dark .btn-outline-secondary,
+html.dark .btn-outline-primary {
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .btn-outline-secondary:hover,
+html.dark .btn-outline-primary:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .btn-light {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+/* --- Tabs: comprehensive dark override --- */
+html.dark .nav-tabs .nav-link {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .nav-tabs .nav-link.active {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .premium-tab {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .premium-tab.active {
+  color: #cf3339 !important;
+  border-color: #cf3339 !important;
+}
+
+/* --- Stat icons: soft dark backgrounds --- */
+html.dark .stat-icon {
+  opacity: 0.85;
+}
+
+html.dark .quick-start-icon,
+html.dark .concept-icon {
+  opacity: 0.85;
+}
+
+/* --- Pagination --- */
+html.dark .pagination .page-link {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .pagination .page-item.active .page-link {
+  background: #cf3339 !important;
+  border-color: #cf3339 !important;
+  color: #fff !important;
+}
+
+/* --- Status badges always have solid colors --- */
+html.dark .badge {
+  border: none !important;
+}
+
+/* ==========================================================================
+   DARK MODE — INLINE STYLE ATTRIBUTE OVERRIDES v4.0
+   Catches hardcoded inline styles in Razor pages
+   ========================================================================== */
+
+/* --- Inline background:#fff / white / #ffffff --- */
+html.dark [style*="background: #fff"],
+html.dark [style*="background:#fff"],
+html.dark [style*="background: white"],
+html.dark [style*="background:white"] {
+  background: var(--lux-surface) !important;
+}
+
+/* --- Inline background-color:#fff --- */
+html.dark [style*="background-color: #fff"],
+html.dark [style*="background-color:#fff"],
+html.dark [style*="background-color: white"],
+html.dark [style*="background-color:white"] {
+  background-color: var(--lux-surface) !important;
+}
+
+/* --- Inline light gradient backgrounds --- */
+html.dark [style*="background: linear-gradient(135deg, #f0f9ff"],
+html.dark [style*="background: linear-gradient(135deg, #e0f2fe"],
+html.dark [style*="background:linear-gradient(135deg, #f0f9ff"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: linear-gradient(135deg, #dcfce7"],
+html.dark [style*="background:linear-gradient(135deg, #dcfce7"] {
+  background: rgba(34, 197, 94, 0.08) !important;
+  border-color: rgba(34, 197, 94, 0.15) !important;
+}
+
+html.dark [style*="background: linear-gradient(to bottom, #f0f9ff"],
+html.dark [style*="background: linear-gradient(to bottom, #f8fafc"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Inline border colors --- */
+html.dark [style*="border: 1px solid #bae6fd"],
+html.dark [style*="border:1px solid #bae6fd"],
+html.dark [style*="border-color: #bae6fd"],
+html.dark [style*="border-color:#bae6fd"] {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark [style*="border: 1px solid #e5e7eb"],
+html.dark [style*="border:1px solid #e5e7eb"],
+html.dark [style*="border-color: #e5e7eb"],
+html.dark [style*="border-color:#e5e7eb"] {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark [style*="border-bottom: 1px solid #e5e7eb"],
+html.dark [style*="border-top: 1px solid #e5e7eb"],
+html.dark [style*="border-bottom: 1px solid #e2e8f0"],
+html.dark [style*="border-top: 1px solid #e2e8f0"] {
+  border-color: var(--lux-border) !important;
+}
+
+/* --- Inline #f3f4f6 bg (table header rows in reports) --- */
+html.dark [style*="background: #f3f4f6"],
+html.dark [style*="background:#f3f4f6"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+/* --- Inline color:#334155!important (132 occurrences) --- */
+html.dark [style*="color:#334155!important"],
+html.dark [style*="color: #334155!important"],
+html.dark [style*="color:#334155 !important"],
+html.dark [style*="color: #334155 !important"] {
+  color: var(--lux-text) !important;
+}
+
+/* --- Inline background: #0284c7 (CCA icon) --- */
+html.dark [style*="background: #0284c7"],
+html.dark [style*="background:#0284c7"] {
+  background: rgba(2, 132, 199, 0.2) !important;
+  color: #38bdf8 !important;
+}
+
+/* --- Inline background: rgba(59,130,246,0.1) (help task links) --- */
+html.dark [style*="background: rgba(59,130,246,0.1)"],
+html.dark [style*="background:rgba(59,130,246,0.1)"] {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #60a5fa !important;
+}
+
+/* ==========================================================================
+   DARK MODE — NUCLEAR CATCH-ALL
+   These rules ensure ANY remaining white/light element is caught
+   ========================================================================== */
+
+html.dark .main-content {
+  background: var(--lux-bg) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .page-content {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .main-content-column {
+  background: transparent !important;
+}
+
+html.dark body {
+  background: var(--lux-bg) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .page-hero,
+html.dark .hero-section,
+html.dark [class*="hero"] {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .section-card,
+html.dark .card,
+html.dark [class*="-card"]:not(.sidebar-brand):not(.nav-item):not([class*="badge"]):not([class*="icon"]) {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .section-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .section-card-body {
+  background: transparent !important;
+}
+
+html.dark .enhanced-grid-wrapper {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .grid-toolbar-premium {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.dark select,
+html.dark textarea {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark h1, html.dark h2, html.dark h3, html.dark h4, html.dark h5, html.dark h6 {
+  color: var(--lux-text) !important;
+}
+
+html.dark p {
+  color: var(--lux-text-secondary);
+}
+
+html.dark strong, html.dark b {
+  color: var(--lux-text);
+}
+
+html.dark small {
+  color: var(--lux-text-muted);
+}
+
+/* ==========================================================================
+   COMPREHENSIVE DARK MODE SWEEP v5.0 — Eliminate ALL light gray bleeding
+   Targets: global search wrapper, grid toolbar, grid search, pill buttons,
+   company selector, grid count badge, kbd elements, and all remaining
+   hardcoded light backgrounds in base CSS files.
+   ========================================================================== */
+
+html.dark .global-search-wrapper {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .global-search-wrapper:focus-within {
+  background: var(--lux-surface) !important;
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 3px rgba(207, 51, 57, 0.15) !important;
+}
+
+html.dark .global-search-icon {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .global-search-input {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .global-search-kbd {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .cmd-palette-trigger {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .cmd-palette-trigger kbd {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-toolbar-premium {
+  background: #111827 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+html.dark .grid-toolbar-premium .btn,
+html.dark .grid-toolbar-premium button,
+html.dark .enhanced-grid-toolbar .btn,
+html.dark .enhanced-grid-toolbar button {
+  background: #1e293b !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #cbd5e1 !important;
+}
+
+html.dark .grid-toolbar-premium .btn:hover,
+html.dark .grid-toolbar-premium button:hover,
+html.dark .enhanced-grid-toolbar .btn:hover,
+html.dark .enhanced-grid-toolbar button:hover {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+html.dark .grid-toolbar-premium .btn svg,
+html.dark .grid-toolbar-premium button svg,
+html.dark .enhanced-grid-toolbar .btn svg {
+  color: inherit !important;
+}
+
+html.dark .grid-count {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+html.dark .grid-search {
+  background: #0f1626 !important;
+  border-color: rgba(255,255,255,0.1) !important;
+}
+
+html.dark .grid-search:focus-within {
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 3px rgba(207, 51, 57, 0.15) !important;
+}
+
+html.dark .grid-search svg {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-search-input {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-search-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .grid-count {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .enhanced-grid-toolbar {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .enhanced-grid-toolbar input,
+html.dark .enhanced-grid-toolbar select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .enhanced-grid-toolbar button {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .enhanced-grid-toolbar button:hover {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .org-selector-btn {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .org-selector-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .org-selector-search input {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .org-selector-list button,
+html.dark .org-selector-list a {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .org-selector-list button:hover,
+html.dark .org-selector-list a:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .main-header {
+  background: var(--lux-surface) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .header-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .header-breadcrumb {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .theme-toggle-btn {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .header-help-btn {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .user-btn .user-avatar {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .user-menu {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .user-menu-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .user-menu-header span {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .user-menu-item {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .user-menu-item:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark kbd {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .btn-secondary,
+html.dark .btn-outline-secondary {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .btn-secondary:hover,
+html.dark .btn-outline-secondary:hover {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .status-badge,
+html.dark .badge {
+  border-color: transparent !important;
+}
+
+html.dark .quick-action-card {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .quick-action-card:hover {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark select option {
+  background: var(--lux-surface-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .company-selector,
+html.dark [id*="companySelect"],
+html.dark [id*="CompanyFilter"] {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-filter-dropdown,
+html.dark .grid-column-dropdown,
+html.dark .grid-export-dropdown {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .grid-filter-dropdown label,
+html.dark .grid-column-dropdown label,
+html.dark .grid-export-dropdown button {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .grid-filter-dropdown input[type="text"],
+html.dark .grid-filter-dropdown select {
+  background: var(--lux-input-bg) !important;
+  border-color: var(--lux-input-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .app-footer {
+  background: var(--lux-surface) !important;
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .app-footer p {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .db-status-chip {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark pre,
+html.dark code {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .alert {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .alert-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fbbf24 !important;
+}
+
+html.dark .alert-info {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+html.dark .help-panel {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+html.dark .help-panel-content {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .help-panel-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .help-section {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .command-palette {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6) !important;
+}
+
+html.dark .command-palette-header {
+  background: var(--lux-surface) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .command-palette-input {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .command-palette-input::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-footer {
+  background: var(--lux-surface) !important;
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .command-palette-results {
+  background: transparent !important;
+}
+
+html.dark .command-palette-item {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .command-palette-item:hover,
+html.dark .command-palette-item.selected {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .command-palette-group {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .card-body {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .card-footer {
+  background: var(--lux-surface-alt) !important;
+  border-top-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .screen-header {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+html.dark .screen-header-stat {
+  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  color: var(--lux-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  backdrop-filter: blur(8px);
+}
+
+html.dark .screen-header-stat .stat-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .screen-header-stat .stat-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .premium-hero-header {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+}
+
+html.dark .hero-stat-box {
+  background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  backdrop-filter: blur(8px);
+}
+
+html.dark .hero-stat-box .hero-stat-value {
+  color: var(--lux-text) !important;
+}
+
+html.dark .hero-stat-box .hero-stat-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .premium-hero-badge {
+  background: rgba(207, 51, 57, 0.15) !important;
+  color: #f87171 !important;
+  border-color: rgba(207, 51, 57, 0.3) !important;
+}
+
+html.dark .premium-hero-subtitle {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .premium-hero-breadcrumb {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .quick-stat-label {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .table {
+  color: var(--lux-text) !important;
+}
+
+html.dark .table thead th {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .table tbody td {
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .table tbody tr:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark .table-striped tbody tr:nth-of-type(odd) {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+html.dark .modal-content {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .modal-header {
+  background: var(--lux-surface) !important;
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .modal-footer {
+  background: var(--lux-surface) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html.dark .modal-backdrop {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+html.dark .dropdown-menu {
+  background: var(--lux-surface-elevated) !important;
+  border-color: var(--lux-border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+}
+
+html.dark .dropdown-item {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .dropdown-item:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .nav-tabs {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html.dark .nav-tabs .nav-link {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .nav-tabs .nav-link.active {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  border-bottom-color: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .section-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .section-card-title {
+  color: var(--lux-text) !important;
+}
+
+html.dark .tab-content {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html.dark .tab-pane {
+  color: var(--lux-text) !important;
+}
+
+html.dark .form-label,
+html.dark label {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .text-muted {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark .text-secondary {
+  color: var(--lux-text-secondary) !important;
+}
+
+html.dark .border {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark hr {
+  border-color: var(--lux-border) !important;
+  opacity: 0.3;
+}
+
+html.dark .list-group-item {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html.dark .list-group-item:hover {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="background: #f8fafc"],
+html.dark [style*="background:#f8fafc"],
+html.dark [style*="background: #f1f5f9"],
+html.dark [style*="background:#f1f5f9"],
+html.dark [style*="background: #f0f9ff"],
+html.dark [style*="background:#f0f9ff"],
+html.dark [style*="background: white"],
+html.dark [style*="background:white"],
+html.dark [style*="background: #fff"],
+html.dark [style*="background:#fff"],
+html.dark [style*="background: #ffffff"],
+html.dark [style*="background:#ffffff"],
+html.dark [style*="background: #f3f4f6"],
+html.dark [style*="background:#f3f4f6"],
+html.dark [style*="background: #f5f5f5"],
+html.dark [style*="background:#f5f5f5"] {
+  background: var(--lux-surface-alt) !important;
+}
+
+html.dark [style*="color: #334155"],
+html.dark [style*="color:#334155"],
+html.dark [style*="color: #1e293b"],
+html.dark [style*="color:#1e293b"],
+html.dark [style*="color: #374151"],
+html.dark [style*="color:#374151"] {
+  color: var(--lux-text) !important;
+}
+
+html.dark [style*="color: #64748b"],
+html.dark [style*="color:#64748b"],
+html.dark [style*="color: #475569"],
+html.dark [style*="color:#475569"],
+html.dark [style*="color: #6b7280"],
+html.dark [style*="color:#6b7280"],
+html.dark [style*="color: #94a3b8"],
+html.dark [style*="color:#94a3b8"] {
+  color: var(--lux-text-muted) !important;
+}
+
+html.dark [style*="border-color: #e2e8f0"],
+html.dark [style*="border-color:#e2e8f0"],
+html.dark [style*="border: 1px solid #e2e8f0"],
+html.dark [style*="border:1px solid #e2e8f0"],
+html.dark [style*="border: 1px solid #d1d5db"],
+html.dark [style*="border:1px solid #d1d5db"] {
+  border-color: var(--lux-border) !important;
+}
+
+html.dark [style*="background: linear-gradient(135deg, #f8fafc"],
+html.dark [style*="background: linear-gradient(135deg, #f0f9ff"],
+html.dark [style*="background:linear-gradient(135deg, #f8fafc"],
+html.dark [style*="background:linear-gradient(135deg, #f0f9ff"] {
+  background: var(--lux-surface) !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL CARD ROUNDING — 16px uniform radius for all card-like elements
+   ========================================================================== */
+.screen-header,
+.premium-hero-header,
+.page-hero,
+.asset-header-card,
+.item-header-card,
+.card,
+.panel,
+.stat-card,
+.section-card,
+.detail-section,
+.kpi-stat-card,
+.quick-stat-card,
+.grid-toolbar-premium,
+.enhanced-grid-container .data-table,
+.modal-content,
+.dropdown-menu,
+.alert {
+  border-radius: 16px !important;
+}
+
+.screen-header,
+.premium-hero-header,
+.page-hero,
+.asset-header-card,
+.item-header-card {
+  overflow: hidden;
+}
+
+.screen-header__actions,
+.page-hero-actions {
+  border-radius: 0 0 16px 16px !important;
+}
+
+.section-card-header {
+  border-radius: 16px 16px 0 0 !important;
+}
+
+.modal-header {
+  border-radius: 16px 16px 0 0 !important;
+}
+
+.modal-footer {
+  border-radius: 0 0 16px 16px !important;
+}
+
+/* ==========================================================================
+   DARK MODE: Form Value & Label Visibility Fix (must be last to win cascade)
+   ========================================================================== */
+html.dark .form-value,
+html.dark div.form-value,
+html.dark .form-group .form-value,
+html.dark .form-row .form-group .form-value,
+html.dark .form-section .form-group .form-value,
+html.dark .tab-content .form-group .form-value,
+html.dark .tab-content .form-section .form-group .form-value,
+html.dark .premium-tabs .form-value,
+html.dark .premium-tabs .form-group .form-value,
+html.dark .premium-tabs .form-section .form-group .form-value,
+html.dark .premium-tabs .tab-content .form-section .form-group .form-value {
+  color: #f1f5f9 !important;
+  -webkit-text-fill-color: #f1f5f9 !important;
+}
+
+html.dark .form-value.empty {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+}
+
+html.dark .form-label,
+html.dark label,
+html.dark .form-group label,
+html.dark .form-section .form-group label,
+html.dark .form-section .form-group .form-label,
+html.dark .premium-tabs .form-label,
+html.dark .premium-tabs label,
+html.dark .tab-panel label,
+html.dark .tab-panel .form-label {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+}
+
+html.dark .form-section-title {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+/* ==========================================================================
+   LIGHT MODE: Comprehensive Component Overrides (Token Restructure Phase 1)
+   Must be at the END to win cascade over site.css and module dark defaults.
+   ========================================================================== */
+
+html:not(.dark) body,
+html:not(.dark) .app,
+html:not(.dark) .page,
+html:not(.dark) .content,
+html:not(.dark) .wrapper {
+  background: var(--lux-bg) !important;
+  background-image: none !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .main-content {
+  background: var(--lux-bg) !important;
+}
+
+html:not(.dark) .page-content {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) a:not(.nav-item):not(.menu-item):not(.btn):not(.sidebar-brand):not(.user-menu-item):not(.demo-account-item):not(.quick-stat-card):not(.premium-admin-card):not(.quick-action-card) {
+  color: #cf3339;
+}
+html:not(.dark) a:not(.nav-item):not(.menu-item):not(.btn):not(.sidebar-brand):not(.user-menu-item):not(.demo-account-item):not(.quick-stat-card):not(.premium-admin-card):not(.quick-action-card):hover {
+  color: #b82d32;
+}
+
+html:not(.dark) .card,
+html:not(.dark) .panel,
+html:not(.dark) .box,
+html:not(.dark) .widget,
+html:not(.dark) .shadow-card,
+html:not(.dark) .section-card {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html:not(.dark) .card-body,
+html:not(.dark) .card-header,
+html:not(.dark) .card-footer {
+  background: transparent !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .card-header {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .card-footer {
+  border-top-color: var(--lux-border) !important;
+}
+
+html:not(.dark) table,
+html:not(.dark) .table {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .table thead th {
+  background: var(--lux-table-header-bg) !important;
+  color: var(--lux-text-secondary) !important;
+  border-bottom-color: var(--lux-border-strong) !important;
+  font-weight: 600;
+}
+
+html:not(.dark) .table tbody td {
+  color: var(--lux-text) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .table-hover tbody tr:hover {
+  background: var(--lux-table-hover) !important;
+}
+
+html:not(.dark) .table-striped tbody tr:nth-child(odd) {
+  background: var(--lux-table-stripe) !important;
+}
+
+html:not(.dark) .form-control,
+html:not(.dark) .form-select,
+html:not(.dark) .input-group-text {
+  background: var(--lux-input-bg) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-input-border) !important;
+}
+
+html:not(.dark) .form-control::placeholder {
+  color: var(--lux-text-muted) !important;
+}
+
+html:not(.dark) .form-control:focus,
+html:not(.dark) .form-select:focus {
+  border-color: #cf3339 !important;
+  box-shadow: 0 0 0 3px rgba(207, 51, 57, 0.15) !important;
+}
+
+html:not(.dark) .form-label,
+html:not(.dark) label,
+html:not(.dark) .form-group label {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .form-value {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .form-value.empty {
+  color: var(--lux-text-muted) !important;
+}
+
+html:not(.dark) .form-section-title {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .modal-content {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .modal-header {
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .modal-footer {
+  border-top-color: var(--lux-border) !important;
+  background: var(--lux-surface-alt) !important;
+}
+
+html:not(.dark) .modal-body .form-control,
+html:not(.dark) .modal-body .form-select {
+  background: var(--lux-input-bg) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-input-border) !important;
+}
+
+html:not(.dark) .dropdown-menu {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border-strong) !important;
+  box-shadow: var(--lux-card-shadow-elevated) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .dropdown-item {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .dropdown-item:hover,
+html:not(.dark) .dropdown-item:focus {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .nav-tabs {
+  border-bottom-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .nav-tabs .nav-link {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .nav-tabs .nav-link.active {
+  color: #cf3339 !important;
+  border-color: var(--lux-border) var(--lux-border) var(--lux-surface) !important;
+  background: var(--lux-surface) !important;
+}
+
+html:not(.dark) .list-group-item {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) hr {
+  border-top-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .text-muted,
+html:not(.dark) .muted {
+  color: var(--lux-text-muted) !important;
+}
+
+html:not(.dark) .text-secondary {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .badge.bg-light {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .badge.bg-secondary {
+  background: #64748b !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .alert {
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .alert-warning {
+  background: #fef3c7 !important;
+  border-color: #fbbf24 !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) .alert-info {
+  background: #dbeafe !important;
+  border-color: #60a5fa !important;
+  color: #1d4ed8 !important;
+}
+
+html:not(.dark) .alert-success {
+  background: #dcfce7 !important;
+  border-color: #22c55e !important;
+  color: #166534 !important;
+}
+
+html:not(.dark) .alert-danger {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #991b1b !important;
+}
+
+html:not(.dark) .btn-secondary,
+html:not(.dark) .btn-outline-secondary {
+  color: var(--lux-text-secondary) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html:not(.dark) .btn-secondary:hover,
+html:not(.dark) .btn-outline-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .btn-light {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .footer,
+html:not(.dark) .site-footer {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text-muted) !important;
+  border-top-color: var(--lux-border) !important;
+}
+
+html:not(.dark) kbd {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+  border-color: var(--lux-border-strong) !important;
+}
+
+html:not(.dark) .screen-header {
+  background: var(--lux-page-header-bg) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .screen-header .stat-box,
+html:not(.dark) .screen-header .stat-value,
+html:not(.dark) .screen-header .stat-label {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .premium-hero-header {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .grid-toolbar-premium {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .grid-toolbar-premium .btn {
+  color: var(--lux-text-secondary) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .grid-toolbar-premium .btn:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .grid-search,
+html:not(.dark) .global-search-wrapper {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .company-selector {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .command-palette-trigger {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-muted) !important;
+}
+
+html:not(.dark) .section-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .section-card-header {
+  background: var(--lux-surface-alt) !important;
+  border-bottom-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .pagination .page-link {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .pagination .page-item.active .page-link {
+  background: #cf3339 !important;
+  border-color: #cf3339 !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3,
+html:not(.dark) h4, html:not(.dark) h5, html:not(.dark) h6 {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .kpi-stat-card {
+  background: var(--lux-kpi-bg) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .kpi-stat-label {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .kpi-stat-value {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .kpi-stat-sublabel {
+  color: var(--lux-text-muted) !important;
+}
+
+html:not(.dark) .quick-stat-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .premium-admin-card,
+html:not(.dark) .quick-action-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .enhanced-grid-container .data-table {
+  background: var(--lux-surface) !important;
+}
+
+html:not(.dark) .enhanced-grid-container .data-table thead th {
+  background: var(--lux-table-header-bg) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .enhanced-grid-container .data-table tbody td {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .tab-content {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .tab-panel {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) [style*="background-color: #f8fafc"],
+html:not(.dark) [style*="background-color:#f8fafc"],
+html:not(.dark) [style*="background: #f8fafc"],
+html:not(.dark) [style*="background:#f8fafc"] {
+  background-color: var(--lux-surface-alt) !important;
+}
+
+html:not(.dark) [style*="color: #334155"],
+html:not(.dark) [style*="color:#334155"],
+html:not(.dark) [style*="color: #1e293b"],
+html:not(.dark) [style*="color:#1e293b"] {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) [style*="color: #64748b"],
+html:not(.dark) [style*="color:#64748b"],
+html:not(.dark) [style*="color: #475569"],
+html:not(.dark) [style*="color:#475569"] {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) [style*="border-color: #e2e8f0"],
+html:not(.dark) [style*="border-color:#e2e8f0"],
+html:not(.dark) [style*="border: 1px solid #e2e8f0"],
+html:not(.dark) [style*="border:1px solid #e2e8f0"] {
+  border-color: var(--lux-border-strong) !important;
+}
+
+html:not(.dark) .spec-card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .spec-header {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .spec-body {
+  background: var(--lux-surface) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .spec-title {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .field-grid .field-label {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .field-grid .field-value {
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .status-badge,
+html:not(.dark) .badge {
+  color: inherit;
+}
+
+html:not(.dark) .navbar,
+html:not(.dark) .navbar-dark,
+html:not(.dark) .navbar-expand {
+  background: var(--lux-header-bg) !important;
+  border-bottom-color: var(--lux-header-border) !important;
+}
+
+html:not(.dark) .depreciation-schedule .card {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border) !important;
+}
+
+html:not(.dark) .panel-hero {
+  background: var(--gradient-header) !important;
+  color: var(--color-text-inverse) !important;
+}
+
+html:not(.dark) .btn-premium-secondary {
+  background: var(--lux-surface) !important;
+  border-color: var(--lux-border-strong) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .btn-premium-secondary:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}
+
+html:not(.dark) .grid-toolbar-premium .pill,
+html:not(.dark) .grid-toolbar-premium .filter-pill {
+  background: var(--lux-surface-alt) !important;
+  border-color: var(--lux-border) !important;
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .tab-btn,
+html:not(.dark) .premium-tab-btn {
+  color: var(--lux-text-secondary) !important;
+}
+
+html:not(.dark) .tab-btn.active,
+html:not(.dark) .premium-tab-btn.active {
+  color: #cf3339 !important;
+}
+
+html:not(.dark) .collapse-all-btn,
+html:not(.dark) .expand-all-btn {
+  color: var(--lux-text-muted) !important;
+  border-color: var(--lux-border) !important;
+  background: var(--lux-surface) !important;
+}
+
+html:not(.dark) .collapse-all-btn:hover,
+html:not(.dark) .expand-all-btn:hover {
+  background: var(--lux-surface-alt) !important;
+  color: var(--lux-text) !important;
+}

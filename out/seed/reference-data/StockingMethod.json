@@ -1,0 +1,37 @@
+{
+  "lookupKey": "StockingMethod",
+  "name": "Stocking Method",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "Standard",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "Lot Tracked",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Reorder Point",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Kanban",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "4",
+      "name": "Min-Max",
+      "sortOrder": 5,
+      "isActive": true
+    }
+  ]
+}

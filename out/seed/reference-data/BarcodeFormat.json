@@ -1,0 +1,11 @@
+{
+  "lookupKey": "BarcodeFormat",
+  "name": "Barcode Format",
+  "isSystem": true,
+  "values": [
+    { "code": "Code128", "name": "Code 128", "sortOrder": 1, "isActive": true },
+    { "code": "QR", "name": "QR Code", "sortOrder": 2, "isActive": true },
+    { "code": "DataMatrix", "name": "Data Matrix", "sortOrder": 3, "isActive": true },
+    { "code": "EAN13", "name": "EAN-13", "sortOrder": 4, "isActive": true }
+  ]
+}

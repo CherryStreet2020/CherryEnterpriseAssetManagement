@@ -1,0 +1,103 @@
+/* ============================================================
+   Tom Select Premium Theme Override
+   Matches CherryAI design system tokens
+   ============================================================ */
+
+.ts-wrapper {
+    font-size: 0.875rem;
+}
+
+.ts-control {
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.75rem !important;
+    color: var(--input-text) !important;
+    min-height: 40px !important;
+    box-shadow: none !important;
+    transition: border-color 150ms ease, box-shadow 150ms ease !important;
+}
+
+.ts-control:hover {
+    border-color: var(--border-strong) !important;
+}
+
+.ts-wrapper.focus .ts-control {
+    border-color: var(--color-accent, #cf3339) !important;
+    box-shadow: 0 0 0 2px var(--color-accent-soft, rgba(207, 51, 57, 0.1)) !important;
+    outline: none !important;
+}
+
+.ts-control input {
+    color: var(--input-text) !important;
+}
+
+.ts-control input::placeholder {
+    color: var(--input-placeholder) !important;
+}
+
+.ts-dropdown {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--shadow-lg) !important;
+    margin-top: 4px !important;
+    overflow: hidden;
+}
+
+.ts-dropdown .option {
+    padding: 0.6rem 0.75rem !important;
+    color: var(--text-primary) !important;
+    font-size: 0.85rem !important;
+    cursor: pointer;
+    transition: background 100ms ease;
+}
+
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active {
+    background: var(--surface-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.ts-dropdown .option.selected {
+    background: var(--color-accent-soft, rgba(207, 51, 57, 0.08)) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+}
+
+.ts-dropdown .optgroup-header {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted) !important;
+    padding: 0.5rem 0.75rem 0.25rem !important;
+    background: transparent !important;
+}
+
+.ts-dropdown .no-results {
+    padding: 0.75rem !important;
+    color: var(--text-muted) !important;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.ts-control .clear-button {
+    color: var(--text-muted) !important;
+}
+
+.ts-dropdown .create {
+    padding: 0.6rem 0.75rem !important;
+    color: var(--color-accent, #cf3339) !important;
+    font-weight: 600;
+    border-top: 1px solid var(--border-primary);
+}
+
+.ts-control .item .remove {
+    color: var(--text-muted) !important;
+    border-left-color: var(--border-primary) !important;
+}
+
+html.dark .ts-dropdown {
+    backdrop-filter: blur(8px);
+}

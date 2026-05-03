@@ -1,0 +1,148 @@
+/* CIP (Capital Improvement Projects) Module Styles */
+
+/* Badge Variants */
+.badge-primary {
+    background: var(--color-info-100);
+    color: var(--info);
+}
+
+/* CIP Progress Bar */
+.progress-bar {
+    height: 8px;
+    background: var(--surface-tertiary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--info);
+    border-radius: 4px;
+}
+
+/* Cost Types Grid */
+.cost-types-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+a.cost-type-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--cost-color);
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    color: inherit;
+    transition: all var(--transition-normal);
+}
+
+a.cost-type-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+    border-left-color: var(--cost-color);
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+}
+
+.cost-type-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--cost-color) 12%, transparent);
+    border-radius: var(--radius-md);
+}
+
+.cost-type-icon svg {
+    width: 22px;
+    height: 22px;
+    color: var(--cost-color);
+}
+
+.cost-type-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.cost-type-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.cost-type-amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+/* CIP Detail Grid */
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+.detail-grid .full-width { grid-column: 1 / -1; }
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.detail-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.detail-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.detail-description {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+.detail-description p {
+    margin: 8px 0 0 0;
+    color: var(--text-secondary);
+}
+
+/* Form Grid */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-grid .full-width { grid-column: 1 / -1; }
+
+/* Amount Display */
+.amount-large { font-size: 20px; font-weight: 700; color: var(--success); }
+
+/* Section Card Footer */
+.section-card-footer { padding: 16px 20px; border-top: 1px solid var(--border); display: flex; gap: 12px; justify-content: flex-end; }
+
+/* Action Buttons */
+.action-buttons { display: flex; flex-direction: column; gap: 12px; }
+.btn-block { width: 100%; display: flex; align-items: center; justify-content: center; }
+
+/* Summary Stats */
+.summary-stat { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.summary-stat:last-child { border-bottom: none; }
+.summary-label { font-size: 13px; color: var(--text-muted); }
+.summary-value { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+
+/* Checkbox Label */
+.checkbox-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.checkbox-label input[type="checkbox"] { width: 18px; height: 18px; }
+
+/* Attachment Grid */
+.attachment-grid {
+    display: flex;
+    flex-direction: column;
+}

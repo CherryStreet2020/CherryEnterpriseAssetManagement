@@ -1,0 +1,9 @@
+{
+  "lookupKey": "GlNormalBalance",
+  "name": "GL Normal Balance",
+  "isSystem": true,
+  "values": [
+    { "code": "1", "name": "Debit", "sortOrder": 1, "isActive": true },
+    { "code": "2", "name": "Credit", "sortOrder": 2, "isActive": true }
+  ]
+}

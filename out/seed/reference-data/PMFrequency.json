@@ -1,0 +1,31 @@
+{
+  "lookupKey": "PMFrequency",
+  "name": "PM Schedule Frequency",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "1",
+      "name": "1 Day",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "7",
+      "name": "7 Days",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "30",
+      "name": "30 Days",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "90",
+      "name": "90 Days",
+      "sortOrder": 4,
+      "isActive": true
+    }
+  ]
+}

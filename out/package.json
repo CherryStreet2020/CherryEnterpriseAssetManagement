@@ -1,0 +1,35 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:fa": "playwright test tests/fa_*.spec.js",
+    "test:smoke": "playwright test tests/smoke_*.spec.js tests/01_api_headers.spec.js",
+    "test:flows": "playwright test tests/*_flow.spec.js",
+    "test:reports": "playwright test tests/reports_all.spec.js",
+    "test:nav": "playwright test tests/sidebar_links_flow.spec.js tests/global_search_palette.spec.js tests/02_nav_no_ia_drift.spec.js tests/03_breadcrumbs_back_to_results.spec.js tests/04_redirects.spec.js",
+    "test:auth": "playwright test tests/auth_rbac_flow.spec.js tests/00_auth_smoke.spec.js",
+    "test:ui": "playwright test tests/dark-mode-compliance.spec.js tests/dark_mode_persistence.spec.js tests/datagrid_ux.spec.js tests/barcode_ui.spec.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "**CherryAI Enterprise Asset Management** — A comprehensive fixed asset and maintenance management platform for manufacturing organizations.",
+  "dependencies": {
+    "@playwright/test": "^1.58.2",
+    "drizzle-zod": "^0.8.3",
+    "openai": "^6.16.0",
+    "p-limit": "^7.2.0",
+    "p-retry": "^7.1.1",
+    "puppeteer": "^24.37.5",
+    "zod": "^4.3.5",
+    "zod-validation-error": "^5.0.0"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "devDependencies": {
+    "pg": "^8.20.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "lookupKey": "MaintenanceStatus",
+  "name": "Maintenance Status",
+  "isSystem": true,
+  "values": [
+    { "code": "0", "name": "Scheduled", "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "In Progress", "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Completed", "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Cancelled", "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Overdue", "sortOrder": 5, "isActive": true },
+    { "code": "5", "name": "On Hold", "sortOrder": 6, "isActive": true }
+  ]
+}

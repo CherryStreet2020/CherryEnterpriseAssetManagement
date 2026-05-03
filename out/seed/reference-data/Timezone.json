@@ -1,0 +1,16 @@
+{
+  "lookupKey": "Timezone",
+  "name": "Timezone",
+  "isSystem": true,
+  "values": [
+    { "code": "America/New_York", "name": "Eastern Time (New York)", "sortOrder": 1, "isActive": true },
+    { "code": "America/Chicago", "name": "Central Time (Chicago)", "sortOrder": 2, "isActive": true },
+    { "code": "America/Denver", "name": "Mountain Time (Denver)", "sortOrder": 3, "isActive": true },
+    { "code": "America/Los_Angeles", "name": "Pacific Time (Los Angeles)", "sortOrder": 4, "isActive": true },
+    { "code": "America/Toronto", "name": "Eastern Time (Toronto)", "sortOrder": 5, "isActive": true },
+    { "code": "America/Vancouver", "name": "Pacific Time (Vancouver)", "sortOrder": 6, "isActive": true },
+    { "code": "America/Edmonton", "name": "Mountain Time (Edmonton)", "sortOrder": 7, "isActive": true },
+    { "code": "America/Winnipeg", "name": "Central Time (Winnipeg)", "sortOrder": 8, "isActive": true },
+    { "code": "America/Halifax", "name": "Atlantic Time (Halifax)", "sortOrder": 9, "isActive": true }
+  ]
+}

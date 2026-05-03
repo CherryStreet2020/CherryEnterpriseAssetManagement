@@ -1,0 +1,19 @@
+{
+  "lookupKey": "ActiveInactive",
+  "name": "Active/Inactive Status",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "true",
+      "name": "Active",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "false",
+      "name": "Inactive",
+      "sortOrder": 2,
+      "isActive": true
+    }
+  ]
+}

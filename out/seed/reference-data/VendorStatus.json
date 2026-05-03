@@ -1,0 +1,11 @@
+{
+  "lookupKey": "VendorStatus",
+  "name": "Vendor Status",
+  "isSystem": true,
+  "values": [
+    { "code": "ACTIVE", "name": "Active", "sortOrder": 1, "isActive": true },
+    { "code": "INACTIVE", "name": "Inactive", "sortOrder": 2, "isActive": true },
+    { "code": "PENDING", "name": "Pending Approval", "sortOrder": 3, "isActive": true },
+    { "code": "SUSPENDED", "name": "Suspended", "sortOrder": 4, "isActive": true }
+  ]
+}

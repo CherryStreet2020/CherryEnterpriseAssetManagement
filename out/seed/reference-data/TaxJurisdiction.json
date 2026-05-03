@@ -1,0 +1,25 @@
+{
+  "lookupKey": "TaxJurisdiction",
+  "name": "Tax Jurisdiction",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "1",
+      "name": "United States",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Canada",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "International",
+      "sortOrder": 3,
+      "isActive": true
+    }
+  ]
+}

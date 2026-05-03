@@ -1,0 +1,25 @@
+{
+  "lookupKey": "UserRole",
+  "name": "User Role",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "Admin",
+      "name": "Admin",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "Accountant",
+      "name": "Accountant",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "Viewer",
+      "name": "Viewer",
+      "sortOrder": 3,
+      "isActive": true
+    }
+  ]
+}

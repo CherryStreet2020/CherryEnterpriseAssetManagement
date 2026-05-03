@@ -1,0 +1,79 @@
+{
+  "lookupKey": "UnitOfMeasure",
+  "name": "Unit of Measure",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "Each",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "Box",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Case",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Pair",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "4",
+      "name": "Set",
+      "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "5",
+      "name": "Roll",
+      "sortOrder": 6,
+      "isActive": true
+    },
+    {
+      "code": "6",
+      "name": "Foot",
+      "sortOrder": 7,
+      "isActive": true
+    },
+    {
+      "code": "7",
+      "name": "Meter",
+      "sortOrder": 8,
+      "isActive": true
+    },
+    {
+      "code": "8",
+      "name": "Gallon",
+      "sortOrder": 9,
+      "isActive": true
+    },
+    {
+      "code": "9",
+      "name": "Liter",
+      "sortOrder": 10,
+      "isActive": true
+    },
+    {
+      "code": "10",
+      "name": "Pound",
+      "sortOrder": 11,
+      "isActive": true
+    },
+    {
+      "code": "11",
+      "name": "Kilogram",
+      "sortOrder": 12,
+      "isActive": true
+    }
+  ]
+}

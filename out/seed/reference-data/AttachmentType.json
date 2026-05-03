@@ -1,0 +1,12 @@
+{
+  "lookupKey": "AttachmentType",
+  "name": "Attachment Type",
+  "isSystem": true,
+  "values": [
+    { "code": "GENERAL", "name": "General", "sortOrder": 1, "isActive": true },
+    { "code": "MANUAL", "name": "Manual", "sortOrder": 2, "isActive": true },
+    { "code": "DRAWING", "name": "Drawing", "sortOrder": 3, "isActive": true },
+    { "code": "PHOTO", "name": "Photo", "sortOrder": 4, "isActive": true },
+    { "code": "CERTIFICATE", "name": "Certificate", "sortOrder": 5, "isActive": true }
+  ]
+}

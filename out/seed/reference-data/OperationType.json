@@ -1,0 +1,85 @@
+{
+  "lookupKey": "OperationType",
+  "name": "Operation Type",
+  "isSystem": true,
+  "values": [
+    {
+      "code": "0",
+      "name": "Mechanical",
+      "sortOrder": 1,
+      "isActive": true
+    },
+    {
+      "code": "1",
+      "name": "Electrical",
+      "sortOrder": 2,
+      "isActive": true
+    },
+    {
+      "code": "2",
+      "name": "Hydraulic",
+      "sortOrder": 3,
+      "isActive": true
+    },
+    {
+      "code": "3",
+      "name": "Pneumatic",
+      "sortOrder": 4,
+      "isActive": true
+    },
+    {
+      "code": "4",
+      "name": "Lubrication",
+      "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "5",
+      "name": "Inspection",
+      "sortOrder": 6,
+      "isActive": true
+    },
+    {
+      "code": "6",
+      "name": "Calibration",
+      "sortOrder": 7,
+      "isActive": true
+    },
+    {
+      "code": "7",
+      "name": "Cleaning",
+      "sortOrder": 8,
+      "isActive": true
+    },
+    {
+      "code": "8",
+      "name": "Adjustment",
+      "sortOrder": 9,
+      "isActive": true
+    },
+    {
+      "code": "9",
+      "name": "Replacement",
+      "sortOrder": 10,
+      "isActive": true
+    },
+    {
+      "code": "10",
+      "name": "Testing",
+      "sortOrder": 11,
+      "isActive": true
+    },
+    {
+      "code": "11",
+      "name": "Documentation",
+      "sortOrder": 12,
+      "isActive": true
+    },
+    {
+      "code": "12",
+      "name": "Safety Check",
+      "sortOrder": 13,
+      "isActive": true
+    }
+  ]
+}

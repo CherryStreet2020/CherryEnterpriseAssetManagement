@@ -1,0 +1,181 @@
+/* Reports Module Styles */
+
+/* Report Builder Layout */
+.builder-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+}
+.builder-sidebar .section-card-header h3,
+.builder-content .section-card-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+.field-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+.field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+}
+.field-checkbox:hover {
+    background: var(--lux-surface-alt, #f3f4f6);
+}
+.field-checkbox input {
+    accent-color: var(--info);
+}
+
+@media (max-width: 768px) {
+    .builder-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Stats Row (Compliance) */
+.stats-row {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-primary);
+}
+.stat-mini {
+    display: flex;
+    flex-direction: column;
+}
+.stat-mini .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.stat-mini .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary, #1f2937);
+}
+
+/* Chart of Accounts Filter Form */
+.filter-form .form-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+.filter-form .form-group {
+    flex: 1;
+    min-width: 200px;
+}
+.filter-form .form-group:last-child {
+    flex: 0;
+    min-width: auto;
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Report Hub Section */
+.report-section {
+    margin-bottom: 32px;
+}
+
+.report-section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.report-section-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.report-section-icon.primary {
+    background: linear-gradient(135deg, var(--info-soft, #dbeafe), #bfdbfe);
+    color: var(--info);
+    box-shadow: 0 4px 12px rgb(37 99 235 / 0.2);
+}
+
+.report-section-icon.success {
+    background: linear-gradient(135deg, var(--success-soft, #dcfce7), #bbf7d0);
+    color: var(--success);
+    box-shadow: 0 4px 12px rgb(22 163 74 / 0.2);
+}
+
+.report-section-icon.warning {
+    background: linear-gradient(135deg, var(--warning-soft, #fef3c7), #fde68a);
+    color: var(--warning);
+    box-shadow: 0 4px 12px rgb(217 119 6 / 0.2);
+}
+
+.report-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.report-section-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 4px 0 0 0;
+}
+
+.report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+}
+
+.report-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+}
+
+.report-card:hover {
+    transform: translateY(-4px) translateX(4px);
+    box-shadow: var(--shadow-xl);
+}
+
+.report-card.primary:hover { border-color: var(--primary); }
+.report-card.success:hover { border-color: var(--success); }
+
+/* Depreciation Schedule */
+.depreciation-schedule .page-wrap { max-width: 1200px; margin: 0 auto; padding: 1.25rem 1rem; }
+.depreciation-schedule .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.depreciation-schedule .title { font-size: 1.5rem; font-weight: 700; letter-spacing: .3px; }
+.depreciation-schedule .muted { color: var(--text-muted, #6b7280); }
+.depreciation-schedule .card { background: var(--lux-surface, #fff); border: 1px solid var(--border-primary); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+.depreciation-schedule .toolbar { display:flex; gap: .75rem; align-items:center; padding: .75rem; border-bottom: 1px solid var(--surface-secondary); background: var(--surface-app); border-top-left-radius:12px; border-top-right-radius:12px; }
+.depreciation-schedule .toolbar label{ font-size:.9rem; color: var(--text-secondary); }
+.depreciation-schedule .toolbar input, .depreciation-schedule .toolbar select, .depreciation-schedule .toolbar button { height: 40px; border-radius: 8px; border: 1px solid var(--border-primary); padding: 0 .75rem; }
+.depreciation-schedule .toolbar button { background: #111827; color: #fff; border-color: #111827; cursor: pointer; }
+.depreciation-schedule .toolbar button:hover { opacity:.9; }
+.depreciation-schedule .table-wrap { overflow-x: auto; }
+.depreciation-schedule table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.depreciation-schedule th, .depreciation-schedule td { padding: 10px 12px; border-bottom: 1px solid var(--surface-secondary); text-align: center; }
+.depreciation-schedule th { background: var(--lux-surface-alt, #f8fafc); color: var(--text-secondary); font-weight:600; position: sticky; top:0; z-index:1; }
+.depreciation-schedule tr:hover td { background: var(--surface-app, #fafafa); }
+.depreciation-schedule .totals { background: #111827; color: #fff; font-weight: 700; }
+.depreciation-schedule .badge { display:inline-block; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color:#4338ca; font-size:.8rem; }
+.depreciation-schedule .sub { color: var(--text-muted, #6b7280); font-size:.95rem; }
