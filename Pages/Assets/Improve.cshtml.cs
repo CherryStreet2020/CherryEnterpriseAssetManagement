@@ -13,14 +13,18 @@ public class ImproveModel : PageModel
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IModuleGuardService _moduleGuard;
+    private readonly IPeriodGuard _periodGuard;
 
     public ImproveModel(AppDbContext db, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard, IPeriodGuard periodGuard)
     {
-            _moduleGuard = moduleGuard;
+        _moduleGuard = moduleGuard;
         _db = db;
         _tenantContext = tenantContext;
+        _periodGuard = periodGuard;
     }
+
+    public string? ErrorMessage { get; set; }
 
     public Asset? Asset { get; set; }
     public List<CapitalImprovement> PreviousImprovements { get; set; } = new();
@@ -51,6 +55,7 @@ public class ImproveModel : PageModel
     public string? InvoiceNumber { get; set; }
 
     [BindProperty]
+    [Range(1, 600, ErrorMessage = "Useful life extension must be at least 1 month")]
     public int? UsefulLifeExtension { get; set; }
 
     [BindProperty]
@@ -83,6 +88,19 @@ public class ImproveModel : PageModel
         {
             await LoadPreviousImprovementsAsync(AssetId);
             return Page();
+        }
+
+        var assetCompanyId = Asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
+        if (assetCompanyId > 0)
+        {
+            var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, ImprovementDate);
+            if (!periodCheck.IsAllowed)
+            {
+                ModelState.AddModelError(nameof(ImprovementDate), periodCheck.Reason ?? "Posting period is not open.");
+                ErrorMessage = periodCheck.Reason;
+                await LoadPreviousImprovementsAsync(AssetId);
+                return Page();
+            }
         }
 
         var improvement = new CapitalImprovement

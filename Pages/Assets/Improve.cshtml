@@ -44,6 +44,17 @@
 
 <form method="post">
     <input type="hidden" asp-for="AssetId" />
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger" role="alert" style="margin-bottom:12px;">
+            <div asp-validation-summary="All" class="text-danger"></div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert" style="margin-bottom:12px;">@Model.ErrorMessage</div>
+    }
     
     <div class="section-card">
         <div class="section-card-header">
