@@ -125,7 +125,7 @@ namespace Abs.FixedAssets.Services
             var visibleIds = _tenantContext.VisibleCompanyIds;
             var assets = await _context.Assets.Where(a => visibleIds.Contains(a.CompanyId ?? 0)).ToListAsync();
             var ccaBalances = await _context.CcaClassBalances
-                .Where(b => b.FiscalYear == year)
+                .Where(b => b.FiscalYear == year && visibleIds.Contains(b.CompanyId))
                 .Include(b => b.CcaClass)
                 .ToListAsync();
 

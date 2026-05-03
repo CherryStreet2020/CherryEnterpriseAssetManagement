@@ -24,24 +24,27 @@ namespace Abs.FixedAssets.Services
             if (ccaClass == null)
                 throw new ArgumentException($"CCA Class {ccaClassId} not found");
 
+            // Scope all balance reads/writes to the active company so multiple
+            // Canadian subsidiaries don't share a single UCC roll-forward.
+            var companyId = GetCompanyId();
+
             var existingBalance = await _db.CcaClassBalances
-                .FirstOrDefaultAsync(b => b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear);
+                .FirstOrDefaultAsync(b => b.CompanyId == companyId && b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear);
 
             if (existingBalance != null && existingBalance.IsPosted)
                 throw new InvalidOperationException($"CCA for Class {ccaClass.ClassNumber} in fiscal year {fiscalYear} is already posted");
 
             var previousBalance = await _db.CcaClassBalances
-                .Where(b => b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear - 1)
+                .Where(b => b.CompanyId == companyId && b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear - 1)
                 .OrderBy(b => b.Id)
                 .FirstOrDefaultAsync();
 
             decimal openingUcc = previousBalance?.ClosingUcc ?? 0;
 
-            var companyId = GetCompanyId();
             var transactions = await _db.CcaTransactions
                 .Include(t => t.Asset)
                 .ThenInclude(a => a!.TaxSettings)
-                .Where(t => t.CcaClassId == ccaClassId && t.FiscalYear == fiscalYear && t.Asset != null && _tenantContext.VisibleCompanyIds.Contains(t.Asset.CompanyId ?? 0))
+                .Where(t => t.CcaClassId == ccaClassId && t.FiscalYear == fiscalYear && t.Asset != null && t.Asset.CompanyId == companyId)
                 .ToListAsync();
 
             var additions = transactions
@@ -103,6 +106,7 @@ namespace Abs.FixedAssets.Services
 
             var balance = existingBalance ?? new CcaClassBalance
             {
+                CompanyId = companyId,
                 CcaClassId = ccaClassId,
                 FiscalYear = fiscalYear
             };
@@ -176,7 +180,7 @@ namespace Abs.FixedAssets.Services
             var activeAssets = await _db.AssetTaxSettings
                 .Include(t => t.Asset)
                 .Where(t => t.CcaClassId == ccaClassId
-                    && _tenantContext.VisibleCompanyIds.Contains(t.Asset.CompanyId ?? 0)
+                    && t.Asset != null && t.Asset.CompanyId == companyId
                     && t.Asset.Status == AssetStatus.Active
                     && (t.DisposalDate == null || t.DisposalDate.Value.Year > fiscalYear))
                 .CountAsync();
@@ -186,8 +190,9 @@ namespace Abs.FixedAssets.Services
 
         public async Task<CcaClassBalance> PostCcaForClassAsync(int ccaClassId, int fiscalYear, string postedBy)
         {
+            var companyId = GetCompanyId();
             var balance = await _db.CcaClassBalances
-                .FirstOrDefaultAsync(b => b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear);
+                .FirstOrDefaultAsync(b => b.CompanyId == companyId && b.CcaClassId == ccaClassId && b.FiscalYear == fiscalYear);
 
             if (balance == null)
                 throw new InvalidOperationException("CCA balance not found. Calculate CCA first.");
@@ -301,9 +306,10 @@ namespace Abs.FixedAssets.Services
 
         public async Task<List<CcaClassBalance>> GetCcaSummaryByYearAsync(int fiscalYear)
         {
+            var visible = _tenantContext.VisibleCompanyIds;
             return await _db.CcaClassBalances
                 .Include(b => b.CcaClass)
-                .Where(b => b.FiscalYear == fiscalYear)
+                .Where(b => b.FiscalYear == fiscalYear && visible.Contains(b.CompanyId))
                 .OrderBy(b => b.CcaClass.ClassNumber)
                 .ToListAsync();
         }

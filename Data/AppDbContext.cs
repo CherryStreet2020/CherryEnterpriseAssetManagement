@@ -410,13 +410,19 @@ namespace Abs.FixedAssets.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // CCA Class Balances
+            // CCA Class Balances — scoped per Company so multiple Canadian
+            // subsidiaries can each maintain their own UCC roll-forward
+            // without collisions.
             modelBuilder.Entity<CcaClassBalance>(e =>
             {
-                e.HasIndex(x => new { x.CcaClassId, x.FiscalYear }).IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.CcaClassId, x.FiscalYear }).IsUnique();
                 e.HasOne(x => x.CcaClass)
                     .WithMany(c => c.ClassBalances)
                     .HasForeignKey(x => x.CcaClassId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

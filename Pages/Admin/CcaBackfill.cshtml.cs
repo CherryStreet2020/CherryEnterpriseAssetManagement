@@ -137,20 +137,10 @@ namespace Abs.FixedAssets.Pages.Admin
 
             PreviewRows = await _backfill.GetPreviewAsync(CompanyId);
 
-            // Scope balance KPIs to CCA classes that have at least one AssetTaxSettings
-            // row for THIS company. CcaClassBalance itself isn't company-scoped at the
-            // schema level (see follow-up task), so this gives a best-effort per-company view.
-            var scopedClassIds = await _db.AssetTaxSettings.AsNoTracking()
-                .Where(t => t.Asset != null && t.Asset.CompanyId == CompanyId)
-                .Select(t => t.CcaClassId)
-                .Distinct()
+            // CcaClassBalance is now company-scoped — filter directly.
+            var balances = await _db.CcaClassBalances.AsNoTracking()
+                .Where(b => b.CompanyId == CompanyId)
                 .ToListAsync();
-
-            var balances = scopedClassIds.Count == 0
-                ? new List<CcaClassBalance>()
-                : await _db.CcaClassBalances.AsNoTracking()
-                    .Where(b => scopedClassIds.Contains(b.CcaClassId))
-                    .ToListAsync();
             ExistingBalanceCount = balances.Count;
             ExistingTotalCcaClaimed = balances.Sum(b => b.CcaClaimed);
         }

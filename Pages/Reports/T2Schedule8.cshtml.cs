@@ -53,9 +53,16 @@ namespace Abs.FixedAssets.Pages.Reports
                 .Where(c => c.IsActive && visibleIds.Contains(c.Id))
                 .ToListAsync();
 
-            ClassBalances = await _db.CcaClassBalances
+            // Scope to the chosen subsidiary if one is selected; otherwise
+            // limit to companies the user is allowed to see.
+            var balanceQuery = _db.CcaClassBalances
                 .Include(b => b.CcaClass)
-                .Where(b => b.FiscalYear == FiscalYear)
+                .Where(b => b.FiscalYear == FiscalYear);
+            if (SelectedCompanyId.HasValue)
+                balanceQuery = balanceQuery.Where(b => b.CompanyId == SelectedCompanyId.Value);
+            else
+                balanceQuery = balanceQuery.Where(b => visibleIds.Contains(b.CompanyId));
+            ClassBalances = await balanceQuery
                 .OrderBy(b => b.CcaClass.ClassNumber)
                 .ToListAsync();
 

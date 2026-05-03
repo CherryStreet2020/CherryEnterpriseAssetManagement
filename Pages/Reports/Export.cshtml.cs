@@ -85,8 +85,11 @@ namespace Abs.FixedAssets.Pages.Reports
 
         private async Task<IActionResult> ExportCca(string? format, int year)
         {
+            var visibleIds = _tenantContext.VisibleCompanyIds;
             var classes = await _db.CcaClasses.OrderBy(c => c.ClassNumber).ToListAsync();
-            var balances = await _db.CcaClassBalances.Where(b => b.FiscalYear == year).ToListAsync();
+            var balances = await _db.CcaClassBalances
+                .Where(b => b.FiscalYear == year && visibleIds.Contains(b.CompanyId))
+                .ToListAsync();
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
 
             return format?.ToLower() switch

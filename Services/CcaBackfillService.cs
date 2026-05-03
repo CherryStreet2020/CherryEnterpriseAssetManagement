@@ -188,30 +188,9 @@ namespace Abs.FixedAssets.Services
                     return report;
                 }
 
-                // ── Conflict guard: CcaClassBalance is keyed only by
-                // (CcaClassId, FiscalYear) until follow-up #9 adds CompanyId.
-                // Refuse to compute balances only when another Canadian
-                // company has actual CCA mappings — otherwise there is no
-                // collision risk.
-                if (computeBalances)
-                {
-                    var conflictingCompanies = await _db.AssetTaxSettings.AsNoTracking()
-                        .Where(t => t.Asset != null
-                                 && t.Asset.CompanyId != null
-                                 && t.Asset.CompanyId != companyId
-                                 && t.Asset.Company != null
-                                 && t.Asset.Company.Country != null
-                                 && t.Asset.Company.Country.ToUpper().Contains("CANADA"))
-                        .Select(t => new { Id = t.Asset!.CompanyId!.Value, Name = t.Asset.Company!.Name })
-                        .Distinct()
-                        .ToListAsync();
-                    if (conflictingCompanies.Count > 0)
-                    {
-                        var others = string.Join(", ", conflictingCompanies.Select(c => $"{c.Name} (Co{c.Id})"));
-                        report.Errors.Add($"Another Canadian company already has CCA mappings ({others}). Computing balances would corrupt their totals because CcaClassBalance is not yet company-scoped (see follow-up task). Re-run with ComputeBalances=false to only create AssetTaxSettings.");
-                        return report;
-                    }
-                }
+                // CcaClassBalance is now company-scoped, so multiple
+                // Canadian subsidiaries can be backfilled independently
+                // without colliding. (No cross-company conflict guard needed.)
 
                 // ── Establish tenant scope for the entire run so
                 // CcaService.AddAssetToCcaClassAsync (and CalculateCcaForClassAsync)
@@ -407,7 +386,7 @@ namespace Abs.FixedAssets.Services
                     {
                         // Skip already-posted balances — never recompute committed numbers.
                         var existing = await _db.CcaClassBalances
-                            .FirstOrDefaultAsync(b => b.CcaClassId == entry.CcaClassId && b.FiscalYear == year);
+                            .FirstOrDefaultAsync(b => b.CompanyId == companyId && b.CcaClassId == entry.CcaClassId && b.FiscalYear == year);
                         if (existing != null && existing.IsPosted)
                         {
                             report.Warnings.Add($"Class {entry.CcaClassId} FY{year}: already posted — skipped.");

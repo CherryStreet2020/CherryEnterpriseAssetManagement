@@ -7,6 +7,10 @@ namespace Abs.FixedAssets.Models
     {
         public int Id { get; set; }
 
+        [Required]
+        public int CompanyId { get; set; }
+        public Company? Company { get; set; }
+
         public int CcaClassId { get; set; }
         public CcaClass CcaClass { get; set; } = null!;
 

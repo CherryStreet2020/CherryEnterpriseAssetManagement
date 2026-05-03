@@ -42,9 +42,10 @@ namespace Abs.FixedAssets.Pages.CCA
 
             AvailableYears = Enumerable.Range(DateTime.Now.Year - 5, 6).Reverse().ToList();
 
+            var visibleIds = _tenantContext.VisibleCompanyIds;
             Balances = await _db.CcaClassBalances
                 .Include(b => b.CcaClass)
-                .Where(b => b.FiscalYear == FiscalYear)
+                .Where(b => b.FiscalYear == FiscalYear && visibleIds.Contains(b.CompanyId))
                 .OrderBy(b => b.CcaClass.ClassNumber)
                 .ToListAsync();
 

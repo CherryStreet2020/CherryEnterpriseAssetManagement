@@ -301,6 +301,47 @@ namespace Abs.FixedAssets.Tests
         }
 
         [Fact]
+        public async Task TwoCanadianCompanies_BalancesAreIsolatedPerCompany()
+        {
+            using var db = NewDb(nameof(TwoCanadianCompanies_BalancesAreIsolatedPerCompany));
+            SeedCcaClasses(db);
+            var coA = SeedCanadianCompany(db, id: 101);
+            var coB = SeedCanadianCompany(db, id: 102);
+            AddAsset(db, coA.Id, "A-1", "CNC MACHINE", 100_000m, new DateTime(2024, 1, 1));
+            AddAsset(db, coB.Id, "B-1", "CNC MACHINE", 250_000m, new DateTime(2024, 1, 1));
+
+            // Company A
+            var tenantOverrideA = new TenantContextOverride();
+            var tenantContextA = new TenantContext(tenantOverrideA);
+            tenantContextA.SetContext(1, coA.Id, null);
+            var ccaServiceA = new CcaService(db, tenantContextA);
+            var auditA = new AuditService(db);
+            var svcA = new CcaBackfillService(db, ccaServiceA, tenantContextA, tenantOverrideA, auditA, NullLogger<CcaBackfillService>.Instance);
+            var reportA = await svcA.RunAsync(coA.Id, throughFiscalYear: 2024);
+            Assert.Empty(reportA.Errors);
+
+            // Company B — must NOT be blocked by Company A's existing mappings.
+            var tenantOverrideB = new TenantContextOverride();
+            var tenantContextB = new TenantContext(tenantOverrideB);
+            tenantContextB.SetContext(1, coB.Id, null);
+            var ccaServiceB = new CcaService(db, tenantContextB);
+            var auditB = new AuditService(db);
+            var svcB = new CcaBackfillService(db, ccaServiceB, tenantContextB, tenantOverrideB, auditB, NullLogger<CcaBackfillService>.Instance);
+            var reportB = await svcB.RunAsync(coB.Id, throughFiscalYear: 2024);
+            Assert.Empty(reportB.Errors);
+
+            var class53Id = await db.CcaClasses.Where(c => c.ClassNumber == 53).Select(c => c.Id).FirstAsync();
+            var balanceA = await db.CcaClassBalances.SingleAsync(b => b.CompanyId == coA.Id && b.CcaClassId == class53Id && b.FiscalYear == 2024);
+            var balanceB = await db.CcaClassBalances.SingleAsync(b => b.CompanyId == coB.Id && b.CcaClassId == class53Id && b.FiscalYear == 2024);
+
+            // Each subsidiary keeps its own UCC roll-forward — totals are NOT merged.
+            Assert.Equal(100_000m, balanceA.Additions);
+            Assert.Equal(50_000m, balanceA.CcaClaimed);
+            Assert.Equal(250_000m, balanceB.Additions);
+            Assert.Equal(125_000m, balanceB.CcaClaimed);
+        }
+
+        [Fact]
         public async Task ZeroCostAsset_IsSkippedWithWarning()
         {
             using var db = NewDb(nameof(ZeroCostAsset_IsSkippedWithWarning));

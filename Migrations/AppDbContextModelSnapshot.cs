@@ -1654,6 +1654,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<decimal>("ClosingUcc")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("DaysInFiscalPeriod")
                         .HasColumnType("integer");
 
@@ -1690,7 +1693,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CcaClassId", "FiscalYear")
+                    b.HasIndex("CompanyId", "CcaClassId", "FiscalYear")
                         .IsUnique();
 
                     b.ToTable("CcaClassBalances");
@@ -10070,7 +10073,15 @@ namespace Abs.FixedAssets.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Abs.FixedAssets.Models.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("CcaClass");
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CcaTransaction", b =>
