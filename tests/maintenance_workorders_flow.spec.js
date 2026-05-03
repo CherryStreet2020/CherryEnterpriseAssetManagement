@@ -23,8 +23,7 @@ test.describe('MAINTENANCE — drill-through', () => {
     const id = await pickers.workRequest();
     test.skip(!id, 'no work requests in DB');
     const resp = await page.goto(`${BASE}/Maintenance/WorkRequests/Details/${id}`);
-    // 404 is acceptable when the picked row is filtered by tenant scope.
-    expect(resp.status()).toBeLessThan(500);
+    expect(resp.status()).toBe(200);
   });
 
   test('maintenance event details open', async ({ page }) => {

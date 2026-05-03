@@ -122,7 +122,8 @@ const STATIC_PAGES = [
   '/Admin/Users',
   '/Admin/Vendors',
   '/Admin/Webhooks',
-  '/Admin/Webhooks/Deliveries',
+  // Note: /Admin/Webhooks/Deliveries requires ?id=N (parametric); covered
+  // separately by webhook flow tests.
 ];
 
 // Tolerated non-200 responses for some legacy/admin pages that intentionally

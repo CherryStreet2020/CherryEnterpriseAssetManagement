@@ -16,10 +16,56 @@ namespace Abs.FixedAssets.Services
         string DecodeBarcodeFromBase64(string base64Image);
     }
 
+    /// <summary>
+    /// Thrown when the SkiaSharp native library cannot be loaded on this host.
+    /// The controller layer should translate this into a 503 instead of letting
+    /// it bubble up as an unhandled exception (which kills the process via the
+    /// SkiaSharp finalizer).
+    /// </summary>
+    public class BarcodeServiceUnavailableException : Exception
+    {
+        public BarcodeServiceUnavailableException(string message, Exception inner) : base(message, inner) { }
+    }
+
     public class BarcodeService : IBarcodeService
     {
+        private static readonly Lazy<bool> _nativeAvailable = new(ProbeNative);
+
+        private static bool ProbeNative()
+        {
+            // CRITICAL: do NOT construct any SkiaSharp object here. If the
+            // native lib is missing, SkiaSharp's static initializer fails and
+            // any partially-constructed managed wrapper will crash the process
+            // from its finalizer thread (uncatchable). Instead, look for the
+            // shared library on disk via the standard probe paths.
+            var candidates = new List<string>();
+            var baseDir = AppContext.BaseDirectory ?? string.Empty;
+            if (!string.IsNullOrEmpty(baseDir))
+            {
+                candidates.Add(Path.Combine(baseDir, "libSkiaSharp.so"));
+                candidates.Add(Path.Combine(baseDir, "runtimes", "linux-x64", "native", "libSkiaSharp.so"));
+            }
+            var ldPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH") ?? string.Empty;
+            foreach (var dir in ldPath.Split(':', StringSplitOptions.RemoveEmptyEntries))
+            {
+                candidates.Add(Path.Combine(dir, "libSkiaSharp.so"));
+            }
+            return candidates.Any(File.Exists);
+        }
+
+        private static void EnsureNativeAvailable()
+        {
+            if (!_nativeAvailable.Value)
+            {
+                throw new BarcodeServiceUnavailableException(
+                    "SkiaSharp native library (libSkiaSharp) is not available on this host.",
+                    new DllNotFoundException("libSkiaSharp"));
+            }
+        }
+
         public byte[] GenerateBarcode(string content, BarcodeType type, int width = 300, int height = 100)
         {
+            EnsureNativeAvailable();
             var barcodeFormat = MapBarcodeType(type);
             var writer = new BarcodeWriter
             {
@@ -41,6 +87,7 @@ namespace Abs.FixedAssets.Services
 
         public byte[] GenerateLabel(string content, BarcodeType type, string partNumber, string description, int width = 400, int height = 200)
         {
+            EnsureNativeAvailable();
             var barcodeFormat = MapBarcodeType(type);
             var barcodeHeight = type == BarcodeType.QRCode || type == BarcodeType.DataMatrix ? 120 : 80;
             
@@ -108,6 +155,7 @@ namespace Abs.FixedAssets.Services
 
         public string DecodeBarcode(byte[] imageData)
         {
+            EnsureNativeAvailable();
             using var stream = new MemoryStream(imageData);
             using var bitmap = SKBitmap.Decode(stream);
             

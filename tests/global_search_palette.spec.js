@@ -10,37 +10,39 @@ test.describe('NAV — command palette', () => {
     await page.goto(`${BASE}/`);
     await page.waitForLoadState('domcontentloaded');
 
+    // Trigger the palette. The app binds Ctrl+K (Meta+K as fallback for mac).
     await page.keyboard.press('Control+K');
-    await page.waitForTimeout(200);
+    await page.waitForTimeout(250);
 
-    // The palette is rendered as a dialog/overlay that contains an input.
-    // We're tolerant about the exact selector across implementations.
-    const palette = page
-      .locator(
-        '[role="dialog"] input, .command-palette input, .cmd-palette input, #command-palette input, .palette input'
-      )
-      .first();
-    if ((await palette.count()) === 0) {
-      // Some builds bind to Cmd+K only on macOS UA; fall back to Meta+K.
+    const input = page.locator('#commandPaletteInput');
+    let visible = (await input.count()) > 0 && (await input.isVisible());
+    if (!visible) {
       await page.keyboard.press('Meta+K');
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(250);
+      visible = (await input.count()) > 0 && (await input.isVisible());
     }
-    // If still missing the test is non-fatal — the palette is optional UX.
-    if ((await palette.count()) === 0) test.skip();
+    // If the palette never opened (build without keybinding), skip — the
+    // markup is still verified by the home-page DOM check below.
+    if (!visible) test.skip();
 
-    await palette.fill('Assets');
+    await input.fill('Assets');
     await page.waitForTimeout(150);
-    // Sanity: nothing crashed and at least one suggestion item exists.
     expect(await page.content()).toContain('Assets');
+  });
+
+  test('command palette markup is present in the layout', async ({ page }) => {
+    await login(page);
+    await page.goto(`${BASE}/`);
+    // The overlay is rendered (hidden) on every page by _ModernLayout.
+    await expect(page.locator('#commandPaletteOverlay')).toHaveCount(1);
+    await expect(page.locator('#commandPaletteInput')).toHaveCount(1);
   });
 
   test('global search box on home page accepts input', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/`);
-    const search = page
-      .locator('input[type="search"], input[placeholder*="Search" i]')
-      .first();
-    if ((await search.count()) === 0) test.skip();
+    const search = page.locator('#globalSearchInput');
+    if ((await search.count()) === 0 || !(await search.isVisible())) test.skip();
     await search.fill('asset');
     await page.waitForTimeout(150);
     expect(await page.title()).toBeTruthy();

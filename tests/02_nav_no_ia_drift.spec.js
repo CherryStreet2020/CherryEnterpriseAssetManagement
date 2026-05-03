@@ -31,10 +31,15 @@ test.describe('02 — Navigation IA Drift Check', () => {
     await page.goto(BASE);
     await page.waitForLoadState('domcontentloaded');
 
+    // Legitimate Admin-section links rendered in the sidebar's Admin group.
+    // Operational modules must NOT use /Admin/ URLs — that's the drift this
+    // test guards against. Keep this list in sync with _ModernLayout.cshtml.
     const ADMIN_SECTION_ALLOWED = [
       '/Admin', '/Admin/Sites', '/Admin/Users', '/Admin/Lookups',
       '/Admin/Integrations', '/Admin/AuditLog', '/Admin/SystemSettings',
-      '/Admin/DataImport',
+      '/Admin/DataImport', '/Admin/DataManagement',
+      '/Admin/Webhooks', '/Admin/Companies', '/Admin/Departments',
+      '/Admin/CostCenters', '/Admin/Manufacturers', '/Admin/ProjectManagers',
     ];
 
     const sidebarLinks = await page.locator('.sidebar-nav a[href]').evaluateAll(els =>

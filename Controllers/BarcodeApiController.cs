@@ -33,9 +33,15 @@ namespace Abs.FixedAssets.Controllers
                 : item.PartNumber;
 
             var barcodeType = item.BarcodeType;
-            var imageBytes = _barcodeService.GenerateBarcode(barcodeValue, barcodeType, width, height);
-            
-            return File(imageBytes, "image/png");
+            try
+            {
+                var imageBytes = _barcodeService.GenerateBarcode(barcodeValue, barcodeType, width, height);
+                return File(imageBytes, "image/png");
+            }
+            catch (BarcodeServiceUnavailableException ex)
+            {
+                return StatusCode(503, new { error = "Barcode rendering unavailable on this host.", detail = ex.Message });
+            }
         }
 
         [HttpGet("label/{itemId}")]
@@ -50,15 +56,21 @@ namespace Abs.FixedAssets.Controllers
                 : item.PartNumber;
 
             var barcodeType = item.BarcodeType;
-            var imageBytes = _barcodeService.GenerateLabel(
-                barcodeValue, 
-                barcodeType, 
-                item.PartNumber, 
-                item.Description ?? "",
-                width, 
-                height);
-            
-            return File(imageBytes, "image/png");
+            try
+            {
+                var imageBytes = _barcodeService.GenerateLabel(
+                    barcodeValue,
+                    barcodeType,
+                    item.PartNumber,
+                    item.Description ?? "",
+                    width,
+                    height);
+                return File(imageBytes, "image/png");
+            }
+            catch (BarcodeServiceUnavailableException ex)
+            {
+                return StatusCode(503, new { error = "Barcode rendering unavailable on this host.", detail = ex.Message });
+            }
         }
 
         [HttpPost("scan")]
@@ -67,7 +79,15 @@ namespace Abs.FixedAssets.Controllers
             if (string.IsNullOrEmpty(request.ImageBase64))
                 return BadRequest(new { error = "No image provided" });
 
-            var decodedValue = _barcodeService.DecodeBarcodeFromBase64(request.ImageBase64);
+            string decodedValue;
+            try
+            {
+                decodedValue = _barcodeService.DecodeBarcodeFromBase64(request.ImageBase64);
+            }
+            catch (BarcodeServiceUnavailableException ex)
+            {
+                return StatusCode(503, new { error = "Barcode decoding unavailable on this host.", detail = ex.Message });
+            }
             
             if (string.IsNullOrEmpty(decodedValue))
                 return Ok(new ScanResponse { Success = false, Message = "No barcode detected in image" });
@@ -184,27 +204,34 @@ namespace Abs.FixedAssets.Controllers
                 .ToListAsync();
 
             var labels = new List<LabelData>();
-            foreach (var item in items)
+            try
             {
-                var barcodeValue = !string.IsNullOrEmpty(item.Barcode) 
-                    ? item.Barcode 
-                    : item.PartNumber;
-                var barcodeType = item.BarcodeType;
-                
-                var imageBytes = _barcodeService.GenerateLabel(
-                    barcodeValue, 
-                    barcodeType, 
-                    item.PartNumber, 
-                    item.Description ?? "",
-                    request.Width ?? 400, 
-                    request.Height ?? 200);
-
-                labels.Add(new LabelData
+                foreach (var item in items)
                 {
-                    ItemId = item.Id,
-                    PartNumber = item.PartNumber,
-                    ImageBase64 = Convert.ToBase64String(imageBytes)
-                });
+                    var barcodeValue = !string.IsNullOrEmpty(item.Barcode)
+                        ? item.Barcode
+                        : item.PartNumber;
+                    var barcodeType = item.BarcodeType;
+
+                    var imageBytes = _barcodeService.GenerateLabel(
+                        barcodeValue,
+                        barcodeType,
+                        item.PartNumber,
+                        item.Description ?? "",
+                        request.Width ?? 400,
+                        request.Height ?? 200);
+
+                    labels.Add(new LabelData
+                    {
+                        ItemId = item.Id,
+                        PartNumber = item.PartNumber,
+                        ImageBase64 = Convert.ToBase64String(imageBytes)
+                    });
+                }
+            }
+            catch (BarcodeServiceUnavailableException ex)
+            {
+                return StatusCode(503, new { error = "Barcode rendering unavailable on this host.", detail = ex.Message });
             }
 
             return Ok(new { labels });
