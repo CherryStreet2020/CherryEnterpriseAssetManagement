@@ -5,11 +5,12 @@
   "scripts": {
     "test": "playwright test",
     "test:fa": "playwright test tests/fa_*.spec.js",
-    "test:smoke": "playwright test tests/smoke_*.spec.js",
+    "test:smoke": "playwright test tests/smoke_*.spec.js tests/01_api_headers.spec.js",
     "test:flows": "playwright test tests/*_flow.spec.js",
     "test:reports": "playwright test tests/reports_all.spec.js",
-    "test:nav": "playwright test tests/sidebar_links_flow.spec.js tests/global_search_palette.spec.js tests/02_nav_no_ia_drift.spec.js",
-    "test:auth": "playwright test tests/auth_rbac_flow.spec.js tests/00_auth_smoke.spec.js"
+    "test:nav": "playwright test tests/sidebar_links_flow.spec.js tests/global_search_palette.spec.js tests/02_nav_no_ia_drift.spec.js tests/03_breadcrumbs_back_to_results.spec.js tests/04_redirects.spec.js",
+    "test:auth": "playwright test tests/auth_rbac_flow.spec.js tests/00_auth_smoke.spec.js",
+    "test:ui": "playwright test tests/dark-mode-compliance.spec.js tests/dark_mode_persistence.spec.js tests/datagrid_ux.spec.js tests/barcode_ui.spec.js"
   },
   "keywords": [],
   "author": "",

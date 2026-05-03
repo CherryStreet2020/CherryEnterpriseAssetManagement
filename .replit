@@ -35,6 +35,18 @@ args = "auth"
 task = "workflow.run"
 args = "nav"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "fa"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "reports"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "ui"
+
 [[workflows.workflow]]
 name = "Web Server"
 author = "agent"
@@ -90,6 +102,39 @@ isValidation = true
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run test:nav   -- --workers=2 --reporter=dot"
+
+[[workflows.workflow]]
+name = "fa"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:fa      -- --workers=1 --reporter=dot"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "reports"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:reports -- --workers=1 --reporter=dot"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "ui"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:ui      -- --workers=2 --reporter=dot"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [[ports]]
 localPort = 5000

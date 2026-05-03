@@ -29,11 +29,14 @@ const GRID_PAGES = [
   '/Admin/ItemCategories',
   '/Admin/CostCenters',
   '/Admin/ProjectManagers',
-  '/Admin/GlAccounts',
-  '/Admin/ExchangeRates',
   '/Admin/AuditLog',
   '/Admin/Outbox',
-  '/Admin/Webhooks',
+  // Excluded — these don't render the standard listing surface used here:
+  //   /Admin/GlAccounts → 301 to /Books/GlAccounts/{bookId} (book-scoped UI)
+  //   /Admin/ExchangeRates → only renders the table when rates exist; empty
+  //      state is a different surface
+  //   /Admin/Webhooks → Tailwind-based dashboard, not a DataGrid; covered
+  //      by the page-smoke spec instead
 ];
 
 test.describe('DATAGRID — index pages render a grid', () => {
@@ -46,10 +49,23 @@ test.describe('DATAGRID — index pages render a grid', () => {
       const resp = await page.goto(`${BASE}${path}`);
       // tolerate 301/302 — some legacy routes redirect to canonical
       expect(resp.status()).toBeLessThan(500);
-      // A "grid" surface is either a real <table> (DataGrid) or a card/list
-      // collection. We're lenient because the app uses both patterns.
+      // A "grid" surface is either a real <table>/data-table/[role=grid]
+      // (DataGrid pages) or a domain-specific card/list collection used on
+      // a few index pages. We enumerate the real listing wrappers used in
+      // this app rather than `[class*="card"]` (which would match generic
+      // screen-header cards and dilute the assertion).
       const surfaces = await page
-        .locator('table, .grid, .data-grid, .card-grid, [role="grid"], .list-group, .card')
+        .locator([
+          'table',
+          '.data-table',
+          '[role="grid"]',
+          '.list-group',
+          '.sites-grid',     // /Admin/Sites
+          '.site-card',      // /Admin/Sites
+          '.card-grid',      // generic card grids
+          '.companies-grid', // multi-company index
+          '.org-grid',       // org/company index variants
+        ].join(', '))
         .count();
       expect(surfaces, `${path} rendered no listing surface`).toBeGreaterThan(0);
     });
@@ -60,8 +76,13 @@ test.describe('DATAGRID — search input filters rows', () => {
   test('typing in the Assets search input does not crash the page', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/Assets`);
-    const search = page
+    // Scope to the page's main content — the layout's sidebar contains a
+    // hidden #orgSearchInput (org-switcher) that otherwise wins :first.
+    const main = page.locator('main, .app-main, .content-wrapper, [role="main"]').first();
+    const scope = (await main.count()) ? main : page;
+    const search = scope
       .locator('input[type="search"], input[placeholder*="Search" i], input[name*="search" i]')
+      .filter({ visible: true })
       .first();
     if ((await search.count()) === 0) test.skip();
     await search.fill('A');

@@ -64,6 +64,7 @@ The application is built on ASP.NET Core using Razor Pages, with PostgreSQL as t
 - **Data Management:** Unified `/Admin/DataManagement` page consolidating Import Wizard + Export into a tabbed UI, supporting 15 entity types in FK-dependency phases with premium branded static .xlsx templates and server-side validation.
 - **Technician Enrichment:** Enriched `Technician` model with detailed employee, skill, and certification information, accessible via dedicated profile pages and an index with advanced filtering.
 - **Fixed Assets Production Hardening:** Implemented production readiness features including robust report scoping, advanced depreciation engine logic, period locking via `IPeriodGuard`, flexible GL account lookups, strict validation for asset fields, unique indexing, and an idempotent `DepreciationBackfillService` with an Admin UI for recomputing historical depreciation.
+- **Test Coverage:** Playwright test suite organized into 7 registered validation commands (`auth`, `nav`, `smoke`, `ui`, `flows`, `fa`, `reports`) covering ~30 specs end-to-end. Every orphan spec is wired into a suite (no untracked tests). The `ui` suite includes `barcode_ui.spec.js` which exercises `/Admin/Barcodes` and asserts PNG magic bytes from `/api/barcode/generate/{itemId}` and `/api/barcode/label/{itemId}`. Mutating suites (`fa`, `reports`) run with `workers=1`; read-mostly suites with `workers=2` to prevent OOM under the platform memory budget.
 
 ## External Dependencies
 - **PostgreSQL:** Primary database.
