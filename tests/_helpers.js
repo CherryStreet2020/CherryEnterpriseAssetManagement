@@ -44,6 +44,23 @@ async function dbOne(text, params = []) {
   return rows[0] || null;
 }
 
+async function tableExists(name) {
+  const row = await dbOne(
+    `SELECT 1 AS x FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,
+    [name]
+  );
+  return !!row;
+}
+
+async function pickFirstId(table, where = '1=1', params = []) {
+  if (!(await tableExists(table))) return null;
+  const row = await dbOne(
+    `SELECT "Id" FROM "${table}" WHERE ${where} ORDER BY "Id" LIMIT 1`,
+    params
+  );
+  return row ? row.Id : null;
+}
+
 async function pickAsset({ rank = 0, status = 0, active = true, companyId = 1, requireLocation = false, requireDepartment = false } = {}) {
   const params = [status, active, companyId];
   let sql =
@@ -99,15 +116,41 @@ async function pickActiveDepartmentOtherThan(departmentId, companyId = 1) {
   return row ? row.Id : null;
 }
 
+// Generic pickers used by smoke tests. Each returns null when no candidate
+// row exists, so callers can skip the test rather than fail.
+const pickers = {
+  asset:                 () => pickFirstId('Assets'),
+  book:                  () => pickFirstId('Books'),
+  vendor:                () => pickFirstId('Vendors'),
+  item:                  () => pickFirstId('Items'),
+  purchaseOrder:         () => pickFirstId('PurchaseOrders'),
+  goodsReceipt:          () => pickFirstId('GoodsReceipts'),
+  vendorInvoice:         () => pickFirstId('VendorInvoices'),
+  cipProject:            () => pickFirstId('CipProjects'),
+  cipCost:               () => pickFirstId('CipCosts'),
+  journalEntry:          () => pickFirstId('JournalEntries'),
+  workRequest:           () => pickFirstId('WorkRequests'),
+  maintenanceEvent:      () => pickFirstId('MaintenanceEvents'),
+  technician:            () => pickFirstId('Technicians'),
+  pmTemplate:            () => pickFirstId('PMTemplates'),
+  pmSchedule:            () => pickFirstId('PMSchedules'),
+  ccaClass:              () => pickFirstId('CcaClasses'),
+  location:              () => pickFirstId('Locations'),
+  bulkOperation:         () => pickFirstId('BulkOperations'),
+};
+
 module.exports = {
   BASE,
   login,
   gotoApp,
   dbQuery,
   dbOne,
+  tableExists,
+  pickFirstId,
   pickAsset,
   pickLookupValueId,
   pickAnyLookupValueId,
   pickActiveLocationOtherThan,
   pickActiveDepartmentOtherThan,
+  pickers,
 };

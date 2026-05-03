@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
-    "test:fa": "playwright test tests/fa_*.spec.js"
+    "test:fa": "playwright test tests/fa_*.spec.js",
+    "test:smoke": "playwright test tests/smoke_*.spec.js",
+    "test:flows": "playwright test tests/*_flow.spec.js",
+    "test:reports": "playwright test tests/reports_all.spec.js",
+    "test:nav": "playwright test tests/sidebar_links_flow.spec.js tests/global_search_palette.spec.js tests/02_nav_no_ia_drift.spec.js",
+    "test:auth": "playwright test tests/auth_rbac_flow.spec.js tests/00_auth_smoke.spec.js"
   },
   "keywords": [],
   "author": "",
