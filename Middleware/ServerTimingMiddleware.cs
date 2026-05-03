@@ -34,6 +34,12 @@ public sealed class ServerTimingMiddleware
             {
                 ctx.Response.Headers["Server-Timing"] = $"total;dur={ms:F3}";
             }
+            // Required for Server-Timing values to be readable from JS via the
+            // PerformanceObserver / Resource Timing API across origins. Without
+            // this header, browsers and many edge proxies (incl. Google Front
+            // End in front of Replit Autoscale) hide or strip the timing data
+            // from cross-origin consumers.
+            ctx.Response.Headers["Timing-Allow-Origin"] = "*";
             return Task.CompletedTask;
         });
 

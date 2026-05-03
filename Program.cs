@@ -165,7 +165,8 @@ builder.Services.AddHostedService<Abs.FixedAssets.Services.Integrations.InboundE
 builder.Services.AddControllers();
 
 // Health checks
-//   /healthz -> liveness (process up; tag "live")
+//   /_live   -> liveness (process up; canonical path; GFE-safe)
+//   /healthz -> liveness alias (works in dev; intercepted by GFE in prod)
 //   /readyz  -> readiness (DB reachable + SkiaSharp lib present; tag "ready")
 builder.Services.AddHealthChecks()
     .AddCheck<Abs.FixedAssets.Services.Health.DbHealthCheck>("db", tags: new[] { "ready" })
@@ -438,12 +439,24 @@ app.UseOrgScope();
 app.UseTenantContext();
 app.UseAuthorization();
 
-// Health endpoints — anonymous, must be before RequireAuthorization mappings
-app.MapHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+// Health endpoints — anonymous, must be before RequireAuthorization mappings.
+// Liveness is exposed on TWO paths:
+//   /_live   — canonical, used in production. Avoids the "/healthz" path
+//              which is intercepted by GCP's Google Front End (the edge in
+//              front of Replit Autoscale) for ITS OWN internal probing,
+//              causing external GETs of /healthz to receive a GFE 404
+//              ("via: 1.1 google", Google logo body) before the request
+//              ever reaches the container.
+//   /healthz — legacy alias; kept so existing dev tooling, dashboards,
+//              and the original Phase 1 contract still work locally.
+//              In production the GFE will swallow it; that's expected.
+var livenessOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
     Predicate = _ => false, // liveness: don't run any checks, just confirm process is responsive
     AllowCachingResponses = false,
-}).AllowAnonymous();
+};
+app.MapHealthChecks("/_live", livenessOptions).AllowAnonymous();
+app.MapHealthChecks("/healthz", livenessOptions).AllowAnonymous();
 
 app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
