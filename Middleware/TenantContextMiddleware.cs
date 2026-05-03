@@ -238,7 +238,7 @@ public class TenantContextMiddleware
 
     private bool IsExemptPath(PathString path)
     {
-        var exemptPaths = new[] { "/Account/Login", "/Account/Logout", "/health", "/api/health" };
+        var exemptPaths = new[] { "/Account/Login", "/Account/Logout", "/health", "/api/health", "/healthz", "/readyz" };
         return exemptPaths.Any(p => path.StartsWithSegments(p, StringComparison.OrdinalIgnoreCase));
     }
 }

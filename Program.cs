@@ -159,6 +159,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Integrations.IIntegrationMap
 builder.Services.AddHostedService<Abs.FixedAssets.Services.Integrations.InboundEventProcessorHostedService>();
 builder.Services.AddControllers();
 
+// Health checks
+//   /healthz -> liveness (process up; tag "live")
+//   /readyz  -> readiness (DB reachable + SkiaSharp lib present; tag "ready")
+builder.Services.AddHealthChecks()
+    .AddCheck<Abs.FixedAssets.Services.Health.DbHealthCheck>("db", tags: new[] { "ready" })
+    .AddCheck<Abs.FixedAssets.Services.Health.SkiaHealthCheck>("skia", tags: new[] { "ready" });
+
 // Authentication disabled for development - using fallback policy that allows anonymous
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -334,11 +341,44 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseRequestId();
+
 app.UseAuthentication();
 app.UseApiHeaderEnforcement();
 app.UseOrgScope();
 app.UseTenantContext();
 app.UseAuthorization();
+
+// Health endpoints — anonymous, must be before RequireAuthorization mappings
+app.MapHealthChecks("/healthz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false, // liveness: don't run any checks, just confirm process is responsive
+    AllowCachingResponses = false,
+}).AllowAnonymous();
+
+app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    AllowCachingResponses = false,
+    ResponseWriter = async (ctx, report) =>
+    {
+        ctx.Response.ContentType = "application/json";
+        var payload = new
+        {
+            status = report.Status.ToString(),
+            totalDurationMs = report.TotalDuration.TotalMilliseconds,
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                durationMs = e.Value.Duration.TotalMilliseconds,
+                description = e.Value.Description,
+                exception = e.Value.Exception?.Message,
+            }),
+        };
+        await System.Text.Json.JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
+    },
+}).AllowAnonymous();
 
 app.MapRazorPages().RequireAuthorization();
 app.MapControllers();
