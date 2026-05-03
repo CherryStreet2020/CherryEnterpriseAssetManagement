@@ -47,19 +47,40 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
     }
   });
 
+  // Helper: pull a single CSP directive (e.g. "script-src") out of the header
+  // so we can assert on its source list without false positives from other
+  // directives like script-src-attr / style-src-attr.
+  function cspDirective(csp, name) {
+    const parts = csp.split(';').map(s => s.trim()).filter(Boolean);
+    const hit = parts.find(p => p === name || p.startsWith(name + ' '));
+    return hit ? hit.slice(name.length).trim() : '';
+  }
+
   test('Security headers — CSP/XCTO/Referrer/Permissions on /_live', async () => {
     const req = await pwRequest.newContext({ baseURL: BASE });
     try {
       const res = await req.get('/_live');
       expect(res.status()).toBe(200);
       const h = res.headers();
-      expect(h['content-security-policy'], 'CSP must be set').toBeTruthy();
-      expect(h['content-security-policy']).toMatch(/frame-ancestors[^;]*'self'/);
-      expect(h['content-security-policy']).toMatch(/replit\.app/);
+      const csp = h['content-security-policy'];
+      expect(csp, 'CSP must be set').toBeTruthy();
+      expect(csp).toMatch(/frame-ancestors[^;]*'self'/);
+      expect(csp).toMatch(/replit\.app/);
       expect(h['x-content-type-options']).toBe('nosniff');
       expect(h['referrer-policy']).toBe('strict-origin-when-cross-origin');
       expect(h['permissions-policy']).toBeTruthy();
       expect(h['permissions-policy']).toMatch(/camera=\(\)/);
+
+      // Phase 4 / Task #15 — script-src and style-src must NOT fall back to
+      // 'unsafe-inline'; instead they must whitelist a per-request nonce.
+      const scriptSrc = cspDirective(csp, 'script-src');
+      const styleSrc = cspDirective(csp, 'style-src');
+      expect(scriptSrc, 'script-src directive present').toBeTruthy();
+      expect(styleSrc, 'style-src directive present').toBeTruthy();
+      expect(scriptSrc).not.toMatch(/'unsafe-inline'/);
+      expect(styleSrc).not.toMatch(/'unsafe-inline'/);
+      expect(scriptSrc).toMatch(/'nonce-[A-Za-z0-9]+'/);
+      expect(styleSrc).toMatch(/'nonce-[A-Za-z0-9]+'/);
     } finally {
       await req.dispose();
     }
@@ -71,10 +92,40 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
       const res = await req.get('/Account/Login');
       expect(res.status()).toBe(200);
       const h = res.headers();
-      expect(h['content-security-policy'], 'CSP must be set on HTML responses').toBeTruthy();
+      const csp = h['content-security-policy'];
+      expect(csp, 'CSP must be set on HTML responses').toBeTruthy();
       expect(h['x-content-type-options']).toBe('nosniff');
       expect(h['referrer-policy']).toBe('strict-origin-when-cross-origin');
       expect(h['permissions-policy']).toBeTruthy();
+
+      // Phase 4 / Task #15 — tightened CSP also applies on full HTML pages,
+      // and each request must get a fresh nonce embedded into the policy.
+      const scriptSrc = cspDirective(csp, 'script-src');
+      const styleSrc = cspDirective(csp, 'style-src');
+      expect(scriptSrc).not.toMatch(/'unsafe-inline'/);
+      expect(styleSrc).not.toMatch(/'unsafe-inline'/);
+      const nonceMatch = scriptSrc.match(/'nonce-([A-Za-z0-9]+)'/);
+      expect(nonceMatch, 'script-src must carry a nonce').toBeTruthy();
+
+      // Same nonce should appear on inline <script>/<style> tags rendered
+      // by Razor via the NonceTagHelper.
+      const body = await res.text();
+      expect(body).toContain(`nonce="${nonceMatch[1]}"`);
+    } finally {
+      await req.dispose();
+    }
+  });
+
+  test('Security headers — every request gets a fresh CSP nonce', async () => {
+    const req = await pwRequest.newContext({ baseURL: BASE });
+    try {
+      const a = await req.get('/_live');
+      const b = await req.get('/_live');
+      const aNonce = (a.headers()['content-security-policy'].match(/'nonce-([^']+)'/) || [])[1];
+      const bNonce = (b.headers()['content-security-policy'].match(/'nonce-([^']+)'/) || [])[1];
+      expect(aNonce).toBeTruthy();
+      expect(bNonce).toBeTruthy();
+      expect(aNonce).not.toBe(bNonce);
     } finally {
       await req.dispose();
     }
