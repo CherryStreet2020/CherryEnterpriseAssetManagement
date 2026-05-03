@@ -72,3 +72,4 @@ The application is built on ASP.NET Core using Razor Pages, with PostgreSQL as t
 - **ClosedXML:** For generating Excel report exports.
 - **QuestPDF:** For generating PDF report exports.
 - **Tom Select (CDN v2.3.1):** Searchable typeahead for `<select>` elements.
+- **SkiaSharp + ZXing.Net.Bindings.SkiaSharp:** Barcode and label PNG rendering. The Linux native library is supplied by `SkiaSharp.NativeAssets.Linux.NoDependencies` (statically linked, no extra Nix packages required). `BarcodeService` probes for `libSkiaSharp.so` on disk before touching any SkiaSharp type and returns HTTP 503 from `BarcodeApiController` if it is missing — never let a SkiaSharp object be partially constructed or its GC finalizer will crash the process.

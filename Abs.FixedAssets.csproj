@@ -31,5 +31,6 @@
     </PackageReference>
     <PackageReference Include="QuestPDF" Version="2024.10.0" />
     <PackageReference Include="ZXing.Net.Bindings.SkiaSharp" Version="0.16.14" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="2.88.7" />
   </ItemGroup>
 </Project>

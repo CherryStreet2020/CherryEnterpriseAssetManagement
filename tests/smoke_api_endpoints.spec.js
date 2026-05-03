@@ -106,21 +106,30 @@ test.describe('SMOKE — REST API endpoints', () => {
     expect(r.status()).toBeLessThan(500);
   });
 
-  test('GET /api/barcode/generate/{itemId} returns a barcode', async () => {
+  test('GET /api/barcode/generate/{itemId} returns a PNG barcode', async () => {
     const id = await pickers.item();
     test.skip(!id, 'no item rows');
     const r = await req.get(`/api/barcode/generate/${id}`, { headers: { cookie: cookieHeader } });
-    // 503 is acceptable when the SkiaSharp native library is unavailable on
-    // the host (the controller intentionally returns Service Unavailable
-    // instead of crashing the process).
-    expect([200, 404, 503]).toContain(r.status());
+    // 503 is the defensive backstop when the SkiaSharp native library is
+    // unavailable on the host. The happy path returns a PNG.
+    expect([200, 503]).toContain(r.status());
+    if (r.status() === 200) {
+      expect(r.headers()['content-type']).toContain('image/png');
+      const body = await r.body();
+      expect(body.length).toBeGreaterThan(100);
+    }
   });
 
-  test('GET /api/barcode/label/{itemId} returns a label', async () => {
+  test('GET /api/barcode/label/{itemId} returns a PNG label', async () => {
     const id = await pickers.item();
     test.skip(!id, 'no item rows');
     const r = await req.get(`/api/barcode/label/${id}`, { headers: { cookie: cookieHeader } });
-    expect([200, 404, 503]).toContain(r.status());
+    expect([200, 503]).toContain(r.status());
+    if (r.status() === 200) {
+      expect(r.headers()['content-type']).toContain('image/png');
+      const body = await r.body();
+      expect(body.length).toBeGreaterThan(100);
+    }
   });
 
   test('GET /api/barcode/lookup/{value} handles unknown codes gracefully', async () => {
