@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Abs.FixedAssets.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Abs.FixedAssets.Services.RateLimiting;
 
@@ -15,11 +16,27 @@ public sealed class PostgresLoginRateLimiter : IDistributedLoginRateLimiter
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<PostgresLoginRateLimiter> _logger;
+    // App-level salt for the fail-open log key hash. Reading from config
+    // (RateLimit:LogKeyHashSalt or env RATELIMIT_LOG_SALT) lets operators
+    // pin the same salt across an Autoscale cluster so they can correlate
+    // a hashed key tag across instances. If unset, we fall back to a
+    // per-process random salt so the log line is *still* salted (no
+    // rainbow-table reverse lookup possible) — only cluster-level
+    // correlation is sacrificed.
+    private readonly byte[] _logSalt;
 
-    public PostgresLoginRateLimiter(IServiceScopeFactory scopeFactory, ILogger<PostgresLoginRateLimiter> logger)
+    public PostgresLoginRateLimiter(
+        IServiceScopeFactory scopeFactory,
+        ILogger<PostgresLoginRateLimiter> logger,
+        IConfiguration config)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
+        var configured = config["RateLimit:LogKeyHashSalt"]
+            ?? Environment.GetEnvironmentVariable("RATELIMIT_LOG_SALT");
+        _logSalt = !string.IsNullOrWhiteSpace(configured)
+            ? Encoding.UTF8.GetBytes(configured)
+            : RandomNumberGenerator.GetBytes(32);
     }
 
     public async Task<bool> TryAcquireAsync(string partitionKey, CancellationToken cancellationToken)
@@ -79,13 +96,26 @@ public sealed class PostgresLoginRateLimiter : IDistributedLoginRateLimiter
         {
             // Fail open. PartitionKey embeds the client IP and attempted
             // username, both PII. We log only the first 12 hex chars of
-            // SHA-256(partitionKey) so operators can correlate repeated
-            // outages on the same bucket without the raw values ever
-            // hitting stdout / log shippers.
-            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(partitionKey));
-            var keyTag = Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
+            // SHA-256(salt || partitionKey) so operators can correlate
+            // repeated outages on the same bucket without the raw values
+            // ever hitting stdout / log shippers, and an attacker who
+            // captures the log cannot reverse the hash via rainbow tables
+            // because the salt is unknown to them.
+            var keyTag = ComputeLogKeyTag(partitionKey);
             _logger.LogWarning(ex, "Distributed login rate limiter failed open (db error). keyHash={KeyHash}", keyTag);
             return true;
         }
+    }
+
+    // Internal so unit tests can verify the redaction is deterministic
+    // for a given (salt, key) pair without scraping logs.
+    internal string ComputeLogKeyTag(string partitionKey)
+    {
+        var keyBytes = Encoding.UTF8.GetBytes(partitionKey);
+        var combined = new byte[_logSalt.Length + keyBytes.Length];
+        Buffer.BlockCopy(_logSalt, 0, combined, 0, _logSalt.Length);
+        Buffer.BlockCopy(keyBytes, 0, combined, _logSalt.Length, keyBytes.Length);
+        var hash = SHA256.HashData(combined);
+        return Convert.ToHexString(hash, 0, 6).ToLowerInvariant();
     }
 }

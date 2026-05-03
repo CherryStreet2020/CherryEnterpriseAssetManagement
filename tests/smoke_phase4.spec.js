@@ -205,6 +205,52 @@ test.describe('SMOKE — Phase 4 distributed limiter + security headers + OTel',
     }
   });
 
+  test('Auth cookie posture — Secure flag set under https scheme (production simulation)', async () => {
+    // Production simulation: in dev the cookie policy is SameAsRequest so
+    // when the request scheme is https the auth cookie must carry Secure.
+    // We force https via X-Forwarded-Proto (UseForwardedHeaders is wired in
+    // Program.cs), which is exactly what an Autoscale / reverse-proxy
+    // deployment looks like in production.
+    const req = await pwRequest.newContext({
+      baseURL: BASE,
+      extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' },
+    });
+    try {
+      const get = await req.get('/Account/Login');
+      expect(get.status()).toBe(200);
+      const html = await get.text();
+      const tokenMatch = html.match(/name="__RequestVerificationToken"[^>]*value="([^"]+)"/);
+      expect(tokenMatch, 'antiforgery token must be present on login form').toBeTruthy();
+      const token = tokenMatch[1];
+
+      const post = await req.post('/Account/Login', {
+        form: {
+          Username: 'admin',
+          Password: 'admin123',
+          __RequestVerificationToken: token,
+        },
+        maxRedirects: 0,
+        failOnStatusCode: false,
+      });
+      // Successful login redirects (302/303); failure renders the form back (200).
+      expect([302, 303]).toContain(post.status());
+
+      const setCookies = post.headersArray()
+        .filter(h => h.name.toLowerCase() === 'set-cookie')
+        .map(h => h.value);
+      const auth = setCookies.find(c => c.startsWith('.AspNetCore.Cookies='));
+      expect(auth, 'auth Set-Cookie must be issued on success').toBeTruthy();
+      // Production hardening contract:
+      expect(auth, 'Secure flag must be set under https scheme').toMatch(/;\s*secure(?:;|\s|$)/i);
+      expect(auth, 'HttpOnly flag must be set').toMatch(/;\s*httponly(?:;|\s|$)/i);
+      expect(auth, 'SameSite=Lax must be set').toMatch(/;\s*samesite=lax/i);
+      // Finite expiry (8h ExpireTimeSpan) — must include an expires/max-age.
+      expect(auth, 'auth cookie must not be a session cookie').toMatch(/expires=|max-age=/i);
+    } finally {
+      await req.dispose();
+    }
+  });
+
   test('Rate limiter fail-open log redaction — partition key is hashed, not raw', () => {
     // Static-source assertion: PostgresLoginRateLimiter must hash the
     // partition key before logging it on the fail-open path. This guards
