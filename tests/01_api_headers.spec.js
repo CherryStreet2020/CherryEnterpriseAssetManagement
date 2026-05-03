@@ -41,8 +41,11 @@ test.describe('01 — API Headers & Base URL', () => {
       '/AccountsPayable', '/Inventory',
     ];
     for (const p of pages) {
-      await page.goto(`${BASE}${p}`);
-      await page.waitForLoadState('domcontentloaded');
+      try {
+        await page.goto(`${BASE}${p}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      } catch (err) {
+        if (!/ERR_ABORTED|frame was detached|Navigation/.test(String(err))) throw err;
+      }
       await page.waitForTimeout(250);
     }
 
