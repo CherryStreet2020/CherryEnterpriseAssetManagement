@@ -22,7 +22,7 @@
 
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div class="section-card" style="margin-bottom: 24px;">
+<div class="section-card" data-csp-style="margin-bottom: 24px;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -32,13 +32,13 @@
         </h3>
     </div>
     <div class="section-card-body">
-        <code style="display: block; background: var(--bg-muted); padding: 12px; border-radius: 6px; font-size: 12px; word-break: break-all;">
+        <code data-csp-style="display: block; background: var(--bg-muted); padding: 12px; border-radius: 6px; font-size: 12px; word-break: break-all;">
             @Model.MaskedConnectionString
         </code>
     </div>
 </div>
 
-<div class="section-card" style="margin-bottom: 24px;">
+<div class="section-card" data-csp-style="margin-bottom: 24px;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -47,29 +47,29 @@
             Seed Guard Checks
             @if (Model.GuardResult?.Allowed == true)
             {
-                <span class="badge badge-success" style="margin-left: 8px;">Allowed</span>
+                <span class="badge badge-success" data-csp-style="margin-left: 8px;">Allowed</span>
             }
             else
             {
-                <span class="badge badge-danger" style="margin-left: 8px;">Blocked</span>
+                <span class="badge badge-danger" data-csp-style="margin-left: 8px;">Blocked</span>
             }
         </h3>
     </div>
     <div class="section-card-body">
         @if (Model.GuardResult != null)
         {
-            <p style="margin-bottom: 16px; padding: 12px; border-radius: 6px; background: @(Model.GuardResult.Allowed ? "var(--success-light)" : "var(--danger-light)"); color: @(Model.GuardResult.Allowed ? "var(--success)" : "var(--danger)");">
+            <p data-csp-style="margin-bottom: 16px; padding: 12px; border-radius: 6px; background: @(Model.GuardResult.Allowed ? "var(--success-light)" : "var(--danger-light)"); color: @(Model.GuardResult.Allowed ? "var(--success)" : "var(--danger)");">
                 @Model.GuardResult.Reason
             </p>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
                 @if (Model.GuardResult.PassedChecks.Any())
                 {
                     <div>
-                        <h4 style="font-size: 12px; color: var(--success); margin-bottom: 8px; text-transform: uppercase;">Passed Checks</h4>
+                        <h4 data-csp-style="font-size: 12px; color: var(--success); margin-bottom: 8px; text-transform: uppercase;">Passed Checks</h4>
                         @foreach (var check in Model.GuardResult.PassedChecks)
                         {
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--success);">
+                            <div data-csp-style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--success);">
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
                                 @check
                             </div>
@@ -79,10 +79,10 @@
                 @if (Model.GuardResult.FailedChecks.Any())
                 {
                     <div>
-                        <h4 style="font-size: 12px; color: var(--danger); margin-bottom: 8px; text-transform: uppercase;">Failed Checks</h4>
+                        <h4 data-csp-style="font-size: 12px; color: var(--danger); margin-bottom: 8px; text-transform: uppercase;">Failed Checks</h4>
                         @foreach (var check in Model.GuardResult.FailedChecks)
                         {
-                            <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--danger);">
+                            <div data-csp-style="display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--danger);">
                                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
                                 @check
                             </div>
@@ -104,18 +104,18 @@
         </h3>
     </div>
     <div class="section-card-body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;">
             @foreach (var table in Model.TableCounts.OrderByDescending(t => t.Value))
             {
-                <div style="background: var(--bg-muted); border-radius: 6px; padding: 12px; text-align: center;">
-                    <div style="font-size: 18px; font-weight: 600; color: var(--text-primary);">@table.Value.ToString("N0")</div>
-                    <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">@table.Key</div>
+                <div data-csp-style="background: var(--bg-muted); border-radius: 6px; padding: 12px; text-align: center;">
+                    <div data-csp-style="font-size: 18px; font-weight: 600; color: var(--text-primary);">@table.Value.ToString("N0")</div>
+                    <div data-csp-style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">@table.Key</div>
                 </div>
             }
         </div>
     </div>
 </div>
 
-<div style="margin-top: 24px; padding: 12px; background: var(--bg-muted); border-radius: 6px; font-size: 12px; color: var(--text-muted);">
-    <strong>API Endpoint:</strong> <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">/Admin/EnvironmentStatus?handler=ApiStatus</code>
+<div data-csp-style="margin-top: 24px; padding: 12px; background: var(--bg-muted); border-radius: 6px; font-size: 12px; color: var(--text-muted);">
+    <strong>API Endpoint:</strong> <code data-csp-style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">/Admin/EnvironmentStatus?handler=ApiStatus</code>
 </div>

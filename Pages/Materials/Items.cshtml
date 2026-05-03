@@ -89,7 +89,7 @@
             </svg>
             @(Model.HasFilters ? "Filtered Items" : "All Items")
         </h3>
-        <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
+        <p data-csp-style="color: var(--text-muted); font-size: 13px; margin: 0;">
             @(Model.HasFilters ? "Results matching your filter criteria" : "Browse and manage all items in the master file")
         </p>
     </div>
@@ -126,26 +126,26 @@
         </div>
     </form>
     
-    <div style="overflow-x: auto;">
+    <div data-csp-style="overflow-x: auto;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
         <table class="data-table premium-table" id="itemsGrid" data-enhanced-grid="true" data-row-click="true">
             <thead>
                 <tr>
-                    <th style="width: 50px;" data-col="Image" data-filter="none" data-export="false"></th>
-                    <th style="width: 140px;" data-col="Part Number" data-filter="text">Part Number</th>
-                    <th style="min-width: 200px;" data-col="Description" data-filter="text">Description</th>
-                    <th style="width: 80px;" data-col="Type" data-filter="select" data-filter-options="Part|Service|Asset|Kit">Type</th>
-                    <th style="width: 60px;" data-col="UoM" data-filter="text">UoM</th>
-                    <th style="width: 80px;" data-col="Current Rev" data-filter="text">Current Rev</th>
-                    <th style="width: 70px; text-align: right;" data-col="Lead Time" data-filter="number">Lead Time</th>
-                    <th style="width: 90px; text-align: right;" data-col="Last Price" data-filter="number">Last Price</th>
-                    <th style="width: 100px;" data-col="Stock Policy" data-filter="select" data-filter-options="Stock|Nonstock|Critical">Stock Policy</th>
-                    <th style="width: 80px; text-align: center;" data-col="Buyability" data-filter="none">Buyability</th>
-                    <th style="width: 60px; text-align: center;" data-col="MPNs" data-filter="none">MPNs</th>
-                    <th style="width: 60px; text-align: center;" data-col="VPNs" data-filter="none">VPNs</th>
-                    <th style="min-width: 140px;" data-col="Preferred Vendor" data-filter="text">Preferred Vendor</th>
-                    <th style="width: 60px; text-align: center;" data-col="Catalog" data-filter="none" data-export="false">Catalog</th>
-                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                    <th data-csp-style="width: 50px;" data-col="Image" data-filter="none" data-export="false"></th>
+                    <th data-csp-style="width: 140px;" data-col="Part Number" data-filter="text">Part Number</th>
+                    <th data-csp-style="min-width: 200px;" data-col="Description" data-filter="text">Description</th>
+                    <th data-csp-style="width: 80px;" data-col="Type" data-filter="select" data-filter-options="Part|Service|Asset|Kit">Type</th>
+                    <th data-csp-style="width: 60px;" data-col="UoM" data-filter="text">UoM</th>
+                    <th data-csp-style="width: 80px;" data-col="Current Rev" data-filter="text">Current Rev</th>
+                    <th data-csp-style="width: 70px; text-align: right;" data-col="Lead Time" data-filter="number">Lead Time</th>
+                    <th data-csp-style="width: 90px; text-align: right;" data-col="Last Price" data-filter="number">Last Price</th>
+                    <th data-csp-style="width: 100px;" data-col="Stock Policy" data-filter="select" data-filter-options="Stock|Nonstock|Critical">Stock Policy</th>
+                    <th data-csp-style="width: 80px; text-align: center;" data-col="Buyability" data-filter="none">Buyability</th>
+                    <th data-csp-style="width: 60px; text-align: center;" data-col="MPNs" data-filter="none">MPNs</th>
+                    <th data-csp-style="width: 60px; text-align: center;" data-col="VPNs" data-filter="none">VPNs</th>
+                    <th data-csp-style="min-width: 140px;" data-col="Preferred Vendor" data-filter="text">Preferred Vendor</th>
+                    <th data-csp-style="width: 60px; text-align: center;" data-col="Catalog" data-filter="none" data-export="false">Catalog</th>
+                    <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -156,14 +156,14 @@
                     var buyability = Model.GetBuyabilityScore(item.Id);
                     var effective = Model.GetEffectiveValues(item.Id);
                     <tr data-row-id="@item.Id" data-row-href="@Url.Page("/Materials/ItemEdit", new { id = item.Id, returnUrl = returnUrl })">
-                        <td style="text-align: center;" data-no-row-nav>
+                        <td data-csp-style="text-align: center;" data-no-row-nav>
                             @if (!string.IsNullOrEmpty(imageUrl))
                             {
-                                <img src="@imageUrl" alt="@item.PartNumber" style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-primary, #e2e8f0);" loading="lazy" />
+                                <img src="@imageUrl" alt="@item.PartNumber" data-csp-style="width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-primary, #e2e8f0);" loading="lazy" />
                             }
                             else
                             {
-                                <div class="bg-surface-alt" style="width: 36px; height: 36px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-primary, #e2e8f0);">
+                                <div class="bg-surface-alt" data-csp-style="width: 36px; height: 36px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-primary, #e2e8f0);">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#94a3b8">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                     </svg>
@@ -171,12 +171,12 @@
                             }
                         </td>
                         <td><strong class="text-primary">@item.PartNumber</strong></td>
-                        <td style="max-width: 280px;">
-                            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@item.Description">
+                        <td data-csp-style="max-width: 280px;">
+                            <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@item.Description">
                                 @item.Description
                             </div>
                         </td>
-                        <td style="color: var(--text-secondary);">@item.Type</td>
+                        <td data-csp-style="color: var(--text-secondary);">@item.Type</td>
                         <td>@item.StockUOM</td>
                         <td>
                             @if (item.CurrentReleasedRevision != null)
@@ -188,13 +188,13 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
-                        <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                        <td data-csp-style="text-align: right; font-variant-numeric: tabular-nums;">
                             @if (effective?.LeadTimeDays > 0)
                             {
                                 <span title="Source: @effective.LeadTimeSource">@effective.LeadTimeDays d</span>
                                 @if (effective.LeadTimeSource == "Preferred Vendor")
                                 {
-                                    <span class="text-blue" style="font-size: 8px; vertical-align: super;" title="From preferred vendor">V</span>
+                                    <span class="text-blue" data-csp-style="font-size: 8px; vertical-align: super;" title="From preferred vendor">V</span>
                                 }
                             }
                             else if (item.LeadTimeDays > 0)
@@ -206,13 +206,13 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
-                        <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                        <td data-csp-style="text-align: right; font-variant-numeric: tabular-nums;">
                             @if (effective?.LastPrice.HasValue == true)
                             {
                                 <span title="Source: @effective.LastPriceSource">$@effective.LastPrice.Value.ToString("N2")</span>
                                 @if (effective.LastPriceSource == "Preferred Vendor")
                                 {
-                                    <span class="text-blue" style="font-size: 8px; vertical-align: super;" title="From preferred vendor">V</span>
+                                    <span class="text-blue" data-csp-style="font-size: 8px; vertical-align: super;" title="From preferred vendor">V</span>
                                 }
                             }
                             else if (item.LastPrice.HasValue)
@@ -239,12 +239,12 @@
                                     _ => item.StockPolicy.ToString()
                                 };
                             }
-                            <span class="badge @policyClass" style="font-size: 10px;">@policyLabel</span>
+                            <span class="badge @policyClass" data-csp-style="font-size: 10px;">@policyLabel</span>
                         </td>
-                        <td style="text-align: center;">
+                        <td data-csp-style="text-align: center;">
                             @if (buyability != null)
                             {
-                                <span class="badge @buyability.TierBadgeClass" style="font-size: 9px; padding: 3px 6px;" title="@buyability.Score pts - @string.Join(", ", buyability.MissingFactors.Take(3).Select(f => f.Name))">
+                                <span class="badge @buyability.TierBadgeClass" data-csp-style="font-size: 9px; padding: 3px 6px;" title="@buyability.Score pts - @string.Join(", ", buyability.MissingFactors.Take(3).Select(f => f.Name))">
                                     @buyability.Tier.Substring(0, 1)@buyability.Score
                                 </span>
                             }
@@ -253,9 +253,9 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
-                        <td style="text-align: center;">@Model.GetMpnCount(item.Id)</td>
-                        <td style="text-align: center;">@Model.GetVpnCount(item.Id)</td>
-                        <td style="color: var(--text-secondary);">
+                        <td data-csp-style="text-align: center;">@Model.GetMpnCount(item.Id)</td>
+                        <td data-csp-style="text-align: center;">@Model.GetVpnCount(item.Id)</td>
+                        <td data-csp-style="color: var(--text-secondary);">
                             @if (!string.IsNullOrEmpty(Model.GetPreferredVendorName(item.Id)))
                             {
                                 <span>@Model.GetPreferredVendorName(item.Id)</span>
@@ -269,10 +269,10 @@
                                 <span class="text-muted">-</span>
                             }
                         </td>
-                        <td style="text-align: center;" onclick="event.stopPropagation();">
+                        <td data-csp-style="text-align: center;" onclick="event.stopPropagation();">
                             @if (!string.IsNullOrEmpty(catalogUrl))
                             {
-                                <a href="@catalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm" style="padding: 4px 8px;" title="Open vendor catalog">
+                                <a href="@catalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm" data-csp-style="padding: 4px 8px;" title="Open vendor catalog">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                     </svg>
@@ -301,8 +301,8 @@
     
     @if (!Model.Items.Any())
     {
-        <div class="pe-empty" style="padding:1.5rem;">
-            <i class="fas fa-cube pe-empty__icon" style="font-size:1.2rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:1.5rem;">
+            <i class="fas fa-cube pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
             <div class="pe-empty__text">
                 <h3>No items found</h3>
                 <p>
@@ -362,14 +362,14 @@
 </div>
 
 <div class="section-card pe-card">
-    <div class="section-card-body pe-card__body" style="padding: 16px 24px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
+    <div class="section-card-body pe-card__body" data-csp-style="padding: 16px 24px;">
+        <div data-csp-style="display: flex; align-items: center; gap: 12px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--primary)">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-                <strong style="color: var(--primary);">Tip:</strong>
-                <span style="color: var(--text-secondary);">Click on any item to view its full details including manufacturer parts, vendor parts, and revision history. Use filters to quickly find specific items.</span>
+                <strong data-csp-style="color: var(--primary);">Tip:</strong>
+                <span data-csp-style="color: var(--text-secondary);">Click on any item to view its full details including manufacturer parts, vendor parts, and revision history. Use filters to quickly find specific items.</span>
             </div>
         </div>
     </div>

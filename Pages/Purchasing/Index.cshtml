@@ -45,30 +45,30 @@
 
 @if (TempData["Success"] is string success)
 {
-    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
 }
 @if (TempData["Error"] is string error)
 {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>
 }
 
 <!-- KPI STRIP -->
-<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.75rem; margin-bottom:1rem;">
-    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
-        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open POs</div>
-        <div style="font-size:1.5rem; font-weight:700; color:var(--info); font-variant-numeric:tabular-nums;">@Model.OpenPOCount</div>
+<div data-csp-style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.75rem; margin-bottom:1rem;">
+    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
+        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open POs</div>
+        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--info); font-variant-numeric:tabular-nums;">@Model.OpenPOCount</div>
     </div>
-    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
-        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Pending Approval</div>
-        <div style="font-size:1.5rem; font-weight:700; color:@(Model.PendingApprovalCount > 0 ? "var(--warning)" : "var(--text-muted)"); font-variant-numeric:tabular-nums;">@Model.PendingApprovalCount</div>
+    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
+        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Pending Approval</div>
+        <div data-csp-style="font-size:1.5rem; font-weight:700; color:@(Model.PendingApprovalCount > 0 ? "var(--warning)" : "var(--text-muted)"); font-variant-numeric:tabular-nums;">@Model.PendingApprovalCount</div>
     </div>
-    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
-        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open Value</div>
-        <div style="font-size:1.5rem; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">$@Model.OpenPOValue.ToString("N0")</div>
+    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
+        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open Value</div>
+        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">$@Model.OpenPOValue.ToString("N0")</div>
     </div>
-    <div class="pe-card" style="padding:0.75rem 1rem; text-align:center;">
-        <div style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Received This Month</div>
-        <div style="font-size:1.5rem; font-weight:700; color:var(--success); font-variant-numeric:tabular-nums;">@Model.ReceivedThisMonth</div>
+    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
+        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Received This Month</div>
+        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--success); font-variant-numeric:tabular-nums;">@Model.ReceivedThisMonth</div>
     </div>
 </div>
 
@@ -126,7 +126,7 @@
             @if (completed.Any())
             {
                 <div class="cockpit__group" data-group="completed">
-                    <div class="cockpit__group-label" style="color:var(--success);">
+                    <div class="cockpit__group-label" data-csp-style="color:var(--success);">
                         <i class="fas fa-check-circle"></i> Completed (@completed.Count)
                     </div>
                     @foreach (var po in completed) { @await Html.PartialAsync("/Pages/Purchasing/_POCard.cshtml", po) }
@@ -135,9 +135,9 @@
             @if (!Model.PurchaseOrders.Any())
             {
                 <div class="cockpit__empty">
-                    <i class="fas fa-file-invoice" style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem; opacity:0.4;"></i>
+                    <i class="fas fa-file-invoice" data-csp-style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem; opacity:0.4;"></i>
                     <div>No purchase orders found.</div>
-                    <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm" style="margin-top:0.75rem;">Create First PO</a>
+                    <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm" data-csp-style="margin-top:0.75rem;">Create First PO</a>
                 </div>
             }
         </div>
@@ -152,7 +152,7 @@
             <p class="cockpit__welcome-sub">Click a purchase order from the list to see details, line items, and take action.</p>
             <div class="cockpit__welcome-stats">
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--warning);">@needsAction.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--warning);">@needsAction.Count</span>
                     <span class="cockpit__stat-label">Needs Approval</span>
                 </div>
                 <div class="cockpit__stat">
@@ -160,28 +160,28 @@
                     <span class="cockpit__stat-label">Drafts</span>
                 </div>
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--info);">@active.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--info);">@active.Count</span>
                     <span class="cockpit__stat-label">Active</span>
                 </div>
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--success);">@completed.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--success);">@completed.Count</span>
                     <span class="cockpit__stat-label">Completed</span>
                 </div>
             </div>
         </div>
 
         <!-- PO Preview -->
-        <div id="mainPreview" style="display:none; flex:1; flex-direction:column;">
+        <div id="mainPreview" data-csp-style="display:none; flex:1; flex-direction:column;">
             <div class="cockpit__preview-header">
-                <div style="display:flex; align-items:center; gap:1rem;">
+                <div data-csp-style="display:flex; align-items:center; gap:1rem;">
                     <span class="cockpit__preview-po" id="pvPoNum"></span>
                     <span class="cockpit__preview-status" id="pvStatus"></span>
                 </div>
-                <div style="display:flex; gap:0.5rem;">
+                <div data-csp-style="display:flex; gap:0.5rem;">
                     <a id="pvEditBtn" href="#" class="btn-p btn-p--secondary btn-p--sm">
                         <i class="fas fa-edit"></i> Edit / Details
                     </a>
-                    <a id="pvReceiveBtn" href="#" class="btn-p btn-p--primary btn-p--sm" style="display:none;">
+                    <a id="pvReceiveBtn" href="#" class="btn-p btn-p--primary btn-p--sm" data-csp-style="display:none;">
                         <i class="fas fa-box-open"></i> Receive
                     </a>
                 </div>
@@ -227,9 +227,9 @@
             </div>
 
             <!-- Notes -->
-            <div id="pvNotesWrap" style="display:none; padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+            <div id="pvNotesWrap" data-csp-style="display:none; padding:0.75rem 1.25rem; border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
                 <span class="cockpit__preview-label">Notes</span>
-                <p id="pvNotes" style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;"></p>
+                <p id="pvNotes" data-csp-style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;"></p>
             </div>
 
             <!-- Quick actions based on status -->
@@ -457,10 +457,10 @@ function selectPO(id) {
     var html = '';
     if (po.status === 'Draft') {
         html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-edit"></i> Edit PO</a>'
-             + '<span style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem 0;">Add lines and submit for approval</span>';
+             + '<span data-csp-style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem 0;">Add lines and submit for approval</span>';
     } else if (po.status === 'PendingApproval') {
         html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-check"></i> Review & Approve</a>'
-             + '<span style="font-size:0.8rem; color:var(--warning); padding:0.35rem 0;"><i class="fas fa-bell"></i> Awaiting approval</span>';
+             + '<span data-csp-style="font-size:0.8rem; color:var(--warning); padding:0.35rem 0;"><i class="fas fa-bell"></i> Awaiting approval</span>';
     } else if (po.status === 'Approved' || po.status === 'Sent') {
         html = '<a href="/Receiving/Receive/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-box-open"></i> Receive Goods</a>'
              + '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';

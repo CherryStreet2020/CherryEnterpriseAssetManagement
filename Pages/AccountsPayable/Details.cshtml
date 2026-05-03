@@ -200,7 +200,7 @@
                     <input type="hidden" name="id" value="@inv.Id" />
                     <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="vertical-align: text-bottom;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="vertical-align: text-bottom;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                         Auto-Match to PO
@@ -302,7 +302,7 @@
                             <td class="text-center">
                                 @if (!string.IsNullOrEmpty(lineMatchIcon))
                                 {
-                                    <span class="@lineMatchClass" style="font-size: 1.1rem; font-weight: 700;">@lineMatchIcon</span>
+                                    <span class="@lineMatchClass" data-csp-style="font-size: 1.1rem; font-weight: 700;">@lineMatchIcon</span>
                                 }
                                 else
                                 {
@@ -314,7 +314,7 @@
                                 {
                                     @if (isLinked)
                                     {
-                                        <form method="post" asp-page-handler="UnlinkLine" style="display: inline;">
+                                        <form method="post" asp-page-handler="UnlinkLine" data-csp-style="display: inline;">
                                             <input type="hidden" name="id" value="@inv.Id" />
                                             <input type="hidden" name="invoiceLineId" value="@line.Id" />
                                             <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
@@ -330,14 +330,14 @@
                         </tr>
                         @if (!isLinked && inv.Status != InvoiceStatus.Voided)
                         {
-                            <tr id="linkForm-@line.Id" style="display: none;">
+                            <tr id="linkForm-@line.Id" data-csp-style="display: none;">
                                 <td colspan="10">
-                                    <div class="pe-card" style="margin: 0.5rem 0; border: 1px solid var(--info); border-radius: 8px;">
-                                        <div class="pe-card__header" style="padding: 0.75rem 1rem;">
-                                            <span class="pe-card__title" style="font-size: 0.8rem;">Link "@line.Description" to PO</span>
+                                    <div class="pe-card" data-csp-style="margin: 0.5rem 0; border: 1px solid var(--info); border-radius: 8px;">
+                                        <div class="pe-card__header" data-csp-style="padding: 0.75rem 1rem;">
+                                            <span class="pe-card__title" data-csp-style="font-size: 0.8rem;">Link "@line.Description" to PO</span>
                                             <button type="button" class="btn-p btn-p--ghost btn-p--xs" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">✕</button>
                                         </div>
-                                        <div class="pe-card__body" style="padding: 1rem;">
+                                        <div class="pe-card__body" data-csp-style="padding: 1rem;">
                                             <form method="post" asp-page-handler="LinkLine">
                                                 <input type="hidden" name="id" value="@inv.Id" />
                                                 <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
@@ -364,7 +364,7 @@
                                                         </select>
                                                     </div>
                                                 </div>
-                                                <div class="pe-action-bar" style="padding-top: 0.75rem;">
+                                                <div class="pe-action-bar" data-csp-style="padding-top: 0.75rem;">
                                                     <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">Cancel</button>
                                                     <button type="submit" class="btn-p btn-p--primary btn-p--sm">Link Line</button>
                                                 </div>
@@ -395,7 +395,7 @@
             var grTotal = linkedGRLines.Sum(l => l.GoodsReceiptLine!.QuantityReceived * (l.PurchaseOrderLine?.UnitPrice ?? 0));
             var variance = invoiceTotal - poTotal;
 
-            <div class="pe-card" style="margin-top: 1rem;">
+            <div class="pe-card" data-csp-style="margin-top: 1rem;">
                 <div class="pe-card__header">
                     <span class="pe-card__title">Match Summary</span>
                 </div>
@@ -419,7 +419,7 @@
                                 @variance.ToString("C2")
                                 @if (Math.Abs(variance) <= 0.01m && linkedPOLines.Any())
                                 {
-                                    <span style="margin-left: 0.25rem;">✓</span>
+                                    <span data-csp-style="margin-left: 0.25rem;">✓</span>
                                 }
                             </span>
                         </div>
@@ -482,10 +482,10 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width: 120px;">DATE</th>
-                        <th class="line-table__th line-table__th--right" style="width: 120px;">AMOUNT</th>
-                        <th class="line-table__th" style="width: 120px;">METHOD</th>
-                        <th class="line-table__th" style="width: 150px;">REFERENCE #</th>
+                        <th class="line-table__th" data-csp-style="width: 120px;">DATE</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width: 120px;">AMOUNT</th>
+                        <th class="line-table__th" data-csp-style="width: 120px;">METHOD</th>
+                        <th class="line-table__th" data-csp-style="width: 150px;">REFERENCE #</th>
                         <th class="line-table__th">NOTES</th>
                     </tr>
                 </thead>
@@ -503,13 +503,13 @@
                 </tbody>
                 <tfoot>
                     <tr class="line-table__total-row">
-                        <td class="line-table__td line-table__td--right" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL PAID</td>
+                        <td class="line-table__td line-table__td--right" data-csp-style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL PAID</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@inv.AmountPaid.ToString("N2")</td>
                         <td colspan="3"></td>
                     </tr>
                     <tr>
-                        <td class="line-table__td line-table__td--right" style="font-weight: 700; font-size: 0.8rem;">BALANCE DUE</td>
-                        <td class="line-table__td line-table__td--right line-table__td--mono" style="font-weight: 700; font-size: 1rem; color: @(inv.BalanceDue > 0 ? "var(--status-danger, #ef4444)" : "var(--status-success, #22c55e)");">@inv.BalanceDue.ToString("N2")</td>
+                        <td class="line-table__td line-table__td--right" data-csp-style="font-weight: 700; font-size: 0.8rem;">BALANCE DUE</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono" data-csp-style="font-weight: 700; font-size: 1rem; color: @(inv.BalanceDue > 0 ? "var(--status-danger, #ef4444)" : "var(--status-success, #22c55e)");">@inv.BalanceDue.ToString("N2")</td>
                         <td colspan="3"></td>
                     </tr>
                 </tfoot>

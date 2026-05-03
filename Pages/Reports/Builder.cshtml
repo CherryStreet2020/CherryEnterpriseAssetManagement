@@ -39,9 +39,9 @@
                         }
                     </div>
                     
-                    <hr style="margin: 1rem 0;" />
+                    <hr data-csp-style="margin: 1rem 0;" />
                     
-                    <h4 style="margin-bottom: 0.75rem;">Filters</h4>
+                    <h4 data-csp-style="margin-bottom: 0.75rem;">Filters</h4>
                     
                     <div class="form-group">
                         <label>Location</label>
@@ -78,7 +78,7 @@
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn-p btn-p--primary" style="width: 100%; margin-top: 1rem;">
+                    <button type="submit" class="btn-p btn-p--primary" data-csp-style="width: 100%; margin-top: 1rem;">
                         Generate Report
                     </button>
                 </form>
@@ -88,7 +88,7 @@
     
     <div class="builder-content">
         <div class="section-card">
-            <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="section-card-header" data-csp-style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Report Results</h3>
                 @if (Model.ReportData.Any())
                 {
@@ -134,8 +134,8 @@
                 }
                 else
                 {
-                    <div class="pe-empty" style="padding:2rem;">
-                        <i class="fas fa-chart-bar pe-empty__icon" style="font-size:1.5rem;"></i>
+                    <div class="pe-empty" data-csp-style="padding:2rem;">
+                        <i class="fas fa-chart-bar pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                         <div class="pe-empty__title">No Report Generated</div>
                         <div class="pe-empty__text">Select fields and click "Generate Report" to build your custom report.</div>
                     </div>

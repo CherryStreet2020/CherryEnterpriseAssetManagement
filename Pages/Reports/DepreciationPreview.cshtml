@@ -85,20 +85,20 @@
         </h3>
         <span class="status-badge info">@(Model.Lines?.Count ?? 0) ASSETS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <div class="table-container">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Asset #</th>
                         <th>Description</th>
-                        <th style="text-align: center;">In Service</th>
-                        <th style="text-align: right;">Cost</th>
-                        <th style="text-align: right;">Salvage</th>
-                        <th style="text-align: center;">Life</th>
-                        <th style="text-align: right;">Monthly</th>
-                        <th style="text-align: right;">Accumulated</th>
-                        <th style="text-align: right;">NBV</th>
+                        <th data-csp-style="text-align: center;">In Service</th>
+                        <th data-csp-style="text-align: right;">Cost</th>
+                        <th data-csp-style="text-align: right;">Salvage</th>
+                        <th data-csp-style="text-align: center;">Life</th>
+                        <th data-csp-style="text-align: right;">Monthly</th>
+                        <th data-csp-style="text-align: right;">Accumulated</th>
+                        <th data-csp-style="text-align: right;">NBV</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -109,21 +109,21 @@
                         <tr>
                             <td><span class="badge badge-outline">@r.AssetNumber</span></td>
                             <td>@r.Description</td>
-                            <td style="text-align: center;">@ShortDate(r.InService)</td>
-                            <td style="text-align: right;">@Money(r.Cost)</td>
-                            <td style="text-align: right;">@Money(r.Salvage)</td>
-                            <td style="text-align: center;">@r.LifeMonths mo</td>
-                            <td class="text-amber" style="text-align: right;">@Money(r.Monthly)</td>
-                            <td style="text-align: right; font-weight: 500;">@Money(r.Accumulated)</td>
-                            <td class="text-green" style="text-align: right; font-weight: 600;">@Money(r.NBV)</td>
+                            <td data-csp-style="text-align: center;">@ShortDate(r.InService)</td>
+                            <td data-csp-style="text-align: right;">@Money(r.Cost)</td>
+                            <td data-csp-style="text-align: right;">@Money(r.Salvage)</td>
+                            <td data-csp-style="text-align: center;">@r.LifeMonths mo</td>
+                            <td class="text-amber" data-csp-style="text-align: right;">@Money(r.Monthly)</td>
+                            <td data-csp-style="text-align: right; font-weight: 500;">@Money(r.Accumulated)</td>
+                            <td class="text-green" data-csp-style="text-align: right; font-weight: 600;">@Money(r.NBV)</td>
                         </tr>
                     }
                 }
                 else
                 {
                     <tr>
-                        <td class="text-theme-muted" colspan="9" style="text-align: center; padding: 3rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-bottom: 1rem; opacity: 0.5;">
+                        <td class="text-theme-muted" colspan="9" data-csp-style="text-align: center; padding: 3rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-bottom: 1rem; opacity: 0.5;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                             </svg>
                             <div>No depreciation data to display for this period.</div>

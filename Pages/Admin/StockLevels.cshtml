@@ -27,7 +27,7 @@
 @if (Model.LowStockItems.Any())
 {
 <div class="section-card mb-4">
-    <div class="section-card-header" style="background: rgba(245, 158, 11, 0.1);">
+    <div class="section-card-header" data-csp-style="background: rgba(245, 158, 11, 0.1);">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="text-amber">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -36,7 +36,7 @@
         </h3>
         <span class="status-badge warning">@Model.LowStockItems.Count() ITEMS NEED ATTENTION</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <thead>
                 <tr>
@@ -80,7 +80,7 @@
         </h3>
         <span class="status-badge info">@totalItems ITEMS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.AllItems.Any())
         {
             <table class="data-table" id="stockTable">
@@ -90,10 +90,10 @@
                         <th>Mfr Part #</th>
                         <th>Description</th>
                         <th>Category</th>
-                        <th style="text-align: right;">On Hand</th>
-                        <th style="text-align: right;">Reorder Pt</th>
-                        <th style="text-align: right;">Unit Cost</th>
-                        <th style="text-align: right;">Total Value</th>
+                        <th data-csp-style="text-align: right;">On Hand</th>
+                        <th data-csp-style="text-align: right;">Reorder Pt</th>
+                        <th data-csp-style="text-align: right;">Unit Cost</th>
+                        <th data-csp-style="text-align: right;">Total Value</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -106,13 +106,13 @@
                                         item.OnHand <= item.ReorderPoint ? "Low Stock" : "In Stock";
                         <tr>
                             <td><strong>@item.PartNumber</strong></td>
-                            <td><span class="text-muted" style="font-size: 0.85em;">@(item.MfrPartNumber ?? "-")</span></td>
+                            <td><span class="text-muted" data-csp-style="font-size: 0.85em;">@(item.MfrPartNumber ?? "-")</span></td>
                             <td>@item.Description</td>
                             <td>@item.Category</td>
-                            <td style="text-align: right;">@item.OnHand.ToString("N0")</td>
-                            <td style="text-align: right;">@item.ReorderPoint.ToString("N0")</td>
-                            <td style="text-align: right;">@item.UnitCost.ToString("C2")</td>
-                            <td style="text-align: right;">@item.TotalValue.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@item.OnHand.ToString("N0")</td>
+                            <td data-csp-style="text-align: right;">@item.ReorderPoint.ToString("N0")</td>
+                            <td data-csp-style="text-align: right;">@item.UnitCost.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@item.TotalValue.ToString("C2")</td>
                             <td><span class="badge @statusClass">@itemStatusText</span></td>
                         </tr>
                     }
@@ -121,8 +121,8 @@
         }
         else
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-chart-line pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-chart-line pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">No inventory data. Add items and record inventory transactions to see stock levels.</div>
             </div>
         }

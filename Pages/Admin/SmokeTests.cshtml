@@ -24,19 +24,19 @@
 
 @if (!string.IsNullOrEmpty(Model.DeprecationMessage))
 {
-    <div class="alert alert-info" style="margin-bottom: 24px;">
+    <div class="alert alert-info" data-csp-style="margin-bottom: 24px;">
         <strong>Notice:</strong> @Model.DeprecationMessage
     </div>
 }
 
 @if (!Model.CanRunTests)
 {
-    <div class="alert alert-warning" style="margin-bottom: 24px;">
+    <div class="alert alert-warning" data-csp-style="margin-bottom: 24px;">
         <strong>Tests Blocked:</strong> @Model.BlockedReason
     </div>
 }
 
-<div id="progressSection" class="section-card" style="margin-bottom: 24px; display: none;">
+<div id="progressSection" class="section-card" data-csp-style="margin-bottom: 24px; display: none;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg class="spinner spinner-animate" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--primary)">
@@ -46,32 +46,32 @@
         </h3>
     </div>
     <div class="section-card-body">
-        <div style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span id="currentTestLabel" style="color: var(--text-muted); font-size: 13px;">Initializing...</span>
-                <span id="progressCount" style="color: var(--text-muted); font-size: 13px;">0 / @Model.TotalTestCount</span>
+        <div data-csp-style="margin-bottom: 16px;">
+            <div data-csp-style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span id="currentTestLabel" data-csp-style="color: var(--text-muted); font-size: 13px;">Initializing...</span>
+                <span id="progressCount" data-csp-style="color: var(--text-muted); font-size: 13px;">0 / @Model.TotalTestCount</span>
             </div>
-            <div style="height: 8px; background: var(--bg-muted); border-radius: 4px; overflow: hidden;">
-                <div id="progressBar" style="height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease;"></div>
+            <div data-csp-style="height: 8px; background: var(--bg-muted); border-radius: 4px; overflow: hidden;">
+                <div id="progressBar" data-csp-style="height: 100%; width: 0%; background: var(--primary); transition: width 0.3s ease;"></div>
             </div>
         </div>
     </div>
 </div>
 
-<div id="resultsSection" style="display: none;">
-    <div class="section-card" style="margin-bottom: 24px;">
+<div id="resultsSection" data-csp-style="display: none;">
+    <div class="section-card" data-csp-style="margin-bottom: 24px;">
         <div class="section-card-header">
             <h3 class="section-card-title" id="resultsSummaryTitle">
                 Test Results
             </h3>
         </div>
-        <div class="section-card-body" style="padding: 0;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 80px;">Status</th>
+                        <th data-csp-style="width: 80px;">Status</th>
                         <th>Test Name</th>
-                        <th style="width: 80px; text-align: right;">Time</th>
+                        <th data-csp-style="width: 80px; text-align: right;">Time</th>
                     </tr>
                 </thead>
                 <tbody id="resultsTableBody">
@@ -87,18 +87,18 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Rollback Verification
-                <span id="rollbackBadge" class="badge" style="margin-left: 8px;"></span>
+                <span id="rollbackBadge" class="badge" data-csp-style="margin-left: 8px;"></span>
             </h3>
         </div>
         <div class="section-card-body">
-            <p id="rollbackDetails" style="margin-bottom: 16px; color: var(--text-muted); font-size: 13px;"></p>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <p id="rollbackDetails" data-csp-style="margin-bottom: 16px; color: var(--text-muted); font-size: 13px;"></p>
+            <div data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
                 <div>
-                    <h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Before Test</h4>
+                    <h4 data-csp-style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">Before Test</h4>
                     <div id="beforeCounts"></div>
                 </div>
                 <div>
-                    <h4 style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">After Test</h4>
+                    <h4 data-csp-style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase;">After Test</h4>
                     <div id="afterCounts"></div>
                 </div>
             </div>
@@ -106,17 +106,17 @@
     </div>
 </div>
 
-<div id="readySection" class="section-card" style="@(Model.CanRunTests ? "" : "display: none;")">
-    <div class="section-card-body" style="text-align: center; padding: 48px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" style="margin-bottom: 16px;">
+<div id="readySection" class="section-card" data-csp-style="@(Model.CanRunTests ? "" : "display: none;")">
+    <div class="section-card-body" data-csp-style="text-align: center; padding: 48px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="var(--text-muted)" data-csp-style="margin-bottom: 16px;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
-        <h3 style="margin-bottom: 8px;">Ready to Run Tests</h3>
-        <p style="color: var(--text-muted);">Click "Run Tests" to execute the smoke test suite. All changes are rolled back automatically.</p>
+        <h3 data-csp-style="margin-bottom: 8px;">Ready to Run Tests</h3>
+        <p data-csp-style="color: var(--text-muted);">Click "Run Tests" to execute the smoke test suite. All changes are rolled back automatically.</p>
     </div>
 </div>
 
-<div id="errorSection" class="alert alert-danger" style="margin-bottom: 24px; display: none;">
+<div id="errorSection" class="alert alert-danger" data-csp-style="margin-bottom: 24px; display: none;">
     <strong>Error:</strong> <span id="errorMessage"></span>
 </div>
 
@@ -301,13 +301,13 @@
         document.getElementById('kpiPassed').textContent = data.passedTests;
         document.getElementById('kpiFailed').textContent = data.failedTests;
         document.getElementById('kpiFailed').style.color = data.failedTests > 0 ? 'var(--danger)' : 'var(--text-muted)';
-        document.getElementById('kpiDuration').innerHTML = data.totalDurationMs + '<span style="font-size: 0.6em;">ms</span>';
+        document.getElementById('kpiDuration').innerHTML = data.totalDurationMs + '<span data-csp-style="font-size: 0.6em;">ms</span>';
 
         const titleEl = document.getElementById('resultsSummaryTitle');
         if (data.allPassed) {
-            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--success)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span style="color: var(--success);">All Tests Passed</span>';
+            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--success)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span data-csp-style="color: var(--success);">All Tests Passed</span>';
         } else {
-            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--danger)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span style="color: var(--danger);">' + data.failedTests + ' Test(s) Failed</span>';
+            titleEl.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="var(--danger)"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span data-csp-style="color: var(--danger);">' + data.failedTests + ' Test(s) Failed</span>';
         }
 
         const tbody = document.getElementById('resultsTableBody');
@@ -374,7 +374,7 @@
         for (const key in data.beforeCounts) {
             const div = document.createElement('div');
             div.style.cssText = 'display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-light); font-size: 13px;';
-            div.innerHTML = '<span>' + key + '</span><span style="font-family: monospace;">' + data.beforeCounts[key] + '</span>';
+            div.innerHTML = '<span>' + key + '</span><span data-csp-style="font-family: monospace;">' + data.beforeCounts[key] + '</span>';
             beforeCountsEl.appendChild(div);
         }
 
@@ -382,7 +382,7 @@
             const changed = data.beforeCounts[key] !== data.afterCounts[key];
             const div = document.createElement('div');
             div.style.cssText = 'display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border-light); font-size: 13px;' + (changed ? ' color: var(--danger);' : '');
-            div.innerHTML = '<span>' + key + '</span><span style="font-family: monospace;">' + data.afterCounts[key] + '</span>';
+            div.innerHTML = '<span>' + key + '</span><span data-csp-style="font-family: monospace;">' + data.afterCounts[key] + '</span>';
             afterCountsEl.appendChild(div);
         }
     }

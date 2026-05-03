@@ -39,7 +39,7 @@
 
 @if (Model.GuardResult != null && !Model.GuardResult.Allowed)
 {
-    <div class="section-card mb-4 bg-red-soft" style="border: 2px solid var(--danger, #ef4444);">
+    <div class="section-card mb-4 bg-red-soft" data-csp-style="border: 2px solid var(--danger, #ef4444);">
         <div class="section-card-header bg-red-soft">
             <h3 class="section-card-title text-dark-red">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,7 +49,7 @@
             </h3>
         </div>
         <div class="section-card-body">
-            <p class="text-dark-red" style="font-weight: 500;">@Model.GuardResult.Reason</p>
+            <p class="text-dark-red" data-csp-style="font-weight: 500;">@Model.GuardResult.Reason</p>
             <p class="text-muted">Demo data seeding is only available in LAB/Development environments with Admin role.</p>
         </div>
     </div>
@@ -92,7 +92,7 @@
                     </tr>
                 </tbody>
             </table>
-            <div class="mt-4 text-muted" style="font-size: 0.875rem;">
+            <div class="mt-4 text-muted" data-csp-style="font-size: 0.875rem;">
                 <p><strong>Idempotent:</strong> Running multiple times will not create duplicates. Existing records are updated or skipped.</p>
                 <p><strong>Stable Keys:</strong> Assets use AssetNumber, Templates use Code, Schedules use Name.</p>
             </div>
@@ -278,7 +278,7 @@
 }
 
 <!-- Demo Pack v2 Section -->
-<div class="section-card mb-6" style="border: 2px solid var(--purple, #8b5cf6);">
+<div class="section-card mb-6" data-csp-style="border: 2px solid var(--purple, #8b5cf6);">
     <div class="section-card-header gradient-btn-purple">
         <h3 class="section-card-title text-white">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -291,42 +291,42 @@
         <p class="mb-3">Seeds Items, Manufacturers, MPNs, VPNs, AVL entries, Alternates, and Supersession chains.</p>
         
         <div class="grid grid-cols-4 gap-4 mb-4">
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-purple" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.DemoItemCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Demo Items</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-purple" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.DemoItemCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Demo Items</div>
             </div>
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-purple" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.DemoManufacturerCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Demo Mfrs</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-purple" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.DemoManufacturerCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Demo Mfrs</div>
             </div>
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-purple" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalMPNCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Total MPNs</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-purple" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalMPNCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Total MPNs</div>
             </div>
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-purple" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalVPNCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Total VPNs</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-purple" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalVPNCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Total VPNs</div>
             </div>
         </div>
         <div class="grid grid-cols-3 gap-4 mb-4">
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-green" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalAVLCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">AVL Entries</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-green" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalAVLCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">AVL Entries</div>
             </div>
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-amber" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalAlternateCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Alternates</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-amber" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalAlternateCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Alternates</div>
             </div>
-            <div class="text-center py-2 bg-surface-alt" style="border-radius: 8px;">
-                <div class="text-red" style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalSupersessionCount ?? 0)</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem;">Supersessions</div>
+            <div class="text-center py-2 bg-surface-alt" data-csp-style="border-radius: 8px;">
+                <div class="text-red" data-csp-style="font-size: 1.5rem; font-weight: 700;">@(Model.DataSummaryV2?.TotalSupersessionCount ?? 0)</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Supersessions</div>
             </div>
         </div>
         
         @if (Model.GuardResult?.Allowed == true)
         {
             <div class="d-flex gap-3">
-                <form method="post" asp-page-handler="PreviewV2" style="display: inline;">
+                <form method="post" asp-page-handler="PreviewV2" data-csp-style="display: inline;">
                     <button type="submit" class="btn-p btn-p--secondary">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="me-1">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -335,7 +335,7 @@
                         Preview V2
                     </button>
                 </form>
-                <form method="post" asp-page-handler="ExecuteV2" style="display: inline;">
+                <form method="post" asp-page-handler="ExecuteV2" data-csp-style="display: inline;">
                     <button type="submit" class="btn btn-primary btn-purple">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="me-1">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -372,7 +372,7 @@
                     }
                 </tbody>
                 <tfoot>
-                    <tr style="font-weight: bold;">
+                    <tr data-csp-style="font-weight: bold;">
                         <td colspan="2">Total</td>
                         <td class="text-success">@Model.PreviewResultV2.TotalWouldCreate</td>
                         <td class="text-warning">@Model.PreviewResultV2.TotalWouldUpdate</td>
@@ -408,7 +408,7 @@
                     }
                 </tbody>
                 <tfoot>
-                    <tr style="font-weight: bold;">
+                    <tr data-csp-style="font-weight: bold;">
                         <td colspan="2">Total</td>
                         <td class="text-success">@Model.ExecuteResultV2.TotalInserted</td>
                         <td class="text-warning">@Model.ExecuteResultV2.TotalUpdated</td>

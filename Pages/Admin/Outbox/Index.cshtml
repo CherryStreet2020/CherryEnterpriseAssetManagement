@@ -67,7 +67,7 @@ else
                 {
                     <tr>
                         <td>@evt.Id</td>
-                        <td><code style="font-size: 0.85em;">@evt.EventType</code></td>
+                        <td><code data-csp-style="font-size: 0.85em;">@evt.EventType</code></td>
                         <td>@evt.EntityType:@evt.EntityId</td>
                         <td>@evt.OccurredAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>
@@ -89,20 +89,20 @@ else
                         </td>
                         <td>@evt.AttemptCount</td>
                         <td>@(evt.NextAttemptAt?.ToString("HH:mm:ss") ?? "-")</td>
-                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@evt.LastError">
+                        <td data-csp-style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@evt.LastError">
                             @(evt.LastError ?? "-")
                         </td>
                         <td>
-                            <div style="display: flex; gap: 0.25rem;">
+                            <div data-csp-style="display: flex; gap: 0.25rem;">
                                 <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="viewPayload(@evt.Id)">View</button>
                                 @if (evt.Status != OutboxEventStatus.Sent)
                                 {
-                                    <form method="post" asp-page-handler="RetryNow" style="display:inline;">
+                                    <form method="post" asp-page-handler="RetryNow" data-csp-style="display:inline;">
                                         <input type="hidden" name="id" value="@evt.Id" />
                                         <button type="submit" class="btn btn-sm btn-primary">Retry</button>
                                     </form>
                                 }
-                                <form method="post" asp-page-handler="Replay" style="display:inline;">
+                                <form method="post" asp-page-handler="Replay" data-csp-style="display:inline;">
                                     <input type="hidden" name="id" value="@evt.Id" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Replay</button>
                                 </form>
@@ -113,7 +113,7 @@ else
                 @if (!Model.Events.Any())
                 {
                     <tr>
-                        <td colspan="9" style="text-align: center; padding: 2rem;">No events found for this filter.</td>
+                        <td colspan="9" data-csp-style="text-align: center; padding: 2rem;">No events found for this filter.</td>
                     </tr>
                 }
             </tbody>
@@ -121,14 +121,14 @@ else
     </div>
 }
 
-<div id="payloadFormPanel" class="inline-form-panel" style="display:none;">
-    <div class="inline-form-panel-content" style="max-width: 800px;">
+<div id="payloadFormPanel" class="inline-form-panel" data-csp-style="display:none;">
+    <div class="inline-form-panel-content" data-csp-style="max-width: 800px;">
         <div class="inline-form-header">
             <h3>Event Payload</h3>
             <button type="button" class="inline-form-close" onclick="closePayloadForm()">&times;</button>
         </div>
         <div class="inline-form-body">
-            <pre id="payloadContent" style="background: var(--lux-surface-alt, #f5f5f5); padding: 1rem; border-radius: 4px; overflow: auto; max-height: 400px;"></pre>
+            <pre id="payloadContent" data-csp-style="background: var(--lux-surface-alt, #f5f5f5); padding: 1rem; border-radius: 4px; overflow: auto; max-height: 400px;"></pre>
         </div>
     </div>
 </div>

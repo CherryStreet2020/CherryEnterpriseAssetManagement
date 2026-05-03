@@ -123,11 +123,11 @@
 
             <!-- Progress bar -->
             <div class="dm-progress">
-                <div class="dm-progress__bar" style="width: @((currentStep * 100) / Math.Max(steps.Length - 1, 1))%;"></div>
+                <div class="dm-progress__bar" data-csp-style="width: @((currentStep * 100) / Math.Max(steps.Length - 1, 1))%;"></div>
             </div>
 
             <!-- Upload & Import card -->
-            <div class="pe-card" style="margin-top: 1rem;">
+            <div class="pe-card" data-csp-style="margin-top: 1rem;">
                 <div class="pe-card__body">
 
                     <!-- Instructions -->
@@ -159,8 +159,7 @@
                             <div class="dm-upload-zone__or">or</div>
                             <label class="btn-p btn-p--outline btn-p--sm dm-upload-zone__btn">
                                 <i class="fas fa-folder-open"></i> Browse Files
-                                <input type="file" name="file" accept=".xlsx,.xls,.csv"
-                                       style="display:none;" id="fileInput" />
+                                <input type="file" name="file" accept=".xlsx,.xls,.csv" data-csp-style="display:none;" id="fileInput" />
                             </label>
                             <div class="dm-upload-zone__filename" id="fileName"></div>
                         </div>
@@ -252,14 +251,14 @@
             </div>
 
             <!-- Download Master Workbook -->
-            <div class="pe-card" style="margin-top: 1rem;">
-                <div class="pe-card__body" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+            <div class="pe-card" data-csp-style="margin-top: 1rem;">
+                <div class="pe-card__body" data-csp-style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
                     <div>
-                        <div style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:0.2rem;">
-                            <i class="fas fa-file-excel" style="color:var(--cherry-red, #cf3339); margin-right:0.4rem;"></i>
+                        <div data-csp-style="font-size:0.85rem; font-weight:600; color:var(--text-primary); margin-bottom:0.2rem;">
+                            <i class="fas fa-file-excel" data-csp-style="color:var(--cherry-red, #cf3339); margin-right:0.4rem;"></i>
                             Download Master Import Workbook
                         </div>
-                        <div style="font-size:0.75rem; color:var(--text-muted);">
+                        <div data-csp-style="font-size:0.75rem; color:var(--text-muted);">
                             One workbook, all 15 sheets — branded, color-coded, with instructions and example data
                         </div>
                     </div>

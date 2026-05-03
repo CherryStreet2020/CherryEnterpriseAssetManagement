@@ -19,21 +19,21 @@
 
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div class="card" style="padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
-    <form method="get" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-        <label for="id" style="font-weight: 600;">Asset ID</label>
+<div class="card" data-csp-style="padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+    <form method="get" data-csp-style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+        <label for="id" data-csp-style="font-weight: 600;">Asset ID</label>
         <input name="id" id="id" type="number" value="@(HttpContext.Request.Query["id"])" min="1"
-               class="form-control" style="width: 100px;" placeholder="ID" />
-        <label for="asOf" style="font-weight: 600;">As Of</label>
+               class="form-control" data-csp-style="width: 100px;" placeholder="ID" />
+        <label for="asOf" data-csp-style="font-weight: 600;">As Of</label>
         <input name="asOf" id="asOf" type="date" value="@(Model.AsOf > DateTime.MinValue ? Model.AsOf.ToString("yyyy-MM-dd") : DateTime.Today.ToString("yyyy-MM-dd"))"
-               class="form-control" style="width: 160px;" />
+               class="form-control" data-csp-style="width: 160px;" />
         <button type="submit" class="btn-p btn-p--primary">Run</button>
     </form>
 </div>
 
 @if (Model.ScheduleRows.Any())
 {
-    <div class="quick-stats-row-4" style="margin-bottom: 1.5rem;">
+    <div class="quick-stats-row-4" data-csp-style="margin-bottom: 1.5rem;">
         <div class="quick-stat-card">
             <div class="quick-stat-icon primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,21 +80,21 @@
         </div>
     </div>
 
-    <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card" data-csp-style="margin-bottom: 1.5rem;">
         <div class="card-header">
             <h3 class="card-title">Depreciation Schedule</h3>
         </div>
-        <div style="overflow-x: auto;">
+        <div data-csp-style="overflow-x: auto;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="text-align: center;">Period</th>
+                        <th data-csp-style="text-align: center;">Period</th>
                         <th>Period Start</th>
                         <th>Period End</th>
-                        <th style="text-align: right;">Begin NBV</th>
-                        <th style="text-align: right;">Depreciation</th>
-                        <th style="text-align: right;">Accum. Depr</th>
-                        <th style="text-align: right;">Ending NBV</th>
+                        <th data-csp-style="text-align: right;">Begin NBV</th>
+                        <th data-csp-style="text-align: right;">Depreciation</th>
+                        <th data-csp-style="text-align: right;">Accum. Depr</th>
+                        <th data-csp-style="text-align: right;">Ending NBV</th>
                         <th>Method</th>
                     </tr>
                 </thead>
@@ -102,18 +102,18 @@
                     @foreach (var row in Model.ScheduleRows)
                     {
                         <tr>
-                            <td style="text-align: center;">@row.PeriodNumber</td>
+                            <td data-csp-style="text-align: center;">@row.PeriodNumber</td>
                             <td>@DepreciationScheduleModel.ShortDate(row.PeriodStart)</td>
                             <td>@DepreciationScheduleModel.ShortDate(row.PeriodEnd)</td>
-                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.BeginNBV)</td>
-                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.DepreciationAmount)</td>
-                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.AccumulatedDepreciation)</td>
-                            <td style="text-align: right;">@DepreciationScheduleModel.Money(row.EndingBookValue)</td>
+                            <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(row.BeginNBV)</td>
+                            <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(row.DepreciationAmount)</td>
+                            <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(row.AccumulatedDepreciation)</td>
+                            <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(row.EndingBookValue)</td>
                             <td>
                                 @row.MethodUsed
                                 @if (row.SwitchedToSL)
                                 {
-                                    <span class="badge badge-warning" style="margin-left: 4px; font-size: 0.7rem;">→SL</span>
+                                    <span class="badge badge-warning" data-csp-style="margin-left: 4px; font-size: 0.7rem;">→SL</span>
                                 }
                             </td>
                         </tr>
@@ -121,10 +121,10 @@
                 </tbody>
                 <tfoot>
                     <tr class="totals-row">
-                        <td colspan="4" style="text-align: right;">Totals</td>
-                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Sum(r => r.DepreciationAmount))</td>
-                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().AccumulatedDepreciation)</td>
-                        <td style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().EndingBookValue)</td>
+                        <td colspan="4" data-csp-style="text-align: right;">Totals</td>
+                        <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Sum(r => r.DepreciationAmount))</td>
+                        <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().AccumulatedDepreciation)</td>
+                        <td data-csp-style="text-align: right;">@DepreciationScheduleModel.Money(Model.ScheduleRows.Last().EndingBookValue)</td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -134,13 +134,13 @@
 }
 else if (HttpContext.Request.Query.ContainsKey("id"))
 {
-    <div class="card" style="padding: 2rem; text-align: center;">
+    <div class="card" data-csp-style="padding: 2rem; text-align: center;">
         <p class="text-muted">No depreciation schedule data found for this asset. Make sure the asset has a valid in-service date, cost, and useful life.</p>
     </div>
 }
 else
 {
-    <div class="card" style="padding: 2rem; text-align: center;">
+    <div class="card" data-csp-style="padding: 2rem; text-align: center;">
         <p class="text-muted">Enter an Asset ID and click <strong>Run</strong> to generate the depreciation schedule.</p>
     </div>
 }

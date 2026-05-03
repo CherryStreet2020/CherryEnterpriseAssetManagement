@@ -106,7 +106,7 @@
             @if (!Model.PendingPOs.Any())
             {
                 <div class="cockpit__empty">
-                    <i class="fas fa-check-circle" style="font-size:2rem; color:var(--success); margin-bottom:0.5rem;"></i>
+                    <i class="fas fa-check-circle" data-csp-style="font-size:2rem; color:var(--success); margin-bottom:0.5rem;"></i>
                     <div>All caught up!</div>
                 </div>
             }
@@ -121,11 +121,11 @@
             <p class="cockpit__welcome-sub">Click a purchase order from the queue to see line details and begin receiving.</p>
             <div class="cockpit__welcome-stats">
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--status-danger);">@overdue.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--status-danger);">@overdue.Count</span>
                     <span class="cockpit__stat-label">Overdue</span>
                 </div>
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--warning);">@dueToday.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--warning);">@dueToday.Count</span>
                     <span class="cockpit__stat-label">Due Today</span>
                 </div>
                 <div class="cockpit__stat">
@@ -133,15 +133,15 @@
                     <span class="cockpit__stat-label">This Week</span>
                 </div>
                 <div class="cockpit__stat">
-                    <span class="cockpit__stat-value" style="color:var(--text-muted);">@dueLater.Count</span>
+                    <span class="cockpit__stat-value" data-csp-style="color:var(--text-muted);">@dueLater.Count</span>
                     <span class="cockpit__stat-label">Upcoming</span>
                 </div>
             </div>
         </div>
 
-        <div id="mainPreview" style="display:none; flex:1; flex-direction:column;">
+        <div id="mainPreview" data-csp-style="display:none; flex:1; flex-direction:column;">
             <div class="cockpit__preview-header">
-                <div style="display:flex; align-items:center; gap:1rem;">
+                <div data-csp-style="display:flex; align-items:center; gap:1rem;">
                     <span class="cockpit__preview-po" id="pvPoNum"></span>
                     <span class="cockpit__preview-status" id="pvStatus"></span>
                 </div>
@@ -182,14 +182,14 @@
                     <table class="line-table">
                         <thead>
                             <tr>
-                                <th class="line-table__th" style="width:100px">PART #</th>
+                                <th class="line-table__th" data-csp-style="width:100px">PART #</th>
                                 <th class="line-table__th">DESCRIPTION</th>
-                                <th class="line-table__th" style="width:45px">UOM</th>
-                                <th class="line-table__th line-table__th--right" style="width:65px">ORDERED</th>
-                                <th class="line-table__th line-table__th--right" style="width:65px">RCVD</th>
-                                <th class="line-table__th line-table__th--right" style="width:75px">REMAINING</th>
-                                <th class="line-table__th line-table__th--right" style="width:85px">VALUE</th>
-                                <th class="line-table__th" style="width:120px">PUT-AWAY</th>
+                                <th class="line-table__th" data-csp-style="width:45px">UOM</th>
+                                <th class="line-table__th line-table__th--right" data-csp-style="width:65px">ORDERED</th>
+                                <th class="line-table__th line-table__th--right" data-csp-style="width:65px">RCVD</th>
+                                <th class="line-table__th line-table__th--right" data-csp-style="width:75px">REMAINING</th>
+                                <th class="line-table__th line-table__th--right" data-csp-style="width:85px">VALUE</th>
+                                <th class="line-table__th" data-csp-style="width:120px">PUT-AWAY</th>
                             </tr>
                         </thead>
                         <tbody id="pvLinesBody"></tbody>
@@ -373,19 +373,19 @@ function selectPO(id) {
     tbody.innerHTML = po.lines.map(function(l) {
         var done = l.remaining <= 0;
         var remHtml = done
-            ? '<span class="status-badge-p status-badge-p--approved" style="font-size:0.55rem;">DONE</span>'
+            ? '<span class="status-badge-p status-badge-p--approved" data-csp-style="font-size:0.55rem;">DONE</span>'
             : '<strong>' + l.remaining.toFixed(0) + '</strong>';
         var putaway = l.putaway.length > 0 ? l.putaway.join(' / ') : '—';
 
-        return '<tr class="line-table__row" style="' + (done ? 'opacity:0.4;' : '') + '">'
-            + '<td class="line-table__td line-table__td--mono" style="font-weight:600;">' + l.partNum + '</td>'
+        return '<tr class="line-table__row" data-csp-style="' + (done ? 'opacity:0.4;' : '') + '">'
+            + '<td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">' + l.partNum + '</td>'
             + '<td class="line-table__td line-table__td--primary">' + l.desc + '</td>'
             + '<td class="line-table__td line-table__td--muted">' + l.uom + '</td>'
             + '<td class="line-table__td line-table__td--right line-table__td--mono">' + l.ordered.toFixed(0) + '</td>'
             + '<td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">' + l.received.toFixed(0) + '</td>'
             + '<td class="line-table__td line-table__td--right line-table__td--mono">' + remHtml + '</td>'
             + '<td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">$' + l.lineTotal.toFixed(2) + '</td>'
-            + '<td class="line-table__td line-table__td--muted" style="font-size:0.75rem;">' + putaway + '</td>'
+            + '<td class="line-table__td line-table__td--muted" data-csp-style="font-size:0.75rem;">' + putaway + '</td>'
             + '</tr>';
     }).join('');
 }

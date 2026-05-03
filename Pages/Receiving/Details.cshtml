@@ -40,7 +40,7 @@
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
 <!-- RECEIPT INFO -->
-<div class="pe-card" style="margin-bottom:1rem;">
+<div class="pe-card" data-csp-style="margin-bottom:1rem;">
     <div class="pe-card__header">
         <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Receipt Information</span>
     </div>
@@ -48,12 +48,12 @@
         <div class="pe-fields pe-fields--4">
             <div class="pe-field">
                 <span class="pe-field__label">Receipt Number</span>
-                <span class="pe-field__value" style="font-weight:600;">@gr.ReceiptNumber</span>
+                <span class="pe-field__value" data-csp-style="font-weight:600;">@gr.ReceiptNumber</span>
             </div>
             <div class="pe-field">
                 <span class="pe-field__label">Purchase Order</span>
                 <span class="pe-field__value">
-                    <a href="/Purchasing/Details/@gr.PurchaseOrderId" style="color:var(--cherry-red, #cf3339); text-decoration:none;">@(po?.PONumber ?? "—")</a>
+                    <a href="/Purchasing/Details/@gr.PurchaseOrderId" data-csp-style="color:var(--cherry-red, #cf3339); text-decoration:none;">@(po?.PONumber ?? "—")</a>
                 </span>
             </div>
             <div class="pe-field">
@@ -65,7 +65,7 @@
                 <span class="pe-field__value">@gr.ReceiptDate.ToString("MMM dd, yyyy")</span>
             </div>
         </div>
-        <div class="pe-fields pe-fields--4" style="margin-top:0.75rem;">
+        <div class="pe-fields pe-fields--4" data-csp-style="margin-top:0.75rem;">
             <div class="pe-field">
                 <span class="pe-field__label">Received By</span>
                 <span class="pe-field__value">@(gr.ReceivedBy ?? "—")</span>
@@ -85,7 +85,7 @@
         </div>
         @if (!string.IsNullOrEmpty(gr.ReceivingLocation) || !string.IsNullOrEmpty(gr.Notes))
         {
-            <div class="pe-fields pe-fields--2" style="margin-top:0.75rem;">
+            <div class="pe-fields pe-fields--2" data-csp-style="margin-top:0.75rem;">
                 <div class="pe-field">
                     <span class="pe-field__label">Receiving Location</span>
                     <span class="pe-field__value">@(gr.ReceivingLocation ?? "—")</span>
@@ -117,29 +117,29 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width:35px">#</th>
-                        <th class="line-table__th" style="width:120px">PART #</th>
+                        <th class="line-table__th" data-csp-style="width:35px">#</th>
+                        <th class="line-table__th" data-csp-style="width:120px">PART #</th>
                         <th class="line-table__th">DESCRIPTION</th>
-                        <th class="line-table__th line-table__th--right" style="width:80px">QTY RCVD</th>
-                        <th class="line-table__th line-table__th--right" style="width:80px">ACCEPTED</th>
-                        <th class="line-table__th line-table__th--right" style="width:80px">REJECTED</th>
-                        <th class="line-table__th" style="width:140px">REJECTION REASON</th>
-                        <th class="line-table__th" style="width:90px">LOT #</th>
-                        <th class="line-table__th" style="width:90px">SERIAL #</th>
-                        <th class="line-table__th" style="width:100px">STORAGE LOC</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:80px">QTY RCVD</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:80px">ACCEPTED</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:80px">REJECTED</th>
+                        <th class="line-table__th" data-csp-style="width:140px">REJECTION REASON</th>
+                        <th class="line-table__th" data-csp-style="width:90px">LOT #</th>
+                        <th class="line-table__th" data-csp-style="width:90px">SERIAL #</th>
+                        <th class="line-table__th" data-csp-style="width:100px">STORAGE LOC</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var line in gr.Lines.OrderBy(l => l.LineNumber))
                     {
                         var hasRejection = line.QuantityRejected > 0;
-                        <tr class="line-table__row" style="@(hasRejection ? "border-left:3px solid var(--status-danger, #ef4444);" : "")">
+                        <tr class="line-table__row" data-csp-style="@(hasRejection ? "border-left:3px solid var(--status-danger, #ef4444);" : "")">
                             <td class="line-table__td line-table__td--muted">@line.LineNumber</td>
-                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PurchaseOrderLine?.PartNumber ?? line.PurchaseOrderLine?.Item?.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">@(line.PurchaseOrderLine?.PartNumber ?? line.PurchaseOrderLine?.Item?.PartNumber ?? "—")</td>
                             <td class="line-table__td line-table__td--primary">@(line.PurchaseOrderLine?.Description ?? "—")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@line.QuantityReceived.ToString("N0")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@line.QuantityAccepted.ToString("N0")</td>
-                            <td class="line-table__td line-table__td--right line-table__td--mono" style="@(hasRejection ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">
+                            <td class="line-table__td line-table__td--right line-table__td--mono" data-csp-style="@(hasRejection ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">
                                 @(hasRejection ? line.QuantityRejected.ToString("N0") : "—")
                             </td>
                             <td class="line-table__td line-table__td--muted">@(line.RejectionReason ?? "—")</td>
@@ -151,10 +151,10 @@
                 </tbody>
                 <tfoot>
                     <tr class="line-table__total-row">
-                        <td colspan="3" class="line-table__td line-table__td--right" style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">TOTALS</td>
+                        <td colspan="3" class="line-table__td line-table__td--right" data-csp-style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">TOTALS</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.TotalQtyReceived.ToString("N0")</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@gr.Lines.Sum(l => l.QuantityAccepted).ToString("N0")</td>
-                        <td class="line-table__td line-table__td--right line-table__td--mono" style="@(Model.TotalQtyRejected > 0 ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">@(Model.TotalQtyRejected > 0 ? Model.TotalQtyRejected.ToString("N0") : "—")</td>
+                        <td class="line-table__td line-table__td--right line-table__td--mono" data-csp-style="@(Model.TotalQtyRejected > 0 ? "color:var(--status-danger, #ef4444); font-weight:600;" : "")">@(Model.TotalQtyRejected > 0 ? Model.TotalQtyRejected.ToString("N0") : "—")</td>
                         <td colspan="4"></td>
                     </tr>
                 </tfoot>
@@ -170,7 +170,7 @@
 <!-- LINKED DOCUMENTS -->
 @if (Model.LinkedInvoices.Any())
 {
-    <div class="pe-card" style="margin-top:1rem;">
+    <div class="pe-card" data-csp-style="margin-top:1rem;">
         <div class="pe-card__header">
             <span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Linked Invoices</span>
             <span class="status-badge info">@Model.LinkedInvoices.Count</span>
@@ -190,9 +190,9 @@
                     {
                         <tr class="line-table__row">
                             <td class="line-table__td line-table__td--primary">
-                                <a href="/AccountsPayable/Details/@inv.Id" style="color:var(--cherry-red, #cf3339); text-decoration:none;">@inv.InvoiceNumber</a>
+                                <a href="/AccountsPayable/Details/@inv.Id" data-csp-style="color:var(--cherry-red, #cf3339); text-decoration:none;">@inv.InvoiceNumber</a>
                             </td>
-                            <td class="line-table__td"><span class="status-badge-p status-badge-p--info" style="font-size:0.65rem;">@inv.Status</span></td>
+                            <td class="line-table__td"><span class="status-badge-p status-badge-p--info" data-csp-style="font-size:0.65rem;">@inv.Status</span></td>
                             <td class="line-table__td line-table__td--muted">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@inv.Total.ToString("N2")</td>
                         </tr>

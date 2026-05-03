@@ -56,12 +56,12 @@
                     </div>
                     <div class="section-card-body">
                         <div class="form-row">
-                            <div class="form-group" style="flex: 1;">
+                            <div class="form-group" data-csp-style="flex: 1;">
                                 <label asp-for="Template.Code" class="form-label">Template Code <span class="required">*</span></label>
                                 <input asp-for="Template.Code" class="form-control" placeholder="PM-OIL-001" required maxlength="50" />
                                 <span asp-validation-for="Template.Code" class="text-danger"></span>
                             </div>
-                            <div class="form-group" style="flex: 2;">
+                            <div class="form-group" data-csp-style="flex: 2;">
                                 <label asp-for="Template.Name" class="form-label">Name <span class="required">*</span></label>
                                 <input asp-for="Template.Name" class="form-control" placeholder="Oil Change - Standard" required maxlength="200" />
                                 <span asp-validation-for="Template.Name" class="text-danger"></span>
@@ -102,25 +102,25 @@
                         <div id="calendarFieldsSection">
                             <h4 class="form-section-title">Calendar-Based Trigger</h4>
                             <div class="form-row">
-                                <div class="form-group" style="flex: 1;">
+                                <div class="form-group" data-csp-style="flex: 1;">
                                     <label asp-for="Template.CalendarInterval" class="form-label">Interval Type</label>
                                     <select asp-for="Template.CalendarInterval" class="form-control" asp-items="Html.GetEnumSelectList<RecurrenceType>()"></select>
                                 </div>
-                                <div class="form-group" style="flex: 1;">
+                                <div class="form-group" data-csp-style="flex: 1;">
                                     <label asp-for="Template.CalendarIntervalValue" class="form-label">Every X Intervals</label>
                                     <input asp-for="Template.CalendarIntervalValue" class="form-control" type="number" min="1" />
                                 </div>
                             </div>
                         </div>
 
-                        <div id="meterFieldsSection" style="display: none;">
+                        <div id="meterFieldsSection" data-csp-style="display: none;">
                             <h4 class="form-section-title">Meter-Based Trigger</h4>
                             <div class="form-row">
-                                <div class="form-group" style="flex: 1;">
+                                <div class="form-group" data-csp-style="flex: 1;">
                                     <label asp-for="Template.MeterType" class="form-label">Meter Type</label>
                                     <select asp-for="Template.MeterType" class="form-control" asp-items="Html.GetEnumSelectList<MeterType>()"></select>
                                 </div>
-                                <div class="form-group" style="flex: 1;">
+                                <div class="form-group" data-csp-style="flex: 1;">
                                     <label asp-for="Template.MeterInterval" class="form-label">Meter Interval</label>
                                     <input asp-for="Template.MeterInterval" class="form-control" type="number" min="0" step="0.01" />
                                 </div>
@@ -238,16 +238,16 @@
                         <div class="section-card-body">
                             @if (Model.CurrentRevision != null)
                             {
-                                <div class="revision-current" style="margin-bottom: 12px;">
-                                    <span class="badge badge-success" style="font-size: 12px;">Current: @Model.CurrentRevision.RevisionCode</span>
-                                    <span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
+                                <div class="revision-current" data-csp-style="margin-bottom: 12px;">
+                                    <span class="badge badge-success" data-csp-style="font-size: 12px;">Current: @Model.CurrentRevision.RevisionCode</span>
+                                    <span data-csp-style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px;">
                                         Released @Model.CurrentRevision.ReleasedAtUtc?.ToString("MMM d, yyyy")
                                     </span>
                                 </div>
                             }
                             else
                             {
-                                <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 12px;">
+                                <div data-csp-style="margin-bottom: 12px; color: var(--text-muted); font-size: 12px;">
                                     No released revision yet
                                 </div>
                             }
@@ -259,7 +259,7 @@
                                 <form method="post" asp-page-handler="CreateDraft">
                                     <input type="hidden" name="templateId" value="@Model.Template.Id" />
                                     <button type="submit" class="btn btn-primary btn-sm btn-full">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 4px;">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                         </svg>
                                         Create Draft Revision
@@ -268,38 +268,38 @@
                             }
                             @if (Model.Revisions.Any())
                             {
-                                <div style="margin-top: 12px;">
-                                    <h4 style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Revision History</h4>
-                                    <div style="max-height: 200px; overflow-y: auto;">
+                                <div data-csp-style="margin-top: 12px;">
+                                    <h4 data-csp-style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Revision History</h4>
+                                    <div data-csp-style="max-height: 200px; overflow-y: auto;">
                                         @foreach (var rev in Model.Revisions.OrderByDescending(r => r.CreatedAtUtc))
                                         {
-                                            <div class="revision-row" style="padding: 8px; border-bottom: 1px solid var(--border-color); font-size: 12px;">
-                                                <div style="display: flex; align-items: center; gap: 8px;">
-                                                    <span style="font-weight: 600;">@rev.RevisionCode</span>
+                                            <div class="revision-row" data-csp-style="padding: 8px; border-bottom: 1px solid var(--border-color); font-size: 12px;">
+                                                <div data-csp-style="display: flex; align-items: center; gap: 8px;">
+                                                    <span data-csp-style="font-weight: 600;">@rev.RevisionCode</span>
                                                     @if (rev.Status == RevisionStatus.Draft)
                                                     {
-                                                        <span class="badge badge-warning" style="font-size: 10px;">Draft</span>
+                                                        <span class="badge badge-warning" data-csp-style="font-size: 10px;">Draft</span>
                                                     }
                                                     else if (rev.Status == RevisionStatus.Released)
                                                     {
-                                                        <span class="badge badge-success" style="font-size: 10px;">Released</span>
+                                                        <span class="badge badge-success" data-csp-style="font-size: 10px;">Released</span>
                                                     }
                                                     else
                                                     {
-                                                        <span class="badge badge-secondary" style="font-size: 10px;">Obsolete</span>
+                                                        <span class="badge badge-secondary" data-csp-style="font-size: 10px;">Obsolete</span>
                                                     }
                                                 </div>
-                                                <div style="color: var(--text-muted); font-size: 11px;">
+                                                <div data-csp-style="color: var(--text-muted); font-size: 11px;">
                                                     @rev.CreatedAtUtc.ToString("MMM d, yyyy")
                                                 </div>
                                                 @if (rev.Status == RevisionStatus.Draft)
                                                 {
-                                                    <div style="margin-top: 6px; display: flex; gap: 6px;">
-                                                        <form method="post" asp-page-handler="ReleaseDraft" style="display: inline;">
+                                                    <div data-csp-style="margin-top: 6px; display: flex; gap: 6px;">
+                                                        <form method="post" asp-page-handler="ReleaseDraft" data-csp-style="display: inline;">
                                                             <input type="hidden" name="revisionId" value="@rev.Id" />
                                                             <button type="submit" class="btn-p btn-p--primary btn-p--xs" onclick="return confirm('Release this revision? This will make it the current revision.')">Release</button>
                                                         </form>
-                                                        <form method="post" asp-page-handler="DeleteDraft" style="display: inline;">
+                                                        <form method="post" asp-page-handler="DeleteDraft" data-csp-style="display: inline;">
                                                             <input type="hidden" name="revisionId" value="@rev.Id" />
                                                             <button type="submit" class="btn-p btn-p--danger btn-p--xs" onclick="return confirm('Delete this draft?')">Delete</button>
                                                         </form>

@@ -27,7 +27,7 @@
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div id="scanForm" class="inline-form-panel" style="display: none;">
+<div id="scanForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -145,7 +145,7 @@
                         {
                             <tr class="clickable-row" onclick="window.location='/Assets/Asset/@scan.AssetId'">
                                 <td><a href="/Assets/Asset/@scan.AssetId" class="asset-link"><strong>@scan.Asset?.AssetNumber</strong></a></td>
-                                <td style="font-family: monospace;">@scan.ScannedBarcode</td>
+                                <td data-csp-style="font-family: monospace;">@scan.ScannedBarcode</td>
                                 <td>@scan.ScanDate.ToString("MMM dd HH:mm")</td>
                                 <td>@scan.ScannedBy</td>
                                 <td>
@@ -166,8 +166,8 @@
             }
             else
             {
-                <div class="pe-empty" style="padding:2rem;">
-                    <i class="fas fa-barcode pe-empty__icon" style="font-size:1.5rem;"></i>
+                <div class="pe-empty" data-csp-style="padding:2rem;">
+                    <i class="fas fa-barcode pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                     <div class="pe-empty__title">No Scans Recorded</div>
                     <div class="pe-empty__text">Start the inventory count to begin scanning assets.</div>
                 </div>
@@ -198,7 +198,7 @@
                     <span class="budget-value @(Model.InventoryList.MissingAssets > 0 ? "text-danger" : "")">@Model.InventoryList.MissingAssets</span>
                 </div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: @progress%; background: var(--primary)"></div>
+                    <div class="progress-bar" data-csp-style="width: @progress%; background: var(--primary)"></div>
                 </div>
                 <div class="progress-label">@progress.ToString("F1")% complete</div>
             </div>
@@ -223,7 +223,7 @@
                 }
                 @if (Model.InventoryList.Status == InventoryStatus.Completed)
                 {
-                    <p class="text-muted" style="font-size: 13px; text-align: center;">This inventory count has been completed.</p>
+                    <p class="text-muted" data-csp-style="font-size: 13px; text-align: center;">This inventory count has been completed.</p>
                 }
             </div>
         </div>

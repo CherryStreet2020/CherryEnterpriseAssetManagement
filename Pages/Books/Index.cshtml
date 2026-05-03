@@ -96,7 +96,7 @@
         </h3>
         <span class="status-badge info">@totalBooks BOOKS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.Items != null && Model.Items.Count > 0)
         {
             <table class="data-table">
@@ -104,13 +104,13 @@
                     <tr>
                         <th>Code</th>
                         <th>Name</th>
-                        <th style="text-align: center;">Type</th>
+                        <th data-csp-style="text-align: center;">Type</th>
                         <th>Method</th>
                         <th>Convention</th>
-                        <th style="text-align: center;">Life Override</th>
-                        <th style="text-align: center;">GL Accounts</th>
-                        <th style="text-align: center;">Status</th>
-                        <th style="text-align: center;">Actions</th>
+                        <th data-csp-style="text-align: center;">Life Override</th>
+                        <th data-csp-style="text-align: center;">GL Accounts</th>
+                        <th data-csp-style="text-align: center;">Status</th>
+                        <th data-csp-style="text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -118,11 +118,11 @@
                     {
                         <tr class="@(!item.IsActive ? "inactive-row" : "")">
                             <td>
-                                <div style="display: flex; align-items: center; gap: 8px;">
+                                <div data-csp-style="display: flex; align-items: center; gap: 8px;">
                                     <strong>@item.Code</strong>
                                     @if (item.IsPrimaryBook)
                                     {
-                                        <span class="badge badge-success" style="font-size: 9px; padding: 2px 6px;" title="Primary Book">
+                                        <span class="badge badge-success" data-csp-style="font-size: 9px; padding: 2px 6px;" title="Primary Book">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                                             </svg>
@@ -131,14 +131,14 @@
                                 </div>
                             </td>
                             <td>@item.Name</td>
-                            <td style="text-align: center;">
+                            <td data-csp-style="text-align: center;">
                                 <span class="badge @GetBookTypeBadge(item.BookType)">@GetBookTypeName(item.BookType)</span>
                             </td>
                             <td>
                                 <span class="method-badge">@GetMethodName(item.Method)</span>
                             </td>
-                            <td style="color: var(--text-secondary);">@GetConventionName(item.Convention)</td>
-                            <td style="text-align: center;">
+                            <td data-csp-style="color: var(--text-secondary);">@GetConventionName(item.Convention)</td>
+                            <td data-csp-style="text-align: center;">
                                 @if (item.UsefulLifeOverrideMonths.HasValue)
                                 {
                                     <span>@item.UsefulLifeOverrideMonths mo</span>
@@ -148,19 +148,19 @@
                                     <span class="text-muted">—</span>
                                 }
                             </td>
-                            <td style="text-align: center;">
+                            <td data-csp-style="text-align: center;">
                                 @if (item.HasGl)
                                 {
                                     <span class="badge badge-success">Configured</span>
                                 }
                                 else
                                 {
-                                    <a asp-page="./GlAccounts" asp-route-bookId="@item.Id" class="badge badge-warning" style="text-decoration: none;">
+                                    <a asp-page="./GlAccounts" asp-route-bookId="@item.Id" class="badge badge-warning" data-csp-style="text-decoration: none;">
                                         Set Up
                                     </a>
                                 }
                             </td>
-                            <td style="text-align: center;">
+                            <td data-csp-style="text-align: center;">
                                 @if (item.IsActive)
                                 {
                                     <span class="badge badge-success">Active</span>
@@ -171,7 +171,7 @@
                                 }
                             </td>
                             <td>
-                                <div class="action-group" style="justify-content: center;">
+                                <div class="action-group" data-csp-style="justify-content: center;">
                                     <a asp-page="./Details" asp-route-id="@item.Id" asp-route-returnUrl="/Books" class="btn-p btn-p--secondary btn-p--sm btn-p--icon" title="View Details">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -200,8 +200,8 @@
         }
         else
         {
-            <div class="pe-empty" style="padding:2rem;">
-                <i class="fas fa-book pe-empty__icon" style="font-size:1.5rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:2rem;">
+                <i class="fas fa-book pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                 <div class="pe-empty__title">No depreciation books</div>
                 <div class="pe-empty__text">Create your first book to configure depreciation methods</div>
                 <a asp-page="./Create" class="btn-p btn-p--primary">Create Book</a>
@@ -210,18 +210,18 @@
     </div>
 </div>
 
-<div class="section-card" style="background: var(--primary-light); border-color: var(--primary);">
-    <div class="section-card-body" style="padding: 16px 24px;">
-        <div style="display: flex; align-items: flex-start; gap: 12px;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--primary)" style="flex-shrink: 0; margin-top: 2px;">
+<div class="section-card" data-csp-style="background: var(--primary-light); border-color: var(--primary);">
+    <div class="section-card-body" data-csp-style="padding: 16px 24px;">
+        <div data-csp-style="display: flex; align-items: flex-start; gap: 12px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--primary)" data-csp-style="flex-shrink: 0; margin-top: 2px;">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-                <strong style="color: var(--primary);">About Depreciation Books</strong>
-                <p style="color: var(--text-secondary); font-size: 13px; margin: 8px 0 0 0;">
+                <strong data-csp-style="color: var(--primary);">About Depreciation Books</strong>
+                <p data-csp-style="color: var(--text-secondary); font-size: 13px; margin: 8px 0 0 0;">
                     Each book represents a different depreciation calculation method. Common configurations include:
                 </p>
-                <ul style="color: var(--text-secondary); font-size: 13px; margin: 8px 0 0 0; padding-left: 20px;">
+                <ul data-csp-style="color: var(--text-secondary); font-size: 13px; margin: 8px 0 0 0; padding-left: 20px;">
                     <li><strong>GAAP Book:</strong> For financial reporting — typically Straight-Line method with Mid-Month convention</li>
                     <li><strong>Tax Book:</strong> For tax purposes — MACRS for US (with Mid-Quarter convention), CCA for Canada</li>
                     <li><strong>Management Book:</strong> For internal reporting and custom depreciation schedules</li>

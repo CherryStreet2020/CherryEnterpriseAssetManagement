@@ -18,6 +18,13 @@
     <None Remove="tests/**/*" />
   </ItemGroup>
 
+  <!-- Exclude codemod backup directory (per-file backups written by scripts/codemod_csp_inline.js). -->
+  <ItemGroup>
+    <Compile Remove="out/csp_codemod_backup/**/*" />
+    <Content Remove="out/csp_codemod_backup/**/*" />
+    <None Remove="out/csp_codemod_backup/**/*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />

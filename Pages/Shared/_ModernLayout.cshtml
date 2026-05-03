@@ -141,11 +141,11 @@
     <div class="app-container">
         <aside class="sidebar cherryai-sidebar" id="mainSidebar">
             <div class="sidebar-brand">
-                <div class="sidebar-brand-logo-wrap" style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1;">
-                    <img src="/images/abs-logo-icon.png" alt="ABS" style="height:32px; flex-shrink:0;" />
-                    <div style="min-width:0;">
-                        <div class="sidebar-brand-text" style="font-size:1.25rem; font-weight:700; letter-spacing:0.08em;">EAM</div>
-                        <div class="sidebar-brand-module" style="font-size:0.55rem; opacity:0.5; letter-spacing:0.05em;">&copy; Powered by CherryAI</div>
+                <div class="sidebar-brand-logo-wrap" data-csp-style="display:flex; align-items:center; gap:0.6rem; min-width:0; flex:1;">
+                    <img src="/images/abs-logo-icon.png" alt="ABS" data-csp-style="height:32px; flex-shrink:0;" />
+                    <div data-csp-style="min-width:0;">
+                        <div class="sidebar-brand-text" data-csp-style="font-size:1.25rem; font-weight:700; letter-spacing:0.08em;">EAM</div>
+                        <div class="sidebar-brand-module" data-csp-style="font-size:0.55rem; opacity:0.5; letter-spacing:0.05em;">&copy; Powered by CherryAI</div>
                     </div>
                 </div>
                 <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" type="button" title="Collapse sidebar" aria-label="Toggle sidebar">
@@ -161,7 +161,7 @@
                     <span class="org-selector-label" id="orgSelectorLabel">Loading...</span>
                     <i class="fas fa-chevron-down org-selector-arrow"></i>
                 </button>
-                <div class="org-selector-dropdown" id="orgSelectorDropdown" style="display:none;">
+                <div class="org-selector-dropdown" id="orgSelectorDropdown" data-csp-style="display:none;">
                     <div class="org-selector-search">
                         <input type="text" id="orgSearchInput" placeholder="Search companies..." autocomplete="off" />
                     </div>
@@ -169,13 +169,13 @@
                 </div>
             </div>
 
-            <div class="site-selector-wrapper" id="siteSelectorWrapper" style="display:none;">
+            <div class="site-selector-wrapper" id="siteSelectorWrapper" data-csp-style="display:none;">
                 <button class="site-selector-btn" id="siteSelectorBtn" type="button">
                     <i class="fas fa-map-marker-alt site-selector-icon"></i>
                     <span class="site-selector-label" id="siteSelectorLabel">All Sites</span>
                     <i class="fas fa-chevron-down site-selector-arrow"></i>
                 </button>
-                <div class="site-selector-dropdown" id="siteSelectorDropdown" style="display:none;">
+                <div class="site-selector-dropdown" id="siteSelectorDropdown" data-csp-style="display:none;">
                     <div class="site-selector-list" id="siteSelectorList"></div>
                 </div>
             </div>
@@ -468,7 +468,7 @@
                 </div>
                 }
                 
-                <div id="recentNavSection" class="recent-nav-section" style="display:none;">
+                <div id="recentNavSection" class="recent-nav-section" data-csp-style="display:none;">
                     <div class="nav-section-label">RECENT</div>
                     <div id="recentNavList" class="recent-nav-list"></div>
                 </div>
@@ -562,7 +562,7 @@
                             <button class="user-btn" onclick="toggleUserMenu()" type="button">
                                 <div class="user-avatar">@User.Identity.Name?.Substring(0, 1).ToUpper()</div>
                             </button>
-                            <div class="user-menu" id="userMenu" style="display: none;">
+                            <div class="user-menu" id="userMenu" data-csp-style="display: none;">
                                 <div class="user-menu-header">
                                     <strong>@(User.FindFirst("FullName")?.Value ?? User.Identity.Name)</strong>
                                     <span>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
@@ -582,14 +582,14 @@
             </div>
             
             <footer class="app-footer">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                    <p style="margin: 0;">&copy; 2026 ABS Machining EAM, powered by <a href="https://cherrystreetconsulting.com" style="color: var(--text-muted); text-decoration: none;">CherryAI</a> &mdash; a division of Cherry Street Consulting, New York, NY. All Rights Reserved.</p>
+                <div data-csp-style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <p data-csp-style="margin: 0;">&copy; 2026 ABS Machining EAM, powered by <a href="https://cherrystreetconsulting.com" data-csp-style="color: var(--text-muted); text-decoration: none;">CherryAI</a> &mdash; a division of Cherry Street Consulting, New York, NY. All Rights Reserved.</p>
                 </div>
             </footer>
         </main>
     </div>
     
-    <div id="commandPaletteOverlay" class="command-palette-overlay" style="display:none;">
+    <div id="commandPaletteOverlay" class="command-palette-overlay" data-csp-style="display:none;">
         <div class="command-palette" aria-label="Command palette">
             <div class="command-palette-header">
                 <i class="fas fa-search command-palette-search-icon"></i>
@@ -605,7 +605,7 @@
         </div>
     </div>
     
-    <div id="helpPanel" class="help-panel" style="display: none;">
+    <div id="helpPanel" class="help-panel" data-csp-style="display: none;">
         <div class="help-panel-content">
             <div class="help-panel-header">
                 <h2>Help & Support</h2>
@@ -646,6 +646,7 @@
         });
     </script>
     
+    <script src="~/js/csp-bootstrap.js" asp-append-version="true"></script>
     <script src="~/js/enhanced-grid.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/modal.js" asp-append-version="true"></script>

@@ -106,7 +106,7 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                 </svg>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-left: -8px; opacity: 0.7;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-left: -8px; opacity: 0.7;">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                 </svg>
                                 <span class="radio-title">Multi-Company / Holding</span>
@@ -151,8 +151,8 @@
                         </label>
                     </div>
 
-                    <div id="erpIntegrationOptions" class="integration-options" style="display: @(Model.Company.FinancialMode == FinancialMode.ERPIntegration ? "block" : "none");">
-                        <div class="form-group" style="margin-top: 16px;">
+                    <div id="erpIntegrationOptions" class="integration-options" data-csp-style="display: @(Model.Company.FinancialMode == FinancialMode.ERPIntegration ? "block" : "none");">
+                        <div class="form-group" data-csp-style="margin-top: 16px;">
                             <label asp-for="Company.IntegrationType">Integration Type</label>
                             <select asp-for="Company.IntegrationType" class="form-control">
                                 <option value="">-- Select Integration --</option>
@@ -165,7 +165,7 @@
                         </div>
                     </div>
 
-                    <div class="module-toggles" style="margin-top: 24px;">
+                    <div class="module-toggles" data-csp-style="margin-top: 24px;">
                         <h4 class="module-section-title">Optional Modules</h4>
                         <p class="setting-description">Enable or disable optional modules based on your needs. In ERP Integration mode, some modules may sync data instead of managing it locally.</p>
                         
@@ -437,7 +437,7 @@
                         <p>No logo uploaded</p>
                     </div>
                 }
-                <form method="post" asp-page-handler="UploadLogo" enctype="multipart/form-data" style="margin-top: 16px;">
+                <form method="post" asp-page-handler="UploadLogo" enctype="multipart/form-data" data-csp-style="margin-top: 16px;">
                     <div class="file-upload">
                         <label for="logoFile" class="file-upload-btn">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -445,7 +445,7 @@
                             </svg>
                             Upload Logo
                         </label>
-                        <input type="file" id="logoFile" name="logoFile" accept="image/*" onchange="this.form.submit()" style="display: none;" />
+                        <input type="file" id="logoFile" name="logoFile" accept="image/*" onchange="this.form.submit()" data-csp-style="display: none;" />
                     </div>
                 </form>
             </div>

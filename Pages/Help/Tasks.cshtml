@@ -23,7 +23,7 @@
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
 <div class="section-card">
-    <div class="section-card-body" style="padding: 2rem;">
+    <div class="section-card-body" data-csp-style="padding: 2rem;">
         @Html.Raw(Model.ContentHtml)
     </div>
 </div>
@@ -40,10 +40,10 @@
             </h3>
         </div>
         <div class="section-card-body">
-            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <div data-csp-style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
                 @foreach (var task in Model.RelatedTasks)
                 {
-                    <a href="/Help/Tasks?id=@task.Key" class="hero-btn hero-btn-ghost text-blue" style="background: rgba(59,130,246,0.1);">
+                    <a href="/Help/Tasks?id=@task.Key" class="hero-btn hero-btn-ghost text-blue" data-csp-style="background: rgba(59,130,246,0.1);">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>

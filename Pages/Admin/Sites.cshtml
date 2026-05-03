@@ -45,12 +45,12 @@
     <div class="section-card-body">
         @if (!Model.Sites.Any())
         {
-            <div class="text-theme-muted" style="text-align: center; padding: 40px;">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5;">
+            <div class="text-theme-muted" data-csp-style="text-align: center; padding: 40px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="width: 48px; height: 48px; margin: 0 auto 12px; opacity: 0.5;">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
-                <p style="margin: 0; font-weight: 500;">No sites configured</p>
-                <p style="margin: 4px 0 0; font-size: 0.875rem;">Add your first site to start organizing your facilities</p>
+                <p data-csp-style="margin: 0; font-weight: 500;">No sites configured</p>
+                <p data-csp-style="margin: 4px 0 0; font-size: 0.875rem;">Add your first site to start organizing your facilities</p>
             </div>
         }
         else
@@ -91,7 +91,7 @@
                             </span>
                         </div>
                         <div class="site-location">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="width: 14px; height: 14px; display: inline; vertical-align: middle; margin-right: 4px;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
                             </svg>
@@ -121,16 +121,16 @@
     </div>
 </div>
 
-<div id="addSiteForm" class="inline-form-panel" style="display: none;">
-    <div class="inline-form-panel-content" style="max-width: 700px;">
+<div id="addSiteForm" class="inline-form-panel" data-csp-style="display: none;">
+    <div class="inline-form-panel-content" data-csp-style="max-width: 700px;">
         <div class="inline-form-header">
             <h3>Add Site</h3>
             <button type="button" class="inline-form-close" onclick="toggleInlineForm('addSiteForm')">&times;</button>
         </div>
         <form method="post" asp-page-handler="Create">
-            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
-                <h4 class="text-theme-muted" style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+            <div class="inline-form-body" data-csp-style="max-height: 70vh; overflow-y: auto;">
+                <h4 class="text-theme-muted" data-csp-style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Site Code *</label>
@@ -150,7 +150,7 @@
                         <textarea name="description" class="form-field__input" rows="2" maxlength="500" placeholder="Optional description"></textarea>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Company *</label>
@@ -176,7 +176,7 @@
                     </div>
                 </div>
 
-                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
+                <h4 class="text-theme-muted" data-csp-style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
                 <div class="form-group">
                     <div class="form-field">
                         <label class="form-field__label">Address Line 1</label>
@@ -189,7 +189,7 @@
                         <input type="text" name="address2" class="form-field__input" maxlength="200" placeholder="Suite, building, floor" />
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">City</label>
@@ -209,7 +209,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Country</label>
@@ -225,8 +225,8 @@
                     </div>
                 </div>
 
-                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <h4 class="text-theme-muted" data-csp-style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Site Manager</label>
@@ -240,7 +240,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Manager Phone</label>
@@ -260,7 +260,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label"># of Buildings</label>
@@ -273,7 +273,7 @@
                             <input type="number" name="employeeCount" class="form-field__input" min="0" />
                         </div>
                     </div>
-                    <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
+                    <div class="form-group" data-csp-style="display: flex; align-items: center; padding-top: 24px;">
                         <div class="form-check form-switch">
                             <input type="checkbox" name="isPrimarySite" value="true" class="form-check-input" id="createIsPrimarySite" />
                             <label class="form-check-label" for="createIsPrimarySite">Primary Site</label>
@@ -289,17 +289,17 @@
     </div>
 </div>
 
-<div id="editSiteForm" class="inline-form-panel" style="display: none;">
-    <div class="inline-form-panel-content" style="max-width: 700px;">
+<div id="editSiteForm" class="inline-form-panel" data-csp-style="display: none;">
+    <div class="inline-form-panel-content" data-csp-style="max-width: 700px;">
         <div class="inline-form-header">
             <h3>Edit Site</h3>
             <button type="button" class="inline-form-close" onclick="toggleInlineForm('editSiteForm')">&times;</button>
         </div>
         <form method="post" asp-page-handler="Update">
             <input type="hidden" name="id" id="editId" />
-            <div class="inline-form-body" style="max-height: 70vh; overflow-y: auto;">
-                <h4 class="text-theme-muted" style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
+            <div class="inline-form-body" data-csp-style="max-height: 70vh; overflow-y: auto;">
+                <h4 class="text-theme-muted" data-csp-style="margin: 0 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Basic Information</h4>
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Site Code *</label>
@@ -319,7 +319,7 @@
                         <textarea name="description" id="editDescription" class="form-field__input" rows="2" maxlength="500"></textarea>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Company *</label>
@@ -345,7 +345,7 @@
                     </div>
                 </div>
 
-                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
+                <h4 class="text-theme-muted" data-csp-style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Address</h4>
                 <div class="form-group">
                     <div class="form-field">
                         <label class="form-field__label">Address Line 1</label>
@@ -358,7 +358,7 @@
                         <input type="text" name="address2" id="editAddress2" class="form-field__input" maxlength="200" />
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">City</label>
@@ -378,7 +378,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Country</label>
@@ -394,8 +394,8 @@
                     </div>
                 </div>
 
-                <h4 class="text-theme-muted" style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <h4 class="text-theme-muted" data-csp-style="margin: 24px 0 16px; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Contact & Manager</h4>
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Site Manager</label>
@@ -409,7 +409,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <div class="form-field">
                             <label class="form-field__label">Manager Phone</label>
@@ -427,7 +427,7 @@
                         <input type="number" name="squareFootage" id="editSquareFootage" class="form-control" min="0" />
                     </div>
                 </div>
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <label class="form-label"># of Buildings</label>
                         <input type="number" name="numberOfBuildings" id="editNumberOfBuildings" class="form-control" min="0" />
@@ -436,8 +436,8 @@
                         <label class="form-label">Employee Count</label>
                         <input type="number" name="employeeCount" id="editEmployeeCount" class="form-control" min="0" />
                     </div>
-                    <div class="form-group" style="display: flex; align-items: center; padding-top: 24px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <div class="form-group" data-csp-style="display: flex; align-items: center; padding-top: 24px;">
+                        <label data-csp-style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                             <input type="checkbox" name="isPrimarySite" id="editIsPrimarySite" value="true" />
                             <span>Primary Site</span>
                         </label>

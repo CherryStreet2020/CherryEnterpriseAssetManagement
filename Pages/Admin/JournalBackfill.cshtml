@@ -23,18 +23,18 @@
 
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
-        <div class="alert alert-success" style="background:#0a3d22;color:#a7f3d0;border:1px solid #166534;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <div class="alert alert-success" data-csp-style="background:#0a3d22;color:#a7f3d0;border:1px solid #166534;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
             @Model.SuccessMessage
         </div>
     }
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
-        <div class="alert alert-danger" style="background:#3d0a0a;color:#fca5a5;border:1px solid #7f1d1d;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <div class="alert alert-danger" data-csp-style="background:#3d0a0a;color:#fca5a5;border:1px solid #7f1d1d;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
             @Model.ErrorMessage
         </div>
     }
 
-    <div class="kpi-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="kpi-strip" data-csp-style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
         <div class="stat-card">
             <div class="stat-label">Active Books</div>
             <div class="stat-value">@Model.TotalBooks.ToString("N0")</div>
@@ -55,9 +55,9 @@
 
     @if (Model.Preview != null)
     {
-        <div class="spec-card" style="margin-bottom:24px;">
+        <div class="spec-card" data-csp-style="margin-bottom:24px;">
             <div class="spec-header">
-                <span class="accent-dot" style="background:#3b82f6;"></span>
+                <span class="accent-dot" data-csp-style="background:#3b82f6;"></span>
                 <h2>Preview — what would be created</h2>
             </div>
             <table class="table table-clean">
@@ -67,10 +67,10 @@
                         <th>Company</th>
                         <th>Earliest Month</th>
                         <th>Latest Month</th>
-                        <th style="text-align:right;">Months In Range</th>
-                        <th style="text-align:right;">Already Posted</th>
-                        <th style="text-align:right;">Will Create</th>
-                        <th style="text-align:right;">AssetBookSettings Acc. Dep.</th>
+                        <th data-csp-style="text-align:right;">Months In Range</th>
+                        <th data-csp-style="text-align:right;">Already Posted</th>
+                        <th data-csp-style="text-align:right;">Will Create</th>
+                        <th data-csp-style="text-align:right;">AssetBookSettings Acc. Dep.</th>
                         <th>Notes</th>
                     </tr>
                 </thead>
@@ -78,14 +78,14 @@
                 @foreach (var b in Model.Preview.PerBook)
                 {
                     <tr>
-                        <td><strong>@b.BookCode</strong> <span style="color:var(--text-muted);">(@b.BookId)</span></td>
+                        <td><strong>@b.BookCode</strong> <span data-csp-style="color:var(--text-muted);">(@b.BookId)</span></td>
                         <td>@(b.CompanyId?.ToString() ?? "—")</td>
                         <td>@(b.EarliestMonth?.ToString("yyyy-MM") ?? "—")</td>
                         <td>@(b.LatestMonth?.ToString("yyyy-MM") ?? "—")</td>
-                        <td style="text-align:right;">@b.MonthsInRange.ToString("N0")</td>
-                        <td style="text-align:right;">@b.MonthsAlreadyPosted.ToString("N0")</td>
-                        <td style="text-align:right;"><strong>@b.MonthsToCreate.ToString("N0")</strong></td>
-                        <td style="text-align:right;">$@b.SettingsAccumulated.ToString("N2")</td>
+                        <td data-csp-style="text-align:right;">@b.MonthsInRange.ToString("N0")</td>
+                        <td data-csp-style="text-align:right;">@b.MonthsAlreadyPosted.ToString("N0")</td>
+                        <td data-csp-style="text-align:right;"><strong>@b.MonthsToCreate.ToString("N0")</strong></td>
+                        <td data-csp-style="text-align:right;">$@b.SettingsAccumulated.ToString("N2")</td>
                         <td>@(b.Error ?? "")</td>
                     </tr>
                 }
@@ -96,7 +96,7 @@
 
     <div class="spec-card">
         <div class="spec-header">
-            <span class="accent-dot" style="background:var(--brand-red);"></span>
+            <span class="accent-dot" data-csp-style="background:var(--brand-red);"></span>
             <h2>Run backfill</h2>
         </div>
         <form method="post" class="form-grid">
@@ -105,7 +105,7 @@
                 <input asp-for="AsOfDate" type="date" class="form-input" />
                 <small>Generate journals through this month-end (defaults to previous month-end). Posts into closed periods (this is a one-time historical load).</small>
             </div>
-            <div class="form-actions" style="display:flex;gap:12px;">
+            <div class="form-actions" data-csp-style="display:flex;gap:12px;">
                 <button type="submit" name="action" value="preview" class="btn btn-secondary">Preview</button>
                 <button type="submit" name="action" value="run" class="btn btn-primary" onclick="return confirm('This will create historical depreciation journal entries against every active book. Continue?');">Run backfill now</button>
             </div>
@@ -114,9 +114,9 @@
 
     @if (Model.LastReport != null)
     {
-        <div class="spec-card" style="margin-top:24px;">
+        <div class="spec-card" data-csp-style="margin-top:24px;">
             <div class="spec-header">
-                <span class="accent-dot" style="background:#22c55e;"></span>
+                <span class="accent-dot" data-csp-style="background:#22c55e;"></span>
                 <h2>Last run report</h2>
             </div>
             <table class="table table-clean">
@@ -136,17 +136,17 @@
                 </tbody>
             </table>
 
-            <h3 style="margin-top:16px;">Per-book detail</h3>
+            <h3 data-csp-style="margin-top:16px;">Per-book detail</h3>
             <table class="table table-clean">
                 <thead>
                     <tr>
                         <th>Book</th>
-                        <th style="text-align:right;">Created</th>
-                        <th style="text-align:right;">Skipped (existed)</th>
-                        <th style="text-align:right;">Zero amount</th>
-                        <th style="text-align:right;">Total Debit (posted, in-window)</th>
-                        <th style="text-align:right;">AssetBookSettings Acc.</th>
-                        <th style="text-align:right;">Reconciliation Δ</th>
+                        <th data-csp-style="text-align:right;">Created</th>
+                        <th data-csp-style="text-align:right;">Skipped (existed)</th>
+                        <th data-csp-style="text-align:right;">Zero amount</th>
+                        <th data-csp-style="text-align:right;">Total Debit (posted, in-window)</th>
+                        <th data-csp-style="text-align:right;">AssetBookSettings Acc.</th>
+                        <th data-csp-style="text-align:right;">Reconciliation Δ</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -156,24 +156,24 @@
                     var deltaColor = Math.Abs(delta) <= 1m ? "#22c55e" : "var(--brand-red)";
                     <tr>
                         <td><strong>@b.BookCode</strong></td>
-                        <td style="text-align:right;">@b.MonthsCreated.ToString("N0")</td>
-                        <td style="text-align:right;">@b.MonthsAlreadyPosted.ToString("N0")</td>
-                        <td style="text-align:right;">@b.MonthsZero.ToString("N0")</td>
-                        <td style="text-align:right;">$@b.TotalDebit.ToString("N2")</td>
-                        <td style="text-align:right;">$@b.SettingsAccumulated.ToString("N2")</td>
-                        <td style="text-align:right;color:@deltaColor;">$@delta.ToString("N2")</td>
+                        <td data-csp-style="text-align:right;">@b.MonthsCreated.ToString("N0")</td>
+                        <td data-csp-style="text-align:right;">@b.MonthsAlreadyPosted.ToString("N0")</td>
+                        <td data-csp-style="text-align:right;">@b.MonthsZero.ToString("N0")</td>
+                        <td data-csp-style="text-align:right;">$@b.TotalDebit.ToString("N2")</td>
+                        <td data-csp-style="text-align:right;">$@b.SettingsAccumulated.ToString("N2")</td>
+                        <td data-csp-style="text-align:right;color:@deltaColor;">$@delta.ToString("N2")</td>
                     </tr>
                 }
                 </tbody>
             </table>
-            <p style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+            <p data-csp-style="font-size:12px;color:var(--text-muted);margin-top:8px;">
                 Reconciliation Δ compares total debits posted (this run + previously-existing months) against the AccumulatedDepreciation snapshot on AssetBookSettings. The depreciation engine is the source of truth — backfill posts engine-computed amounts and surfaces drift here as informational. A gap means stamped Acc was hand-edited, the engine changed, or pre-existing non-DEP journals overlap; re-run Depreciation Backfill to restamp Acc, or investigate manual edits.
             </p>
 
             @if (Model.LastReport.Warnings.Any())
             {
-                <h3 style="margin-top:16px;">Warnings (@Model.LastReport.Warnings.Count)</h3>
-                <ul style="font-family:var(--font-mono);font-size:12px;max-height:240px;overflow-y:auto;background:var(--bg-elev1);padding:12px;border-radius:8px;">
+                <h3 data-csp-style="margin-top:16px;">Warnings (@Model.LastReport.Warnings.Count)</h3>
+                <ul data-csp-style="font-family:var(--font-mono);font-size:12px;max-height:240px;overflow-y:auto;background:var(--bg-elev1);padding:12px;border-radius:8px;">
                     @foreach (var w in Model.LastReport.Warnings.Take(50))
                     {
                         <li>@w</li>
@@ -187,8 +187,8 @@
 
             @if (Model.LastReport.Errors.Any())
             {
-                <h3 style="margin-top:16px;color:var(--brand-red);">Errors (@Model.LastReport.Errors.Count)</h3>
-                <ul style="font-family:var(--font-mono);font-size:12px;color:#fca5a5;">
+                <h3 data-csp-style="margin-top:16px;color:var(--brand-red);">Errors (@Model.LastReport.Errors.Count)</h3>
+                <ul data-csp-style="font-family:var(--font-mono);font-size:12px;color:#fca5a5;">
                     @foreach (var e in Model.LastReport.Errors)
                     {
                         <li>@e</li>

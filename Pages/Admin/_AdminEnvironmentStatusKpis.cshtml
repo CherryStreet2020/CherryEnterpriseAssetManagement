@@ -5,11 +5,11 @@
 </div>
 <div class="kpi-card">
     <div class="kpi-label">Seed Guard</div>
-    <div class="kpi-value" style="color: @(Model.GuardResult?.Allowed == true ? "var(--success)" : "var(--danger)");">
+    <div class="kpi-value" data-csp-style="color: @(Model.GuardResult?.Allowed == true ? "var(--success)" : "var(--danger)");">
         @(Model.GuardResult?.Allowed == true ? "Unlocked" : "Locked")
     </div>
 </div>
 <div class="kpi-card">
     <div class="kpi-label">Checked</div>
-    <div class="kpi-value" style="font-size: 18px;">@Model.CheckedAt.ToString("HH:mm:ss")</div>
+    <div class="kpi-value" data-csp-style="font-size: 18px;">@Model.CheckedAt.ToString("HH:mm:ss")</div>
 </div>

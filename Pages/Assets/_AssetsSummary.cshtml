@@ -51,31 +51,31 @@
         GetDecimal(a, "Salvage", "SalvageValue", "Residual", "ResidualValue"));
 }
 
-<div class="panel-hero" style="padding:16px; margin-bottom:16px;">
-  <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
-    <h2 style="margin:0; font-size:1.25rem; font-weight:700;">Assets</h2>
-    <div style="flex:1 1 auto;"></div>
+<div class="panel-hero" data-csp-style="padding:16px; margin-bottom:16px;">
+  <div data-csp-style="display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+    <h2 data-csp-style="margin:0; font-size:1.25rem; font-weight:700;">Assets</h2>
+    <div data-csp-style="flex:1 1 auto;"></div>
     <a class="btn-p btn-p--primary" href="/Assets/Asset?mode=create">+ New Asset</a>
   </div>
 
-  <div style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-    <div class="summary-tile" style="padding:16px;">
-      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Active assets</div>
-      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@assetCount</div>
+  <div data-csp-style="display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+    <div class="summary-tile" data-csp-style="padding:16px;">
+      <div class="muted" data-csp-style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Active assets</div>
+      <div data-csp-style="font-size:1.6rem; font-weight:700; margin-top:4px;">@assetCount</div>
     </div>
 
-    <div class="summary-tile" style="padding:16px;">
-      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total acquisition</div>
-      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalAcquisition)</div>
+    <div class="summary-tile" data-csp-style="padding:16px;">
+      <div class="muted" data-csp-style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total acquisition</div>
+      <div data-csp-style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalAcquisition)</div>
     </div>
 
-    <div class="summary-tile" style="padding:16px;">
-      <div class="muted" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total salvage</div>
-      <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalSalvage)</div>
+    <div class="summary-tile" data-csp-style="padding:16px;">
+      <div class="muted" data-csp-style="font-size:.8rem; text-transform:uppercase; letter-spacing:.06em;">Total salvage</div>
+      <div data-csp-style="font-size:1.6rem; font-weight:700; margin-top:4px;">@Money(totalSalvage)</div>
     </div>
   </div>
 
-  <div style="display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-top:14px;">
+  <div data-csp-style="display:grid; gap:8px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); margin-top:14px;">
     <a class="btn-p btn-p--secondary" href="/Assets">Browse &amp; search</a>
     <a class="btn-p btn-p--secondary" href="/Assets/Asset?mode=create">Add new equipment</a>
     <a class="btn-p btn-p--secondary" href="/Books">GAAP &amp; tax settings</a>

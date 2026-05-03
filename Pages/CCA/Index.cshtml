@@ -30,17 +30,17 @@
         </h3>
         <span class="status-badge info">@Model.CcaClasses.Count CLASSES</span>
     </div>
-    <div class="section-card-body" style="padding: 0; overflow-x: auto;">
+    <div class="section-card-body" data-csp-style="padding: 0; overflow-x: auto;">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 80px;">Class</th>
+                    <th data-csp-style="width: 80px;">Class</th>
                     <th>Description</th>
-                    <th style="text-align: right;">Rate</th>
-                    <th style="text-align: center;">Method</th>
-                    <th style="text-align: center;">Half-Year</th>
-                    <th style="text-align: center;">Accelerated</th>
-                    <th style="text-align: right;">Assets</th>
+                    <th data-csp-style="text-align: right;">Rate</th>
+                    <th data-csp-style="text-align: center;">Method</th>
+                    <th data-csp-style="text-align: center;">Half-Year</th>
+                    <th data-csp-style="text-align: center;">Accelerated</th>
+                    <th data-csp-style="text-align: right;">Assets</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,23 +49,23 @@
                     var assetCount = Model.AssetCountByClass.GetValueOrDefault(c.Id, 0);
                     <tr>
                         <td>
-                            <span class="badge badge-primary" style="font-size: 14px; padding: 8px 12px;">@c.ClassNumber</span>
+                            <span class="badge badge-primary" data-csp-style="font-size: 14px; padding: 8px 12px;">@c.ClassNumber</span>
                         </td>
                         <td>
-                            <div style="max-width: 400px;">
+                            <div data-csp-style="max-width: 400px;">
                                 @c.Description
                                 @if (!string.IsNullOrEmpty(c.Notes))
                                 {
-                                    <div class="text-theme-muted" style="font-size: 12px; margin-top: 4px;">
+                                    <div class="text-theme-muted" data-csp-style="font-size: 12px; margin-top: 4px;">
                                         @c.Notes
                                     </div>
                                 }
                             </div>
                         </td>
-                        <td style="text-align: right; font-weight: 600; font-size: 16px;">
+                        <td data-csp-style="text-align: right; font-weight: 600; font-size: 16px;">
                             @((c.Rate * 100).ToString("0.##"))%
                         </td>
-                        <td style="text-align: center;">
+                        <td data-csp-style="text-align: center;">
                             @if (c.IsDecliningBalance)
                             {
                                 <span class="badge badge-secondary">Declining</span>
@@ -75,7 +75,7 @@
                                 <span class="badge badge-secondary">Straight-Line</span>
                             }
                         </td>
-                        <td style="text-align: center;">
+                        <td data-csp-style="text-align: center;">
                             @if (c.HalfYearRuleApplies)
                             {
                                 <span class="badge badge-success">Yes</span>
@@ -85,7 +85,7 @@
                                 <span class="badge badge-secondary">No</span>
                             }
                         </td>
-                        <td style="text-align: center;">
+                        <td data-csp-style="text-align: center;">
                             @if (c.IsAcceleratedInvestmentIncentive)
                             {
                                 <span class="badge badge-warning">AII</span>
@@ -95,7 +95,7 @@
                                 <span class="text-theme-muted">-</span>
                             }
                         </td>
-                        <td style="text-align: right;">
+                        <td data-csp-style="text-align: right;">
                             @if (assetCount > 0)
                             {
                                 <a asp-page="./ClassReport" asp-route-id="@c.Id" class="link">@assetCount</a>
@@ -114,15 +114,15 @@
 
 <div class="section-card">
     <div class="section-card-body">
-        <div style="display: flex; gap: 16px; align-items: flex-start;">
+        <div data-csp-style="display: flex; gap: 16px; align-items: flex-start;">
             <div class="icon-circle icon-bg-cyan">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="white">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
             </div>
             <div>
-                <h4 class="text-theme-primary" style="margin: 0 0 8px 0;">About CCA (Capital Cost Allowance)</h4>
-                <p class="text-theme-secondary" style="margin: 0; line-height: 1.6;">
+                <h4 class="text-theme-primary" data-csp-style="margin: 0 0 8px 0;">About CCA (Capital Cost Allowance)</h4>
+                <p class="text-theme-secondary" data-csp-style="margin: 0; line-height: 1.6;">
                     CCA is the tax deduction that Canadian businesses can claim for the depreciation of capital assets. 
                     Assets are grouped into classes with prescribed rates set by the CRA. The <strong>half-year rule</strong> limits 
                     CCA claims in the year of acquisition to 50% of the normal amount. Some classes qualify for the 

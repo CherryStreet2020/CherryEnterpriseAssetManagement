@@ -177,7 +177,7 @@
     </div>
 </div>
 
-<div id="webhookFormPanel" class="inline-form-panel" style="display: none;">
+<div id="webhookFormPanel" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <h3 id="formTitle">Create Webhook</h3>
@@ -186,15 +186,15 @@
         <form id="webhookForm" method="post">
             <input type="hidden" id="inputId" name="Input.Id" />
             <div class="inline-form-body">
-                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                <div class="form-group form-group-p" data-csp-style="margin-bottom: 1rem;">
                     <label>Name</label>
                     <input type="text" id="inputName" name="Input.Name" required class="form-control form-input-p" />
                 </div>
-                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                <div class="form-group form-group-p" data-csp-style="margin-bottom: 1rem;">
                     <label>URL</label>
                     <input type="url" id="inputUrl" name="Input.Url" required placeholder="https://..." class="form-control form-input-p" />
                 </div>
-                <div class="form-group form-group-p" style="margin-bottom: 1rem;">
+                <div class="form-group form-group-p" data-csp-style="margin-bottom: 1rem;">
                     <label class="form-check-p">
                         <input type="checkbox" id="inputIsActive" name="Input.IsActive" value="true" checked />
                         <span>Active</span>
@@ -202,7 +202,7 @@
                 </div>
                 <div class="form-group form-group-p">
                     <label>Event Types (leave empty for all)</label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                    <div data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
                         @foreach (var evt in WebhookEventTypes.AllEventTypes)
                         {
                             <label class="form-check-p">

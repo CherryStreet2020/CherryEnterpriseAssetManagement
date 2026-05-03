@@ -115,7 +115,7 @@
 }
 else
 {
-    <div class="premium-tabs" style="margin-top: 1.5rem;">
+    <div class="premium-tabs" data-csp-style="margin-top: 1.5rem;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
         <table id="pmSchedulesGrid" class="data-table premium-table" data-enhanced-grid="true" data-row-click="true">
             <thead>
@@ -138,14 +138,14 @@ else
                             <strong>@schedule.ScheduleName</strong>
                         </td>
                         <td>
-                            <code class="text-blue" style="font-size: 0.8rem;">@schedule.TemplateCode</code>
-                            <div class="text-theme-muted" style="font-size: 0.8rem; margin-top: 0.125rem;">@schedule.TemplateName</div>
+                            <code class="text-blue" data-csp-style="font-size: 0.8rem;">@schedule.TemplateCode</code>
+                            <div class="text-theme-muted" data-csp-style="font-size: 0.8rem; margin-top: 0.125rem;">@schedule.TemplateName</div>
                         </td>
                         <td>
                             <strong>@schedule.CompanyName</strong>
                             @if (!string.IsNullOrEmpty(schedule.SiteName))
                             {
-                                <div class="text-theme-muted" style="font-size: 0.8rem;">@schedule.SiteName</div>
+                                <div class="text-theme-muted" data-csp-style="font-size: 0.8rem;">@schedule.SiteName</div>
                             }
                         </td>
                         <td>

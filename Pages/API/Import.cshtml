@@ -22,12 +22,12 @@
 
 @if (Model.Result != null)
 {
-    <div class="alert @(Model.Result.HasErrors ? "alert-warning" : "alert-success")" style="margin-bottom: 1.5rem;">
+    <div class="alert @(Model.Result.HasErrors ? "alert-warning" : "alert-success")" data-csp-style="margin-bottom: 1.5rem;">
         <strong>Import Complete</strong><br/>
         Imported: @Model.Result.ImportedCount | Skipped: @Model.Result.SkippedCount | Failed: @Model.Result.FailedCount
         @if (Model.Result.Errors.Any())
         {
-            <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
+            <ul data-csp-style="margin-top: 0.5rem; padding-left: 1.5rem;">
                 @foreach (var error in Model.Result.Errors.Take(10))
                 {
                     <li>@error</li>
@@ -41,7 +41,7 @@
     </div>
 }
 
-<div class="section-card" style="margin-bottom: 24px;">
+<div class="section-card" data-csp-style="margin-bottom: 24px;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,7 +74,7 @@
     <div class="section-card-body">
         <p>Your CSV file should include a header row with these column names (case-insensitive):</p>
         
-        <table class="data-table" style="margin-top: 1rem;">
+        <table class="data-table" data-csp-style="margin-top: 1rem;">
             <thead>
                 <tr>
                     <th>Column</th>
@@ -141,14 +141,14 @@
             </tbody>
         </table>
 
-        <h4 style="margin-top: 1.5rem;">Sample CSV</h4>
-        <pre style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <h4 data-csp-style="margin-top: 1.5rem;">Sample CSV</h4>
+        <pre data-csp-style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
 AssetNumber,Description,AcquisitionCost,InServiceDate,UsefulLife,Location
 FA-1001,CNC Milling Machine,125000,2026-01-15,10,Building A
 FA-1002,Forklift Model 500,45000,2026-02-01,7,Warehouse
 FA-1003,Office Furniture Set,8500,2026-01-20,5,Admin Building</pre>
 
-        <p style="margin-top: 1rem;">
+        <p data-csp-style="margin-top: 1rem;">
             <a href="/api/v1/assets?page=1&pageSize=5" target="_blank" class="btn-p btn-p--secondary">Download Sample Template</a>
         </p>
     </div>

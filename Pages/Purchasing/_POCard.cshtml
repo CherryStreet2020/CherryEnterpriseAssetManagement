@@ -16,7 +16,7 @@
      onclick="selectPO(@Model.Id)">
     <div class="cockpit__card-row">
         <span class="cockpit__card-po">@Model.PONumber</span>
-        <span class="status-badge-p @statusClass" style="font-size:0.55rem;">@Model.Status</span>
+        <span class="status-badge-p @statusClass" data-csp-style="font-size:0.55rem;">@Model.Status</span>
     </div>
     <div class="cockpit__card-vendor">@(Model.Vendor?.Name ?? "—")</div>
     <div class="cockpit__card-meta">

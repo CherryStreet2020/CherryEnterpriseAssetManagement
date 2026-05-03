@@ -53,10 +53,10 @@
 @await Html.PartialAsync("_ScreenHeader", headerVd)
 
 @if (TempData["Success"] != null) {
-    <div class="alert alert-success" style="margin-bottom:1rem;">@TempData["Success"]</div>
+    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@TempData["Success"]</div>
 }
 @if (TempData["Error"] != null || TempData["ErrorMessage"] != null) {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@(TempData["Error"] ?? TempData["ErrorMessage"])</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@(TempData["Error"] ?? TempData["ErrorMessage"])</div>
 }
 
 <!-- LINE ITEMS SECTION — Unified Pattern -->
@@ -82,17 +82,16 @@
 
         <div class="line-section__add line-section__add--above" id="addLineSection" data-collapsible>
             @* ── PART SEARCH ── *@
-            <div style="margin-bottom:0.75rem;">
-                <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
-                    <span class="line-add-form__label" style="margin-bottom:0;">SEARCH PARTS</span>
-                    <span style="font-size:0.7rem; color:var(--text-muted);">— or skip to enter a freetext line below</span>
+            <div data-csp-style="margin-bottom:0.75rem;">
+                <div data-csp-style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                    <span class="line-add-form__label" data-csp-style="margin-bottom:0;">SEARCH PARTS</span>
+                    <span data-csp-style="font-size:0.7rem; color:var(--text-muted);">— or skip to enter a freetext line below</span>
                 </div>
-                <div style="position:relative;">
-                    <i class="fas fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85rem;"></i>
-                    <input type="text" id="partSearchInput" class="line-add-form__input" placeholder="Search by part number, description, manufacturer part..."
-                           style="padding-left:2.25rem;" oninput="filterParts(this.value)" />
+                <div data-csp-style="position:relative;">
+                    <i class="fas fa-search" data-csp-style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85rem;"></i>
+                    <input type="text" id="partSearchInput" class="line-add-form__input" placeholder="Search by part number, description, manufacturer part..." data-csp-style="padding-left:2.25rem;" oninput="filterParts(this.value)" />
                 </div>
-                <div id="partSearchResults" style="display:none; max-height:320px; overflow-y:auto; margin-top:0.5rem; border:1px solid var(--border-default, rgba(255,255,255,0.1)); border-radius:8px;">
+                <div id="partSearchResults" data-csp-style="display:none; max-height:320px; overflow-y:auto; margin-top:0.5rem; border:1px solid var(--border-default, rgba(255,255,255,0.1)); border-radius:8px;">
                     <table class="line-table" id="partResultsTable">
                         <thead>
                             <tr>
@@ -108,20 +107,20 @@
                         <tbody id="partResultsBody"></tbody>
                     </table>
                 </div>
-                <div id="selectedPartCard" style="display:none; margin-top:0.75rem; padding:0.75rem 1rem; background:var(--surface-hover, rgba(255,255,255,0.03)); border:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-left:3px solid var(--cherry-red, #cf3339); border-radius:8px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div id="selectedPartCard" data-csp-style="display:none; margin-top:0.75rem; padding:0.75rem 1rem; background:var(--surface-hover, rgba(255,255,255,0.03)); border:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-left:3px solid var(--cherry-red, #cf3339); border-radius:8px;">
+                    <div data-csp-style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
                             <strong id="selectedPN" class="td-mono"></strong>
-                            <span id="selectedDesc" style="margin-left:0.75rem; color:var(--text-secondary);"></span>
+                            <span id="selectedDesc" data-csp-style="margin-left:0.75rem; color:var(--text-secondary);"></span>
                         </div>
                         <button type="button" class="line-table__action-btn" onclick="clearPartSelection()" title="Clear selection"><i class="fas fa-times"></i></button>
                     </div>
-                    <div style="display:flex; gap:1.5rem; margin-top:0.35rem; font-size:0.8rem; color:var(--text-muted);">
-                        <span id="selectedRevWrap" style="display:none;">Rev: <strong id="selectedRev" class="td-mono" style="color:var(--text-primary);"></strong></span>
-                        <span>UOM: <strong id="selectedUOM" style="color:var(--text-primary);"></strong></span>
-                        <span>Last Price: <strong id="selectedPrice" class="td-mono" style="color:var(--text-primary);"></strong></span>
-                        <span id="selectedMfrWrap" style="display:none;">MFR#: <strong id="selectedMfr" style="color:var(--text-primary);"></strong></span>
-                        <span id="selectedWhWrap" style="display:none;">Warehouse: <strong id="selectedWh" style="color:var(--text-primary);"></strong></span>
+                    <div data-csp-style="display:flex; gap:1.5rem; margin-top:0.35rem; font-size:0.8rem; color:var(--text-muted);">
+                        <span id="selectedRevWrap" data-csp-style="display:none;">Rev: <strong id="selectedRev" class="td-mono" data-csp-style="color:var(--text-primary);"></strong></span>
+                        <span>UOM: <strong id="selectedUOM" data-csp-style="color:var(--text-primary);"></strong></span>
+                        <span>Last Price: <strong id="selectedPrice" class="td-mono" data-csp-style="color:var(--text-primary);"></strong></span>
+                        <span id="selectedMfrWrap" data-csp-style="display:none;">MFR#: <strong id="selectedMfr" data-csp-style="color:var(--text-primary);"></strong></span>
+                        <span id="selectedWhWrap" data-csp-style="display:none;">Warehouse: <strong id="selectedWh" data-csp-style="color:var(--text-primary);"></strong></span>
                     </div>
                 </div>
             </div>
@@ -185,28 +184,28 @@
             <table class="line-table" id="linesTable">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width:30px"></th>
-                        <th class="line-table__th" style="width:40px">#</th>
-                        <th class="line-table__th" style="width:130px">PART #</th>
-                        <th class="line-table__th" style="width:50px">REV</th>
+                        <th class="line-table__th" data-csp-style="width:30px"></th>
+                        <th class="line-table__th" data-csp-style="width:40px">#</th>
+                        <th class="line-table__th" data-csp-style="width:130px">PART #</th>
+                        <th class="line-table__th" data-csp-style="width:50px">REV</th>
                         <th class="line-table__th">DESCRIPTION</th>
-                        <th class="line-table__th line-table__th--right" style="width:70px">QTY</th>
-                        <th class="line-table__th" style="width:50px">UOM</th>
-                        <th class="line-table__th line-table__th--right" style="width:100px">UNIT PRICE</th>
-                        <th class="line-table__th line-table__th--right" style="width:110px">TOTAL</th>
-                        <th class="line-table__th line-table__th--right" style="width:60px">RCVD</th>
-                        @if (canEdit) { <th class="line-table__th" style="width:40px"></th> }
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:70px">QTY</th>
+                        <th class="line-table__th" data-csp-style="width:50px">UOM</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:100px">UNIT PRICE</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:110px">TOTAL</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:60px">RCVD</th>
+                        @if (canEdit) { <th class="line-table__th" data-csp-style="width:40px"></th> }
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var ln in po.Lines.OrderBy(l => l.LineNumber)) {
                         var relCount = ln.Releases?.Count ?? 0;
                         <tr class="line-table__row">
-                            <td class="line-table__td" style="text-align:center; cursor:pointer;" onclick="toggleReleases(@ln.Id)" title="@(relCount > 0 ? $"{relCount} releases" : "No releases")">
-                                <i class="fas fa-chevron-right" id="chevron-@ln.Id" style="font-size:0.65rem; color:var(--text-muted); transition:transform 0.15s;"></i>
+                            <td class="line-table__td" data-csp-style="text-align:center; cursor:pointer;" onclick="toggleReleases(@ln.Id)" title="@(relCount > 0 ? $"{relCount} releases" : "No releases")">
+                                <i class="fas fa-chevron-right" id="chevron-@ln.Id" data-csp-style="font-size:0.65rem; color:var(--text-muted); transition:transform 0.15s;"></i>
                             </td>
                             <td class="line-table__td line-table__td--muted">@ln.LineNumber</td>
-                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(ln.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">@(ln.PartNumber ?? "—")</td>
                             <td class="line-table__td line-table__td--mono line-table__td--muted">@(ln.Revision ?? "")</td>
                             <td class="line-table__td line-table__td--primary">@ln.Description</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@ln.QuantityOrdered.ToString("N0")</td>
@@ -216,7 +215,7 @@
                             <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">@ln.QuantityReceived.ToString("N0")</td>
                             @if (canEdit) {
                                 <td class="line-table__td line-table__td--actions">
-                                    <form method="post" asp-page-handler="DeleteLine" style="display:inline"
+                                    <form method="post" asp-page-handler="DeleteLine" data-csp-style="display:inline"
                                           onsubmit="return confirm('Delete line #@ln.LineNumber?')">
                                         <input type="hidden" name="id" value="@po.Id" />
                                         <input type="hidden" name="lineId" value="@ln.Id" />
@@ -229,44 +228,44 @@
                         </tr>
 
                         @* ── RELEASES SUB-TABLE ── *@
-                        <tr class="release-section" id="releases-@ln.Id" style="display:none;">
-                            <td colspan="@(canEdit ? 11 : 10)" style="padding:0;">
-                                <div style="background:var(--surface-sunken, rgba(0,0,0,0.1)); border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
-                                    <div style="padding:0.6rem 1.25rem; display:flex; justify-content:space-between; align-items:center;">
-                                        <span style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);">
+                        <tr class="release-section" id="releases-@ln.Id" data-csp-style="display:none;">
+                            <td colspan="@(canEdit ? 11 : 10)" data-csp-style="padding:0;">
+                                <div data-csp-style="background:var(--surface-sunken, rgba(0,0,0,0.1)); border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06)); border-bottom:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+                                    <div data-csp-style="padding:0.6rem 1.25rem; display:flex; justify-content:space-between; align-items:center;">
+                                        <span data-csp-style="font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted);">
                                             Releases — Line #@ln.LineNumber · @ln.Description
                                         </span>
-                                        <span style="font-size:0.8rem; color:var(--text-muted);">
-                                            <strong class="td-mono" style="color:var(--text-primary);">@ln.QuantityOrdered.ToString("N0")</strong> ordered ·
-                                            <strong class="td-mono" style="color:var(--text-primary);">@(ln.Releases?.Sum(r => r.Quantity).ToString("N0") ?? "0")</strong> released ·
-                                            <strong class="td-mono" style="color:var(--text-primary);">@ln.QuantityReceived.ToString("N0")</strong> received
+                                        <span data-csp-style="font-size:0.8rem; color:var(--text-muted);">
+                                            <strong class="td-mono" data-csp-style="color:var(--text-primary);">@ln.QuantityOrdered.ToString("N0")</strong> ordered ·
+                                            <strong class="td-mono" data-csp-style="color:var(--text-primary);">@(ln.Releases?.Sum(r => r.Quantity).ToString("N0") ?? "0")</strong> released ·
+                                            <strong class="td-mono" data-csp-style="color:var(--text-primary);">@ln.QuantityReceived.ToString("N0")</strong> received
                                         </span>
                                     </div>
 
                                     @if (ln.Releases?.Any() ?? false) {
-                                        <table class="line-table" style="margin:0;">
+                                        <table class="line-table" data-csp-style="margin:0;">
                                             <thead>
                                                 <tr>
-                                                    <th class="line-table__th" style="width:70px">RELEASE</th>
+                                                    <th class="line-table__th" data-csp-style="width:70px">RELEASE</th>
                                                     <th class="line-table__th">SHIP TO</th>
-                                                    <th class="line-table__th" style="width:110px">DUE DATE</th>
-                                                    <th class="line-table__th line-table__th--right" style="width:70px">QTY</th>
-                                                    <th class="line-table__th" style="width:90px">STATUS</th>
-                                                    @if (canEdit) { <th class="line-table__th" style="width:40px"></th> }
+                                                    <th class="line-table__th" data-csp-style="width:110px">DUE DATE</th>
+                                                    <th class="line-table__th line-table__th--right" data-csp-style="width:70px">QTY</th>
+                                                    <th class="line-table__th" data-csp-style="width:90px">STATUS</th>
+                                                    @if (canEdit) { <th class="line-table__th" data-csp-style="width:40px"></th> }
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @foreach (var rel in ln.Releases.OrderBy(r => r.ReleaseNumber)) {
                                                     var relBadge = rel.Status == ReleaseStatus.Open ? "badge-neutral" : rel.Status == ReleaseStatus.PartiallyReceived ? "badge-warning" : "badge-success";
                                                     <tr class="line-table__row">
-                                                        <td class="line-table__td line-table__td--mono" style="font-weight:600;">R@rel.ReleaseNumber</td>
+                                                        <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">R@rel.ReleaseNumber</td>
                                                         <td class="line-table__td">@(rel.ShipToLocation?.Name ?? "—")</td>
                                                         <td class="line-table__td line-table__td--muted">@(rel.DueDate?.ToString("MMM dd, yyyy") ?? "—")</td>
                                                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@rel.Quantity.ToString("N0")</td>
                                                         <td class="line-table__td"><span class="badge @relBadge">@rel.Status</span></td>
                                                         @if (canEdit) {
                                                             <td class="line-table__td line-table__td--actions">
-                                                                <form method="post" asp-page-handler="DeleteRelease" style="display:inline"
+                                                                <form method="post" asp-page-handler="DeleteRelease" data-csp-style="display:inline"
                                                                       onsubmit="return confirm('Delete R@(rel.ReleaseNumber)?')">
                                                                     <input type="hidden" name="id" value="@po.Id" />
                                                                     <input type="hidden" name="lineId" value="@ln.Id" />
@@ -282,16 +281,16 @@
                                             </tbody>
                                         </table>
                                     } else {
-                                        <div style="padding:0.75rem 1.25rem; font-size:0.85rem; color:var(--text-muted);">No releases for this line.</div>
+                                        <div data-csp-style="padding:0.75rem 1.25rem; font-size:0.85rem; color:var(--text-muted);">No releases for this line.</div>
                                     }
 
                                     @if (canEdit) {
-                                        <div style="padding:0.6rem 1.25rem; border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
-                                            <form method="post" asp-page-handler="AddRelease" class="line-add-form" style="margin:0;">
+                                        <div data-csp-style="padding:0.6rem 1.25rem; border-top:1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+                                            <form method="post" asp-page-handler="AddRelease" class="line-add-form" data-csp-style="margin:0;">
                                                 <input type="hidden" name="id" value="@po.Id" />
                                                 <input type="hidden" name="lineId" value="@ln.Id" />
-                                                <div class="line-add-form__row" style="margin-bottom:0;">
-                                                    <div class="line-add-form__field line-add-form__field--narrow" style="flex:0 0 auto;">
+                                                <div class="line-add-form__row" data-csp-style="margin-bottom:0;">
+                                                    <div class="line-add-form__field line-add-form__field--narrow" data-csp-style="flex:0 0 auto;">
                                                         <span class="line-add-form__label">+ ADD RELEASE</span>
                                                     </div>
                                                     <div class="line-add-form__field">
@@ -320,7 +319,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="line-table__total-row">
-                        <td colspan="8" class="line-table__td line-table__td--right" style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">SUBTOTAL</td>
+                        <td colspan="8" class="line-table__td line-table__td--right" data-csp-style="font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">SUBTOTAL</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@po.Subtotal.ToString("N2")</td>
                         <td></td>
                         @if (canEdit) { <td></td> }
@@ -341,7 +340,7 @@
             <span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Notes</span>
         </div>
         <div class="pe-card__body">
-            <p style="margin:0; white-space:pre-wrap;">@po.Notes</p>
+            <p data-csp-style="margin:0; white-space:pre-wrap;">@po.Notes</p>
         </div>
     </div>
 }
@@ -384,11 +383,11 @@ function filterParts(q) {
         return (i.pn||'').toLowerCase().indexOf(lc)>=0 || (i.desc||'').toLowerCase().indexOf(lc)>=0 || (i.mfr||'').toLowerCase().indexOf(lc)>=0;
     });
     if (!m.length) {
-        body.innerHTML = '<tr><td colspan="7" class="line-table__td" style="text-align:center; padding:1rem; color:var(--text-muted);">No parts found. Enter a freetext line below.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7" class="line-table__td" data-csp-style="text-align:center; padding:1rem; color:var(--text-muted);">No parts found. Enter a freetext line below.</td></tr>';
     } else {
         body.innerHTML = m.slice(0,50).map(function(i) {
-            return '<tr class="line-table__row" style="cursor:pointer;" onclick="selectPart('+i.id+')">'
-            +'<td class="line-table__td line-table__td--mono" style="font-weight:600;">'+esc(i.pn)+'</td>'
+            return '<tr class="line-table__row" data-csp-style="cursor:pointer;" onclick="selectPart('+i.id+')">'
+            +'<td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">'+esc(i.pn)+'</td>'
             +'<td class="line-table__td line-table__td--mono line-table__td--muted">'+esc(i.rev||'')+'</td>'
             +'<td class="line-table__td">'+esc(i.desc)+'</td>'
             +'<td class="line-table__td line-table__td--mono line-table__td--muted">'+esc(i.mfr||'—')+'</td>'

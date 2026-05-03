@@ -23,7 +23,7 @@
         </div>
         @if (evt.Asset != null && (evt.Asset.LOTOProcedureId != null || evt.Asset.ConfinedSpaceEntry || evt.Asset.SafetyClassification == "Critical" || evt.Asset.SafetyClassification == "High"))
         {
-            <div class="hero-tags" style="margin-top: 0.25rem;">
+            <div class="hero-tags" data-csp-style="margin-top: 0.25rem;">
                 @if (!string.IsNullOrEmpty(evt.Asset.LOTOProcedureId))
                 {
                     <span class="hero-tag danger" title="LOTO Procedure: @evt.Asset.LOTOProcedureId">⚡ LOTO REQUIRED</span>

@@ -8,13 +8,13 @@
         <div class="hero-btns">
             @if (wr.Status == WorkRequestStatus.New || wr.Status == WorkRequestStatus.InReview)
             {
-                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="SmartAssist" asp-route-id="@wr.Id" style="display: inline;">
-                    <button type="submit" class="btn btn-primary gradient-btn-blue" style="border: none;">
+                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="SmartAssist" asp-route-id="@wr.Id" data-csp-style="display: inline;">
+                    <button type="submit" class="btn btn-primary gradient-btn-blue" data-csp-style="border: none;">
                         <i class="fas fa-magic"></i> Smart Assist - Generate Work Order
                     </button>
                 </form>
-                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="ConvertToWO" asp-route-id="@wr.Id" style="display: inline;">
-                    <button type="submit" class="btn btn-primary gradient-btn-green" style="border: none;">
+                <form method="post" asp-page="/Maintenance/WorkRequests/Details" asp-page-handler="ConvertToWO" asp-route-id="@wr.Id" data-csp-style="display: inline;">
+                    <button type="submit" class="btn btn-primary gradient-btn-green" data-csp-style="border: none;">
                         <i class="fas fa-exchange-alt"></i> Convert to Work Order
                     </button>
                 </form>

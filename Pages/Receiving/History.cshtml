@@ -22,13 +22,13 @@
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
 <!-- FILTERS -->
-<div class="pe-card" style="margin-bottom:1rem;">
+<div class="pe-card" data-csp-style="margin-bottom:1rem;">
     <div class="pe-card__header">
         <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Filters</span>
     </div>
     <div class="pe-card__body">
         <form method="get" id="filterForm">
-            <div class="form-grid form-grid--4" style="margin-bottom:0.75rem;">
+            <div class="form-grid form-grid--4" data-csp-style="margin-bottom:0.75rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Date From</label>
                     <input type="date" name="dateFrom" class="form-input-p" value="@Model.DateFrom?.ToString("yyyy-MM-dd")" />
@@ -62,7 +62,7 @@
                     <label class="form-label-p">Receipt Number</label>
                     <input type="text" name="receiptSearch" class="form-input-p" placeholder="GR-..." value="@Model.ReceiptSearch" />
                 </div>
-                <div class="form-group-p" style="display:flex; align-items:flex-end; gap:0.5rem;">
+                <div class="form-group-p" data-csp-style="display:flex; align-items:flex-end; gap:0.5rem;">
                     <button type="submit" class="btn-p btn-p--primary btn-p--sm">
                         <i class="fas fa-search"></i> Search
                     </button>
@@ -90,15 +90,15 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width:130px">RECEIPT #</th>
-                        <th class="line-table__th" style="width:120px">PO #</th>
+                        <th class="line-table__th" data-csp-style="width:130px">RECEIPT #</th>
+                        <th class="line-table__th" data-csp-style="width:120px">PO #</th>
                         <th class="line-table__th">VENDOR</th>
-                        <th class="line-table__th" style="width:100px">DATE</th>
-                        <th class="line-table__th" style="width:100px">RECEIVED BY</th>
-                        <th class="line-table__th line-table__th--right" style="width:50px">LINES</th>
-                        <th class="line-table__th line-table__th--right" style="width:110px">VALUE</th>
-                        <th class="line-table__th" style="width:120px">STATUS</th>
-                        <th class="line-table__th" style="width:80px"></th>
+                        <th class="line-table__th" data-csp-style="width:100px">DATE</th>
+                        <th class="line-table__th" data-csp-style="width:100px">RECEIVED BY</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:50px">LINES</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:110px">VALUE</th>
+                        <th class="line-table__th" data-csp-style="width:120px">STATUS</th>
+                        <th class="line-table__th" data-csp-style="width:80px"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -113,16 +113,16 @@
                             _ => "status-badge-p--draft"
                         };
                         <tr class="line-table__row">
-                            <td class="line-table__td line-table__td--primary" style="font-weight:600;">@gr.ReceiptNumber</td>
+                            <td class="line-table__td line-table__td--primary" data-csp-style="font-weight:600;">@gr.ReceiptNumber</td>
                             <td class="line-table__td line-table__td--mono">
-                                <a href="/Purchasing/Details/@gr.PurchaseOrderId" style="color:var(--cherry-red, #cf3339); text-decoration:none;">@(gr.PurchaseOrder?.PONumber ?? "—")</a>
+                                <a href="/Purchasing/Details/@gr.PurchaseOrderId" data-csp-style="color:var(--cherry-red, #cf3339); text-decoration:none;">@(gr.PurchaseOrder?.PONumber ?? "—")</a>
                             </td>
                             <td class="line-table__td">@(gr.PurchaseOrder?.Vendor?.Name ?? "—")</td>
                             <td class="line-table__td line-table__td--muted">@gr.ReceiptDate.ToString("MM/dd/yyyy")</td>
                             <td class="line-table__td line-table__td--muted">@(gr.ReceivedBy ?? "—")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@gr.Lines.Count</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@grValue.ToString("N2")</td>
-                            <td class="line-table__td"><span class="status-badge-p @statusClass" style="font-size:0.65rem;">@gr.Status</span></td>
+                            <td class="line-table__td"><span class="status-badge-p @statusClass" data-csp-style="font-size:0.65rem;">@gr.Status</span></td>
                             <td class="line-table__td line-table__td--actions">
                                 <a href="/Receiving/Details/@gr.Id" class="btn-p btn-p--ghost btn-p--sm">
                                     <i class="fas fa-eye"></i> View

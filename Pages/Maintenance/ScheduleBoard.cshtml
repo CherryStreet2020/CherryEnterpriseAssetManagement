@@ -107,14 +107,14 @@ html:not(.dark) .sb-grid th{background:#fff}
 <div class="sb-left">
 <div class="sb-left__hd"><h2><i class="fas fa-inbox"></i> Unscheduled</h2><span class="sb-bdg" id="blC">@Model.TotalBacklog</span></div>
 <div class="sb-pills" id="crP"></div>
-<div class="sb-pills"><button class="sb-pill on" data-pf="all" style="--pc:#cf3339">All</button><button class="sb-pill" data-pf="Critical" style="--pc:#ef4444">Critical</button><button class="sb-pill" data-pf="High" style="--pc:#f97316">High</button><button class="sb-pill" data-pf="overdue" style="--pc:#ef4444">Overdue</button></div>
+<div class="sb-pills"><button class="sb-pill on" data-pf="all" data-csp-style="--pc:#cf3339">All</button><button class="sb-pill" data-pf="Critical" data-csp-style="--pc:#ef4444">Critical</button><button class="sb-pill" data-pf="High" data-csp-style="--pc:#f97316">High</button><button class="sb-pill" data-pf="overdue" data-csp-style="--pc:#ef4444">Overdue</button></div>
 <div class="sb-srch"><input type="text" id="qBox" placeholder="Search work orders..."/></div>
 <div class="sb-cards" id="cardList"></div>
 </div>
 <div class="sb-right">
 <div class="sb-bar">
 <div class="sb-nav"><a href="?WeekStart=@prevWeek@(Model.IsPopout?"&mode=popout":"")"><i class="fas fa-chevron-left"></i></a><a href="?@(Model.IsPopout?"mode=popout":"")">Today</a><a href="?WeekStart=@nextWeek@(Model.IsPopout?"&mode=popout":"")"><i class="fas fa-chevron-right"></i></a><span class="sb-date">@Model.CurrentWeekStart.ToString("MMM d") – @Model.CurrentWeekStart.AddDays(4).ToString("MMM d, yyyy")</span></div>
-<div class="sb-kpis"><div class="sb-kpi"><div class="sb-kpi__v" style="color:var(--text-primary)">@Model.TotalBacklog</div><div class="sb-kpi__l">Backlog</div></div><div class="sb-kpi"><div class="sb-kpi__v" style="color:#ef4444">@Model.OverdueCount</div><div class="sb-kpi__l">Overdue</div></div><div class="sb-kpi"><div class="sb-kpi__v" style="color:#10b981">@Model.AvgUtilization%</div><div class="sb-kpi__l">Util</div></div></div>
+<div class="sb-kpis"><div class="sb-kpi"><div class="sb-kpi__v" data-csp-style="color:var(--text-primary)">@Model.TotalBacklog</div><div class="sb-kpi__l">Backlog</div></div><div class="sb-kpi"><div class="sb-kpi__v" data-csp-style="color:#ef4444">@Model.OverdueCount</div><div class="sb-kpi__l">Overdue</div></div><div class="sb-kpi"><div class="sb-kpi__v" data-csp-style="color:#10b981">@Model.AvgUtilization%</div><div class="sb-kpi__l">Util</div></div></div>
 <button class="sb-ai" id="aiBtn"><i class="fas fa-brain"></i> AI Schedule</button>
 </div>
 <div class="sb-grid"><table id="tbl"></table></div>
@@ -123,7 +123,7 @@ html:not(.dark) .sb-grid th{background:#fff}
 <div class="sb-overlay" id="ov"></div>
 <div class="sb-drawer" id="dr"><div class="sb-drawer__hd"><div><div class="sb-drawer__sub">Detail</div><div class="sb-drawer__t" id="drT"></div></div><button class="sb-drawer__x" id="drX">✕</button></div><div class="sb-drawer__bd" id="drB"></div></div>
 <div class="sb-toast" id="toast"></div>
-<form id="csrf" method="post" style="display:none">@Html.AntiForgeryToken()</form>
+<form id="csrf" method="post" data-csp-style="display:none">@Html.AntiForgeryToken()</form>
 <script>
 var D={techs:@Html.Raw(Model.TechniciansJson),events:@Html.Raw(Model.EventsJson),backlog:@Html.Raw(Model.BacklogJson),crafts:@Html.Raw(Model.CraftsJson),days:@Html.Raw(Model.WeekDaysJson)};
 var CC={MACH:'#3b82f6',ELEC:'#f59e0b',MILL:'#10b981',HYDR:'#6366f1',WELD:'#ef4444',PIPE:'#8b5cf6',HVAC:'#06b6d4',INST:'#ec4899',PLC:'#f97316',LUBE:'#84cc16',MECH:'#3b82f6',LEAD:'#a855f7',SUPV:'#0ea5e9',ENGR:'#14b8a6',HELP:'#6b7280',OPER:'#78716c'};
@@ -149,7 +149,7 @@ document.getElementById('qBox').oninput=function(){qV=this.value;renderCards()};
 
 function renderGrid(){
 var h='<thead><tr><th>Technicians</th>';
-D.days.forEach(function(d){h+='<th'+(d.isToday?' class="today"':'')+'>'+d.dayName+' '+d.label.split(' ')[1]+(d.isToday?' <span style="font-size:11px;color:#cf3339">TODAY</span>':'')+'</th>'});
+D.days.forEach(function(d){h+='<th'+(d.isToday?' class="today"':'')+'>'+d.dayName+' '+d.label.split(' ')[1]+(d.isToday?' <span data-csp-style="font-size:11px;color:#cf3339">TODAY</span>':'')+'</th>'});
 h+='</tr></thead><tbody>';
 D.techs.forEach(function(t){
 var match=aC==='ALL'||aC==='GENERAL'||t.craft===aC||(t.secondaryCraft||'')===aC;
@@ -162,14 +162,14 @@ var barC=pct>80?'#ef4444':pct>50?'#f59e0b':'#10b981';
 var cc=CC[t.craft]||'#6b7280';
 var bBg=isBest?'rgba(16,185,129,0.25)':cc+'22';
 var bClr=isBest?'#34d399':cc;
-h+='<tr class="'+cls+'" data-tid="'+t.id+'"><td class="sb-tinfo"><div class="sb-tname">'+t.name+' <span class="sb-cbadge" style="background:'+bBg+';color:'+bClr+'">'+t.craft+'</span>'+(isBest?' <span class="sb-best">← BEST MATCH</span>':'')+'</div><div class="sb-tmeta">🕐 '+t.shiftStart+'–'+t.shiftEnd+' · '+t.skillCount+' skills · '+t.certCount+' certs</div><div class="sb-tutil"><div class="sb-tutil__bar"><div class="sb-tutil__fill" style="width:'+pct+'%;background:'+barC+'"></div></div><span class="sb-tutil__txt">'+hrs.toFixed(1)+'h / 40h</span></div></td>';
+h+='<tr class="'+cls+'" data-tid="'+t.id+'"><td class="sb-tinfo"><div class="sb-tname">'+t.name+' <span class="sb-cbadge" data-csp-style="background:'+bBg+';color:'+bClr+'">'+t.craft+'</span>'+(isBest?' <span class="sb-best">← BEST MATCH</span>':'')+'</div><div class="sb-tmeta">🕐 '+t.shiftStart+'–'+t.shiftEnd+' · '+t.skillCount+' skills · '+t.certCount+' certs</div><div class="sb-tutil"><div class="sb-tutil__bar"><div class="sb-tutil__fill" data-csp-style="width:'+pct+'%;background:'+barC+'"></div></div><span class="sb-tutil__txt">'+hrs.toFixed(1)+'h / 40h</span></div></td>';
 D.days.forEach(function(d,di){
 var ce=evts.filter(function(e){return e.dayIdx===di});
 var isH=hover&&hover.t===t.id&&hover.d===di;
 var ccls='sb-cell'+(d.isToday?' today-col':'')+(isH&&drag?' drop-hover':'');
 h+='<td class="'+ccls+'" data-tid="'+t.id+'" data-di="'+di+'">';
 if(isH&&drag)h+='<div class="sb-cell__drop">Drop here</div>';
-ce.forEach(function(ev){h+='<div class="sb-evt" style="background:'+(PC[ev.priority]||'#6b7280')+'cc" data-eid="'+ev.id+'"><div class="sb-evt__wo">'+(ev.wo||'WO')+'</div><div class="sb-evt__ti">'+ev.title+'</div><div class="sb-evt__hr">'+ev.hours+'h</div></div>'});
+ce.forEach(function(ev){h+='<div class="sb-evt" data-csp-style="background:'+(PC[ev.priority]||'#6b7280')+'cc" data-eid="'+ev.id+'"><div class="sb-evt__wo">'+(ev.wo||'WO')+'</div><div class="sb-evt__ti">'+ev.title+'</div><div class="sb-evt__hr">'+ev.hours+'h</div></div>'});
 h+='</td>'});h+='</tr>'});
 h+='</tbody>';document.getElementById('tbl').innerHTML=h;
 
@@ -192,9 +192,9 @@ if(!items.length){list.innerHTML='<div class="sb-empty">✅ No matching work</di
 var h='';items.forEach(function(it){
 var pc=it.priority==='Critical'?'crit':it.priority==='High'?'high':it.priority==='Medium'?'med':'low';
 var ic=CC[it.craft]||'#6b7280';var prc=PC[it.priority]||'#6b7280';
-var craftTag=it.craft?'<span style="padding:2px 8px;border-radius:4px;background:'+ic+'22;color:'+ic+';font-weight:700;font-size:12px">'+it.craft+'</span>':'<span style="color:#94a3b8">🔀 Any tech</span>';
-var hint=it.craft?'best match: <strong style="color:'+ic+'">'+it.craft+'</strong>':'any technician';
-h+='<div class="sb-card sb-card--'+pc+'" draggable="true" data-id="'+it.id+'"><div class="sb-card__r1"><span class="sb-card__wo">'+(it.wo||'WO-'+it.woId)+'</span><span class="sb-card__pri" style="background:'+prc+'22;color:'+prc+'">'+it.priority+'</span></div><div class="sb-card__ti">'+it.title+'</div><div class="sb-card__tags"><span>⚙️ '+it.asset+'</span>'+craftTag+'<span>🕐 '+it.hours+'h</span>'+(it.overdue?'<span style="color:#ef4444;font-weight:700">⚠️ Overdue</span>':'')+'</div><div class="sb-card__hint"><i class="fas fa-grip-vertical"></i> Drag to assign → '+hint+'</div></div>'});
+var craftTag=it.craft?'<span data-csp-style="padding:2px 8px;border-radius:4px;background:'+ic+'22;color:'+ic+';font-weight:700;font-size:12px">'+it.craft+'</span>':'<span data-csp-style="color:#94a3b8">🔀 Any tech</span>';
+var hint=it.craft?'best match: <strong data-csp-style="color:'+ic+'">'+it.craft+'</strong>':'any technician';
+h+='<div class="sb-card sb-card--'+pc+'" draggable="true" data-id="'+it.id+'"><div class="sb-card__r1"><span class="sb-card__wo">'+(it.wo||'WO-'+it.woId)+'</span><span class="sb-card__pri" data-csp-style="background:'+prc+'22;color:'+prc+'">'+it.priority+'</span></div><div class="sb-card__ti">'+it.title+'</div><div class="sb-card__tags"><span>⚙️ '+it.asset+'</span>'+craftTag+'<span>🕐 '+it.hours+'h</span>'+(it.overdue?'<span data-csp-style="color:#ef4444;font-weight:700">⚠️ Overdue</span>':'')+'</div><div class="sb-card__hint"><i class="fas fa-grip-vertical"></i> Drag to assign → '+hint+'</div></div>'});
 list.innerHTML=h;
 list.querySelectorAll('.sb-card').forEach(function(card){
 card.ondragstart=function(){drag=D.backlog.find(function(b){return b.id===parseInt(card.dataset.id)});card.classList.add('dragging');renderGrid()};
@@ -218,7 +218,7 @@ function openDet(ev){
 document.getElementById('drT').textContent=(ev.wo||'WO')+' — '+ev.title;
 var h='<div class="sb-sect"><div class="sb-sect__t">Work Order</div>'+R('WO #',ev.wo)+R('Priority',ev.priority)+R('Asset',ev.asset)+R('Craft',ev.craft||'General')+R('Hours',ev.hours+'h')+'</div>';
 h+='<div class="sb-sect"><div class="sb-sect__t">Assignment</div>'+R('Technician',(D.techs.find(function(t){return t.id===ev.techId})||{}).name)+R('Day',D.days[ev.dayIdx]?.label)+'</div>';
-h+='<div style="display:flex;gap:10px;margin-top:16px"><a href="/WorkOrders/Details/'+ev.woId+'" target="_blank" rel="noopener" style="flex:1;padding:12px;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;text-align:center;text-decoration:none">↗ Open Work Order</a><button onclick="unassign('+ev.id+')" style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#ef4444;font-weight:700;font-size:14px;cursor:pointer">✕ Unassign</button></div>';
+h+='<div data-csp-style="display:flex;gap:10px;margin-top:16px"><a href="/WorkOrders/Details/'+ev.woId+'" target="_blank" rel="noopener" data-csp-style="flex:1;padding:12px;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;font-size:14px;text-align:center;text-decoration:none">↗ Open Work Order</a><button onclick="unassign('+ev.id+')" data-csp-style="flex:1;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#ef4444;font-weight:700;font-size:14px;cursor:pointer">✕ Unassign</button></div>';
 document.getElementById('drB').innerHTML=h;document.getElementById('dr').classList.add('open');document.getElementById('ov').classList.add('open')}
 
 document.getElementById('drX').onclick=closeDr;document.getElementById('ov').onclick=closeDr;
@@ -233,15 +233,15 @@ btn.innerHTML='<i class="fas fa-brain"></i> AI Schedule';
 document.getElementById('drT').textContent='AI Recommendations';
 var ld={};D.techs.forEach(function(t){ld[t.id]=D.events.filter(function(e){return e.techId===t.id}).reduce(function(s,e){return s+e.hours},0)});
 var sorted=D.backlog.slice().sort(function(a,b){if(a.overdue&&!b.overdue)return-1;if(!a.overdue&&b.overdue)return 1;return(b.priorityLevel||0)-(a.priorityLevel||0)});
-var h='<div style="padding:16px;border-radius:12px;background:linear-gradient(135deg,rgba(207,51,57,0.1),rgba(207,51,57,0.02));border:1px solid rgba(207,51,57,0.15);margin-bottom:16px"><div style="font-size:13px;font-weight:700;text-transform:uppercase;color:#cf3339;margin-bottom:8px">🧠 Analysis</div><div style="font-size:15px;color:#94a3b8;line-height:1.6">Matched '+D.backlog.length+' ops to '+D.techs.length+' technicians by craft, skills, and workload.</div></div>';
+var h='<div data-csp-style="padding:16px;border-radius:12px;background:linear-gradient(135deg,rgba(207,51,57,0.1),rgba(207,51,57,0.02));border:1px solid rgba(207,51,57,0.15);margin-bottom:16px"><div data-csp-style="font-size:13px;font-weight:700;text-transform:uppercase;color:#cf3339;margin-bottom:8px">🧠 Analysis</div><div data-csp-style="font-size:15px;color:#94a3b8;line-height:1.6">Matched '+D.backlog.length+' ops to '+D.techs.length+' technicians by craft, skills, and workload.</div></div>';
 sorted.slice(0,10).forEach(function(it){
 var m=D.techs.filter(function(t){return t.craft===it.craft});var p=m.length?m:D.techs;
 var best=p.reduce(function(a,b){return(ld[a.id]||0)<=(ld[b.id]||0)?a:b});
 ld[best.id]=(ld[best.id]||0)+it.hours;
 var why=[];if(m.length)why.push('craft match');if(it.overdue)why.push('overdue');why.push('load: '+((ld[best.id]||0)-it.hours).toFixed(0)+'h');
 var cc=CC[best.craft]||'#6b7280';
-h+='<div style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:15px;font-weight:600;color:#e2e8f0">'+(it.wo||'WO')+' — '+it.title+'</span><span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+(PC[it.priority]||'#6b7280')+'22;color:'+(PC[it.priority]||'#94a3b8')+'">'+it.priority+'</span></div><div style="font-size:15px;color:#94a3b8">→ <strong style="color:#e2e8f0">'+best.name+'</strong> <span style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+cc+'22;color:'+cc+'">'+best.craft+'</span> · '+it.hours+'h</div><div style="font-size:13px;color:#475569;margin-top:4px">'+why.join(' · ')+'</div></div>'});
-h+='<button class="sb-ai" style="margin-top:16px;width:100%" onclick="alert(\'Coming next release\')">✅ Accept All</button>';
+h+='<div data-csp-style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.04)"><div data-csp-style="display:flex;justify-content:space-between;margin-bottom:4px"><span data-csp-style="font-size:15px;font-weight:600;color:#e2e8f0">'+(it.wo||'WO')+' — '+it.title+'</span><span data-csp-style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:'+(PC[it.priority]||'#6b7280')+'22;color:'+(PC[it.priority]||'#94a3b8')+'">'+it.priority+'</span></div><div data-csp-style="font-size:15px;color:#94a3b8">→ <strong data-csp-style="color:#e2e8f0">'+best.name+'</strong> <span data-csp-style="margin-left:8px;font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;background:'+cc+'22;color:'+cc+'">'+best.craft+'</span> · '+it.hours+'h</div><div data-csp-style="font-size:13px;color:#475569;margin-top:4px">'+why.join(' · ')+'</div></div>'});
+h+='<button class="sb-ai" data-csp-style="margin-top:16px;width:100%" onclick="alert(\'Coming next release\')">✅ Accept All</button>';
 document.getElementById('drB').innerHTML=h;document.getElementById('dr').classList.add('open');document.getElementById('ov').classList.add('open')},1200)};
 
 renderCards();renderGrid();

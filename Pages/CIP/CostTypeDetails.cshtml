@@ -29,7 +29,7 @@
     <div class="section-card-header">
         <h3 class="section-card-title">Cost Entries (@Model.CostEntries.Count)</h3>
         <div class="search-box">
-            <input type="text" id="searchInput" class="form-control" placeholder="Search entries..." style="max-width: 300px;" />
+            <input type="text" id="searchInput" class="form-control" placeholder="Search entries..." data-csp-style="max-width: 300px;" />
         </div>
     </div>
     
@@ -44,7 +44,7 @@
                     <th>Vendor</th>
                     <th>Invoice #</th>
                     <th>PO #</th>
-                    <th style="text-align: right;">Amount</th>
+                    <th data-csp-style="text-align: right;">Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -57,22 +57,22 @@
                         <td>@(entry.Vendor ?? "-")</td>
                         <td>@(entry.InvoiceNumber ?? "-")</td>
                         <td>@(entry.PurchaseOrderNumber ?? "-")</td>
-                        <td style="text-align: right;"><strong>@entry.Amount.ToString("C2")</strong></td>
+                        <td data-csp-style="text-align: right;"><strong>@entry.Amount.ToString("C2")</strong></td>
                     </tr>
                 }
             </tbody>
             <tfoot>
-                <tr style="font-weight: 600; background: var(--bg-tertiary);">
+                <tr data-csp-style="font-weight: 600; background: var(--bg-tertiary);">
                     <td colspan="6">Total</td>
-                    <td style="text-align: right;">@Model.TotalAmount.ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalAmount.ToString("C2")</td>
                 </tr>
             </tfoot>
         </table>
     }
     else
     {
-        <div class="pe-empty" style="padding:1.5rem;">
-            <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:1.5rem;">
+            <i class="fas fa-project-diagram pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
             <div class="pe-empty__text">No @Model.CostTypeName costs. No cost entries of this type have been recorded yet.</div>
         </div>
     }

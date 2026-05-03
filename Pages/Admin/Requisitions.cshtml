@@ -39,12 +39,12 @@
             </svg>
             Requisition List
         </h3>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <select id="statusFilter" class="form-control" style="width: auto;" onchange="filterByStatus()" asp-items="Model.StatusOptions"></select>
+        <div data-csp-style="display: flex; align-items: center; gap: 12px;">
+            <select id="statusFilter" class="form-control" data-csp-style="width: auto;" onchange="filterByStatus()" asp-items="Model.StatusOptions"></select>
             <span class="status-badge info">@totalRequisitions REQUISITIONS</span>
         </div>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table" id="reqGrid">
             <thead>
                 <tr>
@@ -54,9 +54,9 @@
                     <th>Priority</th>
                     <th>Source</th>
                     <th>Requestor</th>
-                    <th style="text-align: right;">Total</th>
+                    <th data-csp-style="text-align: right;">Total</th>
                     <th>Vendor</th>
-                    <th style="width: 180px;">Actions</th>
+                    <th data-csp-style="width: 180px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -85,26 +85,26 @@
                         <td><span class="badge @priorityClass">@req.Priority</span></td>
                         <td><span class="badge badge-outline">@req.Source</span></td>
                         <td>@(req.Requestor ?? "-")</td>
-                        <td class="text-green" style="text-align: right; font-weight: 600;">@req.TotalAmount.ToString("C2")</td>
+                        <td class="text-green" data-csp-style="text-align: right; font-weight: 600;">@req.TotalAmount.ToString("C2")</td>
                         <td>@(req.SuggestedVendor?.Name ?? "-")</td>
                         <td>
-                            <div style="display: flex; gap: 0.5rem;">
+                            <div data-csp-style="display: flex; gap: 0.5rem;">
                                 @if (req.Status == Abs.FixedAssets.Models.RequisitionStatus.Pending)
                                 {
-                                    <form method="post" asp-page-handler="Approve" style="display: inline;">
+                                    <form method="post" asp-page-handler="Approve" data-csp-style="display: inline;">
                                         <input type="hidden" name="id" value="@req.Id" />
                                         <button type="submit" class="btn-p btn-p--primary btn-p--sm">Approve</button>
                                     </form>
                                 }
                                 @if (req.Status == Abs.FixedAssets.Models.RequisitionStatus.Approved)
                                 {
-                                    <form method="post" asp-page-handler="ConvertToPO" style="display: inline;">
+                                    <form method="post" asp-page-handler="ConvertToPO" data-csp-style="display: inline;">
                                         <input type="hidden" name="id" value="@req.Id" />
                                         <button type="submit" class="btn btn-sm btn-primary">To PO</button>
                                     </form>
                                 }
                                 <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="viewReq(@req.Id)">View</button>
-                                <form method="post" asp-page-handler="Duplicate" style="display: inline;">
+                                <form method="post" asp-page-handler="Duplicate" data-csp-style="display: inline;">
                                     <input type="hidden" name="id" value="@req.Id" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm" onclick="return confirm('Duplicate this requisition?')">Duplicate</button>
                                 </form>
@@ -116,8 +116,8 @@
         </table>
         @if (!Model.Requisitions.Any())
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-file-alt pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-file-alt pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">
                     <h3>No Requisitions</h3>
                     <p>Create your first purchase requisition to get started.</p>
@@ -130,7 +130,7 @@
 
 @if (Model.ReorderAlerts.Any(a => !a.IsAcknowledged))
 {
-<div class="section-card" style="margin-top: 24px;">
+<div class="section-card" data-csp-style="margin-top: 24px;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -140,17 +140,17 @@
         </h3>
         <span class="status-badge warning">@Model.ReorderAlerts.Count(a => !a.IsAcknowledged) ACTIVE</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table" id="alertGrid">
             <thead>
                 <tr>
                     <th>Part #</th>
                     <th>Description</th>
-                    <th style="text-align: right;">Current Stock</th>
-                    <th style="text-align: right;">Reorder Point</th>
-                    <th style="text-align: right;">Suggested Qty</th>
+                    <th data-csp-style="text-align: right;">Current Stock</th>
+                    <th data-csp-style="text-align: right;">Reorder Point</th>
+                    <th data-csp-style="text-align: right;">Suggested Qty</th>
                     <th>Alert Type</th>
-                    <th style="width: 180px;">Action</th>
+                    <th data-csp-style="width: 180px;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -161,21 +161,21 @@
                             <strong class="text-primary">@alert.Item?.PartNumber</strong>
                             @if (!string.IsNullOrEmpty(alert.Item?.ManufacturerPartNumber))
                             {
-                                <br/><span class="text-theme-muted" style="font-size: 0.75rem;">Mfr: @alert.Item.ManufacturerPartNumber</span>
+                                <br/><span class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Mfr: @alert.Item.ManufacturerPartNumber</span>
                             }
                         </td>
                         <td>@alert.Item?.Description</td>
-                        <td class="text-red" style="text-align: right; font-weight: 700;">@alert.CurrentStock.ToString("N2")</td>
-                        <td style="text-align: right;">@alert.ReorderPoint.ToString("N2")</td>
-                        <td style="text-align: right; font-weight: 700;">@alert.SuggestedQuantity.ToString("N2")</td>
+                        <td class="text-red" data-csp-style="text-align: right; font-weight: 700;">@alert.CurrentStock.ToString("N2")</td>
+                        <td data-csp-style="text-align: right;">@alert.ReorderPoint.ToString("N2")</td>
+                        <td data-csp-style="text-align: right; font-weight: 700;">@alert.SuggestedQuantity.ToString("N2")</td>
                         <td><span class="badge badge-warning">@alert.AlertType</span></td>
                         <td>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <form method="post" asp-page-handler="CreateReqFromAlert" style="display: inline;">
+                            <div data-csp-style="display: flex; gap: 0.5rem;">
+                                <form method="post" asp-page-handler="CreateReqFromAlert" data-csp-style="display: inline;">
                                     <input type="hidden" name="alertId" value="@alert.Id" />
                                     <button type="submit" class="btn-p btn-p--primary btn-p--sm">Create Req</button>
                                 </form>
-                                <form method="post" asp-page-handler="AcknowledgeAlert" style="display: inline;">
+                                <form method="post" asp-page-handler="AcknowledgeAlert" data-csp-style="display: inline;">
                                     <input type="hidden" name="alertId" value="@alert.Id" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Dismiss</button>
                                 </form>
@@ -189,15 +189,15 @@
 </div>
 }
 
-<div class="inline-form-panel" id="addReqForm" style="display: none;">
-    <div class="inline-form-panel-content" style="max-width: 800px;">
+<div class="inline-form-panel" id="addReqForm" data-csp-style="display: none;">
+    <div class="inline-form-panel-content" data-csp-style="max-width: 800px;">
         <div class="inline-form-header">
             <h3 class="inline-form-title">Create Requisition</h3>
             <button type="button" class="inline-form-close" onclick="toggleInlineForm('addReqForm')">&times;</button>
         </div>
         <form method="post" asp-page-handler="Create">
             <div class="inline-form-body">
-                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <label class="form-label">Priority</label>
                         <select name="priorityLookupValueId" class="form-control" asp-items="Model.PriorityOptions"></select>
@@ -217,9 +217,9 @@
                     <label class="form-label">Notes</label>
                     <textarea name="notes" class="form-control" rows="3"></textarea>
                 </div>
-                <div style="background: var(--lux-surface-alt, #f8fafc); padding: 16px; border-radius: 8px; margin-top: 16px;">
-                    <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">Add Line Items</h4>
-                    <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px;">
+                <div data-csp-style="background: var(--lux-surface-alt, #f8fafc); padding: 16px; border-radius: 8px; margin-top: 16px;">
+                    <h4 data-csp-style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600;">Add Line Items</h4>
+                    <div class="form-row" data-csp-style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px;">
                         <div class="form-group">
                             <label class="form-label">Item</label>
                             <select name="itemId" class="form-control" data-cherry-select data-placeholder="Search items...">

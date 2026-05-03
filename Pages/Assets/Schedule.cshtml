@@ -36,26 +36,26 @@
         </h3>
         <span class="status-badge info">@totalPeriods PERIODS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="text-align: center; width: 60px;">#</th>
-                    <th style="text-align: left;">Period Start</th>
-                    <th style="text-align: right;">Depreciation</th>
-                    <th style="text-align: right;">Accumulated</th>
-                    <th style="text-align: right;">Ending NBV</th>
+                    <th data-csp-style="text-align: center; width: 60px;">#</th>
+                    <th data-csp-style="text-align: left;">Period Start</th>
+                    <th data-csp-style="text-align: right;">Depreciation</th>
+                    <th data-csp-style="text-align: right;">Accumulated</th>
+                    <th data-csp-style="text-align: right;">Ending NBV</th>
                 </tr>
             </thead>
             <tbody>
             @foreach (var r in Model.Rows)
             {
                 <tr>
-                    <td class="text-blue" style="text-align: center; font-weight: 700;">@r.PeriodNumber</td>
-                    <td class="text-theme-muted" style="text-align: left; text-transform: uppercase; font-size: 13px;">@Model.ShortDate(r.PeriodStart)</td>
-                    <td style="text-align: right; font-weight: 600;">@Model.Money(r.DepreciationAmount)</td>
-                    <td style="text-align: right; font-weight: 600;">@Model.Money(r.AccumulatedDepreciation)</td>
-                    <td class="text-green" style="text-align: right; font-weight: 700;">@Model.Money(r.EndingBookValue)</td>
+                    <td class="text-blue" data-csp-style="text-align: center; font-weight: 700;">@r.PeriodNumber</td>
+                    <td class="text-theme-muted" data-csp-style="text-align: left; text-transform: uppercase; font-size: 13px;">@Model.ShortDate(r.PeriodStart)</td>
+                    <td data-csp-style="text-align: right; font-weight: 600;">@Model.Money(r.DepreciationAmount)</td>
+                    <td data-csp-style="text-align: right; font-weight: 600;">@Model.Money(r.AccumulatedDepreciation)</td>
+                    <td class="text-green" data-csp-style="text-align: right; font-weight: 700;">@Model.Money(r.EndingBookValue)</td>
                 </tr>
             }
             </tbody>

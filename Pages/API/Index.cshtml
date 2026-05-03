@@ -24,13 +24,13 @@
 
 @if (!string.IsNullOrEmpty(Model.NewKeyValue))
 {
-    <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+    <div class="alert alert-success" data-csp-style="margin-bottom: 1.5rem;">
         <strong>New API Key Created!</strong> Copy it now - you won't see it again:<br/>
-        <code class="bg-green-soft" style="font-size: 1.1rem; padding: 0.5rem; display: inline-block; margin-top: 0.5rem;">@Model.NewKeyValue</code>
+        <code class="bg-green-soft" data-csp-style="font-size: 1.1rem; padding: 0.5rem; display: inline-block; margin-top: 0.5rem;">@Model.NewKeyValue</code>
     </div>
 }
 
-<div class="section-card" style="margin-bottom: 24px;">
+<div class="section-card" data-csp-style="margin-bottom: 24px;">
     <div class="section-card-header">
         <h3 class="section-card-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -38,12 +38,12 @@
             </svg>
             API Keys
         </h3>
-        <form method="post" asp-page-handler="CreateKey" style="display: flex; gap: 0.5rem;">
-            <input type="text" name="keyName" placeholder="Key name" class="form-control" style="width: 200px;" required />
+        <form method="post" asp-page-handler="CreateKey" data-csp-style="display: flex; gap: 0.5rem;">
+            <input type="text" name="keyName" placeholder="Key name" class="form-control" data-csp-style="width: 200px;" required />
             <button type="submit" class="btn-p btn-p--primary">Generate Key</button>
         </form>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.ApiKeys.Any())
         {
             <table class="data-table">
@@ -78,7 +78,7 @@
                             <td>
                                 @if (key.IsActive)
                                 {
-                                    <form method="post" asp-page-handler="RevokeKey" style="display: inline;">
+                                    <form method="post" asp-page-handler="RevokeKey" data-csp-style="display: inline;">
                                         <input type="hidden" name="keyId" value="@key.Id" />
                                         <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Revoke this API key?')">Revoke</button>
                                     </form>
@@ -91,7 +91,7 @@
         }
         else
         {
-            <div class="empty-state text-theme-muted" style="padding: 2rem; text-align: center;">
+            <div class="empty-state text-theme-muted" data-csp-style="padding: 2rem; text-align: center;">
                 <p>No API keys yet. Create one to get started.</p>
             </div>
         }
@@ -109,15 +109,15 @@
         <span class="status-badge info">REST API v1</span>
     </div>
     <div class="section-card-body">
-        <p style="margin-bottom: 1.5rem;">Use these REST API endpoints to integrate with external ERP systems.</p>
+        <p data-csp-style="margin-bottom: 1.5rem;">Use these REST API endpoints to integrate with external ERP systems.</p>
 
         <h4>Authentication</h4>
         <p>Include your API key in the <code>X-API-Key</code> header with every request.</p>
-        <pre style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <pre data-csp-style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
 curl -H "X-API-Key: cfa_your_api_key_here" \
      http://127.0.0.1:5000/api/v1/assets</pre>
 
-        <h4 style="margin-top: 1.5rem;">Endpoints</h4>
+        <h4 data-csp-style="margin-top: 1.5rem;">Endpoints</h4>
         <table class="data-table">
             <thead>
                 <tr>
@@ -155,7 +155,7 @@ curl -H "X-API-Key: cfa_your_api_key_here" \
             </tbody>
         </table>
 
-        <h4 style="margin-top: 1.5rem;">Query Parameters (GET /assets)</h4>
+        <h4 data-csp-style="margin-top: 1.5rem;">Query Parameters (GET /assets)</h4>
         <ul>
             <li><code>page</code> - Page number (default: 1)</li>
             <li><code>pageSize</code> - Items per page (default: 50, max: 100)</li>
@@ -163,8 +163,8 @@ curl -H "X-API-Key: cfa_your_api_key_here" \
             <li><code>status</code> - Filter by status (Active, Disposed, FullyDepreciated)</li>
         </ul>
 
-        <h4 style="margin-top: 1.5rem;">Create Asset Example</h4>
-        <pre style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
+        <h4 data-csp-style="margin-top: 1.5rem;">Create Asset Example</h4>
+        <pre data-csp-style="background: var(--lux-surface-alt, #f8fafc); padding: 1rem; border-radius: 8px; overflow-x: auto;">
 curl -X POST \
      -H "X-API-Key: cfa_your_api_key_here" \
      -H "Content-Type: application/json" \

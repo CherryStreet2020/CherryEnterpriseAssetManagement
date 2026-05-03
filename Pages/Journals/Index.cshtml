@@ -36,7 +36,7 @@
 @if (TempData["Flash"] is string ok && !string.IsNullOrWhiteSpace(ok))
 {
     <div class="alert alert-success pe-alert pe-alert--success">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 8px;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         @ok
@@ -45,7 +45,7 @@
 @if (TempData["FlashError"] is string err && !string.IsNullOrWhiteSpace(err))
 {
     <div class="alert alert-danger pe-alert pe-alert--danger">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 8px;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         @err
@@ -73,15 +73,15 @@
             </div>
             <div class="form-group">
                 <label class="form-label">Source</label>
-                <input class="form-control" type="text" name="Source" value="@Model.Source" placeholder="e.g., FA" style="width: 120px;" />
+                <input class="form-control" type="text" name="Source" value="@Model.Source" placeholder="e.g., FA" data-csp-style="width: 120px;" />
             </div>
-            <div class="form-group" style="flex: 1;">
+            <div class="form-group" data-csp-style="flex: 1;">
                 <label class="form-label">Search</label>
                 <input class="form-control" type="text" name="Search" value="@Model.Search" placeholder="Batch / Reference / Description" />
             </div>
-            <div class="form-group" style="align-self: flex-end;">
+            <div class="form-group" data-csp-style="align-self: flex-end;">
                 <button class="btn-p btn-p--primary" type="submit">Apply</button>
-                <a class="btn-p btn-p--secondary" asp-page="./Index" style="margin-left: 8px;">Reset</a>
+                <a class="btn-p btn-p--secondary" asp-page="./Index" data-csp-style="margin-left: 8px;">Reset</a>
             </div>
         </form>
     </div>
@@ -97,7 +97,7 @@
         </h3>
         <span class="status-badge info">@totalEntries ENTRIES</span>
     </div>
-    <div class="section-card-body pe-card__body" style="padding: 0;">
+    <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
         <table class="data-table premium-table" id="journalGrid" data-enhanced-grid="true" data-row-click="true">
             <thead>
@@ -107,9 +107,9 @@
                     <th data-col="Reference" data-filter="text">Reference</th>
                     <th data-col="Source" data-filter="text">Source</th>
                     <th data-col="Description" data-filter="text">Description</th>
-                    <th style="text-align: right;" data-col="Lines" data-filter="number">Lines</th>
-                    <th style="text-align: right;" data-col="Debit" data-filter="number">Debit</th>
-                    <th style="text-align: right;" data-col="Credit" data-filter="number">Credit</th>
+                    <th data-csp-style="text-align: right;" data-col="Lines" data-filter="number">Lines</th>
+                    <th data-csp-style="text-align: right;" data-col="Debit" data-filter="number">Debit</th>
+                    <th data-csp-style="text-align: right;" data-col="Credit" data-filter="number">Credit</th>
                 </tr>
             </thead>
             <tbody>
@@ -120,18 +120,18 @@
                         <tr data-row-id="@j.Id" data-row-href="@Url.Page("/Journals/Details", new { id = j.Id, returnUrl = returnUrl })">
                             <td><strong class="text-primary">@j.Batch</strong></td>
                             <td>@ndn(j.PostingDate)</td>
-                            <td style="color: var(--text-secondary);">@j.Reference</td>
+                            <td data-csp-style="color: var(--text-secondary);">@j.Reference</td>
                             <td>
                                 <span class="badge badge-secondary">@j.Source</span>
                             </td>
-                            <td style="max-width: 200px;">
-                                <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@j.Description">
+                            <td data-csp-style="max-width: 200px;">
+                                <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@j.Description">
                                     @j.Description
                                 </div>
                             </td>
-                            <td style="text-align: right;">@j.Lines.Count</td>
-                            <td style="text-align: right; color: var(--success);">@money(j.Lines.Sum(l => l.Debit))</td>
-                            <td style="text-align: right; color: var(--danger);">@money(j.Lines.Sum(l => l.Credit))</td>
+                            <td data-csp-style="text-align: right;">@j.Lines.Count</td>
+                            <td data-csp-style="text-align: right; color: var(--success);">@money(j.Lines.Sum(l => l.Debit))</td>
+                            <td data-csp-style="text-align: right; color: var(--danger);">@money(j.Lines.Sum(l => l.Credit))</td>
                         </tr>
                     }
                 }
@@ -139,8 +139,8 @@
                 {
                     <tr>
                         <td colspan="8">
-                            <div class="pe-empty" style="padding:2rem;">
-                                <i class="fas fa-file-invoice pe-empty__icon" style="font-size:1.5rem;"></i>
+                            <div class="pe-empty" data-csp-style="padding:2rem;">
+                                <i class="fas fa-file-invoice pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                                 <div class="pe-empty__title">No journal entries</div>
                                 <div class="pe-empty__text">Generate depreciation to create journal entries</div>
                             </div>
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 }
 
-<div class="inline-form-panel" id="generateForm" style="display: none;">
+<div class="inline-form-panel" id="generateForm" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <form method="post" asp-page-handler="Generate">
             <div class="inline-form-header">
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <button type="button" class="inline-form-close" onclick="toggleInlineForm('generateForm')">&times;</button>
             </div>
             <div class="inline-form-body">
-                <div class="form-group" style="margin-bottom: 16px;">
+                <div class="form-group" data-csp-style="margin-bottom: 16px;">
                     <label class="form-label">Book</label>
                     <select name="BookId" class="form-select form-input-p" required data-cherry-select data-placeholder="Search books...">
                         <option value="">-- Select Book --</option>
@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom: 16px;">
+                <div class="form-group" data-csp-style="margin-bottom: 16px;">
                     <label class="form-label">Period End Date</label>
                     <input name="PeriodEnd" type="date" class="form-control form-input-p" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
                 </div>

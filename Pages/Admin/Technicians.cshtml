@@ -40,7 +40,7 @@
         </h3>
         <span class="status-badge info">@totalTechs TECHNICIANS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
     <table class="data-table">
         <thead>
             <tr>
@@ -76,7 +76,7 @@
                     </td>
                     <td class="actions-cell">
                         <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="editTechnician(@tech.Id, '@tech.Name.Replace("'", "\\'")', '@(tech.Email ?? "")', '@(tech.Phone ?? "")', '@(tech.Specialty ?? "")', '@(tech.Department ?? "")', '@(tech.HourlyRate?.ToString() ?? "")', '@(tech.Notes?.Replace("'", "\\'").Replace("\n", "\\n") ?? "")', @tech.Active.ToString().ToLower())">Edit</button>
-                        <form method="post" asp-page-handler="ToggleActive" style="display: inline;">
+                        <form method="post" asp-page-handler="ToggleActive" data-csp-style="display: inline;">
                             <input type="hidden" name="technicianId" value="@tech.Id" />
                             <button type="submit" class="btn-p btn-p--sm @(tech.Active ? "btn-p--danger" : "btn-p--primary")">
                                 @(tech.Active ? "Deactivate" : "Activate")
@@ -89,7 +89,7 @@
     </table>
 </div>
 
-<div id="createForm" class="inline-form-panel" style="display: none;">
+<div id="createForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -157,7 +157,7 @@
     </div>
 </div>
 
-<div id="editForm" class="inline-form-panel" style="display: none;">
+<div id="editForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">

@@ -2,18 +2,18 @@
 @{
 }
 <div class="hero-tags">
-    <form method="get" style="display: flex; gap: 8px; align-items: center;">
-        <label style="font-weight: 500; color: rgba(255,255,255,0.7);">Fiscal Year:</label>
-        <select name="fiscalYear" class="form-select" style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+    <form method="get" data-csp-style="display: flex; gap: 8px; align-items: center;">
+        <label data-csp-style="font-weight: 500; color: rgba(255,255,255,0.7);">Fiscal Year:</label>
+        <select name="fiscalYear" class="form-select" data-csp-style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
             @foreach (var year in Model.AvailableYears)
             {
-                <option value="@year" selected="@(year == Model.FiscalYear)" style="color: black;">@year</option>
+                <option value="@year" selected="@(year == Model.FiscalYear)" data-csp-style="color: black;">@year</option>
             }
         </select>
     </form>
 </div>
 <div class="hero-btns">
-    <form method="post" asp-page-handler="Calculate" style="display: inline;">
+    <form method="post" asp-page-handler="Calculate" data-csp-style="display: inline;">
         <input type="hidden" name="fiscalYear" value="@Model.FiscalYear" />
         <button type="submit" class="hero-btn hero-btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">

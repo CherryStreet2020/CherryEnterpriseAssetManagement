@@ -101,19 +101,19 @@
     </div>
     @if (Model.Invoices.Any())
     {
-        <div class="section-card-body pe-card__body" style="padding: 0;">
+        <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
             @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
             <table class="data-table premium-table" id="invoiceGrid" data-enhanced-grid="true" data-row-click="true">
                 <thead>
                     <tr>
-                        <th style="width: 120px;" data-col="Invoice #" data-filter="text">Invoice #</th>
-                        <th style="min-width: 160px;" data-col="Vendor" data-filter="text">Vendor</th>
-                        <th style="width: 110px;" data-col="Invoice Date" data-filter="text">Invoice Date</th>
-                        <th style="width: 100px;" data-col="Due Date" data-filter="text">Due Date</th>
-                        <th style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Draft|Pending|Approved|Paid">Status</th>
-                        <th style="width: 100px;" class="no-sort" data-col="Match" data-filter="select" data-filter-options="NotMatched|PartialMatch|FullyMatched|Exception">Match</th>
-                        <th style="width: 100px; text-align: right;" data-col="Total" data-filter="number">Total</th>
-                        <th style="width: 100px; text-align: right;" data-col="Balance" data-filter="number">Balance</th>
+                        <th data-csp-style="width: 120px;" data-col="Invoice #" data-filter="text">Invoice #</th>
+                        <th data-csp-style="min-width: 160px;" data-col="Vendor" data-filter="text">Vendor</th>
+                        <th data-csp-style="width: 110px;" data-col="Invoice Date" data-filter="text">Invoice Date</th>
+                        <th data-csp-style="width: 100px;" data-col="Due Date" data-filter="text">Due Date</th>
+                        <th data-csp-style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Draft|Pending|Approved|Paid">Status</th>
+                        <th data-csp-style="width: 100px;" class="no-sort" data-col="Match" data-filter="select" data-filter-options="NotMatched|PartialMatch|FullyMatched|Exception">Match</th>
+                        <th data-csp-style="width: 100px; text-align: right;" data-col="Total" data-filter="number">Total</th>
+                        <th data-csp-style="width: 100px; text-align: right;" data-col="Balance" data-filter="number">Balance</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -122,9 +122,9 @@
                         var isOverdue = inv.DueDate < DateTime.Today && inv.BalanceDue > 0;
                         <tr data-row-id="@inv.Id" data-row-href="@Url.Page("/AccountsPayable/Details", new { id = inv.Id, returnUrl = returnUrl })">
                             <td><strong class="text-primary">@inv.InvoiceNumber</strong></td>
-                            <td style="font-weight: 500;">@inv.Vendor?.Name</td>
-                            <td style="white-space: nowrap;">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
-                            <td class="@(isOverdue ? "text-danger" : "")" style="white-space: nowrap;">@inv.DueDate.ToString("MM/dd/yyyy")</td>
+                            <td data-csp-style="font-weight: 500;">@inv.Vendor?.Name</td>
+                            <td data-csp-style="white-space: nowrap;">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
+                            <td class="@(isOverdue ? "text-danger" : "")" data-csp-style="white-space: nowrap;">@inv.DueDate.ToString("MM/dd/yyyy")</td>
                             <td>
                                 <span class="badge @(inv.Status == InvoiceStatus.Paid ? "badge-success" : inv.Status == InvoiceStatus.Approved ? "badge-primary" : isOverdue ? "badge-danger" : "badge-neutral")">
                                     @(isOverdue && inv.Status != InvoiceStatus.Paid ? "Past Due" : inv.Status.ToString())
@@ -135,8 +135,8 @@
                                     @inv.MatchStatus
                                 </span>
                             </td>
-                            <td style="text-align: right; font-weight: 600;">@inv.Total.ToString("C2")</td>
-                            <td class="@(inv.BalanceDue > 0 ? "font-bold" : "")" style="text-align: right; font-weight: 500;">@inv.BalanceDue.ToString("C2")</td>
+                            <td data-csp-style="text-align: right; font-weight: 600;">@inv.Total.ToString("C2")</td>
+                            <td class="@(inv.BalanceDue > 0 ? "font-bold" : "")" data-csp-style="text-align: right; font-weight: 500;">@inv.BalanceDue.ToString("C2")</td>
                         </tr>
                     }
                 </tbody>
@@ -145,8 +145,8 @@
     }
     else
     {
-        <div class="pe-empty" style="padding:1.5rem;">
-            <i class="fas fa-receipt pe-empty__icon" style="font-size:1.2rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:1.5rem;">
+            <i class="fas fa-receipt pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
             <div class="pe-empty__text">
                 <h3>No Invoices</h3>
                 <p>Enter your first vendor invoice to start tracking accounts payable.</p>

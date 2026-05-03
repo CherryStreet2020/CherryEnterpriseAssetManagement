@@ -22,14 +22,14 @@
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div id="newProjectInline" class="pe-card" style="display: none; margin-bottom: 1rem;">
+<div id="newProjectInline" class="pe-card" data-csp-style="display: none; margin-bottom: 1rem;">
     <div class="pe-card__header">
         <span class="pe-card__title">New CIP Project</span>
         <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('newProjectInline')">&times;</button>
     </div>
     <form method="post" asp-page-handler="CreateProject">
         <div class="pe-card__body">
-            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Project Number</label>
                     <input type="text" name="projectNumber" class="form-input-p" required placeholder="e.g., CIP-2026-001" />
@@ -39,11 +39,11 @@
                     <input type="text" name="name" class="form-input-p" required placeholder="e.g., New Production Line" />
                 </div>
             </div>
-            <div class="form-group-p" style="margin-bottom: 1rem;">
+            <div class="form-group-p" data-csp-style="margin-bottom: 1rem;">
                 <label class="form-label-p">Description</label>
                 <textarea name="description" class="form-input-p" rows="2" placeholder="Project description..."></textarea>
             </div>
-            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Start Date</label>
                     <input type="date" name="startDate" class="form-input-p" required />
@@ -70,7 +70,7 @@
                     </select>
                 </div>
             </div>
-            <div class="form-grid form-grid--3" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--3" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Project Manager</label>
                     <select name="projectManagerId" class="form-input-p">
@@ -167,7 +167,7 @@
         </h3>
         @if (Model.Filter != null)
         {
-            <a href="/CIP" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">
+            <a href="/CIP" class="btn-premium btn-premium-secondary" data-csp-style="padding: 8px 16px; font-size: 12px;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -177,19 +177,19 @@
     </div>
     @if (Model.Projects.Any())
     {
-        <div class="section-card-body pe-card__body" style="padding: 0;">
+        <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
             @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
             <table class="data-table premium-table" id="cipGrid" data-enhanced-grid="true" data-row-click="true">
                 <thead>
                     <tr>
-                        <th style="width: 110px;" data-col="Project #" data-filter="text">Project #</th>
-                        <th style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
-                        <th style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|OnHold|Capitalized|Cancelled">Status</th>
-                        <th style="width: 100px;" data-col="Start Date" data-filter="text">Start Date</th>
-                        <th style="width: 110px;" data-col="Est. Completion" data-filter="text">Est. Completion</th>
-                        <th style="width: 110px; text-align: right;" data-col="Budget" data-filter="number">Budget</th>
-                        <th style="width: 110px; text-align: right;" data-col="Spent" data-filter="number">Spent</th>
-                        <th style="width: 100px;" data-col="% Budget" data-filter="none">% Budget</th>
+                        <th data-csp-style="width: 110px;" data-col="Project #" data-filter="text">Project #</th>
+                        <th data-csp-style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
+                        <th data-csp-style="width: 100px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|OnHold|Capitalized|Cancelled">Status</th>
+                        <th data-csp-style="width: 100px;" data-col="Start Date" data-filter="text">Start Date</th>
+                        <th data-csp-style="width: 110px;" data-col="Est. Completion" data-filter="text">Est. Completion</th>
+                        <th data-csp-style="width: 110px; text-align: right;" data-col="Budget" data-filter="number">Budget</th>
+                        <th data-csp-style="width: 110px; text-align: right;" data-col="Spent" data-filter="number">Spent</th>
+                        <th data-csp-style="width: 100px;" data-col="% Budget" data-filter="none">% Budget</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -198,19 +198,19 @@
                         var percentComplete = project.BudgetAmount > 0 ? (project.TotalCosts / project.BudgetAmount * 100) : 0;
                         <tr data-row-id="@project.Id" data-row-href="@Url.Page("/CIP/Details", new { id = project.Id, returnUrl = returnUrl })">
                             <td><strong class="text-primary">@project.ProjectNumber</strong></td>
-                            <td style="font-weight: 500;">@project.Name</td>
+                            <td data-csp-style="font-weight: 500;">@project.Name</td>
                             <td>
                                 <span class="badge @(project.Status == CipProjectStatus.Active ? "badge-success" : project.Status == CipProjectStatus.Capitalized ? "badge-primary" : project.Status == CipProjectStatus.OnHold ? "badge-warning" : "badge-neutral")">
                                     @project.Status
                                 </span>
                             </td>
-                            <td style="white-space: nowrap;">@project.StartDate.ToString("MM/dd/yyyy")</td>
-                            <td style="white-space: nowrap;">@(project.EstimatedCompletionDate?.ToString("MM/dd/yyyy") ?? "-")</td>
-                            <td style="text-align: right; font-weight: 600;">@project.BudgetAmount.ToString("C2")</td>
-                            <td style="text-align: right; font-weight: 500;">@project.TotalCosts.ToString("C2")</td>
+                            <td data-csp-style="white-space: nowrap;">@project.StartDate.ToString("MM/dd/yyyy")</td>
+                            <td data-csp-style="white-space: nowrap;">@(project.EstimatedCompletionDate?.ToString("MM/dd/yyyy") ?? "-")</td>
+                            <td data-csp-style="text-align: right; font-weight: 600;">@project.BudgetAmount.ToString("C2")</td>
+                            <td data-csp-style="text-align: right; font-weight: 500;">@project.TotalCosts.ToString("C2")</td>
                             <td>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" style="width: @Math.Min(percentComplete, 100)%"></div>
+                                    <div class="progress-fill" data-csp-style="width: @Math.Min(percentComplete, 100)%"></div>
                                 </div>
                                 <span class="text-muted">@percentComplete.ToString("F0")%</span>
                             </td>
@@ -222,8 +222,8 @@
     }
     else
     {
-        <div class="pe-empty" style="padding:1.5rem;">
-            <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:1.5rem;">
+            <i class="fas fa-project-diagram pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
             <div class="pe-empty__text">No CIP projects. Start tracking your capital projects here.</div>
         </div>
     }
@@ -247,7 +247,7 @@
             var color = GetTileColor(tileIndex);
             var filterParam = Model.Filter != null ? $"&filter={Model.Filter}" : "";
             var costTypeReturnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}";
-            <a href="/CIP/CostTypeDetails?lookupValueId=@lv.Id@filterParam&returnUrl=@Uri.EscapeDataString(costTypeReturnUrl)" class="cost-type-card" style="--cost-color: @color;">
+            <a href="/CIP/CostTypeDetails?lookupValueId=@lv.Id@filterParam&returnUrl=@Uri.EscapeDataString(costTypeReturnUrl)" class="cost-type-card" data-csp-style="--cost-color: @color;">
                 <div class="cost-type-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@GetDefaultIcon()" />

@@ -39,7 +39,7 @@
 
 @if (Model.GuardResult != null && !Model.GuardResult.Allowed)
 {
-    <div class="section-card mb-4" style="border: 2px solid #f59e0b; background: var(--lux-surface-alt, #fffbeb);">
+    <div class="section-card mb-4" data-csp-style="border: 2px solid #f59e0b; background: var(--lux-surface-alt, #fffbeb);">
         <div class="section-card-header bg-amber-soft">
             <h3 class="section-card-title text-dark-amber">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -49,9 +49,9 @@
             </h3>
         </div>
         <div class="section-card-body">
-            <p class="text-dark-amber" style="margin-bottom: 1rem; font-weight: 500;">@Model.GuardResult.Reason</p>
-            <p class="text-dark-amber" style="font-size: 0.875rem;">
-                To enable seeding in this environment, set <code class="bg-yellow-soft" style="padding: 0.25rem 0.5rem; border-radius: 0.25rem;">ALLOW_DEMO_SEED=true</code> in your environment variables.
+            <p class="text-dark-amber" data-csp-style="margin-bottom: 1rem; font-weight: 500;">@Model.GuardResult.Reason</p>
+            <p class="text-dark-amber" data-csp-style="font-size: 0.875rem;">
+                To enable seeding in this environment, set <code class="bg-yellow-soft" data-csp-style="padding: 0.25rem 0.5rem; border-radius: 0.25rem;">ALLOW_DEMO_SEED=true</code> in your environment variables.
             </p>
         </div>
     </div>
@@ -70,7 +70,7 @@
         </span>
     </div>
     <div class="section-card-body">
-        <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+        <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem;">
             Select a seed pack to quickly populate your LAB environment with test data. All packs are <strong>idempotent</strong> - safe to run multiple times without creating duplicates.
         </p>
         <div class="grid grid-cols-3 gap-4">
@@ -96,8 +96,7 @@
                         <span>@pack.MaintenanceEventCount maint events</span>
                     </div>
                     <form method="post" asp-page-handler="RunSeedPack" asp-route-packId="@pack.Id">
-                        <button type="submit" class="hero-btn @(pack.Id == "enterprise" ? "hero-btn-primary" : "hero-btn-secondary")" 
-                                style="width: 100%; margin-top: 1rem;"
+                        <button type="submit" class="hero-btn @(pack.Id == "enterprise" ? "hero-btn-primary" : "hero-btn-secondary")" data-csp-style="width: 100%; margin-top: 1rem;"
                                 @(Model.GuardResult?.Allowed != true ? "disabled" : "")>
                             Run @pack.Name
                         </button>
@@ -154,7 +153,7 @@
                     }
                 </tbody>
                 <tfoot>
-                    <tr style="font-weight: bold; background: var(--lux-surface-alt, #f8fafc);">
+                    <tr data-csp-style="font-weight: bold; background: var(--lux-surface-alt, #f8fafc);">
                         <td>TOTAL</td>
                         <td>@Model.ImportReport.Results.Sum(r => r.TotalRecords)</td>
                         <td class="text-success">@Model.ImportReport.TotalInserted</td>
@@ -181,15 +180,15 @@
             <span class="status-badge info">Safe Always</span>
         </div>
         <div class="section-card-body">
-            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+            <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem;">
                 Seeds safe default reference data: work order types, failure/cause codes, priority levels, crafts, 
                 numbering sequences, payment terms, currencies, Section 179 limits, and bonus depreciation rates.
             </p>
-            <p class="text-emerald" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+            <p class="text-emerald" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
                 Idempotent: Safe to run multiple times. Skips existing records.
             </p>
             <form method="post" asp-page-handler="SystemReferenceSeed">
-                <button type="submit" class="hero-btn hero-btn-primary" style="width: 100%;">
+                <button type="submit" class="hero-btn hero-btn-primary" data-csp-style="width: 100%;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                     </svg>
@@ -210,15 +209,15 @@
             <span class="status-badge warning">On Demand</span>
         </div>
         <div class="section-card-body">
-            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+            <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem;">
                 Seeds organization-specific master data: GL accounts (Chart of Accounts), sites, departments, 
                 cost centers, and asset categories.
             </p>
-            <p class="text-amber" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+            <p class="text-amber" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
                 Idempotent: Safe to run multiple times. Will not overwrite existing data.
             </p>
             <form method="post" asp-page-handler="CustomerMasterLoad">
-                <button type="submit" class="hero-btn hero-btn-secondary" style="width: 100%;">
+                <button type="submit" class="hero-btn hero-btn-secondary" data-csp-style="width: 100%;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
@@ -239,14 +238,14 @@
             <span class="status-badge danger">Dev Only</span>
         </div>
         <div class="section-card-body">
-            <p class="text-theme-muted" style="margin-bottom: 1rem; font-size: 0.875rem;">
+            <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem;">
                 Seeds sample PM templates for demonstration and testing purposes.
             </p>
-            <p class="text-red" style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
+            <p class="text-red" data-csp-style="margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500;">
                 Development only. Do not run in production.
             </p>
             <form method="post" asp-page-handler="DemoSeed">
-                <button type="submit" class="hero-btn hero-btn-ghost" style="width: 100%; border: 1px dashed var(--text-muted, #94a3b8);">
+                <button type="submit" class="hero-btn hero-btn-ghost" data-csp-style="width: 100%; border: 1px dashed var(--text-muted, #94a3b8);">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
@@ -268,23 +267,23 @@
         <span class="status-badge info">Download</span>
     </div>
     <div class="section-card-body">
-        <p class="text-theme-muted" style="margin-bottom: 1rem;">
+        <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem;">
             Download CSV templates to prepare your master data for import. Templates include all required columns with sample data.
         </p>
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            <a href="/data/templates/ChartOfAccounts.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+        <div data-csp-style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a href="/data/templates/ChartOfAccounts.csv" download class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.875rem;">
                 Chart of Accounts
             </a>
-            <a href="/data/templates/Sites.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+            <a href="/data/templates/Sites.csv" download class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.875rem;">
                 Sites
             </a>
-            <a href="/data/templates/Locations.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+            <a href="/data/templates/Locations.csv" download class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.875rem;">
                 Locations
             </a>
-            <a href="/data/templates/Vendors.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+            <a href="/data/templates/Vendors.csv" download class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.875rem;">
                 Vendors
             </a>
-            <a href="/data/templates/AssetCategories.csv" download class="hero-btn hero-btn-ghost" style="font-size: 0.875rem;">
+            <a href="/data/templates/AssetCategories.csv" download class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.875rem;">
                 Asset Categories
             </a>
         </div>
@@ -295,7 +294,7 @@
     <div class="section-card-header">
         <h3 class="section-card-title">Current Data Status</h3>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <thead>
                 <tr><th>Domain</th><th>Count</th><th>Status</th></tr>

@@ -33,14 +33,14 @@
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div id="editProjectInline" class="pe-card" style="display: none; margin-bottom: 1rem;">
+<div id="editProjectInline" class="pe-card" data-csp-style="display: none; margin-bottom: 1rem;">
     <div class="pe-card__header">
         <span class="pe-card__title">Edit Project</span>
         <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('editProjectInline')">&times;</button>
     </div>
     <form method="post" asp-page-handler="EditProject" asp-route-id="@Model.Project.Id">
         <div class="pe-card__body">
-            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Project Number</label>
                     <input type="text" name="projectNumber" class="form-input-p" required value="@Model.Project.ProjectNumber" />
@@ -50,11 +50,11 @@
                     <input type="text" name="name" class="form-input-p" required value="@Model.Project.Name" />
                 </div>
             </div>
-            <div class="form-group-p" style="margin-bottom: 1rem;">
+            <div class="form-group-p" data-csp-style="margin-bottom: 1rem;">
                 <label class="form-label-p">Description</label>
                 <textarea name="description" class="form-input-p" rows="2">@Model.Project.Description</textarea>
             </div>
-            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Project Manager</label>
                     <select name="projectManagerId" class="form-input-p">
@@ -106,7 +106,7 @@
                     </select>
                 </div>
             </div>
-            <div class="form-grid form-grid--4" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--4" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Start Date</label>
                     <input type="date" name="startDate" class="form-input-p" required value="@Model.Project.StartDate.ToString("yyyy-MM-dd")" />
@@ -137,19 +137,19 @@
 
 @if (Model.CostSummary.ByType.Any())
 {
-<div class="card pe-card" style="margin-bottom: 16px;">
+<div class="card pe-card" data-csp-style="margin-bottom: 16px;">
     <div class="card-header pe-card__header">
         <h3 class="card-title">Cost by Type</h3>
         <span class="badge badge-neutral">DB-driven from LookupValues</span>
     </div>
     <div class="card-body pe-card__body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
             @foreach (var ct in Model.CostSummary.ByType)
             {
-                <div style="background: var(--surface-secondary); border-radius: 8px; padding: 12px; text-align: center;">
-                    <div style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">@ct.TypeName</div>
-                    <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">@ct.Amount.ToString("C2")</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">@ct.Count cost(s)</div>
+                <div data-csp-style="background: var(--surface-secondary); border-radius: 8px; padding: 12px; text-align: center;">
+                    <div data-csp-style="font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">@ct.TypeName</div>
+                    <div data-csp-style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">@ct.Amount.ToString("C2")</div>
+                    <div data-csp-style="font-size: 11px; color: var(--text-muted);">@ct.Count cost(s)</div>
                 </div>
             }
         </div>
@@ -275,13 +275,13 @@
                     <table class="line-table">
                         <thead>
                             <tr>
-                                <th class="line-table__th" style="width: 100px;">DATE</th>
-                                <th class="line-table__th" style="width: 120px;">TYPE</th>
+                                <th class="line-table__th" data-csp-style="width: 100px;">DATE</th>
+                                <th class="line-table__th" data-csp-style="width: 120px;">TYPE</th>
                                 <th class="line-table__th">DESCRIPTION</th>
-                                <th class="line-table__th" style="width: 100px;">SOURCE</th>
-                                <th class="line-table__th" style="width: 120px;">VENDOR</th>
-                                <th class="line-table__th line-table__th--right" style="width: 110px;">AMOUNT</th>
-                                <th class="line-table__th" style="width: 60px;">CAP.</th>
+                                <th class="line-table__th" data-csp-style="width: 100px;">SOURCE</th>
+                                <th class="line-table__th" data-csp-style="width: 120px;">VENDOR</th>
+                                <th class="line-table__th line-table__th--right" data-csp-style="width: 110px;">AMOUNT</th>
+                                <th class="line-table__th" data-csp-style="width: 60px;">CAP.</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -289,12 +289,12 @@
                             {
                                 <tr class="line-table__row">
                                     <td class="line-table__td line-table__td--muted">@cost.TransactionDate.ToString("MM/dd/yyyy")</td>
-                                    <td class="line-table__td"><span class="status-badge-p status-badge-p--info" style="font-size:0.65rem;">@(cost.CostTypeLookupValue?.Name ?? cost.CostType.ToString())</span></td>
+                                    <td class="line-table__td"><span class="status-badge-p status-badge-p--info" data-csp-style="font-size:0.65rem;">@(cost.CostTypeLookupValue?.Name ?? cost.CostType.ToString())</span></td>
                                     <td class="line-table__td line-table__td--primary">@cost.Description</td>
                                     <td class="line-table__td line-table__td--muted">
                                         @if (!string.IsNullOrEmpty(cost.SourceDisplayRef))
                                         {
-                                            <span style="font-size:0.75rem;">@cost.SourceDisplayRef</span>
+                                            <span data-csp-style="font-size:0.75rem;">@cost.SourceDisplayRef</span>
                                         }
                                         else
                                         {
@@ -306,11 +306,11 @@
                                     <td class="line-table__td">
                                         @if (cost.IsCapitalizable)
                                         {
-                                            <span style="color:var(--status-success, #22c55e);">✓</span>
+                                            <span data-csp-style="color:var(--status-success, #22c55e);">✓</span>
                                         }
                                         else
                                         {
-                                            <span style="color:var(--text-muted);">—</span>
+                                            <span data-csp-style="color:var(--text-muted);">—</span>
                                         }
                                     </td>
                                 </tr>
@@ -318,7 +318,7 @@
                         </tbody>
                         <tfoot>
                             <tr class="line-table__total-row">
-                                <td colspan="5" class="line-table__td line-table__td--right" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL</td>
+                                <td colspan="5" class="line-table__td line-table__td--right" data-csp-style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL</td>
                                 <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.CostSummary.TotalSpent.ToString("N2")</td>
                                 <td></td>
                             </tr>
@@ -350,7 +350,7 @@
                                 <td><a href="/Maintenance/Details/@wo.Id">@wo.WorkOrderNumber</a></td>
                                 <td>@wo.Description</td>
                                 <td><span class="badge badge-secondary">@wo.Status</span></td>
-                                <td style="text-align: right;">@((wo.ActualCost ?? 0).ToString("C2"))</td>
+                                <td data-csp-style="text-align: right;">@((wo.ActualCost ?? 0).ToString("C2"))</td>
                             </tr>
                         }
                     </tbody>
@@ -358,7 +358,7 @@
             }
             else
             {
-                <div class="pe-empty" style="padding:1rem;">
+                <div class="pe-empty" data-csp-style="padding:1rem;">
                     <div class="pe-empty__text">No linked work orders.</div>
                 </div>
             }
@@ -372,7 +372,7 @@
             @if (Model.RelatedPurchaseOrders.Any())
             {
                 <table class="data-table premium-table">
-                    <thead><tr><th>PO #</th><th>Status</th><th>Order Date</th><th style="text-align: right;">Total</th></tr></thead>
+                    <thead><tr><th>PO #</th><th>Status</th><th>Order Date</th><th data-csp-style="text-align: right;">Total</th></tr></thead>
                     <tbody>
                         @foreach (var po in Model.RelatedPurchaseOrders)
                         {
@@ -380,7 +380,7 @@
                                 <td><a href="/Purchasing?id=@po.Id">@po.PONumber</a></td>
                                 <td><span class="badge badge-secondary">@po.Status</span></td>
                                 <td>@po.OrderDate.ToString("MM/dd/yyyy")</td>
-                                <td style="text-align: right;">@po.Total.ToString("C2")</td>
+                                <td data-csp-style="text-align: right;">@po.Total.ToString("C2")</td>
                             </tr>
                         }
                     </tbody>
@@ -388,7 +388,7 @@
             }
             else
             {
-                <div class="pe-empty" style="padding:1rem;">
+                <div class="pe-empty" data-csp-style="padding:1rem;">
                     <div class="pe-empty__text">No linked purchase orders.</div>
                 </div>
             }
@@ -402,7 +402,7 @@
             @if (Model.RelatedInvoices.Any())
             {
                 <table class="data-table premium-table">
-                    <thead><tr><th>Invoice #</th><th>Status</th><th>Date</th><th style="text-align: right;">Total</th></tr></thead>
+                    <thead><tr><th>Invoice #</th><th>Status</th><th>Date</th><th data-csp-style="text-align: right;">Total</th></tr></thead>
                     <tbody>
                         @foreach (var inv in Model.RelatedInvoices)
                         {
@@ -410,7 +410,7 @@
                                 <td><a href="/AccountsPayable/Details/@inv.Id">@inv.InvoiceNumber</a></td>
                                 <td><span class="badge badge-secondary">@inv.Status</span></td>
                                 <td>@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
-                                <td style="text-align: right;">@inv.Total.ToString("C2")</td>
+                                <td data-csp-style="text-align: right;">@inv.Total.ToString("C2")</td>
                             </tr>
                         }
                     </tbody>
@@ -418,7 +418,7 @@
             }
             else
             {
-                <div class="pe-empty" style="padding:1rem;">
+                <div class="pe-empty" data-csp-style="padding:1rem;">
                     <div class="pe-empty__text">No linked vendor invoices.</div>
                 </div>
             }
@@ -448,7 +448,7 @@
             }
             else
             {
-                <div class="pe-empty" style="padding:1rem;">
+                <div class="pe-empty" data-csp-style="padding:1rem;">
                     <div class="pe-empty__text">No linked journal entries.</div>
                 </div>
             }
@@ -468,7 +468,7 @@
                         <tr>
                             <td><a href="/Assets/Asset/@asset.Id">@asset.AssetNumber</a></td>
                             <td>@asset.Description</td>
-                            <td style="text-align: right;">@asset.AcquisitionCost.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@asset.AcquisitionCost.ToString("C2")</td>
                             <td><span class="badge badge-success">@asset.Status</span></td>
                         </tr>
                     }
@@ -482,9 +482,9 @@
                 <h3 class="card-title">Attachments</h3>
                 <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="toggleInlineForm('uploadInline')">Upload File</button>
             </div>
-            <div id="uploadInline" style="display: none; border-bottom: 1px solid var(--border-primary);">
-                <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Project.Id" enctype="multipart/form-data" style="padding: 1.25rem;">
-                    <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <div id="uploadInline" data-csp-style="display: none; border-bottom: 1px solid var(--border-primary);">
+                <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Project.Id" enctype="multipart/form-data" data-csp-style="padding: 1.25rem;">
+                    <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                         <div class="form-group-p">
                             <label class="form-label-p">File</label>
                             <input type="file" name="file" class="form-input-p" required />
@@ -499,11 +499,11 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group-p" style="margin-bottom: 1rem;">
+                    <div class="form-group-p" data-csp-style="margin-bottom: 1rem;">
                         <label class="form-label-p">Description (optional)</label>
                         <input type="text" name="description" class="form-input-p" placeholder="File description..." />
                     </div>
-                    <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                    <div data-csp-style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                         <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('uploadInline')">Cancel</button>
                         <button type="submit" class="btn-p btn-p--primary">Upload</button>
                     </div>
@@ -541,7 +541,7 @@
                 }
                 else
                 {
-                    <div class="pe-empty" style="padding:1rem;">
+                    <div class="pe-empty" data-csp-style="padding:1rem;">
                         <div class="pe-empty__text">No attachments yet. Upload contracts, invoices, or progress photos.</div>
                     </div>
                 }
@@ -567,7 +567,7 @@
                     <span class="budget-value">@Model.CostSummary.Remaining.ToString("C2")</span>
                 </div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar" style="width: @Math.Min(Model.PercentComplete, 100)%; background: @(Model.PercentComplete > 100 ? "var(--danger)" : "var(--primary)")"></div>
+                    <div class="progress-bar" data-csp-style="width: @Math.Min(Model.PercentComplete, 100)%; background: @(Model.PercentComplete > 100 ? "var(--danger)" : "var(--primary)")"></div>
                 </div>
                 <div class="progress-label">@Model.CostSummary.PercentUsed.ToString("F1")% of budget used</div>
             </div>
@@ -589,7 +589,7 @@
                 {
                     @if (Model.OnHoldStatusLvId.HasValue)
                     {
-                        <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id" style="margin-bottom: 8px;">
+                        <form method="post" asp-page-handler="UpdateStatus" asp-route-id="@Model.Project.Id" data-csp-style="margin-bottom: 8px;">
                             <input type="hidden" name="statusLookupValueId" value="@Model.OnHoldStatusLvId.Value" />
                             <button type="submit" class="btn-p btn-p--secondary">Put On Hold</button>
                         </form>
@@ -611,11 +611,11 @@
                 }
                 @if (Model.Project.Status == CipProjectStatus.Completed && !Model.Project.IsCapitalized)
                 {
-                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-primary);">
-                        <h4 style="font-size: 14px; margin-bottom: 8px;">Capitalize Project</h4>
+                    <div data-csp-style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-primary);">
+                        <h4 data-csp-style="font-size: 14px; margin-bottom: 8px;">Capitalize Project</h4>
                         @if (Model.CapPreview != null)
                         {
-                            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
+                            <p data-csp-style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">
                                 Total: @Model.CapPreview.TotalCapitalizableCosts.ToString("C2") (@Model.CapPreview.CostCount costs)
                             </p>
                         }
@@ -624,22 +624,22 @@
                 }
                 @if (Model.Project.IsCapitalized)
                 {
-                    <p class="text-muted" style="font-size: 13px; margin-top: 8px;">Project is capitalized and locked. No further cost additions allowed.</p>
+                    <p class="text-muted" data-csp-style="font-size: 13px; margin-top: 8px;">Project is capitalized and locked. No further cost additions allowed.</p>
                 }
             </div>
         </div>
     </div>
 </div>
 
-<div id="capitalizeInline" class="pe-card" style="display: none; margin-top: 1rem;">
+<div id="capitalizeInline" class="pe-card" data-csp-style="display: none; margin-top: 1rem;">
     <div class="pe-card__header">
         <span class="pe-card__title">Capitalize CIP Project</span>
         <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleInlineForm('capitalizeInline')">&times;</button>
     </div>
     <form method="post" asp-page-handler="Capitalize" asp-route-id="@Model.Project.Id">
         <div class="pe-card__body">
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Convert @Model.Project.ProjectNumber into a fixed asset</p>
-            <div class="form-grid form-grid--2" style="margin-bottom: 1rem;">
+            <p data-csp-style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Convert @Model.Project.ProjectNumber into a fixed asset</p>
+            <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Asset Number</label>
                     <input type="text" name="assetNumber" class="form-input-p" required placeholder="e.g. FA-00123" />
@@ -651,7 +651,7 @@
             </div>
             @if (Model.CapPreview != null)
             {
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 1rem; background: var(--surface-secondary); border-radius: 8px;">
+                <div data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 1rem; background: var(--surface-secondary); border-radius: 8px;">
                     <div><strong>Capitalizable:</strong> @Model.CapPreview.TotalCapitalizableCosts.ToString("C2")</div>
                     <div><strong>Non-Capitalizable:</strong> @Model.CapPreview.TotalNonCapitalizableCosts.ToString("C2")</div>
                     <div><strong>Proposed Asset Basis:</strong> @Model.CapPreview.ProposedAssetBasis.ToString("C2")</div>

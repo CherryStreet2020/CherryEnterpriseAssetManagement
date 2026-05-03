@@ -83,7 +83,7 @@ else
                     <td class="td-right">@money(Model.TotalCredit)</td>
                 </tr>
                 <tr>
-                    <td colspan="5" style="text-align: right; color: @(Model.IsBalanced ? "var(--text-success)" : "var(--text-danger)"); font-weight: 600;">
+                    <td colspan="5" data-csp-style="text-align: right; color: @(Model.IsBalanced ? "var(--text-success)" : "var(--text-danger)"); font-weight: 600;">
                         @(Model.IsBalanced ? "Balanced" : "Out of balance")
                     </td>
                 </tr>

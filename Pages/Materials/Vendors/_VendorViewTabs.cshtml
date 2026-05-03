@@ -6,98 +6,98 @@
 
 @if (Model.ActiveTab == "info")
 {
-    <div class="workspace-card" style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
-        <h3 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Vendor Information</h3>
+    <div class="workspace-card" data-csp-style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+        <h3 data-csp-style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Vendor Information</h3>
 
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem 2rem;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem 2rem;">
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CODE</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.Code</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CODE</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.Code</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">NAME</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.Name</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">NAME</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.Name</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">LEGAL NAME</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.LegalName ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">LEGAL NAME</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.LegalName ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">VENDOR TYPE</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.VendorType.ToString()</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">VENDOR TYPE</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.VendorType.ToString()</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PAYMENT TERMS</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.PaymentTerms.ToString()</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PAYMENT TERMS</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@v.PaymentTerms.ToString()</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CURRENCY</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Currency ?? "USD")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CURRENCY</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Currency ?? "USD")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">TAX ID / EIN</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.TaxId ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">TAX ID / EIN</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.TaxId ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CREDIT LIMIT</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary); font-family: var(--font-mono);">@(v.CreditLimit > 0 ? v.CreditLimit?.ToString("C2") : "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CREDIT LIMIT</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary); font-family: var(--font-mono);">@(v.CreditLimit > 0 ? v.CreditLimit?.ToString("C2") : "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">ACCOUNT NUMBER</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.AccountNumber ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">ACCOUNT NUMBER</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.AccountNumber ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">STATUS</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.IsActive ? "Active" : "Inactive")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">STATUS</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.IsActive ? "Active" : "Inactive")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">1099 VENDOR</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Is1099Vendor ? "Yes" : "No")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">1099 VENDOR</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Is1099Vendor ? "Yes" : "No")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PREFERRED</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.IsPreferred ? "Yes" : "No")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PREFERRED</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.IsPreferred ? "Yes" : "No")</div>
             </div>
         </div>
     </div>
 
     @if (!string.IsNullOrWhiteSpace(v.Notes))
     {
-        <div class="workspace-card" style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); margin-top: 1rem;">
-            <h3 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 0.75rem;">Notes</h3>
-            <div style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">@v.Notes</div>
+        <div class="workspace-card" data-csp-style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); margin-top: 1rem;">
+            <h3 data-csp-style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 0.75rem;">Notes</h3>
+            <div data-csp-style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6;">@v.Notes</div>
         </div>
     }
 }
 else if (Model.ActiveTab == "contact")
 {
-    <div class="workspace-card" style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
-        <h3 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Contact Information</h3>
+    <div class="workspace-card" data-csp-style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+        <h3 data-csp-style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Contact Information</h3>
 
-        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem 2rem;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem 2rem;">
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CONTACT NAME</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.ContactName ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">CONTACT NAME</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.ContactName ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PHONE</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Phone ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">PHONE</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Phone ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">EMAIL</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Email ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">EMAIL</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Email ?? "—")</div>
             </div>
             <div>
-                <div style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">WEBSITE</div>
-                <div style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Website ?? "—")</div>
+                <div data-csp-style="font-size: 0.6rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.2rem;">WEBSITE</div>
+                <div data-csp-style="font-size: 0.95rem; font-weight: 500; color: var(--text-primary);">@(v.Website ?? "—")</div>
             </div>
         </div>
     </div>
 
-    <div class="workspace-card" style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); margin-top: 1rem;">
-        <h3 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Address</h3>
+    <div class="workspace-card" data-csp-style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06)); margin-top: 1rem;">
+        <h3 data-csp-style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Address</h3>
 
-        <div style="font-size: 0.95rem; color: var(--text-primary); line-height: 1.8;">
+        <div data-csp-style="font-size: 0.95rem; color: var(--text-primary); line-height: 1.8;">
             @if (!string.IsNullOrWhiteSpace(v.Address))
             {
                 <div>@v.Address</div>
@@ -115,34 +115,34 @@ else if (Model.ActiveTab == "contact")
             }
             @if (string.IsNullOrWhiteSpace(v.Address) && string.IsNullOrWhiteSpace(v.City))
             {
-                <div style="color: var(--text-muted);">No address on file</div>
+                <div data-csp-style="color: var(--text-muted);">No address on file</div>
             }
         </div>
     </div>
 }
 else if (Model.ActiveTab == "history")
 {
-    <div class="workspace-card" style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
-        <h3 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Purchase Orders</h3>
+    <div class="workspace-card" data-csp-style="padding: 1.5rem 2rem; border-radius: 10px; background: var(--surface-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));">
+        <h3 data-csp-style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 1.25rem;">Purchase Orders</h3>
         @if (Model.RecentPOs?.Any() == true)
         {
-            <table style="width: 100%; border-collapse: collapse;">
+            <table data-csp-style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr style="border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));">
-                        <th style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">PO #</th>
-                        <th style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">STATUS</th>
-                        <th style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">ORDER DATE</th>
-                        <th style="padding: 0.5rem; text-align: right; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">TOTAL</th>
+                    <tr data-csp-style="border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));">
+                        <th data-csp-style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">PO #</th>
+                        <th data-csp-style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">STATUS</th>
+                        <th data-csp-style="padding: 0.5rem; text-align: left; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">ORDER DATE</th>
+                        <th data-csp-style="padding: 0.5rem; text-align: right; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">TOTAL</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var po in Model.RecentPOs)
                     {
-                        <tr style="border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor: pointer;" onclick="window.location='/Purchasing/Details/@po.Id'">
-                            <td style="padding: 0.6rem 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">@po.PONumber</td>
-                            <td style="padding: 0.6rem 0.5rem;"><span class="status-badge-p status-badge-p--@(po.Status.ToString().ToLower())">@po.Status</span></td>
-                            <td style="padding: 0.6rem 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">@po.OrderDate.ToString("MMM dd, yyyy")</td>
-                            <td style="padding: 0.6rem 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-align: right; font-family: var(--font-mono);">@po.Total.ToString("C2")</td>
+                        <tr data-csp-style="border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.04)); cursor: pointer;" onclick="window.location='/Purchasing/Details/@po.Id'">
+                            <td data-csp-style="padding: 0.6rem 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">@po.PONumber</td>
+                            <td data-csp-style="padding: 0.6rem 0.5rem;"><span class="status-badge-p status-badge-p--@(po.Status.ToString().ToLower())">@po.Status</span></td>
+                            <td data-csp-style="padding: 0.6rem 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">@po.OrderDate.ToString("MMM dd, yyyy")</td>
+                            <td data-csp-style="padding: 0.6rem 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); text-align: right; font-family: var(--font-mono);">@po.Total.ToString("C2")</td>
                         </tr>
                     }
                 </tbody>
@@ -150,7 +150,7 @@ else if (Model.ActiveTab == "history")
         }
         else
         {
-            <div style="color: var(--text-muted); font-size: 0.85rem;">No purchase orders for this vendor.</div>
+            <div data-csp-style="color: var(--text-muted); font-size: 0.85rem;">No purchase orders for this vendor.</div>
         }
     </div>
 }

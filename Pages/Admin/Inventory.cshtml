@@ -41,16 +41,16 @@
             </h3>
             <span class="status-badge warning">@Model.LowStockItems.Count ITEMS NEED REORDERING</span>
         </div>
-        <div class="section-card-body" style="padding: 0;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th style="width: 120px;">Part #</th>
+                        <th data-csp-style="width: 120px;">Part #</th>
                         <th>Description</th>
-                        <th style="text-align: right; width: 100px;">On Hand</th>
-                        <th style="text-align: right; width: 100px;">Reorder Pt</th>
-                        <th style="text-align: right; width: 100px;">Reorder Qty</th>
-                        <th style="width: 120px;">Action</th>
+                        <th data-csp-style="text-align: right; width: 100px;">On Hand</th>
+                        <th data-csp-style="text-align: right; width: 100px;">Reorder Pt</th>
+                        <th data-csp-style="text-align: right; width: 100px;">Reorder Qty</th>
+                        <th data-csp-style="width: 120px;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -59,9 +59,9 @@
                         <tr>
                             <td><strong>@item.PartNumber</strong></td>
                             <td>@item.Description</td>
-                            <td style="text-align: right;"><span class="badge badge-danger">@item.OnHand.ToString("N0")</span></td>
-                            <td style="text-align: right;">@item.ReorderPoint.ToString("N0")</td>
-                            <td style="text-align: right;">@item.ReorderQty.ToString("N0")</td>
+                            <td data-csp-style="text-align: right;"><span class="badge badge-danger">@item.OnHand.ToString("N0")</span></td>
+                            <td data-csp-style="text-align: right;">@item.ReorderPoint.ToString("N0")</td>
+                            <td data-csp-style="text-align: right;">@item.ReorderQty.ToString("N0")</td>
                             <td>
                                 <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="openReceiptForm('@item.ItemId', '@item.PartNumber', @item.ReorderQty)">
                                     Receive
@@ -85,19 +85,19 @@
         </h3>
         <span class="status-badge info">@Model.StockLevels.Count() RECORDS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table" id="inventoryGrid">
             <thead>
                 <tr>
-                    <th style="width: 120px;">Part #</th>
-                    <th style="min-width: 200px;">Description</th>
-                    <th style="width: 120px;">Warehouse</th>
-                    <th style="width: 80px;">Bin</th>
-                    <th style="text-align: right; width: 90px;">On Hand</th>
-                    <th style="text-align: right; width: 90px;">Reserved</th>
-                    <th style="text-align: right; width: 90px;">Available</th>
-                    <th style="text-align: right; width: 90px;">On Order</th>
-                    <th style="width: 100px;" class="no-sort">Status</th>
+                    <th data-csp-style="width: 120px;">Part #</th>
+                    <th data-csp-style="min-width: 200px;">Description</th>
+                    <th data-csp-style="width: 120px;">Warehouse</th>
+                    <th data-csp-style="width: 80px;">Bin</th>
+                    <th data-csp-style="text-align: right; width: 90px;">On Hand</th>
+                    <th data-csp-style="text-align: right; width: 90px;">Reserved</th>
+                    <th data-csp-style="text-align: right; width: 90px;">Available</th>
+                    <th data-csp-style="text-align: right; width: 90px;">On Order</th>
+                    <th data-csp-style="width: 100px;" class="no-sort">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -112,10 +112,10 @@
                         <td>@inv.Description</td>
                         <td>@(inv.Warehouse ?? "-")</td>
                         <td>@(inv.Bin ?? "-")</td>
-                        <td style="text-align: right;">@inv.QuantityOnHand.ToString("N0")</td>
-                        <td style="text-align: right;">@inv.QuantityReserved.ToString("N0")</td>
-                        <td style="text-align: right;">@inv.QuantityAvailable.ToString("N0")</td>
-                        <td style="text-align: right;">@inv.QuantityOnOrder.ToString("N0")</td>
+                        <td data-csp-style="text-align: right;">@inv.QuantityOnHand.ToString("N0")</td>
+                        <td data-csp-style="text-align: right;">@inv.QuantityReserved.ToString("N0")</td>
+                        <td data-csp-style="text-align: right;">@inv.QuantityAvailable.ToString("N0")</td>
+                        <td data-csp-style="text-align: right;">@inv.QuantityOnOrder.ToString("N0")</td>
                         <td><span class="badge @statusClass">@statusText</span></td>
                     </tr>
                 }
@@ -123,8 +123,8 @@
         </table>
         @if (!Model.StockLevels.Any())
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-chart-line pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-chart-line pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">No inventory records. Create items in the Item Master and add inventory transactions to track stock levels.</div>
             </div>
         }
@@ -141,19 +141,19 @@
         </h3>
         <span class="status-badge info">@Model.RecentTransactions.Count() RECENT</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table" id="transactionGrid">
             <thead>
                 <tr>
-                    <th style="width: 100px;">Transaction #</th>
-                    <th style="width: 100px;">Date</th>
-                    <th style="width: 80px;">Type</th>
-                    <th style="width: 100px;">Part #</th>
+                    <th data-csp-style="width: 100px;">Transaction #</th>
+                    <th data-csp-style="width: 100px;">Date</th>
+                    <th data-csp-style="width: 80px;">Type</th>
+                    <th data-csp-style="width: 100px;">Part #</th>
                     <th>Description</th>
-                    <th style="text-align: right; width: 80px;">Qty</th>
-                    <th style="text-align: right; width: 100px;">Unit Cost</th>
-                    <th style="width: 120px;">Reference</th>
-                    <th style="width: 100px;">By</th>
+                    <th data-csp-style="text-align: right; width: 80px;">Qty</th>
+                    <th data-csp-style="text-align: right; width: 100px;">Unit Cost</th>
+                    <th data-csp-style="width: 120px;">Reference</th>
+                    <th data-csp-style="width: 100px;">By</th>
                 </tr>
             </thead>
             <tbody>
@@ -168,8 +168,8 @@
                         <td><span class="badge @typeClass">@txn.Type</span></td>
                         <td>@txn.Item?.PartNumber</td>
                         <td>@txn.Item?.Description</td>
-                        <td style="text-align: right;">@txn.Quantity.ToString("N2")</td>
-                        <td style="text-align: right;">@txn.UnitCost.ToString("C2")</td>
+                        <td data-csp-style="text-align: right;">@txn.Quantity.ToString("N2")</td>
+                        <td data-csp-style="text-align: right;">@txn.UnitCost.ToString("C2")</td>
                         <td>@(txn.ReferenceNumber ?? "-")</td>
                         <td>@txn.TransactedBy</td>
                     </tr>
@@ -178,14 +178,14 @@
         </table>
         @if (!Model.RecentTransactions.Any())
         {
-            <div class="pe-empty" style="padding:1rem;">
+            <div class="pe-empty" data-csp-style="padding:1rem;">
                 <div class="pe-empty__text">No transactions recorded yet.</div>
             </div>
         }
     </div>
 </div>
 
-<div id="transactionForm" class="inline-form-panel" style="display: none;">
+<div id="transactionForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -252,7 +252,7 @@
     </div>
 </div>
 
-<div id="cycleCountForm" class="inline-form-panel" style="display: none;">
+<div id="cycleCountForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">

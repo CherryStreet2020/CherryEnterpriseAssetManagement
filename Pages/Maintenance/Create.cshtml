@@ -21,7 +21,7 @@
 
 @if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
 {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@TempData["Error"]</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@TempData["Error"]</div>
 }
 
 <form method="post">
@@ -43,7 +43,7 @@
                     }
                 </select>
             </div>
-            <div class="form-row-p" style="margin-top:1rem;">
+            <div class="form-row-p" data-csp-style="margin-top:1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Maintenance Type <span class="required">*</span></label>
                     <select name="typeLookupValueId" data-cherry-select data-placeholder="Select type..." class="form-input-p" required asp-items="Model.MaintenanceTypeOptions">
@@ -55,7 +55,7 @@
                     </select>
                 </div>
             </div>
-            <div class="form-group-p" style="margin-top:1rem;">
+            <div class="form-group-p" data-csp-style="margin-top:1rem;">
                 <label class="form-label-p">Description <span class="required">*</span></label>
                 <textarea name="description" class="form-input-p" rows="3" required placeholder="Describe the maintenance work..."></textarea>
             </div>
@@ -81,7 +81,7 @@
                     </select>
                 </div>
             </div>
-            <div class="form-row-p" style="margin-top:1rem;">
+            <div class="form-row-p" data-csp-style="margin-top:1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Estimated Cost</label>
                     <div class="input-group-currency">

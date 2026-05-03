@@ -11,7 +11,7 @@
 
 <partial name="_ScreenHeader" model='new Abs.FixedAssets.Models.PageTitle { Title = $"Manage Values: {Model.LookupType?.Name}", Subtitle = $"Key: {Model.LookupType?.Key}" }' />
 
-<div class="page-content" style="padding: 1.5rem;">
+<div class="page-content" data-csp-style="padding: 1.5rem;">
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
         <div class="alert alert-success">@Model.SuccessMessage</div>
@@ -21,12 +21,12 @@
         <div class="alert alert-danger">@Model.ErrorMessage</div>
     }
 
-    <div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-card" data-csp-style="margin-bottom: 1.5rem;">
         <div class="section-card__header">
             <h3 class="section-card__title">Add New Value</h3>
         </div>
         <div class="section-card__body">
-            <form method="post" asp-page-handler="AddValue" class="form-grid" style="max-width: 800px;">
+            <form method="post" asp-page-handler="AddValue" class="form-grid" data-csp-style="max-width: 800px;">
                 <input type="hidden" name="typeId" value="@Model.LookupType?.Id" />
                 <div class="form-field">
                     <label class="form-field__label">Code (stable key)</label>
@@ -56,7 +56,7 @@
         <div class="section-card__header">
             <h3 class="section-card__title">Values (@Model.Values.Count)</h3>
         </div>
-        <div class="section-card__body" style="padding: 0;">
+        <div class="section-card__body" data-csp-style="padding: 0;">
             <table class="data-grid" data-grid-id="lookupValues">
                 <thead>
                     <tr>
@@ -74,17 +74,17 @@
                         <tr>
                             <td><code>@val.Code</code></td>
                             <td>
-                                <form method="post" asp-page-handler="UpdateValue" style="display:inline-flex;gap:0.5rem;align-items:center;">
+                                <form method="post" asp-page-handler="UpdateValue" data-csp-style="display:inline-flex;gap:0.5rem;align-items:center;">
                                     <input type="hidden" name="typeId" value="@Model.LookupType?.Id" />
                                     <input type="hidden" name="valueId" value="@val.Id" />
-                                    <input type="text" name="name" value="@val.Name" class="form-field__input" style="width:180px;" />
-                                    <input type="number" name="sortOrder" value="@val.SortOrder" class="form-field__input" style="width:60px;" />
-                                    <input type="text" name="metadata" value="@(val.Metadata != null ? val.Metadata.RootElement.ToString() : "")" class="form-field__input" style="width:200px;" placeholder="JSON" />
+                                    <input type="text" name="name" value="@val.Name" class="form-field__input" data-csp-style="width:180px;" />
+                                    <input type="number" name="sortOrder" value="@val.SortOrder" class="form-field__input" data-csp-style="width:60px;" />
+                                    <input type="text" name="metadata" value="@(val.Metadata != null ? val.Metadata.RootElement.ToString() : "")" class="form-field__input" data-csp-style="width:200px;" placeholder="JSON" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Save</button>
                                 </form>
                             </td>
                             <td>@val.SortOrder</td>
-                            <td><code style="font-size:0.75rem;">@(val.Metadata != null ? val.Metadata.RootElement.ToString() : "-")</code></td>
+                            <td><code data-csp-style="font-size:0.75rem;">@(val.Metadata != null ? val.Metadata.RootElement.ToString() : "-")</code></td>
                             <td>
                                 @if (val.IsActive)
                                 {
@@ -96,7 +96,7 @@
                                 }
                             </td>
                             <td>
-                                <form method="post" asp-page-handler="ToggleValueActive" style="display:inline;">
+                                <form method="post" asp-page-handler="ToggleValueActive" data-csp-style="display:inline;">
                                     <input type="hidden" name="typeId" value="@Model.LookupType?.Id" />
                                     <input type="hidden" name="valueId" value="@val.Id" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm">

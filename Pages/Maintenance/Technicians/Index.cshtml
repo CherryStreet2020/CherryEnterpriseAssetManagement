@@ -67,7 +67,7 @@
                     <option value="Rotating" selected="@(Model.Shift == "Rotating")">Rotating</option>
                 </select>
             </div>
-            <div class="form-group" style="display: flex; align-items: flex-end; gap: 0.5rem;">
+            <div class="form-group" data-csp-style="display: flex; align-items: flex-end; gap: 0.5rem;">
                 <button type="submit" class="btn-p btn-p--primary btn-p--sm">Apply</button>
                 <a href="/Maintenance/Technicians" class="btn-p btn-p--secondary btn-p--sm">Clear</a>
             </div>
@@ -87,19 +87,19 @@
     </div>
     @if (Model.Technicians.Any())
     {
-        <div class="section-card-body section-card-body-flush pe-card__body" style="padding: 0;">
+        <div class="section-card-body section-card-body-flush pe-card__body" data-csp-style="padding: 0;">
             <table class="data-table premium-table" id="techGrid" data-enhanced-grid="true" data-row-click="true">
                 <thead>
                     <tr>
-                        <th style="width: 50px;" class="no-sort"></th>
-                        <th style="min-width: 180px;" data-col="Name" data-filter="text">Name & Title</th>
-                        <th style="width: 100px;" data-col="Employee ID" data-filter="text">Employee ID</th>
-                        <th style="width: 120px;" data-col="Craft" data-filter="text">Craft</th>
-                        <th style="width: 120px;" data-col="Site" data-filter="text">Site</th>
-                        <th style="width: 90px;" data-col="Shift" data-filter="text">Shift</th>
-                        <th style="width: 80px;" class="no-sort" data-col="Status">Status</th>
-                        <th style="width: 60px; text-align: center;" data-col="Certs" data-filter="number">Certs</th>
-                        <th style="width: 80px;" class="no-sort">Profile</th>
+                        <th data-csp-style="width: 50px;" class="no-sort"></th>
+                        <th data-csp-style="min-width: 180px;" data-col="Name" data-filter="text">Name & Title</th>
+                        <th data-csp-style="width: 100px;" data-col="Employee ID" data-filter="text">Employee ID</th>
+                        <th data-csp-style="width: 120px;" data-col="Craft" data-filter="text">Craft</th>
+                        <th data-csp-style="width: 120px;" data-col="Site" data-filter="text">Site</th>
+                        <th data-csp-style="width: 90px;" data-col="Shift" data-filter="text">Shift</th>
+                        <th data-csp-style="width: 80px;" class="no-sort" data-col="Status">Status</th>
+                        <th data-csp-style="width: 60px; text-align: center;" data-col="Certs" data-filter="number">Certs</th>
+                        <th data-csp-style="width: 80px;" class="no-sort">Profile</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -123,7 +123,7 @@
                                 <div><strong>@tech.Name</strong></div>
                                 @if (!string.IsNullOrEmpty(tech.Title))
                                 {
-                                    <div class="cell-muted" style="font-size: var(--font-size-12);">@tech.Title</div>
+                                    <div class="cell-muted" data-csp-style="font-size: var(--font-size-12);">@tech.Title</div>
                                 }
                             </td>
                             <td class="cell-mono">@(tech.EmployeeId ?? "-")</td>

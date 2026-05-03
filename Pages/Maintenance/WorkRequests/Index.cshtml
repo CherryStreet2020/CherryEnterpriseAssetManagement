@@ -113,10 +113,10 @@
 
     @if (Model.WorkRequests.Count == 0)
     {
-        <div class="pe-empty" style="padding:1.5rem;">
-            <i class="fas fa-tasks pe-empty__icon" style="font-size:1.2rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:1.5rem;">
+            <i class="fas fa-tasks pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
             <div class="pe-empty__text">No work requests found. Click "New Request" to submit your first maintenance request.</div>
-            <a asp-page="./Create" class="btn-p btn-p--primary" style="margin-top:0.75rem;">
+            <a asp-page="./Create" class="btn-p btn-p--primary" data-csp-style="margin-top:0.75rem;">
                 <i class="fas fa-plus"></i> Create First Request
             </a>
         </div>

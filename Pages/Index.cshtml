@@ -18,18 +18,18 @@
     };
     @await Html.PartialAsync("Shared/_ScreenHeader", emptyHeaderVd)
     
-    <div class="section-card" style="margin: 2rem; max-width: 800px;">
+    <div class="section-card" data-csp-style="margin: 2rem; max-width: 800px;">
         <div class="section-card-header">
-            <h2 style="margin: 0; font-size: 1.25rem;">Initialize Your System</h2>
+            <h2 data-csp-style="margin: 0; font-size: 1.25rem;">Initialize Your System</h2>
         </div>
-        <div class="section-card-body" style="padding: 2rem;">
-            <div style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem;">
-                <div class="gradient-btn-navy icon-circle" style="font-size: 1.5rem;">
+        <div class="section-card-body" data-csp-style="padding: 2rem;">
+            <div data-csp-style="display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem;">
+                <div class="gradient-btn-navy icon-circle" data-csp-style="font-size: 1.5rem;">
                     <i class="fas fa-database"></i>
                 </div>
                 <div>
-                    <h3 class="text-theme-primary" style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">Database Empty</h3>
-                    <p class="text-theme-muted" style="margin: 0; font-size: 0.95rem;">
+                    <h3 class="text-theme-primary" data-csp-style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">Database Empty</h3>
+                    <p class="text-theme-muted" data-csp-style="margin: 0; font-size: 0.95rem;">
                         No companies, assets, or configuration data found. The system needs to be initialized before use.
                     </p>
                 </div>
@@ -37,46 +37,46 @@
             
             @if (Model.IsDevelopment)
             {
-                <div class="section-card" style="border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
-                    <h4 style="margin: 0 0 0.75rem 0; color: var(--lux-text, #0369a1); font-size: 1rem;">
-                        <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>
+                <div class="section-card" data-csp-style="border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                    <h4 data-csp-style="margin: 0 0 0.75rem 0; color: var(--lux-text, #0369a1); font-size: 1rem;">
+                        <i class="fas fa-info-circle" data-csp-style="margin-right: 0.5rem;"></i>
                         Development Mode Instructions
                     </h4>
-                    <p style="margin: 0 0 1rem 0; color: var(--lux-text-secondary, #0c4a6e); font-size: 0.9rem;">
+                    <p data-csp-style="margin: 0 0 1rem 0; color: var(--lux-text-secondary, #0c4a6e); font-size: 0.9rem;">
                         To seed demo data with sample companies, assets, and maintenance records:
                     </p>
-                    <div style="background: var(--lux-surface-alt, #0f172a); color: var(--lux-text, #e2e8f0); padding: 0.75rem 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin-bottom: 0.75rem;">
-                        <span style="color: var(--lux-text-muted, #94a3b8);">1.</span> Set environment variable: <span class="text-green">RUN_SEED=true</span><br/>
-                        <span style="color: var(--lux-text-muted, #94a3b8);">2.</span> Restart the application
+                    <div data-csp-style="background: var(--lux-surface-alt, #0f172a); color: var(--lux-text, #e2e8f0); padding: 0.75rem 1rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; margin-bottom: 0.75rem;">
+                        <span data-csp-style="color: var(--lux-text-muted, #94a3b8);">1.</span> Set environment variable: <span class="text-green">RUN_SEED=true</span><br/>
+                        <span data-csp-style="color: var(--lux-text-muted, #94a3b8);">2.</span> Restart the application
                     </div>
-                    <p style="margin: 0; color: var(--lux-text-muted, #64748b); font-size: 0.85rem;">
-                        <i class="fas fa-shield-alt" style="margin-right: 0.25rem;"></i>
+                    <p data-csp-style="margin: 0; color: var(--lux-text-muted, #64748b); font-size: 0.85rem;">
+                        <i class="fas fa-shield-alt" data-csp-style="margin-right: 0.25rem;"></i>
                         Seeding is disabled by default for safety. This prevents accidental data overwrites.
                     </p>
                 </div>
             }
             else
             {
-                <div class="callout-yellow" style="padding: 1.25rem;">
-                    <h4 class="text-amber" style="margin: 0 0 0.5rem 0; font-size: 1rem;">
-                        <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>
+                <div class="callout-yellow" data-csp-style="padding: 1.25rem;">
+                    <h4 class="text-amber" data-csp-style="margin: 0 0 0.5rem 0; font-size: 1rem;">
+                        <i class="fas fa-exclamation-triangle" data-csp-style="margin-right: 0.5rem;"></i>
                         Production Environment
                     </h4>
-                    <p class="text-amber" style="margin: 0; font-size: 0.9rem;">
+                    <p class="text-amber" data-csp-style="margin: 0; font-size: 0.9rem;">
                         Contact your system administrator to initialize the database with your organization's data.
                     </p>
                 </div>
             }
             
-            <div style="border-top: 1px solid var(--border-primary, #e2e8f0); padding-top: 1.25rem; margin-top: 0.5rem;">
-                <h4 class="text-theme-secondary" style="margin: 0 0 0.75rem 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
+            <div data-csp-style="border-top: 1px solid var(--border-primary, #e2e8f0); padding-top: 1.25rem; margin-top: 0.5rem;">
+                <h4 class="text-theme-secondary" data-csp-style="margin: 0 0 0.75rem 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em;">
                     Available Even Now
                 </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
-                    <a href="/Help" class="quick-action-card" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
+                <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                    <a href="/Help" class="quick-action-card" data-csp-style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
                         <i class="fas fa-book text-blue"></i> Help Center
                     </a>
-                    <a href="/Admin/Diagnostics" class="quick-action-card" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
+                    <a href="/Admin/Diagnostics" class="quick-action-card" data-csp-style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; transition: background 0.2s;">
                         <i class="fas fa-heartbeat text-green"></i> System Diagnostics
                     </a>
                 </div>
@@ -98,7 +98,7 @@ else
     };
     @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div class="quick-stats-row" style="grid-template-columns: repeat(6, 1fr);">
+<div class="quick-stats-row" data-csp-style="grid-template-columns: repeat(6, 1fr);">
     <a href="/Assets" class="quick-stat-card clickable">
         <div class="quick-stat-icon primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -175,10 +175,10 @@ else
 <!-- Maintenance KPIs Section -->
 <div class="section-card">
     <div class="section-card-header">
-        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">Maintenance KPIs</h3>
+        <h3 data-csp-style="margin: 0; font-size: 1rem; font-weight: 700;">Maintenance KPIs</h3>
         <a href="/Maintenance">View All</a>
     </div>
-    <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
+    <div class="kpi-grid" data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
         <div class="kpi-stat-card border-left-amber">
             <div class="kpi-stat-label">Work Order Backlog</div>
             <div class="kpi-stat-value @(Model.WorkOrderBacklog > 10 ? "text-red" : Model.WorkOrderBacklog > 5 ? "text-amber" : "text-emerald")">@Model.WorkOrderBacklog</div>
@@ -205,10 +205,10 @@ else
 <!-- PM Schedules Section -->
 <div class="section-card">
     <div class="section-card-header">
-        <h3 style="margin: 0; font-size: 1rem; font-weight: 700;">PM Schedules</h3>
+        <h3 data-csp-style="margin: 0; font-size: 1rem; font-weight: 700;">PM Schedules</h3>
         <a href="/Maintenance/Schedules">Manage Schedules</a>
     </div>
-    <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
+    <div class="kpi-grid" data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
         <div class="kpi-stat-card border-left-purple">
             <div class="kpi-stat-label">Active Schedules</div>
             <div class="kpi-stat-value text-purple">@Model.TotalSchedules</div>
@@ -277,9 +277,9 @@ else
                     </svg>
                     Recent Assets
                 </h3>
-                <a asp-page="/Assets/Index" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">View All</a>
+                <a asp-page="/Assets/Index" class="btn-premium btn-premium-secondary" data-csp-style="padding: 8px 16px; font-size: 12px;">View All</a>
             </div>
-            <div class="section-card-body" style="padding: 0;">
+            <div class="section-card-body" data-csp-style="padding: 0;">
             @if (Model.RecentAssets.Any())
             {
                 <table class="data-table compact">
@@ -317,8 +317,8 @@ else
             }
             else
             {
-                <div class="pe-empty" style="padding:1.5rem;">
-                    <i class="fas fa-cube pe-empty__icon" style="font-size:1.2rem;"></i>
+                <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                    <i class="fas fa-cube pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                     <div class="pe-empty__text">
                         <p>No assets yet. <a href="/Assets/Asset?mode=create">Add your first asset</a></p>
                     </div>
@@ -336,9 +336,9 @@ else
                     </svg>
                     Recent Activity
                 </h3>
-                <span class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px; opacity: 0.6;" title="Available in Admin section">Recent</span>
+                <span class="btn-premium btn-premium-secondary" data-csp-style="padding: 8px 16px; font-size: 12px; opacity: 0.6;" title="Available in Admin section">Recent</span>
             </div>
-            <div class="section-card-body" style="padding: 0;">
+            <div class="section-card-body" data-csp-style="padding: 0;">
             <div class="activity-feed">
                 @if (Model.RecentActivity.Any())
                 {
@@ -372,8 +372,8 @@ else
                 }
                 else
                 {
-                    <div class="pe-empty" style="padding:1.5rem;">
-                        <i class="fas fa-history pe-empty__icon" style="font-size:1.2rem;"></i>
+                    <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                        <i class="fas fa-history pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                         <div class="pe-empty__text">
                             <p class="text-muted">No recent activity</p>
                         </div>
@@ -396,9 +396,9 @@ else
                     Quick Actions
                 </h3>
             </div>
-            <div class="section-card-body" style="padding: 16px;">
+            <div class="section-card-body" data-csp-style="padding: 16px;">
             <div class="quick-actions-grid">
-                <a asp-page="/Assets/Asset" asp-route-mode="create" class="quick-action-card" style="--action-color: #3b82f6;">
+                <a asp-page="/Assets/Asset" asp-route-mode="create" class="quick-action-card" data-csp-style="--action-color: #3b82f6;">
                     <div class="quick-action-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -409,7 +409,7 @@ else
                         <div class="quick-action-desc">Register equipment</div>
                     </div>
                 </a>
-                <a asp-page="/Journals/Index" class="quick-action-card" style="--action-color: #22c55e;">
+                <a asp-page="/Journals/Index" class="quick-action-card" data-csp-style="--action-color: #22c55e;">
                     <div class="quick-action-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -420,7 +420,7 @@ else
                         <div class="quick-action-desc">Generate journal entries</div>
                     </div>
                 </a>
-                <a asp-page="/Reports/ReportHub" class="quick-action-card" style="--action-color: #f59e0b;">
+                <a asp-page="/Reports/ReportHub" class="quick-action-card" data-csp-style="--action-color: #f59e0b;">
                     <div class="quick-action-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -431,7 +431,7 @@ else
                         <div class="quick-action-desc">Export schedules</div>
                     </div>
                 </a>
-                <a asp-page="/Maintenance/WorkRequests/Create" class="quick-action-card" style="--action-color: #8b5cf6;">
+                <a asp-page="/Maintenance/WorkRequests/Create" class="quick-action-card" data-csp-style="--action-color: #8b5cf6;">
                     <div class="quick-action-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -457,9 +457,9 @@ else
                     </svg>
                     Assets by Location
                 </h3>
-                <a href="/Assets" class="btn-premium btn-premium-secondary" style="padding: 8px 16px; font-size: 12px;">View All</a>
+                <a href="/Assets" class="btn-premium btn-premium-secondary" data-csp-style="padding: 8px 16px; font-size: 12px;">View All</a>
             </div>
-            <div class="section-card-body" style="padding: 0;">
+            <div class="section-card-body" data-csp-style="padding: 0;">
                 @if (Model.LocationBreakdown.Any())
                 {
                     <div class="location-breakdown">
@@ -472,7 +472,7 @@ else
                                     <span class="location-count">@loc.Count assets</span>
                                 </div>
                                 <div class="location-bar-container">
-                                    <div class="location-bar" style="width: @percentage.ToString("F0")%;"></div>
+                                    <div class="location-bar" data-csp-style="width: @percentage.ToString("F0")%;"></div>
                                 </div>
                                 <div class="location-value">@loc.Value.ToString("C2")</div>
                             </div>
@@ -481,8 +481,8 @@ else
                 }
                 else
                 {
-                    <div class="pe-empty" style="padding:1.5rem;">
-                        <i class="fas fa-map-marker-alt pe-empty__icon" style="font-size:1.2rem;"></i>
+                    <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                        <i class="fas fa-map-marker-alt pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                         <div class="pe-empty__text">
                             <p class="text-muted">No location data</p>
                         </div>

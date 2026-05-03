@@ -42,7 +42,7 @@
         </h3>
         <span class="status-badge info">@totalUsers USERS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
     <table class="data-table">
         <thead>
             <tr>
@@ -79,7 +79,7 @@
                         }
                         @if (user.AssignedSite != null)
                         {
-                            <br /><span class="badge badge-info" style="margin-top:2px;">@user.AssignedSite.Name</span>
+                            <br /><span class="badge badge-info" data-csp-style="margin-top:2px;">@user.AssignedSite.Name</span>
                         }
                     </td>
                     <td>
@@ -96,7 +96,7 @@
                     <td class="actions-cell">
                         <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="editUser(@user.Id, '@user.Username', '@(user.Email ?? "")', '@(user.FullName ?? "")', '@user.Role', @user.IsActive.ToString().ToLower(), @(user.AssignedCompanyId?.ToString() ?? "''"), @(user.AssignedSiteId?.ToString() ?? "''"))">Edit</button>
                         <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="resetPassword(@user.Id, '@user.Username')">Reset Password</button>
-                        <form method="post" asp-page-handler="ToggleActive" style="display: inline;">
+                        <form method="post" asp-page-handler="ToggleActive" data-csp-style="display: inline;">
                             <input type="hidden" name="userId" value="@user.Id" />
                             <button type="submit" class="btn-p btn-p--sm @(user.IsActive ? "btn-p--danger" : "btn-p--primary")">
                                 @(user.IsActive ? "Deactivate" : "Activate")
@@ -109,7 +109,7 @@
     </table>
 </div>
 
-<div id="createForm" class="inline-form-panel" style="display: none;">
+<div id="createForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -186,7 +186,7 @@
     </div>
 </div>
 
-<div id="editForm" class="inline-form-panel" style="display: none;">
+<div id="editForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -250,7 +250,7 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label class="checkbox-label" style="margin-top: 28px;">
+                            <label class="checkbox-label" data-csp-style="margin-top: 28px;">
                                 <input type="checkbox" name="isActive" id="editIsActive" value="true" />
                                 <span>User is active</span>
                             </label>
@@ -266,7 +266,7 @@
     </div>
 </div>
 
-<div id="resetForm" class="inline-form-panel" style="display: none;">
+<div id="resetForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">

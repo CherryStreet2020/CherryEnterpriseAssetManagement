@@ -36,7 +36,7 @@
         </h3>
         <span class="status-badge info">@totalRates RATES</span>
     </div>
-    <div class="section-card-body pe-card__body" style="padding: 0;">
+    <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
         @if (Model.Rates.Any())
         {
             <table class="data-table premium-table">
@@ -63,7 +63,7 @@
                             <td>@(rate.CreatedBy ?? "-")</td>
                             <td>
                                 <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="openEditRate(@rate.Id, '@rate.FromCurrency', '@rate.ToCurrency', @rate.Rate, '@rate.EffectiveDate.ToString("yyyy-MM-dd")')">Edit</button>
-                                <form method="post" asp-page-handler="Delete" style="display: inline;">
+                                <form method="post" asp-page-handler="Delete" data-csp-style="display: inline;">
                                     <input type="hidden" name="id" value="@rate.Id" />
                                     <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Delete this rate?')">Delete</button>
                                 </form>
@@ -75,8 +75,8 @@
         }
         else
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-coins pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-coins pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">
                     <p>No exchange rates configured. Add rates to enable multi-currency reporting.</p>
                 </div>
@@ -85,7 +85,7 @@
     </div>
 </div>
 
-<div id="addForm" class="inline-form-panel" style="display: none;">
+<div id="addForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">
@@ -144,7 +144,7 @@
     </div>
 </div>
 
-<div id="editForm" class="inline-form-panel" style="display: none;">
+<div id="editForm" class="inline-form-panel" data-csp-style="display: none;">
     <div class="inline-form-panel-content">
         <div class="inline-form-header">
             <div class="inline-form-header-content">

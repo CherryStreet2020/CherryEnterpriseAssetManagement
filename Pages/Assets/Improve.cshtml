@@ -10,8 +10,8 @@
 {
     <div class="section-card">
         <div class="section-card-body">
-            <div class="pe-empty" style="padding:2rem;">
-                <i class="fas fa-box-open pe-empty__icon" style="font-size:1.5rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:2rem;">
+                <i class="fas fa-box-open pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                 <div class="pe-empty__title">Asset Not Found</div>
                 <div class="pe-empty__text">The asset you're looking for doesn't exist or has been removed.</div>
                 <a asp-page="./Index" class="btn-p btn-p--primary">Back to Assets</a>
@@ -47,13 +47,13 @@
 
     @if (!ViewData.ModelState.IsValid)
     {
-        <div class="alert alert-danger" role="alert" style="margin-bottom:12px;">
+        <div class="alert alert-danger" role="alert" data-csp-style="margin-bottom:12px;">
             <div asp-validation-summary="All" class="text-danger"></div>
         </div>
     }
     else if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
-        <div class="alert alert-danger" role="alert" style="margin-bottom:12px;">@Model.ErrorMessage</div>
+        <div class="alert alert-danger" role="alert" data-csp-style="margin-bottom:12px;">@Model.ErrorMessage</div>
     }
     
     <div class="section-card">
@@ -66,16 +66,16 @@
             </h3>
         </div>
         <div class="section-card-body">
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
                     <label asp-for="ImprovementDate" class="form-label">Improvement Date <span class="text-danger">*</span></label>
                     <input asp-for="ImprovementDate" type="date" class="form-control" required />
                 </div>
                 <div class="form-group">
                     <label asp-for="Cost" class="form-label">Cost <span class="text-danger">*</span></label>
-                    <div style="position: relative;">
-                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">$</span>
-                        <input asp-for="Cost" type="number" step="0.01" min="0" class="form-control" style="padding-left: 28px;" required />
+                    <div data-csp-style="position: relative;">
+                        <span data-csp-style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">$</span>
+                        <input asp-for="Cost" type="number" step="0.01" min="0" class="form-control" data-csp-style="padding-left: 28px;" required />
                     </div>
                 </div>
             </div>
@@ -83,7 +83,7 @@
                 <label asp-for="Description" class="form-label">Description <span class="text-danger">*</span></label>
                 <input asp-for="Description" class="form-control" placeholder="e.g., New spindle motor, control system upgrade" required />
             </div>
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
                     <label asp-for="Vendor" class="form-label">Vendor</label>
                     <input asp-for="Vendor" class="form-control" placeholder="e.g., Mazak USA" />
@@ -93,7 +93,7 @@
                     <input asp-for="InvoiceNumber" class="form-control" placeholder="e.g., INV-2026-001" />
                 </div>
             </div>
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="form-row" data-csp-style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                 <div class="form-group">
                     <label asp-for="UsefulLifeExtension" class="form-label">Useful Life Extension (Months)</label>
                     <input asp-for="UsefulLifeExtension" type="number" min="0" class="form-control" placeholder="0" />
@@ -101,9 +101,9 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Capitalize?</label>
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-secondary); border-radius: 8px;">
-                        <input asp-for="Capitalize" type="checkbox" id="capitalize" style="width: 20px; height: 20px;" checked />
-                        <label for="capitalize" style="margin: 0; cursor: pointer;">Add to asset cost basis</label>
+                    <div data-csp-style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-secondary); border-radius: 8px;">
+                        <input asp-for="Capitalize" type="checkbox" id="capitalize" data-csp-style="width: 20px; height: 20px;" checked />
+                        <label for="capitalize" data-csp-style="margin: 0; cursor: pointer;">Add to asset cost basis</label>
                     </div>
                 </div>
             </div>
@@ -147,8 +147,8 @@
                 </h3>
                 <span class="status-badge info">@improvementCount RECORDS</span>
             </div>
-            <div class="section-card-body" style="padding: 0;">
-                <div style="padding: 16px;">
+            <div class="section-card-body" data-csp-style="padding: 0;">
+                <div data-csp-style="padding: 16px;">
                     @foreach (var imp in Model.PreviousImprovements)
                     {
                         <div class="history-item">
@@ -163,7 +163,7 @@
     }
 
     <div class="section-card">
-        <div class="section-card-body" style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="section-card-body" data-csp-style="display: flex; justify-content: space-between; align-items: center;">
             <a asp-page="./Asset" asp-route-id="@Model.AssetId" class="btn-p btn-p--secondary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

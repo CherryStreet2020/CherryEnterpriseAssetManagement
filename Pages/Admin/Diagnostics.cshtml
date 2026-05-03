@@ -7,12 +7,12 @@
     Layout = "_ModernLayout";
 }
 
-<div class="legacy-banner" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<div class="legacy-banner" data-csp-style="margin-bottom: 1.5rem;">
+    <div data-csp-style="display: flex; align-items: center; gap: 0.75rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" data-csp-style="width: 24px; height: 24px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <span style="font-weight: 500;">Legacy page: not used in the current workflow.</span>
+        <span data-csp-style="font-weight: 500;">Legacy page: not used in the current workflow.</span>
     </div>
     <a href="/Admin" class="legacy-banner-link">Go to Admin Hub</a>
 </div>
@@ -33,7 +33,7 @@
     <h1>System Diagnostics</h1>
     <p>Real-time database and application health status</p>
     
-    <div class="info-grid" style="margin-top: 1.5rem;">
+    <div class="info-grid" data-csp-style="margin-top: 1.5rem;">
         <div class="info-card">
             <div class="info-card-label">Environment</div>
             <div class="info-card-value">@(string.IsNullOrEmpty(Model.EnvironmentName) ? "Production" : Model.EnvironmentName)</div>
@@ -79,34 +79,34 @@
 <div class="section-card">
     <div class="section-card-header">Core EAM Loop Health</div>
     <div class="section-card-body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-            <div style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
-                <div class="@(Model.AssetCount > 0 ? "text-dark-emerald" : "text-red")" style="font-size: 2rem; font-weight: 700;">@Model.AssetCount</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase;">Assets</div>
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div data-csp-style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
+                <div class="@(Model.AssetCount > 0 ? "text-dark-emerald" : "text-red")" data-csp-style="font-size: 2rem; font-weight: 700;">@Model.AssetCount</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase;">Assets</div>
             </div>
-            <div style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
-                <div class="@(Model.PMTemplateCount > 0 ? "text-dark-emerald" : "text-red")" style="font-size: 2rem; font-weight: 700;">@Model.PMTemplateCount</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase;">PM Templates</div>
+            <div data-csp-style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
+                <div class="@(Model.PMTemplateCount > 0 ? "text-dark-emerald" : "text-red")" data-csp-style="font-size: 2rem; font-weight: 700;">@Model.PMTemplateCount</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase;">PM Templates</div>
             </div>
-            <div style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
-                <div class="@(Model.PMTemplateAssetCount > 0 ? "text-dark-emerald" : "text-red")" style="font-size: 2rem; font-weight: 700;">@Model.PMTemplateAssetCount</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase;">PM Assignments</div>
+            <div data-csp-style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
+                <div class="@(Model.PMTemplateAssetCount > 0 ? "text-dark-emerald" : "text-red")" data-csp-style="font-size: 2rem; font-weight: 700;">@Model.PMTemplateAssetCount</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase;">PM Assignments</div>
             </div>
-            <div style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
-                <div class="text-theme-primary" style="font-size: 2rem; font-weight: 700;">@Model.MaintenanceEventCount</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase;">Work Orders</div>
+            <div data-csp-style="text-align: center; padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px;">
+                <div class="text-theme-primary" data-csp-style="font-size: 2rem; font-weight: 700;">@Model.MaintenanceEventCount</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase;">Work Orders</div>
             </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-            <div class="@(Model.CoreLoopReady ? "bg-green-soft" : "bg-amber-soft")" style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.CoreLoopReady ? "var(--success-soft, #bbf7d0)" : "var(--warning-soft, #fde047)");">
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Core Loop Ready</div>
-                <div class="@(Model.CoreLoopReady ? "text-dark-emerald" : "text-dark-amber")" style="font-weight: 600;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="@(Model.CoreLoopReady ? "bg-green-soft" : "bg-amber-soft")" data-csp-style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.CoreLoopReady ? "var(--success-soft, #bbf7d0)" : "var(--warning-soft, #fde047)");">
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Core Loop Ready</div>
+                <div class="@(Model.CoreLoopReady ? "text-dark-emerald" : "text-dark-amber")" data-csp-style="font-weight: 600;">
                     @(Model.CoreLoopReady ? "YES - Templates & Assignments exist" : "NO - Missing templates or assignments")
                 </div>
             </div>
-            <div class="@(Model.PMTALinkedWOCount > 0 ? "bg-green-soft" : "bg-surface-alt")" style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.PMTALinkedWOCount > 0 ? "var(--success-soft, #bbf7d0)" : "var(--lux-border, #e2e8f0)");">
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">PMTA Linkage Health</div>
-                <div class="@(Model.PMTALinkedWOCount > 0 ? "text-dark-emerald" : "text-theme-muted")" style="font-weight: 600;">
+            <div class="@(Model.PMTALinkedWOCount > 0 ? "bg-green-soft" : "bg-surface-alt")" data-csp-style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.PMTALinkedWOCount > 0 ? "var(--success-soft, #bbf7d0)" : "var(--lux-border, #e2e8f0)");">
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">PMTA Linkage Health</div>
+                <div class="@(Model.PMTALinkedWOCount > 0 ? "text-dark-emerald" : "text-theme-muted")" data-csp-style="font-weight: 600;">
                     @Model.PMTALinkedWOCount WOs with PMTA: linkage
                 </div>
             </div>
@@ -117,20 +117,20 @@
 <div class="section-card">
     <div class="section-card-header">Configuration & Warnings</div>
     <div class="section-card-body">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-            <div class="@(Model.ThrowOnFirstWarning ? "bg-amber-soft" : "bg-green-soft")" style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.ThrowOnFirstWarning ? "var(--warning-soft, #fde047)" : "var(--success-soft, #bbf7d0)");">
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">EF Warning Mode</div>
-                <div class="@(Model.ThrowOnFirstWarning ? "text-dark-amber" : "text-dark-emerald")" style="font-weight: 600;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div class="@(Model.ThrowOnFirstWarning ? "bg-amber-soft" : "bg-green-soft")" data-csp-style="padding: 1rem; border-radius: 8px; border: 1px solid @(Model.ThrowOnFirstWarning ? "var(--warning-soft, #fde047)" : "var(--success-soft, #bbf7d0)");">
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">EF Warning Mode</div>
+                <div class="@(Model.ThrowOnFirstWarning ? "text-dark-amber" : "text-dark-emerald")" data-csp-style="font-weight: 600;">
                     @(Model.ThrowOnFirstWarning ? "THROW (Debug Mode)" : "Log (Normal)")
                 </div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; margin-top: 0.25rem;">
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; margin-top: 0.25rem;">
                     THROW_EF_FIRST_WARNING=@(Model.ThrowOnFirstWarning ? "true" : "false")
                 </div>
             </div>
-            <div style="padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0);">
-                <div class="text-theme-muted" style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Seeding Status</div>
-                <div class="text-theme-primary" style="font-weight: 600;">@Model.SeedingStatus</div>
-                <div class="text-theme-muted" style="font-size: 0.75rem; margin-top: 0.25rem;">
+            <div data-csp-style="padding: 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0);">
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Seeding Status</div>
+                <div class="text-theme-primary" data-csp-style="font-weight: 600;">@Model.SeedingStatus</div>
+                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; margin-top: 0.25rem;">
                     AUTO_SEED_ON_EMPTY=@(Model.AutoSeedEnabled ? "true" : "false")
                 </div>
             </div>
@@ -139,9 +139,9 @@
 </div>
 
 <div class="section-card">
-    <div class="section-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+    <div class="section-card-header" data-csp-style="display: flex; justify-content: space-between; align-items: center;">
         <span>Seed Coverage Health</span>
-        <div style="display: flex; gap: 0.5rem;">
+        <div data-csp-style="display: flex; gap: 0.5rem;">
             @if (Model.CriticalMissingCount > 0)
             {
                 <span class="badge-red">
@@ -163,7 +163,7 @@
         </div>
     </div>
     <div class="section-card-body">
-        <div style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px; font-size: 0.875rem;">
+        <div data-csp-style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: var(--lux-surface-alt, #f8fafc); border-radius: 8px; font-size: 0.875rem;">
             <strong>Last Seed Run:</strong> 
             @if (Model.LastSeedRun.HasValue)
             {
@@ -175,7 +175,7 @@
             }
         </div>
         
-        <h4 class="text-theme-secondary" style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem;">Critical Masters</h4>
+        <h4 class="text-theme-secondary" data-csp-style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem;">Critical Masters</h4>
         <div class="master-grid">
             @foreach (var master in Model.CriticalMasters)
             {
@@ -184,7 +184,7 @@
                         @master.Name
                         @if (master.IsCritical)
                         {
-                            <span class="text-red" style="font-size: 0.625rem; vertical-align: super;">*</span>
+                            <span class="text-red" data-csp-style="font-size: 0.625rem; vertical-align: super;">*</span>
                         }
                     </span>
                     <span class="master-count @(master.Count == 0 ? "health-critical" : master.IsHealthy ? "health-ok" : "health-warning")">
@@ -193,13 +193,13 @@
                 </div>
             }
         </div>
-        <p class="text-theme-muted" style="font-size: 0.75rem; margin-top: 0.75rem;">* Critical masters required for basic operations</p>
+        <p class="text-theme-muted" data-csp-style="font-size: 0.75rem; margin-top: 0.75rem;">* Critical masters required for basic operations</p>
     </div>
 </div>
 
 <div class="section-card">
     <div class="section-card-header">Recent Bulk Operations (Latest 10)</div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="bulk-ops-table">
             <thead>
                 <tr>
@@ -231,7 +231,7 @@
                 @if (!Model.RecentBulkOperations.Any())
                 {
                     <tr>
-                        <td colspan="5" class="text-theme-muted" style="text-align: center; padding: 2rem;">No bulk operations recorded</td>
+                        <td colspan="5" class="text-theme-muted" data-csp-style="text-align: center; padding: 2rem;">No bulk operations recorded</td>
                     </tr>
                 }
             </tbody>
@@ -257,13 +257,13 @@
     </div>
 </div>
 
-<div class="section-card" style="margin-top: 1.5rem;">
+<div class="section-card" data-csp-style="margin-top: 1.5rem;">
     <div class="section-card-header">
         <h3 class="section-card-title">Technical Mapping (Admin Only)</h3>
     </div>
-    <div class="section-card-body text-theme-muted" style="font-size: 0.8rem;">
-        <p style="margin: 0 0 0.5rem 0;">Internal entity names for developer reference:</p>
-        <ul style="margin: 0; padding-left: 1.5rem; line-height: 1.8;">
+    <div class="section-card-body text-theme-muted" data-csp-style="font-size: 0.8rem;">
+        <p data-csp-style="margin: 0 0 0.5rem 0;">Internal entity names for developer reference:</p>
+        <ul data-csp-style="margin: 0; padding-left: 1.5rem; line-height: 1.8;">
             <li><strong>Work Orders</strong> are stored as <code class="code-inline">MaintenanceEvents</code></li>
             <li><strong>Assets</strong> are stored as <code class="code-inline">Assets</code></li>
             <li><strong>CIP Projects</strong> are stored as <code class="code-inline">CipProjects</code></li>

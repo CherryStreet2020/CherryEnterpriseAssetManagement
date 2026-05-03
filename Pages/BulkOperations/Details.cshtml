@@ -87,9 +87,9 @@
             </div>
             @if (!string.IsNullOrEmpty(Model.Operation.Description))
             {
-                <div class="detail-description" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-primary, #e2e8f0);">
+                <div class="detail-description" data-csp-style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-primary, #e2e8f0);">
                     <span class="detail-label">Description</span>
-                    <p class="text-theme-primary" style="margin: 8px 0 0 0;">@Model.Operation.Description</p>
+                    <p class="text-theme-primary" data-csp-style="margin: 8px 0 0 0;">@Model.Operation.Description</p>
                 </div>
             }
         </div>
@@ -117,7 +117,7 @@
 
 @if (Model.AffectedAssets.Any())
 {
-    <div class="section-card" style="margin-top: 24px;">
+    <div class="section-card" data-csp-style="margin-top: 24px;">
         <div class="section-card-header">
             <h3 class="section-card-title">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -127,7 +127,7 @@
             </h3>
             <span class="status-badge info">@Model.AffectedAssets.Count() ASSETS</span>
         </div>
-        <div class="section-card-body" style="padding: 0;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
             <table class="data-table">
                 <thead>
                     <tr>

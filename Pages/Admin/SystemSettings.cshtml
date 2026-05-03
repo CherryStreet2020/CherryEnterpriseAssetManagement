@@ -77,7 +77,7 @@
                                     <td>@(period.LockedBy ?? "System")</td>
                                     <td><span class="badge @(period.IsLocked ? "badge-danger" : "badge-success")">@(period.IsLocked ? "Locked" : "Unlocked")</span></td>
                                     <td>
-                                        <form method="post" asp-page-handler="UnlockPeriod" style="display: inline;">
+                                        <form method="post" asp-page-handler="UnlockPeriod" data-csp-style="display: inline;">
                                             <input type="hidden" name="id" value="@period.Id" />
                                             <button type="submit" class="btn-p btn-p--danger btn-p--sm" onclick="return confirm('Unlock this period? Users will be able to modify transactions.')">Unlock</button>
                                         </form>
@@ -90,7 +90,7 @@
             }
             else
             {
-                <p class="text-muted" style="margin-top: 16px;">No periods are currently locked.</p>
+                <p class="text-muted" data-csp-style="margin-top: 16px;">No periods are currently locked.</p>
             }
         </div>
     </div>
@@ -153,12 +153,12 @@
             
             <div class="form-group">
                 <label>Archive disposed assets after (years)</label>
-                <select class="form-control" style="max-width: 200px;" asp-items="Model.RetentionOptions"></select>
+                <select class="form-control" data-csp-style="max-width: 200px;" asp-items="Model.RetentionOptions"></select>
             </div>
             
             <div class="form-group">
                 <label>Retain audit logs for (years)</label>
-                <select class="form-control" style="max-width: 200px;" asp-items="Model.RetentionOptions"></select>
+                <select class="form-control" data-csp-style="max-width: 200px;" asp-items="Model.RetentionOptions"></select>
             </div>
         </div>
     </div>

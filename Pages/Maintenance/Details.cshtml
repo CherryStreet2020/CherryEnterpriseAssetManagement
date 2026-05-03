@@ -346,7 +346,7 @@
                     <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('inlineUploadForm').toggleAttribute('hidden')">Upload File</button>
                 </div>
                 <div class="card-body pe-card__body">
-                    <div id="inlineUploadForm" class="pe-card" hidden style="margin-bottom: 1rem; border: 1px solid var(--border-primary);">
+                    <div id="inlineUploadForm" class="pe-card" hidden data-csp-style="margin-bottom: 1rem; border: 1px solid var(--border-primary);">
                         <div class="pe-card__header">
                             <h4 class="pe-card__title">Upload Attachment</h4>
                             <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineUploadForm').setAttribute('hidden','')">Cancel</button>
@@ -354,7 +354,7 @@
                         <div class="pe-card__body">
                             <form method="post" asp-page-handler="Upload" asp-route-id="@Model.Event.Id" enctype="multipart/form-data">
                                 <div class="form-grid form-grid--2">
-                                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                                    <div class="form-group-p" data-csp-style="grid-column: 1 / -1;">
                                         <label class="form-label-p">File <span class="required">*</span></label>
                                         <input type="file" name="file" class="form-input-p" required />
                                     </div>
@@ -367,7 +367,7 @@
                                         <input type="text" name="description" class="form-input-p" placeholder="Brief description..." />
                                     </div>
                                 </div>
-                                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                                <div class="pe-action-bar pe-action-bar--right" data-csp-style="margin-top: 1rem;">
                                     <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('inlineUploadForm').setAttribute('hidden','')">Cancel</button>
                                     <button type="submit" class="btn-p btn-p--primary btn-p--sm">Upload</button>
                                 </div>
@@ -572,7 +572,7 @@
 <!-- Inline Edit Form (replaces editModal) -->
 @if (Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled)
 {
-    <div id="inlineEditForm" class="pe-card" hidden style="margin-top: 1rem;">
+    <div id="inlineEditForm" class="pe-card" hidden data-csp-style="margin-top: 1rem;">
         <div class="pe-card__header">
             <h3 class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Edit Work Order</h3>
             <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineEditForm').setAttribute('hidden','')">Cancel</button>
@@ -607,7 +607,7 @@
                         <label class="form-label-p">Vendor</label>
                         <input type="text" name="vendor" class="form-input-p" value="@Model.Event.Vendor" placeholder="Vendor name..." />
                     </div>
-                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                    <div class="form-group-p" data-csp-style="grid-column: 1 / -1;">
                         <label class="form-label-p">Technician</label>
                         <select name="technicianId" class="form-input-p" data-cherry-select data-placeholder="Select technician...">
                             <option value="">-- Select Technician --</option>
@@ -624,16 +624,16 @@
                             }
                         </select>
                     </div>
-                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                    <div class="form-group-p" data-csp-style="grid-column: 1 / -1;">
                         <label class="form-label-p">Description</label>
                         <textarea name="description" class="form-input-p" rows="2" placeholder="Describe the maintenance work...">@Model.Event.Description</textarea>
                     </div>
-                    <div class="form-group-p" style="grid-column: 1 / -1;">
+                    <div class="form-group-p" data-csp-style="grid-column: 1 / -1;">
                         <label class="form-label-p">Notes</label>
                         <textarea name="notes" class="form-input-p" rows="2" placeholder="Additional notes...">@Model.Event.Notes</textarea>
                     </div>
                 </div>
-                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                <div class="pe-action-bar pe-action-bar--right" data-csp-style="margin-top: 1rem;">
                     <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineEditForm').setAttribute('hidden','')">Cancel</button>
                     <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
                 </div>
@@ -645,7 +645,7 @@
 <!-- Inline Complete Form (replaces completeModal) -->
 @if (Model.Event.Status == MaintenanceStatus.InProgress)
 {
-    <div id="inlineCompleteForm" class="pe-card" hidden style="margin-top: 1rem;">
+    <div id="inlineCompleteForm" class="pe-card" hidden data-csp-style="margin-top: 1rem;">
         <div class="pe-card__header">
             <h3 class="pe-card__title"><span class="accent-dot accent-dot--green"></span> Complete Work Order</h3>
             <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineCompleteForm').setAttribute('hidden','')">Cancel</button>
@@ -658,7 +658,7 @@
                         <textarea name="resolution" class="form-input-p" rows="3" placeholder="Describe the work completed..."></textarea>
                     </div>
                 </div>
-                <div class="form-grid form-grid--2" style="margin-top: 1rem;">
+                <div class="form-grid form-grid--2" data-csp-style="margin-top: 1rem;">
                     <div class="form-group-p">
                         <label class="form-label-p">Labor Cost</label>
                         <div class="input-group-currency">
@@ -688,7 +688,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                <div class="pe-action-bar pe-action-bar--right" data-csp-style="margin-top: 1rem;">
                     <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineCompleteForm').setAttribute('hidden','')">Cancel</button>
                     <button type="submit" class="btn-p btn-p--success">Complete Event</button>
                 </div>
@@ -700,14 +700,14 @@
 <!-- Inline Capitalize Form (replaces capitalizeModal) -->
 @if (Model.Event.Status == MaintenanceStatus.Completed && Model.Event.AssetId > 0 && !Model.IsCapitalized)
 {
-    <div id="inlineCapitalizeForm" class="pe-card" hidden style="margin-top: 1rem;">
+    <div id="inlineCapitalizeForm" class="pe-card" hidden data-csp-style="margin-top: 1rem;">
         <div class="pe-card__header">
             <h3 class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Capitalize to Asset</h3>
             <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="document.getElementById('inlineCapitalizeForm').setAttribute('hidden','')">Cancel</button>
         </div>
         <div class="pe-card__body">
             <form method="post" asp-page-handler="Capitalize" asp-route-id="@Model.Event.Id">
-                <div class="pe-alert pe-alert--info" style="margin-bottom: 1rem;">
+                <div class="pe-alert pe-alert--info" data-csp-style="margin-bottom: 1rem;">
                     <strong>Asset:</strong> @Model.Event.Asset?.AssetNumber - @Model.Event.Asset?.Description
                 </div>
                 <div class="form-grid form-grid--full">
@@ -730,13 +730,13 @@
                                placeholder="Brief description of improvement..." />
                     </div>
                 </div>
-                <div class="pe-alert pe-alert--warning" style="margin-top: 1rem;">
+                <div class="pe-alert pe-alert--warning" data-csp-style="margin-top: 1rem;">
                     <strong>What happens when you capitalize:</strong>
                     A Capital Improvement record is created, the asset's cost basis is increased, and this work order is linked to the improvement.
                 </div>
-                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                <div class="pe-action-bar pe-action-bar--right" data-csp-style="margin-top: 1rem;">
                     <button type="button" class="btn-p btn-p--secondary" onclick="document.getElementById('inlineCapitalizeForm').setAttribute('hidden','')">Cancel</button>
-                    <button type="submit" class="btn-p btn-p--primary" style="background: var(--warning); color: #fff;">Capitalize to Asset</button>
+                    <button type="submit" class="btn-p btn-p--primary" data-csp-style="background: var(--warning); color: #fff;">Capitalize to Asset</button>
                 </div>
             </form>
         </div>

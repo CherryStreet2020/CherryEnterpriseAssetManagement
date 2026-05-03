@@ -7,12 +7,12 @@
     var totalWorkOrders = Model.WorkOrders.Count;
 }
 
-<div class="legacy-banner" style="margin-bottom: 1.5rem;">
-    <div style="display: flex; align-items: center; gap: 0.75rem;">
-        <svg xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<div class="legacy-banner" data-csp-style="margin-bottom: 1.5rem;">
+    <div data-csp-style="display: flex; align-items: center; gap: 0.75rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" data-csp-style="width: 24px; height: 24px; flex-shrink: 0;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        <span style="font-weight: 500;">Legacy page: not used in the current workflow.</span>
+        <span data-csp-style="font-weight: 500;">Legacy page: not used in the current workflow.</span>
     </div>
     <a href="/Maintenance" class="legacy-banner-link">Go to Maintenance</a>
 </div>
@@ -41,7 +41,7 @@
         </h3>
         <span class="status-badge info">@totalWorkOrders WORK ORDERS</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
         @if (Model.WorkOrders.Any())
         {
@@ -84,8 +84,8 @@
         }
         else
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-clipboard-list pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-clipboard-list pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">
                     <h3>No Work Orders</h3>
                     <p>Create your first work order from the Maintenance page.</p>

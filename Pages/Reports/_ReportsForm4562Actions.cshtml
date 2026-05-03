@@ -1,17 +1,17 @@
 @model Abs.FixedAssets.Pages.Reports.Form4562Model
 <div class="hero-tags">
-    <form method="get" style="display: flex; gap: 12px; align-items: center;">
-        <select name="taxYear" class="form-select" style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+    <form method="get" data-csp-style="display: flex; gap: 12px; align-items: center;">
+        <select name="taxYear" class="form-select" data-csp-style="width: 120px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
             @for (int y = DateTime.Now.Year; y >= 2020; y--)
             {
-                <option value="@y" selected="@(y == Model.TaxYear)" style="color: black;">@y</option>
+                <option value="@y" selected="@(y == Model.TaxYear)" data-csp-style="color: black;">@y</option>
             }
         </select>
-        <select name="companyId" class="form-select" style="width: 200px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
-            <option value="" style="color: black;">All Companies</option>
+        <select name="companyId" class="form-select" data-csp-style="width: 200px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;" onchange="this.form.submit()">
+            <option value="" data-csp-style="color: black;">All Companies</option>
             @foreach (var c in Model.Companies)
             {
-                <option value="@c.Id" selected="@(c.Id == Model.SelectedCompanyId)" style="color: black;">@c.Name</option>
+                <option value="@c.Id" selected="@(c.Id == Model.SelectedCompanyId)" data-csp-style="color: black;">@c.Name</option>
             }
         </select>
     </form>

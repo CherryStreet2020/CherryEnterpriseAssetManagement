@@ -40,18 +40,18 @@
         </h3>
         <span class="status-badge info">@totalVendors VENDORS</span>
     </div>
-    <div class="section-card-body pe-card__body" style="padding: 0;">
+    <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
         <table class="data-table premium-table" id="vendorGrid" data-enhanced-grid="true">
             <thead>
                 <tr>
-                    <th style="width: 100px;" data-col="Code" data-filter="text">Code</th>
-                    <th style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
-                    <th style="width: 120px;" data-col="Type" data-filter="select" data-filter-options="Supplier|Contractor|Manufacturer|ServiceProvider">Type</th>
-                    <th style="min-width: 140px;" data-col="Contact" data-filter="text">Contact</th>
-                    <th style="width: 130px; white-space: nowrap;" data-col="Phone" data-filter="text">Phone</th>
-                    <th style="min-width: 180px;" data-col="Email" data-filter="text">Email</th>
-                    <th style="width: 100px;" data-col="Terms" data-filter="select" data-filter-options="Net30|Net45|Net60|Net90|DueOnReceipt">Terms</th>
-                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                    <th data-csp-style="width: 100px;" data-col="Code" data-filter="text">Code</th>
+                    <th data-csp-style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
+                    <th data-csp-style="width: 120px;" data-col="Type" data-filter="select" data-filter-options="Supplier|Contractor|Manufacturer|ServiceProvider">Type</th>
+                    <th data-csp-style="min-width: 140px;" data-col="Contact" data-filter="text">Contact</th>
+                    <th data-csp-style="width: 130px; white-space: nowrap;" data-col="Phone" data-filter="text">Phone</th>
+                    <th data-csp-style="min-width: 180px;" data-col="Email" data-filter="text">Email</th>
+                    <th data-csp-style="width: 100px;" data-col="Terms" data-filter="select" data-filter-options="Net30|Net45|Net60|Net90|DueOnReceipt">Terms</th>
+                    <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -59,10 +59,10 @@
                 {
                     <tr class="clickable-row" onclick="window.location='/Materials/Vendors/Edit/@vendor.Id'">
                         <td><strong class="text-primary">@vendor.Code</strong></td>
-                        <td style="font-weight: 500;">@vendor.Name</td>
+                        <td data-csp-style="font-weight: 500;">@vendor.Name</td>
                         <td><span class="badge badge-outline">@vendor.VendorType</span></td>
                         <td>@(vendor.ContactName ?? "—")</td>
-                        <td style="white-space: nowrap;">@(vendor.Phone ?? "—")</td>
+                        <td data-csp-style="white-space: nowrap;">@(vendor.Phone ?? "—")</td>
                         <td>
                             @if (!string.IsNullOrEmpty(vendor.Email))
                             {

@@ -87,24 +87,24 @@
             </svg>
             @Model.FilterLabel
         </h3>
-        <p style="color: var(--text-muted); font-size: 13px; margin: 0;">
+        <p data-csp-style="color: var(--text-muted); font-size: 13px; margin: 0;">
             @(Model.Filter != null ? "Filtered view" : "Browse and manage all fixed assets")
         </p>
     </div>
     
-    <div style="overflow-x: auto;">
+    <div data-csp-style="overflow-x: auto;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
         <table class="data-table" id="assetGrid" data-enhanced-grid="true" data-row-click="true">
             <thead>
                 <tr>
-                    <th style="width: 110px;" data-col="Asset #" data-filter="text">Asset #</th>
-                    <th style="min-width: 200px;" data-col="Description" data-filter="text">Description</th>
-                    <th style="width: 130px;" data-col="Model" data-filter="text">Model</th>
-                    <th style="width: 130px;" data-col="Location" data-filter="text">Location</th>
-                    <th style="width: 70px;" data-col="Year" data-filter="number">Year</th>
-                    <th style="text-align: right; width: 120px;" data-col="Cost" data-filter="number">Cost</th>
-                    <th style="text-align: right; width: 120px;" data-col="Book Value" data-filter="number">Book Value</th>
-                    <th style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                    <th data-csp-style="width: 110px;" data-col="Asset #" data-filter="text">Asset #</th>
+                    <th data-csp-style="min-width: 200px;" data-col="Description" data-filter="text">Description</th>
+                    <th data-csp-style="width: 130px;" data-col="Model" data-filter="text">Model</th>
+                    <th data-csp-style="width: 130px;" data-col="Location" data-filter="text">Location</th>
+                    <th data-csp-style="width: 70px;" data-col="Year" data-filter="number">Year</th>
+                    <th data-csp-style="text-align: right; width: 120px;" data-col="Cost" data-filter="number">Cost</th>
+                    <th data-csp-style="text-align: right; width: 120px;" data-col="Book Value" data-filter="number">Book Value</th>
+                    <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -112,12 +112,12 @@
                 {
                     <tr data-row-id="@a.Id" data-row-href="@Url.Page("/Assets/Asset", new { id = a.Id, returnUrl = returnUrl })">
                         <td><strong class="text-primary">@a.AssetNumber</strong></td>
-                        <td style="max-width: 280px;">
-                            <div style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@a.Description">
+                        <td data-csp-style="max-width: 280px;">
+                            <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@a.Description">
                                 @a.Description
                             </div>
                         </td>
-                        <td style="color: var(--text-secondary);">@(a.Model ?? "-")</td>
+                        <td data-csp-style="color: var(--text-secondary);">@(a.Model ?? "-")</td>
                         <td>
                             @if (a.LocationRef != null)
                             {
@@ -129,8 +129,8 @@
                             }
                         </td>
                         <td>@(a.FiscalPurchaseYear?.ToString() ?? "-")</td>
-                        <td style="text-align: right; font-weight: 600;">@a.AcquisitionCost.ToString("C2")</td>
-                        <td style="text-align: right; color: var(--text-secondary); font-weight: 500;">@((a.BookValue ?? 0).ToString("C2"))</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@a.AcquisitionCost.ToString("C2")</td>
+                        <td data-csp-style="text-align: right; color: var(--text-secondary); font-weight: 500;">@((a.BookValue ?? 0).ToString("C2"))</td>
                         <td>
                             @if (a.Active)
                             {
@@ -149,8 +149,8 @@
     
     @if (!Model.Assets.Any())
     {
-        <div class="pe-empty" style="padding:2rem;">
-            <i class="fas fa-box-open pe-empty__icon" style="font-size:1.5rem;"></i>
+        <div class="pe-empty" data-csp-style="padding:2rem;">
+            <i class="fas fa-box-open pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
             <div class="pe-empty__title">No assets found</div>
             <div class="pe-empty__text">Get started by adding your first asset</div>
             <a asp-page="./Asset" asp-route-mode="create" class="btn-premium btn-premium-primary">Add First Asset</a>
@@ -159,14 +159,14 @@
 </div>
 
 <div class="section-card">
-    <div class="section-card-body" style="padding: 16px 24px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
+    <div class="section-card-body" data-csp-style="padding: 16px 24px;">
+        <div data-csp-style="display: flex; align-items: center; gap: 12px;">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="var(--primary)">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-                <strong style="color: var(--primary);">Tip:</strong>
-                <span style="color: var(--text-secondary);">Use the search bar to quickly find assets by number, description, or location. Click on any asset to view its full depreciation schedule.</span>
+                <strong data-csp-style="color: var(--primary);">Tip:</strong>
+                <span data-csp-style="color: var(--text-secondary);">Use the search bar to quickly find assets by number, description, or location. Click on any asset to view its full depreciation schedule.</span>
             </div>
         </div>
     </div>

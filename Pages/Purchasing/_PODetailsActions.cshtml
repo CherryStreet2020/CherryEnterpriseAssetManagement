@@ -16,7 +16,7 @@
     </a>
     @if (canEdit && po.Lines.Any())
     {
-        <form method="post" asp-page-handler="SubmitForApproval" style="display: inline;">
+        <form method="post" asp-page-handler="SubmitForApproval" data-csp-style="display: inline;">
             <input type="hidden" name="id" value="@po.Id" />
             <button type="submit" class="hero-btn hero-btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -28,7 +28,7 @@
     }
     @if (po.Status == POStatus.PendingApproval)
     {
-        <form method="post" asp-page-handler="Approve" style="display: inline;">
+        <form method="post" asp-page-handler="Approve" data-csp-style="display: inline;">
             <input type="hidden" name="id" value="@po.Id" />
             <button type="submit" class="hero-btn hero-btn-success">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">

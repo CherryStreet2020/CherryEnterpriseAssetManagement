@@ -25,7 +25,7 @@
 
 @* Revision Bar - Visible under hero for non-new items *@
 
-<div style="padding: 1rem 2rem 0;">
+<div data-csp-style="padding: 1rem 2rem 0;">
     @await Html.PartialAsync("_BackLink")
 </div>
 
@@ -169,7 +169,7 @@ else
                 @if (hasUploadedImage)
                 {
                     <button type="button" class="image-action-btn remove" onclick="if(confirm('Remove uploaded image?')) document.getElementById('removeImageForm').submit();" title="Remove uploaded image">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline;vertical-align:middle;margin-right:4px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="display:inline;vertical-align:middle;margin-right:4px;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                         Remove Image
@@ -491,10 +491,10 @@ else
                 </div>
                 @if (Model.HasPreferredVendor && Model.HasPreferredVpn && !string.IsNullOrEmpty(Model.PreferredVendorCatalogUrl))
                 {
-                    <div class="sourcing-tile bg-blue-soft" style="border-color: var(--info, #93c5fd);">
+                    <div class="sourcing-tile bg-blue-soft" data-csp-style="border-color: var(--info, #93c5fd);">
                         <div class="sourcing-tile-label text-blue">Preferred Vendor Catalog</div>
                         <div class="sourcing-tile-value">
-                            <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="text-blue" style="text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+                            <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="text-blue" data-csp-style="text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
@@ -509,7 +509,7 @@ else
         
         <form method="post" asp-page-handler="SaveItem">
             <input type="hidden" name="id" value="@Model.Item?.Id" />
-            <div style="display: grid; gap: 1.5rem;">
+            <div data-csp-style="display: grid; gap: 1.5rem;">
             <div class="form-section">
                 <div class="form-section__title"><h3>Item Details</h3></div>
                 <div class="form-section__body">
@@ -520,15 +520,15 @@ else
                         </div>
                         <div class="form-field form-group-p">
                             <label class="form-field__label form-label-p">Current Rev</label>
-                            <div class="form-field__input form-input-p bg-surface-alt" style="border-style: dashed;">
+                            <div class="form-field__input form-input-p bg-surface-alt" data-csp-style="border-style: dashed;">
                                 @if (Model.CurrentRevision != null)
                                 {
-                                    <span class="badge badge-success" style="margin-right: 4px;">@Model.CurrentRevision.RevisionCode</span>
-                                    <span style="color: var(--text-muted); font-size: 12px;">@Model.CurrentRevision.Status</span>
+                                    <span class="badge badge-success" data-csp-style="margin-right: 4px;">@Model.CurrentRevision.RevisionCode</span>
+                                    <span data-csp-style="color: var(--text-muted); font-size: 12px;">@Model.CurrentRevision.Status</span>
                                 }
                                 else
                                 {
-                                    <span style="color: var(--text-muted);">No released revision</span>
+                                    <span data-csp-style="color: var(--text-muted);">No released revision</span>
                                 }
                             </div>
                         </div>
@@ -573,11 +573,11 @@ else
                     <h3>Procurement</h3>
                     @if (Model.BuyabilityScore != null && !Model.IsNew)
                     {
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            <span class="badge @Model.BuyabilityScore.TierBadgeClass" style="padding: 4px 10px; font-size: 12px; font-weight: 600;">
+                        <div data-csp-style="display: flex; align-items: center; gap: 12px;">
+                            <span class="badge @Model.BuyabilityScore.TierBadgeClass" data-csp-style="padding: 4px 10px; font-size: 12px; font-weight: 600;">
                                 @Model.BuyabilityScore.Tier (@Model.BuyabilityScore.Score)
                             </span>
-                            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleBuyabilityPanel()" style="font-size: 12px; padding: 4px 8px;">
+                            <button type="button" class="btn-p btn-p--ghost btn-p--sm" onclick="toggleBuyabilityPanel()" data-csp-style="font-size: 12px; padding: 4px 8px;">
                                 Why?
                             </button>
                         </div>
@@ -586,17 +586,17 @@ else
                 <div class="form-section__body">
                     @if (Model.BuyabilityScore != null && !Model.IsNew)
                     {
-                        <div id="buyability-panel" class="bg-surface-alt" style="display: none; margin-bottom: 20px; padding: 16px; border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0);">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <span class="text-theme-primary" style="font-size: 13px; font-weight: 600;">Buyability Score Breakdown</span>
-                                <button type="button" onclick="toggleBuyabilityPanel()" class="text-theme-muted" style="background: none; border: none; cursor: pointer; font-size: 18px;">&times;</button>
+                        <div id="buyability-panel" class="bg-surface-alt" data-csp-style="display: none; margin-bottom: 20px; padding: 16px; border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0);">
+                            <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <span class="text-theme-primary" data-csp-style="font-size: 13px; font-weight: 600;">Buyability Score Breakdown</span>
+                                <button type="button" onclick="toggleBuyabilityPanel()" class="text-theme-muted" data-csp-style="background: none; border: none; cursor: pointer; font-size: 18px;">&times;</button>
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
+                            <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
                                 @foreach (var cat in Model.BuyabilityScore.Categories.Values.OrderBy(c => c.Name))
                                 {
-                                    <div class="bg-surface" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);">
-                                        <div class="text-theme-secondary" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;">@cat.Name</div>
-                                        <div style="font-size: 16px; font-weight: 700; color: @(cat.Percentage >= 80 ? "#059669" : cat.Percentage >= 50 ? "#d97706" : "#dc2626");">
+                                    <div class="bg-surface" data-csp-style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);">
+                                        <div class="text-theme-secondary" data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em;">@cat.Name</div>
+                                        <div data-csp-style="font-size: 16px; font-weight: 700; color: @(cat.Percentage >= 80 ? "#059669" : cat.Percentage >= 50 ? "#d97706" : "#dc2626");">
                                             @cat.EarnedPoints/@cat.MaxPoints
                                         </div>
                                     </div>
@@ -604,8 +604,8 @@ else
                             </div>
                             @if (Model.BuyabilityScore.MissingFactors.Any())
                             {
-                                <div class="text-theme-secondary" style="font-size: 12px; margin-top: 8px;">
-                                    <span style="font-weight: 600;">Missing:</span>
+                                <div class="text-theme-secondary" data-csp-style="font-size: 12px; margin-top: 8px;">
+                                    <span data-csp-style="font-weight: 600;">Missing:</span>
                                     @string.Join(", ", Model.BuyabilityScore.MissingFactors.Take(5).Select(f => f.Name))
                                     @if (Model.BuyabilityScore.MissingFactors.Count > 5)
                                     {
@@ -618,16 +618,16 @@ else
                     
                     @if (!Model.IsNew && Model.BuyabilityScore?.MissingFactors.Any() == true)
                     {
-                        <div class="bg-amber-soft" style="margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--warning, #fcd34d);">
-                            <div class="text-amber" style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                        <div class="bg-amber-soft" data-csp-style="margin-bottom: 20px; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--warning, #fcd34d);">
+                            <div class="text-amber" data-csp-style="font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
                                 <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                                 Procurement Readiness Checklist
                             </div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            <div data-csp-style="display: flex; flex-wrap: wrap; gap: 8px;">
                                 @foreach (var missing in Model.BuyabilityScore.MissingFactors.Take(6))
                                 {
                                     var tabId = missing.FixTab?.ToLower().Replace(" ", "-") ?? "basics";
-                                    <a href="#@tabId" onclick="switchTab('@tabId')" class="text-amber bg-surface" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; font-size: 11px; text-decoration: none; border: 1px solid var(--warning, #fcd34d);">
+                                    <a href="#@tabId" onclick="switchTab('@tabId')" class="text-amber bg-surface" data-csp-style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; font-size: 11px; text-decoration: none; border: 1px solid var(--warning, #fcd34d);">
                                         @missing.Name
                                         <svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                                     </a>
@@ -638,8 +638,8 @@ else
                     
                     @if (Model.EffectiveProcurement?.HasPreferredVendor == true)
                     {
-                        <div class="bg-blue-soft text-blue" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--info, #93c5fd); font-size: 12px;">
-                            <span style="font-weight: 600;">Effective values</span> from <strong>@Model.EffectiveProcurement.PreferredVendorName</strong> (Preferred Vendor)
+                        <div class="bg-blue-soft text-blue" data-csp-style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--info, #93c5fd); font-size: 12px;">
+                            <span data-csp-style="font-weight: 600;">Effective values</span> from <strong>@Model.EffectiveProcurement.PreferredVendorName</strong> (Preferred Vendor)
                         </div>
                     }
                     
@@ -649,7 +649,7 @@ else
                                 Lead Time (Days)
                                 @if (Model.EffectiveProcurement?.LeadTimeSource == "Preferred Vendor")
                                 {
-                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                    <span class="badge badge-primary" data-csp-style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
                                 }
                             </label>
                             <input type="number" name="leadTimeDays" value="@Model.Item?.LeadTimeDays" class="form-field__input form-input-p" min="0" placeholder="@(Model.EffectiveProcurement?.LeadTimeDays?.ToString() ?? "0")" />
@@ -659,7 +659,7 @@ else
                             <input type="number" name="standardCost" value="@Model.Item?.StandardCost" class="form-field__input form-input-p" step="0.01" min="0" placeholder="0.00" />
                             @if (Model.EffectiveProcurement?.LeadTimeDays.HasValue == true && Model.EffectiveProcurement.LeadTimeSource == "Preferred Vendor")
                             {
-                                <small class="text-theme-secondary" style="font-size: 11px;">Effective: @Model.EffectiveProcurement.LeadTimeDays days</small>
+                                <small class="text-theme-secondary" data-csp-style="font-size: 11px;">Effective: @Model.EffectiveProcurement.LeadTimeDays days</small>
                             }
                         </div>
                         <div class="form-field form-group-p">
@@ -667,7 +667,7 @@ else
                                 Min Order Qty
                                 @if (Model.EffectiveProcurement?.MinOrderQtySource == "Preferred Vendor")
                                 {
-                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                    <span class="badge badge-primary" data-csp-style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
                                 }
                             </label>
                             <input type="number" name="minOrderQty" value="@Model.Item?.MinOrderQty" class="form-field__input form-input-p" step="0.0001" min="0" placeholder="@(Model.EffectiveProcurement?.MinOrderQty?.ToString() ?? "1")" />
@@ -681,7 +681,7 @@ else
                                 Purchase UOM
                                 @if (Model.EffectiveProcurement?.PurchaseUomSource == "Preferred Vendor")
                                 {
-                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                    <span class="badge badge-primary" data-csp-style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
                                 }
                             </label>
                             <input type="text" name="purchaseUom" value="@Model.Item?.PurchaseUOM" class="form-field__input form-input-p" placeholder="@(Model.EffectiveProcurement?.PurchaseUom ?? "EA")" />
@@ -691,7 +691,7 @@ else
                                 Pack Qty
                                 @if (Model.EffectiveProcurement?.PackQtySource == "Preferred Vendor")
                                 {
-                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                    <span class="badge badge-primary" data-csp-style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
                                 }
                             </label>
                             <input type="number" name="packQty" value="@Model.Item?.PackQty" class="form-field__input form-input-p" step="0.0001" min="0" placeholder="@(Model.EffectiveProcurement?.PackQty?.ToString() ?? "1")" />
@@ -717,16 +717,16 @@ else
                                 Last Price
                                 @if (Model.EffectiveProcurement?.LastPriceSource == "Preferred Vendor")
                                 {
-                                    <span class="badge badge-primary" style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
+                                    <span class="badge badge-primary" data-csp-style="margin-left: 6px; font-size: 9px; padding: 2px 5px;">Vendor</span>
                                 }
                             </label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="number" name="lastPrice" value="@Model.Item?.LastPrice" class="form-field__input form-input-p" step="0.01" min="0" placeholder="@(Model.EffectiveProcurement?.LastPrice?.ToString("F2") ?? "0.00")" style="flex: 2;" />
-                                <input type="text" name="currencyCode" value="@(Model.Item?.CurrencyCode ?? "USD")" class="form-field__input form-input-p" maxlength="3" placeholder="USD" style="flex: 1; max-width: 70px;" />
+                            <div data-csp-style="display: flex; gap: 8px;">
+                                <input type="number" name="lastPrice" value="@Model.Item?.LastPrice" class="form-field__input form-input-p" step="0.01" min="0" placeholder="@(Model.EffectiveProcurement?.LastPrice?.ToString("F2") ?? "0.00")" data-csp-style="flex: 2;" />
+                                <input type="text" name="currencyCode" value="@(Model.Item?.CurrencyCode ?? "USD")" class="form-field__input form-input-p" maxlength="3" placeholder="USD" data-csp-style="flex: 1; max-width: 70px;" />
                             </div>
                             @if (Model.EffectiveProcurement?.LastPrice.HasValue == true && Model.EffectiveProcurement.LastPriceSource == "Preferred Vendor")
                             {
-                                <small class="text-theme-secondary" style="font-size: 11px;">Effective: @Model.EffectiveProcurement.CurrencyCode @Model.EffectiveProcurement.LastPrice?.ToString("N2")</small>
+                                <small class="text-theme-secondary" data-csp-style="font-size: 11px;">Effective: @Model.EffectiveProcurement.CurrencyCode @Model.EffectiveProcurement.LastPrice?.ToString("N2")</small>
                             }
                         </div>
                         <div class="form-field form-group-p">
@@ -735,12 +735,12 @@ else
                         </div>
                         <div class="form-field form-group-p">
                             <label class="form-field__label form-label-p">Contract</label>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <label class="text-theme-secondary" style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
-                                    <input type="checkbox" name="contractFlag" value="true" @(Model.Item?.ContractFlag == true ? "checked" : "") style="width: 16px; height: 16px;" />
+                            <div data-csp-style="display: flex; gap: 8px; align-items: center;">
+                                <label class="text-theme-secondary" data-csp-style="display: flex; align-items: center; gap: 6px; font-size: 13px;">
+                                    <input type="checkbox" name="contractFlag" value="true" @(Model.Item?.ContractFlag == true ? "checked" : "") data-csp-style="width: 16px; height: 16px;" />
                                     On Contract
                                 </label>
-                                <input type="text" name="contractRef" value="@Model.Item?.ContractRef" class="form-field__input form-input-p" placeholder="Contract #" style="flex: 1;" />
+                                <input type="text" name="contractRef" value="@Model.Item?.ContractRef" class="form-field__input form-input-p" placeholder="Contract #" data-csp-style="flex: 1;" />
                             </div>
                         </div>
                     </div>
@@ -749,7 +749,7 @@ else
 
             <div class="form-actions form-actions--end">
                 <button type="submit" class="btn-p btn-p--primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 6px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 6px;">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                     @(Model.IsNew ? "Create Item" : "Save Changes")
@@ -768,14 +768,14 @@ else
             .ToList();
         var hasDraft = (Model.Revisions ?? new List<ItemRevision>()).Any(r => r.Status == RevisionStatus.Draft);
         <div class="tab-panel @(activeTab == "revisions" ? "active" : "")" id="panel-revisions" role="tabpanel" aria-labelledby="tab-revisions" @(activeTab != "revisions" ? Html.Raw("hidden") : null)>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 class="text-theme-primary" style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Revision History</h3>
+            <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 class="text-theme-primary" data-csp-style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Revision History</h3>
                 @if (!hasDraft)
                 {
                     <form method="post" asp-page-handler="CreateDraft" class="form-inline">
                         <input type="hidden" name="itemId" value="@Model.Item?.Id" />
                         <button type="submit" class="btn-p btn-p--primary btn-p--sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 4px;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
                             New Revision
@@ -784,12 +784,12 @@ else
                 }
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; min-height: 400px;">
-                <div style="overflow-x: auto;">
+            <div data-csp-style="display: grid; grid-template-columns: 1fr 380px; gap: 24px; min-height: 400px;">
+                <div data-csp-style="overflow-x: auto;">
                     <table class="data-table revision-table">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">Rev</th>
+                                <th data-csp-style="width: 80px;">Rev</th>
                                 <th>Status</th>
                                 <th>Released</th>
                                 <th>Updated</th>
@@ -807,40 +807,39 @@ else
                             {
                                 var isCurrent = Model.Item?.CurrentReleasedRevisionId == rev.Id;
                                 var isSelected = Model.SelectedRevision?.Id == rev.Id;
-                                <tr class="revision-row @(isSelected ? "selected" : "")" 
-                                    style="cursor: pointer; @(isCurrent ? "background: var(--success-soft, rgba(16,185,129,0.08));" : "")"
+                                <tr class="revision-row @(isSelected ? "selected" : "")" data-csp-style="cursor: pointer; @(isCurrent ? "background: var(--success-soft, rgba(16,185,129,0.08));" : "")"
                                     onclick="window.location.href='@Url.Page("/Materials/ItemEdit", new { id = Model.Item?.Id, tab = "revisions", revId = rev.Id })'">
                                     <td>
-                                        <strong style="font-size: 13px;">@rev.RevisionCode</strong>
+                                        <strong data-csp-style="font-size: 13px;">@rev.RevisionCode</strong>
                                         @if (isCurrent)
                                         {
-                                            <span class="badge badge-success" style="margin-left: 4px; font-size: 9px; padding: 2px 6px;">Current</span>
+                                            <span class="badge badge-success" data-csp-style="margin-left: 4px; font-size: 9px; padding: 2px 6px;">Current</span>
                                         }
                                     </td>
                                     <td>
                                         @if (rev.Status == RevisionStatus.Draft)
                                         {
-                                            <span class="badge badge-warning" style="font-size: 10px;">Draft</span>
+                                            <span class="badge badge-warning" data-csp-style="font-size: 10px;">Draft</span>
                                         }
                                         else if (rev.Status == RevisionStatus.Released)
                                         {
-                                            <span class="badge badge-success" style="font-size: 10px;">Released</span>
+                                            <span class="badge badge-success" data-csp-style="font-size: 10px;">Released</span>
                                         }
                                         else
                                         {
-                                            <span class="badge badge-secondary" style="font-size: 10px;">Obsolete</span>
+                                            <span class="badge badge-secondary" data-csp-style="font-size: 10px;">Obsolete</span>
                                         }
                                     </td>
-                                    <td style="font-size: 12px; color: var(--text-muted);">@(rev.ReleasedAtUtc?.ToString("MMM d, yyyy") ?? "-")</td>
-                                    <td style="font-size: 12px; color: var(--text-muted);">@rev.CreatedAtUtc.ToString("MMM d, yyyy")</td>
-                                    <td style="font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@(rev.ChangeReason ?? "-")</td>
+                                    <td data-csp-style="font-size: 12px; color: var(--text-muted);">@(rev.ReleasedAtUtc?.ToString("MMM d, yyyy") ?? "-")</td>
+                                    <td data-csp-style="font-size: 12px; color: var(--text-muted);">@rev.CreatedAtUtc.ToString("MMM d, yyyy")</td>
+                                    <td data-csp-style="font-size: 12px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@(rev.ChangeReason ?? "-")</td>
                                 </tr>
                             }
                         </tbody>
                     </table>
                 </div>
                 
-                <div class="revision-inspector bg-surface-alt" style="border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0); padding: 20px;">
+                <div class="revision-inspector bg-surface-alt" data-csp-style="border-radius: 8px; border: 1px solid var(--lux-border, #e2e8f0); padding: 20px;">
                     @if (Model.SelectedRevision != null)
                     {
                         var selIsDraft = Model.SelectedRevision.Status == RevisionStatus.Draft;
@@ -848,8 +847,8 @@ else
                         var selIsObsolete = Model.SelectedRevision.Status == RevisionStatus.Obsolete;
                         var selIsCurrentRev = Model.Item?.CurrentReleasedRevisionId == Model.SelectedRevision.Id;
                         
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                            <h4 class="text-theme-primary" style="font-size: 14px; font-weight: 700; margin: 0;">
+                        <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h4 class="text-theme-primary" data-csp-style="font-size: 14px; font-weight: 700; margin: 0;">
                                 Revision @Model.SelectedRevision.RevisionCode
                             </h4>
                             @if (selIsDraft)
@@ -948,7 +947,7 @@ else
                             
                             @if (selIsReleased && !selIsCurrentRev)
                             {
-                                <form method="post" asp-page-handler="ObsoleteRevision" style="margin-top: 12px;">
+                                <form method="post" asp-page-handler="ObsoleteRevision" data-csp-style="margin-top: 12px;">
                                     <input type="hidden" name="revisionId" value="@Model.SelectedRevision.Id" />
                                     <button type="submit" class="btn-p btn-p--secondary btn-p--sm" onclick="return confirm('Mark this revision as obsolete?')">Mark Obsolete</button>
                                 </form>
@@ -957,12 +956,12 @@ else
                     }
                     else
                     {
-                        <div class="text-theme-muted" style="text-align: center; padding: 40px 20px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin: 0 auto 12px; opacity: 0.5;">
+                        <div class="text-theme-muted" data-csp-style="text-align: center; padding: 40px 20px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin: 0 auto 12px; opacity: 0.5;">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
-                            <p style="font-size: 13px; margin: 0;">Select a revision to view details</p>
-                            <p class="text-theme-muted" style="font-size: 12px; margin: 8px 0 0 0;">Click any row in the table</p>
+                            <p data-csp-style="font-size: 13px; margin: 0;">Select a revision to view details</p>
+                            <p class="text-theme-muted" data-csp-style="font-size: 12px; margin: 8px 0 0 0;">Click any row in the table</p>
                         </div>
                     }
                 </div>
@@ -1003,7 +1002,7 @@ else
                     </form>
                 </div>
             </div>
-            <div style="overflow-x: auto;">
+            <div data-csp-style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -1049,7 +1048,7 @@ else
                 <div class="vpn-section-actions">
                     @if (Model.HasPreferredVendor && Model.HasPreferredVpn && !string.IsNullOrEmpty(Model.PreferredVendorCatalogUrl))
                     {
-                        <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--primary btn-p--sm" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <a href="@Model.PreferredVendorCatalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--primary btn-p--sm" data-csp-style="display: inline-flex; align-items: center; gap: 6px;">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
@@ -1060,7 +1059,7 @@ else
                     {
                         <form method="post" asp-page-handler="EnrichAllVpns" class="form-inline">
                             <input type="hidden" name="itemId" value="@Model.Item?.Id" />
-                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" style="border: none; display: inline-flex; align-items: center; gap: 6px;">
+                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" data-csp-style="border: none; display: inline-flex; align-items: center; gap: 6px;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
@@ -1134,18 +1133,18 @@ else
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;"></th>
+                            <th data-csp-style="width: 50px;"></th>
                             <th>Vendor</th>
                             <th>VPN</th>
                             <th>Linked MPN</th>
-                            <th style="text-align: right; white-space: nowrap;">Lead Time</th>
-                            <th style="text-align: right; white-space: nowrap;">Price</th>
-                            <th style="text-align: right; white-space: nowrap;">Pack Qty</th>
+                            <th data-csp-style="text-align: right; white-space: nowrap;">Lead Time</th>
+                            <th data-csp-style="text-align: right; white-space: nowrap;">Price</th>
+                            <th data-csp-style="text-align: right; white-space: nowrap;">Pack Qty</th>
                             <th>Catalog</th>
                             <th>Datasheet</th>
                             <th>Enrich</th>
                             <th>Status</th>
-                            <th style="width: 140px;">Actions</th>
+                            <th data-csp-style="width: 140px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1161,14 +1160,14 @@ else
                             var catalogUrl = vpn.CatalogUrl ?? vpn.ProductPageUrl;
                             var hasEnrichableUrl = !string.IsNullOrEmpty(catalogUrl);
                             <tr>
-                                <td style="text-align: center;">
+                                <td data-csp-style="text-align: center;">
                                     @if (!string.IsNullOrEmpty(vpnImageUrl))
                                     {
-                                        <img src="@vpnImageUrl" alt="@vpn.VendorPartNumber" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);" />
+                                        <img src="@vpnImageUrl" alt="@vpn.VendorPartNumber" data-csp-style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid var(--lux-border, #e2e8f0);" />
                                     }
                                     else
                                     {
-                                        <div class="bg-surface-alt" style="width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--lux-border, #e2e8f0);">
+                                        <div class="bg-surface-alt" data-csp-style="width: 40px; height: 40px; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--lux-border, #e2e8f0);">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#94a3b8">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                                             </svg>
@@ -1179,22 +1178,22 @@ else
                                     <strong>@vpn.Vendor?.Name</strong>
                                     @if (vpn.Preferred)
                                     {
-                                        <span class="badge badge-info" style="margin-left: 4px;">Preferred</span>
+                                        <span class="badge badge-info" data-csp-style="margin-left: 4px;">Preferred</span>
                                     }
                                 </td>
                                 <td>
                                     @vpn.VendorPartNumber
                                     @if (!string.IsNullOrEmpty(vpn.ExtractedMpn))
                                     {
-                                        <div class="text-theme-secondary" style="font-size: 11px; margin-top: 2px;">MPN: @vpn.ExtractedMpn</div>
+                                        <div class="text-theme-secondary" data-csp-style="font-size: 11px; margin-top: 2px;">MPN: @vpn.ExtractedMpn</div>
                                     }
                                     @if (!string.IsNullOrEmpty(vpn.ExtractedSku))
                                     {
-                                        <div class="text-theme-secondary" style="font-size: 11px;">SKU: @vpn.ExtractedSku</div>
+                                        <div class="text-theme-secondary" data-csp-style="font-size: 11px;">SKU: @vpn.ExtractedSku</div>
                                     }
                                 </td>
                                 <td>@(vpn.ItemManufacturerPart != null ? $"{vpn.ItemManufacturerPart.Manufacturer?.Name} - {vpn.ItemManufacturerPart.MfrPartNumber}" : "-")</td>
-                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                <td data-csp-style="text-align: right; font-variant-numeric: tabular-nums;">
                                     @if (vpn.LeadTimeDays.HasValue)
                                     {
                                         <span>@vpn.LeadTimeDays d</span>
@@ -1204,13 +1203,13 @@ else
                                         <span class="text-muted">-</span>
                                     }
                                 </td>
-                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                <td data-csp-style="text-align: right; font-variant-numeric: tabular-nums;">
                                     @if (vpn.UnitPrice.HasValue)
                                     {
                                         <span>$@vpn.UnitPrice.Value.ToString("N2")</span>
                                         @if (vpn.PriceEffectiveDate.HasValue)
                                         {
-                                            <div class="text-theme-muted" style="font-size: 10px;">@vpn.PriceEffectiveDate.Value.ToString("MM/dd/yy")</div>
+                                            <div class="text-theme-muted" data-csp-style="font-size: 10px;">@vpn.PriceEffectiveDate.Value.ToString("MM/dd/yy")</div>
                                         }
                                     }
                                     else
@@ -1218,7 +1217,7 @@ else
                                         <span class="text-muted">-</span>
                                     }
                                 </td>
-                                <td style="text-align: right; font-variant-numeric: tabular-nums;">
+                                <td data-csp-style="text-align: right; font-variant-numeric: tabular-nums;">
                                     @if (vpn.PackQty.HasValue)
                                     {
                                         <span>@vpn.PackQty.Value.ToString("G29")</span>
@@ -1236,7 +1235,7 @@ else
                                     @if (!string.IsNullOrEmpty(catalogUrl))
                                     {
                                         <a href="@catalogUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm vpn-catalog-btn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 4px;">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                             </svg>
                                             Open
@@ -1251,7 +1250,7 @@ else
                                     @if (!string.IsNullOrEmpty(vpn.DatasheetUrl))
                                     {
                                         <a href="@vpn.DatasheetUrl" target="_blank" rel="noopener noreferrer" class="btn-p btn-p--ghost btn-p--sm vpn-datasheet-btn" title="View Datasheet">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="margin-right: 4px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="margin-right: 4px;">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
                                             PDF
@@ -1268,8 +1267,8 @@ else
                                         <form method="post" asp-page-handler="EnrichVpn" class="form-inline">
                                             <input type="hidden" name="itemId" value="@Model.Item?.Id" />
                                             <input type="hidden" name="vpnId" value="@vpn.Id" />
-                                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" style="padding: 4px 10px; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" title="Extract metadata from catalog URL">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: inline; vertical-align: middle; margin-right: 3px;">
+                                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm" data-csp-style="padding: 4px 10px; border: none; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer;" title="Extract metadata from catalog URL">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="display: inline; vertical-align: middle; margin-right: 3px;">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                 </svg>
                                                 Enrich
@@ -1277,14 +1276,14 @@ else
                                         </form>
                                         @if (!string.IsNullOrEmpty(vpn.LastEnrichStatus))
                                         {
-                                            <span class="badge @(vpn.LastEnrichStatus == "Success" ? "badge-success" : vpn.LastEnrichStatus == "NoMetadata" ? "badge-warning" : "badge-secondary")" style="margin-left: 4px; font-size: 10px;">
+                                            <span class="badge @(vpn.LastEnrichStatus == "Success" ? "badge-success" : vpn.LastEnrichStatus == "NoMetadata" ? "badge-warning" : "badge-secondary")" data-csp-style="margin-left: 4px; font-size: 10px;">
                                                 @vpn.LastEnrichStatus
                                             </span>
                                         }
                                     }
                                     else if (!Model.IsLabEnvironment)
                                     {
-                                        <span class="text-muted" style="font-size: 11px;">LAB only</span>
+                                        <span class="text-muted" data-csp-style="font-size: 11px;">LAB only</span>
                                     }
                                     else
                                     {
@@ -1308,8 +1307,8 @@ else
                                     }
                                     @if (isPreferredOnAvl)
                                     {
-                                        <span class="badge badge-info" style="font-size: 10px;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display:inline;vertical-align:middle;margin-right:2px;">
+                                        <span class="badge badge-info" data-csp-style="font-size: 10px;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="display:inline;vertical-align:middle;margin-right:2px;">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                             </svg>
                                             Preferred
@@ -1317,13 +1316,13 @@ else
                                     }
                                     else if (isOnAvl)
                                     {
-                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm" style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Set as preferred in AVL">
+                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm" data-csp-style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Set as preferred in AVL">
                                             Set Preferred
                                         </a>
                                     }
                                     else
                                     {
-                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm text-theme-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Add vendor to AVL first">
+                                        <a href="#avl" class="btn-p btn-p--ghost btn-p--sm text-theme-secondary" data-csp-style="padding: 4px 8px; font-size: 11px;" onclick="activateTab('avl');" title="Add vendor to AVL first">
                                             Add to AVL
                                         </a>
                                     }
@@ -1360,7 +1359,7 @@ else
                             </div>
                             <div class="form-field form-field--full form-group-p">
                                 <label class="form-field__label form-label-p">
-                                    <input type="checkbox" name="isPreferred" value="true" style="margin-right: 6px;" />
+                                    <input type="checkbox" name="isPreferred" value="true" data-csp-style="margin-right: 6px;" />
                                     Preferred Vendor
                                 </label>
                             </div>
@@ -1375,7 +1374,7 @@ else
                     </form>
                 </div>
             </div>
-            <div style="overflow-x: auto;">
+            <div data-csp-style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -1430,7 +1429,7 @@ else
                                     <form method="post" asp-page-handler="RemoveApprovedVendor" class="form-inline">
                                         <input type="hidden" name="itemId" value="@Model.Item?.Id" />
                                         <input type="hidden" name="vendorId" value="@avl.VendorId" />
-                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" style="color: var(--danger);" onclick="return confirm('Remove this vendor from the AVL?')">Remove</button>
+                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" data-csp-style="color: var(--danger);" onclick="return confirm('Remove this vendor from the AVL?')">Remove</button>
                                     </form>
                                 </td>
                             </tr>
@@ -1478,7 +1477,7 @@ else
                             </div>
                             <div class="form-field form-field--full form-group-p">
                                 <label class="form-field__label form-label-p">
-                                    <input type="checkbox" name="isApproved" value="true" checked style="margin-right: 6px;" />
+                                    <input type="checkbox" name="isApproved" value="true" checked data-csp-style="margin-right: 6px;" />
                                     Approved for use
                                 </label>
                             </div>
@@ -1489,7 +1488,7 @@ else
                     </form>
                 </div>
             </div>
-            <div style="overflow-x: auto;">
+            <div data-csp-style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
                         <tr>
@@ -1529,7 +1528,7 @@ else
                                     <form method="post" asp-page-handler="RemoveAlternate" class="form-inline">
                                         <input type="hidden" name="itemId" value="@Model.Item?.Id" />
                                         <input type="hidden" name="alternateItemId" value="@alt.AlternateItemId" />
-                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" style="color: var(--danger);" onclick="return confirm('Remove this alternate?')">Remove</button>
+                                        <button type="submit" class="btn-p btn-p--ghost btn-p--sm" data-csp-style="color: var(--danger);" onclick="return confirm('Remove this alternate?')">Remove</button>
                                     </form>
                                 </td>
                             </tr>
@@ -1540,13 +1539,13 @@ else
         </div>
 
         <div class="tab-panel @(activeTab == "supersession" ? "active" : "")" id="panel-supersession" role="tabpanel" aria-labelledby="tab-supersession" @(activeTab != "supersession" ? Html.Raw("hidden") : null)>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3 class="text-theme-primary" style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Supersession Chain</h3>
+            <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 class="text-theme-primary" data-csp-style="font-size: 15px; font-weight: 700; margin: 0; text-transform: uppercase; letter-spacing: 0.04em;">Supersession Chain</h3>
             </div>
             
             @if (Model.SupersededBy != null)
             {
-                <div class="alert alert-warning" style="margin-bottom: 20px;">
+                <div class="alert alert-warning" data-csp-style="margin-bottom: 20px;">
                     <strong>This item has been superseded.</strong>
                     Use <a href="/Materials/ItemEdit/@Model.SupersededBy.NewItemId">@Model.SupersededBy.NewItem?.PartNumber</a> instead.
                     @if (Model.SupersededBy.EffectiveFromUtc.HasValue)
@@ -1558,14 +1557,14 @@ else
             
             @if (Model.Supersession != null)
             {
-                <div class="card" style="padding: 20px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">This Item Supersedes:</h4>
-                    <p style="margin: 0 0 12px;">
+                <div class="card" data-csp-style="padding: 20px; margin-bottom: 20px;">
+                    <h4 data-csp-style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">This Item Supersedes:</h4>
+                    <p data-csp-style="margin: 0 0 12px;">
                         <a href="/Materials/ItemEdit/@Model.Supersession.OldItemId">@Model.Supersession.OldItem?.PartNumber</a> - @Model.Supersession.OldItem?.Description
                     </p>
                     @if (Model.Supersession.Reason != null)
                     {
-                        <p style="margin: 0 0 12px; color: var(--text-muted);">Reason: @Model.Supersession.Reason</p>
+                        <p data-csp-style="margin: 0 0 12px; color: var(--text-muted);">Reason: @Model.Supersession.Reason</p>
                     }
                     <form method="post" asp-page-handler="RemoveSupersession">
                         <input type="hidden" name="itemId" value="@Model.Item?.Id" />
@@ -1576,9 +1575,9 @@ else
             
             @if (Model.ResolvedCurrentItem != null && Model.ResolvedCurrentItem.Id != Model.Item?.Id)
             {
-                <div class="card bg-green-soft" style="padding: 20px; margin-bottom: 20px;">
-                    <h4 class="text-green" style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Resolved Current Item:</h4>
-                    <p style="margin: 0;">
+                <div class="card bg-green-soft" data-csp-style="padding: 20px; margin-bottom: 20px;">
+                    <h4 class="text-green" data-csp-style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Resolved Current Item:</h4>
+                    <p data-csp-style="margin: 0;">
                         <a href="/Materials/ItemEdit/@Model.ResolvedCurrentItem.Id">@Model.ResolvedCurrentItem.PartNumber</a> - @Model.ResolvedCurrentItem.Description
                     </p>
                 </div>
@@ -1705,7 +1704,7 @@ function submitRelease() {
 
 @if (!Model.IsNew && Model.HasDraft)
 {
-    <div class="inline-form-panel" id="releasePanel" style="display: none;">
+    <div class="inline-form-panel" id="releasePanel" data-csp-style="display: none;">
         <div class="inline-form-panel-content">
             <div class="inline-form-header">
                 <h3>Release Revision @Model.DraftRevision?.RevisionCode</h3>

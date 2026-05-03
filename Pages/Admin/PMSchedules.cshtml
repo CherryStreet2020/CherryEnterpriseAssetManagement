@@ -205,10 +205,10 @@
         </table>
         @if (!Model.Schedules.Any())
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-calendar pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-calendar pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">No PM schedules. Create a schedule to automate work order generation from PM templates.</div>
-                <a href="/Admin/PMScheduleEdit" class="btn-p btn-p--primary" style="margin-top:0.75rem;">Create First Schedule</a>
+                <a href="/Admin/PMScheduleEdit" class="btn-p btn-p--primary" data-csp-style="margin-top:0.75rem;">Create First Schedule</a>
             </div>
         }
     </div>

@@ -27,15 +27,15 @@
 
 @if (TempData["Success"] is string success)
 {
-    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
 }
 @if (TempData["Error"] is string error)
 {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>
 }
 
 <div class="iw-progress">
-    <div class="iw-progress-bar" style="width:@((Model.CurrentStep) * 100.0 / steps.Length)%"></div>
+    <div class="iw-progress-bar" data-csp-style="width:@((Model.CurrentStep) * 100.0 / steps.Length)%"></div>
 </div>
 
 <div class="iw-layout">
@@ -64,24 +64,24 @@
     </div>
 
     <div class="iw-main">
-        <div class="pe-card" style="padding:1.5rem;">
+        <div class="pe-card" data-csp-style="padding:1.5rem;">
             <div class="iw-step-header">
                 <div>
-                    <div class="iw-step-title"><i class="fas @activeStep.Icon" style="color:var(--cherry-red, #cf3339); margin-right:0.5rem;"></i> Step @(Model.CurrentStep + 1): @activeStep.Label</div>
+                    <div class="iw-step-title"><i class="fas @activeStep.Icon" data-csp-style="color:var(--cherry-red, #cf3339); margin-right:0.5rem;"></i> Step @(Model.CurrentStep + 1): @activeStep.Label</div>
                     <div class="iw-step-desc">@activeStep.Description</div>
                 </div>
                 <div class="iw-step-badge">
-                    <span style="font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-primary);">@entityCount</span>
-                    <span style="font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Current Records</span>
+                    <span data-csp-style="font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--text-primary);">@entityCount</span>
+                    <span data-csp-style="font-size:0.65rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Current Records</span>
                 </div>
             </div>
 
             <div class="iw-section">
                 <div class="iw-section-label"><i class="fas fa-download"></i> 1. Download Template</div>
-                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 0.75rem;">
+                <p data-csp-style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 0.75rem;">
                     Download the Excel template, fill it out with your data, then upload it below.
-                    <strong style="color:var(--cherry-red);">Red columns</strong> are required.
-                    <span style="color:var(--info);">Blue columns</span> are optional.
+                    <strong data-csp-style="color:var(--cherry-red);">Red columns</strong> are required.
+                    <span data-csp-style="color:var(--info);">Blue columns</span> are optional.
                 </p>
                 <a href="/Admin/ImportWizard?handler=DownloadTemplate&entity=@activeEntity"
                    class="btn-p btn-p--primary btn-p--sm">
@@ -95,16 +95,16 @@
                     <input type="hidden" name="entity" value="@activeEntity" />
                     <input type="hidden" name="step" value="@Model.CurrentStep" />
                     <div class="iw-upload-zone" id="dropZone">
-                        <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem;"></i>
-                        <div style="font-size:0.9rem; color:var(--text-primary); font-weight:600;">Drop your Excel file here</div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin:0.25rem 0 0.75rem;">or click to browse</div>
-                        <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;" />
+                        <i class="fas fa-cloud-upload-alt" data-csp-style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem;"></i>
+                        <div data-csp-style="font-size:0.9rem; color:var(--text-primary); font-weight:600;">Drop your Excel file here</div>
+                        <div data-csp-style="font-size:0.8rem; color:var(--text-muted); margin:0.25rem 0 0.75rem;">or click to browse</div>
+                        <input type="file" name="file" id="fileInput" accept=".xlsx,.xls,.csv" data-csp-style="display:none;" />
                         <button type="button" onclick="document.getElementById('fileInput').click()" class="btn-p btn-p--secondary btn-p--sm">
                             <i class="fas fa-folder-open"></i> Choose File
                         </button>
-                        <div id="fileName" style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;"></div>
+                        <div id="fileName" data-csp-style="font-size:0.8rem; color:var(--text-muted); margin-top:0.5rem;"></div>
                     </div>
-                    <div style="display:flex; gap:0.5rem; margin-top:0.75rem;">
+                    <div data-csp-style="display:flex; gap:0.5rem; margin-top:0.75rem;">
                         <button type="submit" asp-page-handler="Validate" class="btn-p btn-p--secondary btn-p--sm" id="validateBtn" disabled>
                             <i class="fas fa-check-double"></i> Validate
                         </button>
@@ -119,7 +119,7 @@
             {
                 <div class="iw-section">
                     <div class="iw-section-label"><i class="fas fa-clipboard-check"></i> Validation Results</div>
-                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1rem;">
+                    <div data-csp-style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1rem;">
                         <div class="iw-stat iw-stat--success">
                             <div class="iw-stat-val">@Model.ValidationResult.ValidRows</div>
                             <div class="iw-stat-lbl">Valid Rows</div>
@@ -137,11 +137,11 @@
                     {
                         <div class="iw-errors">
                             <div class="iw-errors-title"><i class="fas fa-times-circle"></i> Errors (@Model.ValidationResult.Errors.Count)</div>
-                            <table class="line-table" style="font-size:0.8rem;">
+                            <table class="line-table" data-csp-style="font-size:0.8rem;">
                                 <thead>
                                     <tr>
-                                        <th style="width:60px;">Row</th>
-                                        <th style="width:150px;">Column</th>
+                                        <th data-csp-style="width:60px;">Row</th>
+                                        <th data-csp-style="width:150px;">Column</th>
                                         <th>Error</th>
                                     </tr>
                                 </thead>
@@ -151,21 +151,21 @@
                                         <tr>
                                             <td>@err.Row</td>
                                             <td>@err.Column</td>
-                                            <td style="color:var(--danger, #ef4444);">@err.Message</td>
+                                            <td data-csp-style="color:var(--danger, #ef4444);">@err.Message</td>
                                         </tr>
                                     }
                                 </tbody>
                             </table>
                             @if (Model.ValidationResult.Errors.Count > 50)
                             {
-                                <div style="font-size:0.8rem; color:var(--text-muted); padding:0.5rem;">Showing first 50 of @Model.ValidationResult.Errors.Count errors</div>
+                                <div data-csp-style="font-size:0.8rem; color:var(--text-muted); padding:0.5rem;">Showing first 50 of @Model.ValidationResult.Errors.Count errors</div>
                             }
                         </div>
                     }
                     else
                     {
                         <div class="iw-valid-msg">
-                            <i class="fas fa-check-circle" style="color:var(--success); margin-right:0.5rem;"></i>
+                            <i class="fas fa-check-circle" data-csp-style="color:var(--success); margin-right:0.5rem;"></i>
                             All @Model.ValidationResult.ValidRows rows passed validation. You can now import.
                         </div>
                     }
@@ -176,7 +176,7 @@
             {
                 <div class="iw-section">
                     <div class="iw-section-label"><i class="fas fa-database"></i> Import Results</div>
-                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1rem;">
+                    <div data-csp-style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-bottom:1rem;">
                         <div class="iw-stat iw-stat--success">
                             <div class="iw-stat-val">@Model.LastImportResult.ImportedCount</div>
                             <div class="iw-stat-lbl">Imported</div>
@@ -194,11 +194,11 @@
                     {
                         <div class="iw-errors">
                             <div class="iw-errors-title"><i class="fas fa-times-circle"></i> Errors</div>
-                            <table class="line-table" style="font-size:0.8rem;">
+                            <table class="line-table" data-csp-style="font-size:0.8rem;">
                                 <thead>
                                     <tr>
-                                        <th style="width:60px;">Row</th>
-                                        <th style="width:150px;">Column</th>
+                                        <th data-csp-style="width:60px;">Row</th>
+                                        <th data-csp-style="width:150px;">Column</th>
                                         <th>Error</th>
                                     </tr>
                                 </thead>
@@ -208,7 +208,7 @@
                                         <tr>
                                             <td>@err.Row</td>
                                             <td>@err.Column</td>
-                                            <td style="color:var(--danger, #ef4444);">@err.Message</td>
+                                            <td data-csp-style="color:var(--danger, #ef4444);">@err.Message</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -229,8 +229,8 @@
                 {
                     <span></span>
                 }
-                <div style="display:flex; gap:0.5rem;">
-                    <form method="post" style="display:inline;">
+                <div data-csp-style="display:flex; gap:0.5rem;">
+                    <form method="post" data-csp-style="display:inline;">
                         <input type="hidden" name="entity" value="@activeEntity" />
                         <input type="hidden" name="step" value="@Model.CurrentStep" />
                         <button type="submit" asp-page-handler="Skip" class="btn-p btn-p--secondary btn-p--sm">

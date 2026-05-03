@@ -76,51 +76,51 @@
             Part I - Election to Expense Certain Property (Section 179)
         </h3>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>Line</th>
                     <th>Description</th>
-                    <th style="text-align: right;">Amount</th>
+                    <th data-csp-style="text-align: right;">Amount</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
                     <td>1</td>
                     <td>Maximum amount (see instructions)</td>
-                    <td style="text-align: right;">@Model.Section179Limit.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.Section179Limit.ToString("C0")</td>
                 </tr>
                 <tr>
                     <td>2</td>
                     <td>Total cost of section 179 property placed in service</td>
-                    <td style="text-align: right;">@Model.TotalSection179Cost.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalSection179Cost.ToString("C0")</td>
                 </tr>
                 <tr>
                     <td>3</td>
                     <td>Threshold cost of section 179 property before reduction</td>
-                    <td style="text-align: right;">@Model.Section179Threshold.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.Section179Threshold.ToString("C0")</td>
                 </tr>
                 <tr class="totals-row">
                     <td>5</td>
                     <td>Dollar limitation for tax year (adjusted)</td>
-                    <td style="text-align: right;">@Model.Section179LimitAdjusted.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.Section179LimitAdjusted.ToString("C0")</td>
                 </tr>
             </tbody>
         </table>
         
         @if (Model.Section179Assets.Any())
         {
-            <div class="border-theme" style="padding: 16px; border-top: 1px solid var(--lux-border, rgba(0,0,0,0.1));">
-                <h4 style="margin-bottom: 12px; font-weight: 600;">Section 179 Property Elections</h4>
+            <div class="border-theme" data-csp-style="padding: 16px; border-top: 1px solid var(--lux-border, rgba(0,0,0,0.1));">
+                <h4 data-csp-style="margin-bottom: 12px; font-weight: 600;">Section 179 Property Elections</h4>
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Asset Number</th>
                             <th>Description</th>
                             <th>Date Placed in Service</th>
-                            <th style="text-align: right;">Cost</th>
-                            <th style="text-align: right;">Elected Amount</th>
+                            <th data-csp-style="text-align: right;">Cost</th>
+                            <th data-csp-style="text-align: right;">Elected Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -130,15 +130,15 @@
                                 <td><span class="badge badge-primary">@a.Asset?.AssetNumber</span></td>
                                 <td>@a.Asset?.Description</td>
                                 <td>@a.PlacedInServiceDate?.ToString("MM/dd/yyyy")</td>
-                                <td style="text-align: right;">@a.DepreciableBasis.ToString("C2")</td>
-                                <td style="text-align: right; font-weight: 600;">@a.Section179Amount.ToString("C2")</td>
+                                <td data-csp-style="text-align: right;">@a.DepreciableBasis.ToString("C2")</td>
+                                <td data-csp-style="text-align: right; font-weight: 600;">@a.Section179Amount.ToString("C2")</td>
                             </tr>
                         }
                     </tbody>
                     <tfoot>
                         <tr class="totals-row">
                             <td colspan="4">Total Section 179 Expense</td>
-                            <td style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
                         </tr>
                     </tfoot>
                 </table>
@@ -157,7 +157,7 @@
         </h3>
         <span class="status-badge warning">@Model.BonusRate.ToString("0")% Rate</span>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.BonusDepreciationAssets.Any())
         {
             <table class="data-table">
@@ -166,9 +166,9 @@
                         <th>Asset Number</th>
                         <th>Description</th>
                         <th>Date Placed in Service</th>
-                        <th style="text-align: right;">Basis After 179</th>
-                        <th style="text-align: center;">Bonus %</th>
-                        <th style="text-align: right;">Bonus Amount</th>
+                        <th data-csp-style="text-align: right;">Basis After 179</th>
+                        <th data-csp-style="text-align: center;">Bonus %</th>
+                        <th data-csp-style="text-align: right;">Bonus Amount</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -178,23 +178,23 @@
                             <td><span class="badge badge-primary">@a.Asset?.AssetNumber</span></td>
                             <td>@a.Asset?.Description</td>
                             <td>@a.PlacedInServiceDate?.ToString("MM/dd/yyyy")</td>
-                            <td style="text-align: right;">@((a.DepreciableBasis - a.Section179Amount).ToString("C2"))</td>
-                            <td style="text-align: center;">@a.BonusDepreciationPercent.ToString("0")%</td>
-                            <td style="text-align: right; font-weight: 600;">@a.BonusDepreciationAmount.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@((a.DepreciableBasis - a.Section179Amount).ToString("C2"))</td>
+                            <td data-csp-style="text-align: center;">@a.BonusDepreciationPercent.ToString("0")%</td>
+                            <td data-csp-style="text-align: right; font-weight: 600;">@a.BonusDepreciationAmount.ToString("C2")</td>
                         </tr>
                     }
                 </tbody>
                 <tfoot>
                     <tr class="totals-row">
                         <td colspan="5">Total Special Depreciation Allowance</td>
-                        <td style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
+                        <td data-csp-style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
                     </tr>
                 </tfoot>
             </table>
         }
         else
         {
-            <div class="text-theme-muted" style="padding: 24px; text-align: center;">
+            <div class="text-theme-muted" data-csp-style="padding: 24px; text-align: center;">
                 No assets with bonus depreciation for this tax year.
             </div>
         }
@@ -210,15 +210,15 @@
             Part III - MACRS Depreciation
         </h3>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>Recovery Period</th>
                     <th>Convention</th>
-                    <th style="text-align: right;">Basis</th>
-                    <th style="text-align: right;"># Assets</th>
-                    <th style="text-align: right;">Current Year Deduction</th>
+                    <th data-csp-style="text-align: right;">Basis</th>
+                    <th data-csp-style="text-align: right;"># Assets</th>
+                    <th data-csp-style="text-align: right;">Current Year Deduction</th>
                 </tr>
             </thead>
             <tbody>
@@ -227,16 +227,16 @@
                     <tr>
                         <td><span class="badge badge-secondary">@g.RecoveryPeriod-Year</span></td>
                         <td>@g.Convention</td>
-                        <td style="text-align: right;">@g.TotalBasis.ToString("C0")</td>
-                        <td style="text-align: right;">@g.AssetCount</td>
-                        <td style="text-align: right; font-weight: 600;">@g.CurrentYearDepreciation.ToString("C2")</td>
+                        <td data-csp-style="text-align: right;">@g.TotalBasis.ToString("C0")</td>
+                        <td data-csp-style="text-align: right;">@g.AssetCount</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@g.CurrentYearDepreciation.ToString("C2")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="totals-row">
                     <td colspan="4">Total MACRS Depreciation</td>
-                    <td style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
                 </tr>
             </tfoot>
         </table>
@@ -252,24 +252,24 @@
             Summary
         </h3>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         <table class="data-table">
             <tbody>
                 <tr>
                     <td>Section 179 Expense Deduction</td>
-                    <td style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalSection179.ToString("C2")</td>
                 </tr>
                 <tr>
                     <td>Special Depreciation Allowance (Bonus)</td>
-                    <td style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalBonusDepreciation.ToString("C2")</td>
                 </tr>
                 <tr>
                     <td>MACRS Depreciation</td>
-                    <td style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalMacrsDepreciation.ToString("C2")</td>
                 </tr>
-                <tr style="font-weight: 700; font-size: 18px; background: var(--btn-primary-bg, #cf3339); color: white;">
+                <tr data-csp-style="font-weight: 700; font-size: 18px; background: var(--btn-primary-bg, #cf3339); color: white;">
                     <td>Total Depreciation and Amortization</td>
-                    <td style="text-align: right;">@((Model.TotalSection179 + Model.TotalBonusDepreciation + Model.TotalMacrsDepreciation).ToString("C2"))</td>
+                    <td data-csp-style="text-align: right;">@((Model.TotalSection179 + Model.TotalBonusDepreciation + Model.TotalMacrsDepreciation).ToString("C2"))</td>
                 </tr>
             </tbody>
         </table>

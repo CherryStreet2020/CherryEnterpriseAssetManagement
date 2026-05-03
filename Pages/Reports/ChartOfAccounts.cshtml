@@ -52,7 +52,7 @@
                         }
                     </select>
                 </div>
-                <div class="form-group" style="align-self: flex-end;">
+                <div class="form-group" data-csp-style="align-self: flex-end;">
                     <button type="submit" class="btn-p btn-p--primary">Apply Filters</button>
                     <a asp-page="/Reports/ChartOfAccounts" class="btn-p btn-p--secondary">Clear</a>
                 </div>
@@ -61,11 +61,11 @@
     </div>
 </div>
 
-<div class="section-card" style="margin-top: 1.5rem;">
+<div class="section-card" data-csp-style="margin-top: 1.5rem;">
     <div class="section-card-header">
         <h3 class="card-title">GL Accounts (@Model.Accounts.Count)</h3>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.Accounts.Any())
         {
             <div class="table-responsive">
@@ -115,8 +115,8 @@
         }
         else
         {
-            <div class="pe-empty" style="padding:2rem;">
-                <i class="fas fa-calculator pe-empty__icon" style="font-size:1.5rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:2rem;">
+                <i class="fas fa-calculator pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                 <div class="pe-empty__title">No Accounts Found</div>
                 <div class="pe-empty__text">No GL accounts match your filter criteria.</div>
                 <a asp-page="/Reports/ChartOfAccounts" class="btn-p btn-p--primary">Clear Filters</a>

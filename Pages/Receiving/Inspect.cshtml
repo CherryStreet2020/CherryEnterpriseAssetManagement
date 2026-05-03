@@ -24,11 +24,11 @@
 
 @if (TempData["Success"] is string success)
 {
-    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
 }
 @if (TempData["Error"] is string error)
 {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>
 }
 
 <form method="post" asp-page-handler="Inspect" asp-route-id="@gr.Id">
@@ -48,15 +48,15 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width:35px">#</th>
-                        <th class="line-table__th" style="width:120px">PART #</th>
+                        <th class="line-table__th" data-csp-style="width:35px">#</th>
+                        <th class="line-table__th" data-csp-style="width:120px">PART #</th>
                         <th class="line-table__th">DESCRIPTION</th>
-                        <th class="line-table__th line-table__th--right" style="width:80px">QTY RCVD</th>
-                        <th class="line-table__th line-table__th--right" style="width:90px">QTY ACCEPTED</th>
-                        <th class="line-table__th line-table__th--right" style="width:90px">QTY REJECTED</th>
-                        <th class="line-table__th" style="width:150px">REJECTION REASON</th>
-                        <th class="line-table__th" style="width:130px">DISPOSITION</th>
-                        <th class="line-table__th" style="width:120px">NOTES</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:80px">QTY RCVD</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:90px">QTY ACCEPTED</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:90px">QTY REJECTED</th>
+                        <th class="line-table__th" data-csp-style="width:150px">REJECTION REASON</th>
+                        <th class="line-table__th" data-csp-style="width:130px">DISPOSITION</th>
+                        <th class="line-table__th" data-csp-style="width:120px">NOTES</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -68,30 +68,27 @@
                                 <input type="hidden" name="lines[@i].LineId" value="@line.LineId" />
                                 @(i + 1)
                             </td>
-                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">@(line.PartNumber ?? "—")</td>
                             <td class="line-table__td line-table__td--primary">@(line.Description ?? "—")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@line.QuantityReceived.ToString("N0")</td>
                             <td class="line-table__td line-table__td--right">
                                 <input type="number" name="lines[@i].QuantityAccepted" value="@line.QuantityAccepted"
                                        min="0" max="@line.QuantityReceived" step="any"
-                                       class="line-add-form__input line-add-form__input--right"
-                                       style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
+                                       class="line-add-form__input line-add-form__input--right" data-csp-style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
                                        oninput="syncRejected(this, @i, @line.QuantityReceived)" />
                             </td>
                             <td class="line-table__td line-table__td--right">
                                 <input type="number" name="lines[@i].QuantityRejected" value="@line.QuantityRejected"
                                        min="0" max="@line.QuantityReceived" step="any"
-                                       class="line-add-form__input line-add-form__input--right"
-                                       style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
+                                       class="line-add-form__input line-add-form__input--right" data-csp-style="width:70px; padding:0.35rem 0.5rem; font-size:0.85rem;"
                                        id="rejected_@i" />
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].RejectionReason" value="@line.RejectionReason"
-                                       class="line-add-form__input" placeholder="Reason..."
-                                       style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
+                                       class="line-add-form__input" placeholder="Reason..." data-csp-style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
                             </td>
                             <td class="line-table__td">
-                                <select name="lines[@i].Disposition" class="line-add-form__input" style="padding:0.35rem 0.5rem; font-size:0.8rem;">
+                                <select name="lines[@i].Disposition" class="line-add-form__input" data-csp-style="padding:0.35rem 0.5rem; font-size:0.8rem;">
                                     <option value="">— Select —</option>
                                     @foreach (var opt in Model.DispositionOptions)
                                     {
@@ -101,8 +98,7 @@
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].Notes" value="@line.Notes"
-                                       class="line-add-form__input" placeholder="Notes..."
-                                       style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
+                                       class="line-add-form__input" placeholder="Notes..." data-csp-style="width:100%; padding:0.35rem 0.5rem; font-size:0.8rem;" />
                             </td>
                         </tr>
                     }
@@ -112,11 +108,11 @@
     </div>
 
     <!-- ACTION BAR -->
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
+    <div data-csp-style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
         <a href="/Receiving/Details/@gr.Id" class="btn-p btn-p--secondary">
             <i class="fas fa-arrow-left"></i> Back to Receipt
         </a>
-        <div style="display:flex; gap:0.5rem;">
+        <div data-csp-style="display:flex; gap:0.5rem;">
             <button type="button" class="btn-p btn-p--ghost" onclick="acceptAll()">
                 <i class="fas fa-check-double"></i> Accept All
             </button>

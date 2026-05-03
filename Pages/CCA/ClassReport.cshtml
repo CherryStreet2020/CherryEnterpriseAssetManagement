@@ -81,20 +81,20 @@
             </h3>
             <span class="status-badge info">@Model.Balances.Count CLASSES</span>
         </div>
-        <div class="section-card-body" style="padding: 0;">
-            <div style="overflow-x: auto;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
+            <div data-csp-style="overflow-x: auto;">
                 <table class="data-table">
                     <thead>
                         <tr>
                             <th>Class</th>
-                            <th style="text-align: right;">Opening UCC</th>
-                            <th style="text-align: right;">Additions</th>
-                            <th style="text-align: right;">Dispositions</th>
-                            <th style="text-align: right;">Half-Year Adj.</th>
-                            <th style="text-align: right;">Base for CCA</th>
-                            <th style="text-align: right;">CCA Claimed</th>
-                            <th style="text-align: right;">Closing UCC</th>
-                            <th style="text-align: center;">Status</th>
+                            <th data-csp-style="text-align: right;">Opening UCC</th>
+                            <th data-csp-style="text-align: right;">Additions</th>
+                            <th data-csp-style="text-align: right;">Dispositions</th>
+                            <th data-csp-style="text-align: right;">Half-Year Adj.</th>
+                            <th data-csp-style="text-align: right;">Base for CCA</th>
+                            <th data-csp-style="text-align: right;">CCA Claimed</th>
+                            <th data-csp-style="text-align: right;">Closing UCC</th>
+                            <th data-csp-style="text-align: center;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,19 +102,19 @@
                         {
                             <tr>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div data-csp-style="display: flex; align-items: center; gap: 8px;">
                                         <span class="badge badge-primary">@b.CcaClass.ClassNumber</span>
-                                        <span class="text-theme-secondary" style="font-size: 12px;">@((b.CcaClass.Rate * 100).ToString("0.##"))%</span>
+                                        <span class="text-theme-secondary" data-csp-style="font-size: 12px;">@((b.CcaClass.Rate * 100).ToString("0.##"))%</span>
                                     </div>
                                 </td>
-                                <td style="text-align: right;">@b.OpeningUcc.ToString("C2")</td>
-                                <td class="text-green" style="text-align: right;">@b.Additions.ToString("C2")</td>
-                                <td class="text-red" style="text-align: right;">@b.Dispositions.ToString("C2")</td>
-                                <td class="text-theme-muted" style="text-align: right;">(@b.HalfYearAdjustment.ToString("C2"))</td>
-                                <td style="text-align: right; font-weight: 500;">@b.BaseForCca.ToString("C2")</td>
-                                <td class="text-red" style="text-align: right; font-weight: 600;">@b.CcaClaimed.ToString("C2")</td>
-                                <td style="text-align: right; font-weight: 600;">@b.ClosingUcc.ToString("C2")</td>
-                                <td style="text-align: center;">
+                                <td data-csp-style="text-align: right;">@b.OpeningUcc.ToString("C2")</td>
+                                <td class="text-green" data-csp-style="text-align: right;">@b.Additions.ToString("C2")</td>
+                                <td class="text-red" data-csp-style="text-align: right;">@b.Dispositions.ToString("C2")</td>
+                                <td class="text-theme-muted" data-csp-style="text-align: right;">(@b.HalfYearAdjustment.ToString("C2"))</td>
+                                <td data-csp-style="text-align: right; font-weight: 500;">@b.BaseForCca.ToString("C2")</td>
+                                <td class="text-red" data-csp-style="text-align: right; font-weight: 600;">@b.CcaClaimed.ToString("C2")</td>
+                                <td data-csp-style="text-align: right; font-weight: 600;">@b.ClosingUcc.ToString("C2")</td>
+                                <td data-csp-style="text-align: center;">
                                     @if (b.IsPosted)
                                     {
                                         <span class="badge badge-success">Posted</span>
@@ -128,7 +128,7 @@
                             @if (b.Recapture.HasValue && b.Recapture.Value > 0)
                             {
                                 <tr class="row-highlight-red">
-                                    <td class="text-red" colspan="9" style="font-weight: 500; padding-left: 48px;">
+                                    <td class="text-red" colspan="9" data-csp-style="font-weight: 500; padding-left: 48px;">
                                         ⚠️ Recapture: @b.Recapture.Value.ToString("C2")
                                     </td>
                                 </tr>
@@ -136,23 +136,23 @@
                             @if (b.TerminalLoss.HasValue && b.TerminalLoss.Value > 0)
                             {
                                 <tr class="row-highlight-green">
-                                    <td class="text-green" colspan="9" style="font-weight: 500; padding-left: 48px;">
+                                    <td class="text-green" colspan="9" data-csp-style="font-weight: 500; padding-left: 48px;">
                                         ✓ Terminal Loss: @b.TerminalLoss.Value.ToString("C2")
                                     </td>
                                 </tr>
                             }
                         }
                     </tbody>
-                    <tfoot class="bg-surface-tertiary" style="font-weight: 600;">
+                    <tfoot class="bg-surface-tertiary" data-csp-style="font-weight: 600;">
                         <tr>
                             <td>TOTAL</td>
-                            <td style="text-align: right;">@Model.TotalOpeningUcc.ToString("C2")</td>
-                            <td style="text-align: right;">@Model.TotalAdditions.ToString("C2")</td>
-                            <td style="text-align: right;">@Model.TotalDispositions.ToString("C2")</td>
-                            <td style="text-align: right;">-</td>
-                            <td style="text-align: right;">-</td>
-                            <td class="text-red" style="text-align: right;">@Model.TotalCcaClaimed.ToString("C2")</td>
-                            <td style="text-align: right;">@Model.TotalClosingUcc.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@Model.TotalOpeningUcc.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@Model.TotalAdditions.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@Model.TotalDispositions.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">-</td>
+                            <td data-csp-style="text-align: right;">-</td>
+                            <td class="text-red" data-csp-style="text-align: right;">@Model.TotalCcaClaimed.ToString("C2")</td>
+                            <td data-csp-style="text-align: right;">@Model.TotalClosingUcc.ToString("C2")</td>
                             <td></td>
                         </tr>
                     </tfoot>
@@ -165,8 +165,8 @@ else
 {
     <div class="section-card">
         <div class="section-card-body">
-            <div class="pe-empty" style="padding:2rem;">
-                <i class="fas fa-file-invoice-dollar pe-empty__icon" style="font-size:1.5rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:2rem;">
+                <i class="fas fa-file-invoice-dollar pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
                 <div class="pe-empty__title">No CCA Data for @Model.FiscalYear</div>
                 <div class="pe-empty__text">Click "Calculate CCA" to generate CCA calculations for this fiscal year, or assign assets to CCA classes first.</div>
                 <form method="post" asp-page-handler="Calculate">

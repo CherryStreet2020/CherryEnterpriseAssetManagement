@@ -26,23 +26,23 @@
 
 @if (TempData["Success"] is string success)
 {
-    <div class="alert alert-success" style="margin-bottom:1rem;">@success</div>
+    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
 }
 @if (TempData["Error"] is string error)
 {
-    <div class="alert alert-danger" style="margin-bottom:1rem;">@error</div>
+    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>
 }
 
 <form method="post" asp-page-handler="Receive" asp-route-id="@Model.PO.Id" id="receiveForm">
     @Html.AntiForgeryToken()
 
     <!-- SHIPMENT DETAILS -->
-    <div class="pe-card" style="margin-bottom:1rem;">
+    <div class="pe-card" data-csp-style="margin-bottom:1rem;">
         <div class="pe-card__header">
             <span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Shipment Details</span>
         </div>
         <div class="pe-card__body">
-            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
+            <div data-csp-style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:0.75rem; margin-bottom:0.75rem;">
                 <div>
                     <label class="line-add-form__label">RECEIPT DATE *</label>
                     <input type="date" name="receiptDate" class="line-add-form__input" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
@@ -83,17 +83,17 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width:35px">#</th>
-                        <th class="line-table__th" style="width:110px">PART #</th>
+                        <th class="line-table__th" data-csp-style="width:35px">#</th>
+                        <th class="line-table__th" data-csp-style="width:110px">PART #</th>
                         <th class="line-table__th">DESCRIPTION</th>
-                        <th class="line-table__th line-table__th--right" style="width:70px">ORDERED</th>
-                        <th class="line-table__th line-table__th--right" style="width:70px">PREV RCVD</th>
-                        <th class="line-table__th line-table__th--right" style="width:75px">REMAINING</th>
-                        <th class="line-table__th line-table__th--right" style="width:85px">QTY RECEIVE</th>
-                        <th class="line-table__th line-table__th--right" style="width:75px">QTY REJECT</th>
-                        <th class="line-table__th" style="width:130px">PUT-AWAY LOCATION</th>
-                        <th class="line-table__th" style="width:90px">LOT #</th>
-                        <th class="line-table__th" style="width:90px">SERIAL #</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:70px">ORDERED</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:70px">PREV RCVD</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:75px">REMAINING</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:85px">QTY RECEIVE</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width:75px">QTY REJECT</th>
+                        <th class="line-table__th" data-csp-style="width:130px">PUT-AWAY LOCATION</th>
+                        <th class="line-table__th" data-csp-style="width:90px">LOT #</th>
+                        <th class="line-table__th" data-csp-style="width:90px">SERIAL #</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,17 +115,17 @@
                             defaultPutaway = string.Join(" / ", parts);
                         }
 
-                        <tr class="line-table__row" style="@(isComplete ? "opacity:0.4;" : "")">
+                        <tr class="line-table__row" data-csp-style="@(isComplete ? "opacity:0.4;" : "")">
                             <td class="line-table__td line-table__td--muted">
                                 <input type="hidden" name="lines[@i].POLineId" value="@line.POLineId" />
                                 @(i + 1)
                             </td>
-                            <td class="line-table__td line-table__td--mono" style="font-weight:600;">@(line.PartNumber ?? "—")</td>
+                            <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">@(line.PartNumber ?? "—")</td>
                             <td class="line-table__td line-table__td--primary">
                                 @line.ItemDescription
                                 @if (!string.IsNullOrEmpty(line.UOM))
                                 {
-                                    <span style="color:var(--text-muted); font-size:0.75rem; margin-left:0.35rem;">@line.UOM</span>
+                                    <span data-csp-style="color:var(--text-muted); font-size:0.75rem; margin-left:0.35rem;">@line.UOM</span>
                                 }
                             </td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@line.QuantityOrdered.ToString("N0")</td>
@@ -133,7 +133,7 @@
                             <td class="line-table__td line-table__td--right line-table__td--mono">
                                 @if (isComplete)
                                 {
-                                    <span class="status-badge-p status-badge-p--approved" style="font-size:0.6rem;">DONE</span>
+                                    <span class="status-badge-p status-badge-p--approved" data-csp-style="font-size:0.6rem;">DONE</span>
                                 }
                                 else
                                 {
@@ -143,34 +143,29 @@
                             <td class="line-table__td line-table__td--right">
                                 <input type="number" name="lines[@i].QuantityToReceive" value="0"
                                        min="0" max="@line.QuantityRemaining" step="any"
-                                       class="line-add-form__input line-add-form__input--right"
-                                       style="width:65px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                                       class="line-add-form__input line-add-form__input--right" data-csp-style="width:65px; padding:0.3rem 0.4rem; font-size:0.85rem;"
                                        @(isComplete ? "disabled" : "") />
                             </td>
                             <td class="line-table__td line-table__td--right">
                                 <input type="number" name="lines[@i].QuantityRejected" value="0"
                                        min="0" step="any"
-                                       class="line-add-form__input line-add-form__input--right"
-                                       style="width:60px; padding:0.3rem 0.4rem; font-size:0.85rem;"
+                                       class="line-add-form__input line-add-form__input--right" data-csp-style="width:60px; padding:0.3rem 0.4rem; font-size:0.85rem;"
                                        @(isComplete ? "disabled" : "") />
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].StorageLocation" value="@defaultPutaway"
-                                       class="line-add-form__input" placeholder="Warehouse / Location / Bin"
-                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       class="line-add-form__input" placeholder="Warehouse / Location / Bin" data-csp-style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
                                        title="@(defaultPutaway != "" ? $"Default from Item Master: {defaultPutaway}" : "No default location set on Item Master")"
                                        @(isComplete ? "disabled" : "") />
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].LotNumber" value=""
-                                       class="line-add-form__input" placeholder="Lot#"
-                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       class="line-add-form__input" placeholder="Lot#" data-csp-style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
                                        @(isComplete ? "disabled" : "") />
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].SerialNumber" value=""
-                                       class="line-add-form__input" placeholder="Serial#"
-                                       style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                       class="line-add-form__input" placeholder="Serial#" data-csp-style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
                                        @(isComplete ? "disabled" : "") />
                             </td>
                         </tr>
@@ -181,11 +176,11 @@
     </div>
 
     <!-- ACTION BAR -->
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
+    <div data-csp-style="display:flex; justify-content:space-between; align-items:center; padding:1rem 0;">
         <a href="/Receiving" class="btn-p btn-p--secondary">
             <i class="fas fa-arrow-left"></i> Back to Receiving
         </a>
-        <div style="display:flex; gap:0.5rem;">
+        <div data-csp-style="display:flex; gap:0.5rem;">
             <button type="button" class="btn-p btn-p--ghost" onclick="fillAllRemaining()">
                 <i class="fas fa-fill-drip"></i> Receive All Remaining
             </button>

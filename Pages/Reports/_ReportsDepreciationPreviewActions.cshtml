@@ -3,11 +3,10 @@
     string ShortDate(DateTime dt) => dt.ToString("MM/dd/yy", System.Globalization.CultureInfo.InvariantCulture);
 }
 <div class="hero-tags">
-    <form method="get" style="display: flex; gap: 0.5rem; align-items: center;">
+    <form method="get" data-csp-style="display: flex; gap: 0.5rem; align-items: center;">
         <input type="text"
                name="asOf"
-               class="form-control"
-               style="width: 150px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;"
+               class="form-control" data-csp-style="width: 150px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;"
                placeholder="mm/dd/yyyy"
                value="@(Model.AsOf == default ? "" : ShortDate(Model.AsOf))" />
         <button class="hero-btn hero-btn-primary" type="submit">

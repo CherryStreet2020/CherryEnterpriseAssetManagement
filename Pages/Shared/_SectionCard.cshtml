@@ -14,7 +14,7 @@
 <div class="section-card @(collapsible ? "collapsible" : "") @(collapsed ? "collapsed" : "")" id="@id">
     @if (!string.IsNullOrEmpty(title))
     {
-        <div class="section-card-header" @(collapsible ? "onclick=toggleSectionCard('" + id + "')" : "") style="@(collapsible ? "cursor: pointer;" : "")">
+        <div class="section-card-header" @(collapsible ? "onclick=toggleSectionCard('" + id + "')" : "") data-csp-style="@(collapsible ? "cursor: pointer;" : "")">
             <h3 class="section-card-title">
                 @if (!string.IsNullOrEmpty(icon))
                 {

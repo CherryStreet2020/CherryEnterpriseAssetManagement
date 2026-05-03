@@ -67,21 +67,21 @@
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
+<div class="card" data-csp-style="margin-bottom: 24px;">
     <div class="card-header">
         <div>
             <h3 class="card-title">T2 Schedule 8 - Capital Cost Allowance (CCA)</h3>
             <p class="card-subtitle">Canada Revenue Agency prescribed classes and rates</p>
         </div>
-        <div style="display: flex; gap: 12px; align-items: center;">
-            <form method="get" style="display: flex; gap: 12px; align-items: center;">
-                <select name="fiscalYear" class="form-select" style="width: 120px;" onchange="this.form.submit()">
+        <div data-csp-style="display: flex; gap: 12px; align-items: center;">
+            <form method="get" data-csp-style="display: flex; gap: 12px; align-items: center;">
+                <select name="fiscalYear" class="form-select" data-csp-style="width: 120px;" onchange="this.form.submit()">
                     @for (int y = DateTime.Now.Year; y >= 2020; y--)
                     {
                         <option value="@y" selected="@(y == Model.FiscalYear)">@y</option>
                     }
                 </select>
-                <select name="companyId" class="form-select" style="width: 200px;" onchange="this.form.submit()">
+                <select name="companyId" class="form-select" data-csp-style="width: 200px;" onchange="this.form.submit()">
                     <option value="">All Companies</option>
                     @foreach (var c in Model.Companies)
                     {
@@ -99,25 +99,25 @@
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
+<div class="card" data-csp-style="margin-bottom: 24px;">
     <div class="card-header">
         <h3 class="card-title">CCA Schedule by Class</h3>
     </div>
-    <div style="overflow-x: auto;">
+    <div data-csp-style="overflow-x: auto;">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 80px;">Class</th>
-                    <th style="text-align: center;">Rate</th>
-                    <th style="text-align: right;">Opening UCC</th>
-                    <th style="text-align: right;">Additions</th>
-                    <th style="text-align: right;">Dispositions</th>
-                    <th style="text-align: right;">Half-Year Adj</th>
-                    <th style="text-align: right;">Base for CCA</th>
-                    <th style="text-align: right;">CCA Claimed</th>
-                    <th style="text-align: right;">Recapture</th>
-                    <th style="text-align: right;">Terminal Loss</th>
-                    <th style="text-align: right;">Closing UCC</th>
+                    <th data-csp-style="width: 80px;">Class</th>
+                    <th data-csp-style="text-align: center;">Rate</th>
+                    <th data-csp-style="text-align: right;">Opening UCC</th>
+                    <th data-csp-style="text-align: right;">Additions</th>
+                    <th data-csp-style="text-align: right;">Dispositions</th>
+                    <th data-csp-style="text-align: right;">Half-Year Adj</th>
+                    <th data-csp-style="text-align: right;">Base for CCA</th>
+                    <th data-csp-style="text-align: right;">CCA Claimed</th>
+                    <th data-csp-style="text-align: right;">Recapture</th>
+                    <th data-csp-style="text-align: right;">Terminal Loss</th>
+                    <th data-csp-style="text-align: right;">Closing UCC</th>
                 </tr>
             </thead>
             <tbody>
@@ -125,45 +125,45 @@
                 {
                     <tr>
                         <td>
-                            <span class="badge badge-primary" style="font-size: 14px; padding: 8px 12px;">@b.CcaClass?.ClassNumber</span>
+                            <span class="badge badge-primary" data-csp-style="font-size: 14px; padding: 8px 12px;">@b.CcaClass?.ClassNumber</span>
                         </td>
-                        <td style="text-align: center;">
+                        <td data-csp-style="text-align: center;">
                             @if (b.CcaClass != null)
                             {
                                 @((b.CcaClass.Rate * 100).ToString("0.##"))@:%
                             }
                         </td>
-                        <td style="text-align: right;">@b.OpeningUcc.ToString("C0")</td>
-                        <td class="text-green" style="text-align: right;">@b.Additions.ToString("C0")</td>
-                        <td class="text-red" style="text-align: right;">@((b.Dispositions > 0 ? "(" : ""))@b.Dispositions.ToString("C0")@((b.Dispositions > 0 ? ")" : ""))</td>
-                        <td style="text-align: right;">@b.HalfYearAdjustment.ToString("C0")</td>
-                        <td style="text-align: right;">@b.BaseForCca.ToString("C0")</td>
-                        <td style="text-align: right; font-weight: 600;">@b.CcaClaimed.ToString("C0")</td>
-                        <td class="text-amber" style="text-align: right;">@(b.Recapture.GetValueOrDefault() > 0 ? b.Recapture.GetValueOrDefault().ToString("C0") : "-")</td>
-                        <td class="text-red" style="text-align: right;">@(b.TerminalLoss.GetValueOrDefault() > 0 ? b.TerminalLoss.GetValueOrDefault().ToString("C0") : "-")</td>
-                        <td style="text-align: right; font-weight: 600;">@b.ClosingUcc.ToString("C0")</td>
+                        <td data-csp-style="text-align: right;">@b.OpeningUcc.ToString("C0")</td>
+                        <td class="text-green" data-csp-style="text-align: right;">@b.Additions.ToString("C0")</td>
+                        <td class="text-red" data-csp-style="text-align: right;">@((b.Dispositions > 0 ? "(" : ""))@b.Dispositions.ToString("C0")@((b.Dispositions > 0 ? ")" : ""))</td>
+                        <td data-csp-style="text-align: right;">@b.HalfYearAdjustment.ToString("C0")</td>
+                        <td data-csp-style="text-align: right;">@b.BaseForCca.ToString("C0")</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@b.CcaClaimed.ToString("C0")</td>
+                        <td class="text-amber" data-csp-style="text-align: right;">@(b.Recapture.GetValueOrDefault() > 0 ? b.Recapture.GetValueOrDefault().ToString("C0") : "-")</td>
+                        <td class="text-red" data-csp-style="text-align: right;">@(b.TerminalLoss.GetValueOrDefault() > 0 ? b.TerminalLoss.GetValueOrDefault().ToString("C0") : "-")</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@b.ClosingUcc.ToString("C0")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="totals-row">
                     <td colspan="2">Totals</td>
-                    <td style="text-align: right;">@Model.TotalOpeningUcc.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalAdditions.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalDispositions.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalHalfYearAdj.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalBaseForCca.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalCcaClaimed.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalRecapture.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalTerminalLoss.ToString("C0")</td>
-                    <td style="text-align: right;">@Model.TotalClosingUcc.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalOpeningUcc.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalAdditions.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalDispositions.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalHalfYearAdj.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalBaseForCca.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalCcaClaimed.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalRecapture.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalTerminalLoss.ToString("C0")</td>
+                    <td data-csp-style="text-align: right;">@Model.TotalClosingUcc.ToString("C0")</td>
                 </tr>
             </tfoot>
         </table>
     </div>
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
+<div class="card" data-csp-style="margin-bottom: 24px;">
     <div class="card-header">
         <h3 class="card-title">Assets Added During Year</h3>
     </div>
@@ -176,7 +176,7 @@
                     <th>Description</th>
                     <th>CCA Class</th>
                     <th>Available for Use</th>
-                    <th style="text-align: right;">Capital Cost</th>
+                    <th data-csp-style="text-align: right;">Capital Cost</th>
                 </tr>
             </thead>
             <tbody>
@@ -187,27 +187,27 @@
                         <td>@a.Asset?.Description</td>
                         <td><span class="badge badge-secondary">Class @a.CcaClass?.ClassNumber</span></td>
                         <td>@a.AvailableForUseDate?.ToString("MM/dd/yyyy")</td>
-                        <td style="text-align: right; font-weight: 600;">@a.CapitalCost.ToString("C2")</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@a.CapitalCost.ToString("C2")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="totals-row">
                     <td colspan="4">Total Additions</td>
-                    <td style="text-align: right;">@Model.AdditionsThisYear.Sum(a => a.CapitalCost).ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.AdditionsThisYear.Sum(a => a.CapitalCost).ToString("C2")</td>
                 </tr>
             </tfoot>
         </table>
     }
     else
     {
-        <div class="text-theme-muted" style="padding: 24px; text-align: center;">
+        <div class="text-theme-muted" data-csp-style="padding: 24px; text-align: center;">
             No assets added during this fiscal year.
         </div>
     }
 </div>
 
-<div class="card" style="margin-bottom: 24px;">
+<div class="card" data-csp-style="margin-bottom: 24px;">
     <div class="card-header">
         <h3 class="card-title">Dispositions During Year</h3>
     </div>
@@ -220,8 +220,8 @@
                     <th>Description</th>
                     <th>CCA Class</th>
                     <th>Disposal Date</th>
-                    <th style="text-align: right;">Capital Cost</th>
-                    <th style="text-align: right;">Proceeds</th>
+                    <th data-csp-style="text-align: right;">Capital Cost</th>
+                    <th data-csp-style="text-align: right;">Proceeds</th>
                 </tr>
             </thead>
             <tbody>
@@ -232,23 +232,23 @@
                         <td>@d.Asset?.Description</td>
                         <td><span class="badge badge-secondary">Class @d.CcaClass?.ClassNumber</span></td>
                         <td>@d.DisposalDate?.ToString("MM/dd/yyyy")</td>
-                        <td style="text-align: right;">@d.CapitalCost.ToString("C2")</td>
-                        <td style="text-align: right; font-weight: 600;">@(d.Proceeds?.ToString("C2") ?? "-")</td>
+                        <td data-csp-style="text-align: right;">@d.CapitalCost.ToString("C2")</td>
+                        <td data-csp-style="text-align: right; font-weight: 600;">@(d.Proceeds?.ToString("C2") ?? "-")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr class="totals-row">
                     <td colspan="4">Total Dispositions</td>
-                    <td style="text-align: right;">@Model.DispositionsThisYear.Sum(d => d.CapitalCost).ToString("C2")</td>
-                    <td style="text-align: right;">@Model.DispositionsThisYear.Sum(d => d.Proceeds ?? 0).ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.DispositionsThisYear.Sum(d => d.CapitalCost).ToString("C2")</td>
+                    <td data-csp-style="text-align: right;">@Model.DispositionsThisYear.Sum(d => d.Proceeds ?? 0).ToString("C2")</td>
                 </tr>
             </tfoot>
         </table>
     }
     else
     {
-        <div class="text-theme-muted" style="padding: 24px; text-align: center;">
+        <div class="text-theme-muted" data-csp-style="padding: 24px; text-align: center;">
             No dispositions during this fiscal year.
         </div>
     }
@@ -262,19 +262,19 @@
         <tbody>
             <tr>
                 <td>Total Capital Cost Allowance (CCA) Claimed</td>
-                <td style="text-align: right; font-weight: 600;">@Model.TotalCcaClaimed.ToString("C2")</td>
+                <td data-csp-style="text-align: right; font-weight: 600;">@Model.TotalCcaClaimed.ToString("C2")</td>
             </tr>
             <tr>
                 <td>Recapture of CCA (Income)</td>
-                <td style="text-align: right;">@Model.TotalRecapture.ToString("C2")</td>
+                <td data-csp-style="text-align: right;">@Model.TotalRecapture.ToString("C2")</td>
             </tr>
             <tr>
                 <td>Terminal Loss (Deduction)</td>
-                <td style="text-align: right;">@Model.TotalTerminalLoss.ToString("C2")</td>
+                <td data-csp-style="text-align: right;">@Model.TotalTerminalLoss.ToString("C2")</td>
             </tr>
-            <tr style="font-weight: 700; font-size: 18px; background: var(--btn-primary-bg, #cf3339); color: white;">
+            <tr data-csp-style="font-weight: 700; font-size: 18px; background: var(--btn-primary-bg, #cf3339); color: white;">
                 <td>Net CCA Deduction</td>
-                <td style="text-align: right;">@((Model.TotalCcaClaimed + Model.TotalTerminalLoss - Model.TotalRecapture).ToString("C2"))</td>
+                <td data-csp-style="text-align: right;">@((Model.TotalCcaClaimed + Model.TotalTerminalLoss - Model.TotalRecapture).ToString("C2"))</td>
             </tr>
         </tbody>
     </table>

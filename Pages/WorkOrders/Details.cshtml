@@ -124,14 +124,14 @@
             <table class="line-table">
                 <thead>
                     <tr>
-                        <th class="line-table__th" style="width: 40px;">#</th>
+                        <th class="line-table__th" data-csp-style="width: 40px;">#</th>
                         <th class="line-table__th">TITLE</th>
-                        <th class="line-table__th" style="width: 100px;">TYPE</th>
-                        <th class="line-table__th" style="width: 100px;">CRAFT</th>
-                        <th class="line-table__th line-table__th--right" style="width: 100px;">PLANNED HRS</th>
-                        <th class="line-table__th line-table__th--right" style="width: 100px;">ACTUAL HRS</th>
-                        <th class="line-table__th" style="width: 100px;">STATUS</th>
-                        <th class="line-table__th" style="width: 120px;"></th>
+                        <th class="line-table__th" data-csp-style="width: 100px;">TYPE</th>
+                        <th class="line-table__th" data-csp-style="width: 100px;">CRAFT</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width: 100px;">PLANNED HRS</th>
+                        <th class="line-table__th line-table__th--right" data-csp-style="width: 100px;">ACTUAL HRS</th>
+                        <th class="line-table__th" data-csp-style="width: 100px;">STATUS</th>
+                        <th class="line-table__th" data-csp-style="width: 120px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -148,16 +148,16 @@
                         };
                         <tr class="line-table__row" id="op-@op.Id">
                             <td class="line-table__td line-table__td--muted">@opIdx</td>
-                            <td class="line-table__td line-table__td--primary">@op.Title<br/><span style="font-size:0.7rem;color:var(--text-muted);">@op.OperationNumber</span></td>
+                            <td class="line-table__td line-table__td--primary">@op.Title<br/><span data-csp-style="font-size:0.7rem;color:var(--text-muted);">@op.OperationNumber</span></td>
                             <td class="line-table__td line-table__td--muted">@op.Type</td>
                             <td class="line-table__td line-table__td--muted">@(op.Craft?.Name ?? "—")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@op.PlannedHours.ToString("N1")</td>
                             <td class="line-table__td line-table__td--right line-table__td--mono">@op.ActualHours.ToString("N1")</td>
-                            <td class="line-table__td"><span class="status-badge-p @opStatusClass" style="font-size:0.65rem;">@op.Status</span></td>
+                            <td class="line-table__td"><span class="status-badge-p @opStatusClass" data-csp-style="font-size:0.65rem;">@op.Status</span></td>
                             <td class="line-table__td line-table__td--actions">
-                                <form method="post" asp-page-handler="UpdateStatus" style="display:inline;">
+                                <form method="post" asp-page-handler="UpdateStatus" data-csp-style="display:inline;">
                                     <input type="hidden" name="operationId" value="@op.Id" />
-                                    <select name="statusLookupValueId" onchange="this.form.submit()" style="font-size:0.7rem;padding:0.15rem 0.3rem;background:var(--surface-input);border:1px solid var(--border-default);border-radius:4px;color:var(--text-primary);" asp-items="Model.OperationStatusOptions"></select>
+                                    <select name="statusLookupValueId" onchange="this.form.submit()" data-csp-style="font-size:0.7rem;padding:0.15rem 0.3rem;background:var(--surface-input);border:1px solid var(--border-default);border-radius:4px;color:var(--text-primary);" asp-items="Model.OperationStatusOptions"></select>
                                 </form>
                             </td>
                         </tr>
@@ -165,7 +165,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="line-table__total-row">
-                        <td colspan="4" class="line-table__td line-table__td--right" style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL HOURS</td>
+                        <td colspan="4" class="line-table__td line-table__td--right" data-csp-style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL HOURS</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.TotalPlannedHours.ToString("N1")</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@Model.TotalActualHours.ToString("N1")</td>
                         <td colspan="2"></td>
@@ -240,13 +240,13 @@
                         }
                         else
                         {
-                            <p class="text-theme-muted" style="font-size:0.8rem;text-align:center;padding:0.5rem;">No labor entries yet</p>
+                            <p class="text-theme-muted" data-csp-style="font-size:0.8rem;text-align:center;padding:0.5rem;">No labor entries yet</p>
                         }
                         <form method="post" asp-page-handler="AddLabor" class="inline-form">
                             <input type="hidden" name="operationId" value="@op.Id" />
                             <div class="form-group">
                                 <label>Technician</label>
-                                <select name="technicianId" style="min-width:120px;" data-cherry-select data-placeholder="Select technician...">
+                                <select name="technicianId" data-csp-style="min-width:120px;" data-cherry-select data-placeholder="Select technician...">
                                     <option value="">Select...</option>
                                     @foreach (var t in Model.Technicians)
                                     {
@@ -256,11 +256,11 @@
                             </div>
                             <div class="form-group">
                                 <label>Hours</label>
-                                <input type="number" name="hours" step="0.5" value="1" style="width:70px;" required />
+                                <input type="number" name="hours" step="0.5" value="1" data-csp-style="width:70px;" required />
                             </div>
                             <div class="form-group">
                                 <label>Rate</label>
-                                <input type="number" name="hourlyRate" step="0.01" value="50" style="width:80px;" required />
+                                <input type="number" name="hourlyRate" step="0.01" value="50" data-csp-style="width:80px;" required />
                             </div>
                             <button type="submit">+ Add</button>
                         </form>
@@ -298,17 +298,17 @@
                         }
                         else
                         {
-                            <p class="text-theme-muted" style="font-size:0.8rem;text-align:center;padding:0.5rem;">No tools assigned</p>
+                            <p class="text-theme-muted" data-csp-style="font-size:0.8rem;text-align:center;padding:0.5rem;">No tools assigned</p>
                         }
                         <form method="post" asp-page-handler="AddTool" class="inline-form">
                             <input type="hidden" name="operationId" value="@op.Id" />
                             <div class="form-group">
                                 <label>Tool Name</label>
-                                <input type="text" name="toolName" placeholder="e.g. Torque Wrench" required style="min-width:150px;" />
+                                <input type="text" name="toolName" placeholder="e.g. Torque Wrench" required data-csp-style="min-width:150px;" />
                             </div>
                             <div class="form-group">
                                 <label>Qty</label>
-                                <input type="number" name="quantityRequired" value="1" style="width:60px;" required />
+                                <input type="number" name="quantityRequired" value="1" data-csp-style="width:60px;" required />
                             </div>
                             <button type="submit">+ Add</button>
                         </form>
@@ -346,7 +346,7 @@
                         }
                         else
                         {
-                            <p class="text-theme-muted" style="font-size:0.8rem;text-align:center;padding:0.5rem;">No parts assigned</p>
+                            <p class="text-theme-muted" data-csp-style="font-size:0.8rem;text-align:center;padding:0.5rem;">No parts assigned</p>
                         }
                         @if (Model.Items.Any())
                         {
@@ -354,7 +354,7 @@
                                 <input type="hidden" name="operationId" value="@op.Id" />
                                 <div class="form-group">
                                     <label>Part</label>
-                                    <select name="itemId" style="min-width:180px;" required data-cherry-select data-placeholder="Search parts...">
+                                    <select name="itemId" data-csp-style="min-width:180px;" required data-cherry-select data-placeholder="Search parts...">
                                         <option value="">Select part...</option>
                                         @foreach (var item in Model.Items)
                                         {
@@ -364,11 +364,11 @@
                                 </div>
                                 <div class="form-group">
                                     <label>Qty</label>
-                                    <input type="number" name="quantityPlanned" step="0.01" value="1" style="width:70px;" required />
+                                    <input type="number" name="quantityPlanned" step="0.01" value="1" data-csp-style="width:70px;" required />
                                 </div>
                                 <div class="form-group">
                                     <label>Unit Cost</label>
-                                    <input type="number" name="unitCost" step="0.01" value="0" style="width:80px;" required />
+                                    <input type="number" name="unitCost" step="0.01" value="0" data-csp-style="width:80px;" required />
                                 </div>
                                 <button type="submit">+ Add</button>
                             </form>
@@ -381,25 +381,25 @@
 }
 
 <!-- ==================== MATERIALS SECTION ==================== -->
-<div class="section-card" style="margin-top: 1.5rem;">
-    <div class="section-card-header gradient-bg-light" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--lux-border, #e2e8f0);">
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
+<div class="section-card" data-csp-style="margin-top: 1.5rem;">
+    <div class="section-card-header gradient-bg-light" data-csp-style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--lux-border, #e2e8f0);">
+        <div data-csp-style="display: flex; align-items: center; gap: 0.75rem;">
             <div class="icon-circle-sm gradient-bg-green">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
             </div>
             <div>
-                <h3 class="text-theme-primary" style="margin: 0; font-size: 1rem; font-weight: 600;">Materials</h3>
-                <span class="text-theme-muted" style="font-size: 0.75rem;">@Model.LegacyParts.Count item(s) planned</span>
+                <h3 class="text-theme-primary" data-csp-style="margin: 0; font-size: 1rem; font-weight: 600;">Materials</h3>
+                <span class="text-theme-muted" data-csp-style="font-size: 0.75rem;">@Model.LegacyParts.Count item(s) planned</span>
             </div>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div data-csp-style="display: flex; gap: 0.5rem;">
             @if (!string.IsNullOrEmpty(Model.WorkOrder.CustomField1) && Model.WorkOrder.CustomField1.StartsWith("PMTA:"))
             {
-                <form method="post" asp-page-handler="LoadTemplateMaterials" style="margin: 0;">
+                <form method="post" asp-page-handler="LoadTemplateMaterials" data-csp-style="margin: 0;">
                     <input type="hidden" name="workOrderId" value="@Model.WorkOrder.Id" />
-                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm" style="display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; font-size: 0.8rem;">
+                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm" data-csp-style="display: flex; align-items: center; gap: 0.375rem; padding: 0.5rem 0.875rem; font-size: 0.8rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                         </svg>
@@ -418,10 +418,10 @@
             }
         </div>
     </div>
-    <div id="addMaterialInline" style="display: none; border-bottom: 1px solid var(--lux-border, #e2e8f0);">
-        <form method="post" asp-page-handler="AddPlannedMaterial" style="padding: 1.25rem;">
+    <div id="addMaterialInline" data-csp-style="display: none; border-bottom: 1px solid var(--lux-border, #e2e8f0);">
+        <form method="post" asp-page-handler="AddPlannedMaterial" data-csp-style="padding: 1.25rem;">
             <input type="hidden" name="workOrderId" value="@Model.WorkOrder.Id" />
-            <div class="form-grid form-grid--3" style="margin-bottom: 1rem;">
+            <div class="form-grid form-grid--3" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Item</label>
                     <select name="itemId" class="form-input-p" required data-cherry-select data-placeholder="Search items...">
@@ -441,24 +441,24 @@
                     <input type="text" name="notes" class="form-input-p" placeholder="e.g. Use OEM part only" />
                 </div>
             </div>
-            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+            <div data-csp-style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addMaterialInline')">Cancel</button>
                 <button type="submit" class="btn-p btn-p--primary">Add to Work Order</button>
             </div>
         </form>
     </div>
-    <div class="section-card-body" style="padding: 0;">
+    <div class="section-card-body" data-csp-style="padding: 0;">
         @if (!Model.Items.Any())
         {
-            <div class="gradient-bg-amber-warm" style="padding: 3rem 2rem; text-align: center;">
-                <div style="width: 64px; height: 64px; margin: 0 auto 1rem; border-radius: 50%; background: var(--warning, #fbbf24); display: flex; align-items: center; justify-content: center;">
+            <div class="gradient-bg-amber-warm" data-csp-style="padding: 3rem 2rem; text-align: center;">
+                <div data-csp-style="width: 64px; height: 64px; margin: 0 auto 1rem; border-radius: 50%; background: var(--warning, #fbbf24); display: flex; align-items: center; justify-content: center;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                 </div>
-                <h4 class="text-dark-amber" style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600;">No Parts in Item Master</h4>
-                <p class="text-amber" style="margin: 0 0 1.25rem; font-size: 0.875rem;">Set up your parts inventory before adding materials to work orders.</p>
-                <div style="display: flex; gap: 0.75rem; justify-content: center;">
+                <h4 class="text-dark-amber" data-csp-style="margin: 0 0 0.5rem; font-size: 1.125rem; font-weight: 600;">No Parts in Item Master</h4>
+                <p class="text-amber" data-csp-style="margin: 0 0 1.25rem; font-size: 0.875rem;">Set up your parts inventory before adding materials to work orders.</p>
+                <div data-csp-style="display: flex; gap: 0.75rem; justify-content: center;">
                     <a href="/Materials/Items" class="add-btn gradient-btn-amber">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -470,12 +470,12 @@
         }
         else if (!Model.LegacyParts.Any())
         {
-            <div style="padding: 2.5rem 2rem; text-align: center;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="1.5" style="margin: 0 auto 1rem;">
+            <div data-csp-style="padding: 2.5rem 2rem; text-align: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="1.5" data-csp-style="margin: 0 auto 1rem;">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                 </svg>
-                <h4 class="text-theme-secondary" style="margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600;">No Materials Yet</h4>
-                <p class="text-theme-muted" style="margin: 0 0 1rem; font-size: 0.875rem;">Add planned materials or load from PM template.</p>
+                <h4 class="text-theme-secondary" data-csp-style="margin: 0 0 0.5rem; font-size: 1rem; font-weight: 600;">No Materials Yet</h4>
+                <p class="text-theme-muted" data-csp-style="margin: 0 0 1rem; font-size: 0.875rem;">Add planned materials or load from PM template.</p>
                 <button type="button" class="add-btn" onclick="toggleInlineForm('addMaterialInline')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -486,18 +486,18 @@
         }
         else
         {
-            <table class="subpanel-table" style="width: 100%;">
+            <table class="subpanel-table" data-csp-style="width: 100%;">
                 <thead>
-                    <tr style="background: var(--lux-surface-alt, #f8fafc);">
-                        <th style="padding: 0.75rem 1rem;">Item</th>
-                        <th style="text-align: center;">Planned</th>
-                        <th style="text-align: center;">Issued</th>
-                        <th style="text-align: center;">Returned</th>
-                        <th style="text-align: center;">Used</th>
-                        <th style="text-align: right;">Unit Cost</th>
-                        <th style="text-align: right;">Ext. Cost</th>
-                        <th style="text-align: center;">Status</th>
-                        <th style="text-align: center;">Actions</th>
+                    <tr data-csp-style="background: var(--lux-surface-alt, #f8fafc);">
+                        <th data-csp-style="padding: 0.75rem 1rem;">Item</th>
+                        <th data-csp-style="text-align: center;">Planned</th>
+                        <th data-csp-style="text-align: center;">Issued</th>
+                        <th data-csp-style="text-align: center;">Returned</th>
+                        <th data-csp-style="text-align: center;">Used</th>
+                        <th data-csp-style="text-align: right;">Unit Cost</th>
+                        <th data-csp-style="text-align: right;">Ext. Cost</th>
+                        <th data-csp-style="text-align: center;">Status</th>
+                        <th data-csp-style="text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -508,46 +508,46 @@
                                           part.QuantityIssued >= part.QuantityPlanned ? ("Issued", "#dcfce7", "#166534") :
                                           ("In Progress", "#fef3c7", "#92400e");
                         <tr>
-                            <td style="padding: 0.75rem 1rem;">
-                                <div class="text-theme-primary" style="font-weight: 500;">@(part.Item?.PartNumber ?? "—")</div>
-                                <div class="text-theme-muted" style="font-size: 0.75rem;">@(part.Item?.Description ?? "Unknown Item")</div>
+                            <td data-csp-style="padding: 0.75rem 1rem;">
+                                <div class="text-theme-primary" data-csp-style="font-weight: 500;">@(part.Item?.PartNumber ?? "—")</div>
+                                <div class="text-theme-muted" data-csp-style="font-size: 0.75rem;">@(part.Item?.Description ?? "Unknown Item")</div>
                             </td>
-                            <td style="text-align: center; font-weight: 500;">@part.QuantityPlanned.ToString("N1")</td>
-                            <td class="text-green" style="text-align: center; font-weight: 500;">@part.QuantityIssued.ToString("N1")</td>
-                            <td class="text-red" style="text-align: center;">@part.QuantityReturned.ToString("N1")</td>
-                            <td style="text-align: center; font-weight: 600;">@part.QuantityUsed.ToString("N1")</td>
-                            <td style="text-align: right;">@part.UnitCost.ToString("C2")</td>
-                            <td style="text-align: right; font-weight: 600;">@part.TotalCost.ToString("C2")</td>
-                            <td style="text-align: center;">
-                                <span style="display: inline-block; padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; background: @statusBadge.Item2; color: @statusBadge.Item3;">@statusBadge.Item1</span>
+                            <td data-csp-style="text-align: center; font-weight: 500;">@part.QuantityPlanned.ToString("N1")</td>
+                            <td class="text-green" data-csp-style="text-align: center; font-weight: 500;">@part.QuantityIssued.ToString("N1")</td>
+                            <td class="text-red" data-csp-style="text-align: center;">@part.QuantityReturned.ToString("N1")</td>
+                            <td data-csp-style="text-align: center; font-weight: 600;">@part.QuantityUsed.ToString("N1")</td>
+                            <td data-csp-style="text-align: right;">@part.UnitCost.ToString("C2")</td>
+                            <td data-csp-style="text-align: right; font-weight: 600;">@part.TotalCost.ToString("C2")</td>
+                            <td data-csp-style="text-align: center;">
+                                <span data-csp-style="display: inline-block; padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; background: @statusBadge.Item2; color: @statusBadge.Item3;">@statusBadge.Item1</span>
                             </td>
-                            <td style="text-align: center;">
-                                <div style="display: flex; gap: 0.375rem; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <td data-csp-style="text-align: center;">
+                                <div data-csp-style="display: flex; gap: 0.375rem; justify-content: center; align-items: center; flex-wrap: wrap;">
                                     @{
                                         var remainingToIssue = part.QuantityPlanned - part.QuantityIssued;
                                         var remainingToReturn = part.QuantityIssued - part.QuantityReturned;
                                     }
                                     @if (remainingToIssue > 0 || part.QuantityPlanned == 0)
                                     {
-                                        <form method="post" asp-page-handler="IssueMaterial" style="margin: 0; display: flex; align-items: center; gap: 0.25rem;">
+                                        <form method="post" asp-page-handler="IssueMaterial" data-csp-style="margin: 0; display: flex; align-items: center; gap: 0.25rem;">
                                             <input type="hidden" name="workOrderPartId" value="@part.Id" />
-                                            <input type="number" name="quantityIssue" step="0.5" min="0.1" max="@(remainingToIssue > 0 ? remainingToIssue : 9999)" value="@(remainingToIssue > 0 ? remainingToIssue : 1)" style="width: 50px; padding: 0.25rem 0.375rem; font-size: 0.7rem; border: 1px solid var(--border-primary, #d1d5db); border-radius: 4px; text-align: center;" />
+                                            <input type="number" name="quantityIssue" step="0.5" min="0.1" max="@(remainingToIssue > 0 ? remainingToIssue : 9999)" value="@(remainingToIssue > 0 ? remainingToIssue : 1)" data-csp-style="width: 50px; padding: 0.25rem 0.375rem; font-size: 0.7rem; border: 1px solid var(--border-primary, #d1d5db); border-radius: 4px; text-align: center;" />
                                             <button type="submit" class="btn-p btn-p--primary btn-p--sm" title="Issue quantity">Issue</button>
                                         </form>
                                     }
                                     @if (remainingToReturn > 0)
                                     {
-                                        <form method="post" asp-page-handler="ReturnMaterial" style="margin: 0; display: flex; align-items: center; gap: 0.25rem;">
+                                        <form method="post" asp-page-handler="ReturnMaterial" data-csp-style="margin: 0; display: flex; align-items: center; gap: 0.25rem;">
                                             <input type="hidden" name="workOrderPartId" value="@part.Id" />
-                                            <input type="number" name="quantityReturn" step="0.5" min="0.1" max="@remainingToReturn" value="1" style="width: 50px; padding: 0.25rem 0.375rem; font-size: 0.7rem; border: 1px solid var(--border-primary, #d1d5db); border-radius: 4px; text-align: center;" />
+                                            <input type="number" name="quantityReturn" step="0.5" min="0.1" max="@remainingToReturn" value="1" data-csp-style="width: 50px; padding: 0.25rem 0.375rem; font-size: 0.7rem; border: 1px solid var(--border-primary, #d1d5db); border-radius: 4px; text-align: center;" />
                                             <button type="submit" class="btn-p btn-p--secondary btn-p--sm" title="Return quantity">Return</button>
                                         </form>
                                     }
                                     @if (part.QuantityIssued == 0)
                                     {
-                                        <form method="post" asp-page-handler="RemovePlannedMaterial" style="margin: 0;">
+                                        <form method="post" asp-page-handler="RemovePlannedMaterial" data-csp-style="margin: 0;">
                                             <input type="hidden" name="workOrderPartId" value="@part.Id" />
-                                            <button type="submit" class="btn-p btn-p--danger btn-p--sm" style="padding: 0.25rem 0.5rem; font-size: 0.7rem;" onclick="return confirm('Remove this planned material?');" title="Remove">
+                                            <button type="submit" class="btn-p btn-p--danger btn-p--sm" data-csp-style="padding: 0.25rem 0.5rem; font-size: 0.7rem;" onclick="return confirm('Remove this planned material?');" title="Remove">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
@@ -560,9 +560,9 @@
                     }
                 </tbody>
                 <tfoot>
-                    <tr class="bg-surface-alt" style="font-weight: 600;">
-                        <td colspan="6" style="padding: 0.75rem 1rem; text-align: right;">Total Material Cost:</td>
-                        <td class="text-green" style="padding: 0.75rem 1rem; text-align: right;">@Model.LegacyParts.Sum(p => p.TotalCost).ToString("C2")</td>
+                    <tr class="bg-surface-alt" data-csp-style="font-weight: 600;">
+                        <td colspan="6" data-csp-style="padding: 0.75rem 1rem; text-align: right;">Total Material Cost:</td>
+                        <td class="text-green" data-csp-style="padding: 0.75rem 1rem; text-align: right;">@Model.LegacyParts.Sum(p => p.TotalCost).ToString("C2")</td>
                         <td colspan="2"></td>
                     </tr>
                 </tfoot>
@@ -572,8 +572,8 @@
 </div>
 
 <!-- Closeout Section -->
-<div class="detail-section" style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
-    <h3 class="text-theme-primary" style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+<div class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
+    <h3 class="text-theme-primary" data-csp-style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
@@ -582,33 +582,33 @@
     
     @if (Model.WorkOrder.Status == MaintenanceStatus.Completed)
     {
-        <div class="callout-green" style="margin-bottom: 1rem;">
-            <div class="text-dark-emerald" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Resolution Summary (Auto-Generated)</div>
-            <pre class="text-theme-primary" style="font-family: inherit; white-space: pre-wrap; font-size: 0.875rem; margin: 0; line-height: 1.6;">@(Model.WorkOrder.ResolutionSummary ?? "No summary available")</pre>
+        <div class="callout-green" data-csp-style="margin-bottom: 1rem;">
+            <div class="text-dark-emerald" data-csp-style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Resolution Summary (Auto-Generated)</div>
+            <pre class="text-theme-primary" data-csp-style="font-family: inherit; white-space: pre-wrap; font-size: 0.875rem; margin: 0; line-height: 1.6;">@(Model.WorkOrder.ResolutionSummary ?? "No summary available")</pre>
         </div>
         
         @if (!string.IsNullOrEmpty(Model.WorkOrder.LessonsLearned))
         {
-            <div class="callout-amber" style="margin-bottom: 1rem;">
-                <div class="text-dark-amber" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Lessons Learned</div>
-                <p class="text-theme-primary" style="font-size: 0.875rem; margin: 0;">@Model.WorkOrder.LessonsLearned</p>
+            <div class="callout-amber" data-csp-style="margin-bottom: 1rem;">
+                <div class="text-dark-amber" data-csp-style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Lessons Learned</div>
+                <p class="text-theme-primary" data-csp-style="font-size: 0.875rem; margin: 0;">@Model.WorkOrder.LessonsLearned</p>
             </div>
         }
         
-        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem;">
-            <span class="text-theme-muted" style="font-size: 0.8rem;">Closed by @Model.WorkOrder.ClosedBy on @(Model.WorkOrder.ClosedAt?.ToString("MMM dd, yyyy") ?? "N/A")</span>
+        <div data-csp-style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem;">
+            <span class="text-theme-muted" data-csp-style="font-size: 0.8rem;">Closed by @Model.WorkOrder.ClosedBy on @(Model.WorkOrder.ClosedAt?.ToString("MMM dd, yyyy") ?? "N/A")</span>
         </div>
         
         @if (!string.IsNullOrEmpty(Model.WorkOrder.LessonsLearned))
         {
-            <form method="post" asp-page-handler="SaveLesson" style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;">
+            <form method="post" asp-page-handler="SaveLesson" data-csp-style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end;">
                 <input type="hidden" name="workOrderId" value="@Model.WorkOrder.Id" />
                 <input type="hidden" name="lessonText" value="@Model.WorkOrder.LessonsLearned" />
-                <div style="flex: 1; min-width: 200px;">
-                    <label class="text-theme-secondary" style="font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">Tags (optional)</label>
-                    <input type="text" name="tags" placeholder="e.g., bearing, motor, preventive" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 6px; font-size: 0.875rem;" />
+                <div data-csp-style="flex: 1; min-width: 200px;">
+                    <label class="text-theme-secondary" data-csp-style="font-size: 0.75rem; display: block; margin-bottom: 0.25rem;">Tags (optional)</label>
+                    <input type="text" name="tags" placeholder="e.g., bearing, motor, preventive" data-csp-style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 6px; font-size: 0.875rem;" />
                 </div>
-                <button type="submit" class="add-btn gradient-btn-amber" style="padding: 0.5rem 1rem;">
+                <button type="submit" class="add-btn gradient-btn-amber" data-csp-style="padding: 0.5rem 1rem;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
@@ -619,19 +619,18 @@
     }
     else
     {
-        <div style="background: var(--lux-surface-alt, #f8fafc); border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
-            <div class="text-theme-muted" style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Summary Preview</div>
-            <pre class="text-theme-muted" style="font-family: inherit; white-space: pre-wrap; font-size: 0.85rem; margin: 0; line-height: 1.5;">@Model.GeneratePreviewSummary()</pre>
+        <div data-csp-style="background: var(--lux-surface-alt, #f8fafc); border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+            <div class="text-theme-muted" data-csp-style="font-size: 0.75rem; font-weight: 500; margin-bottom: 0.5rem;">Summary Preview</div>
+            <pre class="text-theme-muted" data-csp-style="font-family: inherit; white-space: pre-wrap; font-size: 0.85rem; margin: 0; line-height: 1.5;">@Model.GeneratePreviewSummary()</pre>
         </div>
         
-        <form method="post" asp-page-handler="CloseWorkOrder" style="display: flex; flex-direction: column; gap: 1rem;">
+        <form method="post" asp-page-handler="CloseWorkOrder" data-csp-style="display: flex; flex-direction: column; gap: 1rem;">
             <input type="hidden" name="workOrderId" value="@Model.WorkOrder.Id" />
             <div>
-                <label class="text-theme-secondary" style="font-size: 0.8rem; display: block; margin-bottom: 0.375rem;">Lessons Learned (optional)</label>
-                <textarea name="lessonsLearned" rows="3" placeholder="What insights or recommendations can be shared from this work order?" 
-                    style="width: 100%; padding: 0.75rem; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; font-size: 0.875rem; resize: vertical;"></textarea>
+                <label class="text-theme-secondary" data-csp-style="font-size: 0.8rem; display: block; margin-bottom: 0.375rem;">Lessons Learned (optional)</label>
+                <textarea name="lessonsLearned" rows="3" placeholder="What insights or recommendations can be shared from this work order?" data-csp-style="width: 100%; padding: 0.75rem; border: 1px solid var(--lux-border, #e2e8f0); border-radius: 8px; font-size: 0.875rem; resize: vertical;"></textarea>
             </div>
-            <button type="submit" class="add-btn gradient-bg-green-dark" style="width: fit-content;">
+            <button type="submit" class="add-btn gradient-bg-green-dark" data-csp-style="width: fit-content;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

@@ -208,7 +208,7 @@
         </div>
     </div>
 
-    <div class="pe-card" style="margin-top: 1.5rem;">
+    <div class="pe-card" data-csp-style="margin-top: 1.5rem;">
         <div class="pe-card__header">
             <h3 class="card-title"><span class="accent-dot accent-dot--green"></span>Skills (@Model.Skills.Count)</h3>
         </div>
@@ -266,7 +266,7 @@
                                     <td>
                                         <div class="tech-proficiency">
                                             <div class="tech-proficiency__bar">
-                                                <div class="tech-proficiency__fill tech-proficiency__fill--@skill.ProficiencyLevel" style="width: @(skill.ProficiencyLevel * 20)%;"></div>
+                                                <div class="tech-proficiency__fill tech-proficiency__fill--@skill.ProficiencyLevel" data-csp-style="width: @(skill.ProficiencyLevel * 20)%;"></div>
                                             </div>
                                             <span class="tech-proficiency__label">@skill.ProficiencyLevel/5</span>
                                         </div>
@@ -419,7 +419,7 @@
                     <span class="wo-detail-value">
                         <div class="tech-proficiency">
                             <div class="tech-proficiency__bar">
-                                <div class="tech-proficiency__fill tech-proficiency__fill--@Model.Tech.ProficiencyLevel" style="width: @(Model.Tech.ProficiencyLevel * 20)%;"></div>
+                                <div class="tech-proficiency__fill tech-proficiency__fill--@Model.Tech.ProficiencyLevel" data-csp-style="width: @(Model.Tech.ProficiencyLevel * 20)%;"></div>
                             </div>
                             <span class="tech-proficiency__label">@Model.Tech.ProficiencyLevel/5</span>
                         </div>
@@ -478,7 +478,7 @@
         </div>
     </div>
 
-    <div class="pe-card" style="margin-top: 1.5rem;">
+    <div class="pe-card" data-csp-style="margin-top: 1.5rem;">
         <div class="pe-card__header">
             <h3 class="card-title"><span class="accent-dot accent-dot--red"></span>Emergency Contact</h3>
         </div>
@@ -496,7 +496,7 @@
         </div>
     </div>
 
-    <div class="pe-card" style="margin-top: 1.5rem;">
+    <div class="pe-card" data-csp-style="margin-top: 1.5rem;">
         <div class="pe-card__header">
             <h3 class="card-title"><span class="accent-dot accent-dot--blue"></span>Edit Profile</h3>
         </div>
@@ -540,14 +540,14 @@
                         <input type="text" name="EditEmergencyContactPhone" class="form-input-p" value="@Model.Tech.EmergencyContactPhone" />
                     </div>
                 </div>
-                <div class="pe-action-bar pe-action-bar--right" style="margin-top: 1rem;">
+                <div class="pe-action-bar pe-action-bar--right" data-csp-style="margin-top: 1rem;">
                     <button type="submit" class="btn-p btn-p--primary">Save Changes</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <div class="pe-card" style="margin-top: 1.5rem;">
+    <div class="pe-card" data-csp-style="margin-top: 1.5rem;">
         <div class="pe-card__header">
             <h3 class="card-title">Upload Photo</h3>
         </div>

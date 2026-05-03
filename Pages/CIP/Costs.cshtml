@@ -27,10 +27,10 @@
     <div class="section-card-body">
         @if (!Model.ProjectCosts.Any())
         {
-            <div class="pe-empty" style="padding:1.5rem;">
-                <i class="fas fa-project-diagram pe-empty__icon" style="font-size:1.2rem;"></i>
+            <div class="pe-empty" data-csp-style="padding:1.5rem;">
+                <i class="fas fa-project-diagram pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
                 <div class="pe-empty__text">No costs recorded. Start by adding costs to your capital projects.</div>
-                <a href="/CIP" class="btn-p btn-p--primary" style="margin-top:0.75rem;">Go to Capital Projects</a>
+                <a href="/CIP" class="btn-p btn-p--primary" data-csp-style="margin-top:0.75rem;">Go to Capital Projects</a>
             </div>
         }
         else

@@ -23,20 +23,20 @@
 
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
-        <div class="alert alert-success" style="background:#0a3d22;color:#a7f3d0;border:1px solid #166534;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <div class="alert alert-success" data-csp-style="background:#0a3d22;color:#a7f3d0;border:1px solid #166534;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
             @Model.SuccessMessage
         </div>
     }
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
-        <div class="alert alert-danger" style="background:#3d0a0a;color:#fca5a5;border:1px solid #7f1d1d;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+        <div class="alert alert-danger" data-csp-style="background:#3d0a0a;color:#fca5a5;border:1px solid #7f1d1d;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
             @Model.ErrorMessage
         </div>
     }
 
-    <form method="get" class="spec-card" style="margin-bottom:16px;">
+    <form method="get" class="spec-card" data-csp-style="margin-bottom:16px;">
         <div class="spec-header">
-            <span class="accent-dot" style="background:var(--brand-red);"></span>
+            <span class="accent-dot" data-csp-style="background:var(--brand-red);"></span>
             <h2>Select Canadian company</h2>
         </div>
         <div class="form-grid">
@@ -53,7 +53,7 @@
         </div>
     </form>
 
-    <div class="kpi-strip" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="kpi-strip" data-csp-style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
         <div class="stat-card">
             <div class="stat-label">Active Assets</div>
             <div class="stat-value">@Model.PreviewRows.Count.ToString("N0")</div>
@@ -78,7 +78,7 @@
 
     <form method="post" class="spec-card">
         <div class="spec-header">
-            <span class="accent-dot" style="background:var(--brand-red);"></span>
+            <span class="accent-dot" data-csp-style="background:var(--brand-red);"></span>
             <h2>Run backfill for @Model.SelectedCompanyName</h2>
         </div>
 
@@ -107,19 +107,19 @@
 
         @if (Model.PreviewRows.Any())
         {
-            <h3 style="margin-top:24px;">Per-asset preview &mdash; admin can override the suggested CCA class per row</h3>
-            <p class="text-secondary" style="font-size:12px;margin-bottom:8px;">
+            <h3 data-csp-style="margin-top:24px;">Per-asset preview &mdash; admin can override the suggested CCA class per row</h3>
+            <p class="text-secondary" data-csp-style="font-size:12px;margin-bottom:8px;">
                 Already-mapped rows are read-only; their existing <code>AssetTaxSettings.CcaClassId</code> is preserved.
                 Override dropdowns only take effect for rows marked <em>Will create</em>.
             </p>
-            <div style="max-height:560px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-                <table class="table table-clean" style="font-size:13px;">
-                    <thead style="position:sticky;top:0;background:var(--bg-elev1);">
+            <div data-csp-style="max-height:560px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
+                <table class="table table-clean" data-csp-style="font-size:13px;">
+                    <thead data-csp-style="position:sticky;top:0;background:var(--bg-elev1);">
                         <tr>
                             <th>Asset #</th>
                             <th>Description</th>
                             <th>Type</th>
-                            <th style="text-align:right;">Cost</th>
+                            <th data-csp-style="text-align:right;">Cost</th>
                             <th>In-Service</th>
                             <th>Suggested Class</th>
                             <th>Override</th>
@@ -133,7 +133,7 @@
                                 <td><strong>@row.AssetNumber</strong></td>
                                 <td>@row.Description</td>
                                 <td>@row.AssetType</td>
-                                <td style="text-align:right;font-family:var(--font-mono);">$@row.AcquisitionCost.ToString("N2")</td>
+                                <td data-csp-style="text-align:right;font-family:var(--font-mono);">$@row.AcquisitionCost.ToString("N2")</td>
                                 <td>@row.InServiceDate.ToString("yyyy-MM-dd")</td>
                                 <td>
                                     <span title="@row.SuggestedCcaClassDescription">Class @row.SuggestedCcaClassNumber</span>
@@ -141,11 +141,11 @@
                                 <td>
                                     @if (row.AlreadyMapped)
                                     {
-                                        <span style="color:var(--text-secondary);">— locked —</span>
+                                        <span data-csp-style="color:var(--text-secondary);">— locked —</span>
                                     }
                                     else
                                     {
-                                        <select name="OverrideClassByAssetId[@row.AssetId]" class="form-input" style="padding:4px 8px;font-size:12px;">
+                                        <select name="OverrideClassByAssetId[@row.AssetId]" class="form-input" data-csp-style="padding:4px 8px;font-size:12px;">
                                             @foreach (var c in Model.CcaClassOptions)
                                             {
                                                 <option value="@c.Id" selected="@(c.Id == row.SuggestedCcaClassId)">Class @c.ClassNumber &mdash; @c.ShortDescription</option>
@@ -160,7 +160,7 @@
                                     }
                                     else
                                     {
-                                        <span class="chip" style="background:#1e3a8a;color:#bfdbfe;">Will create</span>
+                                        <span class="chip" data-csp-style="background:#1e3a8a;color:#bfdbfe;">Will create</span>
                                     }
                                 </td>
                             </tr>
@@ -171,15 +171,15 @@
         }
         else if (Model.CompanyId > 0)
         {
-            <p style="margin-top:16px;color:var(--text-secondary);">No active assets found for this company.</p>
+            <p data-csp-style="margin-top:16px;color:var(--text-secondary);">No active assets found for this company.</p>
         }
     </form>
 
     @if (Model.LastReport != null)
     {
-        <div class="spec-card" style="margin-top:24px;">
+        <div class="spec-card" data-csp-style="margin-top:24px;">
             <div class="spec-header">
-                <span class="accent-dot" style="background:#22c55e;"></span>
+                <span class="accent-dot" data-csp-style="background:#22c55e;"></span>
                 <h2>Last run report &mdash; @Model.LastReport.CompanyName</h2>
             </div>
             <table class="table table-clean">
@@ -199,13 +199,13 @@
 
             @if (Model.LastReport.MappingsByClassNumber.Any())
             {
-                <h3 style="margin-top:16px;">New mappings by class</h3>
-                <table class="table table-clean" style="max-width:400px;">
-                    <thead><tr><th>Class</th><th style="text-align:right;">Assets</th></tr></thead>
+                <h3 data-csp-style="margin-top:16px;">New mappings by class</h3>
+                <table class="table table-clean" data-csp-style="max-width:400px;">
+                    <thead><tr><th>Class</th><th data-csp-style="text-align:right;">Assets</th></tr></thead>
                     <tbody>
                         @foreach (var kvp in Model.LastReport.MappingsByClassNumber.OrderBy(k => k.Key))
                         {
-                            <tr><td>Class @kvp.Key</td><td style="text-align:right;">@kvp.Value</td></tr>
+                            <tr><td>Class @kvp.Key</td><td data-csp-style="text-align:right;">@kvp.Value</td></tr>
                         }
                     </tbody>
                 </table>
@@ -213,8 +213,8 @@
 
             @if (Model.LastReport.Warnings.Any())
             {
-                <h3 style="margin-top:16px;">Warnings (@Model.LastReport.Warnings.Count)</h3>
-                <ul style="font-family:var(--font-mono);font-size:12px;max-height:240px;overflow-y:auto;background:var(--bg-elev1);padding:12px;border-radius:8px;">
+                <h3 data-csp-style="margin-top:16px;">Warnings (@Model.LastReport.Warnings.Count)</h3>
+                <ul data-csp-style="font-family:var(--font-mono);font-size:12px;max-height:240px;overflow-y:auto;background:var(--bg-elev1);padding:12px;border-radius:8px;">
                     @foreach (var w in Model.LastReport.Warnings.Take(50))
                     {
                         <li>@w</li>
@@ -228,8 +228,8 @@
 
             @if (Model.LastReport.Errors.Any())
             {
-                <h3 style="margin-top:16px;color:var(--brand-red);">Errors (@Model.LastReport.Errors.Count)</h3>
-                <ul style="font-family:var(--font-mono);font-size:12px;color:#fca5a5;">
+                <h3 data-csp-style="margin-top:16px;color:var(--brand-red);">Errors (@Model.LastReport.Errors.Count)</h3>
+                <ul data-csp-style="font-family:var(--font-mono);font-size:12px;color:#fca5a5;">
                     @foreach (var e in Model.LastReport.Errors)
                     {
                         <li>@e</li>

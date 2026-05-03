@@ -6,7 +6,7 @@
 
 @if (cards != null && cards.Any())
 {
-    <div class="page-hero-kpis" style="grid-template-columns: repeat(@Math.Min(cards.Count(), 4), 1fr);">
+    <div class="page-hero-kpis" data-csp-style="grid-template-columns: repeat(@Math.Min(cards.Count(), 4), 1fr);">
         @foreach (var (label, value, variant) in cards)
         {
             <div class="kpi-card">
