@@ -24,7 +24,12 @@ if (!string.IsNullOrEmpty(pgHost))
 {
     // Use SSL for production (Replit requires secure connections)
     var sslMode = builder.Environment.IsDevelopment() ? "Prefer" : "Require";
-    connectionString = $"Host={pgHost};Port={pgPort};Database={pgDatabase};Username={pgUser};Password={pgPassword};SSL Mode={sslMode};Trust Server Certificate=true";
+    // Pool sizing: under parallel test runs (7 suites × 2 workers each) the
+    // default pool of 100 gets exhausted and Npgsql throws connection-timeout
+    // exceptions in middleware. 200 leaves comfortable headroom for production
+    // bursts as well. Command Timeout caps individual query latency so a slow
+    // query can't pin a connection indefinitely.
+    connectionString = $"Host={pgHost};Port={pgPort};Database={pgDatabase};Username={pgUser};Password={pgPassword};SSL Mode={sslMode};Trust Server Certificate=true;Maximum Pool Size=200;Timeout=30;Command Timeout=60";
 }
 else
 {
@@ -61,7 +66,16 @@ builder.Services.AddHttpClient();
 // EF Core with PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.UseNpgsql(connectionString);
+    // SplitQuery globally: any query with multiple Include/ThenInclude
+    // collections (very common in this app's detail pages) would otherwise
+    // generate a Cartesian product join — for an asset with N attachments,
+    // M maintenance events and K depreciation rows that's N*M*K rows in a
+    // single result set. Under concurrent load (parallel test workers,
+    // multiple users) this OOM'd the dotnet process. SplitQuery emits
+    // separate SQL per collection so memory stays bounded. Individual
+    // queries can opt back into SingleQuery via .AsSingleQuery() when a
+    // join is genuinely cheaper.
+    options.UseNpgsql(connectionString, npg => npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
     
     // Development-only: Configure warning behavior for First/FirstOrDefault without OrderBy
     if (builder.Environment.IsDevelopment())

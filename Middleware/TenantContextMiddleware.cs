@@ -104,30 +104,69 @@ public class TenantContextMiddleware
         }
     }
 
+    // Single-tenant deployments resolve the same (tenantId, companyId) pair
+    // for every request, but the original implementation hit the DB twice
+    // per request via FindAsync. Under parallel load that exhausted the
+    // Npgsql connection pool. Cache the resolved IDs after the first
+    // successful lookup; the underlying TenantSettings are config-driven
+    // and don't change at runtime.
+    private static (int? TenantId, int? CompanyId)? _singleTenantCache;
+    private static readonly SemaphoreSlim _singleTenantLock = new(1, 1);
+
     private async Task ResolveSingleTenantAsync(ITenantContext tenantContext, TenantSettings config, AppDbContext db)
     {
-        var tenantId = config.DefaultTenantId;
-        var companyId = config.DefaultCompanyId;
-
-        var tenant = await db.Tenants.FindAsync(tenantId);
-        if (tenant == null)
+        var cached = _singleTenantCache;
+        if (cached.HasValue)
         {
-            tenant = await db.Tenants.FirstOrDefaultAsync();
-            tenantId = tenant?.Id ?? 0;
+            tenantContext.SetContext(cached.Value.TenantId, cached.Value.CompanyId, null);
+            return;
         }
 
-        var company = await db.Companies.FindAsync(companyId);
-        if (company == null)
+        await _singleTenantLock.WaitAsync();
+        try
         {
-            company = await db.Companies.FirstOrDefaultAsync();
-            companyId = company?.Id ?? 0;
-        }
+            cached = _singleTenantCache;
+            if (cached.HasValue)
+            {
+                tenantContext.SetContext(cached.Value.TenantId, cached.Value.CompanyId, null);
+                return;
+            }
 
-        tenantContext.SetContext(
-            tenantId > 0 ? tenantId : null, 
-            companyId > 0 ? companyId : null, 
-            null
-        );
+            var tenantId = config.DefaultTenantId;
+            var companyId = config.DefaultCompanyId;
+
+            var tenant = await db.Tenants.FindAsync(tenantId);
+            if (tenant == null)
+            {
+                tenant = await db.Tenants.FirstOrDefaultAsync();
+                tenantId = tenant?.Id ?? 0;
+            }
+
+            var company = await db.Companies.FindAsync(companyId);
+            if (company == null)
+            {
+                company = await db.Companies.FirstOrDefaultAsync();
+                companyId = company?.Id ?? 0;
+            }
+
+            var resolved = (
+                TenantId: tenantId > 0 ? (int?)tenantId : null,
+                CompanyId: companyId > 0 ? (int?)companyId : null
+            );
+
+            // Only cache once we successfully resolved both — otherwise a
+            // transient empty-DB state at startup would poison the cache.
+            if (resolved.TenantId.HasValue && resolved.CompanyId.HasValue)
+            {
+                _singleTenantCache = resolved;
+            }
+
+            tenantContext.SetContext(resolved.TenantId, resolved.CompanyId, null);
+        }
+        finally
+        {
+            _singleTenantLock.Release();
+        }
     }
 
     private async Task<bool> ResolveMultiTenantAsync(HttpContext context, ITenantContext tenantContext, AppDbContext db)

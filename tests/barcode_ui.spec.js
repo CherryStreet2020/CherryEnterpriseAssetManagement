@@ -1,8 +1,7 @@
-// UI-level coverage for the Barcode Labels admin page. The /api/barcode/*
-// endpoints are smoke-tested in tests/smoke_api_endpoints.spec.js; this spec
-// drives the admin page through a real browser and asserts the rendered
-// barcode/label PNGs come back valid through an authenticated session — i.e.
-// the page + controller + SkiaSharp native lib all line up end-to-end.
+// UI-level coverage for the Barcode Labels admin page. Drives the page +
+// controller + SkiaSharp native lib end-to-end through an authenticated
+// browser session and asserts the rendered PNGs are real bitmap images
+// (magic bytes, content-type, body size, and decoded width/height).
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
@@ -11,14 +10,28 @@ const { BASE, login, dbOne } = require('./_helpers');
 const SS_DIR = path.join(__dirname, '..', 'proof', 'ui', 'playwright', 'screenshots');
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-function isPng(buf) {
-  return buf && buf.length > PNG_MAGIC.length && buf.slice(0, 8).equals(PNG_MAGIC);
+function parsePng(buf) {
+  if (!buf || buf.length < 24) throw new Error('buffer too small to be a PNG');
+  if (!buf.slice(0, 8).equals(PNG_MAGIC)) throw new Error('missing PNG magic bytes');
+  // IHDR chunk starts at byte 8: 4-byte length, 4-byte "IHDR" type,
+  // then width/height as big-endian uint32.
+  const ihdr = buf.slice(12, 16).toString('ascii');
+  if (ihdr !== 'IHDR') throw new Error(`expected IHDR chunk, got ${ihdr}`);
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+}
+
+async function pickItemId(page) {
+  const cb = page.locator('input.item-select').first();
+  if (await cb.count() > 0) {
+    const v = parseInt(await cb.getAttribute('value'), 10);
+    if (Number.isFinite(v)) return v;
+  }
+  const row = await dbOne('SELECT "Id" FROM "Items" ORDER BY "Id" LIMIT 1');
+  return row ? row.Id : null;
 }
 
 test.describe('UI — Barcode Labels admin page', () => {
-  test.beforeAll(() => {
-    fs.mkdirSync(SS_DIR, { recursive: true });
-  });
+  test.beforeAll(() => { fs.mkdirSync(SS_DIR, { recursive: true }); });
 
   test('admin barcode page loads and lists items', async ({ page }) => {
     await login(page);
@@ -26,117 +39,77 @@ test.describe('UI — Barcode Labels admin page', () => {
     expect(resp.status()).toBeLessThan(400);
     await page.waitForLoadState('domcontentloaded');
 
-    // Either the items table renders or the explicit empty state is shown.
     const hasTable = await page.locator('table#itemsTable').count() > 0;
     const hasEmpty = await page.locator('text=No Items Found').count() > 0;
-    expect(hasTable || hasEmpty,
-      'expected items table or "No Items Found" empty state').toBeTruthy();
-
+    expect(hasTable || hasEmpty).toBeTruthy();
     await page.screenshot({ path: path.join(SS_DIR, 'ui_barcode_admin.png') });
   });
 
-  test('Generate button renders a real PNG via /api/barcode/generate', async ({ page }) => {
+  test('GET /api/barcode/generate/{id} returns a valid PNG with sane dimensions', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/Admin/Barcodes`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Need a real item id. Prefer the first row on the page; fall back to DB.
-    let itemId = null;
-    const firstRowCheckbox = page.locator('input.item-select').first();
-    if (await firstRowCheckbox.count() > 0) {
-      itemId = parseInt(await firstRowCheckbox.getAttribute('value'), 10);
-    }
-    if (!itemId) {
-      const row = await dbOne('SELECT "Id" FROM "Items" ORDER BY "Id" LIMIT 1');
-      test.skip(!row, 'no Items rows to test against');
-      itemId = row.Id;
-    }
+    const itemId = await pickItemId(page);
+    test.skip(!itemId, 'no Items rows to test against');
 
-    // Use the page's authenticated context so cookies are reused exactly as
-    // the browser would when the user clicks "Generate".
     const r = await page.request.get(`${BASE}/api/barcode/generate/${itemId}`);
-    expect([200, 503]).toContain(r.status());
-    if (r.status() === 503) {
-      // Defensive backstop — host is missing libSkiaSharp.so. Test passes
-      // because the contract is preserved, but log so it's visible.
-      console.warn(`[barcode_ui] /api/barcode/generate/${itemId} returned 503 (Skia native lib missing)`);
-      return;
-    }
+    expect(r.status(), 'barcode endpoint must succeed (no 503 backstop)').toBe(200);
     expect(r.headers()['content-type']).toContain('image/png');
+
     const body = await r.body();
     expect(body.length).toBeGreaterThan(200);
-    expect(isPng(body), 'response body should start with PNG magic bytes').toBe(true);
+    const { width, height } = parsePng(body);
+    expect(width).toBeGreaterThan(40);
+    expect(height).toBeGreaterThan(20);
+    expect(width).toBeLessThan(4096);
+    expect(height).toBeLessThan(4096);
   });
 
-  test('Print button renders a real PNG label via /api/barcode/label', async ({ page }) => {
+  test('GET /api/barcode/label/{id} returns a valid PNG label with sane dimensions', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/Admin/Barcodes`);
     await page.waitForLoadState('domcontentloaded');
 
-    let itemId = null;
-    const firstRowCheckbox = page.locator('input.item-select').first();
-    if (await firstRowCheckbox.count() > 0) {
-      itemId = parseInt(await firstRowCheckbox.getAttribute('value'), 10);
-    }
-    if (!itemId) {
-      const row = await dbOne('SELECT "Id" FROM "Items" ORDER BY "Id" LIMIT 1');
-      test.skip(!row, 'no Items rows to test against');
-      itemId = row.Id;
-    }
+    const itemId = await pickItemId(page);
+    test.skip(!itemId, 'no Items rows to test against');
 
     const r = await page.request.get(`${BASE}/api/barcode/label/${itemId}`);
-    expect([200, 503]).toContain(r.status());
-    if (r.status() === 503) {
-      console.warn(`[barcode_ui] /api/barcode/label/${itemId} returned 503 (Skia native lib missing)`);
-      return;
-    }
+    expect(r.status(), 'label endpoint must succeed (no 503 backstop)').toBe(200);
     expect(r.headers()['content-type']).toContain('image/png');
+
     const body = await r.body();
-    // Labels embed the barcode + part number + description, so they're
-    // bigger than a bare barcode image.
+    // Labels embed the barcode plus part number and description text, so
+    // they're meaningfully larger than a bare barcode.
     expect(body.length).toBeGreaterThan(500);
-    expect(isPng(body), 'label body should start with PNG magic bytes').toBe(true);
+    const { width, height } = parsePng(body);
+    expect(width).toBeGreaterThan(80);
+    expect(height).toBeGreaterThan(40);
+    expect(width).toBeLessThan(4096);
+    expect(height).toBeLessThan(4096);
   });
 
-  test('clicking Generate populates the in-page preview area', async ({ page }) => {
-    await login(page);
-    await page.goto(`${BASE}/Admin/Barcodes`);
-    await page.waitForLoadState('domcontentloaded');
-
-    // Target the row-level action button via its onclick handler so we
-    // don't accidentally match a "Generate Labels" submit button in the
-    // inline form panel that lives further down the page.
-    const generateBtn = page.locator('button[onclick^="generateBarcode("]').first();
-    if (await generateBtn.count() === 0) {
-      test.skip(true, 'no items rendered — nothing to click');
-    }
-
-    // The page's generateBarcode() handler POSTs to /api/barcode/generate
-    // with a JSON body. That endpoint is GET-only on the controller — the
-    // POST path is not wired — so the click flips the preview area visible
-    // (which is what the user actually sees changing). We assert the
-    // visible-state change rather than the network success, because the
-    // in-page POST is a known no-op on this controller.
-    await generateBtn.click();
-    await expect(page.locator('#barcodePreviewArea')).toBeVisible({ timeout: 2000 });
-    await page.screenshot({ path: path.join(SS_DIR, 'ui_barcode_preview.png') });
-  });
-
-  test('clicking Print embeds a label iframe pointing at /api/barcode/label', async ({ page }) => {
+  test('clicking Print embeds a label iframe whose src returns a valid PNG', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/Admin/Barcodes`);
     await page.waitForLoadState('domcontentloaded');
 
     const printBtn = page.locator('button[onclick^="printLabel("]').first();
-    if (await printBtn.count() === 0) {
-      test.skip(true, 'no items rendered — nothing to click');
-    }
+    if (await printBtn.count() === 0) test.skip(true, 'no items rendered');
 
     await printBtn.click();
-    await page.waitForTimeout(300);
     const iframe = page.locator('#barcodePreviewArea iframe');
-    await expect(iframe).toBeVisible();
+    await expect(iframe).toBeVisible({ timeout: 2000 });
     const src = await iframe.getAttribute('src');
     expect(src).toMatch(/^\/api\/barcode\/label\/\d+$/);
+
+    // Follow the iframe src through the same authenticated context and
+    // assert the response is a real PNG, not a redirect to a login page.
+    const r = await page.request.get(`${BASE}${src}`);
+    expect(r.status()).toBe(200);
+    expect(r.headers()['content-type']).toContain('image/png');
+    const { width, height } = parsePng(await r.body());
+    expect(width).toBeGreaterThan(80);
+    expect(height).toBeGreaterThan(40);
   });
 });
