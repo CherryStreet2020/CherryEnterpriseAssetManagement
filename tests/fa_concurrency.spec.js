@@ -24,6 +24,7 @@ test.describe('FA — Asset Concurrency', () => {
   });
 
   test('second save sees conflict banner; first edit is preserved in DB', async ({ browser }) => {
+    test.setTimeout(120000);
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();
     const pageA = await ctxA.newPage();

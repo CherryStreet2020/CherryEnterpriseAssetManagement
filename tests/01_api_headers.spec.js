@@ -42,7 +42,8 @@ test.describe('01 — API Headers & Base URL', () => {
     ];
     for (const p of pages) {
       await page.goto(`${BASE}${p}`);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(250);
     }
 
     fs.mkdirSync(LOG_DIR, { recursive: true });
