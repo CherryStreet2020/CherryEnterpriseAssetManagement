@@ -108,7 +108,20 @@ namespace Abs.FixedAssets.Pages.Maintenance
             Technicians = await _context.Technicians.Where(t => t.Active).OrderBy(t => t.Name).ToListAsync();
             Operations = evt.Operations?.OrderBy(o => o.Sequence).ToList() ?? new();
             Crafts = await _context.Set<Craft>().OrderBy(c => c.Name).ToListAsync();
-            Parts = await _context.WorkOrderParts.Include(p => p.Item).Where(p => p.MaintenanceEventId == id).ToListAsync();
+            // Defense-in-depth tenant scoping: even though `evt` was already
+            // scope-verified by GetScopedEventAsync above, the WorkOrderParts
+            // query stands on its own — re-asserting the scope here means a
+            // future refactor that drops the early NotFound can't accidentally
+            // open a parts-leak vector. Mirrors the AccountsPayable hardening
+            // in PR #22.
+            Parts = await _context.WorkOrderParts
+                .Include(p => p.Item)
+                .Where(p => p.MaintenanceEventId == id
+                    && p.MaintenanceEvent != null
+                    && p.MaintenanceEvent.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0)
+                    && (!_tenantContext.SiteId.HasValue || p.MaintenanceEvent.Asset.SiteId == _tenantContext.SiteId.Value))
+                .ToListAsync();
             IsCapitalized = !string.IsNullOrEmpty(evt.CustomField2) && evt.CustomField2.StartsWith("IMPR:");
             PriorityOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenancePriority", Event.PriorityLookupValueId, "");
             MaintenanceTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceType", Event.TypeLookupValueId, "");

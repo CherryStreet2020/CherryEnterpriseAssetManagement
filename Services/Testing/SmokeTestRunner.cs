@@ -1979,7 +1979,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var maintenanceService = new MaintenanceService(_db);
+            var maintenanceService = new MaintenanceService(_db, _tenantContext!);
 
             var evt1 = new MaintenanceEvent
             {
