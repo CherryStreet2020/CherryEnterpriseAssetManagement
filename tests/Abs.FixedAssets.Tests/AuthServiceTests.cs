@@ -334,6 +334,146 @@ public class AuthServiceTests
         Assert.Equal(legacyHash, fromDb.PasswordHash); // not rolled
     }
 
+    // ── CreateUserAsync ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateUserAsync_StoresArgon2idHash()
+    {
+        await using var db = NewDb();
+        var svc = new AuthService(db);
+
+        var user = await svc.CreateUserAsync("newperson", "test-password", "Admin",
+            fullName: "New Person", email: "new@example.com");
+
+        Assert.NotNull(user);
+        Assert.StartsWith("$argon2id$", user.PasswordHash);
+        // Username must be uppercased per CreateUserAsync's contract.
+        Assert.Equal("NEWPERSON", user.Username);
+        Assert.True(user.IsActive);
+        Assert.Equal("Admin", user.Role);
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_TwoUsersSamePassword_DifferentHashes()
+    {
+        await using var db = NewDb();
+        var svc = new AuthService(db);
+
+        var u1 = await svc.CreateUserAsync("alice", "shared", "Viewer");
+        var u2 = await svc.CreateUserAsync("bob",   "shared", "Viewer");
+
+        // Same password but per-user random salt → different hashes.
+        Assert.NotEqual(u1.PasswordHash, u2.PasswordHash);
+        Assert.True(AuthService.VerifyPassword("shared", u1.PasswordHash));
+        Assert.True(AuthService.VerifyPassword("shared", u2.PasswordHash));
+    }
+
+    [Fact]
+    public async Task CreateUserAsync_PersistsAndCanLoginImmediately()
+    {
+        await using var db = NewDb();
+        var svc = new AuthService(db);
+
+        await svc.CreateUserAsync("loginnow", "first-login", "Admin");
+        var loggedIn = await svc.ValidateUserAsync("loginnow", "first-login");
+
+        Assert.NotNull(loggedIn);
+        // No rehash event — already current Argon2id format.
+        Assert.StartsWith("$argon2id$", loggedIn!.PasswordHash);
+    }
+
+    // ── ChangePasswordAsync ────────────────────────────────────────────
+
+    [Fact]
+    public async Task ChangePasswordAsync_RewritesHashAsArgon2id()
+    {
+        await using var db = NewDb();
+        var svc = new AuthService(db);
+
+        var user = await svc.CreateUserAsync("changeme", "old-pw", "Admin");
+        var oldHash = user.PasswordHash;
+
+        var result = await svc.ChangePasswordAsync(user.Id, "new-pw");
+
+        Assert.True(result);
+        var fromDb = await db.Users.AsNoTracking().FirstAsync(u => u.Id == user.Id);
+        Assert.StartsWith("$argon2id$", fromDb.PasswordHash);
+        Assert.NotEqual(oldHash, fromDb.PasswordHash);
+        Assert.NotNull(fromDb.PasswordChangedAt);
+        Assert.True(AuthService.VerifyPassword("new-pw", fromDb.PasswordHash));
+        Assert.False(AuthService.VerifyPassword("old-pw", fromDb.PasswordHash));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_NonexistentUser_ReturnsFalse()
+    {
+        await using var db = NewDb();
+        var svc = new AuthService(db);
+
+        var result = await svc.ChangePasswordAsync(userId: 999_999, "anything");
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_OnLegacyHash_RewritesToArgon2id()
+    {
+        // Real-world scenario: user with a legacy SHA-256 hash gets their
+        // password reset by an admin. The reset must produce Argon2id, not
+        // re-create the legacy hash.
+        await using var db = NewDb();
+        const string username = "LEGACYRESET";
+        db.Users.Add(MakeUser(username, LegacySaltedSha256("old-legacy-pw")));
+        await db.SaveChangesAsync();
+        var userId = (await db.Users.FirstAsync(u => u.Username == username)).Id;
+
+        var svc = new AuthService(db);
+        var result = await svc.ChangePasswordAsync(userId, "fresh-new-pw");
+
+        Assert.True(result);
+        var fromDb = await db.Users.AsNoTracking().FirstAsync(u => u.Id == userId);
+        Assert.StartsWith("$argon2id$", fromDb.PasswordHash);
+        Assert.True(AuthService.VerifyPassword("fresh-new-pw", fromDb.PasswordHash));
+    }
+
+    // ── NormalizeRole ──────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("admin",       "Admin")]
+    [InlineData("ADMIN",       "Admin")]
+    [InlineData("Admin",       "Admin")]
+    [InlineData("aCcOuNtAnT",  "Accountant")]
+    [InlineData("VIEWER",      "Viewer")]
+    public void NormalizeRole_StandardRoles_NormalizesToTitleCase(string input, string expected)
+    {
+        Assert.Equal(expected, AuthService.NormalizeRole(input));
+    }
+
+    [Fact]
+    public void NormalizeRole_UnknownRole_PassesThroughUnchanged()
+    {
+        // Non-standard role strings are preserved as-is so a future role
+        // addition doesn't silently get coerced to something else.
+        Assert.Equal("CustomRole", AuthService.NormalizeRole("CustomRole"));
+        Assert.Equal("",           AuthService.NormalizeRole(""));
+    }
+
+    // ── SeedDefaultUserAsync ───────────────────────────────────────────
+
+    [Fact]
+    public async Task SeedDefaultUserAsync_WhenUsersExist_DoesNothing()
+    {
+        await using var db = NewDb();
+        // Pre-populate one user so Users.AnyAsync() returns true.
+        db.Users.Add(MakeUser("EXISTING", AuthService.HashPassword("pw")));
+        await db.SaveChangesAsync();
+        var initialCount = await db.Users.CountAsync();
+
+        var svc = new AuthService(db);
+        await svc.SeedDefaultUserAsync();
+
+        Assert.Equal(initialCount, await db.Users.CountAsync());
+    }
+
     // ── Helpers replicating the legacy hash formats ────────────────────
 
     private static string LegacySaltedSha256(string password)
