@@ -21,32 +21,11 @@ migrated**. The actual remaining gaps are listed below.
 | 5-seed coordinated alignment + missing InventoryStatus | (AssetStatus, CipProjectStatus, WorkRequestStatus, VendorStatus, ItemStatus, InventoryStatus) | [#6](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/6) |
 | Lookup orphan + InventoryStatus dup cleanup | post-#6 verification residue | [#7](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/7) |
 | `Pages/Maintenance/ScheduleBoard.cshtml.cs` | `OnPostAssignAsync`, `OnPostUnassignAsync` | [#10](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/10) |
+| `Pages/Inventory/List.cshtml.cs` + `InventoryList` schema (StatusLookupValueId column + FK + backfill) | `OnPostStartAsync`, `OnPostCompleteAsync` | [#20](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/20) |
 
 ## 🟡 Open
 
-### 1. `InventoryList` — add FK column + migrate page
-
-`Pages/Inventory/List.cshtml.cs::OnPostStartAsync` (line 71) and
-`OnPostCompleteAsync` (line 85) write `InventoryStatus` enum without an FK
-companion. The `InventoryList` entity (`Models/AssetInventory.cs:59`) has the
-enum field but no `StatusLookupValueId` column.
-
-Single PR:
-1. Add `StatusLookupValueId` (`int?`) and `StatusLookupValue` (nav prop) to
-   `InventoryList`.
-2. EF Core migration `AddStatusLookupValueIdToInventoryList` with `Up` backfill:
-   ```sql
-   UPDATE "InventoryLists" SET "StatusLookupValueId" = (
-     SELECT lv.id FROM "LookupValues" lv
-     JOIN "LookupTypes" lt ON lv."LookupTypeId" = lt."Id"
-     WHERE lt."Code" = 'InventoryStatus' AND lv."Code" = "InventoryLists"."Status"::int::text
-   );
-   ```
-3. Update both handlers using the `SyncStatusFkAsync` pattern.
-4. **First** verify `seed/reference-data/InventoryStatus.json` aligns with
-   `InventoryStatus` enum. If drifted, fix it the same way as (1) above.
-
-### 2. `WorkRequest` — add FK column + migrate page
+### 1. `WorkRequest` — add FK column + migrate page
 
 `Pages/Maintenance/WorkRequests/Create.cshtml.cs::OnPostAsync` (line 238)
 writes `WorkRequestStatus.New` without an FK companion. The `WorkRequest`

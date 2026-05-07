@@ -68,7 +68,7 @@ namespace Abs.FixedAssets.Pages.Inventory
             if (list == null)
                 return NotFound();
 
-            list.Status = InventoryStatus.InProgress;
+            await SyncStatusFkAsync(list, InventoryStatus.InProgress);
             list.StartedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id });
@@ -82,10 +82,23 @@ namespace Abs.FixedAssets.Pages.Inventory
             if (list == null)
                 return NotFound();
 
-            list.Status = InventoryStatus.Completed;
+            await SyncStatusFkAsync(list, InventoryStatus.Completed);
             list.CompletedDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id });
+        }
+
+        // Keeps InventoryList.Status (legacy enum) and StatusLookupValueId
+        // (FK) in lockstep on every status write. Mirrors the canonical
+        // helper in Pages/Purchasing/Details.cshtml.cs::SyncStatusFkAsync.
+        private async Task SyncStatusFkAsync(InventoryList list, InventoryStatus status)
+        {
+            list.Status = status;
+            var lv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId,
+                "InventoryStatus", ((int)status).ToString());
+            if (lv != null)
+                list.StatusLookupValueId = lv.Id;
         }
 
         public async Task<IActionResult> OnPostAddScanAsync(

@@ -3634,6 +3634,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StatusLookupValueId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("TenantId")
                         .HasColumnType("integer");
 
@@ -3645,6 +3648,8 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CreatedDate");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("StatusLookupValueId");
 
                     b.ToTable("InventoryLists");
                 });
@@ -10604,6 +10609,16 @@ namespace Abs.FixedAssets.Migrations
                         .IsRequired();
 
                     b.Navigation("IntegrationEndpoint");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.InventoryList", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
+                        .WithMany()
+                        .HasForeignKey("StatusLookupValueId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("StatusLookupValue");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.InventoryScan", b =>
