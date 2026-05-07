@@ -6,6 +6,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace Abs.FixedAssets.Tests;
@@ -24,15 +25,25 @@ public class AuthServiceTests
 {
     // ── Test DB helpers (mirrors the pattern in AssetConcurrencyTests) ──
 
+    // The InMemory provider doesn't support JsonDocument or PG xmin
+    // row versions; ignore both for the test model. Same pattern as
+    // AssetConcurrencyTests.
     private sealed class TestAppDbContext : AppDbContext
     {
         public TestAppDbContext(DbContextOptions<AppDbContext> opts) : base(opts) { }
+        protected override void OnModelCreating(ModelBuilder mb)
+        {
+            base.OnModelCreating(mb);
+            mb.Entity<LookupValue>().Ignore(x => x.Metadata);
+            mb.Entity<Asset>().Ignore(a => a.RowVersion);
+        }
     }
 
     private static AppDbContext NewDb([System.Runtime.CompilerServices.CallerMemberName] string dbName = "")
     {
         var opts = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase($"auth-{dbName}-{Guid.NewGuid()}")
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         return new TestAppDbContext(opts);
     }
