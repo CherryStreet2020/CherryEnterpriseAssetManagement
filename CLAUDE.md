@@ -143,18 +143,39 @@ Sprint 0 #1: finish FK migration on Purchasing/Details
 ## What's deferred
 
 The Sprint 0 list in [`docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md`](docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md)
-is the production-hardening backlog. The top of that list:
+is the production-hardening backlog. **The audit was wrong on items #1
+and #3 — see `## Audit corrections` below.** The current state:
 
-1. Finish FK migration on `Pages/Purchasing/Details.cshtml.cs`
-2. Backfill FK values for legacy rows
-3. Re-enable auth (currently anonymous-fallback in dev)
-4. Argon2id replacing SHA-256 in `Services/AuthService.cs`
-5. Move plaintext secrets out of `appsettings.Development.json`
-6. Add Swashbuckle for `/swagger`
-7. Postgres advisory lock in `SeedGuardService`
-8. Strongly-typed outbox payloads with versioned `IDomainEvent`
+| # | Audit task | Current state |
+|---|---|---|
+| 1 | Finish FK migration on `Pages/Purchasing/Details.cshtml.cs` | ✅ Already migrated (audit was outdated). Real holdouts shipped via PR #2 + PR #10. See `docs/FK_MIGRATION_STATUS.md` for what remains. |
+| 2 | Backfill FK values for legacy rows | Open. The cross-seed alignment chain (PRs #5–7) covered seed/enum drift; legacy-row backfill for `*LookupValueId` columns where they exist on entities is still TBD. |
+| 3 | Re-enable auth | ✅ Was already enabled. `Program.cs:581` calls `MapRazorPages().RequireAuthorization()`. |
+| 4 | Argon2id replacing SHA-256 | ✅ Shipped (this PR — `feat/argon2id-password-hashing`). Backward-compat verify; rolling re-hash on next login. |
+| 5 | Move plaintext secrets out of `appsettings.Development.json` | Open. |
+| 6 | Add Swashbuckle for `/swagger` | Open. |
+| 7 | Postgres advisory lock in `SeedGuardService` | Open. |
+| 8 | Strongly-typed outbox payloads with versioned `IDomainEvent` | Open. |
 
-Pick from the top unless the user asks for something else.
+Plus the schema-touching FK migrations tracked in [`docs/FK_MIGRATION_STATUS.md`](docs/FK_MIGRATION_STATUS.md) (`InventoryList` and `WorkRequest`).
+
+Pick from the open list unless the user asks for something else.
+
+## Audit corrections
+
+The 2026-05-07 audit got two things wrong, found during execution:
+
+- **Sprint 0 #1 was overstated.** The audit named `Pages/Purchasing/Details.cshtml.cs`
+  as the FK-migration holdout. Direct inspection found that page fully migrated.
+  The real holdouts were `Pages/Assets/Dispose.cshtml.cs`, `Pages/Materials/ItemEdit.cshtml.cs`,
+  and `Pages/Maintenance/ScheduleBoard.cshtml.cs`. Plus a chain of seed/enum drift
+  (5 lookup types) that had to be fixed before the page edits were safe.
+- **Sprint 0 #3 was wrong.** Auth is and was already enforced via
+  `MapRazorPages().RequireAuthorization()`. The "anonymous fallback" claim was
+  incorrect. The real production-readiness gap was the password hashing (Sprint 0 #4),
+  including a latent bug where `Pages/Admin/Users.cshtml.cs` had its own private
+  `HashPassword` using **unsalted** SHA-256, while `AuthService` used SHA-256 with
+  a fixed app-wide salt — meaning admin-created users could not log in.
 
 ## Things not to do
 
