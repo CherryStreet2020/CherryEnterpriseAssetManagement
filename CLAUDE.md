@@ -7,39 +7,92 @@ in [`HANDOFF_STATUS.md`](HANDOFF_STATUS.md) and [`docs/audit-2026-05-07/`](docs/
 
 ## The git workflow (non-negotiable)
 
-CherryAI EAM runs on Replit. The rule is **one-way sync from GitHub to Replit**.
+CherryAI EAM runs on Replit. **One-way sync from GitHub to Replit.** Every change
+ships through a pull request with green CI before it touches `main`.
 
 ```
-Claude Code (local)  ──commit──►  GitHub main  ──pull──►  Replit
+Claude Code (local)  ──feature branch──►  PR  ──CI green──►  squash-merge to main
+                                                                       │
+                                                          Replit ◄──pull──┘
 ```
 
-- **Claude pushes to `main`. Replit only pulls.** No commits originate in Replit. No
-  pushes from Replit. The Replit Git pane's "Push" button is off-limits.
-- The local clone lives at
-  `/Users/deandunagan/Documents/Claude/Projects/EnterpriseAssetManagament/CherryEnterpriseAssetManagement/`.
-  All edits happen there.
-- Identity for commits: `CherryStreet <dunagan.dean@gmail.com>` (configured per-repo,
+### The non-negotiables
+
+- **Replit never pushes.** No commits originate in Replit. The Replit Git pane's
+  "Push" button is off-limits. After a merge, tell the user to `git pull origin main`
+  in the Replit shell.
+- **No direct pushes to `main`.** Even from this local clone. The `pre-push` hook
+  enforces this — see `.githooks/pre-push`.
+- **Every change goes through a PR.** Even one-line doc fixes. Workflow per change:
+  ```
+  git checkout -b <type>/<short-name>
+  # … edit, commit (commit-msg hook validates), push …
+  gh pr create --fill
+  # … wait for the `build` workflow to go green …
+  gh pr merge --squash --delete-branch
+  ```
+- **Squash merge only.** The repo is configured to disallow merge commits and rebase
+  merges. Each PR becomes one commit on `main`.
+- **No force-push.** No history rewrites on `main`.
+- **Commit identity:** `CherryStreet <dunagan.dean@gmail.com>` (configured per-repo,
   not globally). Don't commit under the Replit-bot identity.
-- After a push, tell the user "pull on Replit" so the running app picks up the change.
 
-If the user reports Replit and GitHub are out of sync, the diagnosis is almost always
-that something committed in Replit. Resolution: pull from GitHub on Replit and reset
-hard if Replit's tree has unpushed local commits. Confirm before doing anything
-destructive on the Replit side.
+### Why client-side, not GitHub branch protection
+
+GitHub's branch protection and Rulesets require a paid plan on private repos. We
+enforce the same discipline on the client: a `pre-push` hook blocks direct pushes
+to `main`, a `commit-msg` hook enforces conventional commits, and a `pre-commit`
+hook scans staged changes for accidental secrets. The hooks are versioned in
+`.githooks/` and activated via `core.hooksPath` — see "Setup on a fresh clone."
+
+### If Replit and GitHub drift
+
+The cause is almost always something committed in Replit. Resolution:
+```
+# in Replit shell
+git fetch origin
+git reset --hard origin/main
+```
+**Confirm with the user before running any destructive command on the Replit side.**
+
+## Setup on a fresh clone
+
+```
+git clone https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement.git
+cd CherryEnterpriseAssetManagement
+./scripts/setup-dev.sh   # configures core.hooksPath, chmod +x .githooks/*
+git config user.name  "Your Name"
+git config user.email "your-email@example.com"
+```
+
+Optional but recommended:
+```
+brew install gitleaks   # the pre-commit hook auto-uses gitleaks if present
+```
 
 ## Branching
 
-- Default to direct commits on `main` for small, isolated changes (single page, single
-  service, doc updates).
-- Use a short-lived feature branch + PR for any of: schema migration, auth changes,
-  password hashing, anything that touches `Program.cs` middleware order, anything that
-  removes or renames a public API surface, anything that touches `appsettings*.json`.
-  Squash-merge to `main`.
-- Never force-push `main`. Never rewrite published history.
+- One branch per PR. Naming: `<type>/<short-kebab-name>` where type is `feat`,
+  `fix`, `docs`, `chore`, `refactor`, `test`, `build`, `ci`, or `perf`.
+  Examples: `feat/voice-to-wo`, `fix/auth-cookie-secure`, `chore/argon2-hashing`.
+- Branch life is short. Open the PR, get it green, merge, delete. Don't let a
+  branch live longer than ~24 hours unless it's a documented WIP.
+- Never reuse a merged branch name. Squash-merge configures GitHub to delete the
+  remote branch on merge; delete the local branch too.
 
 ## Commit messages
 
-Conventional, imperative, short. Reference the audit task numbers when applicable.
+The `commit-msg` hook enforces this. First line must match either:
+```
+<type>(<scope>): <subject>
+Sprint <N> #<task>: <subject>
+```
+
+Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`,
+`build`, `ci`, `perf`. Subject in imperative voice, ≤72 chars.
+
+Body (optional, after blank line) explains *why* and lists what changed. Reference
+the audit task numbers when applicable.
 
 ```
 Sprint 0 #1: finish FK migration on Purchasing/Details
@@ -106,6 +159,8 @@ Pick from the top unless the user asks for something else.
 ## Things not to do
 
 - Don't push from Replit.
+- Don't push directly to `main`. (The `pre-push` hook will block you anyway.)
+- Don't bypass the hooks (`--no-verify`) without a stated reason and a follow-up.
 - Don't rewrite or force-push `main`.
 - Don't hardcode dropdown values — use `LookupService`.
 - Don't query entities outside the tenant context.

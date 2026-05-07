@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Pre-commit safety net — blocks obvious secrets / .env files from
+# entering staged content. This is a backstop, not the primary defense.
+#
+# For thorough scanning, install gitleaks: https://github.com/gitleaks/gitleaks
+# (`brew install gitleaks`). If gitleaks is on PATH, this hook delegates to it.
+#
+# Bypass (only with full understanding): git commit --no-verify
+
+set -eu
+
+# If gitleaks is available, use it as the primary check
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact --no-banner --quiet; then
+    echo
+    echo "  ✗  gitleaks detected secrets in staged changes."
+    echo "     Resolve before committing. Bypass: git commit --no-verify"
+    echo
+    exit 1
+  fi
+  exit 0
+fi
+
+# Fallback regex-based scan when gitleaks isn't installed
+staged=$(git diff --cached --no-color)
+
+# Block staged .env files unconditionally
+if git diff --cached --name-only | grep -qE '(^|/)\.env(\.|$)'; then
+  echo "  ✗  A .env file is staged. .gitignore should be catching this — investigate."
+  exit 1
+fi
+
+# AWS access keys
+if echo "$staged" | grep -qE 'AKIA[0-9A-Z]{16}'; then
+  echo "  ✗  AWS access key pattern detected in staged changes."
+  exit 1
+fi
+
+# GitHub tokens
+if echo "$staged" | grep -qE 'gh[pousr]_[A-Za-z0-9]{36,}'; then
+  echo "  ✗  GitHub token pattern detected in staged changes."
+  exit 1
+fi
+
+# Slack tokens
+if echo "$staged" | grep -qE 'xox[abprs]-[0-9A-Za-z-]{10,}'; then
+  echo "  ✗  Slack token pattern detected in staged changes."
+  exit 1
+fi
+
+# Postgres connection strings with embedded password (best-effort)
+# Allow placeholder forms (DATABASE_URL=..., postgres://user:password@..., $VAR substitution)
+if echo "$staged" | grep -E 'postgres(ql)?://[^:[:space:]]+:[^@[:space:]]+@' | \
+   grep -vE '(\$\{?[A-Z_]|<[a-z_]+>|password@|placeholder|example)' >/dev/null; then
+  echo "  ✗  Postgres connection string with embedded password detected."
+  echo "     Move to env var (DATABASE_URL) or user-secrets and re-stage."
+  exit 1
+fi
+
+exit 0
