@@ -347,10 +347,14 @@ public class AuthServiceTests
 
         Assert.NotNull(user);
         Assert.StartsWith("$argon2id$", user.PasswordHash);
-        // Username must be uppercased per CreateUserAsync's contract.
+        // Username is uppercased per CreateUserAsync's contract.
         Assert.Equal("NEWPERSON", user.Username);
         Assert.True(user.IsActive);
-        Assert.Equal("Admin", user.Role);
+        // Role is also uppercased — but by AppDbContext.CapitalizeStringProperties()
+        // on SaveChanges, not by CreateUserAsync. AuthService.NormalizeRole turns
+        // it back into title-case "Admin" at the auth layer (see Login.cshtml.cs).
+        Assert.Equal("ADMIN", user.Role);
+        Assert.Equal("Admin", AuthService.NormalizeRole(user.Role));
     }
 
     [Fact]
