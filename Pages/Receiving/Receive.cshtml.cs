@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.Receiving
 {
@@ -17,15 +18,18 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly ITenantContext _tenantContext;
         private readonly ILookupService _lookupService;
         private readonly IPeriodGuard _periodGuard;
+        private readonly ILogger<ReceiveModel> _logger;
 
         public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
-            ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard)
+            ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard,
+            ILogger<ReceiveModel> logger)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _tenantContext = tenantContext;
             _lookupService = lookupService;
             _periodGuard = periodGuard;
+            _logger = logger;
         }
 
         public PurchaseOrder PO { get; set; } = null!;
@@ -257,9 +261,28 @@ namespace Abs.FixedAssets.Pages.Receiving
                 await _context.SaveChangesAsync();
                 TempData["Success"] = $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
             }
-            catch (Exception)
+            catch (DbUpdateConcurrencyException ex)
             {
-                TempData["Error"] = "An error occurred while saving the receipt. Please try again.";
+                _logger.LogWarning(ex,
+                    "Concurrency conflict saving receipt {ReceiptNumber} for PO {PONumber} (Id={POId}, CompanyId={CompanyId})",
+                    receiptNumber, po.PONumber, po.Id, po.CompanyId);
+                TempData["Error"] = "Another user updated this purchase order while you were receiving. Reload and try again.";
+                return RedirectToPage("Receive", new { id });
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex,
+                    "DbUpdateException saving receipt {ReceiptNumber} for PO {PONumber} (Id={POId}, CompanyId={CompanyId}). Inner: {InnerMessage}",
+                    receiptNumber, po.PONumber, po.Id, po.CompanyId, ex.InnerException?.Message);
+                TempData["Error"] = $"Could not save receipt {receiptNumber}: {ex.InnerException?.Message ?? ex.Message}";
+                return RedirectToPage("Receive", new { id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Unexpected error saving receipt {ReceiptNumber} for PO {PONumber} (Id={POId}, CompanyId={CompanyId})",
+                    receiptNumber, po.PONumber, po.Id, po.CompanyId);
+                TempData["Error"] = $"Unexpected error saving receipt {receiptNumber}. Reference {po.Id}-{DateTime.UtcNow:HHmmss} for support.";
                 return RedirectToPage("Receive", new { id });
             }
 
