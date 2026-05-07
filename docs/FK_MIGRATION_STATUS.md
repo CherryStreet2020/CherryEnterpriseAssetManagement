@@ -20,7 +20,7 @@ migrated**. The actual remaining gaps are listed below.
 | `seed/reference-data/OperationStatus.json` | seed/enum drift fix + data migration | [#5](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/5) |
 | 5-seed coordinated alignment + missing InventoryStatus | (AssetStatus, CipProjectStatus, WorkRequestStatus, VendorStatus, ItemStatus, InventoryStatus) | [#6](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/6) |
 | Lookup orphan + InventoryStatus dup cleanup | post-#6 verification residue | [#7](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/7) |
-| `Pages/Maintenance/ScheduleBoard.cshtml.cs` | `OnPostAssignAsync`, `OnPostUnassignAsync` | (this PR) |
+| `Pages/Maintenance/ScheduleBoard.cshtml.cs` | `OnPostAssignAsync`, `OnPostUnassignAsync` | [#10](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/10) |
 
 ## 🟡 Open
 
