@@ -1,0 +1,15 @@
+{
+  "lookupKey": "RejectionReason",
+  "name": "Rejection Reason",
+  "isSystem": true,
+  "values": [
+    { "code": "DAMAGED",      "name": "Damaged in shipping",                     "sortOrder": 1, "isActive": true },
+    { "code": "WRONG_ITEM",   "name": "Wrong item received",                     "sortOrder": 2, "isActive": true },
+    { "code": "QTY_SHORT",    "name": "Quantity short",                          "sortOrder": 3, "isActive": true },
+    { "code": "QTY_OVER",     "name": "Quantity over",                           "sortOrder": 4, "isActive": true },
+    { "code": "QUALITY_FAIL", "name": "Failed quality inspection",               "sortOrder": 5, "isActive": true },
+    { "code": "EXPIRED",      "name": "Past expiration date",                    "sortOrder": 6, "isActive": true },
+    { "code": "DOCS_MISSING", "name": "Documentation missing or incorrect",      "sortOrder": 7, "isActive": true },
+    { "code": "OTHER",        "name": "Other (see notes)",                       "sortOrder": 99, "isActive": true }
+  ]
+}
