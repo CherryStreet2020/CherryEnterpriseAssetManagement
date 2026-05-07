@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Conventional commits validator.
+#
+# Required first-line format:
+#   <type>(<optional-scope>): <subject>
+# OR (for tracked roadmap tasks):
+#   Sprint <N> #<task>: <subject>
+#
+# Valid types: feat, fix, docs, style, refactor, test, chore, build, ci, perf
+#
+# Bypass (only for fixups): git commit --no-verify
+
+set -eu
+
+msg_file="$1"
+first_line=$(head -n 1 "$msg_file")
+
+# Allow merge / revert commits to flow through unchanged
+if echo "$first_line" | grep -qE '^(Merge|Revert) '; then
+  exit 0
+fi
+
+# Allow empty commits (e.g., during conflict resolution)
+if [ -z "$first_line" ]; then
+  exit 0
+fi
+
+pattern='^(feat|fix|docs|style|refactor|test|chore|build|ci|perf)(\([a-z0-9_/.-]+\))?(!)?: .{1,}$|^Sprint [0-9]+ #[0-9]+: .{1,}$'
+
+if ! echo "$first_line" | grep -qE "$pattern"; then
+  echo
+  echo "  ✗  Commit message doesn't match conventional commits."
+  echo
+  echo "     First line: $first_line"
+  echo
+  echo "     Required format:"
+  echo "       <type>(<scope>): <subject>"
+  echo "     Or for roadmap tasks:"
+  echo "       Sprint <N> #<task>: <subject>"
+  echo
+  echo "     Valid types: feat, fix, docs, style, refactor, test, chore,"
+  echo "                  build, ci, perf"
+  echo
+  echo "     Examples:"
+  echo "       feat(purchasing): add FK-bound status dropdowns"
+  echo "       fix(auth): re-enable required authentication on Razor pages"
+  echo "       Sprint 0 #1: finish FK migration on Purchasing/Details"
+  echo
+  exit 1
+fi
+
+# Soft length warning — don't block, just inform
+subject_len=${#first_line}
+if [ "$subject_len" -gt 72 ]; then
+  echo "  ⚠  Subject line is $subject_len chars. Convention is ≤72."
+fi
+
+exit 0

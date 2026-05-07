@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Block direct pushes to main. All changes ship via PR.
+#
+# Why this exists: GitHub branch protection / Rulesets are gated behind
+# paid plans for private repos. This hook is the client-side equivalent —
+# it enforces the PR-based workflow on our local clone. See CLAUDE.md.
+#
+# Bypass (only for emergencies): git push --no-verify
+
+set -eu
+
+protected_branch="main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/$protected_branch" ]; then
+    echo
+    echo "  ✗  Direct push to '$protected_branch' is blocked."
+    echo
+    echo "     Best-in-class workflow:"
+    echo "       1. git checkout -b <type>/<short-name>"
+    echo "       2. commit your changes"
+    echo "       3. git push -u origin <branch>"
+    echo "       4. gh pr create --fill"
+    echo "       5. wait for CI green, then: gh pr merge --squash --delete-branch"
+    echo
+    echo "     See CLAUDE.md for full workflow."
+    echo
+    exit 1
+  fi
+done
+
+exit 0
