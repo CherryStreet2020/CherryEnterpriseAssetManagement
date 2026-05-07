@@ -174,7 +174,7 @@ public class PeriodLockEnforcementTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var periodGuard = new StubPeriodGuard(allow: false);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -227,7 +227,7 @@ public class PeriodLockEnforcementTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var periodGuard = new StubPeriodGuard(allow: true);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance);
         WirePageContext(page);
 
         var lines = new List<Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
