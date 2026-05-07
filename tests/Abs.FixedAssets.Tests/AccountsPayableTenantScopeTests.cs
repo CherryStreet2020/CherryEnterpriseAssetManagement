@@ -128,7 +128,7 @@ public class AccountsPayableTenantScopeTests
             db.Vendors.Add(new Vendor
             {
                 Id = 1,
-                VendorCode = "V-1",
+                Code = "V-1",
                 Name = "Test Vendor",
                 CompanyId = companyId,
                 IsActive = true
