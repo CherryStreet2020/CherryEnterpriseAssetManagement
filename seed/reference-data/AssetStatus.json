@@ -15,7 +15,7 @@
     },
     {
       "code": "1",
-      "name": "Inactive",
+      "name": "Fully Depreciated",
       "sortOrder": 2,
       "isActive": true,
       "metadata": {
@@ -37,6 +37,36 @@
       "code": "3",
       "name": "Transferred",
       "sortOrder": 4,
+      "isActive": true,
+      "metadata": {
+        "stopsDepreciation": false,
+        "isTerminal": false
+      }
+    },
+    {
+      "code": "4",
+      "name": "Written Off",
+      "sortOrder": 5,
+      "isActive": true,
+      "metadata": {
+        "stopsDepreciation": true,
+        "isTerminal": true
+      }
+    },
+    {
+      "code": "5",
+      "name": "Impaired",
+      "sortOrder": 6,
+      "isActive": true,
+      "metadata": {
+        "stopsDepreciation": false,
+        "isTerminal": false
+      }
+    },
+    {
+      "code": "6",
+      "name": "Held",
+      "sortOrder": 7,
       "isActive": true,
       "metadata": {
         "stopsDepreciation": false,
