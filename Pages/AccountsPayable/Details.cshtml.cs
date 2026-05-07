@@ -66,7 +66,12 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 ? ReturnUrl 
                 : "/AccountsPayable";
 
-            var companyId = _tenantContext.CompanyId;
+            // Tenant scoping is mandatory regardless of whether the user has
+            // an explicit CompanyId set on their tenant context. VisibleCompanyIds
+            // is the source of truth for which companies the caller can see;
+            // an empty list correctly returns no results. The previous
+            // `if (companyId.HasValue)` guard skipped scoping for users with
+            // no explicit company assignment, leaking invoices across tenants.
             var query = _context.VendorInvoices
                 .Include(i => i.Vendor)
                 .Include(i => i.Lines)
@@ -79,10 +84,8 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                         .ThenInclude(grl => grl!.GoodsReceipt)
                 .Include(i => i.Payments)
                 .Include(i => i.Company)
-                .Where(i => i.Id == id);
-
-            if (companyId.HasValue)
-                query = query.Where(i => _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0));
+                .Where(i => i.Id == id)
+                .Where(i => _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0));
 
             if (_tenantContext.SiteId.HasValue)
                 query = query.Where(i => !i.Lines.Any(l => l.PurchaseOrderLineId != null)
@@ -231,9 +234,10 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
 
         private async Task<VendorInvoice?> LoadInvoiceScopedAsync(int id)
         {
-            var query = _context.VendorInvoices.Where(i => i.Id == id);
-            if (_tenantContext.CompanyId.HasValue)
-                query = query.Where(i => _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0));
+            // Mandatory tenant scope. See OnGetAsync for the same fix's rationale.
+            var query = _context.VendorInvoices
+                .Where(i => i.Id == id)
+                .Where(i => _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0));
             if (_tenantContext.SiteId.HasValue)
                 query = query.Where(i => !i.Lines.Any(l => l.PurchaseOrderLineId != null)
                     || i.Lines.Any(l => l.PurchaseOrderLine != null
