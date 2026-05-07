@@ -1,0 +1,13 @@
+{
+  "lookupKey": "Disposition",
+  "name": "Inspection Disposition",
+  "isSystem": true,
+  "values": [
+    { "code": "RTV",        "name": "Return to vendor",                  "sortOrder": 1, "isActive": true },
+    { "code": "SCRAP",      "name": "Scrap",                             "sortOrder": 2, "isActive": true },
+    { "code": "REWORK",     "name": "Rework / repair",                   "sortOrder": 3, "isActive": true },
+    { "code": "USE_AS_IS",  "name": "Use as-is (deviation approved)",    "sortOrder": 4, "isActive": true },
+    { "code": "HOLD",       "name": "Hold pending engineering review",   "sortOrder": 5, "isActive": true },
+    { "code": "OTHER",      "name": "Other (see notes)",                 "sortOrder": 99, "isActive": true }
+  ]
+}
