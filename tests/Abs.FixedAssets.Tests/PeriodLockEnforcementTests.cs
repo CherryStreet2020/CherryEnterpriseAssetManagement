@@ -293,11 +293,13 @@ public class PeriodLockEnforcementTests
         Assert.Equal(1, periodGuard.CallCount);
 
         // CRITICAL: status must NOT have flipped to Completed, costs NOT written.
+        // LaborCost/MaterialsCost are decimal? on MaintenanceEvent — "not written"
+        // means they remain null (the seed event never set them).
         var fromDb = await db.MaintenanceEvents.AsNoTracking().FirstAsync(e => e.Id == evt.Id);
         Assert.Equal(MaintenanceStatus.InProgress, fromDb.Status);
         Assert.Null(fromDb.CompletedDate);
-        Assert.Equal(0m, fromDb.LaborCost);
-        Assert.Equal(0m, fromDb.MaterialsCost);
+        Assert.Null(fromDb.LaborCost);
+        Assert.Null(fromDb.MaterialsCost);
         Assert.Contains("Error", page.TempData.Keys);
     }
 
