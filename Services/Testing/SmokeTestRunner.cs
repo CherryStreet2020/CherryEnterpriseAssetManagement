@@ -101,9 +101,10 @@ public class SmokeTestRunner : ISmokeTestRunner
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ITenantContextOverride _tenantContextOverride;
     private readonly IModuleGuardService _moduleGuard;
+    private readonly Abs.FixedAssets.Services.Lookups.ILookupService _lookupService;
 
     public SmokeTestRunner(
-        AppDbContext db, 
+        AppDbContext db,
         IWorkRequestConversionService conversionService,
         ICloseoutService closeoutService,
         IInboundWebhookService inboundWebhookService,
@@ -132,7 +133,8 @@ public class SmokeTestRunner : ISmokeTestRunner
         IActionInvokerFactory actionInvokerFactory,
         IServiceScopeFactory serviceScopeFactory,
         ITenantContextOverride tenantContextOverride,
-        IModuleGuardService moduleGuard)
+        IModuleGuardService moduleGuard,
+        Abs.FixedAssets.Services.Lookups.ILookupService lookupService)
     {
         _db = db;
         _conversionService = conversionService;
@@ -164,6 +166,7 @@ public class SmokeTestRunner : ISmokeTestRunner
         _serviceScopeFactory = serviceScopeFactory;
         _tenantContextOverride = tenantContextOverride;
         _moduleGuard = moduleGuard;
+        _lookupService = lookupService;
     }
 
     public bool CanRunTests()
@@ -6470,11 +6473,12 @@ public class SmokeTestRunner : ISmokeTestRunner
             checks.Add($"Created assets: {assetA.AssetNumber} (Loc A), {assetB.AssetNumber} (Loc B)");
 
             var page = new Abs.FixedAssets.Pages.Maintenance.WorkRequests.CreateModel(
-                _db, 
-                _conversionService, 
-                _tenantContext, 
+                _db,
+                _conversionService,
+                _tenantContext,
                 Microsoft.Extensions.Logging.Abstractions.NullLogger<Abs.FixedAssets.Pages.Maintenance.WorkRequests.CreateModel>.Instance,
-                _moduleGuard
+                _moduleGuard,
+                _lookupService
             );
 
             var resultAllLocs = await page.OnGetAssetsJsonAsync(site.Id, null);
