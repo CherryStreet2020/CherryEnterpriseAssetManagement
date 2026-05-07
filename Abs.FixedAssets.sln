@@ -4,6 +4,8 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets", "Abs.FixedAssets.csproj", "{90AE857C-2B57-11D6-4549-2D5BAFD133A2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets.Tests", "tests\Abs.FixedAssets.Tests\Abs.FixedAssets.Tests.csproj", "{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -14,6 +16,10 @@ Global
 		{90AE857C-2B57-11D6-4549-2D5BAFD133A2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{90AE857C-2B57-11D6-4549-2D5BAFD133A2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{90AE857C-2B57-11D6-4549-2D5BAFD133A2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
