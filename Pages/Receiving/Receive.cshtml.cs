@@ -16,14 +16,16 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly IModuleGuardService _moduleGuard;
         private readonly ITenantContext _tenantContext;
         private readonly ILookupService _lookupService;
+        private readonly IPeriodGuard _periodGuard;
 
         public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
-            ITenantContext tenantContext, ILookupService lookupService)
+            ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _tenantContext = tenantContext;
             _lookupService = lookupService;
+            _periodGuard = periodGuard;
         }
 
         public PurchaseOrder PO { get; set; } = null!;
@@ -165,6 +167,23 @@ namespace Abs.FixedAssets.Pages.Receiving
             {
                 TempData["Error"] = string.Join(" ", errors);
                 return RedirectToPage("Receive", new { id });
+            }
+
+            // Period locking: a goods receipt creates AP / inventory exposure
+            // and (downstream) GL postings. Block a receipt that would post
+            // into a closed/locked accounting period — same posture as
+            // Pages/Assets/Improve.cshtml.cs::OnPostAsync and Dispose.
+            var postingDate = receiptDate ?? DateTime.Today;
+            var receiptCompanyId = po.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (receiptCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(receiptCompanyId, postingDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    TempData["Error"] = periodCheck.Reason
+                        ?? $"Cannot post receipt: posting period for {postingDate:yyyy-MM-dd} is closed.";
+                    return RedirectToPage("Receive", new { id });
+                }
             }
 
             var receiptNumber = $"GR-{DateTime.UtcNow:yyyyMMdd}-{DateTime.UtcNow:HHmmss}";
