@@ -62,6 +62,41 @@ builder.Services.AddRazorPages(options =>
 });
 builder.Services.AddHttpClient();
 
+// OpenAPI / Swagger — exposed when ENABLE_SWAGGER=true or in Development.
+// In production, set ENABLE_SWAGGER=true on the running app (and ideally
+// front it with admin auth at the proxy layer) only when an integration
+// partner needs the spec.
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "CherryAI EAM API",
+        Version = "v1",
+        Description = "Enterprise Asset Management API surface. Cookie auth — sign in via /Account/Login first; controllers run inside the same auth pipeline."
+    });
+
+    var cookieScheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Cookie,
+        Name = ".AspNetCore.Cookies",
+        Description = "ASP.NET Core authentication cookie. Issued by /Account/Login. Send on all calls that require auth."
+    };
+    options.AddSecurityDefinition("CookieAuth", cookieScheme);
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        [new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+            {
+                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                Id = "CookieAuth"
+            }
+        }] = Array.Empty<string>()
+    });
+});
+
 // EF Core slow-query interceptor — logs any DB command >500ms with full
 // SQL+params+duration, picking up RequestId from the logger scope.
 builder.Services.AddSingleton<Abs.FixedAssets.Services.Diagnostics.SlowQueryInterceptor>();
@@ -580,6 +615,23 @@ app.MapGet("/_otel/diag", (IServiceProvider sp) =>
 
 app.MapRazorPages().RequireAuthorization();
 app.MapControllers();
+
+// Swagger / OpenAPI. Enabled in Development by default; in any other
+// environment, opt in via ENABLE_SWAGGER=true on the running app.
+// The spec lives at /swagger/v1/swagger.json; the UI at /swagger.
+var enableSwagger = app.Environment.IsDevelopment()
+    || string.Equals(Environment.GetEnvironmentVariable("ENABLE_SWAGGER"), "true", StringComparison.OrdinalIgnoreCase);
+
+if (enableSwagger)
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "CherryAI EAM API v1");
+        c.DocumentTitle = "CherryAI EAM — API Explorer";
+        c.RoutePrefix = "swagger";
+    });
+}
 
 if (app.Environment.IsDevelopment())
 {
