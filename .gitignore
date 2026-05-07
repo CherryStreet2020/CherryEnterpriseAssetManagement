@@ -43,5 +43,10 @@ snapshot/
 TestResults/
 
 # Playwright artifacts (regenerated on every test run)
+# Screenshots are excluded so Replit Agent's auto-checkpoint doesn't keep
+# committing freshly-rendered binaries every time UI tests run. Visual
+# regression baselines, when needed, should live in a separate
+# manually-curated directory.
 proof/ui/playwright/test-results/
 proof/ui/playwright/playwright-report/
+proof/ui/playwright/screenshots/
