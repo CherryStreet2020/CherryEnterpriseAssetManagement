@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Lookups;
 using System.Text.Json;
 
 namespace Abs.FixedAssets.Pages.Maintenance
@@ -13,12 +14,27 @@ namespace Abs.FixedAssets.Pages.Maintenance
         private readonly AppDbContext _context;
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly ILookupService _lookupService;
 
-        public ScheduleBoardModel(AppDbContext context, ITenantContext tenantContext, IModuleGuardService moduleGuard)
+        public ScheduleBoardModel(AppDbContext context, ITenantContext tenantContext, IModuleGuardService moduleGuard, ILookupService lookupService)
         {
             _context = context;
             _tenantContext = tenantContext;
             _moduleGuard = moduleGuard;
+            _lookupService = lookupService;
+        }
+
+        // Keeps WorkOrderOperation.Status (legacy enum) and StatusLookupValueId
+        // (FK) in lockstep on every status write. Mirrors the canonical helper
+        // in Pages/Purchasing/Details.cshtml.cs::SyncStatusFkAsync.
+        private async Task SyncOperationStatusFkAsync(WorkOrderOperation op, OperationStatus status)
+        {
+            op.Status = status;
+            var lv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId,
+                "OperationStatus", ((int)status).ToString());
+            if (lv != null)
+                op.StatusLookupValueId = lv.Id;
         }
 
         public string TechniciansJson { get; set; } = "[]";
@@ -188,7 +204,8 @@ namespace Abs.FixedAssets.Pages.Maintenance
             op.AssignedTechnicianId = technicianId;
             op.PlannedStartDate = start;
             op.PlannedEndDate = end;
-            if (op.Status == OperationStatus.Pending) op.Status = OperationStatus.Ready;
+            if (op.Status == OperationStatus.Pending)
+                await SyncOperationStatusFkAsync(op, OperationStatus.Ready);
             op.ModifiedAt = DateTime.UtcNow;
             op.ModifiedBy = User.Identity?.Name ?? "scheduler";
             await _context.SaveChangesAsync();
@@ -219,7 +236,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             op.AssignedTechnicianId = null;
             op.PlannedStartDate = null;
             op.PlannedEndDate = null;
-            op.Status = OperationStatus.Pending;
+            await SyncOperationStatusFkAsync(op, OperationStatus.Pending);
             op.ModifiedAt = DateTime.UtcNow;
             op.ModifiedBy = User.Identity?.Name ?? "scheduler";
             await _context.SaveChangesAsync();

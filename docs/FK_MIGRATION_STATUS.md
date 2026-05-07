@@ -17,44 +17,14 @@ migrated**. The actual remaining gaps are listed below.
 |---|---|---|
 | `Pages/Assets/Dispose.cshtml.cs` | `OnPostAsync` (Asset.Status=Disposed) | [#2](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/2) |
 | `Pages/Materials/ItemEdit.cshtml.cs` | `OnPostObsoleteRevisionAsync` (RevisionStatus.Obsolete) | [#2](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/2) |
+| `seed/reference-data/OperationStatus.json` | seed/enum drift fix + data migration | [#5](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/5) |
+| 5-seed coordinated alignment + missing InventoryStatus | (AssetStatus, CipProjectStatus, WorkRequestStatus, VendorStatus, ItemStatus, InventoryStatus) | [#6](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/6) |
+| Lookup orphan + InventoryStatus dup cleanup | post-#6 verification residue | [#7](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/7) |
+| `Pages/Maintenance/ScheduleBoard.cshtml.cs` | `OnPostAssignAsync`, `OnPostUnassignAsync` | (this PR) |
 
-## 🟡 Open — order matters
+## 🟡 Open
 
-These three are deferred from PR [#2](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/2)
-because each requires more than a page edit. Do them in this order.
-
-### 1. `OperationStatus` seed/enum drift — fix the seed first
-
-The `OperationStatus` C# enum and the `OperationStatus.json` seed are drifted.
-Mapping FK by enum int → seed code returns the wrong `LookupValue`. Until this
-is fixed, **migrating `Pages/Maintenance/ScheduleBoard.cshtml.cs` would write
-the wrong FK** (e.g., setting `op.Status = OperationStatus.Ready` (=1) would
-look up code `"1"` and resolve "In Progress" as the LookupValue — wrong).
-
-Drift table:
-
-| Code | C# enum (`Models/WorkOrderOperation.cs:6`) | `OperationStatus.json` |
-|---|---|---|
-| 0 | `Pending` | "Pending" ✓ |
-| 1 | `Ready` | "In Progress" ✗ |
-| 2 | `InProgress` | "Completed" ✗ |
-| 3 | `OnHold` | "On Hold" (close, but wrong value) |
-| 4 | `Completed` | "Cancelled" ✗ |
-| 5 | `Cancelled` | (missing) ✗ |
-
-C# is the source of truth (heavily referenced). Update
-`seed/reference-data/OperationStatus.json` to match — and add an EF Core data
-migration that re-points existing `LookupValues` rows for `OperationStatus` so
-in-flight operation rows don't reference now-renamed values. After the seed is
-correct, migrate `Pages/Maintenance/ScheduleBoard.cshtml.cs::OnPostAssignAsync`
-and `OnPostUnassignAsync` using the established `SyncStatusFkAsync` pattern.
-
-> Tracked externally: GitHub issue
-> [#3](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/issues/3)
-> (created in error before this in-repo tracker existed; it can be closed once
-> work starts here).
-
-### 2. `InventoryList` — add FK column + migrate page
+### 1. `InventoryList` — add FK column + migrate page
 
 `Pages/Inventory/List.cshtml.cs::OnPostStartAsync` (line 71) and
 `OnPostCompleteAsync` (line 85) write `InventoryStatus` enum without an FK
@@ -76,7 +46,7 @@ Single PR:
 4. **First** verify `seed/reference-data/InventoryStatus.json` aligns with
    `InventoryStatus` enum. If drifted, fix it the same way as (1) above.
 
-### 3. `WorkRequest` — add FK column + migrate page
+### 2. `WorkRequest` — add FK column + migrate page
 
 `Pages/Maintenance/WorkRequests/Create.cshtml.cs::OnPostAsync` (line 238)
 writes `WorkRequestStatus.New` without an FK companion. The `WorkRequest`
