@@ -51,8 +51,29 @@ test.describe('FA — Asset Concurrency', () => {
       const after = await dbOne('SELECT "Description" FROM "Assets" WHERE "Id"=$1', [ASSET_ID]);
       expect(after.Description).toBe(winningDescription);
     } finally {
-      await ctxA.close();
-      await ctxB.close();
+      // Both contexts share the default Playwright artifacts directory
+      // (.playwright-artifacts/.../*.network, *.trace). When ctxA.close()
+      // and ctxB.close() run concurrently, Playwright occasionally hits an
+      // ENOENT race tearing down trace/network files — every in-test
+      // assertion has already passed, but teardown throws and the test
+      // is reported as flaky.
+      //
+      // Close both contexts via Promise.allSettled so neither blocks the
+      // other, then swallow ONLY ENOENT errors whose path matches the
+      // known artifact patterns. Anything else is rethrown.
+      const results = await Promise.allSettled([ctxA.close(), ctxB.close()]);
+      const TEARDOWN_RACE_PATH = /\.playwright-artifacts\b.*\.(network|trace)$/;
+      for (const r of results) {
+        if (r.status !== 'rejected') continue;
+        const err = r.reason;
+        const isEnoent = err && (err.code === 'ENOENT' || /ENOENT/.test(err.message || ''));
+        const isArtifactPath = err && TEARDOWN_RACE_PATH.test(err.path || err.message || '');
+        if (isEnoent && isArtifactPath) {
+          console.warn(`[fa_concurrency] swallowed Playwright artifact-cleanup race: ${err.message}`);
+          continue;
+        }
+        throw err;
+      }
     }
   });
 });
