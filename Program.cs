@@ -375,6 +375,32 @@ using (var scope = app.Services.CreateScope())
         db.Database.EnsureCreated();
     }
     
+    // Serialize startup seeding across concurrent app instances. If two
+    // processes start at the same time (e.g., during a Replit rolling
+    // restart or a multi-instance deploy), only one runs the seed work;
+    // the other skips it and proceeds straight to listening. EF Core
+    // already serializes migrations via its own __EFMigrationsHistory
+    // locking, so the lock only needs to cover the seed block.
+    var seedGuardForLock = scope.ServiceProvider.GetRequiredService<ISeedGuardService>();
+    var seedLockAcquired = await seedGuardForLock.TryAcquireSeedLockAsync(db);
+    if (!seedLockAcquired)
+    {
+        Console.WriteLine("[Startup] Another instance holds the seed advisory lock; skipping seed work this startup");
+    }
+    else
+    {
+        Console.WriteLine("[Startup] Seed advisory lock acquired");
+    }
+
+    try
+    {
+        if (!seedLockAcquired)
+        {
+            // Skip the entire seed block; another instance is doing the work.
+        }
+        else
+        {
+
     // Seed default depreciation books if they don't exist
     if (!db.Books.Any())
     {
@@ -447,6 +473,24 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: CIP reconciliation failed: {ex.Message}");
+    }
+
+        } // end: if (seedLockAcquired)
+    }
+    finally
+    {
+        if (seedLockAcquired)
+        {
+            try
+            {
+                await seedGuardForLock.ReleaseSeedLockAsync(db);
+                Console.WriteLine("[Startup] Seed advisory lock released");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Startup] WARNING: Failed to release seed advisory lock cleanly: {ex.Message}. The lock will release automatically when the connection closes.");
+            }
+        }
     }
 }
 
