@@ -57,6 +57,8 @@ namespace Abs.FixedAssets.Models
         public string? Description { get; set; }
 
         public InventoryStatus Status { get; set; } = InventoryStatus.Draft;
+        public int? StatusLookupValueId { get; set; }
+        public LookupValue? StatusLookupValue { get; set; }
 
         [DataType(DataType.Date)]
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
