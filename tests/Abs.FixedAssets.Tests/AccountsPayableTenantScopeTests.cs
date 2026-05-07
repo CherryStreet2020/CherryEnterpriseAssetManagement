@@ -103,19 +103,53 @@ public class AccountsPayableTenantScopeTests
         return (page, db);
     }
 
-    private static VendorInvoice MakeInvoice(int companyId, int? id = null)
+    /// <summary>
+    /// Seeds the minimum nav-prop fixture so the page's Include() chain
+    /// has Vendor + Company to LEFT-JOIN against. Returns the invoice.
+    /// </summary>
+    private static async Task<VendorInvoice> SeedInvoiceWithFixturesAsync(AppDbContext db, int companyId)
     {
-        return new VendorInvoice
+        // Company + Vendor must exist so Include(i => i.Company) and
+        // Include(i => i.Vendor) materialize correctly. The InMemory
+        // provider tolerates dangling FKs but explicit fixtures keep
+        // the test deterministic.
+        if (!await db.Companies.AnyAsync(c => c.Id == companyId))
         {
-            Id = id ?? 0,
+            db.Companies.Add(new Company
+            {
+                Id = companyId,
+                CompanyCode = $"CO-{companyId}",
+                Name = $"Test Company {companyId}",
+                IsActive = true
+            });
+        }
+        if (!await db.Vendors.AnyAsync(v => v.Id == 1))
+        {
+            db.Vendors.Add(new Vendor
+            {
+                Id = 1,
+                VendorCode = "V-1",
+                Name = "Test Vendor",
+                CompanyId = companyId,
+                IsActive = true
+            });
+        }
+        await db.SaveChangesAsync();
+
+        var invoice = new VendorInvoice
+        {
             CompanyId = companyId,
             VendorId = 1,
             InvoiceNumber = $"INV-{companyId}-{Guid.NewGuid().ToString("N")[..6]}",
             InvoiceDate = DateTime.UtcNow,
             DueDate = DateTime.UtcNow.AddDays(30),
+            Currency = "USD",
             Status = InvoiceStatus.Draft,
             CreatedAt = DateTime.UtcNow
         };
+        db.VendorInvoices.Add(invoice);
+        await db.SaveChangesAsync();
+        return invoice;
     }
 
     [Fact]
@@ -137,9 +171,7 @@ public class AccountsPayableTenantScopeTests
         };
 
         var (page, db) = NewPage(tenant);
-        var invoice = MakeInvoice(invoiceCompanyId);
-        db.VendorInvoices.Add(invoice);
-        await db.SaveChangesAsync();
+        var invoice = await SeedInvoiceWithFixturesAsync(db, invoiceCompanyId);
 
         var result = await page.OnGetAsync(invoice.Id);
 
@@ -160,9 +192,7 @@ public class AccountsPayableTenantScopeTests
         };
 
         var (page, db) = NewPage(tenant);
-        var invoice = MakeInvoice(companyId: 100);
-        db.VendorInvoices.Add(invoice);
-        await db.SaveChangesAsync();
+        var invoice = await SeedInvoiceWithFixturesAsync(db, companyId: 100);
 
         await page.OnGetAsync(invoice.Id);
 
@@ -182,9 +212,7 @@ public class AccountsPayableTenantScopeTests
         };
 
         var (page, db) = NewPage(tenant);
-        var invoice = MakeInvoice(companyId);
-        db.VendorInvoices.Add(invoice);
-        await db.SaveChangesAsync();
+        var invoice = await SeedInvoiceWithFixturesAsync(db, companyId);
 
         await page.OnGetAsync(invoice.Id);
 
@@ -208,9 +236,7 @@ public class AccountsPayableTenantScopeTests
         };
 
         var (page, db) = NewPage(tenant);
-        var invoice = MakeInvoice(companyId);
-        db.VendorInvoices.Add(invoice);
-        await db.SaveChangesAsync();
+        var invoice = await SeedInvoiceWithFixturesAsync(db, companyId);
 
         await page.OnGetAsync(invoice.Id);
 
