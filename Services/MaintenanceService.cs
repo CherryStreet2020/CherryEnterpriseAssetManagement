@@ -8,25 +8,19 @@ namespace Abs.FixedAssets.Services
     public class MaintenanceService
     {
         private readonly AppDbContext _context;
-        private readonly ITenantContext? _tenantContext;
+        private readonly ITenantContext _tenantContext;
         private readonly ILookupService? _lookupService;
-
-        public MaintenanceService(AppDbContext context)
-        {
-            _context = context;
-            _tenantContext = null;
-        }
 
         public MaintenanceService(AppDbContext context, ITenantContext tenantContext)
         {
             _context = context;
-            _tenantContext = tenantContext;
+            _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
         }
 
         public MaintenanceService(AppDbContext context, ITenantContext tenantContext, ILookupService lookupService)
         {
             _context = context;
-            _tenantContext = tenantContext;
+            _tenantContext = tenantContext ?? throw new ArgumentNullException(nameof(tenantContext));
             _lookupService = lookupService;
         }
 
@@ -37,7 +31,7 @@ namespace Abs.FixedAssets.Services
             return lv?.Id;
         }
 
-        private int GetCompanyId() => _tenantContext?.CompanyId ?? 1;
+        private int GetCompanyId() => _tenantContext.CompanyId ?? 0;
 
         private IQueryable<MaintenanceEvent> GetScopedEventsQuery()
         {
@@ -121,15 +115,16 @@ namespace Abs.FixedAssets.Services
 
         public async Task<MaintenanceEvent?> CreateEventAsync(MaintenanceEvent evt)
         {
-            if (_tenantContext?.CompanyId != null)
+            // Tenant scoping is mandatory: the asset must belong to a company
+            // visible to the current tenant. No conditional null-guard — the
+            // service contract requires a resolved ITenantContext (see ctor).
+            var assetBelongsToTenant = await _context.Assets
+                .AnyAsync(a => a.Id == evt.AssetId
+                    && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0)
+                    && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value));
+            if (!assetBelongsToTenant)
             {
-                var companyId = _tenantContext.CompanyId.Value;
-                var assetBelongsToTenant = await _context.Assets
-                    .AnyAsync(a => a.Id == evt.AssetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || a.SiteId == _tenantContext.SiteId.Value));
-                if (!assetBelongsToTenant)
-                {
-                    return null;
-                }
+                return null;
             }
 
             evt.CreatedAt = DateTime.UtcNow;
@@ -169,16 +164,16 @@ namespace Abs.FixedAssets.Services
 
         public async Task<MaintenanceEvent?> UpdateEventAsync(MaintenanceEvent evt)
         {
-            if (_tenantContext?.CompanyId != null)
+            // Tenant scoping is mandatory — see CreateEventAsync.
+            var exists = await _context.MaintenanceEvents
+                .Include(e => e.Asset)
+                .AnyAsync(e => e.Id == evt.Id
+                    && e.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0)
+                    && (!_tenantContext.SiteId.HasValue || e.Asset.SiteId == _tenantContext.SiteId.Value));
+            if (!exists)
             {
-                var companyId = _tenantContext.CompanyId.Value;
-                var exists = await _context.MaintenanceEvents
-                    .Include(e => e.Asset)
-                    .AnyAsync(e => e.Id == evt.Id && e.Asset != null && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || e.Asset.SiteId == _tenantContext.SiteId.Value));
-                if (!exists)
-                {
-                    return null;
-                }
+                return null;
             }
 
             _context.MaintenanceEvents.Update(evt);
@@ -188,21 +183,17 @@ namespace Abs.FixedAssets.Services
 
         public async Task<MaintenanceEvent?> CompleteEventAsync(int id, string resolution, decimal actualCost)
         {
-            MaintenanceEvent? evt;
-            
-            if (_tenantContext?.CompanyId != null)
-            {
-                var companyId = _tenantContext.CompanyId.Value;
-                evt = await _context.MaintenanceEvents
-                    .Include(e => e.Asset)
-                    .Where(e => e.Id == id && e.Asset != null && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || e.Asset.SiteId == _tenantContext.SiteId.Value))
-                    .FirstOrDefaultAsync();
-            }
-            else
-            {
-                evt = await _context.MaintenanceEvents.Where(e => e.Id == id).FirstOrDefaultAsync();
-            }
-            
+            // Tenant scoping is mandatory — no unscoped fallback. The previous
+            // version skipped scoping when CompanyId was null; that mirrored
+            // the AccountsPayable leak fixed in PR #22 and is closed here.
+            var evt = await _context.MaintenanceEvents
+                .Include(e => e.Asset)
+                .Where(e => e.Id == id
+                    && e.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0)
+                    && (!_tenantContext.SiteId.HasValue || e.Asset.SiteId == _tenantContext.SiteId.Value))
+                .FirstOrDefaultAsync();
+
             if (evt != null)
             {
                 evt.Status = MaintenanceStatus.Completed;
