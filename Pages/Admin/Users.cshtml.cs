@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
@@ -70,7 +68,7 @@ namespace Abs.FixedAssets.Pages.Admin
                 Username = username,
                 Email = email,
                 FullName = fullName,
-                PasswordHash = HashPassword(password),
+                PasswordHash = AuthService.HashPassword(password),
                 Role = role,
                 AssignedCompanyId = assignedCompanyId,
                 AssignedSiteId = assignedSiteId,
@@ -131,7 +129,7 @@ namespace Abs.FixedAssets.Pages.Admin
             if (user == null)
                 return NotFound();
 
-            user.PasswordHash = HashPassword(newPassword);
+            user.PasswordHash = AuthService.HashPassword(newPassword);
             user.MustChangePassword = true;
             user.PasswordChangedAt = DateTime.UtcNow;
 
@@ -157,11 +155,5 @@ namespace Abs.FixedAssets.Pages.Admin
             return Page();
         }
 
-        private static string HashPassword(string password)
-        {
-            using var sha256 = SHA256.Create();
-            var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-            return Convert.ToBase64String(hashedBytes);
-        }
     }
 }
