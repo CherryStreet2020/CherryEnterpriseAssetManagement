@@ -6,8 +6,13 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Pages.AccountsPayable;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
@@ -85,8 +90,16 @@ public class AccountsPayableTenantScopeTests
         var matchingService = new InvoiceMatchingService(db);
         var moduleGuard = new AlwaysEnabledModuleGuard();
         var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService);
-        // Razor page models need a PageContext to call RedirectToPage, but for
-        // these tests we never reach that branch (the module guard is always on).
+
+        // Minimal PageContext so OnGetAsync can write to ViewData without NRE.
+        // Same pattern as AssetConcurrencyTests.
+        var httpContext = new DefaultHttpContext();
+        var modelState = new ModelStateDictionary();
+        var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
+        page.PageContext = new PageContext(actionContext)
+        {
+            ViewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), modelState)
+        };
         return (page, db);
     }
 
