@@ -60,13 +60,18 @@ namespace Abs.FixedAssets.Pages.Receiving
             if (!await _moduleGuard.IsModuleEnabledAsync("purchasing"))
                 return RedirectToPage("/ModuleDisabled", new { module = "purchasing" });
 
+            // Tenant scoping is mandatory. The previous version skipped the
+            // company filter when CompanyId was null on the tenant context —
+            // same shape as the AccountsPayable leak fixed in PR #22. A user
+            // with CompanyId=null but VisibleCompanyIds=[200] could load a
+            // PO from company 100. Site scoping stays conditional because
+            // it's a sub-scope: a user without a site sees all sites within
+            // their visible companies.
             var poQuery = _context.PurchaseOrders
                 .Include(p => p.Vendor)
                 .Include(p => p.Lines).ThenInclude(l => l.Item)
-                .Where(p => p.Id == id);
-
-            if (_tenantContext.CompanyId.HasValue)
-                poQuery = poQuery.Where(p => _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+                .Where(p => p.Id == id
+                    && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
 
             if (_tenantContext.SiteId.HasValue)
                 poQuery = poQuery.Where(p => p.ShipToSiteId == _tenantContext.SiteId.Value);
@@ -117,13 +122,12 @@ namespace Abs.FixedAssets.Pages.Receiving
             if (!await _moduleGuard.IsModuleEnabledAsync("purchasing"))
                 return RedirectToPage("/ModuleDisabled", new { module = "purchasing" });
 
+            // Tenant scoping is mandatory — see OnGetAsync for the rationale.
             var poQuery = _context.PurchaseOrders
                 .Include(p => p.Vendor)
                 .Include(p => p.Lines).ThenInclude(l => l.Item)
-                .Where(p => p.Id == id);
-
-            if (_tenantContext.CompanyId.HasValue)
-                poQuery = poQuery.Where(p => _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+                .Where(p => p.Id == id
+                    && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
 
             if (_tenantContext.SiteId.HasValue)
                 poQuery = poQuery.Where(p => p.ShipToSiteId == _tenantContext.SiteId.Value);
