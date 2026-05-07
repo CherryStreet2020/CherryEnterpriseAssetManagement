@@ -153,7 +153,7 @@ and #3 — see `## Audit corrections` below.** The current state:
 | 3 | Re-enable auth | ✅ Was already enabled. `Program.cs:581` calls `MapRazorPages().RequireAuthorization()`. |
 | 4 | Argon2id replacing SHA-256 | ✅ Shipped (this PR — `feat/argon2id-password-hashing`). Backward-compat verify; rolling re-hash on next login. |
 | 5 | Move plaintext secrets out of `appsettings.Development.json` | ✅ Shipped (`fix/scrub-plaintext-secret`). The Azure SQL connection string with embedded password was dead-code fallback (Replit always sets `PGHOST` etc.). Removed from both the source file and the `out/` build artifact. **Note: the password `ABS12345!` is still in git history; rotate it on Azure if that server is still active.** |
-| 6 | Add Swashbuckle for `/swagger` | Open. |
+| 6 | Add Swashbuckle for `/swagger` | ✅ Shipped (`feat/swagger-openapi`). On in Development; in any other env, opt in via `ENABLE_SWAGGER=true`. UI at `/swagger`, JSON spec at `/swagger/v1/swagger.json`. Cookie auth modeled in the spec. |
 | 7 | Postgres advisory lock in `SeedGuardService` | Open. |
 | 8 | Strongly-typed outbox payloads with versioned `IDomainEvent` | Open. |
 
