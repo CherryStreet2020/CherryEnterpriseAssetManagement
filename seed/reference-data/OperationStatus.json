@@ -11,13 +11,13 @@
     },
     {
       "code": "1",
-      "name": "In Progress",
+      "name": "Ready",
       "sortOrder": 2,
       "isActive": true
     },
     {
       "code": "2",
-      "name": "Completed",
+      "name": "In Progress",
       "sortOrder": 3,
       "isActive": true
     },
@@ -29,8 +29,14 @@
     },
     {
       "code": "4",
-      "name": "Cancelled",
+      "name": "Completed",
       "sortOrder": 5,
+      "isActive": true
+    },
+    {
+      "code": "5",
+      "name": "Cancelled",
+      "sortOrder": 6,
       "isActive": true
     }
   ]
