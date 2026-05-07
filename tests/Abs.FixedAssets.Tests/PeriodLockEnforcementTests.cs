@@ -110,17 +110,30 @@ public class PeriodLockEnforcementTests
         public Task EnsureCanPostAsync(int companyId, DateTime postingDate) => Task.CompletedTask;
     }
 
+    /// <summary>In-memory TempData provider for tests — avoids the
+    /// TempDataSerializer dependency that ASP.NET's SessionStateTempDataProvider
+    /// pulls in from the request pipeline.</summary>
+    private sealed class InMemoryTempDataProvider : ITempDataProvider
+    {
+        private readonly Dictionary<string, object> _store = new();
+        public IDictionary<string, object> LoadTempData(HttpContext context) => _store;
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values)
+        {
+            _store.Clear();
+            foreach (var kvp in values) _store[kvp.Key] = kvp.Value;
+        }
+    }
+
     private static void WirePageContext(PageModel page)
     {
         var http = new DefaultHttpContext();
-        http.Features.Set<ITempDataDictionary>(new TempDataDictionary(http, new SessionStateTempDataProvider()));
         var modelState = new ModelStateDictionary();
         var actionContext = new ActionContext(http, new RouteData(), new PageActionDescriptor(), modelState);
         page.PageContext = new PageContext(actionContext)
         {
             ViewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), modelState)
         };
-        page.TempData = new TempDataDictionary(http, new SessionStateTempDataProvider());
+        page.TempData = new TempDataDictionary(http, new InMemoryTempDataProvider());
     }
 
     // ── Receiving ──────────────────────────────────────────────────────
@@ -166,7 +179,7 @@ public class PeriodLockEnforcementTests
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
         {
-            new() { POLineId = po.Lines[0].Id, QuantityToReceive = 5 }
+            new() { POLineId = po.Lines.First().Id, QuantityToReceive = 5 }
         };
         var result = await page.OnPostReceiveAsync(po.Id, lines, DateTime.Today, null, null, null, null, null);
 
@@ -219,7 +232,7 @@ public class PeriodLockEnforcementTests
 
         var lines = new List<Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
         {
-            new() { POLineId = po.Lines[0].Id, QuantityToReceive = 5 }
+            new() { POLineId = po.Lines.First().Id, QuantityToReceive = 5 }
         };
         await page.OnPostReceiveAsync(po.Id, lines, DateTime.Today, null, null, null, null, null);
 
