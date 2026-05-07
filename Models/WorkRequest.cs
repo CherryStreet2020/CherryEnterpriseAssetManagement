@@ -39,6 +39,8 @@ public class WorkRequest
     public string RequestText { get; set; } = string.Empty;
 
     public WorkRequestStatus Status { get; set; } = WorkRequestStatus.New;
+    public int? StatusLookupValueId { get; set; }
+    public LookupValue? StatusLookupValue { get; set; }
 
     public WorkRequestPriority Priority { get; set; } = WorkRequestPriority.Medium;
 

@@ -22,22 +22,21 @@ migrated**. The actual remaining gaps are listed below.
 | Lookup orphan + InventoryStatus dup cleanup | post-#6 verification residue | [#7](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/7) |
 | `Pages/Maintenance/ScheduleBoard.cshtml.cs` | `OnPostAssignAsync`, `OnPostUnassignAsync` | [#10](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/10) |
 | `Pages/Inventory/List.cshtml.cs` + `InventoryList` schema (StatusLookupValueId column + FK + backfill) | `OnPostStartAsync`, `OnPostCompleteAsync` | [#20](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/20) |
+| `Pages/Maintenance/WorkRequests/Create.cshtml.cs` + `WorkRequest` schema (StatusLookupValueId column + FK + backfill) | `OnPostAsync` | [#21](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/21) |
 
-## 🟡 Open
+## 🟢 All known FK-bound dropdown migrations are closed
 
-### 1. `WorkRequest` — add FK column + migrate page
+Every entity surfaced by the audit + the cross-codebase sweep now has both
+the legacy enum column and the matching `*LookupValueId` FK column, with
+the canonical `SyncStatusFkAsync` helper writing both in lockstep on every
+status transition. The seed/enum drift chain (PRs [#5](../pull/5),
+[#6](../pull/6), [#7](../pull/7)) made this safe; the page handlers caught
+up in PRs [#2](../pull/2), [#10](../pull/10), [#20](../pull/20),
+[#21](../pull/21).
 
-`Pages/Maintenance/WorkRequests/Create.cshtml.cs::OnPostAsync` (line 238)
-writes `WorkRequestStatus.New` without an FK companion. The `WorkRequest`
-entity (`Models/WorkRequest.cs:41`) lacks a `StatusLookupValueId` column.
-
-Single PR:
-1. Add `StatusLookupValueId` + nav prop to `WorkRequest`.
-2. EF Core migration with backfill (same shape as (2)).
-3. Inject `ILookupService` into `CreateModel` (not currently injected).
-4. Apply the FK pattern in `OnPostAsync`.
-5. **First** verify `seed/reference-data/WorkRequestStatus.json` aligns with
-   the enum.
+If a new entity is added with an `Enum Status` column going forward, follow
+the pattern documented below — same `*LookupValueId` shape, same
+`SyncStatusFkAsync` helper, same backfill migration template.
 
 ## Pattern reference
 
