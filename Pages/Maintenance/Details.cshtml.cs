@@ -21,14 +21,16 @@ namespace Abs.FixedAssets.Pages.Maintenance
         private readonly ITenantContext _tenantContext;
         private readonly ILookupService _lookupService;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly IPeriodGuard _periodGuard;
 
-        public DetailsModel(MaintenanceService maintenanceService, 
-            AttachmentService attachmentService, 
+        public DetailsModel(MaintenanceService maintenanceService,
+            AttachmentService attachmentService,
             AppDbContext context,
             IWorkOrderOriginService originService,
             ITenantContext tenantContext,
             ILookupService lookupService,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard,
+            IPeriodGuard periodGuard)
         {
             _moduleGuard = moduleGuard;
             _maintenanceService = maintenanceService;
@@ -37,6 +39,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             _originService = originService;
             _tenantContext = tenantContext;
             _lookupService = lookupService;
+            _periodGuard = periodGuard;
         }
 
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
@@ -135,8 +138,8 @@ namespace Abs.FixedAssets.Pages.Maintenance
         }
 
         public async Task<IActionResult> OnPostCompleteAsync(
-            int id, 
-            string? resolution, 
+            int id,
+            string? resolution,
             decimal? laborCost,
             decimal? materialsCost,
             decimal? partsCost,
@@ -146,8 +149,31 @@ namespace Abs.FixedAssets.Pages.Maintenance
             if (evt == null)
                 return NotFound();
 
+            // Period locking: closing a work order with cost lines (labor,
+            // materials, parts, outside vendor) creates a financial-state
+            // change that downstream GL postings hang off of. Block close
+            // when the asset's company has the relevant period closed —
+            // same posture as Pages/Assets/Improve.cshtml.cs and Dispose.
+            var completionDate = DateTime.UtcNow;
+            // Resolve the company from the event's asset; matches the way
+            // GetScopedEventSimpleAsync scopes via Asset.CompanyId.
+            var asset = evt.AssetId > 0
+                ? await _context.Assets.AsNoTracking().FirstOrDefaultAsync(a => a.Id == evt.AssetId)
+                : null;
+            var workCompanyId = asset?.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (workCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(workCompanyId, completionDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    TempData["Error"] = periodCheck.Reason
+                        ?? $"Cannot close work order: posting period for {completionDate:yyyy-MM-dd} is closed.";
+                    return RedirectToPage(new { id });
+                }
+            }
+
             await SyncStatusFkAsync(evt, MaintenanceStatus.Completed);
-            evt.CompletedDate = DateTime.UtcNow;
+            evt.CompletedDate = completionDate;
             evt.Resolution = resolution;
             evt.LaborCost = laborCost ?? 0;
             evt.MaterialsCost = materialsCost ?? 0;
