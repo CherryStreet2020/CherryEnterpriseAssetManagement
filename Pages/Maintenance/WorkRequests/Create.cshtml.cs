@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Maintenance;
 using System.Text.Json;
 
@@ -17,15 +18,30 @@ public class CreateModel : PageModel
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<CreateModel> _logger;
     private readonly IModuleGuardService _moduleGuard;
+    private readonly ILookupService _lookupService;
 
     public CreateModel(AppDbContext db, IWorkRequestConversionService conversionService, ITenantContext tenantContext, ILogger<CreateModel> logger,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard, ILookupService lookupService)
     {
-            _moduleGuard = moduleGuard;
+        _moduleGuard = moduleGuard;
         _db = db;
         _conversionService = conversionService;
         _tenantContext = tenantContext;
         _logger = logger;
+        _lookupService = lookupService;
+    }
+
+    // Keeps WorkRequest.Status (legacy enum) and StatusLookupValueId
+    // (FK) in lockstep on every status write. Mirrors the canonical
+    // helper in Pages/Purchasing/Details.cshtml.cs::SyncStatusFkAsync.
+    private async Task SyncStatusFkAsync(WorkRequest wr, WorkRequestStatus status)
+    {
+        wr.Status = status;
+        var lv = await _lookupService.GetValueByCodeAsync(
+            _tenantContext.TenantId, _tenantContext.CompanyId,
+            "WorkRequestStatus", ((int)status).ToString());
+        if (lv != null)
+            wr.StatusLookupValueId = lv.Id;
     }
 
     [BindProperty]
@@ -235,7 +251,7 @@ public class CreateModel : PageModel
 
         WorkRequest.CompanyId = companyId;
         WorkRequest.RequestNumber = await GenerateRequestNumberAsync(companyId);
-        WorkRequest.Status = WorkRequestStatus.New;
+        await SyncStatusFkAsync(WorkRequest, WorkRequestStatus.New);
         WorkRequest.RequestedAt = DateTime.UtcNow;
         WorkRequest.RequestedBy ??= User.Identity?.Name ?? "System";
         WorkRequest.CreatedBy = User.Identity?.Name ?? "System";

@@ -9714,6 +9714,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("StatusLookupValueId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssetId");
@@ -9725,6 +9728,8 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("SiteId");
+
+                    b.HasIndex("StatusLookupValueId");
 
                     b.ToTable("WorkRequests");
                 });
@@ -12217,6 +12222,11 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("SiteId");
 
+                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
+                        .WithMany()
+                        .HasForeignKey("StatusLookupValueId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Asset");
 
                     b.Navigation("Company");
@@ -12224,6 +12234,8 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("GeneratedWorkOrder");
 
                     b.Navigation("Location");
+
+                    b.Navigation("StatusLookupValue");
 
                     b.Navigation("Site");
                 });
