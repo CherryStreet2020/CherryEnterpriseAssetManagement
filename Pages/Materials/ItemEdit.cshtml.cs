@@ -510,9 +510,16 @@ public class ItemEditModel : PageModel
             }
             
             revision.Status = RevisionStatus.Obsolete;
+            // Keep the FK column in sync with the legacy enum write.
+            var obsoleteLv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId,
+                "RevisionStatus", ((int)RevisionStatus.Obsolete).ToString());
+            if (obsoleteLv != null)
+                revision.StatusLookupValueId = obsoleteLv.Id;
+
             revision.ObsoletedAtUtc = DateTime.UtcNow;
             revision.EffectiveToUtc = DateTime.UtcNow;
-            
+
             await _db.SaveChangesAsync();
             SuccessMessage = $"Revision {revision.RevisionCode} marked obsolete.";
             return RedirectToPage(new { id = revision.ItemId, tab = "revisions" });

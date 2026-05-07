@@ -146,6 +146,14 @@ namespace Abs.FixedAssets.Pages.Assets
             var gainLoss = netProceeds - CurrentBookValue;
 
             Asset.Status = AssetStatus.Disposed;
+            // Keep the FK column in sync with the legacy enum write so downstream
+            // consumers reading the FK-bound dropdown see the disposed state.
+            var disposedLv = await _lookupService.GetValueByCodeAsync(
+                _tenantContext.TenantId, _tenantContext.CompanyId,
+                "AssetStatus", ((int)AssetStatus.Disposed).ToString());
+            if (disposedLv != null)
+                Asset.StatusLookupValueId = disposedLv.Id;
+
             Asset.DisposalDate = DisposalDate;
             Asset.DisposalProceeds = Proceeds;
             Asset.GainLossOnDisposal = gainLoss;
