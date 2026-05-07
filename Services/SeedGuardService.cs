@@ -1,3 +1,6 @@
+using System.Data;
+using Abs.FixedAssets.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
 namespace Abs.FixedAssets.Services
@@ -10,6 +13,22 @@ namespace Abs.FixedAssets.Services
         bool IsLabEnvironment();
         bool IsDemoEnvironment();
         bool IsDemoDataEnabled();
+
+        /// <summary>
+        /// Tries to acquire a Postgres session-level advisory lock on
+        /// <see cref="SeedGuardService.SeedLockKey"/>. Returns true if
+        /// acquired, false if another process already holds it. The lock
+        /// must be released via <see cref="ReleaseSeedLockAsync"/> before
+        /// the connection closes.
+        /// </summary>
+        Task<bool> TryAcquireSeedLockAsync(AppDbContext db, CancellationToken ct = default);
+
+        /// <summary>
+        /// Releases the Postgres session-level advisory lock acquired by
+        /// <see cref="TryAcquireSeedLockAsync"/>. Safe to call even if the
+        /// lock is not currently held; Postgres returns false in that case.
+        /// </summary>
+        Task ReleaseSeedLockAsync(AppDbContext db, CancellationToken ct = default);
     }
 
     public class SeedGuardResult
@@ -26,10 +45,50 @@ namespace Abs.FixedAssets.Services
         private readonly IConfiguration _configuration;
         private readonly IWebHostEnvironment _env;
 
+        // Constant key used for the Postgres session-level advisory lock
+        // that serializes startup-time seeding across concurrent app
+        // instances. Arbitrary 64-bit value, app-specific. If multiple
+        // CherryAI EAM apps ever share a database (they shouldn't — each
+        // tenant gets its own DB — but just in case), we want the same
+        // key everywhere, so it's a constant rather than derived.
+        public const long SeedLockKey = 4815162342L;
+
         public SeedGuardService(IConfiguration configuration, IWebHostEnvironment env)
         {
             _configuration = configuration;
             _env = env;
+        }
+
+        public async Task<bool> TryAcquireSeedLockAsync(AppDbContext db, CancellationToken ct = default)
+        {
+            var conn = db.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                await conn.OpenAsync(ct);
+
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT pg_try_advisory_lock(@key)";
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@key";
+            p.Value = SeedLockKey;
+            cmd.Parameters.Add(p);
+
+            var raw = await cmd.ExecuteScalarAsync(ct);
+            return raw is bool acquired && acquired;
+        }
+
+        public async Task ReleaseSeedLockAsync(AppDbContext db, CancellationToken ct = default)
+        {
+            var conn = db.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                return; // nothing to release if the connection's already gone
+
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT pg_advisory_unlock(@key)";
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@key";
+            p.Value = SeedLockKey;
+            cmd.Parameters.Add(p);
+            await cmd.ExecuteScalarAsync(ct);
         }
 
         public SeedGuardResult CheckSeedPermission()
