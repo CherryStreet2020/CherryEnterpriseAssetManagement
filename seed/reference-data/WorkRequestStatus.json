@@ -3,35 +3,11 @@
   "name": "Work Request Status",
   "isSystem": true,
   "values": [
-    {
-      "code": "New",
-      "name": "New",
-      "sortOrder": 1,
-      "isActive": true
-    },
-    {
-      "code": "UnderReview",
-      "name": "Under Review",
-      "sortOrder": 2,
-      "isActive": true
-    },
-    {
-      "code": "Approved",
-      "name": "Approved",
-      "sortOrder": 3,
-      "isActive": true
-    },
-    {
-      "code": "Rejected",
-      "name": "Rejected",
-      "sortOrder": 4,
-      "isActive": true
-    },
-    {
-      "code": "Completed",
-      "name": "Completed",
-      "sortOrder": 5,
-      "isActive": true
-    }
+    { "code": "0", "name": "New",             "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "In Review",       "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Approved",        "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Rejected",        "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Converted to WO", "sortOrder": 5, "isActive": true },
+    { "code": "5", "name": "Cancelled",       "sortOrder": 6, "isActive": true }
   ]
 }

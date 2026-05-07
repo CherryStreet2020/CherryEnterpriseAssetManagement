@@ -3,29 +3,10 @@
   "name": "Item Status",
   "isSystem": true,
   "values": [
-    {
-      "code": "0",
-      "name": "Active",
-      "sortOrder": 1,
-      "isActive": true
-    },
-    {
-      "code": "1",
-      "name": "Inactive",
-      "sortOrder": 2,
-      "isActive": true
-    },
-    {
-      "code": "2",
-      "name": "Obsolete",
-      "sortOrder": 3,
-      "isActive": true
-    },
-    {
-      "code": "3",
-      "name": "Pending",
-      "sortOrder": 4,
-      "isActive": true
-    }
+    { "code": "0", "name": "Active",            "sortOrder": 1, "isActive": true },
+    { "code": "1", "name": "Inactive",          "sortOrder": 2, "isActive": true },
+    { "code": "2", "name": "Obsolete",          "sortOrder": 3, "isActive": true },
+    { "code": "3", "name": "Pending Approval",  "sortOrder": 4, "isActive": true },
+    { "code": "4", "name": "Discontinued",      "sortOrder": 5, "isActive": true }
   ]
 }
