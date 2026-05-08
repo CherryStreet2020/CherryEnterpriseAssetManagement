@@ -148,9 +148,12 @@ public class ReceivingTenantScopeTests
     private static Abs.FixedAssets.Pages.Receiving.ReceiveModel NewPage(AppDbContext db, ITenantContext tenant)
     {
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup,
-            new AllowAllPeriodGuard(), NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance);
+            new AllowAllPeriodGuard(), NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance,
+            cipAutoCost);
         WirePageContext(page);
         return page;
     }

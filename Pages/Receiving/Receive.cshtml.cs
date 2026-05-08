@@ -1,6 +1,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,10 +20,11 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly ILookupService _lookupService;
         private readonly IPeriodGuard _periodGuard;
         private readonly ILogger<ReceiveModel> _logger;
+        private readonly CipAutoCostPostingService _cipAutoCostPosting;
 
         public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
             ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard,
-            ILogger<ReceiveModel> logger)
+            ILogger<ReceiveModel> logger, CipAutoCostPostingService cipAutoCostPosting)
         {
             _context = context;
             _moduleGuard = moduleGuard;
@@ -30,6 +32,7 @@ namespace Abs.FixedAssets.Pages.Receiving
             _lookupService = lookupService;
             _periodGuard = periodGuard;
             _logger = logger;
+            _cipAutoCostPosting = cipAutoCostPosting;
         }
 
         public PurchaseOrder PO { get; set; } = null!;
@@ -263,7 +266,32 @@ namespace Abs.FixedAssets.Pages.Receiving
             try
             {
                 await _context.SaveChangesAsync();
-                TempData["Success"] = $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
+
+                // S1-3: route any CIP-tagged receipt lines into CipAutoCostPostingService.
+                // The service is idempotent — re-runs against an already-posted line
+                // return the existing CipCost. CIP-tagged lines come from the PO line's
+                // CipProjectId or the GR line's own override; the service decides.
+                // CIP failure must NOT roll back the GR — receipt is the operational truth,
+                // CIP routing is a downstream financial concern. Log + continue.
+                int cipRouted = 0;
+                foreach (var receiptLine in receipt.Lines)
+                {
+                    try
+                    {
+                        var cipCost = await _cipAutoCostPosting.PostFromReceiptLineAsync(receiptLine.Id);
+                        if (cipCost != null) cipRouted++;
+                    }
+                    catch (Exception cipEx)
+                    {
+                        _logger.LogError(cipEx,
+                            "CIP auto-cost posting failed for receipt line {LineId} on receipt {ReceiptNumber}",
+                            receiptLine.Id, receiptNumber);
+                    }
+                }
+
+                TempData["Success"] = cipRouted > 0
+                    ? $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}. {cipRouted} routed to CIP."
+                    : $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
             }
             catch (DbUpdateConcurrencyException ex)
             {

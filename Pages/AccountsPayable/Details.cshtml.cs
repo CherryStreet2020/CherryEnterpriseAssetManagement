@@ -1,12 +1,14 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.AccountsPayable
 {
@@ -18,14 +20,20 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
         private readonly ITenantContext _tenantContext;
         private readonly ILookupService _lookupService;
         private readonly InvoiceMatchingService _matchingService;
+        private readonly CipAutoCostPostingService _cipAutoCostPosting;
+        private readonly ILogger<DetailsModel> _logger;
 
-        public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ITenantContext tenantContext, ILookupService lookupService, InvoiceMatchingService matchingService)
+        public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ITenantContext tenantContext,
+            ILookupService lookupService, InvoiceMatchingService matchingService,
+            CipAutoCostPostingService cipAutoCostPosting, ILogger<DetailsModel> logger)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _tenantContext = tenantContext;
             _lookupService = lookupService;
             _matchingService = matchingService;
+            _cipAutoCostPosting = cipAutoCostPosting;
+            _logger = logger;
         }
 
         public VendorInvoice? Invoice { get; set; }
@@ -170,6 +178,32 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             invoice.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            // S1-3: route any CIP-tagged invoice lines into CipAutoCostPostingService.
+            // The service is idempotent — re-runs against an already-posted line return
+            // the existing CipCost. Only invoice lines with an explicit CipProjectId on
+            // the line itself are routed; PO-derived CIP linkage rides through the
+            // receipt-line path instead (avoids double-posting).
+            // Note: full AP→GL posting (S1-5) is a separate PR per ADR-002. This
+            // wiring restores the CIP cost-accumulation chain only.
+            int cipRouted = 0;
+            foreach (var invoiceLine in invoice.Lines.Where(l => l.CipProjectId != null))
+            {
+                try
+                {
+                    var cipCost = await _cipAutoCostPosting.PostFromVendorInvoiceLineAsync(invoiceLine.Id);
+                    if (cipCost != null) cipRouted++;
+                }
+                catch (Exception cipEx)
+                {
+                    _logger.LogError(cipEx,
+                        "CIP auto-cost posting failed for invoice line {LineId} on invoice {InvoiceNumber}",
+                        invoiceLine.Id, invoice.InvoiceNumber);
+                }
+            }
+            if (cipRouted > 0)
+                TempData["Success"] = $"Invoice {invoice.InvoiceNumber} approved. {cipRouted} line(s) routed to CIP.";
+
             var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
             return RedirectToPage(new { id, returnUrl = safeReturnUrl });
         }

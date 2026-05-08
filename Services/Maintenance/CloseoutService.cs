@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
@@ -54,14 +55,16 @@ public class CloseoutService : ICloseoutService
     private readonly IOutboxWriter _outbox;
     private readonly ILogger<CloseoutService> _logger;
     private readonly ILookupService? _lookupService;
+    private readonly CipAutoCostPostingService? _cipAutoCostPosting;
 
-    public CloseoutService(AppDbContext db, ITenantContext tenantContext, IOutboxWriter outbox, ILogger<CloseoutService> logger, ILookupService? lookupService = null)
+    public CloseoutService(AppDbContext db, ITenantContext tenantContext, IOutboxWriter outbox, ILogger<CloseoutService> logger, ILookupService? lookupService = null, CipAutoCostPostingService? cipAutoCostPosting = null)
     {
         _db = db;
         _tenantContext = tenantContext;
         _outbox = outbox;
         _logger = logger;
         _lookupService = lookupService;
+        _cipAutoCostPosting = cipAutoCostPosting;
     }
 
     public string GenerateCloseoutSummary(MaintenanceEvent workOrder, List<WorkOrderOperation>? operations = null)
@@ -198,6 +201,25 @@ public class CloseoutService : ICloseoutService
             await _db.SaveChangesAsync();
 
             var siteId = workOrder.Asset?.LocationRef?.SiteId;
+
+            // S1-3: route the just-closed WO into CipAutoCostPostingService
+            // when the WO carries a CipProjectId. The service is null in
+            // tests that don't pass it (the optional ctor parameter); skip
+            // gracefully. Idempotent on retry; failure is logged and does
+            // not roll back the close.
+            if (_cipAutoCostPosting != null)
+            {
+                try
+                {
+                    await _cipAutoCostPosting.PostFromWorkOrderAsync(workOrderId);
+                }
+                catch (Exception cipEx)
+                {
+                    _logger.LogError(cipEx,
+                        "CIP auto-cost posting failed for closed work order {WorkOrderId}",
+                        workOrderId);
+                }
+            }
 
             await _outbox.EnqueueAsync(
                 companyId,

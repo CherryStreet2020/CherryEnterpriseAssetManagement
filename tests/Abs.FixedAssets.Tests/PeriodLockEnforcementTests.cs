@@ -174,7 +174,9 @@ public class PeriodLockEnforcementTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var periodGuard = new StubPeriodGuard(allow: false);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance);
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -227,7 +229,9 @@ public class PeriodLockEnforcementTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var periodGuard = new StubPeriodGuard(allow: true);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance);
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
         WirePageContext(page);
 
         var lines = new List<Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -282,9 +286,12 @@ public class PeriodLockEnforcementTests
         var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
         var originService = new WorkOrderOriginService(db);
 
+        var cipCostServiceM = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCostM = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostServiceM);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
-            tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard);
+            tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard,
+            cipAutoCostM, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
         var result = await page.OnPostCompleteAsync(evt.Id, "fixed it", 100m, 50m, 25m, 0m);
@@ -342,9 +349,12 @@ public class PeriodLockEnforcementTests
         var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
         var originService = new WorkOrderOriginService(db);
 
+        var cipCostServiceM = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCostM = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostServiceM);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
-            tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard);
+            tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard,
+            cipAutoCostM, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
         await page.OnPostCompleteAsync(evt.Id, "fixed it", 100m, 50m, 25m, 0m);
