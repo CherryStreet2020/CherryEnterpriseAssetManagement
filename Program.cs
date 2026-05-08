@@ -139,6 +139,11 @@ builder.Services.AddScoped<ICompanyHierarchyService, CompanyHierarchyService>();
 
 // Your DI services
 builder.Services.AddScoped<DepreciationService>();
+
+// ADR-003: central GL account resolver. Memory-cached per (CompanyId,
+// AccountKind) with 10-minute TTL inside the resolver itself; the
+// service is scoped because it consumes the per-request AppDbContext.
+builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();

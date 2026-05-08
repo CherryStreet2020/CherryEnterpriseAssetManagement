@@ -2326,6 +2326,43 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("Companies");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.CompanyGlAccountConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountKind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("GlAccount")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex(new[] { "CompanyId", "AccountKind" }, "UX_CompanyGlAccountConfigs_CompanyKind")
+                        .IsUnique();
+
+                    b.ToTable("CompanyGlAccountConfigs");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.CostCenter", b =>
                 {
                     b.Property<int>("Id")
@@ -10388,6 +10425,17 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("ParentCompany");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.CompanyGlAccountConfig", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CostCenter", b =>
