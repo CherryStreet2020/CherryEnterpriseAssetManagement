@@ -128,7 +128,32 @@ but worth a run in addition to the manual walk.
 
 ---
 
-### 6. Disable Replit Agent auto-commits at the source
+### 6. Outbox enqueue runs in a separate save from business state — not atomic
+
+**Where:** `Services/Webhooks/OutboxWriter.EnqueueAsync<T>` at line 160 calls
+its own `_db.SaveChangesAsync()`. Every producer (Closeout, AP posting, asset
+lifecycle, PO/Receiving, CIP capitalization, depreciation, PM, WO issuance)
+calls `await _db.SaveChangesAsync()` first to commit business state, then
+calls `_outbox.EnqueueAsync(...)` which saves the outbox row in a second
+transaction.
+
+**Why it matters:** If a process crash or DB error happens between the two
+saves, business state is committed but the outbox row isn't — partner
+integrations miss the event. CLAUDE.md's "Outbox pattern for integrations"
+principle states "Business event + outbox row write happen in the same
+SaveChangesAsync transaction." Today's implementation violates that contract.
+
+**What to do:** Refactor `IOutboxWriter` to add a `QueueForEnqueueAsync<T>`
+that adds the OutboxEvent to the context **without** saving, letting the
+caller's existing SaveChanges commit both rows atomically. Migrate every
+producer (~10 call sites) to the new shape and remove the saving variant.
+
+**Sizing:** ~150 LOC across producer + tests. One PR is fine — the change
+is mechanical and CI catches mistakes.
+
+---
+
+### 7. Disable Replit Agent auto-commits at the source
 
 **Where:** Replit Agent's checkpoint auto-commit feature. [#8](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/8)
 broke the screenshot trigger that was firing it most often, and
