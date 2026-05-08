@@ -94,6 +94,21 @@ namespace Abs.FixedAssets.Models
         [StringLength(50)]
         public string? InvoiceNumber { get; set; }
 
+        // S2-4: explicit FK linkage to the financial origin of an asset.
+        // The string fields above (PurchaseOrderNumber, InvoiceNumber)
+        // are denormalized text and brittle for audit-trail walks. These
+        // FKs let reports/partners reliably trace an Asset back to the
+        // source PO / vendor invoice / CIP project. CIP capitalization
+        // already populates CipCapitalization.AssetId; OriginatingCipProjectId
+        // captures the same linkage on the Asset side for direct lookup.
+        // All three are nullable — manually-created or pre-migration assets
+        // simply don't have them.
+        public int? OriginatingPurchaseOrderId { get; set; }
+
+        public int? OriginatingVendorInvoiceId { get; set; }
+
+        public int? OriginatingCipProjectId { get; set; }
+
         // Financial
         [Column(TypeName = "decimal(18,2)")]
         public decimal AcquisitionCost { get; set; }
