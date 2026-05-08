@@ -2,6 +2,8 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Revisions;
 using Abs.FixedAssets.Services.Integrations;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Services.Maintenance;
@@ -40,15 +42,18 @@ public class PMSchedulerService : IPMSchedulerService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly ILogger<PMSchedulerService> _logger;
+    private readonly IOutboxWriter _outbox;
 
     public PMSchedulerService(
         AppDbContext db,
         ITenantContext tenantContext,
-        ILogger<PMSchedulerService> logger)
+        ILogger<PMSchedulerService> logger,
+        IOutboxWriter outbox)
     {
         _db = db;
         _tenantContext = tenantContext;
         _logger = logger;
+        _outbox = outbox;
     }
 
     public async Task<List<PMGenerationPreview>> PreviewDueAsync(
@@ -271,6 +276,7 @@ public class PMSchedulerService : IPMSchedulerService
         }
 
         int? createdWorkOrderId = null;
+        int workOrderCount = 0;
 
         foreach (var ta in templateAssets)
         {
@@ -282,6 +288,7 @@ public class PMSchedulerService : IPMSchedulerService
             if (workOrder != null)
             {
                 createdWorkOrderId ??= workOrder.Id;
+                workOrderCount++;
             }
         }
 
@@ -290,7 +297,7 @@ public class PMSchedulerService : IPMSchedulerService
             occurrence.WorkOrderId = createdWorkOrderId;
             await _db.SaveChangesAsync();
 
-            await EnqueueOutboxEventsAsync(createdWorkOrderId.Value, occurrence.Id, tenantId, companyId, siteId);
+            await EnqueuePmOccurrenceGeneratedAsync(occurrence, createdWorkOrderId, workOrderCount, userId);
         }
 
         schedule.NextDueDateUtc = await ComputeNextDueDateAsync(schedule, normalizedDate);
@@ -398,31 +405,36 @@ public class PMSchedulerService : IPMSchedulerService
         return workOrder;
     }
 
-    private async Task EnqueueOutboxEventsAsync(int workOrderId, int occurrenceId, int? tenantId, int? companyId, int? siteId)
+    private async Task EnqueuePmOccurrenceGeneratedAsync(
+        PMOccurrence occurrence,
+        int? firstWorkOrderId,
+        int workOrderCount,
+        string? userId)
     {
         try
         {
-            var evt = new OutboxEvent
-            {
-                EventType = "workorder.created",
-                EntityType = "MaintenanceEvent",
-                EntityId = workOrderId.ToString(),
-                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    workOrderId,
-                    source = "pm_schedule",
-                    occurrenceId
-                }),
-                TenantId = tenantId,
-                CompanyId = companyId ?? 0,
-                SiteId = siteId
-            };
-            _db.OutboxEvents.Add(evt);
-            await _db.SaveChangesAsync();
+            await _outbox.EnqueueAsync(
+                occurrence.CompanyId ?? 0,
+                siteId: occurrence.SiteId,
+                new PmOccurrenceGeneratedV1(
+                    PmOccurrenceId: occurrence.Id,
+                    PmScheduleId: occurrence.PMScheduleId,
+                    PmTemplateId: occurrence.PMTemplateId,
+                    CompanyId: occurrence.CompanyId,
+                    SiteId: occurrence.SiteId,
+                    DueDateUtc: occurrence.DueDateUtc,
+                    FirstWorkOrderId: firstWorkOrderId,
+                    WorkOrderCount: workOrderCount,
+                    GeneratedBy: userId,
+                    GeneratedAt: occurrence.GeneratedAt),
+                correlationId: $"pm-occurrence-{occurrence.Id}"
+            );
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to enqueue outbox event for work order {WorkOrderId}", workOrderId);
+            _logger.LogWarning(ex,
+                "Failed to enqueue pm.occurrence.generated for occurrence {OccurrenceId} (WO {WorkOrderId})",
+                occurrence.Id, firstWorkOrderId);
         }
     }
 
