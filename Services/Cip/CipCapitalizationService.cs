@@ -1,5 +1,6 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,13 +23,26 @@ namespace Abs.FixedAssets.Services.Cip
         private readonly CipCostService _cipCostService;
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
+        private readonly IGlAccountResolver _glResolver;
+        private readonly IPeriodGuard _periodGuard;
+        private readonly DepreciationBackfillService _depBackfill;
 
-        public CipCapitalizationService(AppDbContext db, CipCostService cipCostService, ILookupService lookupService, ITenantContext tenantContext)
+        public CipCapitalizationService(
+            AppDbContext db,
+            CipCostService cipCostService,
+            ILookupService lookupService,
+            ITenantContext tenantContext,
+            IGlAccountResolver glResolver,
+            IPeriodGuard periodGuard,
+            DepreciationBackfillService depBackfill)
         {
             _db = db;
             _cipCostService = cipCostService;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
+            _glResolver = glResolver;
+            _periodGuard = periodGuard;
+            _depBackfill = depBackfill;
         }
 
         public async Task<CipCapitalizationPreview?> PreviewAsync(int cipProjectId)
@@ -87,42 +101,76 @@ namespace Abs.FixedAssets.Services.Cip
             int? glAccountId = null,
             string? userId = null)
         {
+            // S1-4: tenant scope on the project — without this, a caller
+            // with a CipProjectId from another tenant could capitalize a
+            // foreign-tenant asset into their own.
             var project = await _db.CipProjects
                 .Include(p => p.Costs)
-                .FirstOrDefaultAsync(p => p.Id == cipProjectId);
+                .FirstOrDefaultAsync(p =>
+                    p.Id == cipProjectId &&
+                    _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
             if (project == null)
                 throw new InvalidOperationException($"CIP project {cipProjectId} not found.");
             if (project.IsLocked)
                 throw new InvalidOperationException($"CIP project {cipProjectId} is already capitalized/locked.");
 
+            // S1-4: PeriodGuard — capitalization writes a JournalEntry against the
+            // project's company; if that period is closed, fail closed.
+            var capitalizationDate = DateTime.UtcNow;
+            var projectCompanyId = project.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (projectCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(projectCompanyId, capitalizationDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    throw new InvalidOperationException(periodCheck.Reason
+                        ?? $"Cannot capitalize CIP {project.ProjectNumber}: posting period for {capitalizationDate:yyyy-MM-dd} is closed.");
+                }
+            }
+
             var costs = project.Costs?.ToList() ?? new List<CipCost>();
             var capitalizableAmount = costs.Where(c => c.IsCapitalizable).Sum(c => c.Amount);
 
+            // S1-4: stamp CompanyId so the new asset is properly tenant-scoped,
+            // and OriginatingCipProjectId so we can walk the audit trail back to
+            // the source project (S2-4).
             var asset = new Asset
             {
                 AssetNumber = assetNumber,
                 Description = description,
-                InServiceDate = DateTime.UtcNow,
+                CompanyId = project.CompanyId,
+                SiteId = project.SiteId,
+                InServiceDate = capitalizationDate,
                 AcquisitionCost = capitalizableAmount,
-                Status = AssetStatus.Active
+                Status = AssetStatus.Active,
+                OriginatingCipProjectId = cipProjectId
             };
             _db.Assets.Add(asset);
             await _db.SaveChangesAsync();
 
+            // S1-4: resolve GL accounts via IGlAccountResolver instead of the
+            // hardcoded "1500"/"1400" string literals. Cascade per ADR-003:
+            // per-asset override → per-book → per-company config → industry default.
+            var glContext = new GlResolveContext(AssetId: asset.Id, CipProjectId: cipProjectId);
+            var assetCostAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.AssetCost, glContext);
+            var cipPendingAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.CipPending, glContext);
+
             var journalEntry = new JournalEntry
             {
+                BookId = 0, // CIP capitalization is not book-scoped today; preserved as-is from legacy
                 Batch = $"CIP-CAP-{project.ProjectNumber}",
-                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
-                PostingDate = DateTime.UtcNow.Date,
+                Period = int.Parse(capitalizationDate.ToString("yyyyMM")),
+                PostingDate = capitalizationDate.Date,
                 Source = "CIP Capitalization",
                 Reference = project.ProjectNumber,
                 Description = $"Capitalization of CIP {project.ProjectNumber}: {project.Name}",
+                CreatedUtc = capitalizationDate,
                 Lines = new List<JournalLine>
                 {
                     new JournalLine
                     {
                         LineNo = 1,
-                        Account = "1500",
+                        Account = assetCostAccount,
                         Description = $"Fixed Asset - {assetNumber}",
                         Debit = capitalizableAmount,
                         Credit = 0m
@@ -130,7 +178,7 @@ namespace Abs.FixedAssets.Services.Cip
                     new JournalLine
                     {
                         LineNo = 2,
-                        Account = "1400",
+                        Account = cipPendingAccount,
                         Description = $"CIP WIP - {project.ProjectNumber}",
                         Debit = 0m,
                         Credit = capitalizableAmount
@@ -145,7 +193,7 @@ namespace Abs.FixedAssets.Services.Cip
                 CipProjectId = cipProjectId,
                 AssetId = asset.Id,
                 JournalEntryId = journalEntry.Id,
-                CapitalizedAt = DateTime.UtcNow,
+                CapitalizedAt = capitalizationDate,
                 CapitalizedByUserId = userId ?? "system",
                 TotalCapitalized = capitalizableAmount,
                 CostMappings = costs.Where(c => c.IsCapitalizable).Select(c => new CipCapitalizationCost
@@ -156,14 +204,20 @@ namespace Abs.FixedAssets.Services.Cip
             _db.CipCapitalizations.Add(capitalization);
 
             project.IsCapitalized = true;
-            project.CapitalizedAt = DateTime.UtcNow;
+            project.CapitalizedAt = capitalizationDate;
             project.Status = CipProjectStatus.Capitalized;
             project.ConvertedAssetId = asset.Id;
-            project.ActualCompletionDate = DateTime.UtcNow;
-            project.PlacedInServiceDate = DateTime.UtcNow;
-            project.UpdatedAt = DateTime.UtcNow;
+            project.ActualCompletionDate = capitalizationDate;
+            project.PlacedInServiceDate = capitalizationDate;
+            project.UpdatedAt = capitalizationDate;
 
             await _db.SaveChangesAsync();
+
+            // S1-4: kick off depreciation. Without this, the new asset has no
+            // AssetBookSettings snapshot and downstream KPIs / depreciation
+            // schedule reads see zero. Same pattern as PR #27.
+            await _depBackfill.RecomputeAssetAsync(asset.Id, capitalizationDate);
+
             return (asset, capitalization);
         }
     }
