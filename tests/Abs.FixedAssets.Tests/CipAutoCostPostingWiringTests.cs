@@ -188,7 +188,9 @@ public class CipAutoCostPostingWiringTests
 
         var cipCosts = await db.CipCosts.Where(c => c.CipProjectId == project.Id).ToListAsync();
         Assert.Single(cipCosts); // CRITICAL: receipt routed to CIP
-        Assert.Equal("Receipt", cipCosts[0].SourceType);
+        // SourceType is uppercased on SaveChanges by AppDbContext.CapitalizeStringProperties
+        // (the field isn't in the allowlist). Asserting post-save form.
+        Assert.Equal("RECEIPT", cipCosts[0].SourceType);
         Assert.Equal(500m, cipCosts[0].Amount); // 5 × $100
     }
 
@@ -360,7 +362,7 @@ public class CipAutoCostPostingWiringTests
 
         var cipCosts = await db.CipCosts.Where(c => c.CipProjectId == project.Id).ToListAsync();
         Assert.Single(cipCosts);
-        Assert.Equal("WorkOrder", cipCosts[0].SourceType);
+        Assert.Equal("WORKORDER", cipCosts[0].SourceType);
         Assert.Equal(250m, cipCosts[0].Amount);
     }
 }
