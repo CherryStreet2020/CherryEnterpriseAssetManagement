@@ -36,6 +36,9 @@ public static class WebhookEventTypes
     // Depreciation
     public const string DepreciationPosted = "depreciation.posted";
 
+    // Preventative Maintenance
+    public const string PmOccurrenceGenerated = "pm.occurrence.generated";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -53,7 +56,8 @@ public static class WebhookEventTypes
         PoReceived,
         ItemReceived,
         CipCapitalized,
-        DepreciationPosted
+        DepreciationPosted,
+        PmOccurrenceGenerated
     };
 }
 
