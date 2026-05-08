@@ -13,6 +13,10 @@ namespace Abs.FixedAssets.Data
         // Per-book GL account mappings
         public DbSet<BookGlAccount> BookGlAccounts => Set<BookGlAccount>();
 
+        // ADR-003: per-tenant GL account configuration for the central
+        // GL account resolver cascade.
+        public DbSet<CompanyGlAccountConfig> CompanyGlAccountConfigs => Set<CompanyGlAccountConfig>();
+
         // Journals
         public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
         public DbSet<JournalLine> JournalLines => Set<JournalLine>();
@@ -324,6 +328,20 @@ namespace Abs.FixedAssets.Data
                 e.Property(x => x.GainOnDisposal).HasMaxLength(50);
                 e.Property(x => x.LossOnDisposal).HasMaxLength(50);
                 e.Property(x => x.Clearing).HasMaxLength(50);
+            });
+
+            // ADR-003: per-tenant GL account configuration. One row per
+            // (CompanyId, AccountKind) — enforced by unique index.
+            modelBuilder.Entity<CompanyGlAccountConfig>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.AccountKind }).IsUnique()
+                    .HasDatabaseName("UX_CompanyGlAccountConfigs_CompanyKind");
+                e.Property(x => x.GlAccount).HasMaxLength(20).IsRequired();
+                e.Property(x => x.Notes).HasMaxLength(500);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // JournalEntry
