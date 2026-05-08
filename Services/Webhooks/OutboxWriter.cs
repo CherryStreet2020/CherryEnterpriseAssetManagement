@@ -30,6 +30,9 @@ public static class WebhookEventTypes
     public const string PoReceived = "po.received";
     public const string ItemReceived = "item.received";
 
+    // Construction in Progress
+    public const string CipCapitalized = "cip.capitalized";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -45,7 +48,8 @@ public static class WebhookEventTypes
         AssetDisposed,
         PoApproved,
         PoReceived,
-        ItemReceived
+        ItemReceived,
+        CipCapitalized
     };
 }
 

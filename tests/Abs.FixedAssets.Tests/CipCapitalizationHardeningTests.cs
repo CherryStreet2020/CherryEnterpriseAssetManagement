@@ -123,7 +123,8 @@ public class CipCapitalizationHardeningTests
         var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
             NullLogger<DepreciationBackfillService>.Instance);
 
-        var svc = new CipCapitalizationService(db, costSvc, lookup, tenant, resolver, guard, depBackfill);
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+        var svc = new CipCapitalizationService(db, costSvc, lookup, tenant, resolver, guard, depBackfill, outbox);
         return (db, project, svc, guard);
     }
 
@@ -147,6 +148,33 @@ public class CipCapitalizationHardeningTests
 
         Assert.NotNull(asset);
         Assert.Equal(project.Id, asset!.OriginatingCipProjectId); // S2-4 wiring
+    }
+
+    [Fact]
+    public async Task Capitalize_EmitsCipCapitalizedAndAssetCreatedOutboxEvents()
+    {
+        var (db, project, svc, _) = await SetupAsync(companyId: 100, periodAllowed: true);
+
+        var (asset, cap) = await svc.CapitalizeAsync(project.Id, "A-CAP-EVT", "Capitalized");
+
+        var capEvt = await db.OutboxEvents.SingleAsync(e => e.EventType == "cip.capitalized");
+        Assert.Equal("CipProject", capEvt.EntityType);
+        Assert.Equal(project.Id.ToString(), capEvt.EntityId);
+        using (var doc = System.Text.Json.JsonDocument.Parse(capEvt.PayloadJson))
+        {
+            var root = doc.RootElement;
+            Assert.Equal(project.Id, root.GetProperty("cipProjectId").GetInt32());
+            Assert.Equal(asset!.Id, root.GetProperty("newAssetId").GetInt32());
+            Assert.Equal("A-CAP-EVT", root.GetProperty("assetNumber").GetString());
+            Assert.Equal(cap!.JournalEntryId, root.GetProperty("journalEntryId").GetInt32());
+        }
+
+        var createdEvt = await db.OutboxEvents.SingleAsync(e => e.EventType == "asset.created");
+        Assert.Equal(asset.Id.ToString(), createdEvt.EntityId);
+        using (var doc = System.Text.Json.JsonDocument.Parse(createdEvt.PayloadJson))
+        {
+            Assert.Equal("cip.capitalized", doc.RootElement.GetProperty("origin").GetString());
+        }
     }
 
     [Fact]
@@ -209,7 +237,8 @@ public class CipCapitalizationHardeningTests
         var guard = new StubPeriodGuard(allow: true);
         var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
             NullLogger<DepreciationBackfillService>.Instance);
-        var svc = new CipCapitalizationService(db, costSvc, lookup, tenantA, resolver, guard, depBackfill);
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenantA, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+        var svc = new CipCapitalizationService(db, costSvc, lookup, tenantA, resolver, guard, depBackfill, outbox);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.CapitalizeAsync(foreignProject.Id, "X", "leak attempt"));
