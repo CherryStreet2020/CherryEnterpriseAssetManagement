@@ -24,13 +24,16 @@ public class CatalogPageTests
         var page = NewPage();
         page.OnGet();
 
-        // Phase 1 + 2: five records emitted.
-        Assert.Equal(5, page.Events.Count);
+        // Phase 1+2: 5 baseline records + 3 AP-lifecycle records (S2-5/S2-6).
+        Assert.Equal(8, page.Events.Count);
         Assert.Contains(page.Events, e => e.EventType == "workorder.created" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "workorder.closed" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "closeout.summary.generated" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "lesson.saved" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "test.ping" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "invoice.approved" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "invoice.paid" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "invoice.voided" && e.Version == 1);
     }
 
     [Fact]
