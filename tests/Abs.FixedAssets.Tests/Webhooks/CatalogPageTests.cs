@@ -24,8 +24,8 @@ public class CatalogPageTests
         var page = NewPage();
         page.OnGet();
 
-        // 5 baseline + 3 AP + 3 Asset + 3 PO/Receiving + 1 CIP + 1 Depreciation + 1 PM = 17.
-        Assert.Equal(17, page.Events.Count);
+        // 5 baseline + 3 AP + 3 Asset + 3 PO/Receiving + 1 CIP + 1 Depreciation + 1 PM + 1 item.issued = 18.
+        Assert.Equal(18, page.Events.Count);
         Assert.Contains(page.Events, e => e.EventType == "workorder.created" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "workorder.closed" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "closeout.summary.generated" && e.Version == 1);
@@ -43,6 +43,7 @@ public class CatalogPageTests
         Assert.Contains(page.Events, e => e.EventType == "cip.capitalized" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "depreciation.posted" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "pm.occurrence.generated" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "item.issued" && e.Version == 1);
     }
 
     [Fact]

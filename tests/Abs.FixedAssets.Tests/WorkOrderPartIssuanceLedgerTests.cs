@@ -181,8 +181,10 @@ public class WorkOrderPartIssuanceLedgerTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(
+            db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
         var page = new Abs.FixedAssets.Pages.WorkOrders.DetailsModel(
-            db, new UnusedCloseoutService(), lookup, tenant, new AlwaysEnabledModuleGuard());
+            db, new UnusedCloseoutService(), lookup, tenant, new AlwaysEnabledModuleGuard(), outbox);
         WirePageContext(page);
 
         return (db, part, page);
@@ -257,5 +259,37 @@ public class WorkOrderPartIssuanceLedgerTests
         Assert.Equal(TransactionType.Issue, txn.Type);
         Assert.Equal(4m, txn.Quantity);
         Assert.Null(txn.FromLocationId);
+    }
+
+    [Fact]
+    public async Task OnPostIssueMaterial_EmitsItemIssuedV1OutboxEvent()
+    {
+        var (db, part, page) = await SetupAsync(companyId: 100, initialOnHand: 10m);
+
+        await page.OnPostIssueMaterialAsync(part.Id, quantityIssue: 4m);
+
+        var evt = await db.OutboxEvents.SingleAsync(e => e.EventType == "item.issued");
+        Assert.Equal("ItemTransaction", evt.EntityType);
+        Assert.Equal(part.Id.ToString(), evt.EntityId);
+        Assert.Equal(100, evt.CompanyId);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
+        var root = doc.RootElement;
+        Assert.Equal(part.ItemId, root.GetProperty("itemId").GetInt32());
+        Assert.Equal(part.MaintenanceEventId, root.GetProperty("workOrderId").GetInt32());
+        Assert.Equal(4m, root.GetProperty("quantity").GetDecimal());
+        Assert.Equal(6m, root.GetProperty("newQuantityOnHand").GetDecimal());
+    }
+
+    [Fact]
+    public async Task OnPostReturnMaterial_DoesNotEmitItemIssuedV1()
+    {
+        // item.returned is intentionally NOT defined yet; only issue emits.
+        var (db, part, page) = await SetupAsync(companyId: 100, initialOnHand: 10m);
+
+        await page.OnPostIssueMaterialAsync(part.Id, 5m);  // emits 1
+        await page.OnPostReturnMaterialAsync(part.Id, 2m); // emits 0
+
+        Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "item.issued"));
     }
 }

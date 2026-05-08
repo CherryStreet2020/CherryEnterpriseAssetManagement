@@ -8,6 +8,8 @@ using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Maintenance;
 using Abs.FixedAssets.Services.Navigation;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 
 namespace Abs.FixedAssets.Pages.WorkOrders
 {
@@ -18,15 +20,17 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly IOutboxWriter _outbox;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard, IOutboxWriter outbox)
         {
             _moduleGuard = moduleGuard;
             _context = context;
             _closeoutService = closeoutService;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
+            _outbox = outbox;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -362,9 +366,31 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // Inventory failure is logged but does NOT roll back the WO part
             // update — the operational truth (issuance happened) is the WO
             // part counter; inventory accuracy is downstream and correctable.
-            await ApplyItemMovementAsync(part, actualIssue, isIssue: true);
+            var newOnHand = await ApplyItemMovementAsync(part, actualIssue, isIssue: true);
 
             await _context.SaveChangesAsync();
+
+            await _outbox.EnqueueAsync(
+                part.MaintenanceEvent?.Asset?.CompanyId ?? companyId,
+                siteId: null,
+                new ItemIssuedV1(
+                    ItemId: part.ItemId,
+                    LocationId: part.IssuedFromLocationId,
+                    CompanyId: part.MaintenanceEvent?.Asset?.CompanyId,
+                    WorkOrderId: part.MaintenanceEventId,
+                    WorkOrderPartId: part.Id,
+                    WorkOrderNumber: part.MaintenanceEvent?.WorkOrderNumber ?? string.Empty,
+                    AssetId: part.MaintenanceEvent?.AssetId,
+                    Quantity: actualIssue,
+                    UnitCost: part.UnitCost,
+                    NewQuantityOnHand: newOnHand,
+                    LotNumber: part.LotNumber,
+                    SerialNumber: part.SerialNumber,
+                    IssuedBy: part.IssuedBy,
+                    IssuedAt: part.IssuedDate ?? DateTime.UtcNow),
+                correlationId: $"item-issue-wo{part.MaintenanceEventId}-p{part.Id}-{DateTime.UtcNow.Ticks}"
+            );
+
             return RedirectToPage(new { id = part.MaintenanceEventId });
         }
 
@@ -379,10 +405,11 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         /// can't update a specific inventory row — operations team can
         /// reconcile later via cycle count.
         /// </summary>
-        private async Task ApplyItemMovementAsync(WorkOrderPart part, decimal qty, bool isIssue)
+        private async Task<decimal?> ApplyItemMovementAsync(WorkOrderPart part, decimal qty, bool isIssue)
         {
             var sign = isIssue ? -1m : 1m;
             var companyId = part.MaintenanceEvent?.Asset?.CompanyId ?? _tenantContext.CompanyId;
+            decimal? newOnHand = null;
 
             if (part.IssuedFromLocationId.HasValue)
             {
@@ -413,6 +440,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                     inv.UpdatedAt = DateTime.UtcNow;
                     if (isIssue) inv.LastIssueDate = DateTime.UtcNow;
                 }
+                newOnHand = inv.QuantityOnHand;
             }
 
             var txn = new ItemTransaction
@@ -428,6 +456,8 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                 SerialNumber = part.SerialNumber
             };
             _context.Set<ItemTransaction>().Add(txn);
+
+            return newOnHand;
         }
 
         public async Task<IActionResult> OnPostReturnMaterialAsync(int workOrderPartId, decimal quantityReturn)
