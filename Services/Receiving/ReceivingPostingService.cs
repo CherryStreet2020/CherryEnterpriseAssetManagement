@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -45,17 +47,20 @@ namespace Abs.FixedAssets.Services.Receiving
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenantContext;
         private readonly IGlAccountResolver _glResolver;
+        private readonly IOutboxWriter _outbox;
         private readonly ILogger<ReceivingPostingService> _logger;
 
         public ReceivingPostingService(
             AppDbContext db,
             ITenantContext tenantContext,
             IGlAccountResolver glResolver,
+            IOutboxWriter outbox,
             ILogger<ReceivingPostingService> logger)
         {
             _db = db;
             _tenantContext = tenantContext;
             _glResolver = glResolver;
+            _outbox = outbox;
             _logger = logger;
         }
 
@@ -103,6 +108,7 @@ namespace Abs.FixedAssets.Services.Receiving
             var debitTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
             decimal totalAccrued = 0m;
             int inventoryRowsTouched = 0;
+            var inventoryReceipts = new List<(GoodsReceiptLine Line, PurchaseOrderLine PoLine, decimal Quantity, int LocationId, decimal NewQuantityOnHand)>();
 
             foreach (var line in receipt.Lines)
             {
@@ -147,8 +153,9 @@ namespace Abs.FixedAssets.Services.Receiving
                 // Stock items: move inventory + write transaction.
                 if (isStock && line.ReceivingLocationId.HasValue)
                 {
-                    await ApplyInventoryReceiptAsync(line, poLine, quantity, receiptCompanyId, receipt.ReceiptDate);
+                    var newOnHand = await ApplyInventoryReceiptAsync(line, poLine, quantity, receiptCompanyId, receipt.ReceiptDate);
                     inventoryRowsTouched++;
+                    inventoryReceipts.Add((line, poLine, quantity, line.ReceivingLocationId.Value, newOnHand));
                 }
             }
 
@@ -201,6 +208,32 @@ namespace Abs.FixedAssets.Services.Receiving
                 "ReceivingPostingService: posted GR {Id} → JE {JeId}, accrued {Total} across {DrCount} debit account(s)",
                 goodsReceiptId, je.Id, totalAccrued, debitTotals.Count);
 
+            // One item.received per stock line that moved inventory.
+            // Emitted only after the JE save succeeds — partners get a
+            // signal that's grounded in committed financial state.
+            foreach (var (line, poLine, quantity, locationId, newOnHand) in inventoryReceipts)
+            {
+                await _outbox.EnqueueAsync(
+                    receiptCompanyId,
+                    siteId: null,
+                    new ItemReceivedV1(
+                        ItemId: poLine.ItemId ?? 0,
+                        LocationId: locationId,
+                        CompanyId: receiptCompanyId,
+                        GoodsReceiptId: receipt.Id,
+                        GoodsReceiptLineId: line.Id,
+                        PurchaseOrderId: poLine.PurchaseOrder?.Id,
+                        PurchaseOrderLineId: poLine.Id,
+                        Quantity: quantity,
+                        UnitCost: poLine.UnitPrice,
+                        NewQuantityOnHand: newOnHand,
+                        LotNumber: line.LotNumber,
+                        SerialNumber: line.SerialNumber,
+                        ReceiptDate: receipt.ReceiptDate),
+                    correlationId: $"item-receipt-{line.Id}"
+                );
+            }
+
             return new ReceivingPostingResult(goodsReceiptId, je.Id, inventoryRowsTouched, totalAccrued);
         }
 
@@ -208,9 +241,10 @@ namespace Abs.FixedAssets.Services.Receiving
         /// Increments <see cref="ItemInventory"/> at the receiving location
         /// and writes an <see cref="ItemTransaction"/> audit row. The natural
         /// key on inventory is (ItemId, LocationId, CompanyId); creates the
-        /// row if missing.
+        /// row if missing. Returns the post-increment on-hand quantity so
+        /// the caller can include it in the <c>item.received</c> payload.
         /// </summary>
-        private async Task ApplyInventoryReceiptAsync(
+        private async Task<decimal> ApplyInventoryReceiptAsync(
             GoodsReceiptLine line,
             PurchaseOrderLine poLine,
             decimal quantity,
@@ -257,6 +291,8 @@ namespace Abs.FixedAssets.Services.Receiving
                 LotNumber = line.LotNumber,
                 SerialNumber = line.SerialNumber
             });
+
+            return inv.QuantityOnHand;
         }
     }
 }

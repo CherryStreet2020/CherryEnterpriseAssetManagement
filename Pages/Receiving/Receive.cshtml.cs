@@ -4,6 +4,8 @@ using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Receiving;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -23,11 +25,12 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly ILogger<ReceiveModel> _logger;
         private readonly CipAutoCostPostingService _cipAutoCostPosting;
         private readonly IReceivingPostingService _receivingPosting;
+        private readonly IOutboxWriter _outbox;
 
         public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
             ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard,
             ILogger<ReceiveModel> logger, CipAutoCostPostingService cipAutoCostPosting,
-            IReceivingPostingService receivingPosting)
+            IReceivingPostingService receivingPosting, IOutboxWriter outbox)
         {
             _context = context;
             _moduleGuard = moduleGuard;
@@ -37,6 +40,7 @@ namespace Abs.FixedAssets.Pages.Receiving
             _logger = logger;
             _cipAutoCostPosting = cipAutoCostPosting;
             _receivingPosting = receivingPosting;
+            _outbox = outbox;
         }
 
         public PurchaseOrder PO { get; set; } = null!;
@@ -317,6 +321,28 @@ namespace Abs.FixedAssets.Pages.Receiving
                     summary += $" Accrued ${postingResult.TotalAccrued:N2}.";
                 if (cipRouted > 0) summary += $" {cipRouted} routed to CIP.";
                 TempData["Success"] = summary;
+
+                await _outbox.EnqueueAsync(
+                    receipt.CompanyId ?? 0,
+                    siteId: po.ShipToSiteId,
+                    new PoReceivedV1(
+                        PurchaseOrderId: po.Id,
+                        PoNumber: po.PONumber,
+                        GoodsReceiptId: receipt.Id,
+                        ReceiptNumber: receipt.ReceiptNumber,
+                        CompanyId: receipt.CompanyId,
+                        VendorId: po.VendorId,
+                        ReceiptDate: receipt.ReceiptDate,
+                        LinesReceivedCount: totalItemsReceived,
+                        IsFullyReceived: allFullyReceived,
+                        PoStatusAfter: newStatus.ToString(),
+                        AccrualJournalEntryId: postingResult?.JournalEntryId,
+                        AccrualTotal: postingResult?.TotalAccrued ?? 0m,
+                        InventoryRowsTouched: postingResult?.InventoryRowsTouched ?? 0,
+                        CipLinesRouted: cipRouted,
+                        ReceivedBy: receipt.ReceivedBy),
+                    correlationId: $"po-receive-{receipt.Id}"
+                );
             }
             catch (DbUpdateConcurrencyException ex)
             {

@@ -2,6 +2,8 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -15,13 +17,16 @@ namespace Abs.FixedAssets.Pages.Purchasing
         private readonly IModuleGuardService _moduleGuard;
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
+        private readonly IOutboxWriter _outbox;
 
-        public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ILookupService lookupService, ITenantContext tenantContext)
+        public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ILookupService lookupService,
+            ITenantContext tenantContext, IOutboxWriter outbox)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
+            _outbox = outbox;
         }
 
         public PurchaseOrder PurchaseOrder { get; set; } = null!;
@@ -306,6 +311,23 @@ namespace Abs.FixedAssets.Pages.Purchasing
                 po.ApprovedAt = DateTime.UtcNow;
                 po.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
+
+                await _outbox.EnqueueAsync(
+                    po.CompanyId ?? 0,
+                    siteId: po.ShipToSiteId,
+                    new PoApprovedV1(
+                        PurchaseOrderId: po.Id,
+                        PoNumber: po.PONumber,
+                        VendorId: po.VendorId,
+                        CompanyId: po.CompanyId,
+                        CipProjectId: po.CipProjectId,
+                        Total: po.Total,
+                        OrderDate: po.OrderDate,
+                        RequiredDate: po.RequiredDate,
+                        ApprovedAt: po.ApprovedAt!.Value,
+                        ApproverUsername: User.Identity?.Name),
+                    correlationId: $"po-approve-{po.Id}"
+                );
             }
 
             return RedirectToPage(new { id });
