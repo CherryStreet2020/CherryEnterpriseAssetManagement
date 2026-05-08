@@ -87,6 +87,8 @@ public class WorkOrderPartIssuanceLedgerTests
             => throw new NotImplementedException();
         public Task<List<RecurringFailure>> GetRecurringFailuresAsync(int days = 30, int limit = 5)
             => throw new NotImplementedException();
+        public string GenerateCloseoutSummary(MaintenanceEvent workOrder, List<WorkOrderOperation>? operations = null)
+            => throw new NotImplementedException();
     }
 
     private sealed class InMemoryTempDataProvider : ITempDataProvider
