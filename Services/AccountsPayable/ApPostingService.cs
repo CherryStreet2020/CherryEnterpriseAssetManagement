@@ -71,9 +71,10 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 return new ApPostingResult(invoiceId, existingJeId, invoice.MatchStatus, invoice.Total);
             }
 
-            // Three-way match gate. InvoiceMatchingService.EvaluateMatchAsync
-            // returns the computed status; we persist via UpdateInvoiceMatchStatusAsync.
-            var match = await _matching.UpdateInvoiceMatchStatusAsync(invoiceId);
+            // Three-way match gate. EvaluateMatchAsync returns the status;
+            // UpdateInvoiceMatchStatusAsync persists it (returns void).
+            var match = await _matching.EvaluateMatchAsync(invoiceId);
+            await _matching.UpdateInvoiceMatchStatusAsync(invoiceId);
             if (match == InvoiceMatchStatus.Exception && !overrideMatch)
             {
                 throw new InvalidOperationException(
