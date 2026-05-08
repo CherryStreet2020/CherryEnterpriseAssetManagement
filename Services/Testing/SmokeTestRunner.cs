@@ -1359,6 +1359,15 @@ public class SmokeTestRunner : ISmokeTestRunner
                 failures.Add("Envelope missing schemaVersion");
             }
 
+            if (envelope.Contains("\"payloadVersion\":"))
+            {
+                assertions.Add("Envelope contains payloadVersion (Phase 1 typed-payload migration)");
+            }
+            else
+            {
+                failures.Add("Envelope missing payloadVersion");
+            }
+
             if (envelope.Contains("\"eventType\":\"test.event\""))
             {
                 assertions.Add("Envelope preserves eventType casing");

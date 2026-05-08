@@ -174,6 +174,12 @@ builder.Services.AddScoped<IMasterDataBootstrapService, MasterDataBootstrapServi
 builder.Services.AddScoped<ISeedGuardService, SeedGuardService>();
 builder.Services.AddScoped<ISmartAssistService, SmartAssistService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Webhooks.IOutboxWriter, Abs.FixedAssets.Services.Webhooks.OutboxWriter>();
+// Strongly-typed event registry — discovered once at startup by scanning
+// the executing assembly for [DomainEvent]-decorated records. Singleton
+// because the registry is immutable after construction.
+builder.Services.AddSingleton(
+    Abs.FixedAssets.Services.Webhooks.Events.DomainEventRegistry.FromAssembly(
+        typeof(Abs.FixedAssets.Services.Webhooks.Events.IDomainEvent).Assembly));
 builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.IWorkRequestConversionService, Abs.FixedAssets.Services.Maintenance.WorkRequestConversionService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.ICloseoutService, Abs.FixedAssets.Services.Maintenance.CloseoutService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.IWorkOrderOriginService, Abs.FixedAssets.Services.Maintenance.WorkOrderOriginService>();
