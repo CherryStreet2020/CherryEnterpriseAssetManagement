@@ -159,7 +159,11 @@ and #3 — see `## Audit corrections` below.** The current state:
 
 Plus the schema-touching FK migrations tracked in [`docs/FK_MIGRATION_STATUS.md`](docs/FK_MIGRATION_STATUS.md) (`InventoryList` and `WorkRequest`).
 
-**Sprint 0 production-hardening is complete except #2 (legacy-row FK backfill).** Code-review followups continue in [`docs/CODE_REVIEW_FOLLOWUPS.md`](docs/CODE_REVIEW_FOLLOWUPS.md). The next strategic gear is product-roadmap work — see [`docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md`](docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md) Sprints 1–3.
+**Sprint 0 production-hardening is complete except #2 (legacy-row FK backfill).** Code-review followups continue in [`docs/CODE_REVIEW_FOLLOWUPS.md`](docs/CODE_REVIEW_FOLLOWUPS.md).
+
+**Sprint 0.5 (in progress)** — A 2026-05-08 structural audit ([`docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md`](docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md)) found 8 Severity-1 and 11 Severity-2 flaws in the financial-plumbing backbone (PO → Receipt → Invoice → GL → Asset/CIP is largely disconnected; PM lifecycle has an ID-namespace collision; WO ActualCost is hand-typed not rolled up; receiving doesn't move inventory). Sprint 0.5 addresses every S1 and S2 before pivoting to product-roadmap work. The audit doc lists ordered work items 1–20.
+
+After Sprint 0.5 lands, the next strategic gear is product-roadmap work — see [`docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md`](docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md) Sprints 1–3.
 
 ## Audit corrections
 
