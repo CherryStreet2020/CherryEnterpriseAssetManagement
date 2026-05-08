@@ -23,7 +23,14 @@ namespace Abs.FixedAssets.Pages.Assets
         
         [BindProperty(SupportsGet = true)]
         public string? Filter { get; set; }
-        
+
+        // Server-side keyword search across asset number / description /
+        // model / serial / location. Backs the same client-side enhanced-grid
+        // search input so a filter survives reloads / share-links.
+        // Closes DEF-005 from the 2026-05-08 E2E run.
+        [BindProperty(SupportsGet = true, Name = "q")]
+        public string? Q { get; set; }
+
         public string FilterLabel { get; set; } = "All Assets";
 
         public IndexModel(AppDbContext db, ICompanyService companyService,
@@ -51,10 +58,24 @@ namespace Abs.FixedAssets.Pages.Assets
             if (_tenantContext.SiteId.HasValue)
                 query = query.Where(a => a.SiteId == _tenantContext.SiteId.Value);
 
+            // Apply server-side keyword filter early so the grid receives
+            // a pre-filtered set. The client-side enhanced-grid still runs
+            // for instant in-page narrowing.
+            if (!string.IsNullOrWhiteSpace(Q))
+            {
+                var qLower = Q.Trim().ToLower();
+                query = query.Where(a =>
+                    (a.AssetNumber != null && a.AssetNumber.ToLower().Contains(qLower)) ||
+                    (a.Description != null && a.Description.ToLower().Contains(qLower)) ||
+                    (a.Model != null && a.Model.ToLower().Contains(qLower)) ||
+                    (a.SerialNumber != null && a.SerialNumber.ToLower().Contains(qLower)) ||
+                    (a.LocationRef != null && a.LocationRef.Name != null && a.LocationRef.Name.ToLower().Contains(qLower)));
+            }
+
             AllAssets = await query
                 .OrderBy(a => a.AssetNumber)
                 .ToListAsync();
-            
+
             Assets = Filter?.ToLower() switch
             {
                 "active" => AllAssets.Where(a => a.Active).ToList(),

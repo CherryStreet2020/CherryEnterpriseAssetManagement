@@ -86,10 +86,32 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
             </svg>
             @Model.FilterLabel
+            @if (!string.IsNullOrWhiteSpace(Model.Q))
+            {
+                <span class="badge badge-info" data-csp-style="margin-left: 8px;">match: "@Model.Q"</span>
+            }
         </h3>
         <p data-csp-style="color: var(--text-muted); font-size: 13px; margin: 0;">
-            @(Model.Filter != null ? "Filtered view" : "Browse and manage all fixed assets")
+            @(Model.Filter != null || !string.IsNullOrWhiteSpace(Model.Q) ? "Filtered view" : "Browse and manage all fixed assets")
         </p>
+
+        @* Server-side keyword search. Survives page reloads + share links.
+           The grid's client-side searchable=true still runs for instant
+           narrowing on the rendered set. *@
+        <form method="get" data-csp-style="display: flex; gap: 8px; margin-top: 12px; max-width: 480px;">
+            @if (!string.IsNullOrWhiteSpace(Model.Filter))
+            {
+                <input type="hidden" name="filter" value="@Model.Filter" />
+            }
+            <input type="text" name="q" class="form-control" placeholder="Search asset number, description, model, serial, location..."
+                   value="@Model.Q" />
+            <button type="submit" class="btn btn-primary">Search</button>
+            @if (!string.IsNullOrWhiteSpace(Model.Q))
+            {
+                var clearUrl = string.IsNullOrWhiteSpace(Model.Filter) ? "/Assets" : $"/Assets?filter={Model.Filter}";
+                <a href="@clearUrl" class="btn btn-outline-secondary">Clear</a>
+            }
+        </form>
     </div>
     
     <div data-csp-style="overflow-x: auto;">
