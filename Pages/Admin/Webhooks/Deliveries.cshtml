@@ -7,7 +7,9 @@
 }
 
 @{
-    var subtitle = Model.Subscription != null ? $"{Model.Subscription.Name} - {Model.Subscription.Url}" : "";
+    var subtitle = Model.Subscription != null
+        ? $"{Model.Subscription.Name} - {Model.Subscription.Url}"
+        : $"Aggregate view across {Model.Subscriptions.Count} subscription(s) — last 100 attempts";
     var headerVd = new ViewDataDictionary(ViewData)
     {
         { "HeaderTitle", "Delivery History" },
@@ -20,9 +22,53 @@
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
 <div class="content-area">
+    @if (Model.IsAggregateView)
+    {
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden" data-csp-style="margin-bottom: 16px;">
+            <div class="p-4 border-b border-slate-200">
+                <h2 class="text-lg font-semibold text-slate-800">Subscriptions</h2>
+                <p class="text-sm text-slate-500" data-csp-style="margin-top: 4px;">
+                    Click a subscription to view its dedicated delivery history.
+                </p>
+            </div>
+            @if (Model.Subscriptions.Count == 0)
+            {
+                <div class="p-6 text-center">
+                    <p class="text-slate-500">No webhook subscriptions configured. <a href="/Admin/Webhooks/Index" class="text-blue-600 hover:underline">Create one</a>.</p>
+                </div>
+            }
+            else
+            {
+                <table class="w-full">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">URL</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Active</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @foreach (var sub in Model.Subscriptions)
+                        {
+                            <tr class="hover:bg-slate-50">
+                                <td class="px-4 py-2 text-sm text-slate-800">@sub.Name</td>
+                                <td class="px-4 py-2 text-sm text-slate-600"><code>@sub.Url</code></td>
+                                <td class="px-4 py-2 text-sm">@(sub.IsActive ? "Yes" : "No")</td>
+                                <td class="px-4 py-2 text-sm" data-csp-style="text-align: right;">
+                                    <a href="/Admin/Webhooks/Deliveries?id=@sub.Id" class="text-blue-600 hover:underline">View deliveries →</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="p-6 border-b border-slate-200">
-            <h2 class="text-lg font-semibold text-slate-800">Last 50 Delivery Attempts</h2>
+            <h2 class="text-lg font-semibold text-slate-800">@(Model.IsAggregateView ? "Last 100 Delivery Attempts (All Subscriptions)" : "Last 50 Delivery Attempts")</h2>
         </div>
 
         @if (Model.Deliveries.Count == 0)
@@ -37,6 +83,10 @@
                 <thead class="bg-slate-50">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Time</th>
+                        @if (Model.IsAggregateView)
+                        {
+                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Subscription</th>
+                        }
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Event Type</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Attempt</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
@@ -51,6 +101,14 @@
                         var isSuccess = log.ResponseStatusCode >= 200 && log.ResponseStatusCode < 300;
                         <tr class="hover:bg-slate-50">
                             <td class="px-4 py-3 text-sm text-slate-600">@log.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            @if (Model.IsAggregateView)
+                            {
+                                <td class="px-4 py-3 text-sm text-slate-700">
+                                    <a href="/Admin/Webhooks/Deliveries?id=@log.WebhookSubscriptionId" class="text-blue-600 hover:underline">
+                                        @(log.WebhookSubscription?.Name ?? "(unknown)")
+                                    </a>
+                                </td>
+                            }
                             <td class="px-4 py-3 text-sm">
                                 <code class="px-2 py-0.5 bg-slate-100 rounded text-xs">@(log.OutboxEvent?.EventType ?? "N/A")</code>
                             </td>

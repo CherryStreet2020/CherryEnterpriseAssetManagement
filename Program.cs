@@ -649,6 +649,11 @@ var livenessOptions = new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCh
 };
 app.MapHealthChecks("/_live", livenessOptions).AllowAnonymous();
 app.MapHealthChecks("/healthz", livenessOptions).AllowAnonymous();
+// /api/health is the conventional ops/monitoring endpoint that closes
+// DEF-007 from the 2026-05-08 E2E run. Same liveness semantics as
+// /_live and /healthz; just lives under the /api prefix so external
+// monitors can probe it alongside the rest of the API surface.
+app.MapHealthChecks("/api/health", livenessOptions).AllowAnonymous();
 
 app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
 {
@@ -672,6 +677,31 @@ app.MapHealthChecks("/readyz", new Microsoft.AspNetCore.Diagnostics.HealthChecks
         };
         await System.Text.Json.JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
     },
+}).AllowAnonymous();
+
+// /api/version closes DEF-007. Returns build metadata that monitors
+// and partner-integration debugging both want at hand. Cheap to compute
+// (reads from the entry assembly + env vars stamped at build time).
+app.MapGet("/api/version", () =>
+{
+    var asm = System.Reflection.Assembly.GetEntryAssembly();
+    var name = asm?.GetName();
+    var info = asm == null
+        ? null
+        : (System.Reflection.AssemblyInformationalVersionAttribute?)
+            System.Attribute.GetCustomAttribute(asm, typeof(System.Reflection.AssemblyInformationalVersionAttribute));
+    return Results.Json(new
+    {
+        product = "CherryAI EAM",
+        assembly = name?.Name,
+        version = name?.Version?.ToString(),
+        informationalVersion = info?.InformationalVersion,
+        gitSha = Environment.GetEnvironmentVariable("GIT_SHA"),
+        buildTimeUtc = Environment.GetEnvironmentVariable("BUILD_TIME_UTC"),
+        environment = app.Environment.EnvironmentName,
+        runtime = Environment.Version.ToString(),
+        startedAtUtc = System.Diagnostics.Process.GetCurrentProcess().StartTime.ToUniversalTime().ToString("O"),
+    });
 }).AllowAnonymous();
 
 // Phase 4 — OTel diagnostics endpoint. Resolves TracerProvider/MeterProvider
