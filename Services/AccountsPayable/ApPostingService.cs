@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -35,6 +37,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
         private readonly IGlAccountResolver _glResolver;
         private readonly IPeriodGuard _periodGuard;
         private readonly InvoiceMatchingService _matching;
+        private readonly IOutboxWriter _outbox;
         private readonly ILogger<ApPostingService> _logger;
 
         public ApPostingService(
@@ -43,6 +46,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             IGlAccountResolver glResolver,
             IPeriodGuard periodGuard,
             InvoiceMatchingService matching,
+            IOutboxWriter outbox,
             ILogger<ApPostingService> logger)
         {
             _db = db;
@@ -50,6 +54,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             _glResolver = glResolver;
             _periodGuard = periodGuard;
             _matching = matching;
+            _outbox = outbox;
             _logger = logger;
         }
 
@@ -210,6 +215,24 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 "ApPostingService: approved invoice {InvNum} → JE {JeId}, total={Total}, PPV={PPV}",
                 invoice.InvoiceNumber, je.Id, totalCredit, ppvTotal);
 
+            await _outbox.EnqueueAsync(
+                invoiceCompanyId,
+                siteId: null,
+                new InvoiceApprovedV1(
+                    InvoiceId: invoice.Id,
+                    InvoiceNumber: invoice.InvoiceNumber,
+                    VendorId: invoice.VendorId,
+                    CompanyId: invoiceCompanyId,
+                    Currency: invoice.Currency,
+                    Total: invoice.Total,
+                    ApprovedAt: postingDate,
+                    MatchStatus: match.ToString(),
+                    JournalEntryId: je.Id,
+                    ApproverUsername: string.IsNullOrWhiteSpace(approverUsername) ? null : approverUsername,
+                    MatchOverride: overrideMatch),
+                correlationId: $"ap-approve-{invoice.Id}"
+            );
+
             return new ApPostingResult(invoiceId, je.Id, match, totalCredit);
         }
 
@@ -252,11 +275,32 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             _db.JournalEntries.Add(je);
 
             invoice.AmountPaid += amount;
-            if (invoice.AmountPaid >= invoice.Total)
+            var fullyPaid = invoice.AmountPaid >= invoice.Total;
+            if (fullyPaid)
                 invoice.Status = InvoiceStatus.Paid;
             invoice.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
+
+            await _outbox.EnqueueAsync(
+                invoiceCompanyId,
+                siteId: null,
+                new InvoicePaidV1(
+                    InvoiceId: invoice.Id,
+                    InvoiceNumber: invoice.InvoiceNumber,
+                    VendorId: invoice.VendorId,
+                    CompanyId: invoiceCompanyId,
+                    Currency: invoice.Currency,
+                    AmountPaid: amount,
+                    RunningTotalPaid: invoice.AmountPaid,
+                    InvoiceTotal: invoice.Total,
+                    PaymentDate: paymentDate.Date,
+                    PaymentReference: paymentReference,
+                    JournalEntryId: je.Id,
+                    IsFullyPaid: fullyPaid),
+                correlationId: $"ap-payment-{invoice.Id}-{je.Id}"
+            );
+
             return new ApPostingResult(invoiceId, je.Id, invoice.MatchStatus, amount);
         }
 
@@ -269,6 +313,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             if (invoice.Status == InvoiceStatus.Voided)
                 return new ApPostingResult(invoiceId, null, invoice.MatchStatus, 0m);
 
+            var previousStatus = invoice.Status;
             var voidDate = DateTime.UtcNow;
             var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
             var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, voidDate);
@@ -313,6 +358,23 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             invoice.Status = InvoiceStatus.Voided;
             invoice.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
+
+            await _outbox.EnqueueAsync(
+                invoiceCompanyId,
+                siteId: null,
+                new InvoiceVoidedV1(
+                    InvoiceId: invoice.Id,
+                    InvoiceNumber: invoice.InvoiceNumber,
+                    VendorId: invoice.VendorId,
+                    CompanyId: invoiceCompanyId,
+                    Currency: invoice.Currency,
+                    Total: invoice.Total,
+                    Reason: reason,
+                    VoidedAt: voidDate,
+                    ContraJournalEntryId: contraJeId,
+                    PreviousStatus: previousStatus.ToString()),
+                correlationId: $"ap-void-{invoice.Id}"
+            );
 
             return new ApPostingResult(invoiceId, contraJeId, invoice.MatchStatus, 0m);
         }

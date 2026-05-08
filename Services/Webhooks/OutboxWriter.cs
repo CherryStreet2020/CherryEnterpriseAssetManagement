@@ -15,13 +15,21 @@ public static class WebhookEventTypes
     public const string CloseoutSummaryGenerated = "closeout.summary.generated";
     public const string LessonSaved = "lesson.saved";
 
+    // Accounts Payable lifecycle (ADR-002)
+    public const string InvoiceApproved = "invoice.approved";
+    public const string InvoicePaid = "invoice.paid";
+    public const string InvoiceVoided = "invoice.voided";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
         WorkOrderCreated,
         WorkOrderClosed,
         CloseoutSummaryGenerated,
-        LessonSaved
+        LessonSaved,
+        InvoiceApproved,
+        InvoicePaid,
+        InvoiceVoided
     };
 }
 
