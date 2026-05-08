@@ -72,6 +72,23 @@
     <div class="pe-card">
         <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--green"></span> Additional Information</span></div>
         <div class="pe-card__body">
+            @* S2-11: optional CIP project linkage. PO lines that don't carry
+               an explicit CipProjectId inherit this header value at receipt
+               time via CipAutoCostPostingService.PostFromReceiptLineAsync. *@
+            @if (Model.CipProjects.Any())
+            {
+                <div class="form-group-p">
+                    <label class="form-label-p">CIP Project (optional)</label>
+                    <select name="cipProjectId" class="form-input-p">
+                        <option value="">— None —</option>
+                        @foreach (var cip in Model.CipProjects)
+                        {
+                            <option value="@cip.Id">@cip.ProjectNumber — @cip.Name</option>
+                        }
+                    </select>
+                    <small class="form-hint-p">Linking to a CIP project routes received costs to that project's accumulator.</small>
+                </div>
+            }
             <div class="form-group-p">
                 <label class="form-label-p">Notes</label>
                 <textarea name="notes" class="form-input-p" rows="3" placeholder="Optional notes for this purchase order..."></textarea>

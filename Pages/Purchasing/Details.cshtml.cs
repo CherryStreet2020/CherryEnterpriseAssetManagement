@@ -30,6 +30,8 @@ namespace Abs.FixedAssets.Pages.Purchasing
         public List<Item> Items { get; set; } = new();
         public List<GlAccount> GlAccounts { get; set; } = new();
         public List<SelectListItem> POTypeOptions { get; set; } = new();
+        // S2-11: tenant-scoped CIP project picker for the PO header.
+        public List<Models.CipProject> CipProjects { get; set; } = new();
         public int? ConsumablesGlAccountId { get; set; }
         public int? SelectedLineId { get; set; }
 
@@ -75,7 +77,7 @@ namespace Abs.FixedAssets.Pages.Purchasing
             return Page();
         }
 
-        public async Task<IActionResult> OnPostUpdateHeaderAsync(int id, int vendorId, int poTypeLookupValueId, DateTime orderDate, DateTime? requiredDate, string? notes)
+        public async Task<IActionResult> OnPostUpdateHeaderAsync(int id, int vendorId, int poTypeLookupValueId, DateTime orderDate, DateTime? requiredDate, string? notes, int? cipProjectId)
         {
             var po = await _context.PurchaseOrders
                 .Where(p => p.Id == id && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0))
@@ -104,6 +106,23 @@ namespace Abs.FixedAssets.Pages.Purchasing
             po.OrderDate = orderDate;
             po.RequiredDate = requiredDate;
             po.Notes = notes;
+
+            // S2-11: PO header may link to a CIP project so PO-line cost
+            // routing (S1-3 wiring) flows through CipAutoCostPostingService
+            // when the receipt + invoice arrive. Tenant-scope the lookup so
+            // a foreign CipProjectId can't be attached.
+            if (cipProjectId.HasValue && cipProjectId.Value > 0)
+            {
+                var validProject = await _context.CipProjects
+                    .AnyAsync(p => p.Id == cipProjectId.Value
+                        && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+                po.CipProjectId = validProject ? cipProjectId : null;
+            }
+            else
+            {
+                po.CipProjectId = null;
+            }
+
             po.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -436,6 +455,13 @@ namespace Abs.FixedAssets.Pages.Purchasing
                 .Where(i => i.IsActive && _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0))
                 .OrderBy(i => i.PartNumber)
                 .Take(500)
+                .ToListAsync();
+
+            // S2-11: load active CIP projects for the header picker. Tenant-scoped.
+            CipProjects = await _context.CipProjects
+                .Where(p => p.Status == CipProjectStatus.Active
+                    && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0))
+                .OrderBy(p => p.ProjectNumber)
                 .ToListAsync();
 
             var allGlAccounts = await _context.GlAccounts
