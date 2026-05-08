@@ -176,7 +176,9 @@ public class PeriodLockEnforcementTests
         var periodGuard = new StubPeriodGuard(allow: false);
         var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
+        var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
+        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPosting);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -231,7 +233,9 @@ public class PeriodLockEnforcementTests
         var periodGuard = new StubPeriodGuard(allow: true);
         var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
-        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
+        var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
+        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(db, new AlwaysEnabledModuleGuard(), tenant, lookup, periodGuard, NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPosting);
         WirePageContext(page);
 
         var lines = new List<Pages.Receiving.ReceiveModel.ReceiveLineViewModel>

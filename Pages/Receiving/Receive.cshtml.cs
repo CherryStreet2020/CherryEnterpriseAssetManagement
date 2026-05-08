@@ -3,6 +3,7 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Receiving;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -21,10 +22,12 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly IPeriodGuard _periodGuard;
         private readonly ILogger<ReceiveModel> _logger;
         private readonly CipAutoCostPostingService _cipAutoCostPosting;
+        private readonly IReceivingPostingService _receivingPosting;
 
         public ReceiveModel(AppDbContext context, IModuleGuardService moduleGuard,
             ITenantContext tenantContext, ILookupService lookupService, IPeriodGuard periodGuard,
-            ILogger<ReceiveModel> logger, CipAutoCostPostingService cipAutoCostPosting)
+            ILogger<ReceiveModel> logger, CipAutoCostPostingService cipAutoCostPosting,
+            IReceivingPostingService receivingPosting)
         {
             _context = context;
             _moduleGuard = moduleGuard;
@@ -33,6 +36,7 @@ namespace Abs.FixedAssets.Pages.Receiving
             _periodGuard = periodGuard;
             _logger = logger;
             _cipAutoCostPosting = cipAutoCostPosting;
+            _receivingPosting = receivingPosting;
         }
 
         public PurchaseOrder PO { get; set; } = null!;
@@ -267,6 +271,25 @@ namespace Abs.FixedAssets.Pages.Receiving
             {
                 await _context.SaveChangesAsync();
 
+                // S1-1: GR/IR accrual + inventory movement. Posts the JE
+                // (Dr Inventory/Expense / Cr GR-Accrued), increments
+                // ItemInventory at the receiving location, writes
+                // ItemTransaction(Receipt) audit rows. Idempotent on retry
+                // (existing JE.Reference == "GR-{receiptNumber}" returns
+                // without rewrite). Failure logs but does not roll back the
+                // GR — operational truth wins; financial posting is fixable.
+                ReceivingPostingResult? postingResult = null;
+                try
+                {
+                    postingResult = await _receivingPosting.PostReceiptAsync(receipt.Id);
+                }
+                catch (Exception postEx)
+                {
+                    _logger.LogError(postEx,
+                        "ReceivingPostingService failed for receipt {ReceiptNumber} (Id={ReceiptId}, Co={Co})",
+                        receiptNumber, receipt.Id, receipt.CompanyId);
+                }
+
                 // S1-3: route any CIP-tagged receipt lines into CipAutoCostPostingService.
                 // The service is idempotent — re-runs against an already-posted line
                 // return the existing CipCost. CIP-tagged lines come from the PO line's
@@ -289,9 +312,11 @@ namespace Abs.FixedAssets.Pages.Receiving
                     }
                 }
 
-                TempData["Success"] = cipRouted > 0
-                    ? $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}. {cipRouted} routed to CIP."
-                    : $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
+                var summary = $"Receipt {receiptNumber}: received {totalItemsReceived} line(s) against PO {po.PONumber}.";
+                if (postingResult?.JournalEntryId.HasValue == true && postingResult.TotalAccrued > 0)
+                    summary += $" Accrued ${postingResult.TotalAccrued:N2}.";
+                if (cipRouted > 0) summary += $" {cipRouted} routed to CIP.";
+                TempData["Success"] = summary;
             }
             catch (DbUpdateConcurrencyException ex)
             {
