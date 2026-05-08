@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace Abs.FixedAssets.Tests
@@ -343,7 +344,9 @@ namespace Abs.FixedAssets.Tests
             var attach = new AttachmentService(db, new StubWebHostEnv(), tenant);
             var lookup = new StubLookupService();
             var moduleGuard = new StubModuleGuard();
-            var page = new AssetModel(db, attach, lookup, tenant, moduleGuard);
+            var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(
+                db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+            var page = new AssetModel(db, attach, lookup, tenant, moduleGuard, outbox);
 
             var httpContext = new DefaultHttpContext();
             var modelState = new ModelStateDictionary();

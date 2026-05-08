@@ -20,6 +20,11 @@ public static class WebhookEventTypes
     public const string InvoicePaid = "invoice.paid";
     public const string InvoiceVoided = "invoice.voided";
 
+    // Asset lifecycle
+    public const string AssetCreated = "asset.created";
+    public const string AssetImproved = "asset.improved";
+    public const string AssetDisposed = "asset.disposed";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -29,7 +34,10 @@ public static class WebhookEventTypes
         LessonSaved,
         InvoiceApproved,
         InvoicePaid,
-        InvoiceVoided
+        InvoiceVoided,
+        AssetCreated,
+        AssetImproved,
+        AssetDisposed
     };
 }
 
