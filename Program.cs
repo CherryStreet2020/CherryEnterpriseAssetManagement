@@ -144,6 +144,10 @@ builder.Services.AddScoped<DepreciationService>();
 // AccountKind) with 10-minute TTL inside the resolver itself; the
 // service is scoped because it consumes the per-request AppDbContext.
 builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
+
+// ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService,
+    Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();

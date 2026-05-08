@@ -175,9 +175,11 @@ public class CipAutoCostPostingWiringTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var (lookup, _, cipAutoCost) = BuildCipServices(db, tenant);
 
+        var glResolverR = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
+        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(),
-            NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
+            NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPostingR);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -230,9 +232,11 @@ public class CipAutoCostPostingWiringTests
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var (lookup, _, cipAutoCost) = BuildCipServices(db, tenant);
 
+        var glResolverR = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
+        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(),
-            NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost);
+            NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPostingR);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
