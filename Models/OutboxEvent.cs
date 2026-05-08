@@ -38,6 +38,14 @@ public class OutboxEvent
     [Required]
     public string PayloadJson { get; set; } = "{}";
 
+    /// <summary>
+    /// Strongly-typed payload version (the IDomainEvent record's Version
+    /// property). NULL on rows enqueued before the typed-payloads
+    /// migration; treat NULL as 1 at dispatch time. See
+    /// <c>docs/design/OUTBOX_TYPED_PAYLOADS.md</c>.
+    /// </summary>
+    public int? PayloadVersion { get; set; }
+
     public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
 
     public OutboxEventStatus Status { get; set; } = OutboxEventStatus.Pending;

@@ -6185,6 +6185,9 @@ namespace Abs.FixedAssets.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("PayloadVersion")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("SentAt")
                         .HasColumnType("timestamp with time zone");
 
