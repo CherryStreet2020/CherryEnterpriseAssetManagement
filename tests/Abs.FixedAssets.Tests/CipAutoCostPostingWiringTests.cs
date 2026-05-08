@@ -349,10 +349,12 @@ public class CipAutoCostPostingWiringTests
         var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
         var originService = new WorkOrderOriginService(db);
 
+        var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
+            NullLogger<DepreciationBackfillService>.Instance);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
             tenant, lookup, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
-            cipAutoCost, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
+            cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
         // Close the WO with $250 in labor (which is what CipAutoCostPostingService
