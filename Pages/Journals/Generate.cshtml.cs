@@ -3,6 +3,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -16,9 +18,10 @@ namespace Abs.FixedAssets.Pages.Journals
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly IOutboxWriter _outbox;
         public GenerateModel(AppDbContext db, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard) {
-            _moduleGuard = moduleGuard; _db = db; _tenantContext = tenantContext; }
+            IModuleGuardService moduleGuard, IOutboxWriter outbox) {
+            _moduleGuard = moduleGuard; _db = db; _tenantContext = tenantContext; _outbox = outbox; }
 
         public SelectListItem[] BookOptions { get; private set; } = Array.Empty<SelectListItem>();
 
@@ -59,8 +62,29 @@ namespace Abs.FixedAssets.Pages.Journals
 
             try
             {
-                var entry = await JournalGenerator.GenerateMonthlyAsync(_db, BookId.Value, month, createdBy: "web", companyId: _tenantContext.CompanyId ?? 1);
+                var companyId = _tenantContext.CompanyId ?? 1;
+                var entry = await JournalGenerator.GenerateMonthlyAsync(_db, BookId.Value, month, createdBy: "web", companyId: companyId);
                 TempData["Flash"] = $"Journal \"{entry.Batch}\" generated successfully for {month:yyyy-MM} with {entry.Lines?.Count ?? 0} line(s).";
+
+                var book = await _db.Books.AsNoTracking().FirstAsync(b => b.Id == BookId.Value);
+                var totalDr = entry.Lines?.Sum(l => l.Debit) ?? 0m;
+                await _outbox.EnqueueAsync(
+                    companyId,
+                    siteId: null,
+                    new DepreciationPostedV1(
+                        JournalEntryId: entry.Id,
+                        BookId: book.Id,
+                        BookCode: book.Code,
+                        CompanyId: book.CompanyId,
+                        Period: entry.Period,
+                        PostingDate: entry.PostingDate,
+                        TotalDepreciation: totalDr,
+                        Batch: entry.Batch,
+                        LineCount: entry.Lines?.Count ?? 0,
+                        CreatedBy: User?.Identity?.Name ?? "web"),
+                    correlationId: $"dep-post-{entry.Id}"
+                );
+
                 return RedirectToPage("./Index");
             }
             catch (Exception ex)

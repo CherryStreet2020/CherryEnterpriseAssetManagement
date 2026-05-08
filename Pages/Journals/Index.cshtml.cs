@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -20,7 +22,9 @@ namespace Abs.FixedAssets.Pages.Journals
         private readonly AppDbContext _db;
         private readonly IModuleGuardService _moduleGuard;
         private readonly ITenantContext _tenantContext;
-        public IndexModel(AppDbContext db, IModuleGuardService moduleGuard, ITenantContext tenantContext) { _db = db; _moduleGuard = moduleGuard; _tenantContext = tenantContext; }
+        private readonly IOutboxWriter _outbox;
+        public IndexModel(AppDbContext db, IModuleGuardService moduleGuard, ITenantContext tenantContext, IOutboxWriter outbox)
+        { _db = db; _moduleGuard = moduleGuard; _tenantContext = tenantContext; _outbox = outbox; }
 
         [BindProperty(SupportsGet = true)] public DateTime? From { get; set; }
         [BindProperty(SupportsGet = true)] public DateTime? To   { get; set; }
@@ -88,14 +92,34 @@ namespace Abs.FixedAssets.Pages.Journals
 
             try
             {
-                await JournalGenerator.GenerateMonthlyAsync(
+                var companyId = _tenantContext.CompanyId ?? 1;
+                var entry = await JournalGenerator.GenerateMonthlyAsync(
                     _db,
                     GenerateBookId,
                     GenerateMonth,
                     createdBy: User?.Identity?.Name ?? "system",
-                    companyId: _tenantContext.CompanyId ?? 1);
+                    companyId: companyId);
 
                 TempData["Flash"] = $"Journal created for {GenerateMonth:yyyy-MM}.";
+
+                var book = await _db.Books.AsNoTracking().FirstAsync(b => b.Id == GenerateBookId);
+                var totalDr = entry.Lines?.Sum(l => l.Debit) ?? 0m;
+                await _outbox.EnqueueAsync(
+                    companyId,
+                    siteId: null,
+                    new DepreciationPostedV1(
+                        JournalEntryId: entry.Id,
+                        BookId: book.Id,
+                        BookCode: book.Code,
+                        CompanyId: book.CompanyId,
+                        Period: entry.Period,
+                        PostingDate: entry.PostingDate,
+                        TotalDepreciation: totalDr,
+                        Batch: entry.Batch,
+                        LineCount: entry.Lines?.Count ?? 0,
+                        CreatedBy: User?.Identity?.Name ?? "system"),
+                    correlationId: $"dep-post-{entry.Id}"
+                );
             }
             catch (Exception ex)
             {
