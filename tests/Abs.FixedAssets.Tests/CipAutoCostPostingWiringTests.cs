@@ -253,7 +253,7 @@ public class CipAutoCostPostingWiringTests
         await using var db = NewDb();
         db.Companies.Add(new Company { Id = companyId, CompanyCode = "C-100", Name = "Co", IsActive = true });
         db.Vendors.Add(new Vendor { Id = 1, Code = "V-1", Name = "V", CompanyId = companyId, IsActive = true });
-        var project = new CipProject { ProjectCode = "CIP-002", Name = "Test", CompanyId = companyId, Status = CipProjectStatus.Active, CreatedAt = DateTime.UtcNow };
+        var project = new CipProject { ProjectNumber = "CIP-002", Name = "Test", CompanyId = companyId, Status = CipProjectStatus.Active, CreatedAt = DateTime.UtcNow };
         db.CipProjects.Add(project);
         await db.SaveChangesAsync();
 
