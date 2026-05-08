@@ -2,6 +2,8 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Services.Cip
@@ -26,6 +28,7 @@ namespace Abs.FixedAssets.Services.Cip
         private readonly IGlAccountResolver _glResolver;
         private readonly IPeriodGuard _periodGuard;
         private readonly DepreciationBackfillService _depBackfill;
+        private readonly IOutboxWriter _outbox;
 
         public CipCapitalizationService(
             AppDbContext db,
@@ -34,7 +37,8 @@ namespace Abs.FixedAssets.Services.Cip
             ITenantContext tenantContext,
             IGlAccountResolver glResolver,
             IPeriodGuard periodGuard,
-            DepreciationBackfillService depBackfill)
+            DepreciationBackfillService depBackfill,
+            IOutboxWriter outbox)
         {
             _db = db;
             _cipCostService = cipCostService;
@@ -43,6 +47,7 @@ namespace Abs.FixedAssets.Services.Cip
             _glResolver = glResolver;
             _periodGuard = periodGuard;
             _depBackfill = depBackfill;
+            _outbox = outbox;
         }
 
         public async Task<CipCapitalizationPreview?> PreviewAsync(int cipProjectId)
@@ -217,6 +222,48 @@ namespace Abs.FixedAssets.Services.Cip
             // AssetBookSettings snapshot and downstream KPIs / depreciation
             // schedule reads see zero. Same pattern as PR #27.
             await _depBackfill.RecomputeAssetAsync(asset.Id, capitalizationDate);
+
+            // S2-5/S2-6: emit cip.capitalized AND the CIP-driven asset.created
+            // (Origin="cip.capitalized" so consumers can disambiguate from
+            // the UI-driven /Assets/Asset create path).
+            await _outbox.EnqueueAsync(
+                projectCompanyId,
+                siteId: project.SiteId,
+                new CipCapitalizedV1(
+                    CipProjectId: project.Id,
+                    ProjectNumber: project.ProjectNumber,
+                    ProjectName: project.Name ?? string.Empty,
+                    CapitalizationId: capitalization.Id,
+                    NewAssetId: asset.Id,
+                    AssetNumber: asset.AssetNumber,
+                    CompanyId: project.CompanyId,
+                    SiteId: project.SiteId,
+                    TotalCapitalized: capitalizableAmount,
+                    CapitalizableCostCount: capitalization.CostMappings.Count,
+                    JournalEntryId: journalEntry.Id,
+                    CapitalizedAt: capitalizationDate,
+                    CapitalizedByUserId: capitalization.CapitalizedByUserId),
+                correlationId: $"cip-cap-{project.Id}"
+            );
+
+            await _outbox.EnqueueAsync(
+                projectCompanyId,
+                siteId: asset.SiteId,
+                new AssetCreatedV1(
+                    AssetId: asset.Id,
+                    AssetNumber: asset.AssetNumber,
+                    Description: asset.Description,
+                    CompanyId: asset.CompanyId,
+                    SiteId: asset.SiteId,
+                    AcquisitionCost: asset.AcquisitionCost,
+                    InServiceDate: asset.InServiceDate,
+                    Status: asset.Status.ToString(),
+                    AssetCategoryId: asset.AssetCategoryId,
+                    VendorId: asset.VendorId,
+                    CreatedBy: capitalization.CapitalizedByUserId,
+                    Origin: "cip.capitalized"),
+                correlationId: $"asset-create-cip-{asset.Id}"
+            );
 
             return (asset, capitalization);
         }
