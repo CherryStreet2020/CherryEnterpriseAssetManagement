@@ -196,7 +196,8 @@ public class CapitalImprovementRecalcTests
         // Asset row mirrors the financial book.
         var assetAfter = await db.Assets.AsNoTracking().FirstAsync(a => a.Id == asset.Id);
         Assert.Equal(9000m, Math.Round(assetAfter.AccumulatedDepreciation, 2));
-        Assert.Equal(9000m, Math.Round(assetAfter.BookValue, 2));
+        Assert.NotNull(assetAfter.BookValue);
+        Assert.Equal(9000m, Math.Round(assetAfter.BookValue!.Value, 2));
     }
 
     [Fact]
