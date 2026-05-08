@@ -113,6 +113,9 @@ public class CapitalImprovementRecalcTests
     private static DepreciationBackfillService MakeBackfill(AppDbContext db) =>
         new DepreciationBackfillService(db, new DepreciationService(), NullLogger<DepreciationBackfillService>.Instance);
 
+    private static Abs.FixedAssets.Services.Webhooks.OutboxWriter MakeOutbox(AppDbContext db, ITenantContext tenant) =>
+        new(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+
     /// <summary>Seeds a vanilla company + asset + GAAP book + AssetBookSettings.
     /// Returns the asset.</summary>
     private static async Task<Asset> SeedAssetWithBookAsync(
@@ -294,7 +297,7 @@ public class CapitalImprovementRecalcTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
-            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db))
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
         {
             AssetId = asset.Id,
             ImprovementDate = new DateTime(2025, 1, 15),
@@ -342,7 +345,7 @@ public class CapitalImprovementRecalcTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
-            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db))
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
         {
             AssetId = asset.Id,
             ImprovementDate = new DateTime(2025, 1, 15),
@@ -361,5 +364,46 @@ public class CapitalImprovementRecalcTests
 
         var settingsAfter = await db.AssetBookSettings.AsNoTracking().FirstAsync(s => s.AssetId == asset.Id);
         Assert.NotNull(settingsAfter.LastDepreciationDate); // recompute did run
+    }
+
+    [Fact]
+    public async Task ImproveModel_OnPost_EmitsAssetImprovedV1OutboxEvent()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var asset = await SeedAssetWithBookAsync(db, companyId, cost: 12000m, lifeMonths: 36,
+            inServiceDate: new DateTime(2024, 1, 1));
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
+        {
+            AssetId = asset.Id,
+            ImprovementDate = new DateTime(2025, 6, 1),
+            Description = "New blower motor",
+            Cost = 1500m,
+            UsefulLifeExtension = 6,
+            Vendor = "Acme",
+            InvoiceNumber = "INV-7",
+            Capitalize = true
+        };
+        WirePageContext(page);
+
+        await page.OnPostAsync();
+
+        var evt = await db.OutboxEvents.SingleAsync(e => e.EventType == "asset.improved");
+        Assert.Equal("Asset", evt.EntityType);
+        Assert.Equal(asset.Id.ToString(), evt.EntityId);
+        Assert.Equal(companyId, evt.CompanyId);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
+        var root = doc.RootElement;
+        Assert.Equal(asset.Id, root.GetProperty("assetId").GetInt32());
+        Assert.Equal(1500m, root.GetProperty("cost").GetDecimal());
+        Assert.Equal(13500m, root.GetProperty("newAcquisitionCost").GetDecimal());
+        Assert.Equal(42, root.GetProperty("newUsefulLifeMonths").GetInt32());
+        Assert.True(root.GetProperty("capitalized").GetBoolean());
+        Assert.Equal("Acme", root.GetProperty("vendor").GetString());
+        Assert.Equal("INV-7", root.GetProperty("invoiceNumber").GetString());
     }
 }

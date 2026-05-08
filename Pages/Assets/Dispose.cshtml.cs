@@ -3,6 +3,8 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -17,15 +19,17 @@ namespace Abs.FixedAssets.Pages.Assets
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
         private readonly IPeriodGuard _periodGuard;
+        private readonly IOutboxWriter _outbox;
 
         public DisposeModel(AppDbContext db, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IPeriodGuard periodGuard)
+            IModuleGuardService moduleGuard, IPeriodGuard periodGuard, IOutboxWriter outbox)
         {
             _moduleGuard = moduleGuard;
             _db = db;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
             _periodGuard = periodGuard;
+            _outbox = outbox;
         }
 
         public int AssetId { get; set; }
@@ -159,6 +163,7 @@ namespace Abs.FixedAssets.Pages.Assets
             Asset.GainLossOnDisposal = gainLoss;
             Asset.Active = false;
 
+            JournalEntry? entry = null;
             if (CreateJournalEntry && BookId > 0)
             {
                 var book = await _db.Books.Where(b => b.Id == BookId && _tenantContext.VisibleCompanyIds.Contains(b.CompanyId ?? 0)).FirstOrDefaultAsync();
@@ -196,7 +201,7 @@ namespace Abs.FixedAssets.Pages.Assets
                     return Page();
                 }
 
-                var entry = new JournalEntry
+                entry = new JournalEntry
                 {
                     Batch = $"DISP-{DateTime.UtcNow:yyyyMMdd}-{Asset.AssetNumber}",
                     Period = int.Parse(DisposalDate.ToString("yyyyMM")),
@@ -281,6 +286,27 @@ namespace Abs.FixedAssets.Pages.Assets
             }
 
             await _db.SaveChangesAsync();
+
+            await _outbox.EnqueueAsync(
+                Asset.CompanyId ?? 0,
+                siteId: Asset.SiteId,
+                new AssetDisposedV1(
+                    AssetId: Asset.Id,
+                    AssetNumber: Asset.AssetNumber,
+                    CompanyId: Asset.CompanyId,
+                    DisposalDate: DisposalDate,
+                    DisposalType: DisposalType,
+                    Proceeds: Proceeds,
+                    DisposalExpense: DisposalExpense,
+                    AcquisitionCost: Asset.AcquisitionCost,
+                    AccumulatedDepreciation: Asset.AccumulatedDepreciation,
+                    NetBookValue: CurrentBookValue,
+                    GainLoss: gainLoss,
+                    JournalEntryId: entry?.Id,
+                    BookId: CreateJournalEntry && BookId > 0 ? BookId : (int?)null,
+                    Notes: Notes),
+                correlationId: $"asset-dispose-{Asset.Id}"
+            );
 
             return RedirectToPage("/Assets/Asset", new { id = Asset.Id, mode = "view" });
         }

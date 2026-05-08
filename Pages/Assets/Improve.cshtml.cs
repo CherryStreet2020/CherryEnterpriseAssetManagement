@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using System.ComponentModel.DataAnnotations;
 
 namespace Abs.FixedAssets.Pages.Assets;
@@ -15,16 +17,18 @@ public class ImproveModel : PageModel
     private readonly IModuleGuardService _moduleGuard;
     private readonly IPeriodGuard _periodGuard;
     private readonly DepreciationBackfillService _depBackfill;
+    private readonly IOutboxWriter _outbox;
 
     public ImproveModel(AppDbContext db, ITenantContext tenantContext,
             IModuleGuardService moduleGuard, IPeriodGuard periodGuard,
-            DepreciationBackfillService depBackfill)
+            DepreciationBackfillService depBackfill, IOutboxWriter outbox)
     {
         _moduleGuard = moduleGuard;
         _db = db;
         _tenantContext = tenantContext;
         _periodGuard = periodGuard;
         _depBackfill = depBackfill;
+        _outbox = outbox;
     }
 
     public string? ErrorMessage { get; set; }
@@ -141,6 +145,26 @@ public class ImproveModel : PageModel
         // — only the running totals get restamped, plus the future-month
         // schedule changes.
         await _depBackfill.RecomputeAssetAsync(AssetId, ImprovementDate);
+
+        await _outbox.EnqueueAsync(
+            Asset.CompanyId ?? 0,
+            siteId: Asset.SiteId,
+            new AssetImprovedV1(
+                AssetId: Asset.Id,
+                AssetNumber: Asset.AssetNumber,
+                CapitalImprovementId: improvement.Id,
+                ImprovementDate: ImprovementDate,
+                Description: Description,
+                Cost: Cost,
+                Capitalized: Capitalize,
+                UsefulLifeExtensionMonths: UsefulLifeExtension,
+                NewAcquisitionCost: Asset.AcquisitionCost,
+                NewUsefulLifeMonths: Asset.UsefulLifeMonths,
+                CompanyId: Asset.CompanyId,
+                Vendor: Vendor,
+                InvoiceNumber: InvoiceNumber),
+            correlationId: $"asset-improve-{improvement.Id}"
+        );
 
         TempData["Message"] = $"Capital improvement of {Cost:C0} added to asset {Asset.AssetNumber}.";
         return RedirectToPage("./Asset", new { id = AssetId, mode = "view" });

@@ -12,6 +12,8 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Navigation;
+using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Abs.FixedAssets.Pages.Assets
@@ -23,15 +25,17 @@ namespace Abs.FixedAssets.Pages.Assets
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
+        private readonly IOutboxWriter _outbox;
 
         public AssetModel(AppDbContext context, AttachmentService attachmentService, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard)
+            IModuleGuardService moduleGuard, IOutboxWriter outbox)
         {
             _moduleGuard = moduleGuard;
             _context = context;
             _attachmentService = attachmentService;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
+            _outbox = outbox;
         }
 
         [BindProperty]
@@ -419,6 +423,26 @@ namespace Abs.FixedAssets.Pages.Assets
                 Asset.CreatedBy = User.Identity?.Name ?? "System";
                 _context.Assets.Add(Asset);
                 await _context.SaveChangesAsync();
+
+                await _outbox.EnqueueAsync(
+                    Asset.CompanyId ?? 0,
+                    siteId: Asset.SiteId,
+                    new AssetCreatedV1(
+                        AssetId: Asset.Id,
+                        AssetNumber: Asset.AssetNumber,
+                        Description: Asset.Description,
+                        CompanyId: Asset.CompanyId,
+                        SiteId: Asset.SiteId,
+                        AcquisitionCost: Asset.AcquisitionCost,
+                        InServiceDate: Asset.InServiceDate,
+                        Status: Asset.Status.ToString(),
+                        AssetCategoryId: Asset.AssetCategoryId,
+                        VendorId: Asset.VendorId,
+                        CreatedBy: Asset.CreatedBy,
+                        Origin: "ui.assets.create"),
+                    correlationId: $"asset-create-{Asset.Id}"
+                );
+
                 TempData["Success"] = $"Asset {Asset.AssetNumber} created successfully.";
                 return RedirectToPage("./Asset", new { id = Asset.Id, mode = "view" });
             }
