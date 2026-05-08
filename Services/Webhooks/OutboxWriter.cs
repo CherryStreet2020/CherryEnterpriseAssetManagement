@@ -99,35 +99,15 @@ public static class WebhookEnvelopeBuilder
 
 public interface IOutboxWriter
 {
-    /// <summary>Strongly-typed enqueue. The recommended path for all
-    /// new producer call sites. The event's <see cref="IDomainEvent.EventType"/>,
+    /// <summary>Strongly-typed enqueue. The only enqueue path — every
+    /// producer must pass an <see cref="IDomainEvent"/> record. The
+    /// event's <see cref="IDomainEvent.EventType"/>,
     /// <see cref="IDomainEvent.Version"/>, <see cref="IDomainEvent.EntityType"/>,
     /// and <see cref="IDomainEvent.EntityId"/> all come from the event
-    /// record itself — no string drift between producer and registry.</summary>
+    /// record itself — no string drift between producer and registry.
+    /// The legacy <c>object</c>-payload overloads were removed in
+    /// Phase 5 of docs/design/OUTBOX_TYPED_PAYLOADS.md.</summary>
     Task EnqueueAsync<T>(int companyId, int? siteId, T evt, string? correlationId = null) where T : IDomainEvent;
-
-    [System.Obsolete("Use EnqueueAsync<T>(int, int?, IDomainEvent, string?) instead. " +
-                     "This overload is preserved for migration only — see " +
-                     "docs/design/OUTBOX_TYPED_PAYLOADS.md Phase 2.")]
-    Task EnqueueAsync(OutboxEventData eventData);
-
-    [System.Obsolete("Use EnqueueAsync<T>(int, int?, IDomainEvent, string?) instead.")]
-    Task EnqueueAsync(int companyId, int? siteId, string eventType, string entityType, string entityId, object payload, string? correlationId = null);
-
-    [System.Obsolete("Use EnqueueAsync<T>(int, int?, IDomainEvent, string?) instead.")]
-    Task EnqueueAsync(int? tenantId, int companyId, int? siteId, string eventType, string entityType, string entityId, object payload, string? correlationId = null);
-}
-
-public class OutboxEventData
-{
-    public int? TenantId { get; set; }
-    public int CompanyId { get; set; }
-    public int? SiteId { get; set; }
-    public string EventType { get; set; } = string.Empty;
-    public string EntityType { get; set; } = string.Empty;
-    public string EntityId { get; set; } = string.Empty;
-    public object Payload { get; set; } = new { };
-    public string? CorrelationId { get; set; }
 }
 
 public class OutboxWriter : IOutboxWriter
@@ -180,59 +160,7 @@ public class OutboxWriter : IOutboxWriter
         await _db.SaveChangesAsync();
 
         _logger.LogInformation(
-            "Outbox event enqueued (typed): {EventType} v{Version} for {EntityType}:{EntityId} (tenant: {TenantId})",
+            "Outbox event enqueued: {EventType} v{Version} for {EntityType}:{EntityId} (tenant: {TenantId})",
             evt.EventType, evt.Version, evt.EntityType, evt.EntityId, outboxEvent.TenantId);
     }
-
-#pragma warning disable CS0618 // we are the legacy implementations
-    public async Task EnqueueAsync(OutboxEventData eventData)
-    {
-        await EnqueueAsync(
-            eventData.TenantId ?? _tenantContext.TenantId,
-            eventData.CompanyId,
-            eventData.SiteId,
-            eventData.EventType,
-            eventData.EntityType,
-            eventData.EntityId,
-            eventData.Payload,
-            eventData.CorrelationId
-        );
-    }
-
-    public async Task EnqueueAsync(int companyId, int? siteId, string eventType, string entityType, string entityId, object payload, string? correlationId = null)
-    {
-        await EnqueueAsync(_tenantContext.TenantId, companyId, siteId, eventType, entityType, entityId, payload, correlationId);
-    }
-
-    public async Task EnqueueAsync(int? tenantId, int companyId, int? siteId, string eventType, string entityType, string entityId, object payload, string? correlationId = null)
-    {
-        // Legacy untyped path. Wraps the call in an UntypedLegacyEvent so it
-        // flows through the same persistence shape — the only externally
-        // observable difference is PayloadVersion=1 stamped explicitly,
-        // matching what NULL-rows already get interpreted as at dispatch.
-        var outboxEvent = new OutboxEvent
-        {
-            TenantId = tenantId ?? _tenantContext.TenantId,
-            CompanyId = companyId,
-            SiteId = siteId,
-            EventType = eventType,
-            EntityType = entityType,
-            EntityId = entityId,
-            PayloadJson = JsonSerializer.Serialize(payload, JsonOptions),
-            PayloadVersion = 1,
-            OccurredAt = DateTime.UtcNow,
-            Status = OutboxEventStatus.Pending,
-            AttemptCount = 0,
-            NextAttemptAt = DateTime.UtcNow,
-            CorrelationId = correlationId ?? Guid.NewGuid().ToString("N")
-        };
-
-        _db.OutboxEvents.Add(outboxEvent);
-        await _db.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "Outbox event enqueued (legacy): {EventType} for {EntityType}:{EntityId} (tenant: {TenantId})",
-            eventType, entityType, entityId, outboxEvent.TenantId);
-    }
-#pragma warning restore CS0618
 }

@@ -145,26 +145,8 @@ public class OutboxWriterTypedEnqueueTests
         Assert.Equal("bob", doc.RootElement.GetProperty("closedBy").GetString());
     }
 
-    [Fact]
-#pragma warning disable CS0618 // intentionally exercising the obsolete legacy overload
-    public async Task EnqueueAsync_LegacyOverload_StampsPayloadVersion1()
-    {
-        await using var db = NewDb();
-        var writer = NewWriter(db);
-
-        await writer.EnqueueAsync(
-            companyId: 100,
-            siteId: null,
-            eventType: "test.event",
-            entityType: "TestEntity",
-            entityId: "1",
-            payload: new { foo = "bar" },
-            correlationId: "legacy-1");
-
-        var stored = await db.OutboxEvents.SingleAsync();
-        Assert.Equal(1, stored.PayloadVersion);
-        Assert.Equal("test.event", stored.EventType);
-        Assert.Contains("\"foo\":\"bar\"", stored.PayloadJson);
-    }
-#pragma warning restore CS0618
+    // The legacy untyped EnqueueAsync overload was removed in Phase 5
+    // — see docs/design/OUTBOX_TYPED_PAYLOADS.md. Compile-time absence
+    // is the assertion: any caller still using the old shape now
+    // produces a build error, not a runtime warning.
 }
