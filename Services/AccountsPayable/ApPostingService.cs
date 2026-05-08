@@ -1,0 +1,330 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+namespace Abs.FixedAssets.Services.AccountsPayable
+{
+    public sealed record ApPostingResult(
+        int InvoiceId,
+        int? JournalEntryId,
+        InvoiceMatchStatus MatchStatus,
+        decimal AmountPosted);
+
+    /// <summary>
+    /// Implements ADR-002. Two journal entries per invoice lifecycle —
+    /// one on approval (Dr GR-Accrued / Dr expense / Cr AP), one on
+    /// payment (Dr AP / Cr Cash). Three-way match is a hard gate on
+    /// approval; admins can override with an audit trail.
+    /// </summary>
+    public interface IApPostingService
+    {
+        Task<ApPostingResult> PostApprovalAsync(int invoiceId, bool overrideMatch = false, string approverUsername = "");
+        Task<ApPostingResult> PostPaymentAsync(int invoiceId, decimal amount, DateTime paymentDate, string? paymentReference = null);
+        Task<ApPostingResult> PostVoidAsync(int invoiceId, string reason);
+    }
+
+    public class ApPostingService : IApPostingService
+    {
+        private readonly AppDbContext _db;
+        private readonly ITenantContext _tenantContext;
+        private readonly IGlAccountResolver _glResolver;
+        private readonly IPeriodGuard _periodGuard;
+        private readonly InvoiceMatchingService _matching;
+        private readonly ILogger<ApPostingService> _logger;
+
+        public ApPostingService(
+            AppDbContext db,
+            ITenantContext tenantContext,
+            IGlAccountResolver glResolver,
+            IPeriodGuard periodGuard,
+            InvoiceMatchingService matching,
+            ILogger<ApPostingService> logger)
+        {
+            _db = db;
+            _tenantContext = tenantContext;
+            _glResolver = glResolver;
+            _periodGuard = periodGuard;
+            _matching = matching;
+            _logger = logger;
+        }
+
+        public async Task<ApPostingResult> PostApprovalAsync(int invoiceId, bool overrideMatch = false, string approverUsername = "")
+        {
+            var invoice = await LoadInvoiceScopedAsync(invoiceId);
+            if (invoice == null)
+                throw new InvalidOperationException($"Invoice {invoiceId} not found.");
+
+            // Idempotency: existing approval JE means we've already posted.
+            // Lookup by Reference (model has no FK on the invoice today).
+            var approvalRef = $"AP-APR-{invoice.InvoiceNumber}";
+            var existingJeId = await _db.JournalEntries
+                .Where(j => j.Reference == approvalRef && j.Source == "AP")
+                .Select(j => (int?)j.Id)
+                .FirstOrDefaultAsync();
+            if (invoice.Status == InvoiceStatus.Approved && existingJeId.HasValue)
+            {
+                return new ApPostingResult(invoiceId, existingJeId, invoice.MatchStatus, invoice.Total);
+            }
+
+            // Three-way match gate. EvaluateMatchAsync returns the status;
+            // UpdateInvoiceMatchStatusAsync persists it (returns void).
+            var match = await _matching.EvaluateMatchAsync(invoiceId);
+            await _matching.UpdateInvoiceMatchStatusAsync(invoiceId);
+            if (match == InvoiceMatchStatus.Exception && !overrideMatch)
+            {
+                throw new InvalidOperationException(
+                    $"Invoice {invoice.InvoiceNumber} has match exceptions. " +
+                    $"Resolve the line discrepancies or post with overrideMatch=true and an admin audit trail.");
+            }
+
+            var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (invoiceCompanyId == 0)
+                throw new InvalidOperationException($"Invoice {invoiceId} has no resolvable CompanyId.");
+
+            var postingDate = invoice.ApprovedAt ?? DateTime.UtcNow;
+            var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, postingDate);
+            if (!periodCheck.IsAllowed)
+                throw new InvalidOperationException(periodCheck.Reason ?? $"Posting period for {postingDate:yyyy-MM-dd} is closed.");
+
+            // Build the JE: Dr GR-Accrued (matched-against-PO lines) + Dr
+            // DirectExpense (manual lines) + Dr/Cr PPV / Cr AccountsPayable.
+            var debitTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            decimal ppvTotal = 0m; // positive = unfavorable (Dr PPV)
+            decimal totalCredit = 0m;
+
+            foreach (var line in invoice.Lines)
+            {
+                var lineAmount = line.LineTotal > 0 ? line.LineTotal : line.Quantity * line.UnitPrice;
+                if (lineAmount <= 0) continue;
+
+                totalCredit += lineAmount;
+
+                GlAccountKind drKind;
+                decimal drAmount = lineAmount;
+
+                if (line.PurchaseOrderLineId.HasValue)
+                {
+                    drKind = GlAccountKind.GrAccrued;
+
+                    // PPV calculation: difference between invoice unit cost and PO unit cost.
+                    if (line.PurchaseOrderLine != null && line.Quantity > 0)
+                    {
+                        var poUnit = line.PurchaseOrderLine.UnitPrice;
+                        var invUnit = line.UnitPrice;
+                        var variance = (invUnit - poUnit) * line.Quantity;
+                        if (variance != 0m)
+                        {
+                            // GR-Accrued was Dr'd at the PO unit cost during receipt.
+                            // Drop the GR-Accrued debit by the PO-cost portion only;
+                            // the variance lives in PPV.
+                            drAmount = poUnit * line.Quantity;
+                            ppvTotal += variance;
+                        }
+                    }
+                }
+                else
+                {
+                    // Manual line — direct expense (or asset cost; for now
+                    // the resolver's DirectExpense default; per-line GlAccountId
+                    // override could refine in a follow-up).
+                    drKind = GlAccountKind.DirectExpense;
+                }
+
+                var ctx = new GlResolveContext(
+                    PurchaseOrderLineId: line.PurchaseOrderLineId,
+                    VendorInvoiceLineId: line.Id);
+                var drAccount = await _glResolver.ResolveAsync(invoiceCompanyId, drKind, ctx);
+                debitTotals[drAccount] = debitTotals.GetValueOrDefault(drAccount, 0m) + drAmount;
+            }
+
+            // Apply PPV as either debit (unfavorable: invoice > PO) or credit (favorable).
+            string? ppvAccount = null;
+            if (ppvTotal != 0m)
+            {
+                ppvAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.PurchasePriceVariance, new GlResolveContext());
+                if (ppvTotal > 0m)
+                    debitTotals[ppvAccount] = debitTotals.GetValueOrDefault(ppvAccount, 0m) + ppvTotal;
+                // else handled in the credit-line section below
+            }
+
+            var apAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext());
+
+            var je = new JournalEntry
+            {
+                BookId = 0,
+                Batch = $"AP-APR-{invoice.InvoiceNumber}",
+                Period = int.Parse(postingDate.ToString("yyyyMM")),
+                PostingDate = postingDate.Date,
+                Source = "AP",
+                Reference = $"AP-APR-{invoice.InvoiceNumber}",
+                Description = $"Vendor invoice approval — {invoice.InvoiceNumber}",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>()
+            };
+
+            int lineNo = 1;
+            foreach (var (account, amount) in debitTotals.OrderBy(kv => kv.Key))
+            {
+                je.Lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = account,
+                    Description = $"AP {invoice.InvoiceNumber}",
+                    Debit = amount,
+                    Credit = 0m
+                });
+            }
+            // Favorable PPV: credit balance.
+            if (ppvAccount != null && ppvTotal < 0m)
+            {
+                je.Lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = ppvAccount,
+                    Description = $"PPV (favorable) {invoice.InvoiceNumber}",
+                    Debit = 0m,
+                    Credit = -ppvTotal
+                });
+            }
+            je.Lines.Add(new JournalLine
+            {
+                LineNo = lineNo,
+                Account = apAccount,
+                Description = $"AP — Vendor {invoice.VendorId}",
+                Debit = 0m,
+                Credit = totalCredit
+            });
+
+            _db.JournalEntries.Add(je);
+            invoice.Status = InvoiceStatus.Approved;
+            invoice.ApprovedAt = postingDate;
+            invoice.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "ApPostingService: approved invoice {InvNum} → JE {JeId}, total={Total}, PPV={PPV}",
+                invoice.InvoiceNumber, je.Id, totalCredit, ppvTotal);
+
+            return new ApPostingResult(invoiceId, je.Id, match, totalCredit);
+        }
+
+        public async Task<ApPostingResult> PostPaymentAsync(int invoiceId, decimal amount, DateTime paymentDate, string? paymentReference = null)
+        {
+            var invoice = await LoadInvoiceScopedAsync(invoiceId);
+            if (invoice == null)
+                throw new InvalidOperationException($"Invoice {invoiceId} not found.");
+
+            if (invoice.Status != InvoiceStatus.Approved && invoice.Status != InvoiceStatus.Paid)
+                throw new InvalidOperationException($"Invoice {invoice.InvoiceNumber} must be Approved before payment.");
+
+            if (amount <= 0)
+                throw new InvalidOperationException("Payment amount must be > 0.");
+
+            var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, paymentDate);
+            if (!periodCheck.IsAllowed)
+                throw new InvalidOperationException(periodCheck.Reason ?? $"Payment period for {paymentDate:yyyy-MM-dd} is closed.");
+
+            var apAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext());
+            var cashAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.Cash, new GlResolveContext());
+
+            var je = new JournalEntry
+            {
+                BookId = 0,
+                Batch = $"AP-PMT-{invoice.InvoiceNumber}",
+                Period = int.Parse(paymentDate.ToString("yyyyMM")),
+                PostingDate = paymentDate.Date,
+                Source = "AP",
+                Reference = $"AP-PMT-{invoice.InvoiceNumber}-{paymentReference ?? paymentDate.Ticks.ToString()}",
+                Description = $"Vendor invoice payment — {invoice.InvoiceNumber}",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>
+                {
+                    new JournalLine { LineNo = 1, Account = apAccount, Description = $"AP — Vendor {invoice.VendorId}", Debit = amount, Credit = 0m },
+                    new JournalLine { LineNo = 2, Account = cashAccount, Description = "Cash", Debit = 0m, Credit = amount }
+                }
+            };
+            _db.JournalEntries.Add(je);
+
+            invoice.AmountPaid += amount;
+            if (invoice.AmountPaid >= invoice.Total)
+                invoice.Status = InvoiceStatus.Paid;
+            invoice.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            return new ApPostingResult(invoiceId, je.Id, invoice.MatchStatus, amount);
+        }
+
+        public async Task<ApPostingResult> PostVoidAsync(int invoiceId, string reason)
+        {
+            var invoice = await LoadInvoiceScopedAsync(invoiceId);
+            if (invoice == null)
+                throw new InvalidOperationException($"Invoice {invoiceId} not found.");
+
+            if (invoice.Status == InvoiceStatus.Voided)
+                return new ApPostingResult(invoiceId, null, invoice.MatchStatus, 0m);
+
+            var voidDate = DateTime.UtcNow;
+            var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, voidDate);
+            if (!periodCheck.IsAllowed)
+                throw new InvalidOperationException(periodCheck.Reason ?? "Cannot void: posting period closed.");
+
+            // If the invoice was approved, post a contra JE that reverses the
+            // approval JE. Otherwise just flip status (no GL impact yet).
+            int? contraJeId = null;
+            var approvalRef = $"AP-APR-{invoice.InvoiceNumber}";
+            var original = invoice.Status == InvoiceStatus.Approved
+                ? await _db.JournalEntries
+                    .Include(j => j.Lines)
+                    .FirstOrDefaultAsync(j => j.Reference == approvalRef && j.Source == "AP")
+                : null;
+            if (original != null)
+            {
+                var contra = new JournalEntry
+                {
+                    BookId = original.BookId,
+                    Batch = $"AP-VOID-{invoice.InvoiceNumber}",
+                    Period = int.Parse(voidDate.ToString("yyyyMM")),
+                    PostingDate = voidDate.Date,
+                    Source = "AP",
+                    Reference = $"AP-VOID-{invoice.InvoiceNumber}",
+                    Description = $"Void of {original.Reference}: {reason}",
+                    CreatedUtc = DateTime.UtcNow,
+                    Lines = original.Lines.Select((l, idx) => new JournalLine
+                    {
+                        LineNo = idx + 1,
+                        Account = l.Account,
+                        Description = $"VOID: {l.Description}",
+                        Debit = l.Credit,
+                        Credit = l.Debit
+                    }).ToList()
+                };
+                _db.JournalEntries.Add(contra);
+                await _db.SaveChangesAsync();
+                contraJeId = contra.Id;
+            }
+
+            invoice.Status = InvoiceStatus.Voided;
+            invoice.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return new ApPostingResult(invoiceId, contraJeId, invoice.MatchStatus, 0m);
+        }
+
+        private async Task<VendorInvoice?> LoadInvoiceScopedAsync(int invoiceId)
+        {
+            return await _db.VendorInvoices
+                .Include(i => i.Lines).ThenInclude(l => l.PurchaseOrderLine)
+                .Include(i => i.Lines).ThenInclude(l => l.GoodsReceiptLine)
+                .Where(i => i.Id == invoiceId
+                    && _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+        }
+    }
+}
