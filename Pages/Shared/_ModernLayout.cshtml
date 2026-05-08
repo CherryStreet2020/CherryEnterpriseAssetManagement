@@ -402,6 +402,18 @@
                             <i class="fas fa-satellite-dish menu-item-icon"></i>
                             <span>Webhooks</span>
                         </a>
+                        <a href="/Admin/Webhooks/Deliveries" class="menu-item @(IsPage("/Admin/Webhooks/Deliveries") ? "active" : "")" data-nav-route="/Admin/Webhooks/Deliveries">
+                            <i class="fas fa-paper-plane menu-item-icon"></i>
+                            <span>Webhook Deliveries</span>
+                        </a>
+                        <a href="/Admin/Webhooks/Catalog" class="menu-item @(IsPage("/Admin/Webhooks/Catalog") ? "active" : "")" data-nav-route="/Admin/Webhooks/Catalog">
+                            <i class="fas fa-book-open menu-item-icon"></i>
+                            <span>Event Catalog</span>
+                        </a>
+                        <a href="/Admin/Outbox" class="menu-item @(IsPage("/Admin/Outbox/Index") ? "active" : "")" data-nav-route="/Admin/Outbox">
+                            <i class="fas fa-inbox menu-item-icon"></i>
+                            <span>Outbox</span>
+                        </a>
                         <a href="/Admin/Integrations" class="menu-item @(IsPage("/Admin/Integrations") ? "active" : "")" data-nav-route="/Admin/Integrations">
                             <i class="fas fa-plug menu-item-icon"></i>
                             <span>Integration Hub</span>

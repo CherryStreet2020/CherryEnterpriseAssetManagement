@@ -22,12 +22,33 @@ public class DeliveriesModel : PageModel
 
     public WebhookSubscription? Subscription { get; set; }
     public List<WebhookDeliveryLog> Deliveries { get; set; } = new();
+    public List<WebhookSubscription> Subscriptions { get; set; } = new();
+    public bool IsAggregateView => Subscription == null;
 
     public async Task<IActionResult> OnGetAsync(int? id)
     {
+        // No id → aggregate view across every subscription this tenant
+        // can see. Closes DEF-001 from the 2026-05-08 E2E run report
+        // (the page used to 404 when reached without an id, despite
+        // being linked from the global nav).
         if (id == null)
         {
-            return NotFound();
+            Subscriptions = await _db.WebhookSubscriptions
+                .Include(s => s.Company)
+                .Where(s => _tenantContext.VisibleCompanyIds.Contains(s.CompanyId))
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+
+            var subIds = Subscriptions.Select(s => s.Id).ToList();
+            Deliveries = await _db.WebhookDeliveryLogs
+                .Where(l => subIds.Contains(l.WebhookSubscriptionId))
+                .Include(l => l.OutboxEvent)
+                .Include(l => l.WebhookSubscription)
+                .OrderByDescending(l => l.CreatedAt)
+                .Take(100)
+                .ToListAsync();
+
+            return Page();
         }
 
         Subscription = await _db.WebhookSubscriptions
