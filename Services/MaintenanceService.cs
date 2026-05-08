@@ -218,16 +218,15 @@ namespace Abs.FixedAssets.Services
             // PMOccurrence.Id with PMTemplateAsset.Id and silently miss-targeted
             // rows or no-oped — see docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
 
-            // 1. Mark the occurrence as Closed (the scheduler reads this to
-            // know which occurrences have been fulfilled).
+            // 1. Mark the occurrence as Completed (the scheduler reads this
+            // to know which occurrences have been fulfilled).
             if (evt.PMOccurrenceId.HasValue)
             {
                 var occurrence = await _context.Set<PMOccurrence>()
                     .FirstOrDefaultAsync(o => o.Id == evt.PMOccurrenceId.Value);
-                if (occurrence != null && occurrence.Status != PMOccurrenceStatus.Closed)
+                if (occurrence != null && occurrence.Status != PMOccurrenceStatus.Completed)
                 {
-                    occurrence.Status = PMOccurrenceStatus.Closed;
-                    occurrence.UpdatedAtUtc = DateTime.UtcNow;
+                    occurrence.Status = PMOccurrenceStatus.Completed;
                 }
             }
 

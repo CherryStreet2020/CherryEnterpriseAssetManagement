@@ -15,7 +15,11 @@ namespace Abs.FixedAssets.Models
     {
         Created = 0,
         Skipped = 1,
-        Error = 2
+        Error = 2,
+        // S1-2: marker for occurrences whose WO has been closed.
+        // The scheduler reads this to know which occurrences have been
+        // fulfilled (vs. still open / overdue).
+        Completed = 3
     }
 
     [Index(nameof(TenantId), nameof(CompanyId), nameof(SiteId), nameof(PMTemplateId), nameof(Active))]

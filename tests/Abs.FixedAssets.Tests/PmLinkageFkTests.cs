@@ -90,7 +90,7 @@ public class PmLinkageFkTests
             Code = "PM-T1",
             Name = "Monthly inspection",
             Type = MaintenanceType.Preventative,
-            Priority = WorkRequestPriority.Medium,
+            Priority = PMPriority.Medium,
             CalendarInterval = RecurrenceType.Monthly,
             CalendarIntervalValue = 1,
             CompanyId = companyId,
@@ -113,13 +113,13 @@ public class PmLinkageFkTests
         var schedule = new PMSchedule
         {
             PMTemplateId = template.Id,
+            Name = "Monthly schedule",
             CompanyId = companyId,
-            CadenceType = PMCadenceType.Calendar,
+            CadenceType = PMCadenceType.IntervalDays,
             IntervalDays = 30,
             NextDueDateUtc = DateTime.UtcNow.AddDays(30),
-            IsActive = true,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
+            Active = true,
+            CreatedAt = DateTime.UtcNow
         };
         db.Set<PMSchedule>().Add(schedule);
         await db.SaveChangesAsync();
@@ -131,8 +131,7 @@ public class PmLinkageFkTests
             CompanyId = companyId,
             DueDateUtc = DateTime.UtcNow,
             Status = PMOccurrenceStatus.Created,
-            CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
+            GeneratedAt = DateTime.UtcNow
         };
         db.Set<PMOccurrence>().Add(occurrence);
         await db.SaveChangesAsync();
@@ -169,7 +168,7 @@ public class PmLinkageFkTests
         await svc.CompleteEventAsync(wo.Id, "fixed", actualCost: 0m);
 
         var occAfter = await db.Set<PMOccurrence>().AsNoTracking().FirstAsync(o => o.Id == occurrence.Id);
-        Assert.Equal(PMOccurrenceStatus.Closed, occAfter.Status);
+        Assert.Equal(PMOccurrenceStatus.Completed, occAfter.Status);
     }
 
     [Fact]
