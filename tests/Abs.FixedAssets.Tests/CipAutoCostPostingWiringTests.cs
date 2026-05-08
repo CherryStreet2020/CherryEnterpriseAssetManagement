@@ -10,6 +10,7 @@ using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Maintenance;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -139,7 +140,7 @@ public class CipAutoCostPostingWiringTests
 
         var project = new CipProject
         {
-            ProjectCode = "CIP-001",
+            ProjectNumber ="CIP-001",
             Name = "Test CIP",
             CompanyId = companyId,
             Status = CipProjectStatus.Active,
@@ -306,7 +307,7 @@ public class CipAutoCostPostingWiringTests
 
         var project = new CipProject
         {
-            ProjectCode = "CIP-WO",
+            ProjectNumber ="CIP-WO",
             Name = "WO Cost Project",
             CompanyId = companyId,
             Status = CipProjectStatus.Active,
