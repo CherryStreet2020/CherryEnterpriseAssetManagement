@@ -288,10 +288,13 @@ public class PeriodLockEnforcementTests
 
         var cipCostServiceM = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCostM = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostServiceM);
+        var depBackfillM = new DepreciationBackfillService(db, new DepreciationService(),
+            NullLogger<DepreciationBackfillService>.Instance);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
             tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard,
-            cipAutoCostM, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
+            cipAutoCostM, depBackfillM,
+            NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
         var result = await page.OnPostCompleteAsync(evt.Id, "fixed it", 100m, 50m, 25m, 0m);
@@ -351,10 +354,13 @@ public class PeriodLockEnforcementTests
 
         var cipCostServiceM = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCostM = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostServiceM);
+        var depBackfillM = new DepreciationBackfillService(db, new DepreciationService(),
+            NullLogger<DepreciationBackfillService>.Instance);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
             tenant, lookup, new AlwaysEnabledModuleGuard(), periodGuard,
-            cipAutoCostM, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
+            cipAutoCostM, depBackfillM,
+            NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
         await page.OnPostCompleteAsync(evt.Id, "fixed it", 100m, 50m, 25m, 0m);

@@ -25,6 +25,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
         private readonly IModuleGuardService _moduleGuard;
         private readonly IPeriodGuard _periodGuard;
         private readonly CipAutoCostPostingService _cipAutoCostPosting;
+        private readonly DepreciationBackfillService _depBackfill;
         private readonly ILogger<DetailsModel> _logger;
 
         public DetailsModel(MaintenanceService maintenanceService,
@@ -36,6 +37,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             IModuleGuardService moduleGuard,
             IPeriodGuard periodGuard,
             CipAutoCostPostingService cipAutoCostPosting,
+            DepreciationBackfillService depBackfill,
             ILogger<DetailsModel> logger)
         {
             _moduleGuard = moduleGuard;
@@ -47,6 +49,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             _lookupService = lookupService;
             _periodGuard = periodGuard;
             _cipAutoCostPosting = cipAutoCostPosting;
+            _depBackfill = depBackfill;
             _logger = logger;
         }
 
@@ -299,17 +302,41 @@ namespace Abs.FixedAssets.Pages.Maintenance
             var evt = await GetScopedEventSimpleAsync(id);
             if (evt == null)
                 return NotFound();
-            
+
             if (evt.Status != MaintenanceStatus.Completed || evt.AssetId <= 0)
                 return RedirectToPage(new { id });
-            
+
             if (!string.IsNullOrEmpty(evt.CustomField2) && evt.CustomField2.StartsWith("IMPR:"))
                 return RedirectToPage(new { id });
-            
+
+            // S2-9: capitalizing a WO into an asset's cost basis is a financial
+            // posting (Asset.AcquisitionCost increment + CapitalImprovement row
+            // that downstream depreciation reads). Must respect the period lock
+            // — same posture as Pages/Assets/Improve.cshtml.cs:99 and
+            // Pages/Assets/Dispose.cshtml.cs:128.
+            var improvementDate = evt.CompletedDate ?? DateTime.UtcNow;
+            var asset = await _context.Assets
+                .Where(a => a.Id == evt.AssetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (asset == null)
+                return NotFound();
+
+            var assetCompanyId = asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (assetCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, improvementDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    TempData["Error"] = periodCheck.Reason
+                        ?? $"Cannot capitalize: posting period for {improvementDate:yyyy-MM-dd} is closed.";
+                    return RedirectToPage(new { id });
+                }
+            }
+
             var improvement = new CapitalImprovement
             {
                 AssetId = evt.AssetId,
-                ImprovementDate = evt.CompletedDate ?? DateTime.UtcNow,
+                ImprovementDate = improvementDate,
                 Description = string.IsNullOrEmpty(description) ? $"WO {evt.WorkOrderNumber}: {evt.Description}" : description,
                 Cost = amount,
                 Vendor = evt.Vendor,
@@ -318,22 +345,20 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = User.Identity?.Name
             };
-            
+
             _context.CapitalImprovements.Add(improvement);
-            await _context.SaveChangesAsync();
-            
+            asset.AcquisitionCost += amount;
             evt.CustomField2 = $"IMPR:{improvement.Id}";
-            
-            var asset = await _context.Assets
-                .Where(a => a.Id == evt.AssetId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (asset != null)
-            {
-                asset.AcquisitionCost += amount;
-            }
-            
+
             await _context.SaveChangesAsync();
-            
+
+            // S2-9: refresh the depreciation snapshot on Asset and each
+            // AssetBookSettings so subsequent reads (asset detail, KPI
+            // dashboard, schedule report) reflect the new cost basis.
+            // Same pattern as Pages/Assets/Improve.cshtml.cs (PR #27).
+            // Posted JournalEntries are append-only and untouched.
+            await _depBackfill.RecomputeAssetAsync(evt.AssetId, improvementDate);
+
             TempData["Message"] = $"Capitalized ${amount:N0} to asset {evt.Asset?.AssetNumber} as improvement #{improvement.Id}";
             return RedirectToPage(new { id });
         }
