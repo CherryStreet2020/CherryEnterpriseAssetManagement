@@ -65,6 +65,11 @@ namespace Abs.FixedAssets.Models
         public DateTime? UpdatedAt { get; set; }
 
         public ICollection<GoodsReceiptLine> Lines { get; set; } = new List<GoodsReceiptLine>();
+
+        // S1-8 / S2-8: optimistic concurrency via PG xmin. See
+        // Data/XminRowVersionExtensions.cs.
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 
     public class GoodsReceiptLine

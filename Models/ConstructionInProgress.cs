@@ -91,6 +91,11 @@ namespace Abs.FixedAssets.Models
         public ICollection<CipCost>? Costs { get; set; }
         public ICollection<CipBudgetLine>? BudgetLines { get; set; }
         public ICollection<CipCapitalization>? Capitalizations { get; set; }
+
+        // S1-8 / S2-8: optimistic concurrency via PG xmin. See
+        // Data/XminRowVersionExtensions.cs.
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 
     public class CipCost

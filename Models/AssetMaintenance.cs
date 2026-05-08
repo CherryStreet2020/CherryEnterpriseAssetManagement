@@ -165,6 +165,11 @@ namespace Abs.FixedAssets.Models
         public string? CustomField10 { get; set; }
 
         public ICollection<WorkOrderOperation>? Operations { get; set; }
+
+        // S1-8 / S2-8: optimistic concurrency via PG xmin. See
+        // Data/XminRowVersionExtensions.cs.
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 
     public class MaintenanceSchedule
