@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using System.Text.Json;
 
 namespace Abs.FixedAssets.Services.Maintenance;
@@ -312,21 +313,16 @@ public class WorkRequestConversionService : IWorkRequestConversionService
                 await _outbox.EnqueueAsync(
                     companyId,
                     workRequest.SiteId,
-                    WebhookEventTypes.WorkOrderCreated,
-                    "MaintenanceEvent",
-                    workOrder.Id.ToString(),
-                    new
-                    {
-                        WorkOrderId = workOrder.Id,
-                        WorkOrderNumber = workOrder.WorkOrderNumber,
-                        Status = workOrder.Status.ToString(),
-                        Priority = workOrder.Priority.ToString(),
-                        AssetId = workOrder.AssetId,
-                        SourceWorkRequestId = workRequest.Id,
-                        OperationCount = operations.Count,
-                        CreatedAt = workOrder.CreatedAt
-                    },
-                    $"workrequest-{workRequest.Id}"
+                    new WorkOrderCreatedV1(
+                        WorkOrderId: workOrder.Id,
+                        WorkOrderNumber: workOrder.WorkOrderNumber,
+                        Status: workOrder.Status.ToString(),
+                        Priority: workOrder.Priority.ToString(),
+                        AssetId: workOrder.AssetId,
+                        SourceWorkRequestId: workRequest.Id,
+                        OperationCount: operations.Count,
+                        CreatedAt: workOrder.CreatedAt),
+                    correlationId: $"workrequest-{workRequest.Id}"
                 );
 
                 await _db.SaveChangesAsync();

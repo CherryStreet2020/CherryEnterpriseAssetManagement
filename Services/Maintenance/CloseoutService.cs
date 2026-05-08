@@ -4,6 +4,7 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using System.Text;
 using System.Text.Json;
 
@@ -201,36 +202,26 @@ public class CloseoutService : ICloseoutService
             await _outbox.EnqueueAsync(
                 companyId,
                 siteId,
-                WebhookEventTypes.WorkOrderClosed,
-                "MaintenanceEvent",
-                workOrderId.ToString(),
-                new
-                {
-                    WorkOrderId = workOrderId,
-                    WorkOrderNumber = workOrder.WorkOrderNumber,
-                    Status = workOrder.Status.ToString(),
-                    AssetId = workOrder.AssetId,
-                    ClosedAt = workOrder.ClosedAt,
-                    ClosedBy = username
-                },
-                $"closeout-{workOrderId}"
+                new WorkOrderClosedV1(
+                    WorkOrderId: workOrderId,
+                    WorkOrderNumber: workOrder.WorkOrderNumber,
+                    Status: workOrder.Status.ToString(),
+                    AssetId: workOrder.AssetId,
+                    ClosedAt: workOrder.ClosedAt,
+                    ClosedBy: username),
+                correlationId: $"closeout-{workOrderId}"
             );
 
             await _outbox.EnqueueAsync(
                 companyId,
                 siteId,
-                WebhookEventTypes.CloseoutSummaryGenerated,
-                "MaintenanceEvent",
-                workOrderId.ToString(),
-                new
-                {
-                    WorkOrderId = workOrderId,
-                    WorkOrderNumber = workOrder.WorkOrderNumber,
-                    SummaryLength = summary.Length,
-                    OperationsCount = operations.Count,
-                    HasLessonsLearned = !string.IsNullOrEmpty(lessonsLearned)
-                },
-                $"closeout-{workOrderId}"
+                new CloseoutSummaryGeneratedV1(
+                    WorkOrderId: workOrderId,
+                    WorkOrderNumber: workOrder.WorkOrderNumber,
+                    SummaryLength: summary.Length,
+                    OperationsCount: operations.Count,
+                    HasLessonsLearned: !string.IsNullOrEmpty(lessonsLearned)),
+                correlationId: $"closeout-{workOrderId}"
             );
 
             result.ResolutionSummary = summary;
@@ -313,19 +304,14 @@ public class CloseoutService : ICloseoutService
             await _outbox.EnqueueAsync(
                 companyId,
                 siteId,
-                WebhookEventTypes.LessonSaved,
-                "LessonLearned",
-                lesson.Id.ToString(),
-                new
-                {
-                    LessonId = lesson.Id,
-                    SourceWorkOrderId = workOrderId,
-                    WorkOrderNumber = workOrder.WorkOrderNumber,
-                    FailureCode = workOrder.FailureCode,
-                    Tags = tags,
-                    CreatedBy = username
-                },
-                $"lesson-{lesson.Id}"
+                new LessonSavedV1(
+                    LessonId: lesson.Id,
+                    SourceWorkOrderId: workOrderId,
+                    WorkOrderNumber: workOrder.WorkOrderNumber,
+                    FailureCode: workOrder.FailureCode,
+                    Tags: tags,
+                    CreatedBy: username),
+                correlationId: $"lesson-{lesson.Id}"
             );
 
             result.LessonId = lesson.Id;
