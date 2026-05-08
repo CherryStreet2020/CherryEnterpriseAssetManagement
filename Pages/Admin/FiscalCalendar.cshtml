@@ -1,0 +1,184 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.FiscalCalendarModel
+@{
+    ViewData["Title"] = "Fiscal Calendar";
+    ViewData["TabTitle"] = "Fiscal Calendar";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var openPeriods = Model.PeriodsByYear.SelectMany(kv => kv.Value).Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Open);
+    var totalPeriods = Model.PeriodsByYear.SelectMany(kv => kv.Value).Count();
+    var statusText = totalPeriods == 0 ? "Not Configured" : $"{openPeriods} of {totalPeriods} Open";
+    var statusTone = totalPeriods == 0 ? "warning" : "success";
+
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Fiscal Calendar" },
+        { "Subtitle", "Calendar-year fiscal periods that gate every JE posting. Coverage is auto-rolled forward at app startup." },
+        { "TypeLabel", "Administration" },
+        { "StatusText", statusText },
+        { "StatusTone", statusTone }
+    };
+}
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="alert alert-success" data-csp-style="margin-bottom: 16px;">@Model.SuccessMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" data-csp-style="margin-bottom: 16px;">@Model.ErrorMessage</div>
+}
+
+<div class="section-card" data-csp-style="margin-bottom: 16px;">
+    <div class="section-card-header">
+        <h3 class="section-card-title">
+            <i class="fas fa-building" data-csp-style="margin-right: 8px;"></i>
+            Company
+        </h3>
+    </div>
+    <div class="section-card-body">
+        <form method="get" data-csp-style="display: flex; gap: 12px; align-items: end;">
+            <div class="form-group" data-csp-style="flex: 1;">
+                <label>Company</label>
+                <select name="CompanyId" class="form-control" onchange="this.form.submit()">
+                    @foreach (var opt in Model.CompanyOptions)
+                    {
+                        if (Model.CompanyId?.ToString() == opt.Value)
+                        {
+                            <option value="@opt.Value" selected>@opt.Text</option>
+                        }
+                        else
+                        {
+                            <option value="@opt.Value">@opt.Text</option>
+                        }
+                    }
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+@if (Model.CompanyId.HasValue)
+{
+    <div class="section-card" data-csp-style="margin-bottom: 16px;">
+        <div class="section-card-header">
+            <h3 class="section-card-title">Calendar Actions</h3>
+        </div>
+        <div class="section-card-body" data-csp-style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <form method="post" asp-page-handler="EnsureCoverage">
+                <input type="hidden" name="companyId" value="@Model.CompanyId" />
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-rotate" data-csp-style="margin-right: 6px;"></i>
+                    Ensure Coverage [today − 1y, today + 2y]
+                </button>
+            </form>
+            <form method="post" asp-page-handler="GenerateNextYear">
+                <input type="hidden" name="companyId" value="@Model.CompanyId" />
+                <button type="submit" class="btn btn-outline-primary">
+                    <i class="fas fa-calendar-plus" data-csp-style="margin-right: 6px;"></i>
+                    Generate Next Year
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (!Model.Years.Any())
+    {
+        <div class="section-card">
+            <div class="section-card-body">
+                <p data-csp-style="color: var(--text-secondary); margin: 0;">
+                    No fiscal years for this company yet. Click <strong>Ensure Coverage</strong> to materialize the default 4-year window.
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        foreach (var fy in Model.Years)
+        {
+            var yearStatusClass = fy.Status switch
+            {
+                Abs.FixedAssets.Models.FiscalYearStatus.Open => "success",
+                Abs.FixedAssets.Models.FiscalYearStatus.Closed => "warning",
+                Abs.FixedAssets.Models.FiscalYearStatus.Locked => "danger",
+                _ => "info"
+            };
+            var periods = Model.PeriodsByYear.TryGetValue(fy.Id, out var ps) ? ps : new List<Abs.FixedAssets.Models.FiscalPeriod>();
+
+            <div class="section-card" data-csp-style="margin-bottom: 16px;">
+                <div class="section-card-header" data-csp-style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="section-card-title" data-csp-style="margin: 0;">
+                        FY @fy.Year
+                        <span class="badge badge-@yearStatusClass" data-csp-style="margin-left: 8px;">@fy.Status</span>
+                        <span data-csp-style="color: var(--text-secondary); font-weight: normal; margin-left: 8px; font-size: 0.9rem;">
+                            @fy.StartDate.ToString("yyyy-MM-dd") → @fy.EndDate.ToString("yyyy-MM-dd")
+                        </span>
+                    </h3>
+                    <form method="post" asp-page-handler="ToggleYear" data-csp-style="margin: 0;">
+                        <input type="hidden" name="fiscalYearId" value="@fy.Id" />
+                        <input type="hidden" name="companyId" value="@Model.CompanyId" />
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            @(fy.Status == Abs.FixedAssets.Models.FiscalYearStatus.Open ? "Close Year" : "Re-open Year")
+                        </button>
+                    </form>
+                </div>
+                <div class="section-card-body" data-csp-style="padding: 0;">
+                    <table class="table table-striped" data-csp-style="margin: 0;">
+                        <thead>
+                            <tr>
+                                <th>Period</th>
+                                <th>Name</th>
+                                <th>Start</th>
+                                <th>End</th>
+                                <th>Days</th>
+                                <th>Status</th>
+                                <th data-csp-style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in periods)
+                            {
+                                var pStatus = p.Status switch
+                                {
+                                    Abs.FixedAssets.Models.PeriodStatus.Open => "success",
+                                    Abs.FixedAssets.Models.PeriodStatus.Closed => "warning",
+                                    Abs.FixedAssets.Models.PeriodStatus.Locked => "danger",
+                                    _ => "info"
+                                };
+                                <tr>
+                                    <td>@p.PeriodNumber</td>
+                                    <td>@p.Name</td>
+                                    <td>@p.StartDate.ToString("yyyy-MM-dd")</td>
+                                    <td>@p.EndDate.ToString("yyyy-MM-dd")</td>
+                                    <td>@p.DaysInPeriod</td>
+                                    <td><span class="badge badge-@pStatus">@p.Status</span></td>
+                                    <td data-csp-style="text-align: right;">
+                                        <form method="post" asp-page-handler="TogglePeriod" data-csp-style="display: inline;">
+                                            <input type="hidden" name="periodId" value="@p.Id" />
+                                            <input type="hidden" name="companyId" value="@Model.CompanyId" />
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                @(p.Status == Abs.FixedAssets.Models.PeriodStatus.Open ? "Close" : "Re-open")
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+}
+else
+{
+    <div class="section-card">
+        <div class="section-card-body">
+            <p data-csp-style="color: var(--text-secondary); margin: 0;">
+                No active companies are visible to your tenant. Create a company under <a href="/Admin/Companies">Admin → Companies</a> first.
+            </p>
+        </div>
+    </div>
+}
