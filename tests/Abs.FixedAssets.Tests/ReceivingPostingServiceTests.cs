@@ -66,7 +66,9 @@ public class ReceivingPostingServiceTests
     private static ReceivingPostingService NewService(AppDbContext db, ITenantContext tenant)
     {
         var resolver = new GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
-        return new ReceivingPostingService(db, tenant, resolver,
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(
+            db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+        return new ReceivingPostingService(db, tenant, resolver, outbox,
             NullLogger<ReceivingPostingService>.Instance);
     }
 
@@ -265,5 +267,43 @@ public class ReceivingPostingServiceTests
         Assert.Equal(0m, result.TotalAccrued);
         Assert.Empty(await db.JournalEntries.ToListAsync());
         Assert.Empty(await db.Set<ItemInventory>().ToListAsync());
+    }
+
+    [Fact]
+    public async Task PostReceipt_StockItem_EmitsItemReceivedV1OutboxEvent()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var (receipt, item, location) = await SeedStockReceiptAsync(db, companyId, qty: 7m, unitPrice: 12m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        await NewService(db, tenant).PostReceiptAsync(receipt.Id);
+
+        var evt = await db.OutboxEvents.SingleAsync(e => e.EventType == "item.received");
+        Assert.Equal("ItemInventory", evt.EntityType);
+        Assert.Equal(companyId, evt.CompanyId);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
+        var root = doc.RootElement;
+        Assert.Equal(item.Id, root.GetProperty("itemId").GetInt32());
+        Assert.Equal(location.Id, root.GetProperty("locationId").GetInt32());
+        Assert.Equal(7m, root.GetProperty("quantity").GetDecimal());
+        Assert.Equal(12m, root.GetProperty("unitCost").GetDecimal());
+        Assert.Equal(7m, root.GetProperty("newQuantityOnHand").GetDecimal());
+    }
+
+    [Fact]
+    public async Task PostReceipt_DuplicateReplay_DoesNotEmitItemReceivedTwice()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var (receipt, _, _) = await SeedStockReceiptAsync(db, companyId, qty: 5m, unitPrice: 4m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+        await svc.PostReceiptAsync(receipt.Id);
+        await svc.PostReceiptAsync(receipt.Id); // idempotent re-run
+
+        Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "item.received"));
     }
 }

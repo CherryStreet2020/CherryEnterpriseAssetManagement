@@ -151,11 +151,12 @@ public class ReceivingTenantScopeTests
         var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
-        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
+        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, outbox, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup,
             new AllowAllPeriodGuard(), NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance,
-            cipAutoCost, receivingPosting);
+            cipAutoCost, receivingPosting, outbox);
         WirePageContext(page);
         return page;
     }

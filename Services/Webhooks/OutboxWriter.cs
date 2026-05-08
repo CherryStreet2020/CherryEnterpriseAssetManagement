@@ -25,6 +25,11 @@ public static class WebhookEventTypes
     public const string AssetImproved = "asset.improved";
     public const string AssetDisposed = "asset.disposed";
 
+    // Purchasing + Receiving (ADR-001)
+    public const string PoApproved = "po.approved";
+    public const string PoReceived = "po.received";
+    public const string ItemReceived = "item.received";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -37,7 +42,10 @@ public static class WebhookEventTypes
         InvoiceVoided,
         AssetCreated,
         AssetImproved,
-        AssetDisposed
+        AssetDisposed,
+        PoApproved,
+        PoReceived,
+        ItemReceived
     };
 }
 
