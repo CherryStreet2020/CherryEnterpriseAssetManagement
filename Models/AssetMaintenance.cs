@@ -80,6 +80,22 @@ namespace Abs.FixedAssets.Models
         public int? CipProjectId { get; set; }
         public CipProject? CipProject { get; set; }
 
+        // S1-2: explicit FK linkage to the PM occurrence and template-asset
+        // assignment that generated this WO. Replaces the brittle
+        // CustomField1 = "PMTA:N" string hack that conflated PMOccurrence.Id
+        // with PMTemplateAsset.Id (different tables, different namespaces) —
+        // see docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
+        //
+        // FK-only (no navigation property): PMOccurrence already has a
+        // WorkOrder navigation pointing back here, and EF's convention
+        // would pair the two as a one-to-one if both sides had navs.
+        // Service code looks up via _context.Set<PMOccurrence>() by Id —
+        // no Include is needed because tenancy is enforced through the
+        // event's Asset.CompanyId rather than via this FK.
+        public int? PMOccurrenceId { get; set; }
+
+        public int? PMTemplateAssetId { get; set; }
+
         public int? ApprovedById { get; set; }
         public User? ApprovedBy { get; set; }
 

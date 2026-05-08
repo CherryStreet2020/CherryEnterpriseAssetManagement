@@ -397,14 +397,18 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                 .FirstOrDefaultAsync();
             if (wo == null) return NotFound();
 
-            int? pmtaId = null;
-            if (!string.IsNullOrEmpty(wo.CustomField1) && wo.CustomField1.StartsWith("PMTA:"))
+            // S1-2: prefer PMTemplateAssetId FK; fall back to legacy CustomField1
+            // marker for in-flight rows that predate the migration.
+            int? pmtaId = wo.PMTemplateAssetId;
+            if (pmtaId == null
+                && !string.IsNullOrEmpty(wo.CustomField1)
+                && wo.CustomField1.StartsWith("PMTA:"))
             {
                 int.TryParse(wo.CustomField1.Substring(5), out var parsed);
                 pmtaId = parsed > 0 ? parsed : null;
             }
 
-            if (pmtaId == null) 
+            if (pmtaId == null)
             {
                 TempData["Error"] = "No PM Template linked to this Work Order.";
                 return RedirectToPage(new { id = workOrderId });

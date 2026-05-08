@@ -138,8 +138,11 @@ namespace Abs.FixedAssets.Pages.Admin
                 PMTemplateCount = await _context.Set<Models.PMTemplate>().CountAsync();
                 PMTemplateAssetCount = await _context.Set<Models.PMTemplateAsset>().CountAsync();
                 MaintenanceEventCount = await _context.MaintenanceEvents.CountAsync();
+                // S1-2: count via FK (preferred) OR legacy CustomField1 marker
+                // for in-flight rows from before the FK migration.
                 PMTALinkedWOCount = await _context.MaintenanceEvents
-                    .Where(e => e.CustomField1 != null && e.CustomField1.StartsWith("PMTA:"))
+                    .Where(e => e.PMTemplateAssetId != null
+                        || (e.CustomField1 != null && e.CustomField1.StartsWith("PMTA:")))
                     .CountAsync();
             }
             catch
