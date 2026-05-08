@@ -318,5 +318,111 @@ namespace Abs.FixedAssets.Services
             if (report.AssetsRecomputed > 0)
                 await _db.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// Recomputes the depreciation snapshot for a single asset across all
+        /// of its non-excluded AssetBookSettings. Designed to be called after
+        /// in-place mutations that change <see cref="Asset.AcquisitionCost"/>,
+        /// <see cref="Asset.UsefulLifeMonths"/>, <see cref="Asset.SalvageValue"/>,
+        /// or <see cref="Asset.InServiceDate"/> — typically a capital
+        /// improvement or asset adjustment posting.
+        ///
+        /// Idempotent. Does not touch posted <see cref="JournalEntry"/> rows;
+        /// only restamps the running totals on <see cref="Asset"/> and each
+        /// <see cref="AssetBookSettings"/>. The new schedule is rebuilt from
+        /// the asset's current state, so the caller MUST persist mutations
+        /// (via <c>SaveChangesAsync</c>) before invoking this method.
+        /// </summary>
+        /// <param name="assetId">The asset whose snapshot to recompute.</param>
+        /// <param name="asOfDate">As-of date for the schedule's last row.
+        /// Defaults to today (UTC).</param>
+        /// <returns>The number of <see cref="AssetBookSettings"/> rows whose
+        /// snapshot was updated. Returns 0 if the asset has no settings, is
+        /// not depreciable, or its in-service date is in the future.</returns>
+        public async Task<int> RecomputeAssetAsync(int assetId, DateTime? asOfDate = null)
+        {
+            var effectiveAsOf = asOfDate ?? DateTime.UtcNow.Date;
+
+            var asset = await _db.Assets.FirstOrDefaultAsync(a => a.Id == assetId);
+            if (asset == null) return 0;
+
+            // Non-depreciable shapes — caller is expected to handle the asset
+            // state at the page-handler level. We just no-op so the page can
+            // continue without burying this case in an exception.
+            if (asset.AcquisitionCost <= 0
+                || asset.UsefulLifeMonths <= 0
+                || asset.InServiceDate > effectiveAsOf)
+            {
+                return 0;
+            }
+
+            var settingsList = await _db.AssetBookSettings
+                .Include(s => s.Book)
+                .Where(s => s.AssetId == assetId && !s.IsExcludedFromBook)
+                .ToListAsync();
+
+            // Re-attach asset to each settings row so DepreciationService can
+            // read .Asset off the settings (the load above pulled by AssetId,
+            // not Include(s.Asset), to keep the round-trip small).
+            foreach (var s in settingsList) s.Asset = asset;
+
+            int recomputed = 0;
+            decimal latestAccum = 0m;
+            decimal latestNbv = asset.AcquisitionCost;
+            DateTime? latestPeriodEnd = null;
+
+            foreach (var settings in settingsList)
+            {
+                if (settings.Book == null) continue;
+
+                List<DepreciationRow> schedule;
+                try
+                {
+                    schedule = _depService.BuildScheduleWithSettings(asset, effectiveAsOf, settings);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "RecomputeAssetAsync: schedule build failed for asset {AssetId} book {BookId}",
+                        assetId, settings.BookId);
+                    continue;
+                }
+
+                if (schedule.Count == 0) continue;
+
+                var lastRow = schedule[^1];
+                settings.AccumulatedDepreciation = lastRow.AccumulatedDepreciation;
+                settings.BookValue = lastRow.EndingBookValue;
+                settings.LastDepreciationDate = lastRow.PeriodEnd;
+                settings.UpdatedAt = DateTime.UtcNow;
+                recomputed++;
+
+                // Track the GAAP/financial book numbers separately so we can
+                // also stamp them on the Asset row (which mirrors the primary
+                // financial book's snapshot — see ComputeHistoricDepreciationAsync).
+                if (settings.Book.BookType == BookType.Financial)
+                {
+                    latestAccum = lastRow.AccumulatedDepreciation;
+                    latestNbv = lastRow.EndingBookValue;
+                    latestPeriodEnd = lastRow.PeriodEnd;
+                }
+            }
+
+            // Stamp asset-level snapshot from the financial book if we found
+            // one; otherwise leave the asset's own AccumulatedDepreciation /
+            // BookValue alone — they're outputs of the GAAP book and have no
+            // meaning without one.
+            if (latestPeriodEnd.HasValue)
+            {
+                asset.AccumulatedDepreciation = latestAccum;
+                asset.BookValue = latestNbv;
+                asset.LastDepreciationDate = latestPeriodEnd.Value;
+            }
+
+            if (recomputed > 0)
+                await _db.SaveChangesAsync();
+
+            return recomputed;
+        }
     }
 }

@@ -14,14 +14,17 @@ public class ImproveModel : PageModel
     private readonly ITenantContext _tenantContext;
     private readonly IModuleGuardService _moduleGuard;
     private readonly IPeriodGuard _periodGuard;
+    private readonly DepreciationBackfillService _depBackfill;
 
     public ImproveModel(AppDbContext db, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IPeriodGuard periodGuard)
+            IModuleGuardService moduleGuard, IPeriodGuard periodGuard,
+            DepreciationBackfillService depBackfill)
     {
         _moduleGuard = moduleGuard;
         _db = db;
         _tenantContext = tenantContext;
         _periodGuard = periodGuard;
+        _depBackfill = depBackfill;
     }
 
     public string? ErrorMessage { get; set; }
@@ -130,6 +133,14 @@ public class ImproveModel : PageModel
         }
 
         await _db.SaveChangesAsync();
+
+        // Refresh the cached depreciation snapshot on Asset and each
+        // AssetBookSettings row so subsequent reads (asset detail page,
+        // dashboard KPIs, schedule reports) reflect the new cost basis and
+        // useful life. Posted JournalEntries are append-only and untouched
+        // — only the running totals get restamped, plus the future-month
+        // schedule changes.
+        await _depBackfill.RecomputeAssetAsync(AssetId, ImprovementDate);
 
         TempData["Message"] = $"Capital improvement of {Cost:C0} added to asset {Asset.AssetNumber}.";
         return RedirectToPage("./Asset", new { id = AssetId, mode = "view" });
