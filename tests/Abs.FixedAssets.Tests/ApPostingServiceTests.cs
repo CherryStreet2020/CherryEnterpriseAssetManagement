@@ -6,6 +6,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.AccountsPayable;
+using Abs.FixedAssets.Services.Webhooks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
@@ -80,8 +81,9 @@ public class ApPostingServiceTests
     {
         var resolver = new GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var matching = new InvoiceMatchingService(db);
+        var outbox = new OutboxWriter(db, tenant, NullLogger<OutboxWriter>.Instance);
         return new ApPostingService(db, tenant, resolver, guard ?? new AllowAllPeriodGuard(), matching,
-            NullLogger<ApPostingService>.Instance);
+            outbox, NullLogger<ApPostingService>.Instance);
     }
 
     private static async Task<VendorInvoice> SeedManualInvoiceAsync(AppDbContext db, int companyId, decimal lineTotal)
@@ -259,5 +261,117 @@ public class ApPostingServiceTests
 
         Assert.Equal(first.JournalEntryId, second.JournalEntryId);
         Assert.Equal(1, await db.JournalEntries.CountAsync());
+    }
+
+    [Fact]
+    public async Task PostApproval_EmitsInvoiceApprovedV1OutboxEvent()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 320m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var result = await NewService(db, tenant).PostApprovalAsync(inv.Id, approverUsername: "alice");
+
+        var evt = await db.OutboxEvents.SingleAsync(e => e.EventType == "invoice.approved");
+        Assert.Equal("VendorInvoice", evt.EntityType);
+        Assert.Equal(inv.Id.ToString(), evt.EntityId);
+        Assert.Equal(companyId, evt.CompanyId);
+        Assert.Equal(1, evt.PayloadVersion);
+        Assert.Equal($"ap-approve-{inv.Id}", evt.CorrelationId);
+
+        using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
+        var root = doc.RootElement;
+        Assert.Equal(inv.Id, root.GetProperty("invoiceId").GetInt32());
+        Assert.Equal(inv.InvoiceNumber, root.GetProperty("invoiceNumber").GetString());
+        Assert.Equal(companyId, root.GetProperty("companyId").GetInt32());
+        Assert.Equal(320m, root.GetProperty("total").GetDecimal());
+        Assert.Equal(result.JournalEntryId, root.GetProperty("journalEntryId").GetInt32());
+        Assert.Equal("alice", root.GetProperty("approverUsername").GetString());
+        Assert.False(root.GetProperty("matchOverride").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PostApproval_DuplicateReplay_DoesNotDoubleEmitOutbox()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 50m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+
+        await svc.PostApprovalAsync(inv.Id);
+        await svc.PostApprovalAsync(inv.Id); // replay
+
+        Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "invoice.approved"));
+    }
+
+    [Fact]
+    public async Task PostPayment_PartialThenFinal_EmitsTwoInvoicePaidEvents_LastIsFullyPaid()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 1000m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+        await svc.PostApprovalAsync(inv.Id);
+
+        await svc.PostPaymentAsync(inv.Id, amount: 400m, paymentDate: DateTime.UtcNow, "wire-1");
+        await svc.PostPaymentAsync(inv.Id, amount: 600m, paymentDate: DateTime.UtcNow, "wire-2");
+
+        var paid = await db.OutboxEvents
+            .Where(e => e.EventType == "invoice.paid")
+            .OrderBy(e => e.Id)
+            .ToListAsync();
+        Assert.Equal(2, paid.Count);
+
+        using var first = System.Text.Json.JsonDocument.Parse(paid[0].PayloadJson);
+        Assert.Equal(400m, first.RootElement.GetProperty("amountPaid").GetDecimal());
+        Assert.False(first.RootElement.GetProperty("isFullyPaid").GetBoolean());
+
+        using var second = System.Text.Json.JsonDocument.Parse(paid[1].PayloadJson);
+        Assert.Equal(600m, second.RootElement.GetProperty("amountPaid").GetDecimal());
+        Assert.Equal(1000m, second.RootElement.GetProperty("runningTotalPaid").GetDecimal());
+        Assert.True(second.RootElement.GetProperty("isFullyPaid").GetBoolean());
+    }
+
+    [Fact]
+    public async Task PostVoid_ApprovedInvoice_EmitsInvoiceVoidedV1WithContraJEId()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 750m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+        await svc.PostApprovalAsync(inv.Id);
+
+        await svc.PostVoidAsync(inv.Id, "billed in error");
+
+        var evt = await db.OutboxEvents.SingleAsync(e => e.EventType == "invoice.voided");
+        using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
+        var root = doc.RootElement;
+        Assert.Equal(inv.Id, root.GetProperty("invoiceId").GetInt32());
+        Assert.Equal("billed in error", root.GetProperty("reason").GetString());
+        Assert.Equal("Approved", root.GetProperty("previousStatus").GetString());
+        Assert.True(root.GetProperty("contraJournalEntryId").GetInt32() > 0);
+    }
+
+    [Fact]
+    public async Task PostVoid_AlreadyVoided_DoesNotEmitDuplicate()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 100m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+        await svc.PostApprovalAsync(inv.Id);
+        await svc.PostVoidAsync(inv.Id, "first");
+        await svc.PostVoidAsync(inv.Id, "second"); // no-op
+
+        Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "invoice.voided"));
     }
 }
