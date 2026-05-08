@@ -11200,16 +11200,6 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("CipProjectId");
 
-                    b.HasOne("Abs.FixedAssets.Models.PMOccurrence", "PMOccurrence")
-                        .WithMany()
-                        .HasForeignKey("PMOccurrenceId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Abs.FixedAssets.Models.PMTemplateAsset", "PMTemplateAsset")
-                        .WithMany()
-                        .HasForeignKey("PMTemplateAssetId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Abs.FixedAssets.Models.LookupValue", "PriorityLookupValue")
                         .WithMany()
                         .HasForeignKey("PriorityLookupValueId")
@@ -11239,10 +11229,6 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Asset");
 
                     b.Navigation("CipProject");
-
-                    b.Navigation("PMOccurrence");
-
-                    b.Navigation("PMTemplateAsset");
 
                     b.Navigation("PriorityLookupValue");
 
