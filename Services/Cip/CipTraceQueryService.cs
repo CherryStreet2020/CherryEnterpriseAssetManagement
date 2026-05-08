@@ -18,8 +18,21 @@ namespace Abs.FixedAssets.Services.Cip
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
         private List<int> GetVisibleCompanyIds() => _tenantContext.VisibleCompanyIds;
 
+        // S2-3: tenant-scope every trace query at the project level. If the
+        // caller is not authorized to see the CIP project, every related
+        // query returns an empty list — the trace UI shows "no results"
+        // rather than leaking foreign-tenant data through a CipProjectId
+        // that happens to exist in another company. Audit S2-3.
+        private async Task<bool> IsProjectVisibleAsync(int cipProjectId)
+        {
+            return await _db.CipProjects
+                .AnyAsync(p => p.Id == cipProjectId && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+        }
+
         public async Task<List<MaintenanceEvent>> GetRelatedWorkOrdersAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<MaintenanceEvent>();
+
             return await _db.MaintenanceEvents
                 .Where(w => w.CipProjectId == cipProjectId)
                 .OrderByDescending(w => w.ScheduledDate)
@@ -28,6 +41,8 @@ namespace Abs.FixedAssets.Services.Cip
 
         public async Task<List<PurchaseOrder>> GetRelatedPurchaseOrdersAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<PurchaseOrder>();
+
             var directPOs = await _db.PurchaseOrders
                 .Where(po => po.CipProjectId == cipProjectId)
                 .OrderByDescending(po => po.OrderDate)
@@ -49,6 +64,8 @@ namespace Abs.FixedAssets.Services.Cip
 
         public async Task<List<VendorInvoice>> GetRelatedVendorInvoicesAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<VendorInvoice>();
+
             var invoiceIds = await _db.Set<VendorInvoiceLine>()
                 .Where(l => l.CipProjectId == cipProjectId)
                 .Select(l => l.VendorInvoiceId)
@@ -71,6 +88,8 @@ namespace Abs.FixedAssets.Services.Cip
 
         public async Task<List<JournalEntry>> GetRelatedJournalsAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<JournalEntry>();
+
             var journalIds = await _db.CipCosts
                 .Where(c => c.CipProjectId == cipProjectId && c.JournalEntryId != null)
                 .Select(c => c.JournalEntryId!.Value)
@@ -93,13 +112,14 @@ namespace Abs.FixedAssets.Services.Cip
 
         public async Task<List<Asset>> GetAssetLinksAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<Asset>();
+
             var assetIds = await _db.CipCapitalizations
                 .Where(cap => cap.CipProjectId == cipProjectId)
                 .Select(cap => cap.AssetId)
                 .Distinct()
                 .ToListAsync();
 
-            var companyId = GetCompanyId();
             var project = await _db.CipProjects.Where(p => p.Id == cipProjectId && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0)).FirstOrDefaultAsync();
             if (project?.ConvertedAssetId != null && !assetIds.Contains(project.ConvertedAssetId.Value))
                 assetIds.Add(project.ConvertedAssetId.Value);
@@ -111,6 +131,8 @@ namespace Abs.FixedAssets.Services.Cip
 
         public async Task<List<GoodsReceipt>> GetRelatedReceiptsAsync(int cipProjectId)
         {
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<GoodsReceipt>();
+
             var receiptIds = await _db.CipCosts
                 .Where(c => c.CipProjectId == cipProjectId && c.GoodsReceiptId != null)
                 .Select(c => c.GoodsReceiptId!.Value)
