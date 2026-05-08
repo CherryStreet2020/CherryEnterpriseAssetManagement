@@ -155,11 +155,11 @@ and #3 — see `## Audit corrections` below.** The current state:
 | 5 | Move plaintext secrets out of `appsettings.Development.json` | ✅ Shipped via [#12](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/12). The Azure SQL connection string with embedded password was dead-code fallback (Replit always sets `PGHOST` etc.). **Note: the password `ABS12345!` is still in git history; rotate it on Azure if that server is still active.** |
 | 6 | Add Swashbuckle for `/swagger` | ✅ Shipped via [#13](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/13). On in Development; in any other env, opt in via `ENABLE_SWAGGER=true`. UI at `/swagger`, JSON spec at `/swagger/v1/swagger.json`. Cookie auth modeled in the spec. |
 | 7 | Postgres advisory lock in `SeedGuardService` | ✅ Shipped via [#14](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/14). `TryAcquireSeedLockAsync` uses `pg_try_advisory_lock(4815162342)`; the entire startup seed block in `Program.cs` runs only if the lock is acquired. Concurrent app instances skip the seed work cleanly. |
-| 8 | Strongly-typed outbox payloads with versioned `IDomainEvent` | Open. |
+| 8 | Strongly-typed outbox payloads with versioned `IDomainEvent` | ✅ Shipped via [#29](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/29) (design), [#30](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/30) (Phase 1 — `IDomainEvent` + `DomainEventRegistry` + `PayloadVersion` column), [#31](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/31) (Phase 2 — 5 call sites migrated to typed enqueue), [#32](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/32) (Phase 3 — auto-generated `/Admin/Webhooks/Catalog` page), [#33](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/33) (Phase 5 — legacy untyped overloads removed). Phase 4 (V1→V2 parallel-emit tooling) stays deferred until a payload actually needs to evolve. See [`docs/design/OUTBOX_TYPED_PAYLOADS.md`](docs/design/OUTBOX_TYPED_PAYLOADS.md). |
 
 Plus the schema-touching FK migrations tracked in [`docs/FK_MIGRATION_STATUS.md`](docs/FK_MIGRATION_STATUS.md) (`InventoryList` and `WorkRequest`).
 
-Pick from the open list unless the user asks for something else.
+**Sprint 0 production-hardening is complete except #2 (legacy-row FK backfill).** Code-review followups continue in [`docs/CODE_REVIEW_FOLLOWUPS.md`](docs/CODE_REVIEW_FOLLOWUPS.md). The next strategic gear is product-roadmap work — see [`docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md`](docs/audit-2026-05-07/09_DISRUPTION_PLAYBOOK_AND_90_DAY_ROADMAP.md) Sprints 1–3.
 
 ## Audit corrections
 

@@ -88,26 +88,17 @@ the code testable in isolation.
 
 ---
 
-### 4. Sprint 0 #8 — strongly-typed outbox payloads
+### 4. Sprint 0 #8 — strongly-typed outbox payloads — ✅ DONE
 
-**Where:** `Services/Webhooks/OutboxWriter.cs` (the writer) and the
-integration partner contract on the dispatcher side. Today payloads
-are stringly-typed JSON blobs.
+Closed across [#29](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/29) (design doc), [#30](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/30) (Phase 1 — registry + typed enqueue + payloadVersion column), [#31](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/31) (Phase 2 — migrate all 5 internal call sites), [#32](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/32) (Phase 3 — `/Admin/Webhooks/Catalog`), [#33](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/33) (Phase 5 — drop legacy overloads). See [`docs/design/OUTBOX_TYPED_PAYLOADS.md`](design/OUTBOX_TYPED_PAYLOADS.md) for the full design.
 
-**Why it matters:** versioned `IDomainEvent` types give the dispatcher
-schema-aware retries, pattern-matched handlers, and a compile-time
-contract for partner integrations. Without them, payload shape changes
-silently break consumers.
+Phase 4 (V1→V2 parallel-emit tooling) stays deferred per the design — only build it when the first event actually needs to evolve. Current state:
 
-**What to do:** introduce a versioned `IDomainEvent` base interface
-plus concrete event records (`InvoiceApprovedV1`, `WorkOrderClosedV1`,
-…). Migrate `OutboxWriter` to accept those instead of `object`.
-Dispatcher does dispatch by type tag.
-
-**Sizing:** medium — ~400 LOC plus migration of every existing call
-site. Worth a design doc first; production-readiness is the use case,
-not greenfield work, so backward-compat with already-queued rows
-matters.
+- `IOutboxWriter.EnqueueAsync<T>(int companyId, int? siteId, T evt) where T : IDomainEvent` is the only enqueue method
+- 5 V1 records live under `Services/Webhooks/Events/`
+- `DomainEventRegistry` discovers them at startup; partner-facing catalog at `/Admin/Webhooks/Catalog`
+- Wire envelope carries `payloadVersion` alongside `schemaVersion`; existing rows without `PayloadVersion` dispatch as V1
+- 25+ tests including snapshot tests that lock the V1 wire shape
 
 ---
 
