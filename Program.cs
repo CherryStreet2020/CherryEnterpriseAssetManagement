@@ -154,6 +154,7 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingS
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingService,
     Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
+builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();
 builder.Services.AddScoped<CcaService>();
@@ -493,6 +494,21 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: CIP reconciliation failed: {ex.Message}");
+    }
+
+    // Fiscal-calendar coverage: every Company gets calendar-year FYs and
+    // 12 monthly FiscalPeriods covering [today - 1y, today + 2y]. Idempotent
+    // — only fills the gaps. Without this, PeriodGuard rejects every JE
+    // posting on a fresh DB. Closes DEF-004 from the 2026-05-08 E2E run.
+    try
+    {
+        var calendarService = scope.ServiceProvider.GetRequiredService<IFiscalCalendarService>();
+        var rows = await calendarService.EnsureCoverageForAllCompaniesAsync(DateTime.UtcNow);
+        Console.WriteLine($"[Startup] Fiscal calendar coverage: {rows} new row(s) materialized");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: Fiscal calendar coverage failed: {ex.Message}");
     }
 
         } // end: if (seedLockAcquired)
