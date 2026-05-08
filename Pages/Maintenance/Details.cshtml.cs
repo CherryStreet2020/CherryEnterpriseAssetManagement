@@ -1,3 +1,4 @@
+using System.Linq;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
@@ -196,14 +197,45 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 }
             }
 
+            // S1-6: roll up per-operation labor + parts into the WO totals.
+            // Audit: WO ActualCost was whatever the user typed in the form,
+            // and the per-operation Hours×HourlyRate / QuantityUsed×UnitCost
+            // data was ignored. Operation-level data is the canonical source
+            // — if it exists, it wins; otherwise we accept the manual input.
+            var operationsWithDetails = await _context.Set<WorkOrderOperation>()
+                .Include(o => o.LaborEntries)
+                .Include(o => o.Parts)
+                .Where(o => o.MaintenanceEventId == evt.Id)
+                .ToListAsync();
+
+            decimal operationLaborTotal = operationsWithDetails
+                .SelectMany(o => o.LaborEntries ?? Enumerable.Empty<WorkOrderOperationLabor>())
+                .Sum(l => l.TotalCost);
+
+            decimal operationPartsTotal = operationsWithDetails
+                .SelectMany(o => o.Parts ?? Enumerable.Empty<WorkOrderOperationPart>())
+                .Sum(p => p.TotalCost);
+
+            decimal workOrderPartsTotal = await _context.WorkOrderParts
+                .Where(p => p.MaintenanceEventId == evt.Id)
+                .SumAsync(p => p.QuantityUsed * p.UnitCost);
+
+            // Rollups override the manual fields when operation-level data
+            // exists. Materials and OutsideVendor have no operation-level
+            // source today — those stay as user input.
+            var rolledUpLabor = operationLaborTotal > 0 ? operationLaborTotal : (laborCost ?? 0);
+            var rolledUpParts = (operationPartsTotal + workOrderPartsTotal) > 0
+                ? (operationPartsTotal + workOrderPartsTotal)
+                : (partsCost ?? 0);
+
             await SyncStatusFkAsync(evt, MaintenanceStatus.Completed);
             evt.CompletedDate = completionDate;
             evt.Resolution = resolution;
-            evt.LaborCost = laborCost ?? 0;
+            evt.LaborCost = rolledUpLabor;
             evt.MaterialsCost = materialsCost ?? 0;
-            evt.PartsCost = partsCost ?? 0;
+            evt.PartsCost = rolledUpParts;
             evt.OutsideVendorCost = outsideVendorCost ?? 0;
-            evt.ActualCost = (laborCost ?? 0) + (materialsCost ?? 0) + (partsCost ?? 0) + (outsideVendorCost ?? 0);
+            evt.ActualCost = rolledUpLabor + (materialsCost ?? 0) + rolledUpParts + (outsideVendorCost ?? 0);
             evt.CompletedBy = User.Identity?.Name;
 
             await _context.SaveChangesAsync();
