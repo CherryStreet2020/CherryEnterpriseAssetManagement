@@ -39,6 +39,9 @@ public static class WebhookEventTypes
     // Preventative Maintenance
     public const string PmOccurrenceGenerated = "pm.occurrence.generated";
 
+    // Inventory issuance (WO consumption)
+    public const string ItemIssued = "item.issued";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -57,7 +60,8 @@ public static class WebhookEventTypes
         ItemReceived,
         CipCapitalized,
         DepreciationPosted,
-        PmOccurrenceGenerated
+        PmOccurrenceGenerated,
+        ItemIssued
     };
 }
 
