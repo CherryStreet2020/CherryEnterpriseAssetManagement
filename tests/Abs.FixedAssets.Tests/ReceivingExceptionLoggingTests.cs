@@ -189,8 +189,10 @@ public class ReceivingExceptionLoggingTests
         // After all the seeding is done, swap SaveChangesAsync to always throw.
         db.SaveChangesOverride = () => throw new InvalidOperationException("boom — simulated DB outage");
 
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
-            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger);
+            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger, cipAutoCost);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -228,8 +230,10 @@ public class ReceivingExceptionLoggingTests
         var inner = new Exception("FK constraint violated on Vendor");
         db.SaveChangesOverride = () => throw new DbUpdateException("update failed", inner);
 
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
-            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger);
+            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger, cipAutoCost);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>
@@ -257,8 +261,10 @@ public class ReceivingExceptionLoggingTests
         var logger = new CapturingLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>();
         db.SaveChangesOverride = () => throw new DbUpdateConcurrencyException("optimistic lock");
 
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
-            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger);
+            db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(), logger, cipAutoCost);
         WirePageContext(page);
 
         var lines = new List<Abs.FixedAssets.Pages.Receiving.ReceiveModel.ReceiveLineViewModel>

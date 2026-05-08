@@ -1,6 +1,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Maintenance;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.Maintenance
 {
@@ -22,6 +24,8 @@ namespace Abs.FixedAssets.Pages.Maintenance
         private readonly ILookupService _lookupService;
         private readonly IModuleGuardService _moduleGuard;
         private readonly IPeriodGuard _periodGuard;
+        private readonly CipAutoCostPostingService _cipAutoCostPosting;
+        private readonly ILogger<DetailsModel> _logger;
 
         public DetailsModel(MaintenanceService maintenanceService,
             AttachmentService attachmentService,
@@ -30,7 +34,9 @@ namespace Abs.FixedAssets.Pages.Maintenance
             ITenantContext tenantContext,
             ILookupService lookupService,
             IModuleGuardService moduleGuard,
-            IPeriodGuard periodGuard)
+            IPeriodGuard periodGuard,
+            CipAutoCostPostingService cipAutoCostPosting,
+            ILogger<DetailsModel> logger)
         {
             _moduleGuard = moduleGuard;
             _maintenanceService = maintenanceService;
@@ -40,6 +46,8 @@ namespace Abs.FixedAssets.Pages.Maintenance
             _tenantContext = tenantContext;
             _lookupService = lookupService;
             _periodGuard = periodGuard;
+            _cipAutoCostPosting = cipAutoCostPosting;
+            _logger = logger;
         }
 
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
@@ -196,6 +204,26 @@ namespace Abs.FixedAssets.Pages.Maintenance
             evt.CompletedBy = User.Identity?.Name;
 
             await _context.SaveChangesAsync();
+
+            // S1-3: route the just-closed WO into CipAutoCostPostingService.
+            // The service early-returns if evt.CipProjectId is null, so this
+            // is a no-op for non-CIP WOs. Idempotent: re-runs return the
+            // existing CipCost. Failure is logged but does not roll back the
+            // close — the WO close is the operational truth, CIP routing is
+            // a downstream financial concern.
+            try
+            {
+                var cipCost = await _cipAutoCostPosting.PostFromWorkOrderAsync(evt.Id);
+                if (cipCost != null)
+                    TempData["Success"] = $"Work order {evt.WorkOrderNumber} closed and ${cipCost.Amount:N2} posted to CIP project.";
+            }
+            catch (Exception cipEx)
+            {
+                _logger.LogError(cipEx,
+                    "CIP auto-cost posting failed for closed work order {WorkOrderId} ({WorkOrderNumber})",
+                    evt.Id, evt.WorkOrderNumber);
+            }
+
             return RedirectToPage(new { id });
         }
 

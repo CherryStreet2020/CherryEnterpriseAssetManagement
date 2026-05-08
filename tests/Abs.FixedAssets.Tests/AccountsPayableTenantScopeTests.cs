@@ -89,7 +89,10 @@ public class AccountsPayableTenantScopeTests
         var lookupService = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var matchingService = new InvoiceMatchingService(db);
         var moduleGuard = new AlwaysEnabledModuleGuard();
-        var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService);
+        var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookupService, tenant);
+        var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookupService, tenant, cipCostService);
+        var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService,
+            cipAutoCost, NullLogger<DetailsModel>.Instance);
 
         // Minimal PageContext so OnGetAsync can write to ViewData without NRE.
         // Same pattern as AssetConcurrencyTests.

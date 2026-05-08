@@ -36,7 +36,7 @@ namespace Abs.FixedAssets.Services.Cip
             if (project == null || project.IsLocked) return null;
 
             var existingCost = await _db.CipCosts
-                .FirstOrDefaultAsync(c => c.SourceType == "WorkOrder" && c.SourceHeaderId == workOrderId && c.CipProjectId == wo.CipProjectId.Value);
+                .FirstOrDefaultAsync(c => c.SourceType == "WORKORDER" && c.SourceHeaderId == workOrderId && c.CipProjectId == wo.CipProjectId.Value);
             if (existingCost != null) return existingCost;
 
             var laborCostTypeId = await ResolveCostTypeLookupValueIdAsync("LABOR");
@@ -51,7 +51,7 @@ namespace Abs.FixedAssets.Services.Cip
                 Amount = laborAmount,
                 TransactionDate = wo.CompletedDate ?? DateTime.UtcNow,
                 Description = $"Labor from WO {wo.WorkOrderNumber}: {wo.Description}",
-                SourceType = "WorkOrder",
+                SourceType = "WORKORDER", // pre-uppercased to match AppDbContext.CapitalizeStringProperties so the existing-cost guard above matches its own writes
                 SourceHeaderId = workOrderId,
                 SourceDisplayRef = $"WO-{wo.WorkOrderNumber}",
                 WorkOrderId = workOrderId,
@@ -84,7 +84,7 @@ namespace Abs.FixedAssets.Services.Cip
             if (project == null || project.IsLocked) return null;
 
             var existingCost = await _db.CipCosts
-                .FirstOrDefaultAsync(c => c.SourceType == "Receipt" && c.SourceLineId == receiptLineId && c.CipProjectId == cipProjectId.Value);
+                .FirstOrDefaultAsync(c => c.SourceType == "RECEIPT" && c.SourceLineId == receiptLineId && c.CipProjectId == cipProjectId.Value);
             if (existingCost != null) return existingCost;
 
             var materialsCostTypeId = await ResolveCostTypeLookupValueIdAsync("MATERIALS");
@@ -102,7 +102,7 @@ namespace Abs.FixedAssets.Services.Cip
                 Amount = amount,
                 TransactionDate = receipt?.ReceiptDate ?? DateTime.UtcNow,
                 Description = $"Receipt {receipt?.ReceiptNumber}: {poLine?.Description ?? poLine?.PartNumber ?? receipt?.ReceiptNumber ?? "N/A"}",
-                SourceType = "Receipt",
+                SourceType = "RECEIPT",
                 SourceHeaderId = receipt?.Id,
                 SourceLineId = receiptLineId,
                 SourceDisplayRef = $"RCV-{receipt?.ReceiptNumber}",
@@ -136,7 +136,7 @@ namespace Abs.FixedAssets.Services.Cip
             if (project == null || project.IsLocked) return null;
 
             var existingCost = await _db.CipCosts
-                .FirstOrDefaultAsync(c => c.SourceType == "Invoice" && c.SourceLineId == invoiceLineId && c.CipProjectId == cipProjectId.Value);
+                .FirstOrDefaultAsync(c => c.SourceType == "INVOICE" && c.SourceLineId == invoiceLineId && c.CipProjectId == cipProjectId.Value);
             if (existingCost != null) return existingCost;
 
             var equipmentCostTypeId = await ResolveCostTypeLookupValueIdAsync("EQUIPMENT");
@@ -149,7 +149,7 @@ namespace Abs.FixedAssets.Services.Cip
                 Amount = invoiceLine.LineTotal,
                 TransactionDate = invoiceLine.VendorInvoice?.InvoiceDate ?? DateTime.UtcNow,
                 Description = $"Invoice {invoiceLine.VendorInvoice?.InvoiceNumber}: {invoiceLine.Description}",
-                SourceType = "Invoice",
+                SourceType = "INVOICE",
                 SourceHeaderId = invoiceLine.VendorInvoiceId,
                 SourceLineId = invoiceLineId,
                 SourceDisplayRef = $"INV-{invoiceLine.VendorInvoice?.InvoiceNumber}",

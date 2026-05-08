@@ -72,7 +72,7 @@ namespace Abs.FixedAssets.Services.Cip
                 Description = description,
                 VendorId = vendorId,
                 Notes = notes,
-                SourceType = "Manual",
+                SourceType = "MANUAL", // pre-uppercased to match AppDbContext.CapitalizeStringProperties
                 SourceDisplayRef = $"Manual entry",
                 EnteredBy = userId ?? "system",
                 CreatedByUserId = userId ?? "system",
