@@ -100,8 +100,11 @@ public class AccountsPayableTenantScopeTests
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookupService, tenant, cipCostService);
         var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var periodGuard = new AllowAllPeriodGuard();
+        var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(
+            db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
         var apPosting = new Abs.FixedAssets.Services.AccountsPayable.ApPostingService(
-            db, tenant, glResolver, periodGuard, matchingService, NullLogger<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>.Instance);
+            db, tenant, glResolver, periodGuard, matchingService, outbox,
+            NullLogger<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>.Instance);
         var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService,
             cipAutoCost, apPosting, NullLogger<DetailsModel>.Instance);
 
