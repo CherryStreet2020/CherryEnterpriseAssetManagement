@@ -547,6 +547,15 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int?>("OriginatingCipProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OriginatingPurchaseOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OriginatingVendorInvoiceId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("ParentAssetId")
                         .HasColumnType("integer");
 
@@ -752,6 +761,12 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("ManufacturerId");
+
+                    b.HasIndex("OriginatingCipProjectId");
+
+                    b.HasIndex("OriginatingPurchaseOrderId");
+
+                    b.HasIndex("OriginatingVendorInvoiceId");
 
                     b.HasIndex("ParentAssetId");
 
