@@ -69,8 +69,27 @@ public class WorkOrderOriginService : IWorkOrderOriginService
             };
         }
 
+        // S1-2: read PMTemplateAssetId FK directly. Falls back to the
+        // legacy CustomField1 hack ONLY when the FK is null AND the
+        // legacy marker is present (in-flight rows from before the fix).
+        if (evt.PMTemplateAssetId.HasValue)
+        {
+            var pmta = await _context.Set<PMTemplateAsset>()
+                .Include(p => p.PMTemplate)
+                .FirstOrDefaultAsync(p => p.Id == evt.PMTemplateAssetId.Value);
+
+            return new WorkOrderOriginInfo
+            {
+                Origin = WorkOrderOrigin.PMSchedule,
+                Label = "PM Schedule",
+                BadgeClass = "badge-primary",
+                TemplateReference = pmta?.PMTemplate?.Name
+            };
+        }
+
         if (!string.IsNullOrEmpty(evt.CustomField1) && evt.CustomField1.StartsWith("PMTA:", StringComparison.OrdinalIgnoreCase))
         {
+            // Legacy fallback: pre-S1-2 rows tagged via CustomField1.
             var pmtaIdStr = evt.CustomField1.Substring(5);
             string? templateRef = null;
             if (int.TryParse(pmtaIdStr, out var pmtaId))
@@ -126,10 +145,17 @@ public class WorkOrderOriginService : IWorkOrderOriginService
             .Where(wr => wr.GeneratedWorkOrderId.HasValue && eventIdList.Contains(wr.GeneratedWorkOrderId.Value))
             .ToListAsync();
 
+        // S1-2: prefer the FK (PMTemplateAssetId); fall back to CustomField1
+        // only for legacy rows that predate the migration.
         var pmtaIds = events
-            .Where(e => !string.IsNullOrEmpty(e.CustomField1) && e.CustomField1.StartsWith("PMTA:", StringComparison.OrdinalIgnoreCase))
-            .Select(e => int.TryParse(e.CustomField1!.Substring(5), out var id) ? id : 0)
-            .Where(id => id > 0)
+            .Where(e => e.PMTemplateAssetId.HasValue)
+            .Select(e => e.PMTemplateAssetId!.Value)
+            .Concat(events
+                .Where(e => !e.PMTemplateAssetId.HasValue
+                    && !string.IsNullOrEmpty(e.CustomField1)
+                    && e.CustomField1.StartsWith("PMTA:", StringComparison.OrdinalIgnoreCase))
+                .Select(e => int.TryParse(e.CustomField1!.Substring(5), out var id) ? id : 0)
+                .Where(id => id > 0))
             .Distinct()
             .ToList();
 
@@ -165,21 +191,25 @@ public class WorkOrderOriginService : IWorkOrderOriginService
                 continue;
             }
 
-            if (!string.IsNullOrEmpty(evt.CustomField1) && evt.CustomField1.StartsWith("PMTA:", StringComparison.OrdinalIgnoreCase))
+            // S1-2: prefer FK; fall back to legacy CustomField1.
+            int? resolvedPmtaId = evt.PMTemplateAssetId;
+            if (!resolvedPmtaId.HasValue
+                && !string.IsNullOrEmpty(evt.CustomField1)
+                && evt.CustomField1.StartsWith("PMTA:", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(evt.CustomField1.Substring(5), out var legacyId))
             {
-                var pmtaIdStr = evt.CustomField1.Substring(5);
-                string? templateRef = null;
-                if (int.TryParse(pmtaIdStr, out var pmtaId) && pmtas.TryGetValue(pmtaId, out var pmta))
-                {
-                    templateRef = pmta.PMTemplate?.Name;
-                }
+                resolvedPmtaId = legacyId;
+            }
 
+            if (resolvedPmtaId.HasValue)
+            {
+                pmtas.TryGetValue(resolvedPmtaId.Value, out var pmta);
                 result[evt.Id] = new WorkOrderOriginInfo
                 {
                     Origin = WorkOrderOrigin.PMSchedule,
                     Label = "PM Schedule",
                     BadgeClass = "badge-primary",
-                    TemplateReference = templateRef
+                    TemplateReference = pmta?.PMTemplate?.Name
                 };
                 continue;
             }

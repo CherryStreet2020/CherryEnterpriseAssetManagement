@@ -78,7 +78,9 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 return Page();
             }
 
-            string? customField1 = null;
+            // S1-2: stamp the PMTemplateAssetId FK directly. Replaces the
+            // prior CustomField1 = "PMTA:N" string hack.
+            int? resolvedPmTemplateAssetId = null;
             if (pmtaId.HasValue)
             {
                 var pmta = await _context.Set<PMTemplateAsset>()
@@ -90,7 +92,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                                               _tenantContext.VisibleCompanyIds.Contains(p.Asset.CompanyId ?? 0));
                 if (pmta != null)
                 {
-                    customField1 = $"PMTA:{pmtaId.Value}";
+                    resolvedPmTemplateAssetId = pmtaId.Value;
                 }
             }
 
@@ -131,7 +133,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 TechnicianId = technicianId,
                 Status = MaintenanceStatus.Scheduled,
                 StatusLookupValueId = scheduledLv?.Id,
-                CustomField1 = customField1
+                PMTemplateAssetId = resolvedPmTemplateAssetId
             };
 
             await _maintenanceService.CreateEventAsync(evt);

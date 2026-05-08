@@ -256,22 +256,28 @@ public class PMSchedulerService : IPMSchedulerService
                 .FirstOrDefaultAsync(t => t.Id == schedule.PMTemplateId);
         }
 
-        var assetIds = await _db.PMTemplateAssets
+        // S1-2: load the full PMTemplateAsset rows so we can stamp the
+        // assignment id on each generated MaintenanceEvent. The legacy
+        // path projected only AssetId; the assignment id was lost and the
+        // CustomField1 hack tried to recover it from the wrong table.
+        var templateAssets = await _db.PMTemplateAssets
             .Where(ta => ta.PMTemplateId == schedule.PMTemplateId && ta.IsActive)
-            .Select(ta => ta.AssetId)
+            .Select(ta => new { ta.Id, ta.AssetId })
             .ToListAsync();
 
-        if (!assetIds.Any())
+        if (!templateAssets.Any())
         {
-            assetIds = new List<int> { 0 };
+            templateAssets = new() { new { Id = 0, AssetId = 0 } };
         }
 
         int? createdWorkOrderId = null;
 
-        foreach (var assetId in assetIds)
+        foreach (var ta in templateAssets)
         {
             var workOrder = await CreateWorkOrderFromTemplateAsync(
-                schedule, template, occurrence, assetId, normalizedDate, userId, tenantId, companyId, siteId);
+                schedule, template, occurrence, ta.AssetId,
+                ta.Id == 0 ? (int?)null : ta.Id,
+                normalizedDate, userId, tenantId, companyId, siteId);
 
             if (workOrder != null)
             {
@@ -298,6 +304,7 @@ public class PMSchedulerService : IPMSchedulerService
         PMTemplate? template,
         PMOccurrence occurrence,
         int assetId,
+        int? pmTemplateAssetId,
         DateTime dueDate,
         string? userId,
         int? tenantId,
@@ -327,7 +334,10 @@ public class PMSchedulerService : IPMSchedulerService
             ScheduledDate = DateTime.SpecifyKind(dueDate, DateTimeKind.Unspecified),
             EstimatedCost = useTotalCost,
             WorkOrderNumber = woNumber,
-            CustomField1 = $"PMTA:{occurrence.Id}"
+            // S1-2: explicit FKs replace the CustomField1 = "PMTA:N" hack.
+            // The closeout flow reads these to advance the PM cycle.
+            PMOccurrenceId = occurrence.Id,
+            PMTemplateAssetId = pmTemplateAssetId
         };
 
         _db.MaintenanceEvents.Add(workOrder);

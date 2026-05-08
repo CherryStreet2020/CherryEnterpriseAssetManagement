@@ -80,6 +80,17 @@ namespace Abs.FixedAssets.Models
         public int? CipProjectId { get; set; }
         public CipProject? CipProject { get; set; }
 
+        // S1-2: explicit FK linkage to the PM occurrence and template-asset
+        // assignment that generated this WO. Replaces the brittle
+        // CustomField1 = "PMTA:N" string hack that conflated PMOccurrence.Id
+        // with PMTemplateAsset.Id (different tables, different namespaces) —
+        // see docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
+        public int? PMOccurrenceId { get; set; }
+        public PMOccurrence? PMOccurrence { get; set; }
+
+        public int? PMTemplateAssetId { get; set; }
+        public PMTemplateAsset? PMTemplateAsset { get; set; }
+
         public int? ApprovedById { get; set; }
         public User? ApprovedBy { get; set; }
 

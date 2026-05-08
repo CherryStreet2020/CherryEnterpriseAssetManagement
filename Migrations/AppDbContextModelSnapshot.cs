@@ -5668,6 +5668,12 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<decimal?>("PartsCost")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("PMOccurrenceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PMTemplateAssetId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Priority")
                         .HasColumnType("integer");
 
@@ -5743,6 +5749,10 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("AssetId");
 
                     b.HasIndex("CipProjectId");
+
+                    b.HasIndex("PMOccurrenceId");
+
+                    b.HasIndex("PMTemplateAssetId");
 
                     b.HasIndex("PriorityLookupValueId");
 
@@ -11190,6 +11200,16 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("CipProjectId");
 
+                    b.HasOne("Abs.FixedAssets.Models.PMOccurrence", "PMOccurrence")
+                        .WithMany()
+                        .HasForeignKey("PMOccurrenceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.PMTemplateAsset", "PMTemplateAsset")
+                        .WithMany()
+                        .HasForeignKey("PMTemplateAssetId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Abs.FixedAssets.Models.LookupValue", "PriorityLookupValue")
                         .WithMany()
                         .HasForeignKey("PriorityLookupValueId")
@@ -11219,6 +11239,10 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Asset");
 
                     b.Navigation("CipProject");
+
+                    b.Navigation("PMOccurrence");
+
+                    b.Navigation("PMTemplateAsset");
 
                     b.Navigation("PriorityLookupValue");
 

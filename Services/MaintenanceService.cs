@@ -211,51 +211,59 @@ namespace Abs.FixedAssets.Services
         private async Task UpdatePMAssignmentOnCompletionAsync(MaintenanceEvent evt)
         {
             if (evt.Type != MaintenanceType.Preventative) return;
-            
-            int? pmtaId = ParsePMTALinkage(evt.CustomField1);
-            
-            if (!pmtaId.HasValue)
+
+            // S1-2: advance the PM cycle from the explicit FKs the scheduler
+            // stamped (PMOccurrenceId, PMTemplateAssetId). Replaces the
+            // previous CustomField1 = "PMTA:N" hack that confused
+            // PMOccurrence.Id with PMTemplateAsset.Id and silently miss-targeted
+            // rows or no-oped — see docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
+
+            // 1. Mark the occurrence as Closed (the scheduler reads this to
+            // know which occurrences have been fulfilled).
+            if (evt.PMOccurrenceId.HasValue)
             {
-                return;
-            }
-            
-            var assignment = await _context.Set<PMTemplateAsset>()
-                .Include(pa => pa.PMTemplate)
-                .FirstOrDefaultAsync(pa => pa.Id == pmtaId.Value && pa.IsActive);
-            
-            if (assignment == null) return;
-            
-            assignment.LastCompletedDate = DateTime.UtcNow;
-            assignment.UpdatedAt = DateTime.UtcNow;
-            
-            if (assignment.PMTemplate != null)
-            {
-                int daysToAdd = assignment.PMTemplate.CalendarInterval switch
+                var occurrence = await _context.Set<PMOccurrence>()
+                    .FirstOrDefaultAsync(o => o.Id == evt.PMOccurrenceId.Value);
+                if (occurrence != null && occurrence.Status != PMOccurrenceStatus.Closed)
                 {
-                    RecurrenceType.Daily => assignment.PMTemplate.CalendarIntervalValue,
-                    RecurrenceType.Weekly => assignment.PMTemplate.CalendarIntervalValue * 7,
-                    RecurrenceType.Monthly => assignment.PMTemplate.CalendarIntervalValue * 30,
-                    RecurrenceType.Quarterly => assignment.PMTemplate.CalendarIntervalValue * 90,
-                    RecurrenceType.Annually => assignment.PMTemplate.CalendarIntervalValue * 365,
-                    _ => 30
-                };
-                assignment.NextDueDate = DateTime.UtcNow.Date.AddDays(daysToAdd);
+                    occurrence.Status = PMOccurrenceStatus.Closed;
+                    occurrence.UpdatedAtUtc = DateTime.UtcNow;
+                }
             }
-            
-            await _context.SaveChangesAsync();
-        }
-        
-        private static int? ParsePMTALinkage(string? customField1)
-        {
-            if (string.IsNullOrEmpty(customField1)) return null;
-            if (!customField1.StartsWith("PMTA:")) return null;
-            
-            var idPart = customField1.Substring(5);
-            if (int.TryParse(idPart, out var id))
+
+            // 2. Stamp the assignment's last-completed + advance NextDueDate
+            // for legacy clients that still read PMTemplateAsset.NextDueDate
+            // (the modern path uses PMSchedule.NextDueDateUtc, computed by
+            // the scheduler — but template-asset-level dates remain as a
+            // per-asset informational field).
+            if (evt.PMTemplateAssetId.HasValue)
             {
-                return id;
+                var assignment = await _context.Set<PMTemplateAsset>()
+                    .Include(pa => pa.PMTemplate)
+                    .FirstOrDefaultAsync(pa => pa.Id == evt.PMTemplateAssetId.Value && pa.IsActive);
+
+                if (assignment != null)
+                {
+                    assignment.LastCompletedDate = DateTime.UtcNow;
+                    assignment.UpdatedAt = DateTime.UtcNow;
+
+                    if (assignment.PMTemplate != null)
+                    {
+                        int daysToAdd = assignment.PMTemplate.CalendarInterval switch
+                        {
+                            RecurrenceType.Daily => assignment.PMTemplate.CalendarIntervalValue,
+                            RecurrenceType.Weekly => assignment.PMTemplate.CalendarIntervalValue * 7,
+                            RecurrenceType.Monthly => assignment.PMTemplate.CalendarIntervalValue * 30,
+                            RecurrenceType.Quarterly => assignment.PMTemplate.CalendarIntervalValue * 90,
+                            RecurrenceType.Annually => assignment.PMTemplate.CalendarIntervalValue * 365,
+                            _ => 30
+                        };
+                        assignment.NextDueDate = DateTime.UtcNow.Date.AddDays(daysToAdd);
+                    }
+                }
             }
-            return null;
+
+            await _context.SaveChangesAsync();
         }
 
         public async Task<MaintenanceEvent?> UpdateDispatchAsync(int id, MaintenancePriority priority, DateTime scheduledDate, int? technicianId)
