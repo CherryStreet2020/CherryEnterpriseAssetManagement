@@ -67,6 +67,13 @@ namespace Abs.FixedAssets.Pages
         public bool IsDatabaseEmpty { get; private set; }
         public bool IsDevelopment { get; private set; }
 
+        // Scope labels for the dashboard context strip (DEF-003 from
+        // 2026-05-08 E2E run). Inner pages render company + site
+        // breadcrumbs via _ScreenHeader's ContextPartial; the dashboard
+        // now matches them so the layout stops drifting.
+        public string ScopeCompanyLabel { get; private set; } = "All Companies";
+        public string ScopeSiteLabel { get; private set; } = "All Sites";
+
         public async Task OnGetAsync()
         {
             // Check if database is empty (no companies = not initialized)
@@ -84,6 +91,17 @@ namespace Abs.FixedAssets.Pages
             if (_tenantContext.SiteId.HasValue)
                 assetQuery = assetQuery.Where(a => a.SiteId == _tenantContext.SiteId.Value);
             var assets = await assetQuery.ToListAsync();
+
+            if (_tenantContext.CompanyId.HasValue)
+            {
+                var co = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == _tenantContext.CompanyId.Value);
+                ScopeCompanyLabel = co?.Name ?? $"Company #{_tenantContext.CompanyId}";
+            }
+            if (_tenantContext.SiteId.HasValue)
+            {
+                var site = await _db.Sites.AsNoTracking().FirstOrDefaultAsync(s => s.Id == _tenantContext.SiteId.Value);
+                ScopeSiteLabel = site?.Name ?? $"Site #{_tenantContext.SiteId}";
+            }
             var activeAssets = assets.Where(a => a.Active).ToList();
             
             // Asset metrics
