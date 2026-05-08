@@ -686,7 +686,10 @@ app.MapGet("/api/version", () =>
 {
     var asm = System.Reflection.Assembly.GetEntryAssembly();
     var name = asm?.GetName();
-    var info = asm?.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>();
+    var info = asm == null
+        ? null
+        : (System.Reflection.AssemblyInformationalVersionAttribute?)
+            System.Attribute.GetCustomAttribute(asm, typeof(System.Reflection.AssemblyInformationalVersionAttribute));
     return Results.Json(new
     {
         product = "CherryAI EAM",
