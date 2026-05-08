@@ -44,8 +44,6 @@ public class CatalogPageTests
         Assert.Equal(nameof(WorkOrderClosedV1), closed.ClrTypeName);
 
         var propNames = closed.Properties.Select(p => p.Name).ToList();
-        Assert.Contains("entityType", propNames);
-        Assert.Contains("entityId", propNames);
         Assert.Contains("workOrderId", propNames);
         Assert.Contains("workOrderNumber", propNames);
         Assert.Contains("status", propNames);
@@ -55,8 +53,13 @@ public class CatalogPageTests
 
         // EventType + Version are interface-level and excluded from the
         // property table (they're already shown in the card header).
+        // EntityType + EntityId aren't in this record's primary
+        // constructor — they're derived get-only properties — so they
+        // also don't appear in the property table.
         Assert.DoesNotContain("eventType", propNames);
         Assert.DoesNotContain("version", propNames);
+        Assert.DoesNotContain("entityType", propNames);
+        Assert.DoesNotContain("entityId", propNames);
     }
 
     [Fact]
