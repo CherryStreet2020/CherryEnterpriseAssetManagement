@@ -11,6 +11,8 @@ shipping a public 1.0.
 When you pick something off this list, link the PR back here and move
 the entry under "Closed" so the open list stays a real backlog.
 
+> **See also:** [`audit-2026-05-08-followup/STRUCTURAL_AUDIT.md`](audit-2026-05-08-followup/STRUCTURAL_AUDIT.md) — the 2026-05-08 pre-roadmap structural integrity audit. Sprint 0.5 is the active workstream. Items 1–11 below are tracked separately from the audit's S1/S2 list (some overlap intentionally — e.g., Sprint 0.5 closes the InvoiceMatchingService gap as part of S2-10).
+
 ## Open
 
 ### 1. Tenant-scope `InvoiceMatchingService` defensively
