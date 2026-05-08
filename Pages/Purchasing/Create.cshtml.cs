@@ -26,6 +26,8 @@ namespace Abs.FixedAssets.Pages.Purchasing
 
         public List<Vendor> Vendors { get; set; } = new();
         public List<SelectListItem> POTypeOptions { get; set; } = new();
+        // S2-11: tenant-scoped CIP project picker for the new PO.
+        public List<Models.CipProject> CipProjects { get; set; } = new();
 
         public async Task<IActionResult> OnGetAsync()
         {
@@ -36,13 +38,23 @@ namespace Abs.FixedAssets.Pages.Purchasing
             return Page();
         }
 
-        public async Task<IActionResult> OnPostAsync(int vendorId, int poTypeLookupValueId, DateTime orderDate, DateTime? requiredDate, string? notes)
+        public async Task<IActionResult> OnPostAsync(int vendorId, int poTypeLookupValueId, DateTime orderDate, DateTime? requiredDate, string? notes, int? cipProjectId)
         {
             if (vendorId <= 0)
             {
                 TempData["Error"] = "Please select a vendor.";
                 await LoadFormDataAsync();
                 return Page();
+            }
+
+            // S2-11: tenant-scope the CIP project linkage if provided.
+            int? validatedCipProjectId = null;
+            if (cipProjectId.HasValue && cipProjectId.Value > 0)
+            {
+                var ok = await _context.CipProjects
+                    .AnyAsync(p => p.Id == cipProjectId.Value
+                        && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
+                if (ok) validatedCipProjectId = cipProjectId;
             }
 
             var poNumber = await GeneratePONumberAsync();
@@ -56,6 +68,7 @@ namespace Abs.FixedAssets.Pages.Purchasing
                 OrderDate = orderDate,
                 RequiredDate = requiredDate,
                 Notes = notes,
+                CipProjectId = validatedCipProjectId,
                 Status = POStatus.Draft,
                 CreatedAt = DateTime.UtcNow
             };
@@ -89,6 +102,12 @@ namespace Abs.FixedAssets.Pages.Purchasing
 
             POTypeOptions = await _lookupService.GetSelectListByIdAsync(
                 _tenantContext.TenantId, _tenantContext.CompanyId, "PurchaseOrderType", null, "");
+
+            // S2-11: tenant-scoped CIP project picker (active only).
+            CipProjects = await _context.CipProjects
+                .Where(p => p.Status == CipProjectStatus.Active && visibleIds.Contains(p.CompanyId ?? 0))
+                .OrderBy(p => p.ProjectNumber)
+                .ToListAsync();
         }
 
         private async Task<string> GeneratePONumberAsync()
