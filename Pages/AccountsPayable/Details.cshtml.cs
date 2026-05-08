@@ -1,6 +1,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.AccountsPayable;
 using Abs.FixedAssets.Services.Cip;
 using Abs.FixedAssets.Services.Lookups;
 using Microsoft.AspNetCore.Authorization;
@@ -21,11 +22,12 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
         private readonly ILookupService _lookupService;
         private readonly InvoiceMatchingService _matchingService;
         private readonly CipAutoCostPostingService _cipAutoCostPosting;
+        private readonly IApPostingService _apPosting;
         private readonly ILogger<DetailsModel> _logger;
 
         public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ITenantContext tenantContext,
             ILookupService lookupService, InvoiceMatchingService matchingService,
-            CipAutoCostPostingService cipAutoCostPosting, ILogger<DetailsModel> logger)
+            CipAutoCostPostingService cipAutoCostPosting, IApPostingService apPosting, ILogger<DetailsModel> logger)
         {
             _context = context;
             _moduleGuard = moduleGuard;
@@ -33,6 +35,7 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             _lookupService = lookupService;
             _matchingService = matchingService;
             _cipAutoCostPosting = cipAutoCostPosting;
+            _apPosting = apPosting;
             _logger = logger;
         }
 
@@ -165,19 +168,37 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 .ToListAsync();
         }
 
-        public async Task<IActionResult> OnPostApproveAsync(int id, string? returnUrl)
+        public async Task<IActionResult> OnPostApproveAsync(int id, string? returnUrl, bool overrideMatch = false)
         {
             var invoice = await LoadInvoiceScopedAsync(id);
             if (invoice == null) return NotFound();
 
-            invoice.Status = InvoiceStatus.Approved;
-            var approvedLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Approved).ToString());
-            if (approvedLv != null)
-                invoice.StatusLookupValueId = approvedLv.Id;
-            invoice.ApprovedAt = DateTime.UtcNow;
-            invoice.UpdatedAt = DateTime.UtcNow;
+            // S1-5: delegate to ApPostingService — runs the 3-way match gate,
+            // posts the approval JE (Dr GR-Accrued/Expense + PPV / Cr AP),
+            // period-guards the date, flips status. Errors surface to TempData.
+            try
+            {
+                await _apPosting.PostApprovalAsync(id, overrideMatch, User.Identity?.Name ?? "");
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "AP posting failed for invoice {Id}", id);
+                TempData["Error"] = ex.Message;
+                var fallbackUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+                return RedirectToPage(new { id, returnUrl = fallbackUrl });
+            }
 
-            await _context.SaveChangesAsync();
+            // Reload to pick up the status flip + JE link.
+            invoice = await LoadInvoiceScopedAsync(id);
+            if (invoice == null) return NotFound();
+
+            // Mirror status to the LookupValue FK (legacy paired-enum convention).
+            var approvedLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Approved).ToString());
+            if (approvedLv != null && invoice.StatusLookupValueId != approvedLv.Id)
+            {
+                invoice.StatusLookupValueId = approvedLv.Id;
+                await _context.SaveChangesAsync();
+            }
 
             // S1-3: route any CIP-tagged invoice lines into CipAutoCostPostingService.
             // The service is idempotent — re-runs against an already-posted line return
@@ -213,7 +234,25 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             var invoice = await LoadInvoiceScopedAsync(id);
             if (invoice == null) return NotFound();
 
-            var payment = new InvoicePayment
+            // S1-5: payment posting via ApPostingService — period-guards,
+            // posts the Dr AP / Cr Cash JE, flips status to Paid when fully
+            // paid (or PartiallyPaid otherwise via the resync below).
+            try
+            {
+                await _apPosting.PostPaymentAsync(id, amount, DateTime.Today, referenceNumber);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "AP payment failed for invoice {Id}", id);
+                TempData["Error"] = ex.Message;
+                var fbUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+                return RedirectToPage(new { id, returnUrl = fbUrl });
+            }
+
+            // Persist the InvoicePayment audit record alongside the JE
+            // (the service updates AmountPaid + Status; this row tracks
+            // operational metadata like method/reference/notes).
+            _context.InvoicePayments.Add(new InvoicePayment
             {
                 VendorInvoiceId = id,
                 PaymentDate = DateTime.Today,
@@ -222,27 +261,23 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 ReferenceNumber = referenceNumber,
                 Notes = notes,
                 CreatedAt = DateTime.UtcNow
-            };
+            });
 
-            _context.InvoicePayments.Add(payment);
-
-            invoice.AmountPaid += amount;
-            invoice.BalanceDue = invoice.Total - invoice.AmountPaid;
-            invoice.UpdatedAt = DateTime.UtcNow;
-
-            if (invoice.BalanceDue <= 0)
+            invoice = await LoadInvoiceScopedAsync(id);
+            if (invoice != null)
             {
-                invoice.Status = InvoiceStatus.Paid;
-                var paidLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Paid).ToString());
-                if (paidLv != null)
-                    invoice.StatusLookupValueId = paidLv.Id;
-            }
-            else if (invoice.AmountPaid > 0)
-            {
-                invoice.Status = InvoiceStatus.PartiallyPaid;
-                var partialLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.PartiallyPaid).ToString());
-                if (partialLv != null)
-                    invoice.StatusLookupValueId = partialLv.Id;
+                invoice.BalanceDue = invoice.Total - invoice.AmountPaid;
+                if (invoice.BalanceDue > 0 && invoice.AmountPaid > 0 && invoice.Status != InvoiceStatus.PartiallyPaid)
+                {
+                    invoice.Status = InvoiceStatus.PartiallyPaid;
+                    var partialLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.PartiallyPaid).ToString());
+                    if (partialLv != null) invoice.StatusLookupValueId = partialLv.Id;
+                }
+                else if (invoice.Status == InvoiceStatus.Paid)
+                {
+                    var paidLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Paid).ToString());
+                    if (paidLv != null) invoice.StatusLookupValueId = paidLv.Id;
+                }
             }
 
             await _context.SaveChangesAsync();
@@ -250,18 +285,34 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             return RedirectToPage(new { id, returnUrl = safeReturnUrl });
         }
 
-        public async Task<IActionResult> OnPostVoidAsync(int id, string? returnUrl)
+        public async Task<IActionResult> OnPostVoidAsync(int id, string? returnUrl, string? reason)
         {
+            // S1-5: void via ApPostingService — period-guards, posts a contra
+            // JE that reverses the approval JE (when one exists), flips status.
+            try
+            {
+                await _apPosting.PostVoidAsync(id, reason ?? "voided");
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "AP void failed for invoice {Id}", id);
+                TempData["Error"] = ex.Message;
+                var fb = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+                return RedirectToPage(new { id, returnUrl = fb });
+            }
+
+            // Mirror the status to the LookupValue FK.
             var invoice = await LoadInvoiceScopedAsync(id);
-            if (invoice == null) return NotFound();
+            if (invoice != null)
+            {
+                var voidedLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Voided).ToString());
+                if (voidedLv != null && invoice.StatusLookupValueId != voidedLv.Id)
+                {
+                    invoice.StatusLookupValueId = voidedLv.Id;
+                    await _context.SaveChangesAsync();
+                }
+            }
 
-            invoice.Status = InvoiceStatus.Voided;
-            var voidedLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Voided).ToString());
-            if (voidedLv != null)
-                invoice.StatusLookupValueId = voidedLv.Id;
-            invoice.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
             var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
             return RedirectToPage(new { id, returnUrl = safeReturnUrl });
         }

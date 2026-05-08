@@ -83,6 +83,13 @@ public class AccountsPayableTenantScopeTests
         public Task<ModuleStatus> GetModuleStatusAsync() => Task.FromResult(new ModuleStatus());
     }
 
+    private sealed class AllowAllPeriodGuard : IPeriodGuard
+    {
+        public Task<PeriodCheckResult> CanPostAsync(int companyId, DateTime postingDate)
+            => Task.FromResult(new PeriodCheckResult { IsAllowed = true });
+        public Task EnsureCanPostAsync(int companyId, DateTime postingDate) => Task.CompletedTask;
+    }
+
     private static (DetailsModel page, AppDbContext db) NewPage(ITenantContext tenant)
     {
         var db = NewDb();
@@ -91,8 +98,12 @@ public class AccountsPayableTenantScopeTests
         var moduleGuard = new AlwaysEnabledModuleGuard();
         var cipCostService = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookupService, tenant);
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookupService, tenant, cipCostService);
+        var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
+        var periodGuard = new AllowAllPeriodGuard();
+        var apPosting = new Abs.FixedAssets.Services.AccountsPayable.ApPostingService(
+            db, tenant, glResolver, periodGuard, matchingService, NullLogger<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>.Instance);
         var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService,
-            cipAutoCost, NullLogger<DetailsModel>.Instance);
+            cipAutoCost, apPosting, NullLogger<DetailsModel>.Instance);
 
         // Minimal PageContext so OnGetAsync can write to ViewData without NRE.
         // Same pattern as AssetConcurrencyTests.

@@ -148,6 +148,11 @@ builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService,
     Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
+
+// ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
+// match gate via InvoiceMatchingService.
+builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingService,
+    Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();
