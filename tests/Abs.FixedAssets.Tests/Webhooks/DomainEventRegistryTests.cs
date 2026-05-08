@@ -19,14 +19,15 @@ public class DomainEventRegistryTests
         var registry = RealRegistry();
         var all = registry.All();
 
-        // Phase 1 ships records for the four events we actually emit
-        // today. WorkRequestCreated has no producer yet (constant in
+        // Phase 1 + 2 ship records for every event we emit today.
+        // WorkRequestCreated has no producer yet (constant in
         // WebhookEventTypes is unused) — no record until a producer
         // exists, by design.
         Assert.Contains(all, t => t.EventType == "workorder.created" && t.Version == 1);
         Assert.Contains(all, t => t.EventType == "workorder.closed" && t.Version == 1);
         Assert.Contains(all, t => t.EventType == "closeout.summary.generated" && t.Version == 1);
         Assert.Contains(all, t => t.EventType == "lesson.saved" && t.Version == 1);
+        Assert.Contains(all, t => t.EventType == "test.ping" && t.Version == 1);
     }
 
     [Fact]

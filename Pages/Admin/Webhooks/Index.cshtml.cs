@@ -6,6 +6,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Webhooks;
+using Abs.FixedAssets.Services.Webhooks.Events;
 using System.Security.Cryptography;
 
 namespace Abs.FixedAssets.Pages.Admin.Webhooks;
@@ -171,18 +172,14 @@ public class IndexModel : PageModel
 
         await _outbox.EnqueueAsync(
             subscription.CompanyId,
-            null,
-            "test.ping",
-            "TestEvent",
-            Guid.NewGuid().ToString("N"),
-            new
-            {
-                Message = "This is a test webhook event from CherryAI EAM",
-                Timestamp = DateTime.UtcNow,
-                SubscriptionId = subscription.Id,
-                SubscriptionName = subscription.Name
-            },
-            $"test-{DateTime.UtcNow.Ticks}"
+            siteId: null,
+            new TestPingV1(
+                EntityId: Guid.NewGuid().ToString("N"),
+                Message: "This is a test webhook event from CherryAI EAM",
+                Timestamp: DateTime.UtcNow,
+                SubscriptionId: subscription.Id,
+                SubscriptionName: subscription.Name),
+            correlationId: $"test-{DateTime.UtcNow.Ticks}"
         );
 
         TempData["Success"] = $"Test event queued for '{subscription.Name}'";
