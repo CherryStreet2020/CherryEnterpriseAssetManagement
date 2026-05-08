@@ -74,7 +74,7 @@ Total: ~600+ steps. Realistic execution time: 4–8 hours of agent work dependin
 
 | Step | Action | Expected | Verify |
 |---|---|---|---|
-| **T-001** | Navigate to root URL (the ONLY allowed URL nav of this run). | Either Login page OR Dashboard renders. No 5xx. | HTTP 200; page title contains "CherryAI EAM" |
+| **T-001** | Navigate to root URL (the ONLY allowed URL nav of this run). | Either Login page OR Dashboard renders. No 5xx. | HTTP 200; page title contains "ABS Machining EAM" (the customer-facing name) — footer reads "ABS Machining EAM, powered by CherryAI". (Per DEV-002 from RUN-20260508-132947.) |
 | **T-002** | If Login page: type Username, type Password, click "Sign In". | Redirected to Dashboard. Top nav shows "Home / Assets / Books / Journals / Reports". | Cookie `.AspNetCore.Cookies` set; URL is `/Index` or `/`. |
 | **T-003** | Open browser dev console; check for any JS errors on Dashboard. | No red errors. Yellow CSP warnings ok. | Console clean of `Uncaught` errors. |
 | **T-004** | Note the Dashboard's headline KPIs (Total Asset Value, NBV, Accumulated Depreciation, Open WOs, Active CIP, Pending Approvals). Screenshot baseline. | All six KPI cards render with numeric values. | None show "$NaN" or "undefined". |
@@ -121,7 +121,7 @@ For each click, the agent must:
 | T-033 | "Schedules" | `/Maintenance/Schedules` |
 | T-034 | "Schedule Board" | `/Maintenance/ScheduleBoard` |
 | T-035 | "Assignments" | `/Maintenance/Assignments` |
-| T-036 | "PM Templates" | `/Admin/PMTemplates` |
+| T-036 | "PM Templates" | `/Maintenance/PMTemplates` (renders the same page as `/Admin/PMTemplates`) |
 | T-037 | "Technicians" | `/Maintenance/Technicians` |
 
 **Purchasing / Procurement**
@@ -129,7 +129,7 @@ For each click, the agent must:
 | Step | Click | Expected page |
 |---|---|---|
 | T-040 | "Purchasing" | `/Purchasing` |
-| T-041 | "Requisitions" | `/Admin/Requisitions` |
+| T-041 | "Requisitions" | `/Purchasing/Requisitions` (alias of `/Admin/Requisitions`) |
 | T-042 | "Receiving" | `/Receiving` |
 | T-043 | "Accounts Payable" | `/AccountsPayable` |
 
@@ -139,18 +139,18 @@ For each click, the agent must:
 |---|---|---|
 | T-050 | "Materials → Items" | `/Materials/Items` |
 | T-051 | "Materials → Vendors" | `/Materials/Vendors` |
-| T-052 | "Materials → Categories" | `/Admin/ItemCategories` |
-| T-053 | "Materials → Kits" | `/Admin/Kits` |
+| T-052 | "Materials → Categories" | `/Materials/Categories` (alias of `/Admin/ItemCategories`) |
+| T-053 | "Materials → Kits" | `/Materials/Kits` (alias of `/Admin/Kits`) |
 | T-054 | "Inventory" | `/Inventory` |
-| T-055 | "Stock Levels" | `/Admin/StockLevels` |
+| T-055 | "Stock Levels" | `/Inventory/StockLevels` (alias of `/Admin/StockLevels`) |
 
 **Asset Management**
 
 | Step | Click | Expected page |
 |---|---|---|
-| T-060 | "Assets → Categories" | `/Admin/AssetCategories` |
-| T-061 | "Assets → Locations" | `/Admin/Locations` |
-| T-062 | "Assets → Barcodes" | `/Admin/Barcodes` |
+| T-060 | "Assets → Categories" | `/Assets/Categories` (alias of `/Admin/AssetCategories`) |
+| T-061 | "Assets → Locations" | `/Assets/Locations` (alias of `/Admin/Locations`) |
+| T-062 | "Assets → Barcodes" | `/Assets/Barcodes` (alias of `/Admin/Barcodes`) |
 | T-063 | "Bulk Operations" | `/BulkOperations` |
 
 **Finance**
@@ -171,7 +171,7 @@ For each click, the agent must:
 | Step | Click | Expected page |
 |---|---|---|
 | T-080 | "Reports → Hub" | `/Reports/ReportHub` |
-| T-081 | "Reports → Index" | `/Reports/Index` |
+| T-081 | "Reports → Index" | `/Reports/Index` (server may redirect to `/Reports/ReportHub`; either is acceptable) |
 
 **Admin**
 
@@ -246,15 +246,17 @@ The asset page uses `_TabNav` partial. Click every tab in turn, exercising any h
 
 | Step | Action | Expected | Verify |
 |---|---|---|---|
-| T-160 | Click "Overview" tab (default). | Asset summary, KPIs, location, parent. | — |
-| T-161 | Click "Specifications" / Machine Spec tab. Fill any required fields, click Save. | OnPostSaveMachineSpecAsync fires. Saved confirmation. | DB: `MachineSpecifications` row. |
-| T-162 | Click "Meter Readings" tab. Click "Add Reading"; enter NewMeterReading=`100`, NewMeterReadingDate=today. Save. | OnPostAddMeterReadingAsync fires. | DB: `MeterReadings` +1. |
-| T-163 | Click "Maintenance" tab. Confirm any open WOs against this asset are listed. | — | — |
+**Live tab labels** (verified RUN-20260508-132947, DEV-003): General, Location, Financial, Technical, MES/OEE, IoT, Safety, Warranty, Hierarchy, Attachments, Transactions. Tabs are operations-engineering flavoured, not the accounting-flavoured set the plan originally listed.
+
+| T-160 | Click "General" tab (default). | Asset summary, KPIs, headline fields. | — |
+| T-161 | Click "Technical" / Machine Spec section. Fill any required fields, click Save. | OnPostSaveMachineSpecAsync fires. Saved confirmation. | DB: `MachineSpecifications` row. |
+| T-162 | Find the Meter Readings panel (under General or its own tab). Click "Add Reading"; enter NewMeterReading=`100`, NewMeterReadingDate=today. Save. | OnPostAddMeterReadingAsync fires. | DB: `MeterReadings` +1. |
+| T-163 | Open the asset's Maintenance section / linked WO list. Confirm any open WOs against this asset are listed. | — | — |
 | T-164 | Click "Transactions" tab. Confirm transaction history (acquisition stamp). | — | — |
 | T-165 | Click "Attachments" tab. Click "Upload"; pick a small txt/pdf file; click Upload. | OnPostUploadAsync fires. File appears in list. | DB: `Attachments` row. |
 | T-166 | On the new attachment, click "Delete". | OnPostDeleteAttachmentAsync fires; row removed. | — |
-| T-167 | Click "Image" / "Photo" tab if present. Click "Upload Image"; pick a PNG/JPG; submit. | OnPostUploadImageAsync fires; image renders. | — |
-| T-168 | Click each remaining tab (Documentation, Audit Trail, etc.). Each renders without 5xx. | — | — |
+| T-167 | Find the photo/image upload control (likely under General). Click "Upload Image"; pick a PNG/JPG; submit. | OnPostUploadImageAsync fires; image renders. | — |
+| T-168 | Click each remaining tab (Location, Financial, IoT, Safety, Warranty, Hierarchy). Each renders without 5xx. | — | — |
 
 ### 4.4 Asset edit
 
@@ -285,7 +287,7 @@ The asset page uses `_TabNav` partial. Click every tab in turn, exercising any h
 
 | Step | Action | Expected | Verify |
 |---|---|---|---|
-| T-200 | From asset detail, click "Schedule" tab/link. | `/Assets/Schedule?id={N}` shows month-by-month depreciation schedule. | Schedule has UsefulLifeMonths rows. |
+| T-200 | From asset detail, click "Schedule" tab/link. | `/Assets/Schedule/{id}` (route shape; `?id=` returns 404 — path-bound). Shows month-by-month depreciation schedule. | Schedule has UsefulLifeMonths rows. |
 | T-201 | Click "Export" if available. | CSV downloads. | — |
 
 ### 4.8 Asset Dispose
@@ -1048,4 +1050,12 @@ When the codebase changes:
 - **New outbox event** → add to Module 18 catalog count assertion + Module 19 marquee workflow + the verification matrix.
 - **Removed feature** → strike the row, don't delete it (preserves step-id stability for run-log diffs).
 
-Last updated: 2026-05-08, after PR [#57](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/57). Catalog count baseline: **18 events**.
+Last updated: 2026-05-08, after PRs [#59](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/59)–[#61](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/61) closed the P1/P2 findings from RUN-20260508-132947. Catalog count baseline: **18 events**.
+
+## Notes from RUN-20260508-132947 reconciliation
+
+- **DEV-001 — URL aliases.** Several pages are reachable from both an `/Admin/*` URL and a domain-prefixed alias (e.g., `/Maintenance/PMTemplates`, `/Materials/Categories`, `/Inventory/StockLevels`, `/Assets/Categories`). The plan now lists the live nav target with the alias noted in parentheses.
+- **DEV-002 — Title.** App title is "ABS Machining EAM" (the customer brand); footer reads "powered by CherryAI". T-001 verification updated.
+- **DEV-003 — Asset detail tabs.** Live tabs are operations-engineering flavoured (General / Location / Financial / Technical / MES/OEE / IoT / Safety / Warranty / Hierarchy / Attachments / Transactions). Module 4 updated.
+- **DEV-004 — Hidden admin pages.** `/Admin/Approvals`, `/Admin/Diagnostics` exist but are not in the sidebar. `/Admin/Outbox/Index` was unlinked; PR [#60](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/60) added it under the Webhooks group. The other two intentionally remain hidden.
+- **Fiscal calendar.** Now auto-rolls forward at startup (PR [#59](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/59)). Module 19 marquee workflows can now run end-to-end. Operators can also explicitly materialize via `/Admin/FiscalCalendar`.
