@@ -198,9 +198,9 @@ public class WorkOrderCostRollupTests
         // Op2: 1 labor entry  × $80/hr × 4hr     = 320; 0 parts.                       Total: 320.
         // Sum operations: labor=620, parts=100.
         db.Set<WorkOrderOperationLabor>().AddRange(
-            new WorkOrderOperationLabor { WorkOrderOperationId = op1.Id, Hours = 3m, HourlyRate = 50m, TechnicianName = "T1" },
-            new WorkOrderOperationLabor { WorkOrderOperationId = op1.Id, Hours = 3m, HourlyRate = 50m, TechnicianName = "T2" },
-            new WorkOrderOperationLabor { WorkOrderOperationId = op2.Id, Hours = 4m, HourlyRate = 80m, TechnicianName = "T3" }
+            new WorkOrderOperationLabor { WorkOrderOperationId = op1.Id, Hours = 3m, HourlyRate = 50m },
+            new WorkOrderOperationLabor { WorkOrderOperationId = op1.Id, Hours = 3m, HourlyRate = 50m },
+            new WorkOrderOperationLabor { WorkOrderOperationId = op2.Id, Hours = 4m, HourlyRate = 80m }
         );
         // Need an Item for the parts FK to satisfy.
         var item = new Item { PartNumber = "P-1", Description = "Widget" };
