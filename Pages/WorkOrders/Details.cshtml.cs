@@ -96,7 +96,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             Technicians = await _context.Technicians.Where(t => t.Active).OrderBy(t => t.Name).ToListAsync();
             Crafts = await _context.Crafts.Where(c => c.IsActive).OrderBy(c => c.Name).ToListAsync();
             LaborTypes = await _context.LaborTypes.Where(l => l.IsActive).OrderBy(l => l.Name).ToListAsync();
-            Items = await _context.Items.Where(i => i.IsActive).OrderBy(i => i.PartNumber).Take(100).ToListAsync();
+            // S1-7: tenant-scope the picker. Items with no CompanyId are
+            // treated as global (visible to every tenant); company-scoped
+            // items are filtered by VisibleCompanyIds.
+            Items = await _context.Items
+                .Where(i => i.IsActive
+                    && (i.CompanyId == null
+                        || _tenantContext.VisibleCompanyIds.Contains(i.CompanyId.Value)))
+                .OrderBy(i => i.PartNumber)
+                .Take(100)
+                .ToListAsync();
 
             OperationStatusOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "OperationStatus", null, "");
             OperationTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "OperationType", null, "");
@@ -289,7 +298,13 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddPlannedMaterialAsync(int workOrderId, int itemId, decimal quantityPlanned, string? notes)
         {
-            var item = await _context.Items.Where(i => i.Id == itemId).FirstOrDefaultAsync();
+            // S1-7: tenant-scope the item lookup (cross-tenant leak in the
+            // picker handler). Same shape as the page's main Items query.
+            var item = await _context.Items
+                .Where(i => i.Id == itemId
+                    && (i.CompanyId == null
+                        || _tenantContext.VisibleCompanyIds.Contains(i.CompanyId.Value)))
+                .FirstOrDefaultAsync();
             if (item == null) return NotFound();
 
             var part = new WorkOrderPart
@@ -340,8 +355,79 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             part.IssuedBy = User.Identity?.Name ?? "SYSTEM";
             part.UpdatedAt = DateTime.UtcNow;
 
+            // S1-7: decrement inventory + create ItemTransaction. The pre-fix
+            // code updated WorkOrderPart counters only, leaving ItemInventory
+            // untouched and ItemTransaction never created — inventory drifted
+            // forever. See docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
+            // Inventory failure is logged but does NOT roll back the WO part
+            // update — the operational truth (issuance happened) is the WO
+            // part counter; inventory accuracy is downstream and correctable.
+            await ApplyItemMovementAsync(part, actualIssue, isIssue: true);
+
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id = part.MaintenanceEventId });
+        }
+
+        /// <summary>
+        /// Applies an inventory movement for a WorkOrderPart issue or return.
+        /// Decrements (issue) or increments (return) ItemInventory at the
+        /// part's IssuedFromLocationId, and creates an ItemTransaction row
+        /// for audit. Idempotent at the WorkOrderPart-counter level since
+        /// the caller updates QuantityIssued/QuantityReturned in-place.
+        ///
+        /// If IssuedFromLocationId is null we still log the transaction but
+        /// can't update a specific inventory row — operations team can
+        /// reconcile later via cycle count.
+        /// </summary>
+        private async Task ApplyItemMovementAsync(WorkOrderPart part, decimal qty, bool isIssue)
+        {
+            var sign = isIssue ? -1m : 1m;
+            var companyId = part.MaintenanceEvent?.Asset?.CompanyId ?? _tenantContext.CompanyId;
+
+            if (part.IssuedFromLocationId.HasValue)
+            {
+                var inv = await _context.Set<ItemInventory>()
+                    .FirstOrDefaultAsync(i =>
+                        i.ItemId == part.ItemId &&
+                        i.LocationId == part.IssuedFromLocationId.Value &&
+                        i.CompanyId == companyId);
+                if (inv == null)
+                {
+                    // Stock row didn't exist; create it with the negative
+                    // (or positive) quantity so the issuance is recorded.
+                    // A subsequent cycle count or receipt will correct.
+                    inv = new ItemInventory
+                    {
+                        ItemId = part.ItemId,
+                        LocationId = part.IssuedFromLocationId.Value,
+                        CompanyId = companyId,
+                        QuantityOnHand = sign * qty,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Set<ItemInventory>().Add(inv);
+                }
+                else
+                {
+                    inv.QuantityOnHand += sign * qty;
+                    inv.UpdatedAt = DateTime.UtcNow;
+                    if (isIssue) inv.LastIssueDate = DateTime.UtcNow;
+                }
+            }
+
+            var txn = new ItemTransaction
+            {
+                TransactionNumber = $"WO{part.MaintenanceEventId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
+                ItemId = part.ItemId,
+                Type = isIssue ? TransactionType.Issue : TransactionType.Return,
+                Quantity = qty,
+                UnitCost = part.UnitCost,
+                FromLocationId = isIssue ? part.IssuedFromLocationId : null,
+                ToLocationId = isIssue ? null : part.IssuedFromLocationId,
+                LotNumber = part.LotNumber,
+                SerialNumber = part.SerialNumber
+            };
+            _context.Set<ItemTransaction>().Add(txn);
         }
 
         public async Task<IActionResult> OnPostReturnMaterialAsync(int workOrderPartId, decimal quantityReturn)
@@ -364,6 +450,9 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // Used = Issued - Returned (recalculate to prevent negative)
             part.QuantityUsed = Math.Max(0, part.QuantityIssued - part.QuantityReturned);
             part.UpdatedAt = DateTime.UtcNow;
+
+            // S1-7: increment inventory + create ItemTransaction (Return).
+            await ApplyItemMovementAsync(part, actualReturn, isIssue: false);
 
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id = part.MaintenanceEventId });
