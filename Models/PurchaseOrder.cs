@@ -131,6 +131,12 @@ namespace Abs.FixedAssets.Models
 
         public ICollection<PurchaseOrderLine> Lines { get; set; } = new List<PurchaseOrderLine>();
         public ICollection<GoodsReceipt> Receipts { get; set; } = new List<GoodsReceipt>();
+
+        // S1-8 / S2-8: optimistic concurrency via PG xmin. See Asset.RowVersion
+        // and Data/XminRowVersionExtensions.cs. Mapped via fluent API in
+        // AppDbContext.OnModelCreating; xmin is a system column so no DDL.
+        [Timestamp]
+        public byte[]? RowVersion { get; set; }
     }
 
     public class PurchaseOrderLine
