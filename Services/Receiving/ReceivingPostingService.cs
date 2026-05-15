@@ -83,11 +83,24 @@ namespace Abs.FixedAssets.Services.Receiving
                 return new ReceivingPostingResult(goodsReceiptId, null, 0, 0m);
             }
 
-            var jeReference = $"GR-{receipt.ReceiptNumber}";
+            // DEF-N12 (PR #88): receipt.ReceiptNumber is generated as
+            // "GR-{yyyyMMdd}-{HHmmss}" in Receive.cshtml.cs::OnPostAsync, so
+            // the old "$\"GR-{ReceiptNumber}\"" format produced doubled
+            // "GR-GR-..." entry numbers in the journal listing. Use the
+            // ReceiptNumber as-is when it already carries the GR- prefix;
+            // fall back to prepending for any future receipt-number scheme
+            // that doesn't. The idempotency lookup also accepts the legacy
+            // "GR-GR-..." format so re-processing an old receipt still
+            // short-circuits cleanly without producing a duplicate JE.
+            var jeReference = receipt.ReceiptNumber.StartsWith("GR-", StringComparison.OrdinalIgnoreCase)
+                ? receipt.ReceiptNumber
+                : $"GR-{receipt.ReceiptNumber}";
+            var legacyJeReference = $"GR-{receipt.ReceiptNumber}";
 
             // Idempotency guard: existing JE means we've posted this receipt before.
+            // Check both the new and legacy reference formats for pre-#88 entries.
             var existingJe = await _db.JournalEntries
-                .Where(j => j.Reference == jeReference && j.Source == "GR")
+                .Where(j => (j.Reference == jeReference || j.Reference == legacyJeReference) && j.Source == "GR")
                 .Select(j => (int?)j.Id)
                 .FirstOrDefaultAsync();
             if (existingJe.HasValue)
@@ -170,7 +183,7 @@ namespace Abs.FixedAssets.Services.Receiving
             var je = new JournalEntry
             {
                 BookId = null, // GR/IR accruals are not book-scoped; the Book FK is nullable per the model. Per-company default-book resolution can replace this if/when product semantics require it.
-                Batch = $"GR-{receipt.ReceiptNumber}",
+                Batch = jeReference,   // DEF-N12: was $"GR-{receipt.ReceiptNumber}" producing doubled GR-GR-...
                 Period = int.Parse(receipt.ReceiptDate.ToString("yyyyMM")),
                 PostingDate = receipt.ReceiptDate.Date,
                 Source = "GR",
