@@ -169,7 +169,7 @@ namespace Abs.FixedAssets.Services.Receiving
 
             var je = new JournalEntry
             {
-                BookId = 0, // TODO once a default-Book resolution lands
+                BookId = null, // GR/IR accruals are not book-scoped; the Book FK is nullable per the model. Per-company default-book resolution can replace this if/when product semantics require it.
                 Batch = $"GR-{receipt.ReceiptNumber}",
                 Period = int.Parse(receipt.ReceiptDate.ToString("yyyyMM")),
                 PostingDate = receipt.ReceiptDate.Date,
