@@ -3,6 +3,28 @@
 
 ---
 
+## Latest session: 2026-05-15 — marquee financial chain verified end-to-end
+
+The full PO → Receive → Invoice → Pay → Capitalize → Depreciate workflow runs cleanly on Replit with balanced JEs and per-asset book snapshots updating after each monthly generate. 21 PRs shipped today ([#59](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/59)–[#79](https://github.com/CherryStreet2020/CherryEnterpriseAssetManagement/pull/79)) closing 10 newly-discovered defects (DEF-008 through DEF-017) plus Sprint 0.5 audit items S2-1 (legacy MaintenanceSchedule deprecation) and S2-2 (PM meter recurrence projection).
+
+Key structural fixes:
+- **DEF-012**: `CipCapitalizations` + `CipCapitalizationCosts` tables were never created by a migration — schema diverged when the model evolved. Idempotent migration aligns live PG to the snapshot.
+- **DEF-013**: `CipCapitalizationService.CapitalizeAsync` wrapped in a single `IDbContextTransaction` — three separate `SaveChanges` no longer leave orphan Assets on partial failure.
+- **DEF-014**: capitalize form now requires `UsefulLifeMonths`; service bootstraps `AssetBookSettings` for the asset's company's GAAP book before recompute. New assets are immediately depreciable.
+- **DEF-017**: `/Journals/Generate` now refreshes per-asset `AssetBookSettings.AccumulatedDepreciation` / `BookValue` / `LastDepreciationDate` after the JE commit so detail pages reflect truth without a manual backfill.
+
+Verification on the live DB after the smoke chain ran:
+
+```
+asset 1070 (FA-CIP-USA-001, OriginatingCipProjectId=13, AcquisitionCost=$5,000)
+AssetBookSettings 330: AccumulatedDepreciation=$125.00, BookValue=$4,875.00,
+                       LastDepreciationDate=2026-06-30
+```
+
+Exact MidMonth math for a 5-yr StraightLine $5K asset placed in service 2026-05-15: half-May ($41.67) + full-June ($83.33) = $125.00.
+
+---
+
 ## 1. TECHNOLOGY STACK
 
 | Layer | Technology |
