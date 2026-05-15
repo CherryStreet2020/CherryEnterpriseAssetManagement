@@ -27,9 +27,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // the legacy handlers call, so the upload/download/delete behavior
         // is bit-identical — only the entry point moves to the modern page.
         private readonly AttachmentService _attachmentService;
+        // PR #96: Capitalize → CIP migration. Period guard refuses postings
+        // into closed fiscal periods (same posture as Asset Improve / Dispose).
+        // DepreciationBackfillService refreshes the asset's depreciation
+        // snapshot after the AcquisitionCost increment.
+        private readonly IPeriodGuard _periodGuard;
+        private readonly DepreciationBackfillService _depBackfill;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService)
+            IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService,
+            IPeriodGuard periodGuard, DepreciationBackfillService depBackfill)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -39,6 +46,8 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _outbox = outbox;
             _glResolver = glResolver;
             _attachmentService = attachmentService;
+            _periodGuard = periodGuard;
+            _depBackfill = depBackfill;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -54,6 +63,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // PR #94: Attachments migrated from legacy /Maintenance/Details.
         public List<Attachment> Attachments { get; set; } = new();
         public List<SelectListItem> AttachmentCategoryOptions { get; set; } = new();
+
+        // PR #96: Capitalize → CIP. Mirrors the IsCapitalized property the
+        // legacy page uses to gate the form ("IMPR:" prefix on CustomField2
+        // means this WO has already been capitalized to an asset improvement).
+        public bool IsCapitalized => !string.IsNullOrEmpty(WorkOrder?.CustomField2)
+                                     && WorkOrder.CustomField2.StartsWith("IMPR:");
 
         [BindProperty(SupportsGet = true)]
         public string? ReturnUrl { get; set; }
@@ -877,6 +892,87 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             );
 
             TempData["Success"] = $"Uploaded {file.FileName}.";
+            return RedirectToPage(new { id });
+        }
+
+        // ==================== CAPITALIZE → CIP (PR #96 migration) ====================
+        // Ports OnPostCapitalizeAsync from legacy /Maintenance/Details. Same
+        // financial posting: creates a CapitalImprovement row, increments
+        // Asset.AcquisitionCost, refreshes the depreciation snapshot. Behavior
+        // is bit-identical so legacy-vs-modern parity is guaranteed; only the
+        // entry point moves.
+        public async Task<IActionResult> OnPostCapitalizeAsync(int id, decimal amount, string description)
+        {
+            var wo = await _context.MaintenanceEvents
+                .Include(m => m.Asset)
+                .Where(m => m.Id == id
+                    && m.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null) return NotFound();
+
+            // Guardrail mirrors legacy: only completed WOs with a valid asset
+            // can be capitalized, and double-capitalization is refused.
+            if (wo.Status != MaintenanceStatus.Completed || wo.AssetId <= 0)
+            {
+                TempData["Error"] = "Cannot capitalize: WO must be Completed and tied to an asset.";
+                return RedirectToPage(new { id });
+            }
+            if (!string.IsNullOrEmpty(wo.CustomField2) && wo.CustomField2.StartsWith("IMPR:"))
+            {
+                TempData["Error"] = "Cannot capitalize: this WO has already been capitalized.";
+                return RedirectToPage(new { id });
+            }
+            if (amount <= 0m)
+            {
+                TempData["Error"] = "Capitalization amount must be positive.";
+                return RedirectToPage(new { id });
+            }
+
+            var improvementDate = wo.CompletedDate ?? DateTime.UtcNow;
+            var asset = wo.Asset!; // non-null by the Include + filter above
+            var assetCompanyId = asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
+
+            // Period guard — same posture as Pages/Assets/Improve.cshtml.cs
+            // and Pages/Assets/Dispose.cshtml.cs. Capitalizing into a closed
+            // period would silently distort prior-period AcquisitionCost and
+            // depreciation; refuse fast with a user-readable reason.
+            if (assetCompanyId > 0)
+            {
+                var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, improvementDate);
+                if (!periodCheck.IsAllowed)
+                {
+                    TempData["Error"] = periodCheck.Reason
+                        ?? $"Cannot capitalize: posting period for {improvementDate:yyyy-MM-dd} is closed.";
+                    return RedirectToPage(new { id });
+                }
+            }
+
+            var improvement = new CapitalImprovement
+            {
+                AssetId = wo.AssetId,
+                ImprovementDate = improvementDate,
+                Description = string.IsNullOrEmpty(description) ? $"WO {wo.WorkOrderNumber}: {wo.Description}" : description,
+                Cost = amount,
+                Vendor = wo.Vendor,
+                Notes = $"Source: Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}",
+                Capitalized = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = User.Identity?.Name
+            };
+
+            _context.CapitalImprovements.Add(improvement);
+            asset.AcquisitionCost += amount;
+            wo.CustomField2 = $"IMPR:{improvement.Id}";
+
+            await _context.SaveChangesAsync();
+
+            // Refresh the depreciation snapshot on Asset and each
+            // AssetBookSettings so subsequent reads (asset detail, KPI
+            // dashboard, schedule report) reflect the new cost basis.
+            await _depBackfill.RecomputeAssetAsync(wo.AssetId, improvementDate);
+
+            TempData["Success"] = $"Capitalized {amount:C} to asset {asset.AssetNumber} as improvement #{improvement.Id}.";
             return RedirectToPage(new { id });
         }
 

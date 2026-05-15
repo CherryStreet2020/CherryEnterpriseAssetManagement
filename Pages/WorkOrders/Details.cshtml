@@ -673,6 +673,58 @@
     </p>
 </div>
 
+@* PR #96: Capitalize → CIP, migrated from legacy /Maintenance/Details.
+   Card renders only when the WO is Completed (or already capitalized so the
+   IMPR pointer is visible). On a Completed-but-not-yet-capitalized WO, the
+   form posts to OnPostCapitalizeAsync; on an already-capitalized WO, the
+   card shows the IMPR pointer and disables the form. *@
+@if (Model.WorkOrder.Status == MaintenanceStatus.Completed)
+{
+    <div class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
+        <h3 class="text-theme-primary" data-csp-style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Capitalize to Asset (CIP)
+        </h3>
+        @if (Model.IsCapitalized)
+        {
+            <div class="callout-green">
+                <strong>Already capitalized.</strong>
+                <span data-csp-style="opacity:0.85; margin-left:0.5rem;">
+                    This WO's cost was rolled into Asset @Model.WorkOrder.Asset?.AssetNumber as Capital Improvement <code>@Model.WorkOrder.CustomField2</code>.
+                    Depreciation has been refreshed.
+                </span>
+            </div>
+        }
+        else
+        {
+            <p data-csp-style="opacity:0.8; margin-bottom:1rem;">
+                Roll this WO's total cost into the asset's cost basis (Capital Improvement).
+                Asset.AcquisitionCost increments by the amount you enter, and the depreciation
+                snapshot refreshes automatically. Subject to the fiscal period guard.
+            </p>
+            <form method="post" asp-page-handler="Capitalize" data-csp-style="display:grid; grid-template-columns: 1fr 2fr auto; gap:0.5rem; align-items:end;">
+                <input type="hidden" name="id" value="@Model.WorkOrder.Id" />
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Amount (USD)</label>
+                    <input type="number" name="amount" class="form-input-p" step="0.01" min="0.01" value="@(Model.TotalLaborCost + Model.TotalPartsCost)" required />
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Description</label>
+                    <input type="text" name="description" class="form-input-p" placeholder="@($"WO {Model.WorkOrder.WorkOrderNumber}: {Model.WorkOrder.Description}")" />
+                </div>
+                <button type="submit" class="btn-p btn-p--primary" onclick="return confirm('Capitalize this WO to the asset? This will increment AcquisitionCost and refresh depreciation. Refused if the fiscal period is closed.');">
+                    Capitalize
+                </button>
+            </form>
+            <p data-csp-style="opacity:0.6; font-size:0.8em; margin-top:0.5rem;">
+                Default amount is the sum of labor and parts cost so far ($@((Model.TotalLaborCost + Model.TotalPartsCost).ToString("N2"))). Edit if outside-vendor or other costs need to be included.
+            </p>
+        }
+    </div>
+}
+
 <!-- Closeout Section -->
 <div class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
     <h3 class="text-theme-primary" data-csp-style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
