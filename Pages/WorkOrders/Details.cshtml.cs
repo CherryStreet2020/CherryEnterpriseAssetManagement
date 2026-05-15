@@ -246,11 +246,87 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             };
 
             _context.WorkOrderOperationLabors.Add(labor);
-            
+
             operation.ActualHours += hours;
-            
+
+            // PR #92: Post the GL impact of the labor entry. Pairs with PR #89's
+            // materials posting to complete the WO cost rollup — without this
+            // entry, the asset-level maintenance spend KPI undercounts every
+            // internally-staffed work order by the entire labor side. DR
+            // MaintenanceLabor (expense) / CR AccruedLabor (liability); the
+            // payroll subsystem clears AccruedLabor to Cash on the next pay
+            // cycle. If hours or rate is zero we skip — no GL impact and the
+            // PR #84 balance guard would refuse an empty entry anyway.
+            await PostLaborJournalEntryAsync(operation, labor);
+
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id = operation.MaintenanceEventId });
+        }
+
+        /// <summary>
+        /// PR #92 (DEF-N09 follow-up): Posts the journal entry for a labor
+        /// entry against a Work Order Operation:
+        ///   DR <see cref="GlAccountKind.MaintenanceLabor"/>
+        ///   CR <see cref="GlAccountKind.AccruedLabor"/>
+        /// Amount is <c>hours * hourlyRate</c>. Resolves accounts via the
+        /// ADR-003 cascade so per-company overrides are honored. The JE is
+        /// added to the ChangeTracker but not saved here — the caller's
+        /// SaveChanges flushes it alongside the WorkOrderOperationLabor in a
+        /// single transaction so they cannot diverge.
+        /// </summary>
+        private async Task<JournalEntry?> PostLaborJournalEntryAsync(WorkOrderOperation operation, WorkOrderOperationLabor labor)
+        {
+            if (labor.Hours <= 0m || labor.HourlyRate <= 0m) return null;
+            var amount = labor.Hours * labor.HourlyRate;
+            if (amount <= 0m) return null;
+
+            var resolvedCompanyId = operation.MaintenanceEvent?.Asset?.CompanyId
+                ?? _tenantContext.CompanyId
+                ?? 0;
+            if (resolvedCompanyId == 0) return null;
+
+            var ctx = new GlResolveContext(
+                WorkOrderId: operation.MaintenanceEventId,
+                AssetId: operation.MaintenanceEvent?.AssetId);
+            var laborAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceLabor, ctx);
+            var accruedAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.AccruedLabor, ctx);
+
+            var ticks = DateTime.UtcNow.Ticks;
+            var jeReference = $"WO-LBR-{operation.MaintenanceEventId}-op{operation.Id}-{ticks}";
+            var woNumber = operation.MaintenanceEvent?.WorkOrderNumber ?? $"WO#{operation.MaintenanceEventId}";
+
+            var je = new JournalEntry
+            {
+                BookId = null,
+                Batch = jeReference,
+                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
+                PostingDate = DateTime.UtcNow.Date,
+                Source = "WO-LBR",
+                Reference = jeReference,
+                Description = $"Labor posted to {woNumber} (op {operation.Sequence}, {labor.Hours:0.00}h @ {labor.HourlyRate:C})",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>
+                {
+                    new JournalLine
+                    {
+                        LineNo = 1,
+                        Account = laborAccount,
+                        Description = $"Maintenance labor - {woNumber}",
+                        Debit = amount,
+                        Credit = 0m
+                    },
+                    new JournalLine
+                    {
+                        LineNo = 2,
+                        Account = accruedAccount,
+                        Description = $"Accrued labor - {woNumber}",
+                        Debit = 0m,
+                        Credit = amount
+                    }
+                }
+            };
+            _context.JournalEntries.Add(je);
+            return je;
         }
 
         public async Task<IActionResult> OnPostAddToolAsync(int operationId, string toolName, int quantityRequired, string? notes)

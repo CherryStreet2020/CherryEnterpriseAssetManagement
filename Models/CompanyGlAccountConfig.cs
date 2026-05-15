@@ -72,5 +72,11 @@ namespace Abs.FixedAssets.Models
         MaintenanceLabor = 500,
         MaintenanceMaterials = 510,
         MaintenanceOutsideVendor = 520,
+        // Credit-side counterpart for internally-staffed maintenance labor.
+        // The DR posts to MaintenanceLabor (expense); the CR sits in
+        // AccruedLabor (liability) until payroll processing pays it down
+        // against Cash. Added in PR #92 to complete the WO cost-rollup
+        // pair with PR #89's materials posting.
+        AccruedLabor = 530,
     }
 }

@@ -221,6 +221,11 @@ namespace Abs.FixedAssets.Services
                 GlAccountKind.MaintenanceLabor => "6200",
                 GlAccountKind.MaintenanceMaterials => "6210",
                 GlAccountKind.MaintenanceOutsideVendor => "6220",
+                // PR #92: liability bucket the labor JE credits until the
+                // payroll subsystem clears it to Cash. Slotted next to the
+                // GR-Accrued account (2150) so the trial balance puts the
+                // two accrual liabilities side by side.
+                GlAccountKind.AccruedLabor => "2160",
                 _ => null
             };
         }
