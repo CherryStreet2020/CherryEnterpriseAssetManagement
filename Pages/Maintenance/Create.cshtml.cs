@@ -116,7 +116,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             if (typeLv != null)
             {
                 resolvedTypeLvId = typeLv.Id;
-                resolvedType = ResolveMaintenanceTypeFromLookup(typeLv.Code, typeLv.Description) ?? resolvedType;
+                resolvedType = ResolveMaintenanceTypeFromLookup(typeLv.Code, typeLv.Name) ?? resolvedType;
             }
 
             var priorityLv = await _lookupService.GetValueByIdAsync(null, null, priorityLookupValueId);
@@ -151,13 +151,13 @@ namespace Abs.FixedAssets.Pages.Maintenance
         }
 
         /// <summary>
-        /// Maps a maintenance-type lookup Code/Description to the legacy
+        /// Maps a maintenance-type lookup Code/Name to the legacy
         /// MaintenanceType enum that backs PM-compliance metrics and category
         /// filtering. Three tiers:
         /// 1. Exact enum-name match on the Code (future-proof for seeds that
         ///    use enum names directly).
-        /// 2. Description stem match (e.g. "Corrective Maintenance" →
-        ///    Corrective; strips trailing " Maintenance" suffix).
+        /// 2. Name stem match (e.g. "Corrective Maintenance" → Corrective;
+        ///    strips trailing " Maintenance" suffix).
         /// 3. Industry abbreviation map (PM/CM/PDM/EM/OH — matching the
         ///    SystemReferenceSeedPipeline seed and what every Maximo /
         ///    SAP PM / Infor EAM operator types muscle-memory).
@@ -165,7 +165,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
         /// default. Kept private to this page model — if a second caller
         /// needs the same logic, lift to a shared service.
         /// </summary>
-        private static MaintenanceType? ResolveMaintenanceTypeFromLookup(string? code, string? description)
+        private static MaintenanceType? ResolveMaintenanceTypeFromLookup(string? code, string? name)
         {
             if (!string.IsNullOrWhiteSpace(code))
             {
@@ -173,13 +173,13 @@ namespace Abs.FixedAssets.Pages.Maintenance
                     return parsed;
             }
 
-            if (!string.IsNullOrWhiteSpace(description))
+            if (!string.IsNullOrWhiteSpace(name))
             {
-                var stem = description.Trim();
+                var stem = name.Trim();
                 if (stem.EndsWith(" Maintenance", StringComparison.OrdinalIgnoreCase))
                     stem = stem.Substring(0, stem.Length - " Maintenance".Length).TrimEnd();
-                if (Enum.TryParse<MaintenanceType>(stem, ignoreCase: true, out var parsedDesc))
-                    return parsedDesc;
+                if (Enum.TryParse<MaintenanceType>(stem, ignoreCase: true, out var parsedName))
+                    return parsedName;
             }
 
             return code?.Trim().ToUpperInvariant() switch
