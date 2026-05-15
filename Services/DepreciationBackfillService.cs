@@ -195,6 +195,51 @@ namespace Abs.FixedAssets.Services
         // ────────────────────────────────────────────────────────────────────────
         // Step 3: AssetBookSettings (Asset ↔ Book linkage)
         // ────────────────────────────────────────────────────────────────────────
+
+        // DEF-014: per-asset variant of EnsureAssetBookSettingsAsync so the CIP
+        // capitalize path (and any future single-asset bootstrap) can provision
+        // AssetBookSettings rows without scanning the whole tenant. Returns
+        // the number of settings rows created (0 if the asset already has
+        // settings, or no GAAP book exists for its company).
+        public async Task<int> EnsureAssetBookSettingsForAssetAsync(int assetId)
+        {
+            var asset = await _db.Assets.FirstOrDefaultAsync(a => a.Id == assetId);
+            if (asset == null || asset.CompanyId == null) return 0;
+
+            // Find the primary GAAP book for this asset's company. Same selection
+            // rule as the bulk EnsureAssetBookSettingsAsync path: prefer the one
+            // explicitly flagged IsPrimaryBook, then lowest Id as tiebreaker.
+            var book = await _db.Books
+                .Where(b => b.BookType == BookType.Financial
+                            && b.IsActive
+                            && b.CompanyId == asset.CompanyId)
+                .OrderByDescending(b => b.IsPrimaryBook)
+                .ThenBy(b => b.Id)
+                .FirstOrDefaultAsync();
+            if (book == null) return 0;
+
+            var exists = await _db.AssetBookSettings
+                .AnyAsync(s => s.AssetId == assetId && s.BookId == book.Id);
+            if (exists) return 0;
+
+            var settings = new AssetBookSettings
+            {
+                AssetId = assetId,
+                BookId = book.Id,
+                MethodOverride = null,
+                ConventionOverride = null,
+                UsefulLifeMonthsOverride = null,
+                AccumulatedDepreciation = 0m,
+                BookValue = asset.AcquisitionCost,
+                IsExcludedFromBook = false,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.AssetBookSettings.Add(settings);
+            await _db.SaveChangesAsync();
+            return 1;
+        }
+
         private async Task EnsureAssetBookSettingsAsync(DepreciationBackfillReport report)
         {
             // Build lookup: companyId -> primary GAAP book

@@ -649,11 +649,20 @@
             <div class="form-grid form-grid--2" data-csp-style="margin-bottom: 1rem;">
                 <div class="form-group-p">
                     <label class="form-label-p">Asset Number</label>
-                    <input type="text" name="assetNumber" class="form-input-p" required placeholder="e.g. FA-00123" />
+                    <input type="text" name="assetNumber" class="form-input-p" required placeholder="e.g. FA-00123" autocomplete="off" />
                 </div>
                 <div class="form-group-p">
                     <label class="form-label-p">Asset Description</label>
                     <input type="text" name="assetDescription" class="form-input-p" required value="@Model.Project.Name" />
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Useful Life (months) *</label>
+                    <input type="number" name="usefulLifeMonths" class="form-input-p" required min="1" max="600" value="60" placeholder="60" />
+                    <small data-csp-style="display:block; margin-top:4px; color:var(--text-muted); font-size:0.75rem;">Common: 36 (3y equip) · 60 (5y machinery) · 84 (7y) · 120 (10y) · 360 (30y building)</small>
+                </div>
+                <div class="form-group-p">
+                    <label class="form-label-p">Salvage Value</label>
+                    <input type="number" name="salvageValue" class="form-input-p" step="0.01" min="0" value="0" placeholder="0.00" />
                 </div>
             </div>
             @if (Model.CapPreview != null)
