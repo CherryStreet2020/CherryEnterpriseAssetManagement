@@ -102,45 +102,24 @@ namespace Abs.FixedAssets.Pages.Maintenance
             "overview", "operations", "parts", "labor", "closeout", "history"
         };
 
+        // PR #98: Hard 301 redirect to the canonical /WorkOrders/Details surface.
+        // After PRs #89, #92, #94, #96, #97 every routine WO workflow lives on
+        // the modern page; the legacy GET view here is now obsolete. POST
+        // handlers below are kept so any external integration (CRM webhook,
+        // mobile app) that still POSTs to legacy ?handler= URLs continues to
+        // function — but a fresh GET always lands on the modern page.
+        //
+        // Module guard stays first; if Maintenance is disabled the user gets
+        // the ModuleDisabled landing, same as the modern page does. The
+        // `id` route value and `returnUrl` query string are carried forward
+        // so "back to results" still works after the redirect.
         public async Task<IActionResult> OnGetAsync(int id)
         {
             if (!await _moduleGuard.IsModuleEnabledAsync("maintenance"))
                 return RedirectToPage("/ModuleDisabled", new { module = "Maintenance" });
 
-            var evt = await GetScopedEventAsync(id);
-            if (evt == null)
-                return NotFound();
-
-            if (!ValidTabs.Contains(Tab))
-                Tab = "overview";
-
-            Event = evt;
-            Origin = await _originService.GetOriginAsync(evt);
-            Attachments = await _attachmentService.GetByMaintenanceEventAsync(id);
-            Technicians = await _context.Technicians.Where(t => t.Active).OrderBy(t => t.Name).ToListAsync();
-            Operations = evt.Operations?.OrderBy(o => o.Sequence).ToList() ?? new();
-            Crafts = await _context.Set<Craft>().OrderBy(c => c.Name).ToListAsync();
-            // Defense-in-depth tenant scoping: even though `evt` was already
-            // scope-verified by GetScopedEventAsync above, the WorkOrderParts
-            // query stands on its own — re-asserting the scope here means a
-            // future refactor that drops the early NotFound can't accidentally
-            // open a parts-leak vector. Mirrors the AccountsPayable hardening
-            // in PR #22.
-            Parts = await _context.WorkOrderParts
-                .Include(p => p.Item)
-                .Where(p => p.MaintenanceEventId == id
-                    && p.MaintenanceEvent != null
-                    && p.MaintenanceEvent.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0)
-                    && (!_tenantContext.SiteId.HasValue || p.MaintenanceEvent.Asset.SiteId == _tenantContext.SiteId.Value))
-                .ToListAsync();
-            IsCapitalized = !string.IsNullOrEmpty(evt.CustomField2) && evt.CustomField2.StartsWith("IMPR:");
-            PriorityOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenancePriority", Event.PriorityLookupValueId, "");
-            MaintenanceTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceType", Event.TypeLookupValueId, "");
-            StatusOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceStatus", Event.StatusLookupValueId, "");
-            CraftOptions = await _lookupService.GetSelectListAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "CraftType", null, "");
-            AttachmentCategoryOptions = await _lookupService.GetSelectListAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "AttachmentCategory", null, "");
-            return Page();
+            return RedirectToPagePermanent("/WorkOrders/Details",
+                new { id, returnUrl = ReturnUrl });
         }
 
         private async Task SyncStatusFkAsync(MaintenanceEvent evt, MaintenanceStatus status)
