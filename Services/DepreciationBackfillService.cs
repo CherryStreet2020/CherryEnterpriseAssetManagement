@@ -381,6 +381,41 @@ namespace Abs.FixedAssets.Services
         /// <param name="assetId">The asset whose snapshot to recompute.</param>
         /// <param name="asOfDate">As-of date for the schedule's last row.
         /// Defaults to today (UTC).</param>
+        /// <summary>
+        /// DEF-017: recompute every asset's per-book snapshot for a single
+        /// book. Intended for the monthly Generate flow: after the aggregate
+        /// JE is written, each asset's AssetBookSettings row (AccumulatedDep,
+        /// BookValue, LastDepreciationDate) gets refreshed so detail pages
+        /// and KPI reads aren't stale until the next bulk Backfill.
+        /// </summary>
+        /// <param name="bookId">The Book whose AssetBookSettings rows to refresh.</param>
+        /// <param name="asOfDate">As-of date for the recompute. Defaults to UTC today.</param>
+        /// <returns>Number of asset snapshots updated (i.e., those that were
+        /// depreciable and had a non-empty schedule).</returns>
+        public async Task<int> RecomputeBookAsync(int bookId, DateTime? asOfDate = null)
+        {
+            var effectiveAsOf = asOfDate ?? DateTime.UtcNow.Date;
+
+            // Pull every asset that has a settings row on this book. Deduped
+            // (an asset has at most one row per book anyway, but defensive).
+            var assetIds = await _db.AssetBookSettings
+                .Where(s => s.BookId == bookId && !s.IsExcludedFromBook)
+                .Select(s => s.AssetId)
+                .Distinct()
+                .ToListAsync();
+
+            int total = 0;
+            foreach (var assetId in assetIds)
+            {
+                // RecomputeAssetAsync already no-ops on non-depreciable shapes
+                // (cost <= 0, useful life <= 0, in-service date in future) and
+                // logs schedule-build failures, so we don't need to repeat
+                // those guards here.
+                total += await RecomputeAssetAsync(assetId, effectiveAsOf);
+            }
+            return total;
+        }
+
         /// <returns>The number of <see cref="AssetBookSettings"/> rows whose
         /// snapshot was updated. Returns 0 if the asset has no settings, is
         /// not depreciable, or its in-service date is in the future.</returns>

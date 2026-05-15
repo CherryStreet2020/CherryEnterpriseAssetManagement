@@ -19,9 +19,12 @@ namespace Abs.FixedAssets.Pages.Journals
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
         private readonly IOutboxWriter _outbox;
+        private readonly DepreciationBackfillService _depBackfill;
         public GenerateModel(AppDbContext db, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IOutboxWriter outbox) {
-            _moduleGuard = moduleGuard; _db = db; _tenantContext = tenantContext; _outbox = outbox; }
+            IModuleGuardService moduleGuard, IOutboxWriter outbox,
+            DepreciationBackfillService depBackfill) {
+            _moduleGuard = moduleGuard; _db = db; _tenantContext = tenantContext;
+            _outbox = outbox; _depBackfill = depBackfill; }
 
         public SelectListItem[] BookOptions { get; private set; } = Array.Empty<SelectListItem>();
 
@@ -64,7 +67,6 @@ namespace Abs.FixedAssets.Pages.Journals
             {
                 var companyId = _tenantContext.CompanyId ?? 1;
                 var entry = await JournalGenerator.GenerateMonthlyAsync(_db, BookId.Value, month, createdBy: "web", companyId: companyId);
-                TempData["Flash"] = $"Journal \"{entry.Batch}\" generated successfully for {month:yyyy-MM} with {entry.Lines?.Count ?? 0} line(s).";
 
                 var book = await _db.Books.AsNoTracking().FirstAsync(b => b.Id == BookId.Value);
                 var totalDr = entry.Lines?.Sum(l => l.Debit) ?? 0m;
@@ -84,6 +86,16 @@ namespace Abs.FixedAssets.Pages.Journals
                         CreatedBy: User?.Identity?.Name ?? "web"),
                     correlationId: $"dep-post-{entry.Id}"
                 );
+
+                // DEF-017: refresh per-asset AssetBookSettings snapshots
+                // (AccumulatedDepreciation, BookValue, LastDepreciationDate)
+                // for every asset on this book, using the month-end as the
+                // as-of date. Without this the JE represents truth at the GL
+                // level but per-asset detail pages and KPI reads stay stale
+                // until someone runs the bulk DepreciationBackfill RunAsync.
+                int snapshotsUpdated = await _depBackfill.RecomputeBookAsync(BookId.Value, entry.PostingDate);
+
+                TempData["Flash"] = $"Journal \"{entry.Batch}\" generated successfully for {month:yyyy-MM} with {entry.Lines?.Count ?? 0} line(s). Refreshed {snapshotsUpdated} asset snapshot(s).";
 
                 return RedirectToPage("./Index");
             }
