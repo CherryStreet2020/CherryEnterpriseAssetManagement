@@ -1,0 +1,158 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.MaintenanceSpendModel
+@{
+    ViewData["Title"] = "Maintenance Spend by Asset";
+    ViewData["Breadcrumb"] = "Reports / Maintenance Spend";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "HeaderTitle", "Maintenance Spend by Asset" },
+        { "Subtitle", $"Asset-level cost rollup of labor + materials posted to WO journal entries between {Model.StartDate:yyyy-MM-dd} and {Model.EndDate:yyyy-MM-dd}" },
+        { "TypeLabel", "Reliability" },
+        { "StatusText", "Live" },
+        { "StatusTone", "active" }
+    };
+
+    // Operational vs JE reconciliation delta — should be 0 when the WO posting
+    // handlers are fully wired (PR #89 + PR #92). Any non-zero is a finance
+    // bug we want to surface.
+    var laborDelta = Model.TotalLabor - Model.JeLaborTotal;
+    var materialsDelta = Model.TotalMaterialsNet - Model.JeMaterialsNetTotal;
+    var totalDelta = Model.TotalSpend - Model.JeTotalSpend;
+    var inSync = laborDelta == 0m && materialsDelta == 0m;
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@* PR #93: Filter card — date range. Other filters (asset category,
+   location, criticality) are deferred to a follow-up; this MVP ships the
+   asset-level rollup that the closing-the-books finance team needs first. *@
+<div class="pe-card">
+    <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--blue"></span> Filter</span></div>
+    <div class="pe-card__body">
+        <form method="get" class="form-row-p">
+            <div class="form-group-p">
+                <label class="form-label-p">Start Date</label>
+                <input type="date" name="StartDate" class="form-input-p" value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="form-group-p">
+                <label class="form-label-p">End Date</label>
+                <input type="date" name="EndDate" class="form-input-p" value="@Model.EndDate?.ToString("yyyy-MM-dd")" />
+            </div>
+            <div class="form-group-p" data-csp-style="display:flex; align-items:flex-end; gap:0.5rem;">
+                <button type="submit" class="btn-p btn-p--primary">Apply</button>
+                <a href="@Url.Page("/Reports/MaintenanceSpend")" class="btn-p btn-p--secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* KPI strip *@
+<div data-csp-style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1rem 0;">
+    <div class="pe-card" data-csp-style="padding:1rem;">
+        <div data-csp-style="opacity:0.7; font-size:0.85em; text-transform:uppercase; letter-spacing:0.05em;">Total Spend</div>
+        <div data-csp-style="font-size:1.8em; font-weight:700; margin-top:0.25rem;">@Model.TotalSpend.ToString("C")</div>
+        <div data-csp-style="opacity:0.65; font-size:0.85em; margin-top:0.25rem;">Window @Model.StartDate?.ToString("MMM d") - @Model.EndDate?.ToString("MMM d, yyyy")</div>
+    </div>
+    <div class="pe-card" data-csp-style="padding:1rem;">
+        <div data-csp-style="opacity:0.7; font-size:0.85em; text-transform:uppercase; letter-spacing:0.05em;">Labor</div>
+        <div data-csp-style="font-size:1.8em; font-weight:700; margin-top:0.25rem; color:#3b82f6;">@Model.TotalLabor.ToString("C")</div>
+        <div data-csp-style="opacity:0.65; font-size:0.85em; margin-top:0.25rem;">DR 6200 / CR 2160</div>
+    </div>
+    <div class="pe-card" data-csp-style="padding:1rem;">
+        <div data-csp-style="opacity:0.7; font-size:0.85em; text-transform:uppercase; letter-spacing:0.05em;">Materials (net)</div>
+        <div data-csp-style="font-size:1.8em; font-weight:700; margin-top:0.25rem; color:#10b981;">@Model.TotalMaterialsNet.ToString("C")</div>
+        <div data-csp-style="opacity:0.65; font-size:0.85em; margin-top:0.25rem;">DR 6210 / CR 1300</div>
+    </div>
+    <div class="pe-card" data-csp-style="padding:1rem;">
+        <div data-csp-style="opacity:0.7; font-size:0.85em; text-transform:uppercase; letter-spacing:0.05em;">Active Assets</div>
+        <div data-csp-style="font-size:1.8em; font-weight:700; margin-top:0.25rem;">@Model.ActiveAssetCount</div>
+        <div data-csp-style="opacity:0.65; font-size:0.85em; margin-top:0.25rem;">@Model.WorkOrderCount work orders</div>
+    </div>
+</div>
+
+@* JE reconciliation strip — surfaces drift between operational tables and the GL.
+   When PR #89 + PR #92 are fully active and posting correctly, the deltas read 0
+   and the row shows green; non-zero means a WO action moved data without posting
+   a JE and finance wants to know. *@
+<div class="pe-card" data-csp-style="margin-bottom:1rem; border-left: 4px solid @(inSync ? "#10b981" : "#f59e0b");">
+    <div class="pe-card__body" data-csp-style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <span data-csp-style="font-size:1.2em;">@(inSync ? "✅" : "⚠️")</span>
+        <div data-csp-style="flex:1; min-width:300px;">
+            <strong>JE reconciliation:</strong>
+            Operational rollup <strong>@Model.TotalSpend.ToString("C")</strong>
+            vs Journal Entries <strong>@Model.JeTotalSpend.ToString("C")</strong>
+            (Δ <strong>@totalDelta.ToString("C")</strong>)
+            @if (!inSync)
+            {
+                <span data-csp-style="opacity:0.85; margin-left:0.5rem;">— labor Δ @laborDelta.ToString("C"), materials Δ @materialsDelta.ToString("C")</span>
+            }
+        </div>
+    </div>
+</div>
+
+@if (Model.Rows.Count == 0)
+{
+    <div class="pe-card">
+        <div class="pe-card__body" data-csp-style="text-align:center; padding:3rem;">
+            <div data-csp-style="font-size:3em; opacity:0.3;">📊</div>
+            <p data-csp-style="margin-top:1rem; opacity:0.7;">No maintenance spend in this window.</p>
+            <p data-csp-style="opacity:0.5; font-size:0.85em;">Try widening the date range or check that work orders have logged labor / issued materials.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pe-card">
+        <div class="pe-card__header">
+            <span class="pe-card__title">
+                <span class="accent-dot accent-dot--amber"></span>
+                Per-Asset Rollup
+                <span data-csp-style="opacity:0.65; font-weight:normal; font-size:0.85em; margin-left:0.5rem;">@Model.Rows.Count assets, sorted by total spend</span>
+            </span>
+        </div>
+        <div class="pe-card__body" data-csp-style="overflow-x:auto;">
+            <table class="table" data-csp-style="width:100%;">
+                <thead>
+                    <tr>
+                        <th>Asset #</th>
+                        <th>Description</th>
+                        <th data-csp-style="text-align:right;"># WOs</th>
+                        <th data-csp-style="text-align:right;">Labor</th>
+                        <th data-csp-style="text-align:right;">Materials Issued</th>
+                        <th data-csp-style="text-align:right;">Materials Returned</th>
+                        <th data-csp-style="text-align:right;">Materials (net)</th>
+                        <th data-csp-style="text-align:right; font-weight:700;">Total Spend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td><a href="@Url.Page("/Assets/Asset", new { id = row.AssetId })"><strong>@row.AssetNumber</strong></a></td>
+                            <td>@row.AssetDescription</td>
+                            <td data-csp-style="text-align:right;">@row.WorkOrderCount</td>
+                            <td data-csp-style="text-align:right;">@row.LaborCost.ToString("C")</td>
+                            <td data-csp-style="text-align:right;">@row.MaterialsIssued.ToString("C")</td>
+                            <td data-csp-style="text-align:right; opacity:0.7;">@row.MaterialsReturned.ToString("C")</td>
+                            <td data-csp-style="text-align:right;">@row.MaterialsNet.ToString("C")</td>
+                            <td data-csp-style="text-align:right; font-weight:700;">@row.TotalSpend.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr data-csp-style="border-top:2px solid currentColor; font-weight:700;">
+                        <td colspan="3" data-csp-style="text-align:right;">Totals</td>
+                        <td data-csp-style="text-align:right;">@Model.TotalLabor.ToString("C")</td>
+                        <td data-csp-style="text-align:right;">@Model.Rows.Sum(r => r.MaterialsIssued).ToString("C")</td>
+                        <td data-csp-style="text-align:right; opacity:0.7;">@Model.Rows.Sum(r => r.MaterialsReturned).ToString("C")</td>
+                        <td data-csp-style="text-align:right;">@Model.TotalMaterialsNet.ToString("C")</td>
+                        <td data-csp-style="text-align:right;">@Model.TotalSpend.ToString("C")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+}
