@@ -84,6 +84,10 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 _ => 30
             });
 
+            var lineDescription = string.IsNullOrWhiteSpace(description)
+                ? $"Invoice {invoiceNumber}"
+                : description!;
+
             var invoice = new VendorInvoice
             {
                 InvoiceNumber = invoiceNumber,
@@ -99,7 +103,26 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 Status = InvoiceStatus.PendingApproval,
                 MatchStatus = InvoiceMatchStatus.NotMatched,
                 Notes = description,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                // DEF-N01: header-only invoices used to land with no Lines, so the
+                // approval JE built from invoice.Lines came out as a single $0/$0
+                // line crediting AP — bypassing the accrual entirely. Seed one
+                // generic direct-expense line for the full amount; ApPostingService
+                // resolves the missing PurchaseOrderLineId to GlAccountKind.DirectExpense
+                // (GL 6000) and posts a balanced 2-line JE (DR 6000 / CR AP).
+                // Auto-Match-to-PO continues to work after-the-fact by overwriting
+                // PurchaseOrderLineId on this same line.
+                Lines = new List<VendorInvoiceLine>
+                {
+                    new VendorInvoiceLine
+                    {
+                        LineNumber = 1,
+                        Description = lineDescription,
+                        Quantity = 1,
+                        UnitPrice = amount,
+                        LineTotal = amount
+                    }
+                }
             };
 
             _context.VendorInvoices.Add(invoice);
