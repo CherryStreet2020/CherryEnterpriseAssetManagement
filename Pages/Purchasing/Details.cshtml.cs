@@ -490,8 +490,44 @@ namespace Abs.FixedAssets.Pages.Purchasing
                 .Where(g => g.IsActive && (g.CompanyId == null || _tenantContext.VisibleCompanyIds.Contains(g.CompanyId ?? 0)))
                 .OrderBy(g => g.AccountNumber)
                 .ToListAsync();
-            
+
+            // DEF-N11 (PR #87): filter the PO-line GL Account dropdown to
+            // accounts that can plausibly hold an inbound goods/services
+            // cost. The unfiltered list let users pick "1000 — CASH" or any
+            // liability/equity/revenue account on a PO line, which has no
+            // legitimate accounting interpretation — the resulting GR JE
+            // would credit GR-Accrued and debit Cash (i.e., undo a cash
+            // receipt), corrupting the trial balance.
+            //
+            // Allowed for PO lines (industrial baseline: SAP MM uses an
+            // account-determination strategy that restricts to specific
+            // account groups; Oracle EBS uses Account Generator rules;
+            // Maximo restricts to the GL_DEBIT validation hook). The
+            // equivalent surgical filter here:
+            //   • Any Expense account (Cost of Sales, Maintenance, OpEx).
+            //   • Asset accounts in the inventory / WIP / fixed-asset /
+            //     CIP categories (capitalisable acquisitions).
+            // Excluded: cash & receivables, prepaids, accumulated
+            // depreciation, intercompany, all liabilities/equity/revenue,
+            // and contra-* accounts.
+            static bool IsPoLineEligible(GlAccount g)
+            {
+                if (g.AccountType == GlAccountType.Expense) return true;
+                if (g.AccountType == GlAccountType.Asset)
+                {
+                    return g.Category == GlAccountCategory.MroInventory
+                        || g.Category == GlAccountCategory.WorkInProgress
+                        || g.Category == GlAccountCategory.FixedAssetsLandBuildings
+                        || g.Category == GlAccountCategory.FixedAssetsMachinery
+                        || g.Category == GlAccountCategory.FixedAssetsVehicles
+                        || g.Category == GlAccountCategory.FixedAssetsTechnology
+                        || g.Category == GlAccountCategory.FixedAssetsTooling;
+                }
+                return false;
+            }
+
             GlAccounts = allGlAccounts
+                .Where(IsPoLineEligible)
                 .GroupBy(g => g.AccountNumber)
                 .Select(g => g.First())
                 .ToList();
