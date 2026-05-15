@@ -1011,6 +1011,33 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.TrackingTypeLookupValueId)
                     .OnDelete(DeleteBehavior.SetNull);
+                // DEF-008: best-in-class item-location preference.
+                e.HasOne(x => x.DefaultLocationRef)
+                    .WithMany()
+                    .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // DEF-008: per-company item-location preference override.
+            modelBuilder.Entity<ItemCompanyStocking>(e =>
+            {
+                e.HasIndex(x => new { x.ItemId, x.CompanyId }).IsUnique();
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.PreferredVendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.PreferredVendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.DefaultLocationRef)
+                    .WithMany()
+                    .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Item Categories

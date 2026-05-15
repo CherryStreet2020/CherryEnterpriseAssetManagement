@@ -64,6 +64,17 @@ namespace Abs.FixedAssets.Pages.Receiving
             public string? LotNumber { get; set; }
             public string? SerialNumber { get; set; }
             public string? StorageLocation { get; set; }
+
+            // DEF-008: per-line receiving location FK. Required for stock items
+            // (validated server-side). Pre-filled by OnGetAsync using the cascade
+            // ItemCompanyStocking.DefaultLocationId → Item.DefaultLocationId → null.
+            public int? ReceivingLocationId { get; set; }
+
+            // DEF-008: rendering-only flags so the view can hide the location
+            // picker on service lines and badge the suggested-default vs. picked.
+            public bool IsStockItem { get; set; }
+            public int? SuggestedDefaultLocationId { get; set; }
+            public string? SuggestedDefaultLocationName { get; set; }
         }
 
         public async Task<IActionResult> OnGetAsync(int id)
@@ -100,22 +111,56 @@ namespace Abs.FixedAssets.Pages.Receiving
             }
 
             PO = po;
-            Lines = po.Lines.OrderBy(l => l.LineNumber).Select(l => new ReceiveLineViewModel
-            {
-                POLineId = l.Id,
-                ItemDescription = l.Description,
-                PartNumber = l.PartNumber ?? l.Item?.PartNumber,
-                UOM = l.UOM,
-                UnitPrice = l.UnitPrice,
-                QuantityOrdered = l.QuantityOrdered,
-                QuantityPreviouslyReceived = l.QuantityReceived,
-                QuantityRemaining = l.QuantityOrdered - l.QuantityReceived
-            }).ToList();
+
+            // DEF-008: resolve per-line default location via cascade
+            //   ItemCompanyStocking.DefaultLocationId (per-company)
+            //     → Item.DefaultLocationId (global default)
+            //     → null (operator must pick before submit for stock items)
+            var poCompanyId = po.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            var itemIds = po.Lines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).Distinct().ToList();
+            var stockingDefaults = itemIds.Count > 0 && poCompanyId > 0
+                ? await _context.ItemCompanyStockings
+                    .Where(s => s.CompanyId == poCompanyId && itemIds.Contains(s.ItemId) && s.DefaultLocationId.HasValue)
+                    .Select(s => new { s.ItemId, s.DefaultLocationId })
+                    .ToDictionaryAsync(s => s.ItemId, s => s.DefaultLocationId)
+                : new Dictionary<int, int?>();
 
             Locations = await _context.Locations
                 .Where(l => l.IsActive)
                 .OrderBy(l => l.Name)
                 .ToListAsync();
+            var locationsById = Locations.ToDictionary(l => l.Id, l => l);
+
+            Lines = po.Lines.OrderBy(l => l.LineNumber).Select(l =>
+            {
+                int? suggested = null;
+                if (l.ItemId.HasValue)
+                {
+                    if (stockingDefaults.TryGetValue(l.ItemId.Value, out var perCo) && perCo.HasValue)
+                        suggested = perCo;
+                    else
+                        suggested = l.Item?.DefaultLocationId;
+                }
+                var suggestedName = suggested.HasValue && locationsById.TryGetValue(suggested.Value, out var loc)
+                    ? loc.Name
+                    : null;
+                var isStock = l.Item != null && l.Item.Type != ItemType.Service;
+                return new ReceiveLineViewModel
+                {
+                    POLineId = l.Id,
+                    ItemDescription = l.Description,
+                    PartNumber = l.PartNumber ?? l.Item?.PartNumber,
+                    UOM = l.UOM,
+                    UnitPrice = l.UnitPrice,
+                    QuantityOrdered = l.QuantityOrdered,
+                    QuantityPreviouslyReceived = l.QuantityReceived,
+                    QuantityRemaining = l.QuantityOrdered - l.QuantityReceived,
+                    ReceivingLocationId = suggested,
+                    IsStockItem = isStock,
+                    SuggestedDefaultLocationId = suggested,
+                    SuggestedDefaultLocationName = suggestedName
+                };
+            }).ToList();
 
             return Page();
         }
@@ -180,6 +225,32 @@ namespace Abs.FixedAssets.Pages.Receiving
                 var remaining = poLine.QuantityOrdered - poLine.QuantityReceived;
                 if (line.QuantityToReceive > remaining)
                     errors.Add($"Line '{poLine.Description}': cannot receive {line.QuantityToReceive} — only {remaining} remaining.");
+
+                // DEF-008: stock items MUST have a put-away location. Without one
+                // the receive posting service can't update ItemInventory, leaving
+                // stock counts wrong silently. Form-level default falls back if
+                // the per-line was left blank.
+                var isStock = poLine.Item != null && poLine.Item.Type != ItemType.Service;
+                if (isStock)
+                {
+                    var perLine = line.ReceivingLocationId;
+                    var effective = perLine ?? receivingLocationId;
+                    if (!effective.HasValue)
+                    {
+                        errors.Add($"Line '{poLine.Description}': stock items require a put-away location. Pick a location on the line, or set a Default Location on the Item master.");
+                    }
+                    else
+                    {
+                        // Stamp the effective location back on the line so the
+                        // create-loop below uses it without re-resolving.
+                        line.ReceivingLocationId = effective;
+                    }
+                }
+                else
+                {
+                    // Service / non-stock: location is optional. Fall back if provided.
+                    line.ReceivingLocationId = line.ReceivingLocationId ?? receivingLocationId;
+                }
             }
 
             if (errors.Any())
@@ -239,6 +310,14 @@ namespace Abs.FixedAssets.Pages.Receiving
                 lineNum++;
                 totalItemsReceived++;
 
+                // DEF-008: per-line ReceivingLocationId, validated above for stock.
+                // Resolve the StorageLocation display string from the per-line FK
+                // if set; fall back to the form-level dropdown for non-stock lines.
+                Location? perLineLoc = null;
+                if (line.ReceivingLocationId.HasValue)
+                {
+                    perLineLoc = await _context.Locations.FindAsync(line.ReceivingLocationId.Value);
+                }
                 receipt.Lines.Add(new GoodsReceiptLine
                 {
                     PurchaseOrderLineId = poLine.Id,
@@ -249,8 +328,8 @@ namespace Abs.FixedAssets.Pages.Receiving
                     RejectionReason = line.RejectionReason,
                     LotNumber = line.LotNumber,
                     SerialNumber = line.SerialNumber,
-                    StorageLocation = line.StorageLocation ?? receivingLoc?.Name,
-                    ReceivingLocationId = receivingLocationId,
+                    StorageLocation = perLineLoc?.Name ?? line.StorageLocation ?? receivingLoc?.Name,
+                    ReceivingLocationId = line.ReceivingLocationId,
                     Notes = line.Notes
                 });
 

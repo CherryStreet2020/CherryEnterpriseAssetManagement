@@ -244,8 +244,16 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "Lead Time (Days)")]
         public int LeadTimeDays { get; set; } = 0;
 
-        [StringLength(50)]
+        // DEF-008: best-in-class item-location preference. This proper FK
+        // replaces the free-form DefaultLocation string for receive-flow
+        // defaulting. The string is retained for backward-compat display
+        // but new code should consume DefaultLocationId.
         [Display(Name = "Default Location")]
+        public int? DefaultLocationId { get; set; }
+        public Location? DefaultLocationRef { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Default Location (legacy text)")]
         public string? DefaultLocation { get; set; }
 
         [StringLength(20)]
@@ -583,6 +591,12 @@ namespace Abs.FixedAssets.Models
 
         [Display(Name = "ABC Classification")]
         public ABCClassification ABCClass { get; set; } = ABCClassification.Unclassified;
+
+        // DEF-008: per-company override for receive-flow location defaulting.
+        // Cascade: ItemCompanyStocking.DefaultLocationId → Item.DefaultLocationId → null.
+        [Display(Name = "Default Location")]
+        public int? DefaultLocationId { get; set; }
+        public Location? DefaultLocationRef { get; set; }
 
         [StringLength(20)]
         [Display(Name = "Warehouse")]

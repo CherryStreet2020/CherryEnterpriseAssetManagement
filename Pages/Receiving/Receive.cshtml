@@ -60,9 +60,23 @@
                     <input type="text" name="packingSlipNumber" class="line-add-form__input" placeholder="Vendor packing slip..." />
                 </div>
             </div>
-            <div>
-                <label class="line-add-form__label">NOTES</label>
-                <input type="text" name="headerNotes" class="line-add-form__input" placeholder="Shipment notes, damage reports, special instructions..." />
+            <div data-csp-style="display:grid; grid-template-columns: 1fr 2fr; gap:0.75rem;">
+                <div>
+                    <label class="line-add-form__label">DEFAULT PUT-AWAY LOCATION
+                        <span data-csp-style="color: var(--text-muted); font-weight: 400;">(applied to empty lines)</span>
+                    </label>
+                    <select name="receivingLocationId" class="line-add-form__input">
+                        <option value="">— Per-line picker —</option>
+                        @foreach (var loc in Model.Locations)
+                        {
+                            <option value="@loc.Id">@loc.Code — @loc.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="line-add-form__label">NOTES</label>
+                    <input type="text" name="headerNotes" class="line-add-form__input" placeholder="Shipment notes, damage reports, special instructions..." />
+                </div>
             </div>
         </div>
     </div>
@@ -153,10 +167,32 @@
                                        @(isComplete ? "disabled" : "") />
                             </td>
                             <td class="line-table__td">
-                                <input type="text" name="lines[@i].StorageLocation" value="@defaultPutaway"
-                                       class="line-add-form__input" placeholder="Warehouse / Location / Bin" data-csp-style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
-                                       title="@(defaultPutaway != "" ? $"Default from Item Master: {defaultPutaway}" : "No default location set on Item Master")"
-                                       @(isComplete ? "disabled" : "") />
+                                @* DEF-008: per-line location FK picker, pre-filled from item-master cascade.
+                                    Stock lines: required (server-side validation). Service lines: optional.
+                                    The legacy free-form @(defaultPutaway) hint is shown as a placeholder when
+                                    no FK preference is set, so operators can still see the item-master strings.
+                                *@
+                                @{
+                                    var hasSuggested = line.SuggestedDefaultLocationId.HasValue;
+                                    var locTitle = hasSuggested
+                                        ? $"Suggested: {line.SuggestedDefaultLocationName} (from Item Master)"
+                                        : (defaultPutaway != "" ? $"Legacy hint: {defaultPutaway}. Pick a Location to track inventory." : (line.IsStockItem ? "Required for stock items." : "Optional for service items."));
+                                }
+                                <select name="lines[@i].ReceivingLocationId"
+                                        class="line-add-form__input"
+                                        data-csp-style="width:100%; padding:0.3rem 0.4rem; font-size:0.8rem;"
+                                        title="@locTitle"
+                                        data-is-stock="@line.IsStockItem.ToString().ToLowerInvariant()"
+                                        data-suggested-id="@(line.SuggestedDefaultLocationId?.ToString() ?? "")"
+                                        @(isComplete ? "disabled" : "")>
+                                    <option value="">@(line.IsStockItem ? "— Required —" : "— Optional —")</option>
+                                    @foreach (var loc in Model.Locations)
+                                    {
+                                        var selected = line.ReceivingLocationId == loc.Id;
+                                        var suggestedBadge = (line.SuggestedDefaultLocationId == loc.Id) ? " ★" : "";
+                                        <option value="@loc.Id" selected="@(selected ? "selected" : null)">@loc.Code — @loc.Name@suggestedBadge</option>
+                                    }
+                                </select>
                             </td>
                             <td class="line-table__td">
                                 <input type="text" name="lines[@i].LotNumber" value=""
@@ -200,5 +236,25 @@ function fillAllRemaining() {
         if (max > 0) inp.value = max;
     });
 }
+
+// DEF-008: when the operator picks a form-level default, propagate it
+// to any per-line dropdown still on the empty/placeholder option. Lines
+// that already have a per-line selection (either the item-master
+// suggested default, or a manual pick) are left alone — operator intent
+// wins. Service lines without a stock requirement also get the default
+// for convenience.
+(function () {
+    var form = document.getElementById('receiveForm');
+    if (!form) return;
+    var formLevel = form.querySelector('select[name="receivingLocationId"]');
+    if (!formLevel) return;
+    formLevel.addEventListener('change', function () {
+        var v = formLevel.value;
+        if (!v) return;
+        form.querySelectorAll('select[name$=".ReceivingLocationId"]').forEach(function (sel) {
+            if (!sel.value) sel.value = v;
+        });
+    });
+})();
 </script>
 }
