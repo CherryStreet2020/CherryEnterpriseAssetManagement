@@ -304,10 +304,39 @@ namespace Abs.FixedAssets.Services
             return schedule;
         }
 
+        /// <summary>
+        /// S2-1 — DEPRECATED legacy PM generator. The MaintenanceSchedule
+        /// entity is superseded by the PMTemplate + PMSchedule path driven
+        /// by <see cref="Abs.FixedAssets.Services.Maintenance.PMSchedulerService"/>.
+        /// This method still exists so the smoke-test regression coverage for
+        /// the legacy path stays intact, but new schedule wiring should go
+        /// through PMSchedulerService.GenerateOccurrencesAsync instead.
+        /// </summary>
+        /// <remarks>
+        /// Pre-fix this method fetched <c>_context.MaintenanceSchedules</c>
+        /// across every tenant — a process-wide call would have picked up
+        /// schedules for assets the caller had no visibility into and
+        /// produced MaintenanceEvent rows linked to foreign-tenant assets.
+        /// Patched as belt-and-suspenders by filtering on
+        /// <c>Asset.CompanyId IN VisibleCompanyIds</c>; in practice
+        /// SmokeTestRunner is the only caller, but tenant-scope leaks must
+        /// not exist on any executable path.
+        /// </remarks>
+        [Obsolete("Legacy PM generator. Use Services.Maintenance.PMSchedulerService for new code. Kept for SmokeTestRunner regression coverage of the deprecated MaintenanceSchedule entity.")]
         public async Task<int> GenerateEventsFromSchedulesAsync()
         {
             var cutoff = DateTime.SpecifyKind(DateTime.UtcNow.AddDays(7), DateTimeKind.Unspecified);
-            var allSchedules = await _context.MaintenanceSchedules.ToListAsync();
+            var visibleIds = _tenantContext.VisibleCompanyIds;
+
+            // S2-1 leak fix: scope by Asset.CompanyId. MaintenanceSchedule has
+            // no own CompanyId column — tenant boundary flows through the
+            // Asset FK.
+            var allSchedules = await _context.MaintenanceSchedules
+                .Include(s => s.Asset)
+                .Where(s => s.Asset != null
+                            && s.Asset.CompanyId.HasValue
+                            && visibleIds.Contains(s.Asset.CompanyId.Value))
+                .ToListAsync();
             var schedules = allSchedules.Where(s => s.IsActive && s.NextDueDate <= cutoff).ToList();
 
             var count = 0;

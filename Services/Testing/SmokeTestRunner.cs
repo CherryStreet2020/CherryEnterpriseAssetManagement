@@ -2028,7 +2028,13 @@ public class SmokeTestRunner : ISmokeTestRunner
             await _db.SaveChangesAsync();
             assertions.Add($"Created test schedule ID: {schedule.Id}");
 
+            // S2-1: GenerateEventsFromSchedulesAsync is marked [Obsolete] —
+            // the smoke runner retains the regression check on the legacy
+            // MaintenanceSchedule path until those rows are removed from
+            // active deployments. PMSchedulerService is the new code path.
+#pragma warning disable CS0618
             var generatedCount = await maintenanceService.GenerateEventsFromSchedulesAsync();
+#pragma warning restore CS0618
 
             if (generatedCount > 0)
             {
