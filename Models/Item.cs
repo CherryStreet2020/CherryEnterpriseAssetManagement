@@ -970,7 +970,11 @@ namespace Abs.FixedAssets.Models
     {
         public int Id { get; set; }
 
-        [Required, StringLength(20)]
+        // Industrial transaction numbers (SAP MM IBLNR, Oracle EBS TXN_REF,
+        // Maximo MATRECTRANS) are typically 30-50 chars. Was 20 — too short
+        // for our format "{type}-{compositekey}-{timestamp}" which routinely
+        // overflowed and threw 22001 at SaveChanges.
+        [Required, StringLength(60)]
         [Display(Name = "Transaction #")]
         public string TransactionNumber { get; set; } = string.Empty;
 
