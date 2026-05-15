@@ -571,6 +571,99 @@
     </div>
 </div>
 
+@* PR #94: Attachments section, migrated from legacy /Maintenance/Details.
+   List + upload + delete all live here now so the legacy surface is one
+   workflow closer to retirement. *@
+<div class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
+    <h3 class="text-theme-primary" data-csp-style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+        </svg>
+        Attachments
+        <span data-csp-style="font-size:0.8rem; font-weight:400; opacity:0.7; margin-left:0.5rem;">
+            @Model.Attachments.Count file(s)
+        </span>
+    </h3>
+
+    @if (!string.IsNullOrEmpty(TempData["Error"]?.ToString()))
+    {
+        <div class="callout-red" data-csp-style="margin-bottom:1rem;">@TempData["Error"]</div>
+    }
+    @if (!string.IsNullOrEmpty(TempData["Success"]?.ToString()))
+    {
+        <div class="callout-green" data-csp-style="margin-bottom:1rem;">@TempData["Success"]</div>
+    }
+
+    @if (Model.Attachments.Any())
+    {
+        <table class="table" data-csp-style="width:100%; margin-bottom:1rem;">
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Uploaded By</th>
+                    <th>When</th>
+                    <th data-csp-style="text-align:right;">Size</th>
+                    <th data-csp-style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var att in Model.Attachments)
+                {
+                    var sizeKb = (att.FileSize / 1024m).ToString("N1");
+                    <tr>
+                        <td><strong>@att.FileName</strong></td>
+                        <td>@att.Category</td>
+                        <td>@(att.Description ?? "—")</td>
+                        <td>@(att.UploadedBy ?? "—")</td>
+                        <td>@att.UploadedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                        <td data-csp-style="text-align:right;">@sizeKb KB</td>
+                        <td data-csp-style="text-align:right;">
+                            <a href="@att.FilePath" target="_blank" class="btn-p btn-p--secondary" data-csp-style="padding:0.25rem 0.5rem; font-size:0.8em; margin-right:0.25rem;">View</a>
+                            <form method="post" asp-page-handler="DeleteAttachment" data-csp-style="display:inline;" onsubmit="return confirm('Delete @att.FileName?');">
+                                <input type="hidden" name="id" value="@Model.WorkOrder.Id" />
+                                <input type="hidden" name="attachmentId" value="@att.Id" />
+                                <button type="submit" class="btn-p btn-p--secondary" data-csp-style="padding:0.25rem 0.5rem; font-size:0.8em; color:#dc2626;">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p data-csp-style="opacity:0.65; margin-bottom:1rem;">No attachments yet. Drop in a photo, PDF, or doc below.</p>
+    }
+
+    @* Upload form — multipart, server-side allowlist (jpeg/png/gif/webp/pdf/doc/docx/xls/xlsx/txt/csv) and 10MB cap *@
+    <form method="post" asp-page-handler="UploadAttachment" enctype="multipart/form-data" data-csp-style="display:grid; grid-template-columns: 1fr 1fr 2fr auto; gap:0.5rem; align-items:end;">
+        <input type="hidden" name="id" value="@Model.WorkOrder.Id" />
+        <div>
+            <label class="form-label-p" data-csp-style="font-size:0.8em;">File</label>
+            <input type="file" name="file" class="form-input-p" required accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv" />
+        </div>
+        <div>
+            <label class="form-label-p" data-csp-style="font-size:0.8em;">Category</label>
+            <select name="category" class="form-input-p" required>
+                @foreach (var opt in Model.AttachmentCategoryOptions)
+                {
+                    <option value="@opt.Value">@opt.Text</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label class="form-label-p" data-csp-style="font-size:0.8em;">Description (optional)</label>
+            <input type="text" name="description" class="form-input-p" placeholder="e.g., torque spec, vendor manual, before/after photo" />
+        </div>
+        <button type="submit" class="btn-p btn-p--primary">Upload</button>
+    </form>
+    <p data-csp-style="opacity:0.6; font-size:0.8em; margin-top:0.5rem;">
+        Max 10 MB. Allowed: JPG / PNG / GIF / WebP / PDF / DOC / DOCX / XLS / XLSX / TXT / CSV.
+    </p>
+</div>
+
 <!-- Closeout Section -->
 <div class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
     <h3 class="text-theme-primary" data-csp-style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">

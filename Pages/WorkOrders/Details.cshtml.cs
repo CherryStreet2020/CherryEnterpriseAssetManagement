@@ -22,9 +22,14 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         private readonly IModuleGuardService _moduleGuard;
         private readonly IOutboxWriter _outbox;
         private readonly IGlAccountResolver _glResolver;
+        // PR #94: AttachmentService injected to migrate the Attachments
+        // workflow off the legacy /Maintenance/Details surface. Same service
+        // the legacy handlers call, so the upload/download/delete behavior
+        // is bit-identical — only the entry point moves to the modern page.
+        private readonly AttachmentService _attachmentService;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver)
+            IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -33,6 +38,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _tenantContext = tenantContext;
             _outbox = outbox;
             _glResolver = glResolver;
+            _attachmentService = attachmentService;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -44,6 +50,10 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         public List<Item> Items { get; set; } = new();
         public List<SelectListItem> OperationStatusOptions { get; set; } = new();
         public List<SelectListItem> OperationTypeOptions { get; set; } = new();
+
+        // PR #94: Attachments migrated from legacy /Maintenance/Details.
+        public List<Attachment> Attachments { get; set; } = new();
+        public List<SelectListItem> AttachmentCategoryOptions { get; set; } = new();
 
         [BindProperty(SupportsGet = true)]
         public string? ReturnUrl { get; set; }
@@ -115,6 +125,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             OperationStatusOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "OperationStatus", null, "");
             OperationTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "OperationType", null, "");
+
+            // PR #94: Pull attachments for this WO + the category options for
+            // the upload form. Uses the same AttachmentService API the legacy
+            // page calls so the underlying storage / metadata is bit-identical.
+            Attachments = await _attachmentService.GetByMaintenanceEventAsync(id.Value);
+            AttachmentCategoryOptions = await _lookupService.GetSelectListAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "AttachmentCategory", null, "");
 
             return Page();
         }
@@ -805,6 +821,86 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         public string GeneratePreviewSummary()
         {
             return _closeoutService.GenerateCloseoutSummary(WorkOrder, Operations);
+        }
+
+        // ==================== ATTACHMENTS (PR #94 migration) ====================
+        // Allowlist + size cap ported verbatim from the legacy
+        // /Maintenance/Details.cshtml.cs. Keeping these as private statics on
+        // the class avoids re-declaring them anywhere — there's one upload
+        // surface per page model.
+        private static readonly HashSet<string> AllowedAttachmentContentTypes = new()
+        {
+            "image/jpeg", "image/png", "image/gif", "image/webp",
+            "application/pdf", "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/plain", "text/csv"
+        };
+        private const long MaxAttachmentFileSize = 10 * 1024 * 1024;
+
+        public async Task<IActionResult> OnPostUploadAttachmentAsync(int id, IFormFile file, int category, string? description)
+        {
+            if (file == null || file.Length == 0)
+                return RedirectToPage(new { id });
+
+            if (file.Length > MaxAttachmentFileSize || !AllowedAttachmentContentTypes.Contains(file.ContentType))
+            {
+                TempData["Error"] = $"File rejected: type '{file.ContentType}' not allowed or size exceeds {MaxAttachmentFileSize / (1024 * 1024)}MB.";
+                return RedirectToPage(new { id });
+            }
+
+            // Re-fetch with tenant scoping. The OnGetAsync already verifies
+            // visibility, but every POST handler does its own scope check so a
+            // future refactor that drops the GetAsync invocation can't open
+            // a write-leak vector. Mirrors the pattern used elsewhere on the
+            // page (see OnPostIssueMaterialAsync).
+            var wo = await _context.MaintenanceEvents
+                .Where(m => m.Id == id
+                    && m.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null) return NotFound();
+
+            using var stream = file.OpenReadStream();
+            await _attachmentService.UploadAsync(
+                stream,
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                wo.AssetId,
+                AttachmentSource.MaintenanceEvent,
+                id,
+                (AttachmentCategory)category,
+                description,
+                User.Identity?.Name
+            );
+
+            TempData["Success"] = $"Uploaded {file.FileName}.";
+            return RedirectToPage(new { id });
+        }
+
+        public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId)
+        {
+            var wo = await _context.MaintenanceEvents
+                .Where(m => m.Id == id
+                    && m.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null) return NotFound();
+
+            // Verify the attachment actually belongs to this WO before
+            // delete — protects against a forged form posting an attachmentId
+            // from a different WO the user can see.
+            var attachment = await _context.Attachments
+                .Where(a => a.Id == attachmentId && a.MaintenanceEventId == id)
+                .FirstOrDefaultAsync();
+            if (attachment == null)
+                return RedirectToPage(new { id });
+
+            await _attachmentService.DeleteAsync(attachmentId);
+            TempData["Success"] = "Attachment deleted.";
+            return RedirectToPage(new { id });
         }
     }
 }
