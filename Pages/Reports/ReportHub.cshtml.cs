@@ -96,6 +96,19 @@ namespace Abs.FixedAssets.Pages.Reports
                     Url = "/Reports/Index",
                     Icon = "chart",
                     Color = "success"
+                },
+                // PR #93: Per-asset cost rollup that ties the WO operational
+                // tables to the WO-LBR / WO-ISS / WO-RTN journal entries
+                // shipped in PR #89 + #92. The headline KPI Maximo / SAP PM /
+                // Infor EAM open their demos on; ours is one click.
+                new ReportLink
+                {
+                    Title = "Maintenance Spend by Asset",
+                    Description = "Per-asset cost rollup — labor + materials over a date range, reconciled to WO journal entries.",
+                    Url = "/Reports/MaintenanceSpend",
+                    Icon = "chart",
+                    Color = "success",
+                    IsNew = true
                 }
             };
 
