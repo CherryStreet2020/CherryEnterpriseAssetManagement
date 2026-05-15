@@ -162,7 +162,7 @@ namespace Abs.FixedAssets.Services.Cip
 
             var journalEntry = new JournalEntry
             {
-                BookId = 0, // CIP capitalization is not book-scoped today; preserved as-is from legacy
+                BookId = null, // CIP capitalization is not book-scoped today; the Book FK is nullable per the model. Replace with per-company default-book resolution if/when CIP becomes book-scoped.
                 Batch = $"CIP-CAP-{project.ProjectNumber}",
                 Period = int.Parse(capitalizationDate.ToString("yyyyMM")),
                 PostingDate = capitalizationDate.Date,

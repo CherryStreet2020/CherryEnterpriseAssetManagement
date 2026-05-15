@@ -161,7 +161,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
 
             var je = new JournalEntry
             {
-                BookId = 0,
+                BookId = null, // AP approval JE is not book-scoped; the Book FK is nullable per the model.
                 Batch = $"AP-APR-{invoice.InvoiceNumber}",
                 Period = int.Parse(postingDate.ToString("yyyyMM")),
                 PostingDate = postingDate.Date,
@@ -258,7 +258,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
 
             var je = new JournalEntry
             {
-                BookId = 0,
+                BookId = null, // AP payment JE is not book-scoped.
                 Batch = $"AP-PMT-{invoice.InvoiceNumber}",
                 Period = int.Parse(paymentDate.ToString("yyyyMM")),
                 PostingDate = paymentDate.Date,
