@@ -65,6 +65,12 @@ namespace Abs.FixedAssets.Pages.CIP
         public List<Asset> RelatedAssets { get; set; } = new();
         public CipCapitalizationPreview? CapPreview { get; set; }
 
+        // DEF-010: Vendor + VendorInvoice options for the Add Cost form.
+        // Schema already has CipCost.VendorId and CipCost.VendorInvoiceId FKs;
+        // pre-fix the form posted free-form strings and left the FK columns null.
+        public List<Vendor> VendorOptions { get; set; } = new();
+        public List<VendorInvoice> VendorInvoiceOptions { get; set; } = new();
+
         [BindProperty(SupportsGet = true)]
         public string? ReturnUrl { get; set; }
 
@@ -91,6 +97,20 @@ namespace Abs.FixedAssets.Pages.CIP
             GlAccounts = await _context.GlAccounts.Where(g => g.CompanyId == null || visibleIds.Contains(g.CompanyId ?? 0)).OrderBy(g => g.AccountNumber).ToListAsync();
 
             CostSummary = await _cipCostService.ComputeTotalsAsync(id);
+
+            // DEF-010: Vendor and VendorInvoice pickers for the Add Cost form.
+            // Vendors scoped to visible companies; invoices scoped further when
+            // a vendor is selected client-side. Keeping all invoices in the
+            // initial load so the page renders self-contained; the form filters
+            // via JS on vendor change.
+            VendorOptions = await _context.Vendors
+                .Where(v => v.IsActive)
+                .OrderBy(v => v.Name)
+                .ToListAsync();
+            VendorInvoiceOptions = await _context.VendorInvoices
+                .Where(vi => visibleIds.Contains(vi.CompanyId ?? 0))
+                .OrderByDescending(vi => vi.InvoiceDate)
+                .ToListAsync();
 
             PercentComplete = Project.BudgetAmount > 0 
                 ? (CostSummary.TotalSpent / Project.BudgetAmount * 100) 
@@ -121,8 +141,8 @@ namespace Abs.FixedAssets.Pages.CIP
             int costTypeLookupValueId,
             string description,
             decimal amount,
-            string? vendor,
-            string? invoiceNumber,
+            int? vendorId,
+            int? vendorInvoiceId,
             DateTime transactionDate,
             bool isCapitalizable)
         {
@@ -138,6 +158,28 @@ namespace Abs.FixedAssets.Pages.CIP
                     resolvedCostType = (CipCostType)enumVal;
             }
 
+            // DEF-010: resolve FK references to readable text snapshots. The
+            // legacy Vendor / InvoiceNumber columns stay populated so reports
+            // and exports don't need to follow the FK; the FK columns are
+            // authoritative.
+            string? vendorName = null;
+            if (vendorId.HasValue)
+            {
+                vendorName = await _context.Vendors
+                    .Where(v => v.Id == vendorId.Value)
+                    .Select(v => v.Name)
+                    .FirstOrDefaultAsync();
+            }
+
+            string? invoiceNumberText = null;
+            if (vendorInvoiceId.HasValue)
+            {
+                invoiceNumberText = await _context.VendorInvoices
+                    .Where(vi => vi.Id == vendorInvoiceId.Value)
+                    .Select(vi => vi.InvoiceNumber)
+                    .FirstOrDefaultAsync();
+            }
+
             var cost = new CipCost
             {
                 CipProjectId = id,
@@ -145,8 +187,10 @@ namespace Abs.FixedAssets.Pages.CIP
                 CostTypeLookupValueId = resolvedCostTypeLvId,
                 Description = description,
                 Amount = amount,
-                Vendor = vendor,
-                InvoiceNumber = invoiceNumber,
+                VendorId = vendorId,
+                Vendor = vendorName,
+                VendorInvoiceId = vendorInvoiceId,
+                InvoiceNumber = invoiceNumberText,
                 TransactionDate = DateTime.SpecifyKind(transactionDate, DateTimeKind.Utc),
                 IsCapitalizable = isCapitalizable,
                 SourceType = "Manual",

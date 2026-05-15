@@ -249,11 +249,23 @@
                     <div class="line-add-form__row">
                         <div class="line-add-form__field">
                             <label class="line-add-form__label">VENDOR</label>
-                            <input type="text" name="vendor" class="line-add-form__input" placeholder="Vendor name..." />
+                            <select name="vendorId" id="cipCostVendorSelect" class="line-add-form__input" data-cherry-select data-placeholder="Search vendors...">
+                                <option value="">— none —</option>
+                                @foreach (var v in Model.VendorOptions)
+                                {
+                                    <option value="@v.Id">@v.Name</option>
+                                }
+                            </select>
                         </div>
                         <div class="line-add-form__field">
                             <label class="line-add-form__label">INVOICE #</label>
-                            <input type="text" name="invoiceNumber" class="line-add-form__input" placeholder="INV-12345" />
+                            <select name="vendorInvoiceId" id="cipCostInvoiceSelect" class="line-add-form__input" data-cherry-select data-placeholder="Pick an invoice...">
+                                <option value="">— none —</option>
+                                @foreach (var inv in Model.VendorInvoiceOptions)
+                                {
+                                    <option value="@inv.Id" data-vendor-id="@inv.VendorId">@inv.InvoiceNumber — @inv.InvoiceDate.ToString("MM/dd/yyyy") — @inv.Total.ToString("C0")</option>
+                                }
+                            </select>
                         </div>
                         <div class="line-add-form__field line-add-form__field--narrow">
                             <label class="line-add-form__label">DATE *</label>
