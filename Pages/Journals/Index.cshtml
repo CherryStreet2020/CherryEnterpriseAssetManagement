@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="inline-form-body">
                 <div class="form-group" data-csp-style="margin-bottom: 16px;">
                     <label class="form-label">Book</label>
-                    <select name="BookId" class="form-select form-input-p" required data-cherry-select data-placeholder="Search books...">
+                    <select name="GenerateBookId" class="form-select form-input-p" required data-cherry-select data-placeholder="Search books...">
                         <option value="">-- Select Book --</option>
                         @if (Model.Books != null)
                         {
@@ -187,13 +187,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     </select>
                 </div>
-                <div class="form-group" data-csp-style="margin-bottom: 16px;">
-                    <label class="form-label">Period End Date</label>
-                    <input name="PeriodEnd" type="date" class="form-control form-input-p" value="@DateTime.Today.ToString("yyyy-MM-dd")" required />
-                </div>
                 <div class="form-group">
-                    <label class="form-label">Reference</label>
-                    <input name="Reference" type="text" class="form-control form-input-p" placeholder="e.g., JAN-2026" />
+                    <label class="form-label">Month</label>
+                    <input name="GenerateMonth" type="month" class="form-control form-input-p" value="@DateTime.Today.ToString("yyyy-MM")" required />
+                    <small class="form-hint" data-csp-style="display:block; margin-top:4px; color:var(--text-muted); font-size:0.75rem;">Selects the period to depreciate; the JE posts at month-end and gets a Batch like DEP-&lt;BookCode&gt;-YYYYMM.</small>
                 </div>
             </div>
             <div class="inline-form-footer">
