@@ -23,9 +23,17 @@ namespace Abs.FixedAssets.Models
         public int Period { get; set; }
 
         /// <summary>
-        /// Batch identifier (required).
+        /// Batch identifier (required). Widened to 60 chars in 2026-05-15
+        /// migration after PR #82 verification surfaced overflows: the
+        /// "AP-APR-{InvoiceNumber}" pattern from ApPostingService overflowed
+        /// varchar(30) on real-world invoice numbers longer than 23 chars
+        /// (vendors routinely send 25–35-char invoice numbers like
+        /// "INV-2026-USA-0000123-PROD-A"). Industrial AP batch keys
+        /// (SAP MM BELNR + suffix, Oracle EBS BATCH_NAME, Maximo INVOICE)
+        /// routinely run 30–50 chars; 60 gives headroom for prefix +
+        /// composite key + sequence without further migration churn.
         /// </summary>
-        [Required, StringLength(30)]
+        [Required, StringLength(60)]
         public string Batch { get; set; } = string.Empty;
 
         /// <summary>
