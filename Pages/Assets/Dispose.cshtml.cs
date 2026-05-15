@@ -182,13 +182,19 @@ namespace Abs.FixedAssets.Pages.Assets
                 string? clearingAcct = FirstNonEmpty(glAccounts?.Clearing, book.GlAccountAssetClearing);
                 string? gainAcct = FirstNonEmpty(glAccounts?.GainOnDisposal, book.GlAccountGainOnDisposal);
                 string? lossAcct = FirstNonEmpty(glAccounts?.LossOnDisposal, book.GlAccountLossOnDisposal);
-                string? disposalExpAcct = FirstNonEmpty(glAccounts?.DepreciationExpense, book.GlAccountDepExp);
+
+                // DEF-N02: net-cash disposal presentation. The cash effect of the
+                // transaction is Proceeds − DisposalExpense; the disposal expense
+                // is absorbed into the gain/loss figure (which is already computed
+                // off NetProceeds, matching US GAAP ASC 360). Posting a separate
+                // Disposal-Expense debit on top of the gross Proceeds debit caused
+                // the JE to overstate debits by DisposalExpense and never balance.
+                var netCashIn = Proceeds - DisposalExpense;
 
                 var missing = new List<string>();
                 if (string.IsNullOrWhiteSpace(accumDepAcct)) missing.Add("Accumulated Depreciation");
                 if (string.IsNullOrWhiteSpace(assetAcct)) missing.Add("Asset");
-                if (Proceeds > 0 && string.IsNullOrWhiteSpace(clearingAcct)) missing.Add("Cash/Clearing");
-                if (DisposalExpense > 0 && string.IsNullOrWhiteSpace(disposalExpAcct)) missing.Add("Disposal Expense");
+                if (netCashIn != 0m && string.IsNullOrWhiteSpace(clearingAcct)) missing.Add("Cash/Clearing");
                 if (gainLoss > 0 && string.IsNullOrWhiteSpace(gainAcct)) missing.Add("Gain on Disposal");
                 if (gainLoss < 0 && string.IsNullOrWhiteSpace(lossAcct)) missing.Add("Loss on Disposal");
 
@@ -225,27 +231,33 @@ namespace Abs.FixedAssets.Pages.Assets
                     Credit = 0
                 });
 
-                if (Proceeds > 0)
+                // DEF-N02 fix: single net-cash line. NetCashIn = Proceeds − DisposalExpense.
+                // Debit when positive (we received more than we paid out); credit when
+                // negative (disposal expense exceeded proceeds — rare but valid, e.g.
+                // paying a hauler $200 to remove a fully-depreciated asset that yielded
+                // $0). Zero NetCashIn → omit the line entirely.
+                if (netCashIn > 0m)
                 {
                     lines.Add(new JournalLine
                     {
                         LineNo = lineNo++,
                         Account = clearingAcct!,
-                        Description = $"Cash/AR from disposal (gross) - {Asset.AssetNumber}",
-                        Debit = Proceeds,
+                        Description = DisposalExpense > 0
+                            ? $"Net cash from disposal (Proceeds {Proceeds:C} - Expense {DisposalExpense:C}) - {Asset.AssetNumber}"
+                            : $"Cash/AR from disposal - {Asset.AssetNumber}",
+                        Debit = netCashIn,
                         Credit = 0
                     });
                 }
-
-                if (DisposalExpense > 0)
+                else if (netCashIn < 0m)
                 {
                     lines.Add(new JournalLine
                     {
                         LineNo = lineNo++,
-                        Account = disposalExpAcct!,
-                        Description = $"Disposal expense - {Asset.AssetNumber}",
-                        Debit = DisposalExpense,
-                        Credit = 0
+                        Account = clearingAcct!,
+                        Description = $"Net cash out for disposal (Expense {DisposalExpense:C} - Proceeds {Proceeds:C}) - {Asset.AssetNumber}",
+                        Debit = 0,
+                        Credit = -netCashIn
                     });
                 }
 
