@@ -259,6 +259,13 @@
                             <label class="line-add-form__label">DATE *</label>
                             <input type="date" name="transactionDate" class="line-add-form__input" required value="@DateTime.Now.ToString("yyyy-MM-dd")" />
                         </div>
+                        <div class="line-add-form__field line-add-form__field--narrow">
+                            <label class="line-add-form__label" title="Include this cost in the asset basis when the project is capitalized. Default on — matches the auto-posting paths (PO/Receipt/Invoice) which always create capitalizable costs.">CAPITALIZABLE</label>
+                            <label class="line-add-form__checkbox-wrap" data-csp-style="display:flex; align-items:center; height:36px; gap:6px;">
+                                <input type="checkbox" name="isCapitalizable" value="true" checked />
+                                <span data-csp-style="font-size:0.8rem;">Include in asset basis</span>
+                            </label>
+                        </div>
                         <div class="line-add-form__field line-add-form__field--action">
                             <button type="submit" class="btn-p btn-p--primary btn-p--sm">
                                 <i class="fas fa-plus"></i> Add Cost
