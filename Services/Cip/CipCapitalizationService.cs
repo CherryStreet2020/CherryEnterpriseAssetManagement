@@ -136,96 +136,118 @@ namespace Abs.FixedAssets.Services.Cip
             var costs = project.Costs?.ToList() ?? new List<CipCost>();
             var capitalizableAmount = costs.Where(c => c.IsCapitalizable).Sum(c => c.Amount);
 
-            // S1-4: stamp CompanyId so the new asset is properly tenant-scoped,
-            // and OriginatingCipProjectId so we can walk the audit trail back to
-            // the source project (S2-4).
-            var asset = new Asset
-            {
-                AssetNumber = assetNumber,
-                Description = description,
-                CompanyId = project.CompanyId,
-                SiteId = project.SiteId,
-                InServiceDate = capitalizationDate,
-                AcquisitionCost = capitalizableAmount,
-                Status = AssetStatus.Active,
-                OriginatingCipProjectId = cipProjectId
-            };
-            _db.Assets.Add(asset);
-            await _db.SaveChangesAsync();
+            // DEF-013: wrap the three SaveChanges + depreciation backfill in a
+            // single DB transaction. Previously a failure between the asset
+            // INSERT and the CipCapitalization INSERT (e.g., a GL resolve
+            // exception, a missing column, a period-lock change mid-flight)
+            // left an orphan Asset row that then collided on
+            // IX_Assets_CompanyId_AssetNumber_Unique on every retry. Atomic
+            // commit closes that window.
+            Asset asset;
+            JournalEntry journalEntry;
+            CipCapitalization capitalization;
 
-            // S1-4: resolve GL accounts via IGlAccountResolver instead of the
-            // hardcoded "1500"/"1400" string literals. Cascade per ADR-003:
-            // per-asset override → per-book → per-company config → industry default.
-            var glContext = new GlResolveContext(AssetId: asset.Id, CipProjectId: cipProjectId);
-            var assetCostAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.AssetCost, glContext);
-            var cipPendingAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.CipPending, glContext);
-
-            var journalEntry = new JournalEntry
+            await using (var tx = await _db.Database.BeginTransactionAsync())
             {
-                BookId = null, // CIP capitalization is not book-scoped today; the Book FK is nullable per the model. Replace with per-company default-book resolution if/when CIP becomes book-scoped.
-                Batch = $"CIP-CAP-{project.ProjectNumber}",
-                Period = int.Parse(capitalizationDate.ToString("yyyyMM")),
-                PostingDate = capitalizationDate.Date,
-                Source = "CIP Capitalization",
-                Reference = project.ProjectNumber,
-                Description = $"Capitalization of CIP {project.ProjectNumber}: {project.Name}",
-                CreatedUtc = capitalizationDate,
-                Lines = new List<JournalLine>
+                // S1-4: stamp CompanyId so the new asset is properly tenant-scoped,
+                // and OriginatingCipProjectId so we can walk the audit trail back to
+                // the source project (S2-4).
+                asset = new Asset
                 {
-                    new JournalLine
+                    AssetNumber = assetNumber,
+                    Description = description,
+                    CompanyId = project.CompanyId,
+                    SiteId = project.SiteId,
+                    InServiceDate = capitalizationDate,
+                    AcquisitionCost = capitalizableAmount,
+                    Status = AssetStatus.Active,
+                    OriginatingCipProjectId = cipProjectId
+                };
+                _db.Assets.Add(asset);
+                await _db.SaveChangesAsync();
+
+                // S1-4: resolve GL accounts via IGlAccountResolver instead of the
+                // hardcoded "1500"/"1400" string literals. Cascade per ADR-003:
+                // per-asset override → per-book → per-company config → industry default.
+                var glContext = new GlResolveContext(AssetId: asset.Id, CipProjectId: cipProjectId);
+                var assetCostAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.AssetCost, glContext);
+                var cipPendingAccount = await _glResolver.ResolveAsync(projectCompanyId, GlAccountKind.CipPending, glContext);
+
+                journalEntry = new JournalEntry
+                {
+                    BookId = null, // CIP capitalization is not book-scoped today; the Book FK is nullable per the model. Replace with per-company default-book resolution if/when CIP becomes book-scoped.
+                    Batch = $"CIP-CAP-{project.ProjectNumber}",
+                    Period = int.Parse(capitalizationDate.ToString("yyyyMM")),
+                    PostingDate = capitalizationDate.Date,
+                    Source = "CIP Capitalization",
+                    Reference = project.ProjectNumber,
+                    Description = $"Capitalization of CIP {project.ProjectNumber}: {project.Name}",
+                    CreatedUtc = capitalizationDate,
+                    Lines = new List<JournalLine>
                     {
-                        LineNo = 1,
-                        Account = assetCostAccount,
-                        Description = $"Fixed Asset - {assetNumber}",
-                        Debit = capitalizableAmount,
-                        Credit = 0m
-                    },
-                    new JournalLine
-                    {
-                        LineNo = 2,
-                        Account = cipPendingAccount,
-                        Description = $"CIP WIP - {project.ProjectNumber}",
-                        Debit = 0m,
-                        Credit = capitalizableAmount
+                        new JournalLine
+                        {
+                            LineNo = 1,
+                            Account = assetCostAccount,
+                            Description = $"Fixed Asset - {assetNumber}",
+                            Debit = capitalizableAmount,
+                            Credit = 0m
+                        },
+                        new JournalLine
+                        {
+                            LineNo = 2,
+                            Account = cipPendingAccount,
+                            Description = $"CIP WIP - {project.ProjectNumber}",
+                            Debit = 0m,
+                            Credit = capitalizableAmount
+                        }
                     }
-                }
-            };
-            _db.JournalEntries.Add(journalEntry);
-            await _db.SaveChangesAsync();
+                };
+                _db.JournalEntries.Add(journalEntry);
+                await _db.SaveChangesAsync();
 
-            var capitalization = new CipCapitalization
-            {
-                CipProjectId = cipProjectId,
-                AssetId = asset.Id,
-                JournalEntryId = journalEntry.Id,
-                CapitalizedAt = capitalizationDate,
-                CapitalizedByUserId = userId ?? "system",
-                TotalCapitalized = capitalizableAmount,
-                CostMappings = costs.Where(c => c.IsCapitalizable).Select(c => new CipCapitalizationCost
+                capitalization = new CipCapitalization
                 {
-                    CipCostId = c.Id
-                }).ToList()
-            };
-            _db.CipCapitalizations.Add(capitalization);
+                    CipProjectId = cipProjectId,
+                    AssetId = asset.Id,
+                    JournalEntryId = journalEntry.Id,
+                    CapitalizedAt = capitalizationDate,
+                    CapitalizedByUserId = userId ?? "system",
+                    TotalCapitalized = capitalizableAmount,
+                    CostMappings = costs.Where(c => c.IsCapitalizable).Select(c => new CipCapitalizationCost
+                    {
+                        CipCostId = c.Id
+                    }).ToList()
+                };
+                _db.CipCapitalizations.Add(capitalization);
 
-            project.IsCapitalized = true;
-            project.CapitalizedAt = capitalizationDate;
-            project.Status = CipProjectStatus.Capitalized;
-            project.ConvertedAssetId = asset.Id;
-            project.ActualCompletionDate = capitalizationDate;
-            project.PlacedInServiceDate = capitalizationDate;
-            project.UpdatedAt = capitalizationDate;
+                project.IsCapitalized = true;
+                project.CapitalizedAt = capitalizationDate;
+                project.Status = CipProjectStatus.Capitalized;
+                project.ConvertedAssetId = asset.Id;
+                project.ActualCompletionDate = capitalizationDate;
+                project.PlacedInServiceDate = capitalizationDate;
+                project.UpdatedAt = capitalizationDate;
 
-            await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync();
 
-            // S1-4: kick off depreciation. Without this, the new asset has no
-            // AssetBookSettings snapshot and downstream KPIs / depreciation
-            // schedule reads see zero. Same pattern as PR #27.
-            await _depBackfill.RecomputeAssetAsync(asset.Id, capitalizationDate);
+                // S1-4: kick off depreciation. Without this, the new asset has no
+                // AssetBookSettings snapshot and downstream KPIs / depreciation
+                // schedule reads see zero. Same pattern as PR #27. Stays inside
+                // the transaction so a depreciation-backfill failure rolls back
+                // the entire capitalization rather than leaving a half-state.
+                await _depBackfill.RecomputeAssetAsync(asset.Id, capitalizationDate);
+
+                await tx.CommitAsync();
+            }
 
             // S2-5/S2-6: emit cip.capitalized AND the CIP-driven asset.created
             // (Origin="cip.capitalized" so consumers can disambiguate from
-            // the UI-driven /Assets/Asset create path).
+            // the UI-driven /Assets/Asset create path). Emitted AFTER the
+            // business transaction commits so an outbox-write failure doesn't
+            // unwind committed financial state. The remaining outbox-atomicity
+            // gap (business commit then outbox commit in separate transactions)
+            // is tracked in CODE_REVIEW_FOLLOWUPS #6.
             await _outbox.EnqueueAsync(
                 projectCompanyId,
                 siteId: project.SiteId,
