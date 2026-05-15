@@ -216,7 +216,15 @@
                     {
                         var origin = Model.EventOrigins.GetValueOrDefault(evt.Id, new WorkOrderOriginInfo());
                         var isOverdue = evt.ScheduledDate < DateTime.UtcNow && evt.Status != MaintenanceStatus.Completed && evt.Status != MaintenanceStatus.Cancelled;
-                        <tr data-row-id="@evt.Id" data-row-href="@Url.Page("/Maintenance/Details", new { id = evt.Id, returnUrl = returnUrl })">
+                        @* DEF-N06 (PR #90): row click flows to the canonical Work Order detail
+                           surface (/WorkOrders/Details). The legacy /Maintenance/Details surface
+                           remains reachable by direct URL for residual workflows (Capitalize,
+                           Edit, Dispatch, Attachments) until those are migrated, and shows a
+                           banner pushing users to the modern view. The materials Issue/Return
+                           handlers — and the JE posting added in PR #89 — only exist on the
+                           modern surface, so flowing index traffic here is the move that
+                           actually surfaces the cost-rollup capability we ship. *@
+                        <tr data-row-id="@evt.Id" data-row-href="@Url.Page("/WorkOrders/Details", new { id = evt.Id, returnUrl = returnUrl })">
                             <td><strong class="text-primary">@(evt.WorkOrderNumber ?? $"#{evt.Id}")</strong></td>
                             <td>
                                 <span class="badge @(evt.Status == MaintenanceStatus.Completed ? "badge-success" : evt.Status == MaintenanceStatus.InProgress ? "badge-warning" : isOverdue ? "badge-danger" : evt.Status == MaintenanceStatus.Cancelled ? "badge-secondary" : "badge-neutral")">

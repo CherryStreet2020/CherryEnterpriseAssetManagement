@@ -46,6 +46,29 @@
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
+@* DEF-N06 (PR #90): Cross-link to the canonical Work Order detail surface.
+   This page is the legacy surface — it lacks the Issue/Return Material
+   handlers (which post the maintenance-materials JE added in PR #89), so
+   any operator who lands here misses the cost-rollup workflow. The
+   /Maintenance/Index row click now flows directly to /WorkOrders/Details;
+   this banner catches the residual direct-URL traffic (bookmarks,
+   external links, legacy reports) and surfaces the modern view.
+*@
+<div class="alert alert-info" data-csp-style="margin: 8px 0 16px 0; padding: 12px 16px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 16px; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25);">
+    <div data-csp-style="display: flex; align-items: center; gap: 12px;">
+        <span data-csp-style="font-size: 18px;">🚀</span>
+        <div>
+            <strong>Modern Work Order view available.</strong>
+            <span data-csp-style="opacity: 0.85;">
+                Issue/Return materials with automatic JE posting, planned-parts cost rollup, and the new operations cockpit live on <code>/WorkOrders/Details</code>.
+            </span>
+        </div>
+    </div>
+    <a class="btn btn-primary btn-sm" href="@Url.Page("/WorkOrders/Details", new { id = Model.Event.Id, returnUrl = Model.ReturnUrl })" data-csp-style="white-space: nowrap;">
+        Switch to modern view →
+    </a>
+</div>
+
 <!-- Execution Cockpit -->
 <div class="wo-cockpit">
     <div class="wo-cockpit-main">
