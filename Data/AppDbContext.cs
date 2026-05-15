@@ -1566,13 +1566,81 @@ namespace Abs.FixedAssets.Data
         public override int SaveChanges()
         {
             CapitalizeStringProperties();
+            EnforceJournalEntryBalanceOnInsert();
             return base.SaveChanges();
         }
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             CapitalizeStringProperties();
+            EnforceJournalEntryBalanceOnInsert();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Best-In-Class persistence-boundary guard for journal-entry integrity.
+        /// Refuses to save any newly-inserted JournalEntry whose Lines do not
+        /// balance (Σdebits ≠ Σcredits). Surfaced by PR #82 verification of
+        /// DEF-N02 — the system displayed "UNBALANCED" in the JE header but
+        /// the write went through anyway, allowing $200 variance per disposal
+        /// to leak into the GL silently.
+        ///
+        /// Scope: ADDED entries only. Existing-entry updates aren't validated
+        /// here because reliably summing all current lines requires lazy-loading
+        /// the full Lines navigation, which would change the perf profile of
+        /// every SaveChanges. In the current codebase, JE lines are never
+        /// updated in place — every posting event creates a new JournalEntry
+        /// (matched by Source + Reference), and reversals go via a fresh
+        /// contra-entry (see ApPostingService.PostVoidAsync). If that
+        /// invariant ever changes, extend this method.
+        ///
+        /// Tolerance: strict decimal equality. .NET decimal is base-10, so
+        /// debit/credit sums computed from the same line set don't drift.
+        /// Any non-zero variance is a real bug to surface.
+        ///
+        /// Industrial baseline: SAP, Oracle EBS, Maximo all enforce this at
+        /// the persistence boundary (usually via a DB-side trigger). We do it
+        /// in EF SaveChanges so the user gets a clean InvalidOperationException
+        /// in the same request rather than a generic DB error from a trigger.
+        /// </summary>
+        private void EnforceJournalEntryBalanceOnInsert()
+        {
+            var newEntries = ChangeTracker.Entries<JournalEntry>()
+                .Where(e => e.State == EntityState.Added)
+                .Select(e => e.Entity)
+                .ToList();
+
+            foreach (var je in newEntries)
+            {
+                if (je.Lines == null || je.Lines.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"JournalEntry refused on save: entry has no lines. " +
+                        $"Source={je.Source ?? "(unset)"}, Batch={je.Batch}. " +
+                        $"This is almost certainly a code path that built a JE " +
+                        $"header without adding its lines (cf. DEF-N01).");
+                }
+
+                decimal debit = 0m, credit = 0m;
+                foreach (var line in je.Lines)
+                {
+                    debit  += line.Debit;
+                    credit += line.Credit;
+                }
+
+                if (debit != credit)
+                {
+                    var variance = debit - credit;
+                    throw new InvalidOperationException(
+                        $"JournalEntry refused on save: unbalanced. " +
+                        $"Σdebits={debit:C} Σcredits={credit:C} variance={variance:C}. " +
+                        $"Source={je.Source ?? "(unset)"}, Batch={je.Batch}, " +
+                        $"lines={je.Lines.Count}. " +
+                        $"This is the persistence-boundary guard added in #84 " +
+                        $"after DEF-N02 — the JE header says 'BALANCED' if D=C " +
+                        $"but the same write used to slide through with D≠C.");
+                }
+            }
         }
 
         private void CapitalizeStringProperties()
