@@ -28,6 +28,10 @@
 {
     <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
 }
+@if (TempData["Warning"] is string warning)
+{
+    <div class="alert alert-warning" data-csp-style="margin-bottom:1rem;">⚠️ @warning</div>
+}
 @if (TempData["Error"] is string error)
 {
     <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>

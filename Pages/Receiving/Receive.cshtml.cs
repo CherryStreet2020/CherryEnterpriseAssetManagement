@@ -361,7 +361,14 @@ namespace Abs.FixedAssets.Pages.Receiving
                 // (existing JE.Reference == "GR-{receiptNumber}" returns
                 // without rewrite). Failure logs but does not roll back the
                 // GR — operational truth wins; financial posting is fixable.
+                //
+                // 2026-05-15 diagnostic addition: surface the exception
+                // message in TempData["Warning"] so the operator (and the
+                // smoke-test runner) sees the real cause. Also reset the
+                // ChangeTracker state for any failed-Add entities, so the
+                // downstream Enqueue's SaveChanges doesn't retry them.
                 ReceivingPostingResult? postingResult = null;
+                string? postingError = null;
                 try
                 {
                     postingResult = await _receivingPosting.PostReceiptAsync(receipt.Id);
@@ -371,6 +378,23 @@ namespace Abs.FixedAssets.Pages.Receiving
                     _logger.LogError(postEx,
                         "ReceivingPostingService failed for receipt {ReceiptNumber} (Id={ReceiptId}, Co={Co})",
                         receiptNumber, receipt.Id, receipt.CompanyId);
+                    postingError = $"{postEx.GetType().Name}: {postEx.Message}";
+                    if (postEx.InnerException != null)
+                        postingError += $" — inner: {postEx.InnerException.GetType().Name}: {postEx.InnerException.Message}";
+
+                    // Detach any entities the posting service attempted to add
+                    // before throwing, so the downstream Enqueue.SaveChanges
+                    // doesn't re-attempt them and fail again.
+                    var staleAdds = _context.ChangeTracker.Entries()
+                        .Where(e => e.State == EntityState.Added &&
+                                    e.Entity is not OutboxEvent &&
+                                    e.Entity is not GoodsReceipt &&
+                                    e.Entity is not GoodsReceiptLine)
+                        .ToList();
+                    foreach (var entry in staleAdds)
+                    {
+                        entry.State = EntityState.Detached;
+                    }
                 }
 
                 // S1-3: route any CIP-tagged receipt lines into CipAutoCostPostingService.
@@ -400,6 +424,14 @@ namespace Abs.FixedAssets.Pages.Receiving
                     summary += $" Accrued ${postingResult.TotalAccrued:N2}.";
                 if (cipRouted > 0) summary += $" {cipRouted} routed to CIP.";
                 TempData["Success"] = summary;
+
+                // 2026-05-15: surface the inner posting failure (if any) so it
+                // doesn't stay invisible. Operator sees Success (receipt
+                // persisted) + Warning (financial chain didn't run).
+                if (!string.IsNullOrEmpty(postingError))
+                {
+                    TempData["Warning"] = $"Receipt saved, but financial posting failed: {postingError}";
+                }
 
                 await _outbox.EnqueueAsync(
                     receipt.CompanyId ?? 0,
