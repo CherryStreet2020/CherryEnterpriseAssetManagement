@@ -6,7 +6,14 @@
     ViewData["ReturnUrl"] = Model.ReturnUrl;
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
-    var isOverdue = Model.Event.ScheduledDate < DateTime.UtcNow && Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled;
+    // DEF-N05 (PR #85): date-only comparison. ScheduledDate is a calendar
+    // date (00:00:00 component) representing the day the work is due. With
+    // the old `< DateTime.UtcNow` comparison, any WO scheduled FOR today
+    // (e.g., 2026-05-15 00:00:00) flipped to "Overdue" the moment UTC clock
+    // crossed midnight — so a WO created and scheduled today displayed
+    // OVERDUE from 00:00:01 onward. ScheduleBoard.cshtml.cs:185 already
+    // uses the date-only form correctly (.UtcNow.Date); aligning here.
+    var isOverdue = Model.Event.ScheduledDate.Date < DateTime.UtcNow.Date && Model.Event.Status != MaintenanceStatus.Completed && Model.Event.Status != MaintenanceStatus.Cancelled;
     var totalActual = (Model.Event.LaborCost ?? 0) + (Model.Event.MaterialsCost ?? 0) + (Model.Event.PartsCost ?? 0) + (Model.Event.OutsideVendorCost ?? 0);
     var activeTab = Model.Tab.ToLowerInvariant();
 }

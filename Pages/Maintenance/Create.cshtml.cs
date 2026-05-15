@@ -98,15 +98,25 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
             var resolvedTypeLvId = typeLookupValueId > 0 ? typeLookupValueId : (int?)null;
             var resolvedPriorityLvId = priorityLookupValueId > 0 ? priorityLookupValueId : (int?)null;
-            var resolvedType = MaintenanceType.Preventative;
+            // DEF-N04 (PR #85): default to Corrective for ad-hoc/user-created
+            // WOs rather than Preventative. The old default of Preventative
+            // meant any lookup Code that didn't parse to a MaintenanceType
+            // enum value name silently dropped to PM — but the seeded
+            // MaintenanceType lookup uses industry-standard short codes
+            // (PM/CM/PDM/EM/OH per SystemReferenceSeedPipeline.cs L351-355)
+            // and NONE of them parse via Enum.TryParse against the enum
+            // value names (Preventative/Corrective/Predictive/Emergency).
+            // Result: every ad-hoc WO got stamped Preventative regardless of
+            // UI selection, corrupting the PM-Compliance KPI — the metric
+            // every EAM vendor (Maximo, Infor EAM, SAP PM) wins deals on.
+            var resolvedType = MaintenanceType.Corrective;
             var resolvedPriority = MaintenancePriority.Medium;
 
             var typeLv = await _lookupService.GetValueByIdAsync(null, null, typeLookupValueId);
             if (typeLv != null)
             {
                 resolvedTypeLvId = typeLv.Id;
-                if (Enum.TryParse<MaintenanceType>(typeLv.Code, true, out var parsedType))
-                    resolvedType = parsedType;
+                resolvedType = ResolveMaintenanceTypeFromLookup(typeLv.Code, typeLv.Description) ?? resolvedType;
             }
 
             var priorityLv = await _lookupService.GetValueByIdAsync(null, null, priorityLookupValueId);
@@ -138,6 +148,52 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
             await _maintenanceService.CreateEventAsync(evt);
             return RedirectToPage("/Maintenance/Details", new { id = evt.Id });
+        }
+
+        /// <summary>
+        /// Maps a maintenance-type lookup Code/Description to the legacy
+        /// MaintenanceType enum that backs PM-compliance metrics and category
+        /// filtering. Three tiers:
+        /// 1. Exact enum-name match on the Code (future-proof for seeds that
+        ///    use enum names directly).
+        /// 2. Description stem match (e.g. "Corrective Maintenance" →
+        ///    Corrective; strips trailing " Maintenance" suffix).
+        /// 3. Industry abbreviation map (PM/CM/PDM/EM/OH — matching the
+        ///    SystemReferenceSeedPipeline seed and what every Maximo /
+        ///    SAP PM / Infor EAM operator types muscle-memory).
+        /// Returns null if nothing matches; caller falls back to its own
+        /// default. Kept private to this page model — if a second caller
+        /// needs the same logic, lift to a shared service.
+        /// </summary>
+        private static MaintenanceType? ResolveMaintenanceTypeFromLookup(string? code, string? description)
+        {
+            if (!string.IsNullOrWhiteSpace(code))
+            {
+                if (Enum.TryParse<MaintenanceType>(code, ignoreCase: true, out var parsed))
+                    return parsed;
+            }
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                var stem = description.Trim();
+                if (stem.EndsWith(" Maintenance", StringComparison.OrdinalIgnoreCase))
+                    stem = stem.Substring(0, stem.Length - " Maintenance".Length).TrimEnd();
+                if (Enum.TryParse<MaintenanceType>(stem, ignoreCase: true, out var parsedDesc))
+                    return parsedDesc;
+            }
+
+            return code?.Trim().ToUpperInvariant() switch
+            {
+                "PM"  => MaintenanceType.Preventative,
+                "CM"  => MaintenanceType.Corrective,
+                "PDM" => MaintenanceType.Predictive,
+                "EM"  => MaintenanceType.Emergency,
+                "OH"  => MaintenanceType.Other,   // Overhaul has no dedicated enum value; closest legacy slot is Other
+                "INS" => MaintenanceType.Inspection,
+                "CAL" => MaintenanceType.Calibration,
+                "UPG" => MaintenanceType.Upgrade,
+                _     => null
+            };
         }
 
         private async Task LoadFormDataAsync()
