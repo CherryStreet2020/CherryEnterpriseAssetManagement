@@ -186,7 +186,13 @@ namespace Abs.FixedAssets.Pages.CIP
             return RedirectToPage(new { id });
         }
 
-        public async Task<IActionResult> OnPostCapitalizeAsync(int id, string assetNumber, string assetDescription)
+        public async Task<IActionResult> OnPostCapitalizeAsync(
+            int id,
+            string assetNumber,
+            string assetDescription,
+            int usefulLifeMonths,
+            decimal salvageValue = 0m,
+            int? assetCategoryId = null)
         {
             try
             {
@@ -194,12 +200,20 @@ namespace Abs.FixedAssets.Pages.CIP
                     id,
                     assetNumber,
                     assetDescription,
+                    usefulLifeMonths: usefulLifeMonths,
+                    salvageValue: salvageValue,
+                    assetCategoryId: assetCategoryId,
                     userId: User.Identity?.Name ?? "system");
 
                 return RedirectToPage(new { id });
             }
             catch (InvalidOperationException)
             {
+                return RedirectToPage(new { id });
+            }
+            catch (ArgumentException ex)
+            {
+                TempData["Warning"] = ex.Message;
                 return RedirectToPage(new { id });
             }
         }

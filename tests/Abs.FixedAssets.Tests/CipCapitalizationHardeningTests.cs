@@ -133,7 +133,7 @@ public class CipCapitalizationHardeningTests
     {
         var (db, project, svc, _) = await SetupAsync(companyId: 100, periodAllowed: true);
 
-        var (asset, _) = await svc.CapitalizeAsync(project.Id, "A-CAP-1", "Capitalized asset");
+        var (asset, _) = await svc.CapitalizeAsync(project.Id, "A-CAP-1", "Capitalized asset", usefulLifeMonths: 60);
 
         Assert.NotNull(asset);
         Assert.Equal(100, asset!.CompanyId); // CRITICAL: was unset pre-fix → tenant leak
@@ -144,7 +144,7 @@ public class CipCapitalizationHardeningTests
     {
         var (db, project, svc, _) = await SetupAsync(companyId: 100, periodAllowed: true);
 
-        var (asset, _) = await svc.CapitalizeAsync(project.Id, "A-CAP-2", "x");
+        var (asset, _) = await svc.CapitalizeAsync(project.Id, "A-CAP-2", "x", usefulLifeMonths: 60);
 
         Assert.NotNull(asset);
         Assert.Equal(project.Id, asset!.OriginatingCipProjectId); // S2-4 wiring
@@ -155,7 +155,7 @@ public class CipCapitalizationHardeningTests
     {
         var (db, project, svc, _) = await SetupAsync(companyId: 100, periodAllowed: true);
 
-        var (asset, cap) = await svc.CapitalizeAsync(project.Id, "A-CAP-EVT", "Capitalized");
+        var (asset, cap) = await svc.CapitalizeAsync(project.Id, "A-CAP-EVT", "Capitalized", usefulLifeMonths: 60);
 
         var capEvt = await db.OutboxEvents.SingleAsync(e => e.EventType == "cip.capitalized");
         Assert.Equal("CipProject", capEvt.EntityType);
@@ -182,7 +182,7 @@ public class CipCapitalizationHardeningTests
     {
         var (db, project, svc, _) = await SetupAsync(companyId: 100, periodAllowed: true);
 
-        var (asset, cap) = await svc.CapitalizeAsync(project.Id, "A-CAP-3", "x");
+        var (asset, cap) = await svc.CapitalizeAsync(project.Id, "A-CAP-3", "x", usefulLifeMonths: 60);
 
         Assert.NotNull(cap);
         var je = await db.JournalEntries
@@ -205,7 +205,7 @@ public class CipCapitalizationHardeningTests
         var (db, project, svc, guard) = await SetupAsync(companyId: 100, periodAllowed: false);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.CapitalizeAsync(project.Id, "A-CAP-LOCKED", "blocked"));
+            svc.CapitalizeAsync(project.Id, "A-CAP-LOCKED", "blocked", usefulLifeMonths: 60));
 
         Assert.Equal(1, guard.CallCount);
         Assert.Equal(0, await db.Assets.CountAsync()); // CRITICAL: nothing persisted
@@ -241,7 +241,7 @@ public class CipCapitalizationHardeningTests
         var svc = new CipCapitalizationService(db, costSvc, lookup, tenantA, resolver, guard, depBackfill, outbox);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.CapitalizeAsync(foreignProject.Id, "X", "leak attempt"));
+            svc.CapitalizeAsync(foreignProject.Id, "X", "leak attempt", usefulLifeMonths: 60));
         Assert.Contains("not found", ex.Message);
     }
 }

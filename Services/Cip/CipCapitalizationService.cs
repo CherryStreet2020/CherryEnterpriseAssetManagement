@@ -103,9 +103,21 @@ namespace Abs.FixedAssets.Services.Cip
             int cipProjectId,
             string assetNumber,
             string description,
+            int usefulLifeMonths,
+            decimal salvageValue = 0m,
+            int? assetCategoryId = null,
             int? glAccountId = null,
             string? userId = null)
         {
+            // DEF-014: useful life is the load-bearing input for depreciation.
+            // Without it, the new asset will pass through DepreciationBackfill
+            // as a no-op (line ~352: UsefulLifeMonths <= 0 early-return) and
+            // /Journals/Generate will silently skip it forever.
+            if (usefulLifeMonths <= 0)
+                throw new ArgumentException("UsefulLifeMonths must be > 0 for a capitalized asset.", nameof(usefulLifeMonths));
+            if (salvageValue < 0)
+                throw new ArgumentException("SalvageValue cannot be negative.", nameof(salvageValue));
+
             // S1-4: tenant scope on the project — without this, a caller
             // with a CipProjectId from another tenant could capitalize a
             // foreign-tenant asset into their own.
@@ -161,7 +173,14 @@ namespace Abs.FixedAssets.Services.Cip
                     InServiceDate = capitalizationDate,
                     AcquisitionCost = capitalizableAmount,
                     Status = AssetStatus.Active,
-                    OriginatingCipProjectId = cipProjectId
+                    OriginatingCipProjectId = cipProjectId,
+                    // DEF-014: stamp the depreciation inputs at capitalize time
+                    // so the asset is immediately depreciable. Pre-fix these
+                    // were all 0/null and every CIP-capitalized asset was a
+                    // silent no-op for the depreciation engine.
+                    UsefulLifeMonths = usefulLifeMonths,
+                    SalvageValue = salvageValue,
+                    AssetCategoryId = assetCategoryId
                 };
                 _db.Assets.Add(asset);
                 await _db.SaveChangesAsync();
@@ -230,6 +249,13 @@ namespace Abs.FixedAssets.Services.Cip
                 project.UpdatedAt = capitalizationDate;
 
                 await _db.SaveChangesAsync();
+
+                // DEF-014: bootstrap AssetBookSettings for the new asset's
+                // company before recomputing — RecomputeAssetAsync only
+                // iterates *existing* settings; for a brand-new asset there
+                // are none, and it would silently produce zero snapshots
+                // even with UsefulLifeMonths now correctly stamped.
+                await _depBackfill.EnsureAssetBookSettingsForAssetAsync(asset.Id);
 
                 // S1-4: kick off depreciation. Without this, the new asset has no
                 // AssetBookSettings snapshot and downstream KPIs / depreciation
