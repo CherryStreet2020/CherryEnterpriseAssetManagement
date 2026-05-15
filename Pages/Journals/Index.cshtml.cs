@@ -7,8 +7,6 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
-using Abs.FixedAssets.Services.Webhooks;
-using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -22,9 +20,8 @@ namespace Abs.FixedAssets.Pages.Journals
         private readonly AppDbContext _db;
         private readonly IModuleGuardService _moduleGuard;
         private readonly ITenantContext _tenantContext;
-        private readonly IOutboxWriter _outbox;
-        public IndexModel(AppDbContext db, IModuleGuardService moduleGuard, ITenantContext tenantContext, IOutboxWriter outbox)
-        { _db = db; _moduleGuard = moduleGuard; _tenantContext = tenantContext; _outbox = outbox; }
+        public IndexModel(AppDbContext db, IModuleGuardService moduleGuard, ITenantContext tenantContext)
+        { _db = db; _moduleGuard = moduleGuard; _tenantContext = tenantContext; }
 
         [BindProperty(SupportsGet = true)] public DateTime? From { get; set; }
         [BindProperty(SupportsGet = true)] public DateTime? To   { get; set; }
@@ -33,17 +30,10 @@ namespace Abs.FixedAssets.Pages.Journals
 
         public List<JournalEntry> Items { get; private set; } = new();
 
-        public List<Book> Books { get; private set; } = new();
-        [BindProperty] public int GenerateBookId { get; set; }
-        [BindProperty] public DateTime GenerateMonth { get; set; }
-            = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
-
         public async Task<IActionResult> OnGetAsync()
         {
             if (!await _moduleGuard.IsModuleEnabledAsync("finance"))
                 return RedirectToPage("/ModuleDisabled", new { module = "Journals" });
-
-            Books = await _db.Books.Where(b => _tenantContext.VisibleCompanyIds.Contains(b.CompanyId ?? 0)).OrderBy(b => b.Code).ToListAsync();
 
             Items = await BuildQuery().ToListAsync();
 
@@ -80,53 +70,6 @@ namespace Abs.FixedAssets.Pages.Journals
             var bytes = Encoding.UTF8.GetBytes(sb.ToString());
             var fileName = $"journals_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
             return File(bytes, "text/csv", fileName);
-        }
-
-        public async Task<IActionResult> OnPostGenerateAsync()
-        {
-            if (GenerateBookId <= 0)
-            {
-                TempData["FlashError"] = "Please select a Book.";
-                return RedirectToPage(new { From, To, Source, Search });
-            }
-
-            try
-            {
-                var companyId = _tenantContext.CompanyId ?? 1;
-                var entry = await JournalGenerator.GenerateMonthlyAsync(
-                    _db,
-                    GenerateBookId,
-                    GenerateMonth,
-                    createdBy: User?.Identity?.Name ?? "system",
-                    companyId: companyId);
-
-                TempData["Flash"] = $"Journal created for {GenerateMonth:yyyy-MM}.";
-
-                var book = await _db.Books.AsNoTracking().FirstAsync(b => b.Id == GenerateBookId);
-                var totalDr = entry.Lines?.Sum(l => l.Debit) ?? 0m;
-                await _outbox.EnqueueAsync(
-                    companyId,
-                    siteId: null,
-                    new DepreciationPostedV1(
-                        JournalEntryId: entry.Id,
-                        BookId: book.Id,
-                        BookCode: book.Code,
-                        CompanyId: book.CompanyId,
-                        Period: entry.Period,
-                        PostingDate: entry.PostingDate,
-                        TotalDepreciation: totalDr,
-                        Batch: entry.Batch,
-                        LineCount: entry.Lines?.Count ?? 0,
-                        CreatedBy: User?.Identity?.Name ?? "system"),
-                    correlationId: $"dep-post-{entry.Id}"
-                );
-            }
-            catch (Exception ex)
-            {
-                TempData["FlashError"] = ex.Message;
-            }
-
-            return RedirectToPage(new { From, To, Source, Search });
         }
 
         private IQueryable<JournalEntry> BuildQuery()
