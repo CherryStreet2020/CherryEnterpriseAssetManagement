@@ -713,6 +713,16 @@ else
                             </select>
                         </div>
                         <div class="form-field form-group-p">
+                            <label class="form-field__label form-label-p" title="Default location used when receiving this item. Cascade on the Receive page: ItemCompanyStocking.DefaultLocationId → this field → null.">Default Location</label>
+                            <select name="defaultLocationId" class="form-field__input form-input-p" data-cherry-select data-placeholder="Search locations...">
+                                <option value="">— none —</option>
+                                @foreach (var loc in Model.Locations)
+                                {
+                                    <option value="@loc.Id" selected="@(Model.Item?.DefaultLocationId == loc.Id)">@loc.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="form-field form-group-p">
                             <label class="form-field__label form-label-p">
                                 Last Price
                                 @if (Model.EffectiveProcurement?.LastPriceSource == "Preferred Vendor")

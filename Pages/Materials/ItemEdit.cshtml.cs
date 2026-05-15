@@ -70,6 +70,9 @@ public class ItemEditModel : PageModel
     public List<VendorItemPart> VendorParts { get; set; } = new();
     public List<Manufacturer> Manufacturers { get; set; } = new();
     public List<Vendor> Vendors { get; set; } = new();
+    // DEF-008 follow-up: operator-set default stocking location for receive
+    // cascade (ItemCompanyStocking.DefaultLocationId → Item.DefaultLocationId → null).
+    public List<Location> Locations { get; set; } = new();
     public List<ItemApprovedVendor> ApprovedVendors { get; set; } = new();
     public List<ItemAlternate> Alternates { get; set; } = new();
     public ItemSupersession? Supersession { get; set; }
@@ -221,6 +224,14 @@ public class ItemEditModel : PageModel
 
         var visibleIds = _tenantContext.VisibleCompanyIds;
 
+        // DEF-008 follow-up: load location options for the Default Location
+        // picker. Scoped to tenant-visible companies + global rows (CompanyId
+        // null). Sorted by display name.
+        Locations = await _db.Locations
+            .Where(l => l.CompanyId == null || visibleIds.Contains(l.CompanyId ?? 0))
+            .OrderBy(l => l.Name)
+            .ToListAsync();
+
         if (id.HasValue && id.Value > 0)
         {
             Item = await _db.Items
@@ -273,7 +284,8 @@ public class ItemEditModel : PageModel
         int? leadTimeDays, decimal? minOrderQty, decimal? orderMultiple, string? purchaseUom, decimal? packQty, StockPolicy stockPolicy,
         decimal? lastPrice, string? currencyCode, DateTime? priceEffectiveDate, bool contractFlag, string? contractRef,
         int? statusLookupValueId, int? costMethodLookupValueId, int? trackingTypeLookupValueId,
-        decimal? standardCost)
+        decimal? standardCost,
+        int? defaultLocationId)
     {
         if (string.IsNullOrWhiteSpace(partNumber) || string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(stockUom))
         {
@@ -347,6 +359,7 @@ public class ItemEditModel : PageModel
             existing.PriceEffectiveDate = priceEffectiveDate;
             existing.ContractFlag = contractFlag;
             existing.ContractRef = contractRef;
+            existing.DefaultLocationId = defaultLocationId;
             if (standardCost.HasValue)
                 existing.StandardCost = standardCost.Value;
 
@@ -390,6 +403,7 @@ public class ItemEditModel : PageModel
                 ContractFlag = contractFlag,
                 ContractRef = contractRef,
                 StandardCost = standardCost ?? 0,
+                DefaultLocationId = defaultLocationId,
                 CompanyId = _tenantContext.CompanyId
             };
 
