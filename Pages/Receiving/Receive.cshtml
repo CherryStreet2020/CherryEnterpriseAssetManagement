@@ -221,7 +221,7 @@
             <i class="fas fa-arrow-left"></i> Back to Receiving
         </a>
         <div data-csp-style="display:flex; gap:0.5rem;">
-            <button type="button" class="btn-p btn-p--ghost" onclick="fillAllRemaining()">
+            <button type="button" class="btn-p btn-p--ghost" id="btnFillAllRemaining">
                 <i class="fas fa-fill-drip"></i> Receive All Remaining
             </button>
             <button type="submit" class="btn-p btn-p--primary">
@@ -233,30 +233,37 @@
 
 @section Scripts {
 <script>
-function fillAllRemaining() {
-    var inputs = document.querySelectorAll('input[name$=".QuantityToReceive"]:not([disabled])');
-    inputs.forEach(function(inp) {
-        var max = parseFloat(inp.getAttribute('max')) || 0;
-        if (max > 0) inp.value = max;
-    });
-}
-
-// DEF-008: when the operator picks a form-level default, propagate it
-// to any per-line dropdown still on the empty/placeholder option. Lines
-// that already have a per-line selection (either the item-master
-// suggested default, or a manual pick) are left alone — operator intent
-// wins. Service lines without a stock requirement also get the default
-// for convenience.
+// 2026-05-15 CSP fix: the strict CSP on _ModernLayout blocks inline
+// event handlers (onclick="..."). Buttons were unresponsive. Switching
+// to addEventListener at DOMContentLoaded.
 (function () {
-    var form = document.getElementById('receiveForm');
-    if (!form) return;
-    var formLevel = form.querySelector('select[name="receivingLocationId"]');
-    if (!formLevel) return;
-    formLevel.addEventListener('change', function () {
-        var v = formLevel.value;
-        if (!v) return;
-        form.querySelectorAll('select[name$=".ReceivingLocationId"]').forEach(function (sel) {
-            if (!sel.value) sel.value = v;
+    function fillAllRemaining() {
+        var inputs = document.querySelectorAll('input[name$=".QuantityToReceive"]:not([disabled])');
+        inputs.forEach(function(inp) {
+            var max = parseFloat(inp.getAttribute('max')) || 0;
+            if (max > 0) inp.value = max;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var btn = document.getElementById('btnFillAllRemaining');
+        if (btn) btn.addEventListener('click', fillAllRemaining);
+
+        // DEF-008: when the operator picks a form-level default, propagate
+        // it to any per-line dropdown still on the empty/placeholder option.
+        // Lines that already have a per-line selection (item-master
+        // suggested default, or manual pick) are left alone — operator
+        // intent wins.
+        var form = document.getElementById('receiveForm');
+        if (!form) return;
+        var formLevel = form.querySelector('select[name="receivingLocationId"]');
+        if (!formLevel) return;
+        formLevel.addEventListener('change', function () {
+            var v = formLevel.value;
+            if (!v) return;
+            form.querySelectorAll('select[name$=".ReceivingLocationId"]').forEach(function (sel) {
+                if (!sel.value) sel.value = v;
+            });
         });
     });
 })();
