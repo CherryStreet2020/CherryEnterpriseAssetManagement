@@ -21,9 +21,10 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         private readonly ITenantContext _tenantContext;
         private readonly IModuleGuardService _moduleGuard;
         private readonly IOutboxWriter _outbox;
+        private readonly IGlAccountResolver _glResolver;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
-            IModuleGuardService moduleGuard, IOutboxWriter outbox)
+            IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -31,6 +32,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _lookupService = lookupService;
             _tenantContext = tenantContext;
             _outbox = outbox;
+            _glResolver = glResolver;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -368,6 +370,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // part counter; inventory accuracy is downstream and correctable.
             var newOnHand = await ApplyItemMovementAsync(part, actualIssue, isIssue: true);
 
+            // DEF-N09 (PR #89): Post the GL impact of the material issuance.
+            // Pre-fix, WorkOrderPart counters and ItemInventory both moved but
+            // no JournalEntry was created — work orders showed inventory drained
+            // while the P&L never saw the maintenance expense. This is the WO
+            // cost-rollup that lets finance close a WO and reconcile asset-level
+            // maintenance spend. DR MaintenanceMaterials / CR Inventory at the
+            // part's UnitCost (the standing convention used by the receiving
+            // service for inventory-to-expense moves).
+            await PostMaterialMovementJournalEntryAsync(part, actualIssue, isIssue: true);
+
             await _context.SaveChangesAsync();
 
             await _outbox.EnqueueAsync(
@@ -460,6 +472,91 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             return newOnHand;
         }
 
+        /// <summary>
+        /// DEF-N09 (PR #89): Posts the journal entry pair for a material
+        /// issuance (or return) against a Work Order. On an issue:
+        ///   DR <see cref="GlAccountKind.MaintenanceMaterials"/>
+        ///   CR <see cref="GlAccountKind.Inventory"/>
+        /// On a return, signs are reversed (DR Inventory, CR Materials).
+        /// Amount is <c>qty * part.UnitCost</c>. Resolves accounts via the
+        /// company GL cascade (ADR-003) so per-company overrides are honored.
+        /// The JE is added to the ChangeTracker but not saved here — the
+        /// caller's SaveChanges flushes it alongside the WorkOrderPart and
+        /// ItemTransaction in a single transaction so they cannot diverge.
+        /// </summary>
+        private async Task<JournalEntry?> PostMaterialMovementJournalEntryAsync(WorkOrderPart part, decimal qty, bool isIssue)
+        {
+            if (qty <= 0m) return null;
+            var amount = qty * part.UnitCost;
+            if (amount <= 0m) return null; // a zero-standard-cost item issues without GL impact
+
+            // Resolve the WO's owning company. ADR-003 keys configs by CompanyId.
+            var resolvedCompanyId = part.MaintenanceEvent?.Asset?.CompanyId
+                ?? _tenantContext.CompanyId
+                ?? 0;
+            if (resolvedCompanyId == 0) return null; // can't resolve GL accounts without a company
+
+            var ctx = new GlResolveContext(
+                WorkOrderId: part.MaintenanceEventId,
+                AssetId: part.MaintenanceEvent?.AssetId);
+            var materialsAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceMaterials, ctx);
+            var inventoryAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.Inventory, ctx);
+
+            // Reference includes Ticks so each issuance produces a unique JE
+            // even if the same part is issued multiple times in quick
+            // succession. Source distinguishes WO material issues ("WO-ISS")
+            // from returns ("WO-RTN") for downstream reporting filters.
+            var ticks = DateTime.UtcNow.Ticks;
+            var src = isIssue ? "WO-ISS" : "WO-RTN";
+            var jeReference = $"{src}-{part.MaintenanceEventId}-p{part.Id}-{ticks}";
+            var woNumber = part.MaintenanceEvent?.WorkOrderNumber ?? $"WO#{part.MaintenanceEventId}";
+            var verb = isIssue ? "issued to" : "returned from";
+
+            // DR/CR signs: issue moves cost INTO the maintenance expense
+            // (DR Materials, CR Inventory); return reverses it.
+            var drAccount = isIssue ? materialsAccount : inventoryAccount;
+            var crAccount = isIssue ? inventoryAccount  : materialsAccount;
+
+            var je = new JournalEntry
+            {
+                BookId = null,
+                Batch = jeReference,
+                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
+                PostingDate = DateTime.UtcNow.Date,
+                Source = src,
+                Reference = jeReference,
+                Description = isIssue
+                    ? $"Materials {verb} {woNumber} (qty {qty} @ {part.UnitCost:C})"
+                    : $"Materials {verb} {woNumber} (qty {qty} @ {part.UnitCost:C})",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>
+                {
+                    new JournalLine
+                    {
+                        LineNo = 1,
+                        Account = drAccount,
+                        Description = isIssue
+                            ? $"Maintenance materials - {woNumber}"
+                            : $"Inventory restored - {woNumber}",
+                        Debit = amount,
+                        Credit = 0m
+                    },
+                    new JournalLine
+                    {
+                        LineNo = 2,
+                        Account = crAccount,
+                        Description = isIssue
+                            ? $"Inventory {verb} {woNumber}"
+                            : $"Maintenance materials reversed - {woNumber}",
+                        Debit = 0m,
+                        Credit = amount
+                    }
+                }
+            };
+            _context.JournalEntries.Add(je);
+            return je;
+        }
+
         public async Task<IActionResult> OnPostReturnMaterialAsync(int workOrderPartId, decimal quantityReturn)
         {
             var companyId = GetCompanyId();
@@ -483,6 +580,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             // S1-7: increment inventory + create ItemTransaction (Return).
             await ApplyItemMovementAsync(part, actualReturn, isIssue: false);
+
+            // DEF-N09 (PR #89): Reverse the GL impact of the original issuance
+            // for the returned quantity. DR Inventory / CR MaintenanceMaterials
+            // so the WO cost rollup ticks back down by the returned cost. The
+            // ItemTransaction this pairs with is Type=Return.
+            await PostMaterialMovementJournalEntryAsync(part, actualReturn, isIssue: false);
 
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id = part.MaintenanceEventId });
