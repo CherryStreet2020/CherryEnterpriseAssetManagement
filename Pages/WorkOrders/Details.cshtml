@@ -63,6 +63,85 @@
     </div>
 </div>
 
+@* PR #97: Edit Work Order, migrated from legacy /Maintenance/Details. The
+   form renders only while the WO is open (not Completed and not Cancelled).
+   Collapsed by default to keep the page focused on the cockpit; a header
+   toggle reveals it. The handler updates every field on the WO header in
+   one round-trip — for the narrower "quick reassign" path (priority +
+   date + technician), the same form covers it. *@
+@if (Model.WorkOrder.Status != MaintenanceStatus.Completed && Model.WorkOrder.Status != MaintenanceStatus.Cancelled)
+{
+    <details class="detail-section" data-csp-style="margin-top: 1.5rem; background: var(--lux-surface, #fff); border-radius: 12px; border: 1px solid var(--lux-border, #e2e8f0); padding: 1.5rem;">
+        <summary data-csp-style="cursor:pointer; font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; user-select: none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit Work Order
+            <span data-csp-style="font-size:0.8rem; font-weight:400; opacity:0.65; margin-left:0.5rem;">(click to expand)</span>
+        </summary>
+        <form method="post" asp-page-handler="EditWorkOrder" data-csp-style="margin-top: 1rem;">
+            <input type="hidden" name="id" value="@Model.WorkOrder.Id" />
+            <div data-csp-style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem;">
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">WO Number</label>
+                    <input type="text" name="workOrderNumber" class="form-input-p" value="@Model.WorkOrder.WorkOrderNumber" placeholder="WO-YYYY-####" />
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Type</label>
+                    <select name="maintenanceTypeLookupValueId" class="form-input-p">
+                        @foreach (var opt in Model.MaintenanceTypeOptions)
+                        {
+                            <option value="@opt.Value" selected="@opt.Selected">@opt.Text</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Priority</label>
+                    <select name="priorityLookupValueId" class="form-input-p">
+                        @foreach (var opt in Model.MaintenancePriorityOptions)
+                        {
+                            <option value="@opt.Value" selected="@opt.Selected">@opt.Text</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Scheduled Date</label>
+                    <input type="date" name="scheduledDate" class="form-input-p" value="@Model.WorkOrder.ScheduledDate.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Technician</label>
+                    <select name="technicianId" class="form-input-p">
+                        <option value="">— Unassigned —</option>
+                        @foreach (var t in Model.Technicians)
+                        {
+                            <option value="@t.Id" selected="@(Model.WorkOrder.TechnicianId == t.Id)">@t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Vendor (outside)</label>
+                    <input type="text" name="vendor" class="form-input-p" value="@Model.WorkOrder.Vendor" placeholder="Outside contractor (optional)" />
+                </div>
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Estimated Cost</label>
+                    <input type="number" name="estimatedCost" class="form-input-p" step="any" min="0" value="@Model.WorkOrder.EstimatedCost" />
+                </div>
+            </div>
+            <div data-csp-style="margin-top:1rem;">
+                <label class="form-label-p" data-csp-style="font-size:0.8em;">Description</label>
+                <input type="text" name="description" class="form-input-p" value="@Model.WorkOrder.Description" />
+            </div>
+            <div data-csp-style="margin-top:0.75rem;">
+                <label class="form-label-p" data-csp-style="font-size:0.8em;">Notes</label>
+                <textarea name="notes" class="form-input-p" rows="3">@Model.WorkOrder.Notes</textarea>
+            </div>
+            <div data-csp-style="margin-top:1rem; display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="submit" class="btn-p btn-p--primary">Save changes</button>
+            </div>
+        </form>
+    </details>
+}
+
 <div class="line-section" id="line-section-ops">
     <div class="line-section__header">
         <h3 class="line-section__title">

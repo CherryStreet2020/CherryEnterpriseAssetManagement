@@ -33,10 +33,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // snapshot after the AcquisitionCost increment.
         private readonly IPeriodGuard _periodGuard;
         private readonly DepreciationBackfillService _depBackfill;
+        // PR #97: MaintenanceService.UpdateDispatchAsync ports the quick
+        // dispatch reassignment from the legacy page (priority + date +
+        // technician). Same service the legacy /Maintenance/Details surface
+        // calls so behavior is bit-identical.
+        private readonly MaintenanceService _maintenanceService;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
             IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService,
-            IPeriodGuard periodGuard, DepreciationBackfillService depBackfill)
+            IPeriodGuard periodGuard, DepreciationBackfillService depBackfill, MaintenanceService maintenanceService)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -48,6 +53,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _attachmentService = attachmentService;
             _periodGuard = periodGuard;
             _depBackfill = depBackfill;
+            _maintenanceService = maintenanceService;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -69,6 +75,10 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // means this WO has already been capitalized to an asset improvement).
         public bool IsCapitalized => !string.IsNullOrEmpty(WorkOrder?.CustomField2)
                                      && WorkOrder.CustomField2.StartsWith("IMPR:");
+
+        // PR #97: WO-level lookup dropdowns for the Edit form.
+        public List<SelectListItem> MaintenanceTypeOptions { get; set; } = new();
+        public List<SelectListItem> MaintenancePriorityOptions { get; set; } = new();
 
         [BindProperty(SupportsGet = true)]
         public string? ReturnUrl { get; set; }
@@ -146,6 +156,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // page calls so the underlying storage / metadata is bit-identical.
             Attachments = await _attachmentService.GetByMaintenanceEventAsync(id.Value);
             AttachmentCategoryOptions = await _lookupService.GetSelectListAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "AttachmentCategory", null, "");
+
+            // PR #97: WO-level lookups for the Edit form (type + priority).
+            // Selected values pre-fill from the current WO so the operator
+            // sees what the WO is set to, not a placeholder.
+            MaintenanceTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceType", wo.TypeLookupValueId, "");
+            MaintenancePriorityOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenancePriority", wo.PriorityLookupValueId, "");
 
             return Page();
         }
@@ -892,6 +908,104 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             );
 
             TempData["Success"] = $"Uploaded {file.FileName}.";
+            return RedirectToPage(new { id });
+        }
+
+        // ==================== EDIT + DISPATCH (PR #97 migration) ====================
+        // Ports OnPostEditAsync from legacy /Maintenance/Details. Editable
+        // while the WO is open (not Completed and not Cancelled). All field
+        // updates flow through the same path as legacy so behavior is
+        // bit-identical.
+        public async Task<IActionResult> OnPostEditWorkOrderAsync(
+            int id,
+            int maintenanceTypeLookupValueId,
+            int priorityLookupValueId,
+            DateTime scheduledDate,
+            string? workOrderNumber,
+            string? vendor,
+            int? technicianId,
+            decimal estimatedCost,
+            string? description,
+            string? notes)
+        {
+            var wo = await _context.MaintenanceEvents
+                .Where(m => m.Id == id
+                    && m.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null) return NotFound();
+
+            if (wo.Status == MaintenanceStatus.Completed || wo.Status == MaintenanceStatus.Cancelled)
+            {
+                TempData["Error"] = "Cannot edit a Completed or Cancelled work order.";
+                return RedirectToPage(new { id });
+            }
+
+            // Type — keep enum value in sync with the lookup row (same dual-write pattern
+            // used in OnPostAddOperationAsync).
+            var typeLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, maintenanceTypeLookupValueId);
+            if (typeLv != null)
+            {
+                wo.TypeLookupValueId = typeLv.Id;
+                if (int.TryParse(typeLv.Code, out var typeEnumVal))
+                    wo.Type = (MaintenanceType)typeEnumVal;
+            }
+
+            // Priority — same dual-write.
+            var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, priorityLookupValueId);
+            if (priorityLv != null)
+            {
+                wo.PriorityLookupValueId = priorityLv.Id;
+                if (int.TryParse(priorityLv.Code, out var pEnumVal))
+                    wo.Priority = (MaintenancePriority)pEnumVal;
+            }
+
+            wo.ScheduledDate = scheduledDate;
+            wo.WorkOrderNumber = workOrderNumber;
+            wo.Vendor = vendor;
+            wo.TechnicianId = technicianId;
+            wo.EstimatedCost = estimatedCost;
+            wo.Description = description ?? "";
+            wo.Notes = notes;
+
+            await _context.SaveChangesAsync();
+            TempData["Success"] = "Work order updated.";
+            return RedirectToPage(new { id });
+        }
+
+        // Quick dispatch reassignment — narrower than Edit (just priority,
+        // scheduled date, technician). Same shape as the legacy handler so
+        // any external integration POSTing to ?handler=DispatchUpdate keeps
+        // working. Delegates to MaintenanceService for the actual update.
+        public async Task<IActionResult> OnPostDispatchUpdateAsync(
+            int id,
+            int priorityLookupValueId,
+            DateTime scheduledDate,
+            int? technicianId)
+        {
+            var wo = await _context.MaintenanceEvents
+                .Where(m => m.Id == id
+                    && m.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (wo == null) return NotFound();
+
+            var resolvedPriority = MaintenancePriority.Medium;
+            int? resolvedPriorityLvId = null;
+            var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, priorityLookupValueId);
+            if (priorityLv != null && int.TryParse(priorityLv.Code, out var pEnumVal))
+            {
+                resolvedPriority = (MaintenancePriority)pEnumVal;
+                resolvedPriorityLvId = priorityLv.Id;
+            }
+
+            var result = await _maintenanceService.UpdateDispatchAsync(id, resolvedPriority, scheduledDate, technicianId);
+            if (result == null) return NotFound();
+
+            result.PriorityLookupValueId = resolvedPriorityLvId;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Dispatch updated.";
             return RedirectToPage(new { id });
         }
 
