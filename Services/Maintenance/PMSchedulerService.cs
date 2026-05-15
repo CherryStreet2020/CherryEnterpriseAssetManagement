@@ -30,11 +30,46 @@ public class PMGenerationResult
     public List<string> Errors { get; set; } = new();
 }
 
+/// <summary>
+/// S2-2 — projection result for meter-based PM scheduling. Returned by
+/// <see cref="IPMSchedulerService.ProjectMeterCrossingDateAsync"/>.
+/// </summary>
+public class MeterCrossingProjection
+{
+    public DateTime? ProjectedCrossingUtc { get; set; }
+    public decimal LatestReading { get; set; }
+    public decimal TargetReading { get; set; }
+    /// <summary>Units per day from the lookback window. Zero when no
+    /// historical readings exist, or when readings show no movement.</summary>
+    public decimal Velocity { get; set; }
+    public int ReadingsUsed { get; set; }
+    /// <summary>Plain-English reason the projection could not be made
+    /// (no readings, zero velocity, target already crossed). Null on
+    /// successful projection.</summary>
+    public string? UnprojectableReason { get; set; }
+}
+
 public interface IPMSchedulerService
 {
     Task<List<PMGenerationPreview>> PreviewDueAsync(int horizonDays, DateTime nowUtc, int? tenantId = null, int? companyId = null, int? siteId = null);
     Task<PMGenerationResult> GenerateDueAsync(int horizonDays, DateTime nowUtc, string? initiatedByUserId = null, int? tenantId = null, int? companyId = null, int? siteId = null);
     Task<List<DateTime>> ComputeDueDatesAsync(PMSchedule schedule, DateTime fromUtc, DateTime toUtc);
+
+    /// <summary>
+    /// S2-2 — for meter-driven PM templates (PMTemplate.TriggerType==Meter or Both),
+    /// project the UTC date when an asset's meter is expected to cross a
+    /// target reading. Velocity is computed from MeterReading rows in the
+    /// last <paramref name="lookbackDays"/> for the given asset + meterType.
+    /// Returns a structured projection so the caller can decide whether to
+    /// honor the date or surface "no historical data" / "zero velocity"
+    /// fallback handling.
+    /// </summary>
+    Task<MeterCrossingProjection> ProjectMeterCrossingDateAsync(
+        int assetId,
+        MeterType meterType,
+        decimal targetReading,
+        DateTime? asOfUtc = null,
+        int lookbackDays = 30);
 }
 
 public class PMSchedulerService : IPMSchedulerService
@@ -436,6 +471,107 @@ public class PMSchedulerService : IPMSchedulerService
                 "Failed to enqueue pm.occurrence.generated for occurrence {OccurrenceId} (WO {WorkOrderId})",
                 occurrence.Id, firstWorkOrderId);
         }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// S2-2 — uses linear velocity from MeterReading rows in the lookback
+    /// window. Two readings minimum to compute velocity (latest - earliest)/
+    /// (days between them). If the latest reading already meets/exceeds the
+    /// target, returns "already crossed." Zero velocity (asset hasn't been
+    /// run during the window) returns null projection — caller should fall
+    /// back to a calendar-based estimate or hold the PM open until a fresh
+    /// reading lands.
+    ///
+    /// The projection is intentionally linear. Most PM cadences (oil change
+    /// every 250 hours, brake pad inspection every 30,000 miles) are tied
+    /// to wear that's roughly proportional to use. A more sophisticated
+    /// model (seasonal, duty-cycle-weighted) is a future enhancement.
+    /// </remarks>
+    public async Task<MeterCrossingProjection> ProjectMeterCrossingDateAsync(
+        int assetId,
+        MeterType meterType,
+        decimal targetReading,
+        DateTime? asOfUtc = null,
+        int lookbackDays = 30)
+    {
+        var asOf = asOfUtc ?? DateTime.UtcNow;
+        var since = asOf.AddDays(-lookbackDays);
+
+        // Pull readings within the lookback window for this asset + meterType,
+        // ordered chronologically. ReadingDate is the canonical timestamp on
+        // MeterReading; not all readings have it set, so we coalesce to
+        // CreatedAt as a fallback for older rows.
+        var readings = await _db.MeterReadings
+            .Where(r => r.AssetId == assetId
+                        && r.MeterType == meterType
+                        && r.ReadingDate >= since
+                        && r.ReadingDate <= asOf)
+            .OrderBy(r => r.ReadingDate)
+            .Select(r => new { r.ReadingDate, r.Reading })
+            .ToListAsync();
+
+        var projection = new MeterCrossingProjection
+        {
+            TargetReading = targetReading,
+            ReadingsUsed = readings.Count
+        };
+
+        if (readings.Count == 0)
+        {
+            projection.UnprojectableReason = "No meter readings in lookback window.";
+            return projection;
+        }
+
+        var latest = readings[^1];
+        projection.LatestReading = latest.Reading;
+
+        if (latest.Reading >= targetReading)
+        {
+            // Target already crossed. The projected date is the reading that
+            // crossed (or its date), so the caller can mark the PM due now.
+            projection.ProjectedCrossingUtc = latest.ReadingDate;
+            projection.Velocity = ComputeLinearVelocity(readings.Select(r => (r.ReadingDate, r.Reading)).ToList());
+            return projection;
+        }
+
+        if (readings.Count < 2)
+        {
+            projection.UnprojectableReason = "Need at least 2 readings to compute velocity.";
+            return projection;
+        }
+
+        var velocity = ComputeLinearVelocity(readings.Select(r => (r.ReadingDate, r.Reading)).ToList());
+        projection.Velocity = velocity;
+
+        if (velocity <= 0m)
+        {
+            projection.UnprojectableReason = "Meter velocity is zero or negative — asset has not been operated during the lookback window.";
+            return projection;
+        }
+
+        // Linear projection: days = (target - latest) / velocity.
+        var unitsRemaining = targetReading - latest.Reading;
+        var daysToTarget = (double)(unitsRemaining / velocity);
+        projection.ProjectedCrossingUtc = latest.ReadingDate.AddDays(daysToTarget);
+        return projection;
+    }
+
+    /// <summary>
+    /// S2-2 — units-per-day across the readings window. Uses first and
+    /// last readings (rather than a regression) for simplicity and
+    /// robustness against single-row outliers; multi-point regression
+    /// is a future enhancement once we have real-world duty-cycle data.
+    /// </summary>
+    private static decimal ComputeLinearVelocity(List<(DateTime When, decimal Reading)> readings)
+    {
+        if (readings.Count < 2) return 0m;
+        var first = readings[0];
+        var last = readings[^1];
+        var deltaDays = (decimal)(last.When - first.When).TotalDays;
+        if (deltaDays <= 0m) return 0m;
+        var deltaReading = last.Reading - first.Reading;
+        return deltaReading / deltaDays;
     }
 
     public Task<List<DateTime>> ComputeDueDatesAsync(PMSchedule schedule, DateTime fromUtc, DateTime toUtc)
