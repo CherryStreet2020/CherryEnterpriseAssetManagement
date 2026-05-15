@@ -29,13 +29,41 @@
         <div class="pe-card__body">
             <div class="form-group-p">
                 <label class="form-label-p">Vendor <span class="required">*</span></label>
-                <select name="vendorId" data-cherry-select data-placeholder="Search vendors..." required>
+                <select id="vendorIdSelect" name="vendorId" data-cherry-select data-placeholder="Search vendors..." required>
                     <option value="">Search vendors...</option>
                     @foreach (var v in Model.Vendors)
                     {
                         <option value="@v.Id">@v.Code - @v.Name</option>
                     }
                 </select>
+            </div>
+        </div>
+    </div>
+
+    @* DEF-N08/DEF-N03 (PR #91): Optional PO match at create time. Linking the
+       invoice to a PO now (instead of relying solely on the after-the-fact
+       Auto-Match-to-PO sweep) lets ApPostingService resolve the proper GL
+       account per line (Inventory / DirectExpense / CIP per the PO line's
+       routing), and unlocks the three-way match (PO/GR/Invoice) workflow
+       downstream. The picker is filtered client-side by the selected vendor
+       so the AP team doesn't have to scroll through cross-vendor noise.
+    *@
+    <div class="pe-card">
+        <div class="pe-card__header"><span class="pe-card__title"><span class="accent-dot accent-dot--purple"></span> Match to Purchase Order <span data-csp-style="opacity:0.7; font-weight:normal; font-size:0.85em;">(optional)</span></span></div>
+        <div class="pe-card__body">
+            <div class="form-group-p">
+                <label class="form-label-p" for="purchaseOrderIdSelect">Purchase Order</label>
+                <select id="purchaseOrderIdSelect" name="purchaseOrderId" class="form-input-p">
+                    <option value="">No PO — bill as direct expense</option>
+                    @foreach (var po in Model.AvailablePos)
+                    {
+                        var label = $"{po.PONumber} — {po.Vendor?.Name} — {po.Total:C} ({po.Status})";
+                        <option value="@po.Id" data-vendor-id="@po.VendorId" data-total="@po.Total">@label</option>
+                    }
+                </select>
+                <p data-csp-style="margin-top:0.5rem; font-size:0.85em; opacity:0.75;">
+                    Picking a PO seeds the invoice with one line per PO line, attaches each line to its PO line (for three-way match), and uses the PO total as the header amount. The amount field below becomes the "billed amount" and any variance against the PO total is flagged in the notes.
+                </p>
             </div>
         </div>
     </div>
@@ -83,3 +111,45 @@
         </button>
     </div>
 </form>
+
+@* DEF-N08/DEF-N03 (PR #91): Client-side niceties for the PO picker —
+   (1) hide PO options whose vendor doesn't match the currently selected
+   vendor, so the AP team isn't scrolling through unrelated POs, and
+   (2) auto-fill the amount field with the PO total when a PO is picked.
+   Both are progressive enhancements — the server still validates the
+   vendor match and computes the header total from the seeded lines,
+   so a broken JS / non-JS environment still produces a correct invoice.
+*@
+<script>
+(function() {
+    const vendorSel = document.getElementById('vendorIdSelect');
+    const poSel = document.getElementById('purchaseOrderIdSelect');
+    const amtInput = document.querySelector('input[name="amount"]');
+    if (!vendorSel || !poSel) return;
+
+    const allOptions = Array.from(poSel.options).slice(1); // skip the "No PO" option
+
+    function refreshPoOptions() {
+        const vid = vendorSel.value;
+        // Reset: keep only the placeholder, then add matching options
+        for (const o of allOptions) {
+            const optVendor = o.getAttribute('data-vendor-id');
+            o.hidden = vid && optVendor && optVendor !== vid;
+        }
+        // If the current selection is now hidden, clear it
+        const current = poSel.options[poSel.selectedIndex];
+        if (current && current.hidden) poSel.value = '';
+    }
+
+    vendorSel.addEventListener('change', refreshPoOptions);
+    poSel.addEventListener('change', function() {
+        const opt = poSel.options[poSel.selectedIndex];
+        const total = opt && opt.getAttribute('data-total');
+        if (total && amtInput && (!amtInput.value || parseFloat(amtInput.value) === 0)) {
+            amtInput.value = parseFloat(total).toFixed(2);
+        }
+    });
+
+    refreshPoOptions();
+})();
+</script>
