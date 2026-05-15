@@ -1075,10 +1075,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                 CreatedBy = User.Identity?.Name
             };
 
+            // PR #99: Save first so EF populates improvement.Id, *then* stamp
+            // the IMPR pointer on CustomField2 and save again. Pre-fix code
+            // stamped IMPR:{improvement.Id} while Id was still its 0 default,
+            // so every capitalization landed as IMPR:0 — the marker satisfied
+            // the IsCapitalized "starts with IMPR:" gate but pointed nowhere.
             _context.CapitalImprovements.Add(improvement);
             asset.AcquisitionCost += amount;
-            wo.CustomField2 = $"IMPR:{improvement.Id}";
+            await _context.SaveChangesAsync();
 
+            wo.CustomField2 = $"IMPR:{improvement.Id}";
             await _context.SaveChangesAsync();
 
             // Refresh the depreciation snapshot on Asset and each
