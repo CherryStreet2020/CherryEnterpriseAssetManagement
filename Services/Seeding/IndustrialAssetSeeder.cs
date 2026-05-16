@@ -570,7 +570,13 @@ namespace Abs.FixedAssets.Services.Seeding
         {
             assetId = 0;
             if (!classByCode.TryGetValue(classCode, out var cls)) return false;
-            var model = cls.Models.FirstOrDefault(m => m.ModelNumber == targetModelNumber);
+            // PR #117.7: case-insensitive ModelNumber match. AppDbContext.
+            // CapitalizeStringProperties uppercases ModelNumber on save, so the
+            // catalog row is "POWER WAVE S350" but our storyline anchor is
+            // "Power Wave S350". HAAS "VF-2SS" + KUKA "KR 210 R2700" escape this
+            // because they're already all-caps; Lincoln did not. One-char fix.
+            var model = cls.Models.FirstOrDefault(m =>
+                string.Equals(m.ModelNumber, targetModelNumber, StringComparison.OrdinalIgnoreCase));
             if (model == null) return false;
 
             var candidate = assets.FirstOrDefault(a => !assetClass.ContainsKey(a.Id));
