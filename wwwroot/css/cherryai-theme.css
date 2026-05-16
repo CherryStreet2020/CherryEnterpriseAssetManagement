@@ -988,6 +988,64 @@ html.dark .location-bar-container {
   color: var(--lux-text-muted) !important;
 }
 
+/* ============================================================
+   PR #116c: Sticky table headers across every long list.
+   Column labels stay visible while scrolling so you always know
+   what you're looking at. Captured bug #10 from the E2E audit.
+   ============================================================ */
+.ledger-table thead th,
+.data-table thead th,
+.enhanced-grid-container .data-table thead th,
+table.sortable-table thead th,
+table.lux-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    /* Inherit thead's existing background so the header tile occludes
+       rows scrolling beneath it. Without this the rows would bleed
+       through the gap above. */
+    background: inherit;
+}
+
+/* Make sure the thead row itself has a solid background so the sticky
+   th cells have something to sit on. Falls back to the surface tokens. */
+.ledger-table thead,
+.data-table thead,
+.enhanced-grid-container .data-table thead,
+table.sortable-table thead,
+table.lux-table thead {
+    background: var(--lux-surface, var(--bg-secondary, rgba(15, 23, 42, 0.95)));
+}
+
+/* PR #116c: Cmd-K palette polish — monospace input, refined group labels, empty state. */
+.command-palette-input {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 15px !important;
+  letter-spacing: 0.01em;
+}
+
+.command-palette-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--lux-text-muted);
+  padding: 14px 16px 6px 16px;
+}
+
+.command-palette-empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--lux-text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.command-palette-empty strong {
+  color: var(--lux-text);
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 /* ==========================================================================
    LOGIN PAGE — Luxury
    ========================================================================== */
