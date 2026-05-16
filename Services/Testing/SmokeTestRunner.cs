@@ -8611,8 +8611,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 "Pages/CCA/Settings.cshtml",
                 // Help and documentation pages
                 "Pages/Help/Implementation.cshtml",
-                // Diagnostics and developer tools
-                "Pages/Admin/Diagnostics.cshtml",
+                // PR #116a: removed Pages/Admin/Diagnostics.cshtml — deleted as orphan.
                 // Integration admin pages (internal tools)
                 "Pages/Admin/Integrations/Inbound.cshtml",
                 "Pages/Admin/Integrations/Index.cshtml",
@@ -8871,12 +8870,10 @@ public class SmokeTestRunner : ISmokeTestRunner
             var heroContractExempt = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "Pages/Admin/DataImport.cshtml",
-                "Pages/Admin/DemoData.cshtml",
-                "Pages/Admin/EnvironmentStatus.cshtml",
                 "Pages/Admin/PMScheduleEdit.cshtml",
-                "Pages/Admin/SmokeTests.cshtml",
                 "Pages/Admin/Webhooks/Index.cshtml",
                 "Pages/Maintenance/WorkRequests/Details.cshtml"
+                // PR #116a: removed DemoData, EnvironmentStatus, SmokeTests — deleted as orphans.
             };
 
             var pagesDir = Path.Combine(Directory.GetCurrentDirectory(), "Pages");
@@ -9751,8 +9748,8 @@ public class SmokeTestRunner : ISmokeTestRunner
                 { "Pages/CIP/Index.cshtml", "/CIP (Capital Projects)" },
                 { "Pages/Purchasing/Index.cshtml", "/Purchasing (Purchase Orders)" },
                 { "Pages/AccountsPayable/Index.cshtml", "/AccountsPayable (Invoices)" },
-                { "Pages/Admin/PMTemplates.cshtml", "/Admin/PMTemplates (PM Templates)" },
-                { "Pages/Admin/WorkOrders.cshtml", "/Admin/WorkOrders (Work Orders Admin)" }
+                { "Pages/Admin/PMTemplates.cshtml", "/Admin/PMTemplates (PM Templates)" }
+                // PR #116a: removed Pages/Admin/WorkOrders.cshtml — deleted as orphan.
             };
 
             var missingTargets = new List<string>();

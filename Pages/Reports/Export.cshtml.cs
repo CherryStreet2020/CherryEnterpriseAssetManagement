@@ -34,7 +34,7 @@ namespace Abs.FixedAssets.Pages.Reports
             year ??= DateTime.Now.Year;
 
             if (string.IsNullOrWhiteSpace(type))
-                return RedirectToPage("/Reports/Index");
+                return RedirectToPage("/Reports/ReportHub");
 
             return type.ToLowerInvariant() switch
             {
@@ -44,7 +44,7 @@ namespace Abs.FixedAssets.Pages.Reports
                 "maintenance" => await ExportMaintenance(format),
                 "cip" => await ExportCip(format),
                 "depreciation" => await ExportDepreciationSchedule(format, assetId ?? 0),
-                _ => RedirectToPage("/Reports/Index")
+                _ => RedirectToPage("/Reports/ReportHub")
             };
         }
 
@@ -61,7 +61,7 @@ namespace Abs.FixedAssets.Pages.Reports
                 "csv" => File(_exportService.ExportAssetsToCsv(assets), "text/csv", $"assets_{timestamp}.csv"),
                 "excel" => File(_exportService.ExportAssetsToExcel(assets), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"assets_{timestamp}.xlsx"),
                 "pdf" => File(_exportService.ExportAssetsToPdf(assets), "application/pdf", $"assets_{timestamp}.pdf"),
-                _ => RedirectToPage("/Reports/Index")
+                _ => RedirectToPage("/Reports/ReportHub")
             };
         }
 
@@ -79,7 +79,7 @@ namespace Abs.FixedAssets.Pages.Reports
             {
                 "csv" => File(_exportService.ExportJournalsToCsv(journals), "text/csv", $"journals_{timestamp}.csv"),
                 "excel" => File(_exportService.ExportJournalsToExcel(journals), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"journals_{timestamp}.xlsx"),
-                _ => RedirectToPage("/Reports/Index")
+                _ => RedirectToPage("/Reports/ReportHub")
             };
         }
 
@@ -96,7 +96,7 @@ namespace Abs.FixedAssets.Pages.Reports
             {
                 "csv" => File(_exportService.ExportCcaReportToCsv(classes, balances, year), "text/csv", $"cca_report_{year}_{timestamp}.csv"),
                 "excel" => File(_exportService.ExportCcaReportToExcel(classes, balances, year), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"cca_report_{year}_{timestamp}.xlsx"),
-                _ => RedirectToPage("/Reports/Index")
+                _ => RedirectToPage("/Reports/ReportHub")
             };
         }
 

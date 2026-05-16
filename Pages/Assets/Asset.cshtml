@@ -254,7 +254,7 @@
                                     <span class="activity-date">@activity.CreatedAt.ToString("MMM d, yyyy")</span>
                                 </div>
                             </div>
-                            <div class="activity-status @activity.Status.ToString().ToLower()">@activity.Status</div>
+                            <div class="activity-status @activity.Status.ToString().ToLower()">@Abs.FixedAssets.Helpers.StatusLabelExtensions.Humanize(activity.Status.ToString())</div>
                         </div>
                     }
                 </div>

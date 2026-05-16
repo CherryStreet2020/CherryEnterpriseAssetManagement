@@ -21,12 +21,32 @@
 
                 header.addEventListener('click', function(e) {
                     e.preventDefault();
+                    // PR #116a fix: in collapsed-rail mode the submenu is
+                    // display:none — toggling it does nothing visible.
+                    // Instead, navigate straight to the group's first
+                    // child link so the click isn't dead.
+                    var sidebar = document.getElementById('mainSidebar');
+                    if (sidebar && sidebar.classList.contains('collapsed')) {
+                        var firstChild = group.querySelector('.menu-items a[href]');
+                        if (firstChild) {
+                            window.location.href = firstChild.getAttribute('href');
+                            return;
+                        }
+                    }
                     toggleMenuGroup(group);
                 });
 
                 header.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
+                        var sidebar = document.getElementById('mainSidebar');
+                        if (sidebar && sidebar.classList.contains('collapsed')) {
+                            var firstChild = group.querySelector('.menu-items a[href]');
+                            if (firstChild) {
+                                window.location.href = firstChild.getAttribute('href');
+                                return;
+                            }
+                        }
                         toggleMenuGroup(group);
                     }
                 });
@@ -81,15 +101,25 @@
         var sidebar = document.getElementById('mainSidebar');
         if (!btn || !sidebar) return;
 
+        // PR #116a: keep a body class in sync with the sidebar collapsed
+        // state. The CSS uses :has(.sidebar.collapsed) to override
+        // --sidebar-width but :has() isn't universal — body.sidebar-is-collapsed
+        // gives us a defense-in-depth selector that works in every browser.
+        function syncBodyClass(isCollapsed) {
+            document.body.classList.toggle('sidebar-is-collapsed', isCollapsed);
+        }
+
         var collapsed = localStorage.getItem('sidebarCollapsed') === 'true';
         if (collapsed) {
             sidebar.classList.add('collapsed');
         }
+        syncBodyClass(collapsed);
 
         btn.addEventListener('click', function() {
             sidebar.classList.toggle('collapsed');
             var isNowCollapsed = sidebar.classList.contains('collapsed');
             localStorage.setItem('sidebarCollapsed', isNowCollapsed);
+            syncBodyClass(isNowCollapsed);
         });
     }
 

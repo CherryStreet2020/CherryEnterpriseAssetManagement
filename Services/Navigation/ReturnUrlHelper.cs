@@ -16,7 +16,7 @@ public static class ReturnUrlHelper
         "/WorkOrders", "/WorkOrders/Index", "/WorkOrders/Details", "/WorkOrders/Execute", "/WorkOrders/Closeout",
         "/Admin", "/Admin/Users", "/Admin/Companies", "/Admin/Settings", "/Admin/AuditLog",
         "/Admin/PMSchedules", "/Admin/PMScheduleEdit", "/Admin/IntegrationEndpoints", "/Admin/IntegrationMappings",
-        "/Reports", "/Reports/Index",
+        "/Reports", "/Reports/ReportHub", "/Reports/TrialBalance", "/Reports/Reliability", "/Reports/AssetReliability",
         "/Depreciation", "/Depreciation/Books", "/Depreciation/Calculate", "/Depreciation/Schedule",
         "/CIP", "/CIP/Index", "/CIP/Details", "/CIP/Costs",
         "/CCA", "/CCA/Index", "/CCA/ClassReport",

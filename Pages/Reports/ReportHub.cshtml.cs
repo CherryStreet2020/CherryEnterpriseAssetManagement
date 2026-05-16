@@ -72,15 +72,10 @@ namespace Abs.FixedAssets.Pages.Reports
                     Color = "success",
                     IsNew = true
                 },
-                new ReportLink
-                {
-                    Title = "Compliance Reports",
-                    Description = "Depreciation schedules, tax summaries, and audit trails for compliance.",
-                    Url = "/Reports/Compliance",
-                    Icon = "check",
-                    Color = "success",
-                    IsNew = true
-                },
+                // PR #116a: removed Compliance Reports, Export Assets,
+                // Maintenance Spend by Asset entries — underlying pages
+                // were orphans. Per-asset cost rollup now lives on
+                // /Reports/AssetReliability + on the Asset detail page.
                 new ReportLink
                 {
                     Title = "Asset Register",
@@ -88,27 +83,6 @@ namespace Abs.FixedAssets.Pages.Reports
                     Url = "/Assets",
                     Icon = "list",
                     Color = "success"
-                },
-                new ReportLink
-                {
-                    Title = "Export Assets",
-                    Description = "Download asset data in CSV, Excel, or PDF format.",
-                    Url = "/Reports/Index",
-                    Icon = "chart",
-                    Color = "success"
-                },
-                // PR #93: Per-asset cost rollup that ties the WO operational
-                // tables to the WO-LBR / WO-ISS / WO-RTN journal entries
-                // shipped in PR #89 + #92. The headline KPI Maximo / SAP PM /
-                // Infor EAM open their demos on; ours is one click.
-                new ReportLink
-                {
-                    Title = "Maintenance Spend by Asset",
-                    Description = "Per-asset cost rollup — labor + materials over a date range, reconciled to WO journal entries.",
-                    Url = "/Reports/MaintenanceSpend",
-                    Icon = "chart",
-                    Color = "success",
-                    IsNew = true
                 }
             };
 
