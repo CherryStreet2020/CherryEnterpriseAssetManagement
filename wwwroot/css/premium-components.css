@@ -1835,7 +1835,12 @@
     border: 1px solid #fde68a;
 }
 
-.status-pill.tone-success {
+.status-pill.tone-success,
+.status-pill.tone-active {
+    /* PR #116a-followup: tone-active was used by 26 admin/CIP/reports pages
+       but had no CSS — pills rendered as unstyled plain-caps text.
+       Alias it to tone-success so every "N Active" badge across the app
+       gets the consistent green-pill styling. */
     background: #dcfce7;
     color: #166534;
     border: 1px solid #bbf7d0;

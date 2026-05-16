@@ -390,6 +390,76 @@ body.sidebar-is-collapsed {
     /* PR #116a fix: let tooltips escape past the rail's right edge.
        overflow-y: auto from .sidebar would clip the ::after pseudo-element. */
     overflow: visible;
+    /* PR #116a-followup: smooth width transition for hover-peek. */
+    transition: width 180ms ease-out, min-width 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+/* ---- Hover-peek overlay (Linear/Notion/Stripe pattern) ----
+ * When the user hovers the collapsed rail, expand the sidebar to its
+ * full width AS AN OVERLAY — the content pane does NOT reflow. The
+ * sidebar becomes position: fixed with a high z-index, shadowing over
+ * the content. Mouse-leave (with grace) returns it to the icon rail.
+ *
+ * The pinned-collapsed state is preserved across page loads via
+ * localStorage; hover-peek is a transient overlay only.
+ *
+ * Width-during-peek matches expanded width so labels, submenus, section
+ * headers all render exactly as the user remembers them.
+ */
+.sidebar.collapsed.peek-open {
+    width: var(--sidebar-expanded-width, 280px);
+    min-width: var(--sidebar-expanded-width, 280px);
+    /* Lift above content with a soft shadow so the overlay reads. */
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
+    /* Critically: don't push --sidebar-width back to 280 — content stays
+       at its 64px-margin layout. The peek floats on top. */
+}
+
+/* Restore everything that .sidebar.collapsed hides, while peeking. */
+.sidebar.collapsed.peek-open .sidebar-brand-info,
+.sidebar.collapsed.peek-open .nav-item-label,
+.sidebar.collapsed.peek-open .menu-group-title,
+.sidebar.collapsed.peek-open .menu-group-arrow,
+.sidebar.collapsed.peek-open .nav-section-label,
+.sidebar.collapsed.peek-open .sidebar-user-details,
+.sidebar.collapsed.peek-open .org-selector-label,
+.sidebar.collapsed.peek-open .org-selector-arrow,
+.sidebar.collapsed.peek-open .recent-nav-section,
+.sidebar.collapsed.peek-open .menu-items {
+    display: revert !important;
+    max-height: none !important;
+    opacity: 1 !important;
+}
+
+/* Re-show org-selector during peek. */
+.sidebar.collapsed.peek-open .org-selector-wrapper {
+    display: revert;
+}
+
+/* Hide the icon-only tooltip flyouts during peek (the labels are visible
+   now — tooltip would be redundant clutter). */
+.sidebar.collapsed.peek-open .menu-group-header[data-tooltip]::after,
+.sidebar.collapsed.peek-open .nav-item[data-tooltip]::after {
+    display: none !important;
+}
+
+/* Brand area: when peeking, restore the brand label even though
+   .sidebar.collapsed .sidebar-brand sets justify-content:center. */
+.sidebar.collapsed.peek-open .sidebar-brand {
+    justify-content: flex-start;
+    padding: 24px;
+}
+
+/* Menu-group header spacing during peek matches the expanded state. */
+.sidebar.collapsed.peek-open .menu-group-header {
+    padding: 10px 16px;
+    justify-content: flex-start;
+}
+
+/* Re-expand any group that has an active child during peek, so the
+   user sees where they are inside the IA. */
+.sidebar.collapsed.peek-open .menu-group.expanded .menu-items {
+    display: block !important;
 }
 
 .sidebar.collapsed .sidebar-brand-info,
