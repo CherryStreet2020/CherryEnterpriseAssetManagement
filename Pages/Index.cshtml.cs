@@ -280,7 +280,7 @@ namespace Abs.FixedAssets.Pages
             // MTBF above, but per-asset and ranked. Worst = LOWEST MTBF (failing
             // most frequently). Need the AssetNumber + Description for the tile,
             // so we re-join against assets after the grouping.
-            var perAssetMtbf = maintenanceEvents
+            var perAssetMtbfList = maintenanceEvents
                 .Where(m => m.Status == MaintenanceStatus.Completed
                             && m.CompletedDate.HasValue
                             && m.Type == MaintenanceType.Corrective
@@ -299,12 +299,12 @@ namespace Abs.FixedAssets.Pages
                 .OrderBy(x => x.Mtbf!.Value) // ascending — worst (lowest) first
                 .Take(5)
                 .ToList();
-            var worstAssetIds = perAssetMtbf.Select(x => x.AssetId).ToList();
+            var worstAssetIds = perAssetMtbfList.Select(x => x.AssetId).ToList();
             var worstAssetsLookup = await _db.Assets
                 .Where(a => worstAssetIds.Contains(a.Id))
                 .Select(a => new { a.Id, a.AssetNumber, Description = a.Description ?? "" })
                 .ToListAsync();
-            WorstMtbfAssets = perAssetMtbf
+            WorstMtbfAssets = perAssetMtbfList
                 .Join(worstAssetsLookup, p => p.AssetId, a => a.Id, (p, a) => new WorstMtbfRow(
                     a.Id, a.AssetNumber, a.Description, p.Mtbf!.Value, p.Count))
                 .ToList();
