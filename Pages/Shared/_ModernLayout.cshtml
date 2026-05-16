@@ -188,16 +188,20 @@
                 
                 <div class="nav-section-label">OPERATIONS</div>
                 
-                <div class="menu-group @(IsPage("/Assets") || IsPage("/BulkOperations") || IsPage("/Admin/Locations") || IsPage("/Assets/Locations") || IsPage("/Admin/AssetCategories") || IsPage("/Admin/Barcodes") ? "expanded" : "")" data-section="assets">
+                <div class="menu-group @(IsPage("/Assets") || IsPage("/BulkOperations") || IsPage("/Admin/Locations") || IsPage("/Assets/Locations") || IsPage("/Admin/AssetCategories") || IsPage("/Admin/Barcodes") || IsPage("/Plant") ? "expanded" : "")" data-section="assets">
                     <div class="menu-group-header" data-tooltip="Assets" role="button" tabindex="0" aria-expanded="false">
                         <span class="menu-group-icon"><i class="fas fa-boxes-stacked"></i></span>
                         <span class="menu-group-title">Assets</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
                     </div>
                     <div class="menu-items">
-                        <a href="/Assets" class="menu-item @(IsPage("/Assets") && !IsPage("/Assets/Locations") && !IsPage("/Assets/Categories") && !IsPage("/Assets/Barcodes") ? "active" : "")" data-nav-route="/Assets">
+                        <a href="/Assets" class="menu-item @(IsPage("/Assets") && !IsPage("/Assets/Locations") && !IsPage("/Assets/Categories") && !IsPage("/Assets/Barcodes") ? "active" : "")" data-nav-route="/Assets" data-tooltip="Asset Register">
                             <i class="fas fa-list menu-item-icon"></i>
                             <span>Asset Register</span>
+                        </a>
+                        <a href="/Plant" class="menu-item @(IsPage("/Plant") ? "active" : "")" data-nav-route="/Plant" data-tooltip="Plant Floor">
+                            <i class="fas fa-industry menu-item-icon"></i>
+                            <span>Plant Floor</span>
                         </a>
                         <a href="/Assets/Locations" class="menu-item @(IsPage("/Admin/Locations") || IsPage("/Assets/Locations") ? "active" : "")" data-nav-route="/Assets/Locations">
                             <i class="fas fa-location-dot menu-item-icon"></i>

@@ -167,6 +167,12 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Approvals.IApprovalService,
     Abs.FixedAssets.Services.Approvals.ApprovalService>();
+// Sprint 2 PR #117: Plant Floor Live View — populates the decorative
+// Asset.HealthScore + CurrentTemperature/Vibration/Pressure fields with
+// realistic demo data so the plant floor view lights up immediately.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Reliability.IPlantFloorHealthSeeder,
+    Abs.FixedAssets.Services.Reliability.PlantFloorHealthSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.

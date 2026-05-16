@@ -10,6 +10,7 @@
         { group: 'Work', label: 'PM Program', path: '/Maintenance/PMTemplates', icon: 'fa-clock-rotate-left' },
         { group: 'Work', label: 'PM Assignments', path: '/Maintenance/Assignments', icon: 'fa-users' },
         { group: 'Assets', label: 'Asset Registry', path: '/Assets', icon: 'fa-list' },
+        { group: 'Assets', label: 'Plant Floor (Live Health)', path: '/Plant', icon: 'fa-industry' },
         { group: 'Assets', label: 'Locations', path: '/Assets/Locations', icon: 'fa-location-dot' },
         { group: 'Assets', label: 'Transfer Asset', path: '/Assets?action=transfer', icon: 'fa-exchange-alt' },
         { group: 'Assets', label: 'Dispose Asset', path: '/Assets?action=dispose', icon: 'fa-trash-alt' },
