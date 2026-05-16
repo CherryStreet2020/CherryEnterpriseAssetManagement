@@ -13,11 +13,27 @@ namespace Abs.FixedAssets.Pages.Account;
 public class LoginModel : PageModel
 {
     private readonly AuthService _authService;
+    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
 
-    public LoginModel(AuthService authService)
+    public LoginModel(AuthService authService, IWebHostEnvironment env, IConfiguration config)
     {
         _authService = authService;
+        _env = env;
+        _config = config;
     }
+
+    // PR #100 (B-04): The "Demo Accounts" click-to-fill buttons render the
+    // admin/accountant/viewer credentials directly in the page HTML so anyone
+    // who can reach /Account/Login (i.e. the whole internet on a public
+    // deployment) sees three valid logins. Gate the card to Development
+    // environment OR an explicit `Login:ShowDemoAccounts=true` config flag,
+    // so the demo experience still works in staging but production never
+    // ships the buttons. Boolean exposed on the page model so the cshtml
+    // stays simple.
+    public bool ShowDemoAccounts =>
+        _env.IsDevelopment()
+        || _config.GetValue<bool>("Login:ShowDemoAccounts", false);
 
     [BindProperty]
     [Required]
