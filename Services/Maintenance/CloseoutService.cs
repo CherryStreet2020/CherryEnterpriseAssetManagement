@@ -177,6 +177,66 @@ public class CloseoutService : ICloseoutService
                 workOrder.LessonsLearned = lessonsLearned;
             }
 
+            // PR #103 (B-12): Roll the WO-LBR / WO-ISS / WO-RTN JE totals
+            // back to the WorkOrder header fields. After PR #98 made this
+            // the default close path on the modern surface, LaborCost /
+            // PartsCost / MaterialsCost / ActualCost were never populated
+            // on close — the JE-side data was correct (PR #89 + #92) but
+            // the WO header still showed nulls, breaking dashboards and
+            // the "Total Cost" stat that downstream reports read.
+            //
+            // Source of truth = the JE table, same surface the PR #93
+            // Maintenance Spend report sums from. Reference pattern
+            // "WO-{LBR|ISS|RTN}-{woId}-…" set by the helpers in PR #89/#92.
+            var laborPrefix = $"WO-LBR-{workOrderId}-";
+            var issuePrefix = $"WO-ISS-{workOrderId}-";
+            var returnPrefix = $"WO-RTN-{workOrderId}-";
+
+            var laborTotal = await _db.JournalEntries
+                .Where(j => j.Source == "WO-LBR" && j.Reference != null && j.Reference.StartsWith(laborPrefix))
+                .SelectMany(j => j.Lines)
+                .Where(l => l.Debit > 0m)
+                .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+            var materialsIssued = await _db.JournalEntries
+                .Where(j => j.Source == "WO-ISS" && j.Reference != null && j.Reference.StartsWith(issuePrefix))
+                .SelectMany(j => j.Lines)
+                .Where(l => l.Debit > 0m)
+                .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+            var materialsReturned = await _db.JournalEntries
+                .Where(j => j.Source == "WO-RTN" && j.Reference != null && j.Reference.StartsWith(returnPrefix))
+                .SelectMany(j => j.Lines)
+                .Where(l => l.Debit > 0m)
+                .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+
+            workOrder.LaborCost = laborTotal;
+            workOrder.MaterialsCost = materialsIssued - materialsReturned;
+            // PartsCost is a legacy field kept for the closeout-summary form;
+            // its sole source is the issued/returned material JEs same as
+            // MaterialsCost, so we double-write to keep the older display
+            // path happy without forking the data.
+            workOrder.PartsCost = workOrder.MaterialsCost;
+            workOrder.ActualCost = (workOrder.LaborCost ?? 0m)
+                                 + (workOrder.MaterialsCost ?? 0m)
+                                 + (workOrder.OutsideVendorCost ?? 0m);
+
+            // PR #103 (B-13): Flip the linked PMOccurrence to Completed so
+            // PMSchedulerService knows this occurrence has been fulfilled
+            // and the scheduler stops re-firing it. Pre-fix, the Completed
+            // enum value (3) was unreachable from any code path; calendar
+            // PM-driven WOs closed cleanly but the occurrence row stayed
+            // Status=Created forever, so subsequent scheduler ticks could
+            // re-emit a duplicate. WorkOrder.PMOccurrenceId nullable —
+            // corrective / ad-hoc WOs have no occurrence to flip.
+            if (workOrder.PMOccurrenceId.HasValue)
+            {
+                var occurrence = await _db.PMOccurrences
+                    .FirstOrDefaultAsync(o => o.Id == workOrder.PMOccurrenceId.Value);
+                if (occurrence != null && occurrence.Status != PMOccurrenceStatus.Completed)
+                {
+                    occurrence.Status = PMOccurrenceStatus.Completed;
+                }
+            }
+
             var auditEntry = new AuditLog
             {
                 EntityType = "MaintenanceEvent",
