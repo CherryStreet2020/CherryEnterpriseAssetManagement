@@ -155,6 +155,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingSe
     Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
+// MP #112: Period Close Orchestration — sequenced one-click month-end close
+// (preflight + depreciation + lock + audited snapshot). Sits above PeriodGuard +
+// JournalGenerator + AuditService; doesn't replace them.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Finance.IPeriodCloseOrchestrationService,
+    Abs.FixedAssets.Services.Finance.PeriodCloseOrchestrationService>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
