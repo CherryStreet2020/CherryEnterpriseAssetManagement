@@ -1,0 +1,103 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Sprint1FixtureModel
+@{
+    ViewData["Title"] = "Sprint 1 Fixture Seed";
+    ViewData["TabTitle"] = "Sprint 1 Fixture";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Sprint 1 Reliability Fixture",
+        ["HeaderSubtitle"] = "Seed corrective WO history for the Pareto / MTBF / dashboard tiles"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div class="section-card" data-csp-style="margin-top: 1rem;">
+    <div class="section-card-body" data-csp-style="padding: 1.5rem;">
+        <h3 data-csp-style="margin-top: 0;">What this does</h3>
+        <p data-csp-style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
+            Generates ~30 corrective WorkOrders with a realistic 80/20 failure-mode distribution
+            across 8 of your seeded <code>FailureCode</code> rows and the first 8 active assets in
+            your largest company. Each WO has random but plausible labor + materials cost, a
+            CompletedDate spread across the last 90 days, and a pair of balanced JEs
+            (<code>WO-LBR</code> + <code>WO-ISS-OP</code>) so the existing dashboard cost tiles
+            and the PR #93 Maintenance Spend report also light up.
+        </p>
+        <p data-csp-style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
+            Used by Sprint 1 PRs #109 (Pareto charts), #110 (per-asset MTBF), and #111
+            (reliability dashboard tiles). Without this fixture, those charts render empty on a
+            fresh demo dataset.
+        </p>
+        <p data-csp-style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6;">
+            <strong>Idempotent:</strong> seeded WOs use a <code>FIX-S1-</code> prefix on
+            <code>WorkOrderNumber</code>. A second invocation that detects any pre-existing
+            <code>FIX-S1-*</code> row short-circuits without re-seeding. To re-seed, delete the
+            fixture rows manually first via SQL.
+        </p>
+
+        @if (Model.Result is null && Model.ErrorMessage is null)
+        {
+            <form method="post" data-csp-style="margin-top: 1rem;">
+                <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.625rem 1.25rem; font-weight: 600;">
+                    Seed Reliability Fixture
+                </button>
+            </form>
+        }
+
+        @if (Model.ErrorMessage != null)
+        {
+            <div class="alert-danger" data-csp-style="margin-top: 1rem; padding: 1rem; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;">
+                @Model.ErrorMessage
+            </div>
+        }
+
+        @if (Model.Result != null)
+        {
+            <div data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac;">
+                <strong>@Model.Result.Message</strong>
+            </div>
+
+            @if (Model.Result.WorkOrdersCreated > 0)
+            {
+                <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+                    <div class="kpi-card" data-csp-style="padding: 1rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Work Orders Created</div>
+                        <div data-csp-style="font-size: 1.875rem; font-weight: 700; color: var(--text-primary);">@Model.Result.WorkOrdersCreated</div>
+                    </div>
+                    <div class="kpi-card" data-csp-style="padding: 1rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Journal Entries</div>
+                        <div data-csp-style="font-size: 1.875rem; font-weight: 700; color: var(--text-primary);">@Model.Result.JournalEntriesCreated</div>
+                    </div>
+                    <div class="kpi-card" data-csp-style="padding: 1rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Total Labor Cost</div>
+                        <div data-csp-style="font-size: 1.875rem; font-weight: 700; color: var(--text-primary);">@Model.Result.TotalLaborCost.ToString("C0")</div>
+                    </div>
+                    <div class="kpi-card" data-csp-style="padding: 1rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Total Materials Cost</div>
+                        <div data-csp-style="font-size: 1.875rem; font-weight: 700; color: var(--text-primary);">@Model.Result.TotalMaterialsCost.ToString("C0")</div>
+                    </div>
+                </div>
+
+                <h4 data-csp-style="margin-top: 1.5rem;">Distribution by failure code (Pareto preview)</h4>
+                <table class="ledger-table" data-csp-style="width: 100%; margin-top: 0.5rem;">
+                    <thead>
+                        <tr>
+                            <th data-csp-style="text-align: left; padding: 0.5rem;">Failure Code</th>
+                            <th data-csp-style="text-align: right; padding: 0.5rem;">Count</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in Model.Result.WorkOrdersByFailureCode)
+                        {
+                            <tr>
+                                <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border);">@entry.Key</td>
+                                <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); text-align: right;">@entry.Value</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
+</div>
