@@ -79,6 +79,34 @@
         });
     }
 
+    // PR #116c: recent paths tracked in localStorage so power users see
+    // their last 5 destinations at the top of an empty Cmd-K. Max 5
+    // entries, deduped, newest-first. Persist key is versioned so
+    // future schema changes don't blow up stored state.
+    var RECENT_KEY = 'cherryai_cmdk_recent_v1';
+    var RECENT_MAX = 5;
+
+    function readRecent() {
+        try {
+            var raw = localStorage.getItem(RECENT_KEY);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+    }
+
+    function pushRecent(path) {
+        try {
+            var list = readRecent().filter(function(p) { return p !== path; });
+            list.unshift(path);
+            if (list.length > RECENT_MAX) list = list.slice(0, RECENT_MAX);
+            localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+        } catch (e) { /* quota / disabled — fail silently */ }
+    }
+
+    function navigate(path) {
+        pushRecent(path);
+        window.location.href = path;
+    }
+
     function open() {
         overlay.style.display = 'flex';
         input.value = '';
@@ -94,6 +122,24 @@
 
     function render(query) {
         var q = query.toLowerCase().trim();
+        var html = '';
+        var entries = []; // flat list aligned with rendered items, for keyboard nav
+
+        // PR #116c: when query is empty, top the list with RECENT group.
+        if (!q) {
+            var recents = readRecent();
+            var recentRoutes = recents
+                .map(function(p) { return ROUTES.find(function(r) { return r.path === p; }); })
+                .filter(function(r) { return !!r; });
+            if (recentRoutes.length > 0) {
+                html += '<div class="command-palette-group-label">Recent</div>';
+                recentRoutes.forEach(function(r) {
+                    html += renderItem(r, entries.length);
+                    entries.push(r);
+                });
+            }
+        }
+
         var filtered = ROUTES;
         if (q) {
             filtered = ROUTES.filter(function(r) {
@@ -103,34 +149,48 @@
             });
         }
 
-        if (selectedIndex >= filtered.length) selectedIndex = Math.max(0, filtered.length - 1);
+        if (filtered.length === 0 && q) {
+            html += '<div class="command-palette-empty">No matches for "<strong>' + escapeHtml(query) + '</strong>". Try a route, a feature, or a keyword.</div>';
+        }
 
-        var html = '';
         var lastGroup = '';
-        filtered.forEach(function(r, i) {
+        filtered.forEach(function(r) {
             if (r.group !== lastGroup) {
                 html += '<div class="command-palette-group-label">' + r.group + '</div>';
                 lastGroup = r.group;
             }
-            html += '<div class="command-palette-item' + (i === selectedIndex ? ' selected' : '') + '" data-index="' + i + '" data-path="' + r.path + '">' +
-                '<div class="command-palette-item-icon"><i class="fas ' + r.icon + '"></i></div>' +
-                '<span class="command-palette-item-label">' + r.label + '</span>' +
-                '<span class="command-palette-item-path">' + r.path + '</span>' +
-                '</div>';
+            html += renderItem(r, entries.length);
+            entries.push(r);
         });
 
+        if (selectedIndex >= entries.length) selectedIndex = Math.max(0, entries.length - 1);
         resultsEl.innerHTML = html;
 
         var items = resultsEl.querySelectorAll('.command-palette-item');
         items.forEach(function(item) {
             item.addEventListener('click', function() {
-                window.location.href = item.dataset.path;
+                navigate(item.dataset.path);
             });
             item.addEventListener('mouseenter', function() {
                 var idx = parseInt(item.dataset.index, 10);
                 selectedIndex = idx;
                 updateSelection(items);
             });
+        });
+        updateSelection(items);
+    }
+
+    function renderItem(r, idx) {
+        return '<div class="command-palette-item' + (idx === selectedIndex ? ' selected' : '') + '" data-index="' + idx + '" data-path="' + r.path + '">' +
+            '<div class="command-palette-item-icon"><i class="fas ' + r.icon + '"></i></div>' +
+            '<span class="command-palette-item-label">' + r.label + '</span>' +
+            '<span class="command-palette-item-path">' + r.path + '</span>' +
+            '</div>';
+    }
+
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function(c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
         });
     }
 
@@ -158,7 +218,7 @@
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (items[selectedIndex]) {
-                window.location.href = items[selectedIndex].dataset.path;
+                navigate(items[selectedIndex].dataset.path);
             }
         } else if (e.key === 'Escape') {
             e.preventDefault();
