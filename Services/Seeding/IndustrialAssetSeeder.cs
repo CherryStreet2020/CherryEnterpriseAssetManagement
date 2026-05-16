@@ -226,11 +226,23 @@ namespace Abs.FixedAssets.Services.Seeding
         {
             if (readings.Count == 0 || assets.Count == 0) return;
 
+            // PR #117.5.1: re-query assets fresh to avoid DbUpdateConcurrencyException.
+            // The original `assets` list was loaded at the top of SeedAsync, then
+            // saved at step 4 (Mfr/Model rewrite). The chunked sensor-insert path
+            // and Npgsql's xmin concurrency tracking can leave the in-memory
+            // entities with stale original values, causing the next UPDATE to
+            // mismatch xmin and report "0 rows affected" instead of 1. Reloading
+            // the entities here picks up current xmin values cleanly.
+            var assetIds = assets.Select(a => a.Id).ToList();
+            var freshAssets = await _db.Assets
+                .Where(a => assetIds.Contains(a.Id))
+                .ToListAsync();
+
             var latestByAssetType = readings
                 .GroupBy(r => (r.AssetId, r.ReadingType))
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.ReadingAt).First());
 
-            foreach (var asset in assets)
+            foreach (var asset in freshAssets)
             {
                 if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Temperature), out var t))
                 {
