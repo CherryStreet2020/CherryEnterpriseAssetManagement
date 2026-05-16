@@ -219,6 +219,106 @@ else
             <div class="kpi-stat-value @(Model.OverdueMaintenance > 0 ? "text-red" : "text-emerald")">@Model.OverdueMaintenance</div>
             <div class="kpi-stat-sublabel">past scheduled date</div>
         </div>
+        @* PR #111: On-schedule WO completion rate tile. The "are we hitting
+           our commitments" KPI distinct from PMCompliance (PM-only). *@
+        <div class="kpi-stat-card border-left-emerald">
+            <div class="kpi-stat-label">On-Schedule Completion</div>
+            <div class="kpi-stat-value">@Model.OnScheduleCompletionPercent.ToString("0.0")%</div>
+            <div class="kpi-stat-sublabel">@Model.OnScheduleWoCount of @Model.TotalCompletedWoCount last 90d</div>
+        </div>
+    </div>
+</div>
+
+@* PR #111: Reliability deep-dive tiles. Three side-by-side cards: worst-MTBF
+   assets, top-overdue WOs, and backlog by priority. Each card drills through
+   to the appropriate detail page (AssetReliability, WorkOrder list filtered,
+   Maintenance list filtered). *@
+<div class="section-card">
+    <div class="section-card-header" data-csp-style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 data-csp-style="margin: 0; font-size: 1rem; font-weight: 700;">Reliability Deep-Dive</h3>
+        <a href="/Reports/AssetReliability">Full report →</a>
+    </div>
+    <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; padding: 16px 24px 24px;">
+        <div data-csp-style="border-radius: 8px; border: 1px solid var(--border, #44424a); padding: 16px;">
+            <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div data-csp-style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted);">Worst MTBF (top 5)</div>
+                <a href="/Reports/AssetReliability?Sort=mtbf&Desc=false" data-csp-style="font-size: 0.75rem; color: #60a5fa; text-decoration: none;">View all →</a>
+            </div>
+            @if (Model.WorstMtbfAssets.Count == 0)
+            {
+                <p data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">No assets with 2+ corrective closes yet.</p>
+            }
+            else
+            {
+                <table data-csp-style="width: 100%; font-size: 0.875rem;">
+                    @foreach (var r in Model.WorstMtbfAssets)
+                    {
+                        <tr>
+                            <td data-csp-style="padding: 4px 0;">
+                                <a href="/Assets/Asset?id=@r.AssetId" data-csp-style="color: #60a5fa; text-decoration: none; font-family: ui-monospace, monospace;">@r.AssetNumber</a>
+                            </td>
+                            <td data-csp-style="padding: 4px 8px; color: var(--text-muted);">@(r.Description.Length > 22 ? r.Description.Substring(0, 22) + "…" : r.Description)</td>
+                            <td data-csp-style="padding: 4px 0; text-align: right; font-weight: 600; font-family: ui-monospace, monospace;">@r.MtbfHours.ToString("N0") h</td>
+                        </tr>
+                    }
+                </table>
+            }
+        </div>
+        <div data-csp-style="border-radius: 8px; border: 1px solid var(--border, #44424a); padding: 16px;">
+            <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div data-csp-style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted);">Most Overdue WOs</div>
+                <a href="/WorkOrders?filter=overdue" data-csp-style="font-size: 0.75rem; color: #60a5fa; text-decoration: none;">View all →</a>
+            </div>
+            @if (Model.TopOverdueWos.Count == 0)
+            {
+                <p data-csp-style="color: #34d399; font-size: 0.875rem; margin: 0;">✓ No overdue WOs.</p>
+            }
+            else
+            {
+                <table data-csp-style="width: 100%; font-size: 0.875rem;">
+                    @foreach (var w in Model.TopOverdueWos)
+                    {
+                        <tr>
+                            <td data-csp-style="padding: 4px 0;">
+                                <a href="/WorkOrders/Details/@w.WoId" data-csp-style="color: #60a5fa; text-decoration: none; font-family: ui-monospace, monospace;">@w.WoNumber</a>
+                            </td>
+                            <td data-csp-style="padding: 4px 8px; color: var(--text-muted); font-family: ui-monospace, monospace;">@w.AssetNumber</td>
+                            <td data-csp-style="padding: 4px 0; text-align: right; font-weight: 600; color: #f87171;">@w.DaysOverdue d</td>
+                        </tr>
+                    }
+                </table>
+            }
+        </div>
+        <div data-csp-style="border-radius: 8px; border: 1px solid var(--border, #44424a); padding: 16px;">
+            <div data-csp-style="font-weight: 700; font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">Backlog by Priority</div>
+            @if (Model.BacklogByPriority.Count == 0)
+            {
+                <p data-csp-style="color: #34d399; font-size: 0.875rem; margin: 0;">✓ Backlog clear.</p>
+            }
+            else
+            {
+                var maxBacklog = Model.BacklogByPriority.Values.Max();
+                foreach (var pair in Model.BacklogByPriority)
+                {
+                    var priorityColor = pair.Key switch
+                    {
+                        "High" or "Critical" => "#f87171",
+                        "Medium" => "#fbbf24",
+                        _ => "#60a5fa"
+                    };
+                    var widthPct = maxBacklog == 0 ? 0 : (pair.Value * 100.0 / maxBacklog);
+                    <div data-csp-style="margin-bottom: 8px;">
+                        <div data-csp-style="display: flex; justify-content: space-between; font-size: 0.875rem; margin-bottom: 4px;">
+                            <span>@pair.Key</span>
+                            <span data-csp-style="font-weight: 600;">@pair.Value</span>
+                        </div>
+                        <div data-csp-style="height: 6px; background: rgba(0,0,0,0.2); border-radius: 3px; overflow: hidden;">
+                            <div data-csp-style="height: 100%; width: @($"{widthPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%"); background: @priorityColor;"></div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
     </div>
 </div>
 
