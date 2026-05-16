@@ -193,24 +193,27 @@ namespace Abs.FixedAssets.Services.Seeding
                             ? Math.Max(0.0, 1.0 - (ageDays / 14.0))
                             : (watchMode ? 0.4 : 0.0);
 
-                        // Temperature
+                        // Temperature — compute jitter in double, then mix with decimal mid/std as decimals.
                         var (tempMid, tempStd) = TempRangeFor(cls.AssetType);
-                        var t = tempMid + (decimal)((rng.NextDouble() - 0.5) * 2.0 * tempStd)
-                                + (decimal)degradationFactor * (decimal)(rng.NextDouble() * 35.0);
+                        var tempJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * tempStd;
+                        var tempDegrade = (decimal)(degradationFactor * rng.NextDouble() * 35.0);
+                        var t = tempMid + tempJitter + tempDegrade;
                         allReadings.Add(MakeReading(asset.Id, SensorReadingType.Temperature, Math.Round(t, 1), "°F", at));
 
                         // Vibration (mm/s RMS)
                         var (vibMid, vibStd) = VibRangeFor(cls.AssetType);
-                        var v = vibMid + (decimal)((rng.NextDouble() - 0.5) * 2.0 * vibStd)
-                                + (decimal)degradationFactor * (decimal)(rng.NextDouble() * 4.5);
+                        var vibJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * vibStd;
+                        var vibDegrade = (decimal)(degradationFactor * rng.NextDouble() * 4.5);
+                        var v = vibMid + vibJitter + vibDegrade;
                         allReadings.Add(MakeReading(asset.Id, SensorReadingType.Vibration, Math.Round(Math.Max(0m, v), 3), "mm/s", at));
 
                         // Pressure (PSI)
                         var (presMid, presStd) = PresRangeFor(cls.AssetType);
-                        var p = presMid + (decimal)((rng.NextDouble() - 0.5) * 2.0 * presStd);
+                        var presJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * presStd;
+                        var p = presMid + presJitter;
                         // Add a small degradation drift on hydraulic equipment so the demo shows pressure-loss patterns.
                         if (cls.AssetType.Contains("Hydraulic") || cls.AssetType.Contains("Press"))
-                            p -= (decimal)degradationFactor * (decimal)(rng.NextDouble() * 250.0);
+                            p -= (decimal)(degradationFactor * rng.NextDouble() * 250.0);
                         allReadings.Add(MakeReading(asset.Id, SensorReadingType.Pressure, Math.Round(Math.Max(0m, p), 2), "PSI", at));
                     }
                 }
