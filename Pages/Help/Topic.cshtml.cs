@@ -980,6 +980,48 @@ namespace Abs.FixedAssets.Pages.Help
                     RelatedTopics = new() { { "admin", "Administration" }, { "master-files", "Master Files" } }
                 },
 
+                // PR #107 / B-23: stub topic surfaced from the asset detail page
+                // empty-state badge when no IoT/OEE/health data has been captured.
+                // Sets honest expectations: "we have the schema; you configure
+                // the gateway." Replaces the previous behavior of displaying
+                // hardcoded "-" placeholders that implied the data was tracked
+                // when it actually wasn't.
+                "iot-setup" => new HelpTopic
+                {
+                    Title = "Connecting IoT Data to Your Assets",
+                    Content = @"
+                        <h2>Reliability data is captured per-asset, not faked</h2>
+                        <p>The asset detail page shows IoT, OEE, and health-monitoring sections only when there is actual data behind them. If you're seeing the empty-state banner that pointed you here, this asset hasn't been wired up to the data sources yet.</p>
+
+                        <h3>Three sources we read from</h3>
+                        <div style='background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;'>
+                            <h4 style='color: #3b82f6; margin-top: 0;'>1. IoT gateway (real-time sensors)</h4>
+                            <p>For live temperature, vibration, pressure, and connection-status readings. The fields the gateway writes to are exposed via the asset's <code>IoTEndpointUrl</code>, <code>IoTProtocol</code>, and <code>DataHistorianTag</code> — configurable in this app's <strong>Edit Asset → IoT</strong> tab. Once your gateway is publishing to that endpoint, the Current Sensor Readings and Connection Status panels will populate automatically on the asset detail page.</p>
+                        </div>
+                        <div style='background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;'>
+                            <h4 style='color: #22c55e; margin-top: 0;'>2. MES / SCADA system (OEE)</h4>
+                            <p>For Current Availability, Performance, Quality, and OEE %. Your MES exposes per-shift counters and posts them to the asset's <code>SCADATag</code>. The Current OEE block appears on the asset detail page as soon as any of those four numbers has a recent value.</p>
+                        </div>
+                        <div style='background: #f8fafc; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;'>
+                            <h4 style='color: #f59e0b; margin-top: 0;'>3. Predictive health scoring (optional)</h4>
+                            <p>If you have a predictive-maintenance product feeding health scores back, it can stamp <code>HealthScore</code>, <code>PredictedFailureDate</code>, etc. and they'll surface on the asset detail. Without a feed, those fields stay hidden — by design.</p>
+                        </div>
+
+                        <h3>Configuring an asset for IoT</h3>
+                        <ol>
+                            <li>Open the asset's <strong>Edit</strong> mode.</li>
+                            <li>Go to the <strong>IoT</strong> sub-tab.</li>
+                            <li>Check <em>IoT Enabled</em> and fill in <em>Device ID</em>, <em>Gateway ID</em>, <em>Protocol</em>, and <em>Endpoint URL</em>.</li>
+                            <li>Save. The asset is now flagged as in-scope for your gateway.</li>
+                            <li>Configure your gateway to publish to the endpoint. Once readings arrive, the asset detail page's IoT panels appear automatically.</li>
+                        </ol>
+
+                        <h3>What if I don't have an IoT gateway?</h3>
+                        <p>Most of CherryAI EAM works fine without IoT — work orders, depreciation, financials, capital projects, P2P, etc. all function. The IoT/OEE/Health fields exist for customers who plug those data sources in. If you don't, the asset detail page simply won't show those sections — which is what you want, not a wall of dashes.</p>
+                    ",
+                    RelatedTopics = new() { { "assets", "Assets" }, { "maintenance", "Maintenance" } }
+                },
+
                 _ => null
             };
         }
