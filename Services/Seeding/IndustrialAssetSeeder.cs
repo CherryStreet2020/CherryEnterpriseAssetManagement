@@ -172,8 +172,13 @@ namespace Abs.FixedAssets.Services.Seeding
             _logger.LogInformation("IndustrialAssetSeeder: rewrote brand/type pairings on {Count} assets from catalog.", assets.Count);
 
             // 5) Generate sensor readings per class according to its SensorProfile.
+            //    PR #117.3: dropped from 30 days @ profile.SampleRateMinutes
+            //    to 14 days @ max(profile.SampleRateMinutes, 240min). For
+            //    320 assets × ~5 sensors × 84 samples = ~135K rows — fits
+            //    in chunked inserts without timing out Replit's request.
+            //    Storyline overlays still get higher resolution.
             var now = DateTime.UtcNow;
-            var allReadings = new List<AssetSensorReading>(capacity: assets.Count * 7 * 24);
+            var allReadings = new List<AssetSensorReading>(capacity: 150_000);
 
             foreach (var asset in assets)
             {
@@ -184,19 +189,62 @@ namespace Abs.FixedAssets.Services.Seeding
                 var storyline = storylineFlag.TryGetValue(asset.Id, out var s) ? s : Storyline.None;
                 GenerateReadingsForAsset(asset, profiles, storyline, now, rng, allReadings);
             }
+            _logger.LogInformation("IndustrialAssetSeeder: generated {Count} sensor readings in memory; persisting in chunks.", allReadings.Count);
 
-            // 6) Bulk insert via the sensor service so the Asset.Current* cache
-            //    columns get updated atomically to the latest reading per
-            //    (asset, type). This is the WHOLE point of going through the
-            //    service rather than direct INSERTs.
-            await _sensors.RecordBatchAsync(allReadings);
-            _logger.LogInformation("IndustrialAssetSeeder: persisted {Count} sensor readings.", allReadings.Count);
+            // 6) Chunked bulk insert. PR #117.3: 25K-row chunks with progress
+            //    logging so a stalled seed surfaces in the app log.
+            var persisted = await _sensors.RecordBatchChunkedAsync(allReadings, chunkSize: 25_000);
+            _logger.LogInformation("IndustrialAssetSeeder: persisted {Count} sensor readings.", persisted);
 
-            // 7) Recompute HealthScore for every asset from the real data.
+            // 7) Final cache pass: write the latest reading per (asset, type)
+            //    into Asset.Current* columns for the legacy Plant Floor tiles.
+            await BackfillAssetCacheAsync(allReadings, assets);
+
+            // 8) Recompute HealthScore for every asset from the real data.
             var nHealth = await _health.RecomputeAllAsync();
             _logger.LogInformation("IndustrialAssetSeeder: recomputed HealthScore for {Count} assets.", nHealth);
 
             return allReadings.Count;
+        }
+
+        // -------------------------------------------------------------------
+        // Cache backfill (PR #117.3) — runs once after the chunked insert
+        // completes. Writes the latest Temperature / Vibration / Pressure
+        // value per asset into the denormalized Asset.Current* columns so
+        // the legacy Plant Floor fallback tiles render values too.
+        // -------------------------------------------------------------------
+
+        private async Task BackfillAssetCacheAsync(List<AssetSensorReading> readings, List<Asset> assets)
+        {
+            if (readings.Count == 0 || assets.Count == 0) return;
+
+            var latestByAssetType = readings
+                .GroupBy(r => (r.AssetId, r.ReadingType))
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.ReadingAt).First());
+
+            foreach (var asset in assets)
+            {
+                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Temperature), out var t))
+                {
+                    asset.CurrentTemperature = Math.Round(t.Value, 1);
+                    if (asset.SensorReadingsLastUpdated == null || t.ReadingAt > asset.SensorReadingsLastUpdated)
+                        asset.SensorReadingsLastUpdated = t.ReadingAt;
+                }
+                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Vibration), out var v))
+                {
+                    asset.CurrentVibration = Math.Round(v.Value, 3);
+                    if (asset.SensorReadingsLastUpdated == null || v.ReadingAt > asset.SensorReadingsLastUpdated)
+                        asset.SensorReadingsLastUpdated = v.ReadingAt;
+                }
+                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Pressure), out var p))
+                {
+                    asset.CurrentPressure = Math.Round(p.Value, 2);
+                    if (asset.SensorReadingsLastUpdated == null || p.ReadingAt > asset.SensorReadingsLastUpdated)
+                        asset.SensorReadingsLastUpdated = p.ReadingAt;
+                }
+            }
+            await _db.SaveChangesAsync();
+            _logger.LogInformation("IndustrialAssetSeeder: backfilled Asset.Current* cache for {Count} assets.", assets.Count);
         }
 
         // -------------------------------------------------------------------
@@ -227,14 +275,19 @@ namespace Abs.FixedAssets.Services.Seeding
         private static void EmitBaselineReadings(
             Asset asset, SensorProfile profile, DateTime now, Random rng, List<AssetSensorReading> sink)
         {
-            var sampleMinutes = Math.Max(15, profile.SampleRateMinutes);
-            var samplesIn30d = (int)((TimeSpan.FromDays(30).TotalMinutes) / sampleMinutes);
-            samplesIn30d = Math.Min(samplesIn30d, 30 * 24);  // safety cap
+            // PR #117.3: floor sample rate at 4 hours, window at 14 days.
+            // Yields ~84 readings per (asset, sensor) — enough for sparklines,
+            // small enough that 320 assets × 5 sensors fits in the chunked path.
+            const int MinSampleMinutes = 240;          // 4 hours
+            const int WindowDays = 14;
+            var sampleMinutes = Math.Max(MinSampleMinutes, profile.SampleRateMinutes);
+            var samples = (int)(TimeSpan.FromDays(WindowDays).TotalMinutes / sampleMinutes);
+            samples = Math.Min(samples, WindowDays * 6);  // safety cap (6 per day)
 
             var mid = (profile.NormalMin + profile.NormalMax) / 2m;
             var std = (profile.NormalMax - profile.NormalMin) / 4m;  // ~95% within band
 
-            for (int i = 0; i < samplesIn30d; i++)
+            for (int i = 0; i < samples; i++)
             {
                 var minutesAgo = i * sampleMinutes;
                 var at = now.AddMinutes(-minutesAgo);

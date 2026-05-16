@@ -36,6 +36,15 @@ namespace Abs.FixedAssets.Services.Reliability
 
         Task<IReadOnlyList<AssetSensorReading>> RecordBatchAsync(IEnumerable<AssetSensorReading> readings);
 
+        // PR #117.3: chunked bulk insert path so the seeder can persist
+        // hundreds of thousands of readings without blowing past Replit's
+        // HTTP timeout or the EF change-tracker memory ceiling. Caller
+        // sets IsOutOfSpec; this method does NOT update the Asset.Current*
+        // cache (the seeder does its own final cache pass).
+        Task<int> RecordBatchChunkedAsync(
+            IEnumerable<AssetSensorReading> readings,
+            int chunkSize = 25_000);
+
         Task<AssetSensorReading?> GetLatestAsync(int assetId, SensorReadingType type);
 
         Task<IReadOnlyList<AssetSensorReading>> GetHistoryAsync(
@@ -85,12 +94,68 @@ namespace Abs.FixedAssets.Services.Reliability
             return reading;
         }
 
+        public async Task<int> RecordBatchChunkedAsync(IEnumerable<AssetSensorReading> readings, int chunkSize = 25_000)
+        {
+            // PR #117.3 — bulk path that survives Replit's HTTP timeout.
+            // PR #117.2's seeder generated ~1.4M readings and shoved them
+            // into ONE SaveChangesAsync, which silently aborted before the
+            // request returned — leaving the asset metadata rewritten but
+            // zero readings persisted. This method:
+            //   1) yields after every chunk so the request stays alive
+            //   2) clears the change tracker between chunks so memory
+            //      doesn't grow unbounded
+            //   3) logs progress every chunk so a stalled seed is visible
+            //   4) does NOT update the Asset.Current* cache here — that's
+            //      now the caller's responsibility (the seeder does a
+            //      single small cache pass at the end).
+            int total = 0;
+            var bucket = new List<AssetSensorReading>(chunkSize);
+            try
+            {
+                foreach (var r in readings)
+                {
+                    bucket.Add(r);
+                    if (bucket.Count >= chunkSize)
+                    {
+                        await FlushAsync(bucket);
+                        total += bucket.Count;
+                        _logger.LogInformation("RecordBatchChunkedAsync: persisted {Count} readings (total {Total}).", bucket.Count, total);
+                        bucket.Clear();
+                    }
+                }
+                if (bucket.Count > 0)
+                {
+                    await FlushAsync(bucket);
+                    total += bucket.Count;
+                    _logger.LogInformation("RecordBatchChunkedAsync: persisted final {Count} readings (total {Total}).", bucket.Count, total);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "RecordBatchChunkedAsync: failure after {Total} readings.", total);
+                throw;
+            }
+            return total;
+        }
+
+        private async Task FlushAsync(List<AssetSensorReading> bucket)
+        {
+            _db.AssetSensorReadings.AddRange(bucket);
+            await _db.SaveChangesAsync();
+            // Detach to keep the change tracker small across chunks.
+            foreach (var r in bucket)
+                _db.Entry(r).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        }
+
         public async Task<IReadOnlyList<AssetSensorReading>> RecordBatchAsync(IEnumerable<AssetSensorReading> readings)
         {
             // For seeders / bulk ingestion. Caller is responsible for
             // setting IsOutOfSpec correctly (or leaving it false). The
             // cache is updated to the latest reading per (asset, type)
             // in the batch only — the heavy update path.
+            //
+            // PR #117.3 — prefer RecordBatchChunkedAsync for large batches.
+            // This method still works for small batches (e.g. test fixtures).
             var list = readings.ToList();
             if (list.Count == 0) return list;
 
