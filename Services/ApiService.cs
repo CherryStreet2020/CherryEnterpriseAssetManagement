@@ -1,6 +1,8 @@
-// TENANT SCOPING EXCEPTION: ApiKey is a system-level entity without CompanyId/TenantId.
-// API keys are managed globally by administrators. Individual API endpoint handlers
-// must scope their data queries by tenant context independently.
+// PR #101: ApiKey is tenant-scoped. CreateApiKeyAsync requires the issuing
+// admin's TenantId and accepts an optional CompanyId narrowing. ValidateKeyAsync
+// returns the full ApiKey row including those fields; AssetsApiController applies
+// them via _tenantContext before any data query. See Models/ApiKey.cs for the
+// schema and docs/api/v1-tenant-scoping.md for the breaking-change notes.
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +20,12 @@ public class ApiService
         _context = context;
     }
 
-    public async Task<(ApiKey key, string rawKey)> CreateApiKeyAsync(string name, string? createdBy = null, DateTime? expiresAt = null)
+    // PR #101: tenantId is now required. CompanyId is optional — null means the
+    // key may read every company visible to the tenant, a specific value
+    // restricts it to that one company. Callers must pass the issuing admin's
+    // current tenant (from ITenantContext.TenantId). There is no default; if a
+    // caller cannot determine the tenant it should not be issuing a key.
+    public async Task<(ApiKey key, string rawKey)> CreateApiKeyAsync(string name, int tenantId, int? companyId = null, string? createdBy = null, DateTime? expiresAt = null)
     {
         var rawKey = GenerateApiKey();
         var keyHash = HashKey(rawKey);
@@ -31,7 +38,9 @@ public class ApiService
             KeyPrefix = keyPrefix,
             CreatedBy = createdBy,
             ExpiresAt = expiresAt,
-            Scopes = "assets:read,assets:write,journals:read"
+            Scopes = "assets:read,assets:write,journals:read",
+            TenantId = tenantId,
+            CompanyId = companyId
         };
 
         _context.ApiKeys.Add(apiKey);
