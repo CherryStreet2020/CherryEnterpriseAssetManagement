@@ -426,7 +426,7 @@
                         @if (partCount > 0)
                         {
                             <table class="subpanel-table">
-                                <thead><tr><th>Part #</th><th>Description</th><th>Qty Plan</th><th>Qty Used</th><th>Cost</th></tr></thead>
+                                <thead><tr><th>Part #</th><th>Description</th><th>Qty Plan</th><th>Qty Used</th><th>Cost</th><th>Issue / Return</th></tr></thead>
                                 <tbody>
                                     @foreach (var p in op.Parts!)
                                     {
@@ -436,6 +436,33 @@
                                             <td>@p.QuantityPlanned</td>
                                             <td>@p.QuantityUsed</td>
                                             <td>@p.TotalCost.ToString("C0")</td>
+                                            <td>
+                                                @{
+                                                    var maxIssuableForRow = p.QuantityPlanned > 0
+                                                        ? Math.Max(0m, p.QuantityPlanned - p.QuantityIssued)
+                                                        : 9999m;
+                                                    var maxReturnableForRow = Math.Max(0m, p.QuantityIssued - p.QuantityReturned);
+                                                }
+                                                @* PR #106 / B-20: Issue posts WO-ISS-OP JE + decrements ItemInventory; Return reverses *@
+                                                <div data-csp-style="display:flex;gap:0.25rem;align-items:center;">
+                                                    @if (maxIssuableForRow > 0m)
+                                                    {
+                                                        <form method="post" asp-page-handler="IssueOperationPart" data-csp-style="display:flex;gap:0.25rem;align-items:center;margin:0;">
+                                                            <input type="hidden" name="operationPartId" value="@p.Id" />
+                                                            <input type="number" name="quantityIssue" step="0.01" min="0.01" max="@maxIssuableForRow" value="@maxIssuableForRow" data-csp-style="width:60px;" />
+                                                            <button type="submit" class="btn-p btn-p--secondary btn-p--xs">Issue</button>
+                                                        </form>
+                                                    }
+                                                    @if (maxReturnableForRow > 0m)
+                                                    {
+                                                        <form method="post" asp-page-handler="ReturnOperationPart" data-csp-style="display:flex;gap:0.25rem;align-items:center;margin:0;">
+                                                            <input type="hidden" name="operationPartId" value="@p.Id" />
+                                                            <input type="number" name="quantityReturn" step="0.01" min="0.01" max="@maxReturnableForRow" value="@maxReturnableForRow" data-csp-style="width:60px;" />
+                                                            <button type="submit" class="btn-p btn-p--ghost btn-p--xs">Return</button>
+                                                        </form>
+                                                    }
+                                                </div>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>

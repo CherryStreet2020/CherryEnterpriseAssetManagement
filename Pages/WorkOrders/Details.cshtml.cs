@@ -442,6 +442,225 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             return RedirectToPage(new { id = operation.MaintenanceEventId });
         }
 
+        // PR #106 / B-20: Operation-level parts now have a real Issue/Return
+        // lifecycle that mirrors the WorkOrderPart flow from PR #89 — increments
+        // QuantityIssued + QuantityUsed, decrements ItemInventory at the source
+        // location, writes an ItemTransaction audit row, and posts a balanced
+        // material-movement JE so finance sees the maintenance cost roll into
+        // MaintenanceMaterials. Pre-PR the operation-level path was an
+        // accounting orphan — Materials section JEs existed but per-operation
+        // parts didn't post, leaving the WO cost rollup understated whenever
+        // ops chose the operation-level surface.
+        public async Task<IActionResult> OnPostIssueOperationPartAsync(int operationPartId, decimal quantityIssue)
+        {
+            var part = await _context.WorkOrderOperationParts
+                .Include(p => p.WorkOrderOperation)
+                    .ThenInclude(op => op!.MaintenanceEvent)
+                        .ThenInclude(m => m!.Asset)
+                .Where(p => p.Id == operationPartId
+                    && p.WorkOrderOperation != null
+                    && p.WorkOrderOperation.MaintenanceEvent != null
+                    && p.WorkOrderOperation.MaintenanceEvent.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (part == null) return NotFound();
+            var woId = part.WorkOrderOperation!.MaintenanceEventId;
+
+            if (quantityIssue <= 0) return RedirectToPage(new { id = woId });
+
+            // Same planned-vs-unplanned rule as WO-level: bounded by planned
+            // when planned > 0, otherwise extends planned to match (unplanned
+            // pull). Keeps the operation part counters internally consistent.
+            decimal actualIssue = quantityIssue;
+            if (part.QuantityPlanned > 0)
+            {
+                var maxIssuable = part.QuantityPlanned - part.QuantityIssued;
+                if (maxIssuable <= 0) return RedirectToPage(new { id = woId });
+                actualIssue = Math.Min(quantityIssue, maxIssuable);
+            }
+            else
+            {
+                part.QuantityPlanned += actualIssue;
+            }
+
+            part.QuantityIssued += actualIssue;
+            part.QuantityUsed = part.QuantityIssued - part.QuantityReturned;
+            part.IssuedAt = DateTime.UtcNow;
+            part.IssuedBy = User.Identity?.Name ?? "SYSTEM";
+
+            await ApplyOperationPartMovementAsync(part, actualIssue, isIssue: true);
+            await PostOperationPartJournalEntryAsync(part, actualIssue, isIssue: true);
+
+            await _context.SaveChangesAsync();
+            return RedirectToPage(new { id = woId });
+        }
+
+        public async Task<IActionResult> OnPostReturnOperationPartAsync(int operationPartId, decimal quantityReturn)
+        {
+            var part = await _context.WorkOrderOperationParts
+                .Include(p => p.WorkOrderOperation)
+                    .ThenInclude(op => op!.MaintenanceEvent)
+                        .ThenInclude(m => m!.Asset)
+                .Where(p => p.Id == operationPartId
+                    && p.WorkOrderOperation != null
+                    && p.WorkOrderOperation.MaintenanceEvent != null
+                    && p.WorkOrderOperation.MaintenanceEvent.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (part == null) return NotFound();
+            var woId = part.WorkOrderOperation!.MaintenanceEventId;
+
+            if (quantityReturn <= 0) return RedirectToPage(new { id = woId });
+
+            var maxReturnable = part.QuantityIssued - part.QuantityReturned;
+            if (maxReturnable <= 0) return RedirectToPage(new { id = woId });
+            var actualReturn = Math.Min(quantityReturn, maxReturnable);
+
+            part.QuantityReturned += actualReturn;
+            part.QuantityUsed = Math.Max(0m, part.QuantityIssued - part.QuantityReturned);
+
+            await ApplyOperationPartMovementAsync(part, actualReturn, isIssue: false);
+            await PostOperationPartJournalEntryAsync(part, actualReturn, isIssue: false);
+
+            await _context.SaveChangesAsync();
+            return RedirectToPage(new { id = woId });
+        }
+
+        /// <summary>
+        /// Operation-part variant of <see cref="ApplyItemMovementAsync"/>.
+        /// Same inventory + ItemTransaction shape, but keyed off the
+        /// operation-part's IssuedFromLocationId and the MaintenanceEvent
+        /// reached via the parent operation.
+        /// </summary>
+        private async Task<decimal?> ApplyOperationPartMovementAsync(WorkOrderOperationPart part, decimal qty, bool isIssue)
+        {
+            var sign = isIssue ? -1m : 1m;
+            var companyId = part.WorkOrderOperation?.MaintenanceEvent?.Asset?.CompanyId ?? _tenantContext.CompanyId;
+            decimal? newOnHand = null;
+
+            if (part.IssuedFromLocationId.HasValue)
+            {
+                var inv = await _context.Set<ItemInventory>()
+                    .FirstOrDefaultAsync(i =>
+                        i.ItemId == part.ItemId &&
+                        i.LocationId == part.IssuedFromLocationId.Value &&
+                        i.CompanyId == companyId);
+                if (inv == null)
+                {
+                    inv = new ItemInventory
+                    {
+                        ItemId = part.ItemId,
+                        LocationId = part.IssuedFromLocationId.Value,
+                        CompanyId = companyId,
+                        QuantityOnHand = sign * qty,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Set<ItemInventory>().Add(inv);
+                }
+                else
+                {
+                    inv.QuantityOnHand += sign * qty;
+                    inv.UpdatedAt = DateTime.UtcNow;
+                    if (isIssue) inv.LastIssueDate = DateTime.UtcNow;
+                }
+                newOnHand = inv.QuantityOnHand;
+            }
+
+            var workOrderId = part.WorkOrderOperation?.MaintenanceEventId ?? 0;
+            _context.Set<ItemTransaction>().Add(new ItemTransaction
+            {
+                TransactionNumber = $"WO{workOrderId}-OP{part.WorkOrderOperationId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
+                ItemId = part.ItemId,
+                Type = isIssue ? TransactionType.Issue : TransactionType.Return,
+                Quantity = qty,
+                UnitCost = part.UnitCost,
+                FromLocationId = isIssue ? part.IssuedFromLocationId : null,
+                ToLocationId = isIssue ? null : part.IssuedFromLocationId,
+                LotNumber = part.LotNumber,
+                SerialNumber = part.SerialNumber
+            });
+            return newOnHand;
+        }
+
+        /// <summary>
+        /// Operation-part variant of <see cref="PostMaterialMovementJournalEntryAsync"/>.
+        /// Posts the same DR MaintenanceMaterials / CR Inventory pair (signs
+        /// reversed for returns), but uses a distinct <c>Source</c> code
+        /// (<c>WO-ISS-OP</c> / <c>WO-RTN-OP</c>) so downstream reports — the
+        /// Maintenance Spend report from PR #93 and the CloseoutService cost
+        /// rollup from PR #103 — can identify operation-scoped material moves
+        /// vs WO-header moves.
+        /// </summary>
+        private async Task<JournalEntry?> PostOperationPartJournalEntryAsync(WorkOrderOperationPart part, decimal qty, bool isIssue)
+        {
+            if (qty <= 0m) return null;
+            var amount = qty * part.UnitCost;
+            if (amount <= 0m) return null;
+
+            var maintenanceEvent = part.WorkOrderOperation?.MaintenanceEvent;
+            var resolvedCompanyId = maintenanceEvent?.Asset?.CompanyId
+                ?? _tenantContext.CompanyId
+                ?? 0;
+            if (resolvedCompanyId == 0) return null;
+            var workOrderId = maintenanceEvent?.Id ?? 0;
+            var assetId = maintenanceEvent?.AssetId;
+
+            var ctx = new GlResolveContext(WorkOrderId: workOrderId, AssetId: assetId);
+            var materialsAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceMaterials, ctx);
+            var inventoryAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.Inventory, ctx);
+
+            var ticks = DateTime.UtcNow.Ticks;
+            var src = isIssue ? "WO-ISS-OP" : "WO-RTN-OP";
+            // Reference includes the WO id so the CloseoutService rollup (PR
+            // #103) — which sums by `Reference.StartsWith("WO-ISS-{woId}-")`
+            // and a parallel `WO-ISS-OP-{woId}-` prefix added in this PR —
+            // catches both header-level and operation-level material moves.
+            var jeReference = $"{src}-{workOrderId}-op{part.WorkOrderOperationId}-p{part.Id}-{ticks}";
+            var woNumber = maintenanceEvent?.WorkOrderNumber ?? $"WO#{workOrderId}";
+            var verb = isIssue ? "issued to" : "returned from";
+
+            var drAccount = isIssue ? materialsAccount : inventoryAccount;
+            var crAccount = isIssue ? inventoryAccount  : materialsAccount;
+
+            var je = new JournalEntry
+            {
+                BookId = null,
+                Batch = jeReference,
+                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
+                PostingDate = DateTime.UtcNow.Date,
+                Source = src,
+                Reference = jeReference,
+                Description = $"Operation-part materials {verb} {woNumber} op#{part.WorkOrderOperationId} (qty {qty} @ {part.UnitCost:C})",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>
+                {
+                    new JournalLine
+                    {
+                        LineNo = 1,
+                        Account = drAccount,
+                        Description = isIssue
+                            ? $"Op-part materials - {woNumber}"
+                            : $"Op-part inventory restored - {woNumber}",
+                        Debit = amount,
+                        Credit = 0m
+                    },
+                    new JournalLine
+                    {
+                        LineNo = 2,
+                        Account = crAccount,
+                        Description = isIssue
+                            ? $"Op-part inventory {verb} {woNumber}"
+                            : $"Op-part materials reversed - {woNumber}",
+                        Debit = 0m,
+                        Credit = amount
+                    }
+                }
+            };
+            _context.JournalEntries.Add(je);
+            return je;
+        }
+
         // ==================== WO-LEVEL MATERIALS (WorkOrderPart) ====================
 
         public async Task<IActionResult> OnPostAddPlannedMaterialAsync(int workOrderId, int itemId, decimal quantityPlanned, string? notes)
