@@ -120,7 +120,67 @@
             var isNowCollapsed = sidebar.classList.contains('collapsed');
             localStorage.setItem('sidebarCollapsed', isNowCollapsed);
             syncBodyClass(isNowCollapsed);
+            // Clear any in-flight peek state when the user manually toggles.
+            sidebar.classList.remove('peek-open');
         });
+
+        initHoverPeek(sidebar);
+    }
+
+    // PR #116a-followup: hover-peek (Linear/Notion/Stripe pattern).
+    //
+    // When the sidebar is in its collapsed icon-rail state, hovering on
+    // the rail expands it to its full width AS AN OVERLAY — the content
+    // pane does not reflow. This lets the user see all labels and the
+    // full IA without un-pinning the rail. Mouse-out collapses back
+    // after a short grace period so the user can drift off-target
+    // without immediate snap-back.
+    //
+    // The pinned-collapsed flag in localStorage is preserved; peek is
+    // a transient overlay only.
+    function initHoverPeek(sidebar) {
+        var ENTER_DELAY_MS = 140;   // brush-tolerant
+        var LEAVE_GRACE_MS = 320;   // forgiving but snappy
+        var enterTimer = null;
+        var leaveTimer = null;
+
+        function clearTimers() {
+            if (enterTimer) { clearTimeout(enterTimer); enterTimer = null; }
+            if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
+        }
+
+        function onEnter() {
+            // Only peek when actually collapsed and not in mobile-open mode.
+            if (!sidebar.classList.contains('collapsed')) return;
+            if (sidebar.classList.contains('mobile-open')) return;
+            clearTimers();
+            enterTimer = setTimeout(function() {
+                sidebar.classList.add('peek-open');
+            }, ENTER_DELAY_MS);
+        }
+
+        function onLeave() {
+            clearTimers();
+            leaveTimer = setTimeout(function() {
+                sidebar.classList.remove('peek-open');
+            }, LEAVE_GRACE_MS);
+        }
+
+        sidebar.addEventListener('mouseenter', onEnter);
+        sidebar.addEventListener('mouseleave', onLeave);
+
+        // Keyboard accessibility: focusing any link inside the rail also
+        // opens the peek so keyboard navigation isn't worse than mouse.
+        sidebar.addEventListener('focusin', onEnter);
+        sidebar.addEventListener('focusout', function(e) {
+            // Only collapse if focus actually leaves the sidebar tree.
+            if (!sidebar.contains(e.relatedTarget)) onLeave();
+        });
+
+        // Defensive: if the user clicks a nav item, the page navigates
+        // and the peek state evaporates with the unload — no extra work
+        // needed. If they click the collapse toggle, the click handler
+        // above clears peek explicitly.
     }
 
     function initMobileMenu() {

@@ -15,14 +15,18 @@
         { "HeaderTitle", "Locations" },
         { "Subtitle", "Manage physical locations, buildings, areas, and storage zones" },
         { "StatusText", $"{activeLocations} Active" },
-        { "StatusTone", "active" },
+        // PR #116a-followup: was "active" — there's no .tone-active CSS class.
+        // Match the Asset Register pattern of "success" → renders green pill.
+        { "StatusTone", "success" },
         { "ContextPartial", "Admin/_AdminLocationsContext" },
-        { "KpisPartial", "Admin/_AdminLocationsKpis" },
+        // PR #116a-followup: drop inline KpisPartial — the standalone
+        // quick-stats-row-4 below renders the same numbers. Same fix as
+        // /Assets/Index.cshtml. Duplicate KPI strips look unpremium.
         { "ActionsPartial", "Admin/_AdminLocationsActions" }
     };
 }
 
-@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+@await Html.PartialAsync("_ScreenHeader", headerVd)
 
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
