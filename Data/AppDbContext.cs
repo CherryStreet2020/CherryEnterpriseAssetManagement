@@ -194,6 +194,21 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Catalog.EquipmentModel> EquipmentModels => Set<Abs.FixedAssets.Models.Catalog.EquipmentModel>();
         public DbSet<Abs.FixedAssets.Models.Catalog.SensorProfile> SensorProfiles => Set<Abs.FixedAssets.Models.Catalog.SensorProfile>();
 
+        // Sprint 2 PR #118.1 — Industrial Sensor Data Architecture (ADR-011).
+        // Six-table substrate backed by TimescaleDB hypertable + continuous
+        // aggregates. See docs/adr/ADR-011-industrial-sensor-data-architecture.md.
+        // Implementation (ISensorIngestService etc.) lands in PR #118.2.
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorEvent> SensorEvents => Set<Abs.FixedAssets.Models.Telemetry.SensorEvent>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorRollupMinute> SensorRollupMinutes => Set<Abs.FixedAssets.Models.Telemetry.SensorRollupMinute>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorRollupHour> SensorRollupHours => Set<Abs.FixedAssets.Models.Telemetry.SensorRollupHour>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorRollupDay> SensorRollupDays => Set<Abs.FixedAssets.Models.Telemetry.SensorRollupDay>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.AssetSensorLatest> AssetSensorLatest => Set<Abs.FixedAssets.Models.Telemetry.AssetSensorLatest>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorSnapshot> SensorSnapshots => Set<Abs.FixedAssets.Models.Telemetry.SensorSnapshot>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue> SensorSnapshotValues => Set<Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.SensorAlarm> SensorAlarms => Set<Abs.FixedAssets.Models.Telemetry.SensorAlarm>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.AlarmRationalization> AlarmRationalizations => Set<Abs.FixedAssets.Models.Telemetry.AlarmRationalization>();
+        public DbSet<Abs.FixedAssets.Models.Telemetry.UnitConversion> UnitConversions => Set<Abs.FixedAssets.Models.Telemetry.UnitConversion>();
+
         // Work Order Code Tables
         public DbSet<WorkOrderType> WorkOrderTypes => Set<WorkOrderType>();
         public DbSet<MaintenanceTypeCode> MaintenanceTypeCodes => Set<MaintenanceTypeCode>();
@@ -1607,6 +1622,135 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.EquipmentClassId);
                 e.HasIndex(x => new { x.EquipmentClassId, x.ReadingType });
             });
+
+            // -------- Sprint 2 PR #118.1 — Telemetry substrate (ADR-011) --------
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorEvent>(e =>
+            {
+                // TimescaleDB hypertable requires the partitioning column
+                // (ReadingAt) to participate in every uniqueness constraint.
+                // Composite PK (Id, ReadingAt). Id remains bigserial; the
+                // app-layer hot path queries by (AssetId, ReadingType,
+                // ReadingAt) per the index below.
+                e.HasKey(x => new { x.Id, x.ReadingAt });
+                e.Property(x => x.Id).ValueGeneratedOnAdd();
+
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.AssetId, x.ReadingType, x.ReadingAt })
+                    .HasDatabaseName("ix_sensorevent_asset_type_time");
+
+                // Partial index for the OOS-only hot path used by
+                // SensorAlarmService + AssetHealthService.
+                e.HasIndex(x => new { x.AssetId, x.ReadingAt })
+                    .HasFilter("\"IsOutOfSpec\" = true")
+                    .HasDatabaseName("ix_sensorevent_oos");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorRollupMinute>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("SensorRollupMinute");
+            });
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorRollupHour>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("SensorRollupHour");
+            });
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorRollupDay>(e =>
+            {
+                e.HasNoKey();
+                e.ToView("SensorRollupDay");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.AssetSensorLatest>(e =>
+            {
+                e.HasKey(x => new { x.AssetId, x.ReadingType });
+
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorSnapshot>(e =>
+            {
+                e.HasOne(x => x.CapturedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.CapturedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(x => x.CapturedAt);
+                e.HasIndex(x => new { x.Reason, x.CapturedAt });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue>(e =>
+            {
+                e.HasOne(x => x.Snapshot)
+                    .WithMany(s => s.Values)
+                    .HasForeignKey(x => x.SnapshotId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => new { x.SnapshotId, x.AssetId, x.ReadingType });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.SensorAlarm>(e =>
+            {
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Rationalization)
+                    .WithMany()
+                    .HasForeignKey(x => x.RationalizationId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.AcknowledgedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.AcknowledgedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.ShelvedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.ShelvedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(x => new { x.AssetId, x.ReadingType, x.State })
+                    .HasDatabaseName("ix_sensoralarm_asset_type_state");
+                e.HasIndex(x => x.State)
+                    .HasDatabaseName("ix_sensoralarm_state");
+                e.HasIndex(x => x.OpenedAt);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.AlarmRationalization>(e =>
+            {
+                e.HasOne(x => x.EquipmentClass)
+                    .WithMany()
+                    .HasForeignKey(x => x.EquipmentClassId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Lookup index: resolve the active rationalization for a
+                // given (class, reading-type, priority) at alarm-open time.
+                // Not unique because we keep historical revisions.
+                e.HasIndex(x => new { x.EquipmentClassId, x.ReadingType, x.Priority, x.Active })
+                    .HasDatabaseName("ix_alarmrationalization_lookup");
+                e.HasIndex(x => new { x.AlarmKey, x.Version }).IsUnique();
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Telemetry.UnitConversion>(e =>
+            {
+                e.HasIndex(x => new { x.FromUnit, x.ToUnit, x.Active })
+                    .HasDatabaseName("ix_unitconversion_lookup");
+            });
         }
 
         public override int SaveChanges()
@@ -1691,11 +1835,27 @@ namespace Abs.FixedAssets.Data
 
         private void CapitalizeStringProperties()
         {
+            // PR #118.1 — namespace exemption.
+            //
+            // Telemetry entities (SensorEvent, AssetSensorLatest, SensorAlarm,
+            // AlarmRationalization, UnitConversion, etc.) carry case-sensitive
+            // identifiers — Sparkplug B metric names, NE 107 quality labels,
+            // ISO 8000 source codes, UNECE Recommendation 20 unit codes,
+            // ISA-18.2 alarm keys. Auto-uppercasing would corrupt the value
+            // and break exact-match queries the same way the PR #117.5–117.7
+            // saga corrupted the EquipmentModel.ModelNumber lookup. Skip the
+            // entire Telemetry namespace.
+            const string telemetryNamespace = "Abs.FixedAssets.Models.Telemetry";
+
             var entries = ChangeTracker.Entries()
                 .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
 
             foreach (var entry in entries)
             {
+                var entityNamespace = entry.Entity.GetType().Namespace;
+                if (entityNamespace != null && entityNamespace.StartsWith(telemetryNamespace))
+                    continue;
+
                 var properties = entry.Properties
                     .Where(p => p.Metadata.ClrType == typeof(string) && p.CurrentValue != null);
 
