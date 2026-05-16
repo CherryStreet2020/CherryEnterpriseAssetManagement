@@ -115,7 +115,9 @@ namespace Abs.FixedAssets.Services.Reliability
                     var s when s.Contains("hvac") => 28m,
                     _ => 80m
                 };
-                asset.CurrentPressure = Math.Round(basePres + (decimal)((rng.NextDouble() - 0.5) * basePres * 0.15), 2);
+                // Compute pressure jitter in double then convert to decimal — mixing types directly is a CS0019 error.
+                var presJitter = (decimal)((rng.NextDouble() - 0.5) * 0.15) * basePres;
+                asset.CurrentPressure = Math.Round(basePres + presJitter, 2);
 
                 asset.SensorReadingsLastUpdated = now;
                 updated++;
