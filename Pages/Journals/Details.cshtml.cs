@@ -65,6 +65,69 @@ namespace Abs.FixedAssets.Pages.Journals
             return Page();
         }
 
+        // PR #114 (B-114): Reversal flow. Creates a negated mirror of the
+        // original JE with Reference=REV-{originalRef} and Source=ORIGINAL+
+        // "-REV" so downstream reports + the Trial Balance can pair the two
+        // halves. Idempotent: a second reverse-click on a JE that already
+        // has a matching REV- entry short-circuits with an error.
+        public async Task<IActionResult> OnPostReverseAsync(int id)
+        {
+            var visibleIds = _tenantContext.VisibleCompanyIds;
+            var original = await _db.JournalEntries
+                .Include(j => j.Lines)
+                .Where(j => j.Id == id)
+                .FirstOrDefaultAsync();
+            if (original == null) return NotFound();
+
+            var reverseRef = $"REV-{original.Reference ?? original.Batch}";
+            var alreadyReversed = await _db.JournalEntries
+                .AnyAsync(j => j.Reference == reverseRef);
+            if (alreadyReversed)
+            {
+                TempData["Error"] = $"This JE already has a reversal ({reverseRef}). Reversal is one-shot per original.";
+                return RedirectToPage(new { id });
+            }
+
+            var lines = original.Lines ?? new List<JournalLine>();
+            int newLineNo = 1;
+            var reversal = new JournalEntry
+            {
+                BookId = original.BookId,
+                Batch = reverseRef.Length > 60 ? reverseRef.Substring(0, 60) : reverseRef,
+                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
+                PostingDate = DateTime.UtcNow.Date,
+                Source = original.Source + "-REV",
+                Reference = reverseRef,
+                Description = $"Reversal of JE #{original.Id}: {original.Description}",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = lines.Select(l => new JournalLine
+                {
+                    LineNo = newLineNo++,
+                    Account = l.Account,
+                    Description = $"REV: {l.Description}",
+                    // Swap debit and credit so the reversal nets the original to zero
+                    Debit = l.Credit,
+                    Credit = l.Debit
+                }).ToList()
+            };
+            _db.JournalEntries.Add(reversal);
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                EntityType = "JournalEntry",
+                EntityId = original.Id,
+                Action = "JournalEntryReversed",
+                Username = User.Identity?.Name,
+                Description = $"Reversed JE #{original.Id} ({original.Reference}) via {reverseRef}",
+                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = $"Reversal JE #{reversal.Id} posted. The original entry remains in the ledger; the pair nets to zero.";
+            return RedirectToPage(new { id = reversal.Id });
+        }
+
         // GET /Journals/Details/{id}?handler=Export
         public async Task<IActionResult> OnGetExportAsync(int id)
         {

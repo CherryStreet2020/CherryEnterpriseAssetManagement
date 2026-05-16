@@ -1,0 +1,101 @@
+@page
+@model Abs.FixedAssets.Pages.Journals.ManualModel
+@{
+    ViewData["Title"] = "Manual Journal Entry";
+    ViewData["TabTitle"] = "Manual JE";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Manual Journal Entry",
+        ["HeaderSubtitle"] = "Post a balanced multi-line correction, accrual, or reclassification"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (Model.CreatedJeId.HasValue)
+{
+    <div data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac;">
+        <strong>✓ Manual JE #@Model.CreatedJeId posted.</strong>
+        <span data-csp-style="margin-left: 0.5rem;">@Model.SubmittedDebitTotal.ToString("C2") balanced across both sides.</span>
+        <a href="/Journals/Details/@Model.CreatedJeId" data-csp-style="color: #60a5fa; margin-left: 1rem;">View entry →</a>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;">
+        <strong>⚠ @Model.ErrorMessage</strong>
+    </div>
+}
+
+<form method="post" class="section-card" data-csp-style="margin-top: 1rem;">
+    <div class="section-card-body" data-csp-style="padding: 1.5rem;">
+        <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+            <div class="form-group">
+                <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Posting Date</label>
+                <input asp-for="PostingDate" type="date" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+            </div>
+            <div class="form-group">
+                <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Reference (optional)</label>
+                <input asp-for="Reference" placeholder="e.g. ADJ-2026-05-001" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+            </div>
+            <div class="form-group" data-csp-style="grid-column: span 2;">
+                <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Description (required)</label>
+                <input asp-for="Description" placeholder="e.g. Reclassify Q1 prepaid maintenance from 1290 to 6210" required class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+            </div>
+        </div>
+
+        <h4 data-csp-style="margin: 1rem 0 0.5rem;">Lines</h4>
+        <p data-csp-style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0;">
+            Fill in 2 or more lines. Each line has either a Debit OR a Credit (not both). Σ Debits must equal Σ Credits before submit. Blank rows are ignored.
+        </p>
+
+        <table class="ledger-table" data-csp-style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.04));">
+                    <th data-csp-style="text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); width: 30%;">Account</th>
+                    <th data-csp-style="text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border);">Description (defaults to header)</th>
+                    <th data-csp-style="text-align: right; padding: 0.5rem; border-bottom: 1px solid var(--border); width: 130px;">Debit</th>
+                    <th data-csp-style="text-align: right; padding: 0.5rem; border-bottom: 1px solid var(--border); width: 130px;">Credit</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.Lines.Count; i++)
+                {
+                    <tr>
+                        <td data-csp-style="padding: 0.25rem 0.5rem; border-top: 1px solid var(--border);">
+                            <select name="Lines[@i].Account" class="form-control" data-csp-style="width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;">
+                                <option value="">— blank —</option>
+                                @foreach (var acct in Model.AccountOptions)
+                                {
+                                    var sel = Model.Lines[i].Account == acct.AccountNumber ? "selected" : "";
+                                    <option value="@acct.AccountNumber" selected="@(sel == "selected")">@acct.AccountNumber — @acct.Name</option>
+                                }
+                            </select>
+                        </td>
+                        <td data-csp-style="padding: 0.25rem 0.5rem; border-top: 1px solid var(--border);">
+                            <input name="Lines[@i].Description" value="@Model.Lines[i].Description" placeholder="Line memo" class="form-control" data-csp-style="width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+                        </td>
+                        <td data-csp-style="padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); text-align: right;">
+                            <input name="Lines[@i].Debit" value="@(Model.Lines[i].Debit == 0m ? "" : Model.Lines[i].Debit.ToString("F2"))" type="number" step="0.01" min="0" class="form-control" data-csp-style="width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit; text-align: right; font-family: ui-monospace, monospace;" />
+                        </td>
+                        <td data-csp-style="padding: 0.25rem 0.5rem; border-top: 1px solid var(--border); text-align: right;">
+                            <input name="Lines[@i].Credit" value="@(Model.Lines[i].Credit == 0m ? "" : Model.Lines[i].Credit.ToString("F2"))" type="number" step="0.01" min="0" class="form-control" data-csp-style="width: 100%; padding: 0.4rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit; text-align: right; font-family: ui-monospace, monospace;" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div data-csp-style="margin-top: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+            <p data-csp-style="margin: 0; color: var(--text-muted); font-size: 0.85rem;">
+                Posted entries are immutable. To correct an error, use the Reverse button on the JE detail page (creates a negated mirror).
+            </p>
+            <div data-csp-style="display: flex; gap: 0.5rem;">
+                <a href="/Journals" class="btn-p btn-p--ghost" data-csp-style="padding: 0.5rem 1.25rem;">Cancel</a>
+                <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1.5rem; font-weight: 600;">Post Manual JE</button>
+            </div>
+        </div>
+    </div>
+</form>

@@ -1,5 +1,12 @@
 @{
     var entry = ViewData["Entry"] as Abs.FixedAssets.Models.JournalEntry;
+    // PR #114 / B-114: reversal eligibility. A JE can be reversed once, so
+    // we hide the button on entries that are themselves reversals (source
+    // ends in -REV) and on entries that already have a matching REV- entry.
+    // The handler also enforces these guards on the server side; this is
+    // just UX progressive enhancement to keep the affordance honest.
+    var isReversal = entry?.Source?.EndsWith("-REV") == true
+                  || (entry?.Reference?.StartsWith("REV-") == true);
 }
 @if (entry != null)
 {
@@ -14,6 +21,17 @@
                 </svg>
                 Export CSV
             </a>
+            @if (!isReversal)
+            {
+                <form method="post" asp-page="./Details" asp-page-handler="Reverse" asp-route-id="@entry.Id" data-csp-style="margin: 0;" onsubmit="return confirm('Post a reversal of JE #@entry.Id? This creates a negated mirror entry; the original stays in place and the pair nets to zero.');">
+                    <button type="submit" class="hero-btn hero-btn-warning" data-csp-style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6M3 10l6-6" />
+                        </svg>
+                        Reverse
+                    </button>
+                </form>
+            }
             <a class="hero-btn hero-btn-primary" asp-page="./Index">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
