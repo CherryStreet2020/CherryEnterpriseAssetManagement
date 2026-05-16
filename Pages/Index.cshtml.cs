@@ -48,6 +48,19 @@ namespace Abs.FixedAssets.Pages
         // dashboard tile.
         public decimal MTBFHours { get; private set; }
         public bool MTBFHasData { get; private set; }
+
+        // PR #111: Reliability tiles. Surfaces the worst-5 assets, top-5 overdue
+        // WOs, backlog by priority, and on-schedule WO completion %. Drill-throughs
+        // from each tile to the appropriate detail page.
+        public List<WorstMtbfRow> WorstMtbfAssets { get; private set; } = new();
+        public List<OverdueWoRow> TopOverdueWos { get; private set; } = new();
+        public Dictionary<string, int> BacklogByPriority { get; private set; } = new();
+        public decimal OnScheduleCompletionPercent { get; private set; }
+        public int OnScheduleWoCount { get; private set; }
+        public int TotalCompletedWoCount { get; private set; }
+
+        public sealed record WorstMtbfRow(int AssetId, string AssetNumber, string Description, decimal MtbfHours, int CorrectiveCount);
+        public sealed record OverdueWoRow(int WoId, string WoNumber, string AssetNumber, DateTime ScheduledDate, int DaysOverdue, string Priority);
         
         // PM Schedule KPIs
         public int TotalSchedules { get; private set; }
@@ -262,7 +275,84 @@ namespace Abs.FixedAssets.Pages
                 MTBFHours = 0;
                 MTBFHasData = false;
             }
-            
+
+            // PR #111: Top 5 worst-MTBF assets — same gap algorithm as the org
+            // MTBF above, but per-asset and ranked. Worst = LOWEST MTBF (failing
+            // most frequently). Need the AssetNumber + Description for the tile,
+            // so we re-join against assets after the grouping.
+            var perAssetMtbf = maintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Completed
+                            && m.CompletedDate.HasValue
+                            && m.Type == MaintenanceType.Corrective
+                            && m.AssetId > 0)
+                .GroupBy(m => m.AssetId)
+                .Select(g =>
+                {
+                    var closes = g.Select(m => m.CompletedDate!.Value).OrderBy(d => d).ToList();
+                    if (closes.Count < 2) return new { AssetId = g.Key, Mtbf = (decimal?)null, Count = closes.Count };
+                    decimal gapSum = 0m;
+                    for (int i = 1; i < closes.Count; i++)
+                        gapSum += (decimal)(closes[i] - closes[i - 1]).TotalHours;
+                    return new { AssetId = g.Key, Mtbf = (decimal?)Math.Round(gapSum / (closes.Count - 1), 1), Count = closes.Count };
+                })
+                .Where(x => x.Mtbf.HasValue)
+                .OrderBy(x => x.Mtbf!.Value) // ascending — worst (lowest) first
+                .Take(5)
+                .ToList();
+            var worstAssetIds = perAssetMtbf.Select(x => x.AssetId).ToList();
+            var worstAssetsLookup = await _db.Assets
+                .Where(a => worstAssetIds.Contains(a.Id))
+                .Select(a => new { a.Id, a.AssetNumber, Description = a.Description ?? "" })
+                .ToListAsync();
+            WorstMtbfAssets = perAssetMtbf
+                .Join(worstAssetsLookup, p => p.AssetId, a => a.Id, (p, a) => new WorstMtbfRow(
+                    a.Id, a.AssetNumber, a.Description, p.Mtbf!.Value, p.Count))
+                .ToList();
+
+            // PR #111: Top 5 most-overdue WOs — open WOs whose ScheduledDate
+            // is the furthest in the past. Drill-through to /WorkOrders/Details.
+            TopOverdueWos = maintenanceEvents
+                .Where(m => m.Status != MaintenanceStatus.Completed
+                         && m.Status != MaintenanceStatus.Cancelled
+                         && m.ScheduledDate < now)
+                .OrderBy(m => m.ScheduledDate)
+                .Take(5)
+                .Select(m => new OverdueWoRow(
+                    WoId: m.Id,
+                    WoNumber: m.WorkOrderNumber ?? $"WO#{m.Id}",
+                    AssetNumber: assets.FirstOrDefault(a => a.Id == m.AssetId)?.AssetNumber ?? "?",
+                    ScheduledDate: m.ScheduledDate,
+                    DaysOverdue: (int)Math.Floor((now - m.ScheduledDate).TotalDays),
+                    Priority: m.Priority.ToString()))
+                .ToList();
+
+            // PR #111: Backlog by priority — count of open (Scheduled/InProgress/OnHold)
+            // WOs grouped by Priority enum. Renders as a horizontal stack for an
+            // at-a-glance view of where the team's attention should be.
+            BacklogByPriority = maintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Scheduled
+                         || m.Status == MaintenanceStatus.InProgress
+                         || m.Status == MaintenanceStatus.OnHold)
+                .GroupBy(m => m.Priority.ToString())
+                .OrderByDescending(g => g.Count())
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            // PR #111: On-schedule completion % — of WOs completed in the last
+            // 90 days, what % finished on or before their ScheduledDate. The
+            // classic "are we hitting our commitments" KPI. Closely related to
+            // PMCompliancePercent but covers all WO types not just PM.
+            var ninetyDaysAgo = now.AddDays(-90);
+            var recentCompleted = maintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Completed
+                         && m.CompletedDate.HasValue
+                         && m.CompletedDate >= ninetyDaysAgo)
+                .ToList();
+            TotalCompletedWoCount = recentCompleted.Count;
+            OnScheduleWoCount = recentCompleted.Count(m => m.CompletedDate <= m.ScheduledDate.AddDays(1));
+            OnScheduleCompletionPercent = TotalCompletedWoCount == 0
+                ? 0m
+                : Math.Round(100m * OnScheduleWoCount / TotalCompletedWoCount, 1);
+
             // PM Schedule KPIs - Use canonical PMSchedule model with tenant scoping
             // ALIGNED with Maintenance/Schedules.cshtml.cs for consistency
             var pmScheduleQuery = _db.PMSchedules.Where(s => s.Active).AsQueryable();
