@@ -34,7 +34,7 @@ namespace Abs.FixedAssets.Services.Reliability
 
         // Deterministic seeding when forceReseed=false → same distribution
         // across demos. forceReseed=true uses live randomness for variety.
-        private const int DeterministicSeed = 0xCAFEF00D;
+        private const int DeterministicSeed = unchecked((int)0xCAFEF00D);
 
         public PlantFloorHealthSeeder(AppDbContext db, ILogger<PlantFloorHealthSeeder> logger)
         {
