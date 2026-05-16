@@ -499,62 +499,20 @@
             </nav>
             
             <div class="sidebar-footer">
-                <a href="/Help" class="nav-item @(IsPage("/Help") ? "active" : "")" data-nav-route="/Help">
-                    <span class="nav-item-icon"><i class="fas fa-circle-question"></i></span>
-                    <span class="nav-item-label">Help Center</span>
-                </a>
-                @if (!isAuthenticated)
-                {
-                <a href="/Account/Login" class="nav-item nav-item-signin @(IsPage("/Account/Login") ? "active" : "")" data-nav-route="/Account/Login">
-                    <span class="nav-item-icon"><i class="fas fa-right-to-bracket"></i></span>
-                    <span class="nav-item-label">Sign In</span>
-                </a>
-                }
-                @if (isAuthenticated)
-                {
-                <div class="sidebar-user-info">
-                    <div class="sidebar-user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpper()</div>
-                    <div class="sidebar-user-details">
-                        <span class="sidebar-user-name">@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)</span>
-                        <span class="sidebar-user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
-                    </div>
-                </div>
-                }
-            </div>
-        </aside>
-        
-        <main class="main-content" id="mainContent">
-            <header class="main-header" id="mainHeader">
-                <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Open menu">
-                    <i class="fas fa-bars"></i>
-                </button>
-                @{
-                    var hasScreenHeader = ViewData["HasScreenHeader"] as bool? ?? false;
-                    var hideDefaultPageHeader = ViewData["HideDefaultPageHeader"] as bool? ?? false;
-                }
-                @if (!hasScreenHeader && !hideDefaultPageHeader)
-                {
-                    <h1 class="header-title">@ViewData["Title"]</h1>
-                }
-                @if (ViewData["Breadcrumb"] != null)
-                {
-                    <span class="header-breadcrumb">@ViewData["Breadcrumb"]</span>
-                }
-                
-                <div class="header-actions">
-                    <div class="global-search-wrapper">
-                        <i class="fas fa-search global-search-icon"></i>
-                        <input type="text" id="globalSearchInput" class="global-search-input" placeholder="Search..." autocomplete="off" />
-                        <kbd class="global-search-kbd">/</kbd>
-                    </div>
-                    <button class="cmd-palette-trigger" id="cmdPaletteTrigger" type="button" title="Command palette (Ctrl+K)">
-                        <i class="fas fa-terminal"></i>
-                        <kbd>Ctrl+K</kbd>
+                @* PR #116b: global controls (search/Cmd-K/theme) moved here from the killed topbar.
+                   Render as compact icon-row when sidebar is expanded; collapse to a single column
+                   stack when sidebar is in icon-rail mode. *@
+                <div class="sidebar-utility-row">
+                    <button class="sidebar-utility-btn" id="cmdPaletteTrigger" type="button" title="Search and navigate (Cmd+K / Ctrl+K)" data-tooltip="Search">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <span class="sidebar-utility-label">Search</span>
+                        <kbd class="sidebar-utility-kbd">⌘K</kbd>
                     </button>
-                    <button class="theme-toggle-btn" id="themeToggleBtn" type="button" title="Toggle dark/light mode" aria-label="Toggle dark/light mode" aria-pressed="false">
+                    <button class="sidebar-utility-btn icon-only" id="themeToggleBtn" type="button" title="Toggle dark/light mode" aria-label="Toggle dark/light mode" aria-pressed="false" data-tooltip="Toggle theme">
                         <i class="fas fa-moon"></i>
                     </button>
                     @{
+                        // PR #116b: help button moved from killed topbar to sidebar footer.
                         var helpTopic = currentPage switch
                         {
                             var p when p.StartsWith("/Index") || p == "/" => "dashboard",
@@ -569,38 +527,64 @@
                             var p when p.StartsWith("/AI") => "ai-assistant",
                             var p when p.StartsWith("/Depreciation") => "depreciation",
                             var p when p.StartsWith("/Admin/Company") => "company-settings",
-                            var p when p.StartsWith("/Admin/Users") => "admin",
                             var p when p.StartsWith("/Admin") => "admin",
                             _ => ""
                         };
+                        var helpHref = string.IsNullOrEmpty(helpTopic) ? "/Help" : $"/Help/Topic?id={helpTopic}";
                     }
-                    @if (!string.IsNullOrEmpty(helpTopic))
-                    {
-                        <a href="/Help/Topic?id=@helpTopic" class="btn-p btn-p--secondary btn-p--sm header-help-btn" title="Get help for this page">
-                            <i class="fas fa-circle-question"></i>
-                        </a>
-                    }
-                    @if (User.Identity?.IsAuthenticated == true)
-                    {
-                        <div class="user-dropdown">
-                            <button class="user-btn" onclick="toggleUserMenu()" type="button">
-                                <div class="user-avatar">@User.Identity.Name?.Substring(0, 1).ToUpper()</div>
-                            </button>
-                            <div class="user-menu" id="userMenu" data-csp-style="display: none;">
-                                <div class="user-menu-header">
-                                    <strong>@(User.FindFirst("FullName")?.Value ?? User.Identity.Name)</strong>
-                                    <span>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
-                                </div>
-                                <a asp-page="/Account/Logout" class="user-menu-item">
-                                    <i class="fas fa-right-from-bracket"></i>
-                                    Sign Out
-                                </a>
-                            </div>
-                        </div>
-                    }
+                    <a href="@helpHref" class="sidebar-utility-btn icon-only" title="Help for this page" data-tooltip="Help">
+                        <i class="fas fa-circle-question"></i>
+                    </a>
                 </div>
-            </header>
-            
+
+                @if (!isAuthenticated)
+                {
+                <a href="/Account/Login" class="nav-item nav-item-signin @(IsPage("/Account/Login") ? "active" : "")" data-nav-route="/Account/Login" data-tooltip="Sign In">
+                    <span class="nav-item-icon"><i class="fas fa-right-to-bracket"></i></span>
+                    <span class="nav-item-label">Sign In</span>
+                </a>
+                }
+                @if (isAuthenticated)
+                {
+                @* PR #116b: user-info now a clickable dropdown holding Sign Out (moved from killed topbar user-btn). *@
+                <div class="sidebar-user-info sidebar-user-dropdown" id="sidebarUserMenu">
+                    <button class="sidebar-user-trigger" type="button" id="sidebarUserTrigger" aria-haspopup="menu" aria-expanded="false" data-tooltip="@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)">
+                        <div class="sidebar-user-avatar">@User.Identity?.Name?.Substring(0, 1).ToUpper()</div>
+                        <div class="sidebar-user-details">
+                            <span class="sidebar-user-name">@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)</span>
+                            <span class="sidebar-user-role">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                        </div>
+                        <i class="fas fa-chevron-up sidebar-user-caret"></i>
+                    </button>
+                    <div class="sidebar-user-popover" id="sidebarUserPopover" role="menu" data-csp-style="display: none;">
+                        <div class="sidebar-user-popover-header">
+                            <strong>@(User.FindFirst("FullName")?.Value ?? User.Identity?.Name)</strong>
+                            <span>@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                        </div>
+                        <a href="/Help" class="sidebar-user-popover-item" role="menuitem">
+                            <i class="fas fa-circle-question"></i>
+                            Help Center
+                        </a>
+                        <a asp-page="/Account/Logout" class="sidebar-user-popover-item" role="menuitem">
+                            <i class="fas fa-right-from-bracket"></i>
+                            Sign Out
+                        </a>
+                    </div>
+                </div>
+                }
+            </div>
+        </aside>
+        
+        <main class="main-content" id="mainContent">
+            @* PR #116b: persistent .main-header removed entirely.
+               Reclaims ~64px of vertical real estate on every page.
+               Search/Cmd-K/Theme/Help/User controls moved to sidebar footer.
+               Mobile menu trigger is a floating button (see below).
+               Page-specific breadcrumbs render via _ScreenHeader inside the page content. *@
+            <button class="mobile-menu-btn-floating" id="mobileMenuBtn" type="button" aria-label="Open menu">
+                <i class="fas fa-bars"></i>
+            </button>
+
             <div class="page-content">
                 @RenderBody()
             </div>
@@ -657,17 +641,9 @@
             const panel = document.getElementById('helpPanel');
             panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
         }
-        function toggleUserMenu() {
-            const menu = document.getElementById('userMenu');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-        }
-        document.addEventListener('click', function(e) {
-            const dropdown = document.querySelector('.user-dropdown');
-            const menu = document.getElementById('userMenu');
-            if (dropdown && menu && !dropdown.contains(e.target)) {
-                menu.style.display = 'none';
-            }
-        });
+        /* PR #116b: toggleUserMenu() removed — the topbar user dropdown
+           it controlled is gone. The new sidebar user dropdown is wired
+           up via sidebar-nav.js::initSidebarUserDropdown(). */
     </script>
     
     <script src="~/js/csp-bootstrap.js" asp-append-version="true"></script>

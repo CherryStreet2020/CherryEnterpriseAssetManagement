@@ -61,6 +61,42 @@
         initCollapseToggle();
         initMobileMenu();
         initSearchShortcut();
+        initSidebarUserDropdown();
+    }
+
+    // PR #116b: sidebar user dropdown (replaces the killed topbar user-btn).
+    function initSidebarUserDropdown() {
+        var trigger = document.getElementById('sidebarUserTrigger');
+        var popover = document.getElementById('sidebarUserPopover');
+        if (!trigger || !popover) return;
+
+        function setOpen(open) {
+            popover.style.display = open ? 'block' : 'none';
+            trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        setOpen(false);
+
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var isOpen = popover.style.display === 'block';
+            setOpen(!isOpen);
+        });
+
+        // Click outside closes.
+        document.addEventListener('click', function(e) {
+            if (popover.style.display !== 'block') return;
+            if (popover.contains(e.target) || trigger.contains(e.target)) return;
+            setOpen(false);
+        });
+
+        // Escape key closes.
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && popover.style.display === 'block') {
+                setOpen(false);
+                trigger.focus();
+            }
+        });
     }
 
     function toggleMenuGroup(group) {
@@ -203,21 +239,16 @@
     }
 
     function initSearchShortcut() {
-        var searchInput = document.getElementById('globalSearchInput');
-        if (!searchInput) return;
-
+        // PR #116b: the always-visible topbar search input is gone.
+        // `/` now opens the Cmd-K command palette instead. The palette
+        // itself handles Cmd-K / Ctrl-K in command-palette.js — this
+        // handler exists so users with the muscle memory for `/` aren't
+        // stranded.
         document.addEventListener('keydown', function(e) {
-            if (e.key === '/' && !isInputFocused()) {
-                e.preventDefault();
-                searchInput.focus();
-            }
-        });
-
-        searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                searchInput.value = '';
-                searchInput.blur();
-            }
+            if (e.key !== '/' || isInputFocused()) return;
+            e.preventDefault();
+            var trigger = document.getElementById('cmdPaletteTrigger');
+            if (trigger) trigger.click();
         });
     }
 
