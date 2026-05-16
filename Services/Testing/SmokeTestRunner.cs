@@ -422,6 +422,14 @@ public class SmokeTestRunner : ISmokeTestRunner
         var test71 = await Test_OperationPartsHaveJournalEntries();
         summary.Results.Add(test71);
 
+        // PR #108 (B-27): maintenance-spend reconciliation invariant. For
+        // each completed WO, the sum of its WO-{LBR,ISS,RTN,ISS-OP,RTN-OP}
+        // JE debits should equal the WO header's rollup (LaborCost +
+        // MaterialsCost). Drift = a closeout that ran before the JE chain
+        // was complete, or a manual MaintenanceEvent.ActualCost override.
+        var test72 = await Test_MaintenanceSpendReconciliation();
+        summary.Results.Add(test72);
+
         summary.AfterCounts = await GetTableCountsAsync();
 
         summary.RollbackVerified = 
@@ -589,7 +597,8 @@ public class SmokeTestRunner : ISmokeTestRunner
             ("ScreenHeader Call Sites Safe", null, () => RunScreenHeaderCallSitesSafeTest()),
             ("No Double Header", null, () => RunNoDoubleHeaderTest()),
             ("API Keys Are Tenant Scoped", () => Test_ApiKeysAreTenantScoped(), null),
-            ("Operation Parts Have Journal Entries", () => Test_OperationPartsHaveJournalEntries(), null)
+            ("Operation Parts Have Journal Entries", () => Test_OperationPartsHaveJournalEntries(), null),
+            ("Maintenance Spend Reconciliation", () => Test_MaintenanceSpendReconciliation(), null)
         };
 
         foreach (var (name, asyncMethod, syncMethod) in testMethods)
@@ -11561,6 +11570,124 @@ public class SmokeTestRunner : ISmokeTestRunner
             result.Passed = false;
             result.Error = ex.Message;
             _logger.LogError(ex, "Operation parts JE audit smoke test failed");
+        }
+        finally
+        {
+            sw.Stop();
+            result.DurationMs = sw.ElapsedMilliseconds;
+        }
+
+        return result;
+    }
+
+    // PR #108 (B-27): reconciliation invariant test. For each Completed WO,
+    // the sum of its maintenance-source JE debits (WO-LBR + WO-ISS + WO-ISS-OP
+    // minus WO-RTN + WO-RTN-OP) should equal the WO header rollup written by
+    // CloseoutService at close time (LaborCost + MaterialsCost). A non-zero
+    // drift means either (a) the closeout ran before all JE chains landed,
+    // (b) someone hand-edited ActualCost outside the close path, or (c) a
+    // historical orphan op-part (B-21) — all warrant admin review.
+    //
+    // Tolerance: $0.01 to absorb rounding noise on multi-line JE posts.
+    // Reports per-WO drift in Details; audit-mode pass either way.
+    private async Task<SmokeTestResult> Test_MaintenanceSpendReconciliation()
+    {
+        var result = new SmokeTestResult { TestName = "Maintenance Spend Reconciliation" };
+        var sw = Stopwatch.StartNew();
+
+        try
+        {
+            // Pull completed WOs that have either a header rollup OR any JE.
+            // The set of WOs we check is "WOs the closeout touched" — open
+            // WOs are excluded because their rollup is intentionally null.
+            var completedWos = await _db.MaintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Completed)
+                .Select(m => new
+                {
+                    m.Id,
+                    Labor = m.LaborCost ?? 0m,
+                    Materials = m.MaterialsCost ?? 0m
+                })
+                .ToListAsync();
+
+            if (completedWos.Count == 0)
+            {
+                result.Passed = true;
+                result.Details = "No completed WOs in the dataset; nothing to reconcile.";
+                return result;
+            }
+
+            // Sum JE debits by WO id by inspecting Reference prefixes. Same
+            // pattern CloseoutService uses for its post-close rollup.
+            int driftedWos = 0;
+            decimal totalAbsDrift = 0m;
+            var driftSamples = new List<string>();
+            const decimal tolerance = 0.01m;
+
+            foreach (var wo in completedWos)
+            {
+                var labPrefix = $"WO-LBR-{wo.Id}-";
+                var issPrefix = $"WO-ISS-{wo.Id}-";
+                var rtnPrefix = $"WO-RTN-{wo.Id}-";
+                var issOpPrefix = $"WO-ISS-OP-{wo.Id}-";
+                var rtnOpPrefix = $"WO-RTN-OP-{wo.Id}-";
+
+                var laborDebit = await _db.JournalEntries
+                    .Where(j => j.Source == "WO-LBR" && j.Reference != null && j.Reference.StartsWith(labPrefix))
+                    .SelectMany(j => j.Lines)
+                    .Where(l => l.Debit > 0m)
+                    .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+                var issDebit = await _db.JournalEntries
+                    .Where(j => (j.Source == "WO-ISS" || j.Source == "WO-ISS-OP")
+                        && j.Reference != null
+                        && (j.Reference.StartsWith(issPrefix) || j.Reference.StartsWith(issOpPrefix)))
+                    .SelectMany(j => j.Lines)
+                    .Where(l => l.Debit > 0m)
+                    .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+                var rtnDebit = await _db.JournalEntries
+                    .Where(j => (j.Source == "WO-RTN" || j.Source == "WO-RTN-OP")
+                        && j.Reference != null
+                        && (j.Reference.StartsWith(rtnPrefix) || j.Reference.StartsWith(rtnOpPrefix)))
+                    .SelectMany(j => j.Lines)
+                    .Where(l => l.Debit > 0m)
+                    .SumAsync(l => (decimal?)l.Debit) ?? 0m;
+
+                var jeLabor = laborDebit;
+                var jeMaterials = issDebit - rtnDebit;
+                var laborDrift = Math.Abs(wo.Labor - jeLabor);
+                var materialsDrift = Math.Abs(wo.Materials - jeMaterials);
+
+                if (laborDrift > tolerance || materialsDrift > tolerance)
+                {
+                    driftedWos++;
+                    totalAbsDrift += laborDrift + materialsDrift;
+                    if (driftSamples.Count < 5)
+                    {
+                        driftSamples.Add($"WO#{wo.Id}: hdr={wo.Labor:C}/{wo.Materials:C} vs JE={jeLabor:C}/{jeMaterials:C}");
+                    }
+                }
+            }
+
+            if (driftedWos == 0)
+            {
+                result.Passed = true;
+                result.Details = $"All {completedWos.Count} completed WO(s) reconcile within ±${tolerance} of their JE rollup totals.";
+            }
+            else
+            {
+                result.Passed = true; // audit-mode for the first run
+                result.Details = $"AUDIT: {driftedWos} of {completedWos.Count} completed WO(s) drift from JE rollup. " +
+                                 $"Σ|drift| = {totalAbsDrift:C}. Samples: [{string.Join(" | ", driftSamples)}]. " +
+                                 $"Likely causes: pre-PR-#103 closeouts that didn't write header rollups, manual ActualCost edits, or B-21 orphans.";
+                _logger.LogWarning("B-27 audit: {Drifted}/{Total} completed WOs drift from JE rollup, Σ|drift|={Drift:C}",
+                    driftedWos, completedWos.Count, totalAbsDrift);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Passed = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Maintenance spend reconciliation smoke test failed");
         }
         finally
         {

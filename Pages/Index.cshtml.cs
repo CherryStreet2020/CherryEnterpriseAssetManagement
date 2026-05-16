@@ -138,12 +138,41 @@ namespace Abs.FixedAssets.Pages
             InProgressMaintenance = maintenanceEvents.Count(m => m.Status == MaintenanceStatus.InProgress);
             // Open = scheduled + in progress (all non-completed/cancelled events)
             OpenMaintenance = ScheduledMaintenance + InProgressMaintenance;
-            MaintenanceCostMTD = maintenanceEvents
-                .Where(m => m.Status == MaintenanceStatus.Completed && m.CompletedDate >= startOfMonth)
-                .Sum(m => m.ActualCost ?? 0);
-            MaintenanceCostYTD = maintenanceEvents
-                .Where(m => m.Status == MaintenanceStatus.Completed && m.CompletedDate >= startOfYear)
-                .Sum(m => m.ActualCost ?? 0);
+            // PR #108 / B-25: dashboard MaintenanceCostMTD/YTD now sources from the
+            // same JE table the PR #93 Maintenance Spend report and PR #103 closeout
+            // rollup read. Pre-PR these tiles summed `MaintenanceEvent.ActualCost` —
+            // a legacy header field that drifted because (a) it was a manual entry
+            // for years before PR #89 introduced JE-driven cost flows, and (b) PR
+            // #103 only writes to it on close. After PRs #89, #92, #103, and #106
+            // the JEs (Source IN WO-ISS, WO-RTN, WO-LBR, WO-ISS-OP, WO-RTN-OP) are
+            // the single source of truth for "maintenance spend in period."
+            //
+            // Filter on PostingDate (the JE's accounting date), not CompletedDate,
+            // because spend can be posted before WO close (issue-then-return cycles
+            // happen mid-WO) and the PR #93 report keys off PostingDate too.
+            var maintenanceJeSources = new[] { "WO-ISS", "WO-RTN", "WO-LBR", "WO-ISS-OP", "WO-RTN-OP" };
+            // Net spend = debits on WO-ISS/WO-LBR/WO-ISS-OP minus debits on WO-RTN/WO-RTN-OP.
+            // The Closeout/Spend semantics treat returns as offsets to the same line items.
+            var spendQuery = _db.JournalLines
+                .Where(l => l.JournalEntry != null
+                    && maintenanceJeSources.Contains(l.JournalEntry.Source))
+                .Select(l => new { l.JournalEntry.Source, l.JournalEntry.PostingDate, l.Debit });
+            MaintenanceCostMTD = await spendQuery
+                .Where(x => x.PostingDate >= startOfMonth)
+                .Where(x => x.Source != "WO-RTN" && x.Source != "WO-RTN-OP")
+                .SumAsync(x => (decimal?)x.Debit) ?? 0m;
+            MaintenanceCostMTD -= await spendQuery
+                .Where(x => x.PostingDate >= startOfMonth)
+                .Where(x => x.Source == "WO-RTN" || x.Source == "WO-RTN-OP")
+                .SumAsync(x => (decimal?)x.Debit) ?? 0m;
+            MaintenanceCostYTD = await spendQuery
+                .Where(x => x.PostingDate >= startOfYear)
+                .Where(x => x.Source != "WO-RTN" && x.Source != "WO-RTN-OP")
+                .SumAsync(x => (decimal?)x.Debit) ?? 0m;
+            MaintenanceCostYTD -= await spendQuery
+                .Where(x => x.PostingDate >= startOfYear)
+                .Where(x => x.Source == "WO-RTN" || x.Source == "WO-RTN-OP")
+                .SumAsync(x => (decimal?)x.Debit) ?? 0m;
             
             // KPI Metrics
             WorkOrderBacklog = maintenanceEvents.Count(m => 

@@ -208,13 +208,14 @@ namespace Abs.FixedAssets.Services
                 return null;
 
             var posting = disposal.DisposalDate == default ? DateTime.UtcNow : disposal.DisposalDate;
-            // JournalEntry.Batch is capped at 30 chars; "PDISP-yyyyMMdd-" is
-            // 15 chars, leaving 15 for a per-disposal token. We use a short
-            // ticks-derived suffix so concurrent partial disposals on the same
-            // day don't collide.
+            // PR #108 / B-24: comment scrubbed for accuracy. JournalEntry.Batch
+            // was widened from varchar(30) → varchar(60) in PR #83; the
+            // hard-truncate below is left in as defensive belt-and-suspenders
+            // even though the new format ("PDISP-yyyyMMdd-{9-digit token}",
+            // 24 chars) is well within both old and new bounds.
             var token = (DateTime.UtcNow.Ticks % 1_000_000_000).ToString("D9");
             var batch = $"PDISP-{posting:yyyyMMdd}-{token}";
-            if (batch.Length > 30) batch = batch.Substring(0, 30);
+            if (batch.Length > 60) batch = batch.Substring(0, 60);
 
             var entry = new JournalEntry
             {
