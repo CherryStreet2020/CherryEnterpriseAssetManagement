@@ -147,13 +147,34 @@ namespace Abs.FixedAssets.Services.Seeding
                 assetModel[asset.Id] = model;
             }
 
-            // 4) Rewrite asset attributes from the chosen model.
+            // 4) PR #117.6: single-pass asset metadata rewrite + reading generation
+            //    in one in-memory loop, persisted with ONE SaveChanges. Previous
+            //    versions wrote 140K readings via chunked inserts + a separate
+            //    cache-backfill pass with its own xmin race. The new design:
+            //
+            //    - All 320 assets get their Mfr+Model / AssetType / ImageUrl
+            //      rewritten from the catalog (same as before).
+            //    - 3 storyline assets get full 7-day × 15-min sparkline readings
+            //      on their storyline-relevant sensors (~4K rows). Sparkline data
+            //      is the demo payload.
+            //    - All assets get ONE snapshot reading per `IsPrimary` sensor
+            //      profile so the Plant Floor card pills show real numeric
+            //      values (~960 rows). No sparkline for non-storyline assets —
+            //      flat noise on cards isn't a story worth telling.
+            //
+            //    Total ~5K AssetSensorReadings rows, single AddRange + single
+            //    SaveChanges. No chunking, no xmin race, no cache backfill pass.
+            var now = DateTime.UtcNow;
+            var allReadings = new List<AssetSensorReading>(capacity: 8_000);
+
             foreach (var asset in assets)
             {
                 var cls = assetClass[asset.Id];
                 var model = assetModel[asset.Id];
                 var unitNum = ExtractUnitNumber(asset.AssetNumber, rng);
+                var hasStoryline = storylineFlag.TryGetValue(asset.Id, out var storyline);
 
+                // Asset metadata rewrite
                 asset.Description = string.IsNullOrWhiteSpace(model.DisplayName)
                     ? $"{model.Manufacturer} {model.ModelNumber} #{unitNum}"
                     : $"{model.DisplayName} #{unitNum}";
@@ -167,48 +188,44 @@ namespace Abs.FixedAssets.Services.Seeding
                 {
                     asset.ImageUrl = model.ImageUrl;
                 }
+
+                // Reading generation: storyline sparkline + per-asset snapshot
+                foreach (var profile in cls.SensorProfiles.OrderBy(p => p.DisplayOrder))
+                {
+                    if (hasStoryline && IsStorylineSensor(storyline, profile))
+                    {
+                        // Storyline sparkline (7d × 15min ≈ 672 readings) with
+                        // cubic ramp into and past the critical threshold.
+                        EmitStorylineOverlay(asset, profile, storyline, now, rng, allReadings);
+                    }
+                    else if (profile.IsPrimary)
+                    {
+                        // Single snapshot reading so the card pills show a value.
+                        EmitSnapshotReading(asset, profile, now, rng, allReadings);
+                    }
+                }
+
+                // Mirror the latest sensor snapshot into the legacy Asset.Current*
+                // columns so any fallback render path continues to work.
+                UpdateLegacyCacheColumns(asset, cls.SensorProfiles, allReadings, now);
+            }
+
+            if (allReadings.Count > 0)
+            {
+                _db.AssetSensorReadings.AddRange(allReadings);
             }
             await _db.SaveChangesAsync();
-            _logger.LogInformation("IndustrialAssetSeeder: rewrote brand/type pairings on {Count} assets from catalog.", assets.Count);
+            _logger.LogInformation("IndustrialAssetSeeder: persisted {Readings} readings + {Assets} asset metadata updates in one transaction.",
+                allReadings.Count, assets.Count);
 
-            // 5) Generate sensor readings per class according to its SensorProfile.
-            //    PR #117.3: dropped from 30 days @ profile.SampleRateMinutes
-            //    to 14 days @ max(profile.SampleRateMinutes, 240min). For
-            //    320 assets × ~5 sensors × 84 samples = ~135K rows — fits
-            //    in chunked inserts without timing out Replit's request.
-            //    Storyline overlays still get higher resolution.
-            var now = DateTime.UtcNow;
-            var allReadings = new List<AssetSensorReading>(capacity: 150_000);
-
-            // 4) Rewrite asset attributes from the chosen model.
-            foreach (var asset in assets)
-            {
-                var cls = assetClass[asset.Id];
-                var profiles = cls.SensorProfiles.OrderBy(p => p.DisplayOrder).ToList();
-                if (profiles.Count == 0) continue;
-
-                var storyline = storylineFlag.TryGetValue(asset.Id, out var s) ? s : Storyline.None;
-                GenerateReadingsForAsset(asset, profiles, storyline, now, rng, allReadings);
-            }
-            _logger.LogInformation("IndustrialAssetSeeder: generated {Count} sensor readings in memory; persisting in chunks.", allReadings.Count);
-
-            // 6) Chunked bulk insert. PR #117.3: 25K-row chunks with progress
-            //    logging so a stalled seed surfaces in the app log.
-            var persisted = await _sensors.RecordBatchChunkedAsync(allReadings, chunkSize: 25_000);
-            _logger.LogInformation("IndustrialAssetSeeder: persisted {Count} sensor readings.", persisted);
-
-            // 7) Final cache pass: write the latest reading per (asset, type)
-            //    into Asset.Current* columns for the legacy Plant Floor tiles.
-            await BackfillAssetCacheAsync(allReadings, assets);
-
-            // 7.5) PR #117.5: seed storyline-specific maintenance history so
-            //      the 3 storyline assets have narrative-aligned corrective
-            //      WOs + an overdue WO. Combined with their sensor breaches,
-            //      this guarantees they all land in the Critical band on the
-            //      recompute below.
+            // 5) PR #117.5: seed storyline-specific maintenance history so
+            //    the 3 storyline assets have narrative-aligned corrective
+            //    WOs + an overdue WO. Combined with their sensor breaches,
+            //    this guarantees they all land in the Critical band on the
+            //    recompute below.
             await SeedStorylineMaintenanceAsync(storylineFlag, assets, rng);
 
-            // 8) Recompute HealthScore for every asset from the real data.
+            // 6) Recompute HealthScore for every asset from the real data.
             var nHealth = await _health.RecomputeAllAsync();
             _logger.LogInformation("IndustrialAssetSeeder: recomputed HealthScore for {Count} assets.", nHealth);
 
@@ -216,55 +233,40 @@ namespace Abs.FixedAssets.Services.Seeding
         }
 
         // -------------------------------------------------------------------
-        // Cache backfill (PR #117.3) — runs once after the chunked insert
-        // completes. Writes the latest Temperature / Vibration / Pressure
-        // value per asset into the denormalized Asset.Current* columns so
-        // the legacy Plant Floor fallback tiles render values too.
+        // PR #117.6 — Legacy Asset.Current* cache mirroring.
+        // Replaces the old BackfillAssetCacheAsync (which ran after a chunked
+        // insert and tripped Npgsql xmin races). Now this is just an
+        // in-memory mutation in the same loop as the metadata rewrite — no
+        // separate SaveChanges, no concurrency token mismatch possible.
         // -------------------------------------------------------------------
 
-        private async Task BackfillAssetCacheAsync(List<AssetSensorReading> readings, List<Asset> assets)
+        private static void UpdateLegacyCacheColumns(
+            Asset asset,
+            IEnumerable<SensorProfile> profiles,
+            List<AssetSensorReading> allReadings,
+            DateTime now)
         {
-            if (readings.Count == 0 || assets.Count == 0) return;
-
-            // PR #117.5.1: re-query assets fresh to avoid DbUpdateConcurrencyException.
-            // The original `assets` list was loaded at the top of SeedAsync, then
-            // saved at step 4 (Mfr/Model rewrite). The chunked sensor-insert path
-            // and Npgsql's xmin concurrency tracking can leave the in-memory
-            // entities with stale original values, causing the next UPDATE to
-            // mismatch xmin and report "0 rows affected" instead of 1. Reloading
-            // the entities here picks up current xmin values cleanly.
-            var assetIds = assets.Select(a => a.Id).ToList();
-            var freshAssets = await _db.Assets
-                .Where(a => assetIds.Contains(a.Id))
-                .ToListAsync();
-
-            var latestByAssetType = readings
-                .GroupBy(r => (r.AssetId, r.ReadingType))
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.ReadingAt).First());
-
-            foreach (var asset in freshAssets)
+            // Look up the latest reading per ReadingType for THIS asset in the
+            // in-memory readings list. Cheap — this asset has at most ~3-6
+            // readings in the list at this point.
+            decimal? latestTemp = null, latestVib = null, latestPres = null;
+            foreach (var r in allReadings)
             {
-                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Temperature), out var t))
+                if (r.AssetId != asset.Id) continue;
+                switch (r.ReadingType)
                 {
-                    asset.CurrentTemperature = Math.Round(t.Value, 1);
-                    if (asset.SensorReadingsLastUpdated == null || t.ReadingAt > asset.SensorReadingsLastUpdated)
-                        asset.SensorReadingsLastUpdated = t.ReadingAt;
-                }
-                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Vibration), out var v))
-                {
-                    asset.CurrentVibration = Math.Round(v.Value, 3);
-                    if (asset.SensorReadingsLastUpdated == null || v.ReadingAt > asset.SensorReadingsLastUpdated)
-                        asset.SensorReadingsLastUpdated = v.ReadingAt;
-                }
-                if (latestByAssetType.TryGetValue((asset.Id, SensorReadingType.Pressure), out var p))
-                {
-                    asset.CurrentPressure = Math.Round(p.Value, 2);
-                    if (asset.SensorReadingsLastUpdated == null || p.ReadingAt > asset.SensorReadingsLastUpdated)
-                        asset.SensorReadingsLastUpdated = p.ReadingAt;
+                    case SensorReadingType.Temperature: latestTemp = r.Value; break;
+                    case SensorReadingType.Vibration:   latestVib  = r.Value; break;
+                    case SensorReadingType.Pressure:    latestPres = r.Value; break;
                 }
             }
-            await _db.SaveChangesAsync();
-            _logger.LogInformation("IndustrialAssetSeeder: backfilled Asset.Current* cache for {Count} assets.", assets.Count);
+            if (latestTemp.HasValue) asset.CurrentTemperature = Math.Round(latestTemp.Value, 1);
+            if (latestVib.HasValue)  asset.CurrentVibration   = Math.Round(latestVib.Value, 3);
+            if (latestPres.HasValue) asset.CurrentPressure    = Math.Round(latestPres.Value, 2);
+            if (latestTemp.HasValue || latestVib.HasValue || latestPres.HasValue)
+            {
+                asset.SensorReadingsLastUpdated = now;
+            }
         }
 
         // -------------------------------------------------------------------
@@ -391,61 +393,30 @@ namespace Abs.FixedAssets.Services.Seeding
         // Reading generation
         // -------------------------------------------------------------------
 
-        private static void GenerateReadingsForAsset(
-            Asset asset,
-            List<SensorProfile> profiles,
-            Storyline storyline,
-            DateTime now,
-            Random rng,
-            List<AssetSensorReading> sink)
-        {
-            // Baseline: 1 reading per profile.SampleRateMinutes × 30 days.
-            // Storyline assets ALSO get 1 reading per 15 minutes × 7 days
-            // on their storyline-relevant sensors with rising-trend values.
-            foreach (var profile in profiles)
-            {
-                EmitBaselineReadings(asset, profile, now, rng, sink);
-                if (storyline != Storyline.None && IsStorylineSensor(storyline, profile))
-                {
-                    EmitStorylineOverlay(asset, profile, storyline, now, rng, sink);
-                }
-            }
-        }
-
-        private static void EmitBaselineReadings(
+        // PR #117.6: emit ONE snapshot reading per (asset, primary sensor).
+        // Replaces the old EmitBaselineReadings (~84 readings/sensor) — for
+        // non-storyline assets we just need a current value for the Plant
+        // Floor card pill, not a sparkline. Drops the seeder's reading count
+        // from ~135K to ~5K and eliminates the chunked-insert plumbing.
+        private static void EmitSnapshotReading(
             Asset asset, SensorProfile profile, DateTime now, Random rng, List<AssetSensorReading> sink)
         {
-            // PR #117.3: floor sample rate at 4 hours, window at 14 days.
-            // Yields ~84 readings per (asset, sensor) — enough for sparklines,
-            // small enough that 320 assets × 5 sensors fits in the chunked path.
-            const int MinSampleMinutes = 240;          // 4 hours
-            const int WindowDays = 14;
-            var sampleMinutes = Math.Max(MinSampleMinutes, profile.SampleRateMinutes);
-            var samples = (int)(TimeSpan.FromDays(WindowDays).TotalMinutes / sampleMinutes);
-            samples = Math.Min(samples, WindowDays * 6);  // safety cap (6 per day)
-
             var mid = (profile.NormalMin + profile.NormalMax) / 2m;
-            var std = (profile.NormalMax - profile.NormalMin) / 4m;  // ~95% within band
+            var std = (profile.NormalMax - profile.NormalMin) / 4m;
+            var jitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * std;
+            var value = Math.Round(mid + jitter, 3);
 
-            for (int i = 0; i < samples; i++)
+            sink.Add(new AssetSensorReading
             {
-                var minutesAgo = i * sampleMinutes;
-                var at = now.AddMinutes(-minutesAgo);
-                var jitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * std;
-                var value = Math.Round(mid + jitter, 3);
-
-                sink.Add(new AssetSensorReading
-                {
-                    AssetId = asset.Id,
-                    ReadingType = profile.ReadingType,
-                    Value = value,
-                    Unit = profile.Unit,
-                    ReadingAt = at,
-                    Source = "demo",
-                    IsOutOfSpec = IsBreach(profile, value),
-                    CreatedAt = DateTime.UtcNow
-                });
-            }
+                AssetId = asset.Id,
+                ReadingType = profile.ReadingType,
+                Value = value,
+                Unit = profile.Unit,
+                ReadingAt = now,
+                Source = "demo",
+                IsOutOfSpec = IsBreach(profile, value),
+                CreatedAt = DateTime.UtcNow
+            });
         }
 
         private static void EmitStorylineOverlay(
