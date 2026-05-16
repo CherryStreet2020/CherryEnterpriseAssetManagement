@@ -48,49 +48,59 @@
                 </button>
             </form>
 
-            <div class="login-divider">
-                <span>Demo Accounts</span>
-            </div>
+            @* PR #100 (B-04): Demo Accounts card is rendered only when
+               Login:ShowDemoAccounts is true OR the host is Development.
+               Production deployments never expose the three click-to-fill
+               credentials, but staging/demo tenants can opt in via config. *@
+            @if (Model.ShowDemoAccounts)
+            {
+                <div class="login-divider">
+                    <span>Demo Accounts</span>
+                </div>
 
-            <div class="demo-accounts-grid">
-                <button type="button" class="demo-account-btn" onclick="fillCredentials('admin', 'admin123')">
-                    <span class="demo-badge admin">Admin</span>
-                    <div class="demo-info">
-                        <strong>admin</strong>
-                        <span>Full access to all features</span>
-                    </div>
-                    <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </button>
-                <button type="button" class="demo-account-btn" onclick="fillCredentials('accountant', 'acc123')">
-                    <span class="demo-badge accountant">Accountant</span>
-                    <div class="demo-info">
-                        <strong>accountant</strong>
-                        <span>Create, edit, run depreciation</span>
-                    </div>
-                    <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </button>
-                <button type="button" class="demo-account-btn" onclick="fillCredentials('viewer', 'view123')">
-                    <span class="demo-badge viewer">Viewer</span>
-                    <div class="demo-info">
-                        <strong>viewer</strong>
-                        <span>Read-only access</span>
-                    </div>
-                    <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                    </svg>
-                </button>
-            </div>
+                <div class="demo-accounts-grid">
+                    <button type="button" class="demo-account-btn" onclick="fillCredentials('admin', 'admin123')">
+                        <span class="demo-badge admin">Admin</span>
+                        <div class="demo-info">
+                            <strong>admin</strong>
+                            <span>Full access to all features</span>
+                        </div>
+                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="demo-account-btn" onclick="fillCredentials('accountant', 'acc123')">
+                        <span class="demo-badge accountant">Accountant</span>
+                        <div class="demo-info">
+                            <strong>accountant</strong>
+                            <span>Create, edit, run depreciation</span>
+                        </div>
+                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="demo-account-btn" onclick="fillCredentials('viewer', 'view123')">
+                        <span class="demo-badge viewer">Viewer</span>
+                        <div class="demo-info">
+                            <strong>viewer</strong>
+                            <span>Read-only access</span>
+                        </div>
+                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            }
         </div>
     </div>
 </div>
 
-<script>
-    function fillCredentials(username, password) {
-        document.getElementById('Username').value = username;
-        document.getElementById('Password').value = password;
-    }
-</script>
+@if (Model.ShowDemoAccounts)
+{
+    <script>
+        function fillCredentials(username, password) {
+            document.getElementById('Username').value = username;
+            document.getElementById('Password').value = password;
+        }
+    </script>
+}

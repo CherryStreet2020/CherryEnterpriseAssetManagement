@@ -167,8 +167,28 @@ public class InboundWebhookService : IInboundWebhookService
         var signatureBase = $"{timestamp}.{rawBody}";
         using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(secret));
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(signatureBase));
-        var expectedSignature = Convert.ToHexString(hash).ToLowerInvariant();
 
-        return string.Equals(sig, expectedSignature, StringComparison.OrdinalIgnoreCase);
+        // PR #100 (B-01): constant-time compare on the raw HMAC bytes. The
+        // previous string.Equals on hex strings short-circuited on the first
+        // mismatched character, leaking timing information that lets a
+        // remote attacker brute-force the signature one byte at a time. We
+        // parse the incoming hex into bytes (rejecting bad hex with false)
+        // and use CryptographicOperations.FixedTimeEquals — the canonical
+        // .NET API for HMAC comparison, used by ASP.NET's own anti-forgery
+        // and data-protection stacks.
+        byte[] providedBytes;
+        try
+        {
+            providedBytes = Convert.FromHexString(sig);
+        }
+        catch (FormatException)
+        {
+            return false; // bad hex == bad signature
+        }
+
+        if (providedBytes.Length != hash.Length)
+            return false; // length mismatch == bad signature (still constant-time within each comparison)
+
+        return CryptographicOperations.FixedTimeEquals(hash, providedBytes);
     }
 }

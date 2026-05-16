@@ -10,7 +10,12 @@ using Abs.FixedAssets.Services.Lookups;
 
 namespace Abs.FixedAssets.Pages.Materials.Vendors
 {
-    [Authorize(Roles = "Admin,Accountant,Viewer")]
+    // PR #100 (B-02): Viewer was listed alongside Admin/Accountant, granting
+    // read-only users full edit access to the Vendor master — a copy-paste
+    // typo of the Index page's gate. Viewer removed; Vendor edits now require
+    // Admin or Accountant. Same posture as the rest of the Materials write
+    // surface (e.g. Items/Edit.cshtml.cs).
+    [Authorize(Roles = "Admin,Accountant")]
     public class EditModel : PageModel
     {
         private readonly AppDbContext _db;

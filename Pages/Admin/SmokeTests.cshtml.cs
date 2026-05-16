@@ -9,7 +9,13 @@ using System.Security.Claims;
 
 namespace Abs.FixedAssets.Pages.Admin
 {
-    [Authorize(Roles = "Admin,SystemAdmin")]
+    // PR #100 (B-03): SystemAdmin role does not exist in the identity seed —
+    // the only seeded roles are Admin / Manager / Accountant / Viewer.
+    // Listing a non-existent role here was harmless (the OR-of-roles gate
+    // still admitted Admin) but misleading and easy to misread as proof that
+    // a tighter "system admin" tier exists. Drop the dead role; "Admin" is
+    // the canonical superuser tier across the app.
+    [Authorize(Roles = "Admin")]
     public class SmokeTestsModel : PageModel
     {
         private readonly ISmokeTestRunner _testRunner;
@@ -301,7 +307,8 @@ namespace Abs.FixedAssets.Pages.Admin
         {
             var currentUserId = GetCurrentUserId();
             
-            if (User.IsInRole("Admin") || User.IsInRole("SystemAdmin"))
+            // PR #100 (B-03): drop SystemAdmin reference; role doesn't exist.
+            if (User.IsInRole("Admin"))
             {
                 return true;
             }
