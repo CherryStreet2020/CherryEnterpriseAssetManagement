@@ -73,14 +73,15 @@ namespace Abs.FixedAssets.Pages.Plant
 
             var assetIds = assets.Select(a => a.Id).ToList();
 
-            // Open WO count per asset — single grouped query.
+            // Open WO count per asset — single grouped query. AssetId on
+            // MaintenanceEvent is non-nullable int.
             var openWoCounts = await _db.MaintenanceEvents
-                .Where(m => m.AssetId.HasValue && assetIds.Contains(m.AssetId.Value)
+                .Where(m => assetIds.Contains(m.AssetId)
                          && (m.Status == MaintenanceStatus.Scheduled
                           || m.Status == MaintenanceStatus.InProgress
                           || m.Status == MaintenanceStatus.OnHold
                           || m.Status == MaintenanceStatus.Overdue))
-                .GroupBy(m => m.AssetId!.Value)
+                .GroupBy(m => m.AssetId)
                 .Select(g => new { AssetId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.AssetId, x => x.Count);
 
