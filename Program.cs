@@ -174,7 +174,10 @@ builder.Services.AddScoped<ICapitalImprovementPostingService, CapitalImprovement
 builder.Services.AddScoped<HistoricJournalBackfillService>();
 builder.Services.AddScoped<CcaService>();
 builder.Services.AddScoped<CcaBackfillService>();
-// Sprint 1 fixture seeder — invocable from /Admin/Sprint1Fixture by Admin role.
+// Sprint 1 fixture seeder service. Originally invokable from /Admin/Sprint1Fixture;
+// that page was deleted as an orphan in PR #116a but the service stays registered
+// so it can be wired back in from a future Admin v2 surface (Sprint 2 PR #118) if
+// needed. Currently has no callers — safe.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.Sprint1FixtureSeeder>();
 // Sprint 1 PR #110: per-asset reliability metrics service.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Reliability.ReliabilityMetricsService>();

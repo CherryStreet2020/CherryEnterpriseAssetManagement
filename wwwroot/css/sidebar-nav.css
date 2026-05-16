@@ -366,10 +366,30 @@
     display: block;
 }
 
-/* ---- Collapsed Sidebar (Icon Rail) ---- */
+/* ---- Collapsed Sidebar (Icon Rail) ----
+ * PR #116a fix: when collapsed, also override the --sidebar-width CSS
+ * variable that .main-content reads for its margin-left. Without this,
+ * the sidebar shrinks but the main content stays offset by 280px,
+ * leaving a dead zone between rail and content.
+ *
+ * The :has() selector lifts the variable to the :root scope when ANY
+ * descendant .sidebar has .collapsed. Browsers without :has() support
+ * (Firefox <121 etc.) fall through to the inline body-class fallback
+ * applied by sidebar-nav.js below as defense-in-depth.
+ */
+:root:has(.sidebar.collapsed) {
+    --sidebar-width: 64px;
+}
+body.sidebar-is-collapsed {
+    --sidebar-width: 64px;
+}
+
 .sidebar.collapsed {
     width: 64px;
     min-width: 64px;
+    /* PR #116a fix: let tooltips escape past the rail's right edge.
+       overflow-y: auto from .sidebar would clip the ::after pseudo-element. */
+    overflow: visible;
 }
 
 .sidebar.collapsed .sidebar-brand-info,
@@ -470,8 +490,15 @@
     visibility: visible;
 }
 
-.sidebar.collapsed .nav-item[data-nav-route]::after {
-    content: attr(data-nav-route);
+/* PR #116a fix: use data-tooltip (human label) not data-nav-route (URL)
+   so the tooltip shows "Dashboard" instead of "/" etc. Apply position:relative
+   so the absolute ::after anchors correctly. */
+.sidebar.collapsed .nav-item[data-tooltip] {
+    position: relative;
+}
+
+.sidebar.collapsed .nav-item[data-tooltip]::after {
+    content: attr(data-tooltip);
     position: absolute;
     left: calc(100% + 8px);
     top: 50%;
@@ -491,7 +518,7 @@
     pointer-events: none;
 }
 
-.sidebar.collapsed .nav-item:hover[data-nav-route]::after {
+.sidebar.collapsed .nav-item:hover[data-tooltip]::after {
     opacity: 1;
     visibility: visible;
 }

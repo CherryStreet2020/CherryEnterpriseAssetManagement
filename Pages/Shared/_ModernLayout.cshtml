@@ -181,7 +181,7 @@
             </div>
 
             <nav class="sidebar-nav" id="sidebarNav">
-                <a href="/" class="nav-item nav-item-overview @(IsExactPage("/Index") ? "active" : "")" data-nav-route="/">
+                <a href="/" class="nav-item nav-item-overview @(IsExactPage("/Index") ? "active" : "")" data-nav-route="/" data-tooltip="Dashboard" title="Dashboard">
                     <span class="nav-item-icon"><i class="fas fa-gauge-high"></i></span>
                     <span class="nav-item-label">Dashboard</span>
                 </a>
@@ -676,6 +676,7 @@
     <script src="~/js/modal.js" asp-append-version="true"></script>
     <script src="~/js/tour.js" asp-append-version="true"></script>
     <script src="~/js/sidebar-nav.js" asp-append-version="true"></script>
+    <script src="~/js/scroll-restore.js" asp-append-version="true"></script>
     <script src="~/js/org-selector.js" asp-append-version="true"></script>
     <script src="~/js/site-selector.js" asp-append-version="true"></script>
     <script src="~/js/tabs.js" asp-append-version="true"></script>

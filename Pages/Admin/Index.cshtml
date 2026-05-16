@@ -82,15 +82,18 @@
         </div>
     </a>
 
-    <a href="/Admin/Approvals" class="premium-admin-card">
+    @* PR #116a: removed /Admin/Approvals card — page deleted as orphan.
+       Workflow config will return as part of Sprint 2 PR #118 Admin v2.
+       The user-facing queue lives at /Approvals/Pending (PR #115). *@
+    <a href="/Approvals/Pending" class="premium-admin-card">
         <div class="premium-admin-icon info">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </div>
         <div class="premium-admin-content">
-            <h3>Approval Workflows</h3>
-            <p>Configure approval requirements for disposals and transfers</p>
+            <h3>Pending Approvals</h3>
+            <p>Review and act on documents waiting for your approval</p>
         </div>
     </a>
 </div>
@@ -314,7 +317,8 @@
             </div>
         </a>
 
-        <a href="/Admin/Inventory" class="premium-admin-card">
+        @* PR #116a: redirected from /Admin/Inventory (orphan) to /Inventory/StockLevels. *@
+        <a href="/Inventory/StockLevels" class="premium-admin-card">
             <div class="premium-admin-icon info">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
