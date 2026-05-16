@@ -164,6 +164,8 @@ builder.Services.AddScoped<CcaService>();
 builder.Services.AddScoped<CcaBackfillService>();
 // Sprint 1 fixture seeder — invocable from /Admin/Sprint1Fixture by Admin role.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.Sprint1FixtureSeeder>();
+// Sprint 1 PR #110: per-asset reliability metrics service.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Reliability.ReliabilityMetricsService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<AuditService>();
 builder.Services.AddScoped<ExportService>();
