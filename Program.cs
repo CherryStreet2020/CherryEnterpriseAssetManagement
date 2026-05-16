@@ -183,6 +183,12 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.IIndustrialAssetSeeder,
     Abs.FixedAssets.Services.Seeding.IndustrialAssetSeeder>();
+// Sprint 2 PR #117.2: Equipment Catalog seeder. Runs before IndustrialAssetSeeder
+// so EquipmentClass + EquipmentModel + SensorProfile tables are populated; the
+// asset seeder then reads from them instead of hardcoded C# arrays.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.IEquipmentCatalogSeeder,
+    Abs.FixedAssets.Services.Seeding.EquipmentCatalogSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
