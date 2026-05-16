@@ -29,9 +29,35 @@
         h >= 80m ? "#86efac" :
         h >= 60m ? "#fcd34d" : "#fca5a5";
 
-    string FormatTemp(decimal? t) => t.HasValue ? $"{t.Value:0.0}°F" : "—";
-    string FormatVib(decimal? v) => v.HasValue ? $"{v.Value:0.00} mm/s" : "—";
-    string FormatPres(decimal? p) => p.HasValue ? $"{p.Value:0} PSI" : "—";
+    // PR #117.2: class-appropriate sensor tile rendering. Each tile carries
+    // its own label, unit, and tone (ok / warn / crit / muted) from the
+    // SensorProfile thresholds. No more hardcoded Temp/Vib/PSI on every card.
+    string FormatTileValue(decimal? v, string unit)
+    {
+        if (!v.HasValue) return "—";
+        // Big absolute counters (cycle counts, hour meters) display as integers
+        // with thousands separators; small physical readings get 1-2 decimals.
+        bool isCounter = unit == "cycles" || unit == "strokes" || unit == "hr";
+        if (isCounter) return $"{v.Value:N0}";
+        if (Math.Abs(v.Value) >= 100) return $"{v.Value:0}";
+        return $"{v.Value:0.00}";
+    }
+
+    string TileToneColor(string tone) => tone switch
+    {
+        "crit" => "#fca5a5",
+        "warn" => "#fcd34d",
+        "ok"   => "#86efac",
+        _       => "var(--text-muted)"
+    };
+
+    string TileToneBg(string tone) => tone switch
+    {
+        "crit" => "rgba(239,68,68,0.10)",
+        "warn" => "rgba(245,158,11,0.10)",
+        "ok"   => "rgba(34,197,94,0.06)",
+        _       => "rgba(255,255,255,0.025)"
+    };
 }
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
@@ -100,19 +126,18 @@ else
                     </div>
                 </div>
 
-                <div data-csp-style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-top: 0.875rem;">
-                    <div data-csp-style="text-align: center; padding: 0.375rem 0.25rem; background: rgba(255,255,255,0.025); border-radius: 6px;">
-                        <div data-csp-style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Temp</div>
-                        <div data-csp-style="font-family: ui-monospace, Menlo, monospace; font-size: 0.875rem; font-weight: 600; margin-top: 0.125rem;">@FormatTemp(c.Temperature)</div>
-                    </div>
-                    <div data-csp-style="text-align: center; padding: 0.375rem 0.25rem; background: rgba(255,255,255,0.025); border-radius: 6px;">
-                        <div data-csp-style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Vib</div>
-                        <div data-csp-style="font-family: ui-monospace, Menlo, monospace; font-size: 0.875rem; font-weight: 600; margin-top: 0.125rem;">@FormatVib(c.Vibration)</div>
-                    </div>
-                    <div data-csp-style="text-align: center; padding: 0.375rem 0.25rem; background: rgba(255,255,255,0.025); border-radius: 6px;">
-                        <div data-csp-style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">PSI</div>
-                        <div data-csp-style="font-family: ui-monospace, Menlo, monospace; font-size: 0.875rem; font-weight: 600; margin-top: 0.125rem;">@FormatPres(c.Pressure)</div>
-                    </div>
+                <div data-csp-style="display: grid; grid-template-columns: repeat(@(c.SensorTiles.Count > 0 ? c.SensorTiles.Count : 3), 1fr); gap: 0.5rem; margin-top: 0.875rem;">
+                    @foreach (var tile in c.SensorTiles)
+                    {
+                        var toneColor = TileToneColor(tile.Tone);
+                        var toneBg = TileToneBg(tile.Tone);
+                        var tileStyle = $"text-align: center; padding: 0.375rem 0.25rem; background: {toneBg}; border-radius: 6px;";
+                        var valueStyle = $"font-family: ui-monospace, Menlo, monospace; font-size: 0.875rem; font-weight: 600; margin-top: 0.125rem; color: {toneColor};";
+                        <div data-csp-style="@tileStyle" title="@tile.Label">
+                            <div data-csp-style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@tile.Label</div>
+                            <div data-csp-style="@valueStyle">@FormatTileValue(tile.Value, tile.Unit) <span data-csp-style="font-size: 0.7rem; color: var(--text-muted); font-weight: 400;">@tile.Unit</span></div>
+                        </div>
+                    }
                 </div>
 
                 <div data-csp-style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.875rem; padding-top: 0.625rem; border-top: 1px solid rgba(255,255,255,0.06);">

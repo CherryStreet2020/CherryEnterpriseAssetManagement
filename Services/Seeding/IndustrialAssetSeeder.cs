@@ -1,34 +1,37 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.Catalog;
 using Abs.FixedAssets.Services.Reliability;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Services.Seeding
 {
-    // Sprint 2 PR #117.1 — Industrial-asset seeder.
+    // Sprint 2 PR #117.2 — Industrial-asset seeder, rewritten on top of
+    // the curated Equipment Catalog (EquipmentClasses + EquipmentModels +
+    // SensorProfiles tables, seeded from EQUIPMENT_CATALOG.md by
+    // EquipmentCatalogSeeder).
     //
-    // Per Dean's correction on PR #117: brand+type pairings in the demo
-    // data were gibberish ("Trane Forklift", "Mazak HVAC Unit", "Kuka Pump").
-    // This seeder UPDATES each active asset to a coherent manufacturer +
-    // equipment-class combination drawn from real industrial vendors,
-    // then INSERTS 30 days of synthetic sensor readings keyed off the
-    // equipment class so the Plant Floor numbers read plausibly, then
-    // RECOMPUTES HealthScore via AssetHealthService from the resulting
-    // data (no more random distribution).
+    // Per Dean: "DO NOT HARDCODE DATA" + "we can't have cranes with temp
+    // readings" + "Best in Class Process to Produce a Best In Class product."
+    // This version reads brands, models, costs, service lives, AND sensor
+    // profiles from the database — no C# arrays. Sensor readings are
+    // generated per-class according to the class's SensorProfile, so a
+    // CNC machining center gets spindle temp / vibration / load (not
+    // hydraulic ram pressure), a welder gets arc voltage / duty cycle
+    // (not coolant pressure), and a forklift gets hour meter / battery.
     //
-    // Idempotent: bails if any asset already has 5+ AssetSensorReadings
-    // rows (assumed already seeded). forceReseed=true wipes + re-runs.
-    //
-    // Reads as: pick a class for the asset (CNC / robot / welder /
-    // press / pump / conveyor / HVAC / forklift / crane / generator),
-    // pick a manufacturer that actually makes that class, generate a
-    // model number, set asset.Description = "{Brand} {Model} - {Class}".
+    // Three seeded failure-mode storylines (per D5 in EQUIPMENT_CATALOG.md):
+    //   1) Haas VF-2SS — spindle bearing failure imminent
+    //      (vibration rising 0.05 mm/s/day, temp rising 0.4°C/day, 14 days)
+    //   2) Lincoln Power Wave S350 — arc voltage drift
+    //      (every 4th weld trends out of spec; contact-tip wear pattern)
+    //   3) KUKA KR 210 R2700 — servo drive overheat
+    //      (axis-3 motor temp + current rising under duty cycle)
     public interface IIndustrialAssetSeeder
     {
         Task<int> SeedAsync(bool forceReseed = false);
@@ -39,92 +42,53 @@ namespace Abs.FixedAssets.Services.Seeding
         private readonly AppDbContext _db;
         private readonly IAssetSensorService _sensors;
         private readonly IAssetHealthService _health;
+        private readonly IEquipmentCatalogSeeder _catalog;
         private readonly ILogger<IndustrialAssetSeeder> _logger;
 
-        // Deterministic seed = repeatable demo state. Use forceReseed=true
-        // with a different seed for variety.
+        // Deterministic seed = repeatable demo state. forceReseed=true wipes + re-runs.
         private const int DeterministicSeed = unchecked((int)0xBEEFCAFE);
 
-        // Per-class catalog: brand list + model-number formula + asset-type
-        // label that drives downstream class-keyed thresholds.
-        private static readonly EquipmentClass[] Catalog = new[]
+        // Tier 1 Automotive Stamping plant archetype (per D1 in
+        // EQUIPMENT_CATALOG.md). Class-code → mix weight. Higher = more
+        // common in the demo plant. Total weight = ~100 makes the numbers
+        // read as percentages.
+        private static readonly Dictionary<string, int> PlantMix = new()
         {
-            new EquipmentClass(
-                AssetType: "CNC Machining Center",
-                Brands: new[] { "MAZAK", "DMG MORI", "HAAS", "OKUMA", "DOOSAN", "MAKINO", "MORI SEIKI", "HURCO" },
-                ModelPrefix: new[] { "INTEGREX", "VARIAXIS", "VC", "VF", "PUMA", "LB", "MAM", "VTC" },
-                Weight: 28),
-            new EquipmentClass(
-                AssetType: "CNC Lathe",
-                Brands: new[] { "MAZAK", "OKUMA", "DOOSAN", "HAAS", "DMG MORI", "TSUGAMI" },
-                ModelPrefix: new[] { "QT", "LT", "LB", "ST", "PUMA", "BNA" },
-                Weight: 18),
-            new EquipmentClass(
-                AssetType: "Welding Robot",
-                Brands: new[] { "FANUC", "KUKA", "ABB", "YASKAWA", "OTC DAIHEN", "MOTOMAN", "COMAU" },
-                ModelPrefix: new[] { "ARC Mate", "KR", "IRB", "MA", "FD", "NX", "SmartArc" },
-                Weight: 14),
-            new EquipmentClass(
-                AssetType: "Material-Handling Robot",
-                Brands: new[] { "FANUC", "ABB", "KUKA", "YASKAWA", "EPSON", "STAUBLI" },
-                ModelPrefix: new[] { "M-", "IRB", "KR Agilus", "GP", "G-", "TX" },
-                Weight: 8),
-            new EquipmentClass(
-                AssetType: "Welding Power Source",
-                Brands: new[] { "LINCOLN ELECTRIC", "MILLER ELECTRIC", "ESAB", "FRONIUS", "OTC DAIHEN", "HOBART" },
-                ModelPrefix: new[] { "PowerWave", "Dynasty", "Aristo", "TPS", "DA", "Champion" },
-                Weight: 8),
-            new EquipmentClass(
-                AssetType: "Hydraulic Stamping Press",
-                Brands: new[] { "SCHULER", "AIDA", "BLISS", "MINSTER", "KOMATSU" },
-                ModelPrefix: new[] { "MSE", "NS2", "C2H", "P2H", "OBS" },
-                Weight: 6),
-            new EquipmentClass(
-                AssetType: "Press Brake",
-                Brands: new[] { "AMADA", "TRUMPF", "BYSTRONIC", "LVD", "ACCURPRESS" },
-                ModelPrefix: new[] { "HG", "TruBend", "Xpert", "PPEB", "ACCELL" },
-                Weight: 4),
-            new EquipmentClass(
-                AssetType: "Laser Cutter",
-                Brands: new[] { "TRUMPF", "AMADA", "BYSTRONIC", "MAZAK", "MITSUBISHI" },
-                ModelPrefix: new[] { "TruLaser", "ENSIS", "ByStar", "OPTIPLEX", "ML" },
-                Weight: 4),
-            new EquipmentClass(
-                AssetType: "Industrial Conveyor",
-                Brands: new[] { "DORNER", "HYTROL", "INTERROLL", "FlexLink", "BOSCH REXROTH" },
-                ModelPrefix: new[] { "3200", "EZLogic", "MultiControl", "X45", "VarioFlow" },
-                Weight: 4),
-            new EquipmentClass(
-                AssetType: "Air Compressor",
-                Brands: new[] { "ATLAS COPCO", "INGERSOLL RAND", "KAESER", "SULLAIR", "QUINCY" },
-                ModelPrefix: new[] { "GA", "R-Series", "CSD", "ShopTek", "QGS" },
-                Weight: 3),
-            new EquipmentClass(
-                AssetType: "HVAC Unit",
-                Brands: new[] { "TRANE", "CARRIER", "YORK", "DAIKIN", "LENNOX" },
-                ModelPrefix: new[] { "Voyager", "WeatherMaster", "Sunline", "VRV", "Strategos" },
-                Weight: 2),
-            new EquipmentClass(
-                AssetType: "Forklift",
-                Brands: new[] { "TOYOTA", "HYSTER", "CROWN", "RAYMOND", "JUNGHEINRICH" },
-                ModelPrefix: new[] { "8FG", "S50FT", "FC", "8410", "EFG" },
-                Weight: 1)
+            ["STAMPING_PRESS"]            = 18,
+            ["PRESS_BRAKE"]                = 6,
+            ["WELDING_ROBOT"]             = 16,
+            ["WELDING_POWER_SOURCE"]      = 10,
+            ["MATERIAL_HANDLING_ROBOT"]   = 8,
+            ["CNC_MACHINING_CENTER"]      = 10,
+            ["CNC_LATHE"]                  = 6,
+            ["CNC_5AXIS"]                  = 3,
+            ["INDUSTRIAL_CONVEYOR"]       = 8,
+            ["AIR_COMPRESSOR"]            = 4,
+            ["FORKLIFT"]                   = 5,
+            ["HVAC_UNIT"]                  = 4,
+            ["LASER_CUTTER"]               = 1,
+            ["CMM"]                        = 1,
         };
 
         public IndustrialAssetSeeder(
             AppDbContext db,
             IAssetSensorService sensors,
             IAssetHealthService health,
+            IEquipmentCatalogSeeder catalog,
             ILogger<IndustrialAssetSeeder> logger)
         {
             _db = db;
             _sensors = sensors;
             _health = health;
+            _catalog = catalog;
             _logger = logger;
         }
 
         public async Task<int> SeedAsync(bool forceReseed = false)
         {
+            // 0) Ensure the catalog is seeded first (idempotent).
+            await _catalog.SeedAsync();
+
             var existingReadings = await _db.AssetSensorReadings.CountAsync();
             if (!forceReseed && existingReadings > 5)
             {
@@ -139,172 +103,329 @@ namespace Abs.FixedAssets.Services.Seeding
                 await _db.SaveChangesAsync();
             }
 
+            // 1) Load the catalog into memory in one pass — classes with their
+            //    models and sensor profiles eager-loaded. ~14 classes / ~50
+            //    models / ~80 sensor profiles; cheap.
+            var classes = await _db.EquipmentClasses
+                .Include(c => c.Models)
+                .Include(c => c.SensorProfiles)
+                .Where(c => c.Active)
+                .ToListAsync();
+
+            if (classes.Count == 0)
+            {
+                _logger.LogWarning("IndustrialAssetSeeder: catalog is empty. Run EquipmentCatalogSeeder.");
+                return 0;
+            }
+
+            var classByCode = classes.ToDictionary(c => c.Code);
+
+            // 2) Build the weighted class pool from the plant archetype mix
+            //    (or fall back to equal weighting if a code is missing).
+            var weightedPool = BuildWeightedClassPool(classes);
+
             var assets = await _db.Assets.Where(a => a.Active).OrderBy(a => a.Id).ToListAsync();
             if (assets.Count == 0) return 0;
 
             var rng = new Random(DeterministicSeed);
 
-            // 1) Assign each asset a coherent class + brand + model.
-            var classByAsset = new Dictionary<int, EquipmentClass>();
+            // 3) Assign each asset a class + a real EquipmentModel (Mfr/Model).
+            //    Three storyline slots are reserved for D5 in the catalog.
+            var assetClass = new Dictionary<int, EquipmentClass>();
+            var assetModel = new Dictionary<int, EquipmentModel>();
+            var storylineFlag = new Dictionary<int, Storyline>();
+
+            ReserveStorylineAssets(assets, classByCode, rng, assetClass, assetModel, storylineFlag);
+
             foreach (var asset in assets)
             {
-                var cls = PickClassWeighted(rng);
-                classByAsset[asset.Id] = cls;
+                if (assetClass.ContainsKey(asset.Id)) continue;  // storyline already set
 
-                var brand = cls.Brands[rng.Next(cls.Brands.Length)];
-                var prefix = cls.ModelPrefix[rng.Next(cls.ModelPrefix.Length)];
-                var modelNum = $"{rng.Next(100, 9999)}";
-                var unitNum = asset.AssetNumber?.Replace("AST-", "") ?? rng.Next(10, 999).ToString();
-
-                asset.Description = $"{brand} {prefix}-{modelNum} {ShortClass(cls.AssetType)} #{int.Parse(unitNum)}";
-                asset.AssetType = cls.AssetType;
-                // Brand is in Description; ManufacturerId FK left untouched
-                // to avoid breaking existing manufacturer-based reports.
-                asset.Model = $"{prefix}-{modelNum}";
+                var cls = PickWeighted(weightedPool, rng);
+                var model = PickModelWeighted(cls.Models, rng);
+                assetClass[asset.Id] = cls;
+                assetModel[asset.Id] = model;
             }
-            await _db.SaveChangesAsync();
-            _logger.LogInformation("IndustrialAssetSeeder: rewrote brand/type pairings on {Count} assets.", assets.Count);
 
-            // 2) Generate 30 days × ~3 readings/day × 3 sensor types per asset.
-            var allReadings = new List<AssetSensorReading>(assets.Count * 30 * 3 * 3);
-            var now = DateTime.UtcNow;
-
+            // 4) Rewrite asset attributes from the chosen model.
             foreach (var asset in assets)
             {
-                var cls = classByAsset[asset.Id];
+                var cls = assetClass[asset.Id];
+                var model = assetModel[asset.Id];
+                var unitNum = ExtractUnitNumber(asset.AssetNumber, rng);
 
-                // 4% of assets are "ailing" with rising sensor trend +
-                // out-of-spec readings concentrated in the last 7 days.
-                // 18% are "watch" — borderline but in spec.
-                // 78% are healthy — comfortably in spec.
-                var roll = rng.Next(0, 100);
-                var ailingMode = roll < 4;
-                var watchMode = !ailingMode && roll < 22;
-
-                for (int day = 30; day >= 0; day--)
+                asset.Description = string.IsNullOrWhiteSpace(model.DisplayName)
+                    ? $"{model.Manufacturer} {model.ModelNumber} #{unitNum}"
+                    : $"{model.DisplayName} #{unitNum}";
+                asset.AssetType = cls.Name;
+                asset.Model = model.ModelNumber;
+                if (asset.AcquisitionCost == 0m && model.TypicalAcquisitionCost.HasValue)
                 {
-                    var ageDays = day;
-                    var baseAt = now.AddDays(-ageDays);
-                    int samplesToday = 3;
-                    for (int s = 0; s < samplesToday; s++)
-                    {
-                        var at = baseAt.AddHours(rng.NextDouble() * 23);
-                        var degradationFactor = ailingMode
-                            ? Math.Max(0.0, 1.0 - (ageDays / 14.0))
-                            : (watchMode ? 0.4 : 0.0);
-
-                        // Temperature — compute jitter in double, then mix with decimal mid/std as decimals.
-                        var (tempMid, tempStd) = TempRangeFor(cls.AssetType);
-                        var tempJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * tempStd;
-                        var tempDegrade = (decimal)(degradationFactor * rng.NextDouble() * 35.0);
-                        var t = tempMid + tempJitter + tempDegrade;
-                        allReadings.Add(MakeReading(asset.Id, SensorReadingType.Temperature, Math.Round(t, 1), "°F", at));
-
-                        // Vibration (mm/s RMS)
-                        var (vibMid, vibStd) = VibRangeFor(cls.AssetType);
-                        var vibJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * vibStd;
-                        var vibDegrade = (decimal)(degradationFactor * rng.NextDouble() * 4.5);
-                        var v = vibMid + vibJitter + vibDegrade;
-                        allReadings.Add(MakeReading(asset.Id, SensorReadingType.Vibration, Math.Round(Math.Max(0m, v), 3), "mm/s", at));
-
-                        // Pressure (PSI)
-                        var (presMid, presStd) = PresRangeFor(cls.AssetType);
-                        var presJitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * presStd;
-                        var p = presMid + presJitter;
-                        // Add a small degradation drift on hydraulic equipment so the demo shows pressure-loss patterns.
-                        if (cls.AssetType.Contains("Hydraulic") || cls.AssetType.Contains("Press"))
-                            p -= (decimal)(degradationFactor * rng.NextDouble() * 250.0);
-                        allReadings.Add(MakeReading(asset.Id, SensorReadingType.Pressure, Math.Round(Math.Max(0m, p), 2), "PSI", at));
-                    }
+                    asset.AcquisitionCost = model.TypicalAcquisitionCost.Value;
+                }
+                if (model.ImageUrl != null && string.IsNullOrWhiteSpace(asset.ImageUrl))
+                {
+                    asset.ImageUrl = model.ImageUrl;
                 }
             }
+            await _db.SaveChangesAsync();
+            _logger.LogInformation("IndustrialAssetSeeder: rewrote brand/type pairings on {Count} assets from catalog.", assets.Count);
 
-            // 3) Stamp IsOutOfSpec based on per-class thresholds.
-            foreach (var r in allReadings)
+            // 5) Generate sensor readings per class according to its SensorProfile.
+            var now = DateTime.UtcNow;
+            var allReadings = new List<AssetSensorReading>(capacity: assets.Count * 7 * 24);
+
+            foreach (var asset in assets)
             {
-                var asset = assets.First(a => a.Id == r.AssetId);
-                var range = _sensors.GetExpectedRange(r.ReadingType, asset);
-                if (r.Value < range.Min || r.Value > range.Max) r.IsOutOfSpec = true;
+                var cls = assetClass[asset.Id];
+                var profiles = cls.SensorProfiles.OrderBy(p => p.DisplayOrder).ToList();
+                if (profiles.Count == 0) continue;
+
+                var storyline = storylineFlag.TryGetValue(asset.Id, out var s) ? s : Storyline.None;
+                GenerateReadingsForAsset(asset, profiles, storyline, now, rng, allReadings);
             }
 
-            // 4) Bulk insert via the service so the Asset.Current* cache
+            // 6) Bulk insert via the sensor service so the Asset.Current* cache
             //    columns get updated atomically to the latest reading per
-            //    (asset, type). This is the WHOLE point of going through
-            //    the service rather than direct INSERTs.
+            //    (asset, type). This is the WHOLE point of going through the
+            //    service rather than direct INSERTs.
             await _sensors.RecordBatchAsync(allReadings);
             _logger.LogInformation("IndustrialAssetSeeder: persisted {Count} sensor readings.", allReadings.Count);
 
-            // 5) Recompute HealthScore for every asset from the real data.
+            // 7) Recompute HealthScore for every asset from the real data.
             var nHealth = await _health.RecomputeAllAsync();
             _logger.LogInformation("IndustrialAssetSeeder: recomputed HealthScore for {Count} assets.", nHealth);
 
             return allReadings.Count;
         }
 
-        private static AssetSensorReading MakeReading(int assetId, SensorReadingType type, decimal value, string unit, DateTime at) => new()
-        {
-            AssetId = assetId,
-            ReadingType = type,
-            Value = value,
-            Unit = unit,
-            ReadingAt = at,
-            Source = "demo",
-            CreatedAt = DateTime.UtcNow
-        };
+        // -------------------------------------------------------------------
+        // Reading generation
+        // -------------------------------------------------------------------
 
-        private static (decimal mid, decimal std) TempRangeFor(string assetType) => assetType switch
+        private static void GenerateReadingsForAsset(
+            Asset asset,
+            List<SensorProfile> profiles,
+            Storyline storyline,
+            DateTime now,
+            Random rng,
+            List<AssetSensorReading> sink)
         {
-            var s when s.Contains("Welding") => (140m, 25m),
-            var s when s.Contains("CNC") || s.Contains("Lathe") || s.Contains("Machining") => (120m, 20m),
-            var s when s.Contains("Press") || s.Contains("Brake") || s.Contains("Stamping") => (135m, 30m),
-            var s when s.Contains("Laser") => (105m, 15m),
-            var s when s.Contains("Robot") => (115m, 18m),
-            var s when s.Contains("Conveyor") => (95m, 12m),
-            var s when s.Contains("Compressor") => (155m, 22m),
-            var s when s.Contains("HVAC") => (72m, 10m),
-            var s when s.Contains("Forklift") => (110m, 18m),
-            _ => (105m, 15m)
-        };
-
-        private static (decimal mid, decimal std) VibRangeFor(string assetType) => assetType switch
-        {
-            var s when s.Contains("CNC") || s.Contains("Lathe") || s.Contains("Machining") => (1.8m, 0.7m),
-            var s when s.Contains("Robot") => (1.4m, 0.6m),
-            var s when s.Contains("Welding Power") => (0.6m, 0.3m),
-            var s when s.Contains("Press") || s.Contains("Brake") || s.Contains("Stamping") => (2.2m, 1.0m),
-            var s when s.Contains("Conveyor") => (2.5m, 0.9m),
-            var s when s.Contains("Compressor") => (2.0m, 0.8m),
-            var s when s.Contains("HVAC") => (1.2m, 0.4m),
-            var s when s.Contains("Forklift") => (2.4m, 0.8m),
-            _ => (1.8m, 0.6m)
-        };
-
-        private static (decimal mid, decimal std) PresRangeFor(string assetType) => assetType switch
-        {
-            var s when s.Contains("Hydraulic") || s.Contains("Press") || s.Contains("Stamping") || s.Contains("Brake") => (2100m, 220m),
-            var s when s.Contains("Compressor") => (115m, 12m),
-            var s when s.Contains("HVAC") => (28m, 5m),
-            var s when s.Contains("Laser") => (95m, 10m),
-            _ => (85m, 15m)
-        };
-
-        private static string ShortClass(string assetType) => assetType
-            .Replace("Industrial ", "")
-            .Replace("Hydraulic ", "");
-
-        private static EquipmentClass PickClassWeighted(Random rng)
-        {
-            var total = Catalog.Sum(c => c.Weight);
-            var roll = rng.Next(0, total);
-            int running = 0;
-            foreach (var c in Catalog)
+            // Baseline: 1 reading per profile.SampleRateMinutes × 30 days.
+            // Storyline assets ALSO get 1 reading per 15 minutes × 7 days
+            // on their storyline-relevant sensors with rising-trend values.
+            foreach (var profile in profiles)
             {
-                running += c.Weight;
-                if (roll < running) return c;
+                EmitBaselineReadings(asset, profile, now, rng, sink);
+                if (storyline != Storyline.None && IsStorylineSensor(storyline, profile))
+                {
+                    EmitStorylineOverlay(asset, profile, storyline, now, rng, sink);
+                }
             }
-            return Catalog[0];
         }
 
-        private sealed record EquipmentClass(string AssetType, string[] Brands, string[] ModelPrefix, int Weight);
+        private static void EmitBaselineReadings(
+            Asset asset, SensorProfile profile, DateTime now, Random rng, List<AssetSensorReading> sink)
+        {
+            var sampleMinutes = Math.Max(15, profile.SampleRateMinutes);
+            var samplesIn30d = (int)((TimeSpan.FromDays(30).TotalMinutes) / sampleMinutes);
+            samplesIn30d = Math.Min(samplesIn30d, 30 * 24);  // safety cap
+
+            var mid = (profile.NormalMin + profile.NormalMax) / 2m;
+            var std = (profile.NormalMax - profile.NormalMin) / 4m;  // ~95% within band
+
+            for (int i = 0; i < samplesIn30d; i++)
+            {
+                var minutesAgo = i * sampleMinutes;
+                var at = now.AddMinutes(-minutesAgo);
+                var jitter = (decimal)((rng.NextDouble() - 0.5) * 2.0) * std;
+                var value = Math.Round(mid + jitter, 3);
+
+                sink.Add(new AssetSensorReading
+                {
+                    AssetId = asset.Id,
+                    ReadingType = profile.ReadingType,
+                    Value = value,
+                    Unit = profile.Unit,
+                    ReadingAt = at,
+                    Source = "demo",
+                    IsOutOfSpec = IsBreach(profile, value),
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        private static void EmitStorylineOverlay(
+            Asset asset, SensorProfile profile, Storyline storyline, DateTime now, Random rng, List<AssetSensorReading> sink)
+        {
+            // 15-min samples × 7 days = 672 readings, with a rising trend
+            // toward (and through) the critical threshold near the end of
+            // the window. That's "the failure unfolding in real time" on
+            // the Plant Floor sparkline.
+            const int sampleMinutes = 15;
+            int samples = (int)(TimeSpan.FromDays(7).TotalMinutes / sampleMinutes);
+
+            var baseValue = profile.BreachOnHighSide
+                ? (profile.NormalMin + profile.NormalMax) / 2m
+                : (profile.NormalMin + profile.NormalMax) / 2m;
+            var target = profile.CriticalThreshold ?? (profile.BreachOnHighSide
+                ? profile.NormalMax + (profile.NormalMax - profile.NormalMin) * 0.3m
+                : profile.NormalMin - (profile.NormalMax - profile.NormalMin) * 0.3m);
+
+            for (int i = samples - 1; i >= 0; i--)
+            {
+                var minutesAgo = i * sampleMinutes;
+                var at = now.AddMinutes(-minutesAgo);
+                var progress = 1.0m - ((decimal)i / samples);   // 0..1, recent = closer to 1
+
+                // Sigmoid-ish rise so it stays calm for the first half then
+                // accelerates — more believable than a straight line.
+                var ramp = progress * progress * progress;
+                var value = baseValue + (target - baseValue) * ramp;
+
+                // Light jitter on top of the trend so the sparkline is alive.
+                var jitter = (decimal)((rng.NextDouble() - 0.5) * 0.4) * (profile.NormalMax - profile.NormalMin) / 4m;
+                value = Math.Round(value + jitter, 3);
+
+                sink.Add(new AssetSensorReading
+                {
+                    AssetId = asset.Id,
+                    ReadingType = profile.ReadingType,
+                    Value = value,
+                    Unit = profile.Unit,
+                    ReadingAt = at,
+                    Source = "demo:storyline",
+                    IsOutOfSpec = IsBreach(profile, value),
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
+        private static bool IsBreach(SensorProfile profile, decimal value)
+        {
+            if (!profile.CriticalThreshold.HasValue) return false;
+            return profile.BreachOnHighSide
+                ? value > profile.CriticalThreshold.Value
+                : value < profile.CriticalThreshold.Value;
+        }
+
+        private static bool IsStorylineSensor(Storyline storyline, SensorProfile profile) =>
+            (storyline, profile.ReadingType) switch
+            {
+                (Storyline.SpindleBearing, SensorReadingType.Vibration) => true,
+                (Storyline.SpindleBearing, SensorReadingType.Temperature) => true,
+                (Storyline.ArcVoltageDrift, SensorReadingType.Voltage)   => true,
+                (Storyline.ServoOverheat, SensorReadingType.Temperature) => true,
+                (Storyline.ServoOverheat, SensorReadingType.Current)     => true,
+                _ => false
+            };
+
+        // -------------------------------------------------------------------
+        // Class + model selection
+        // -------------------------------------------------------------------
+
+        private static List<EquipmentClass> BuildWeightedClassPool(List<EquipmentClass> classes)
+        {
+            var pool = new List<EquipmentClass>(capacity: 120);
+            foreach (var cls in classes)
+            {
+                var weight = PlantMix.TryGetValue(cls.Code, out var w) ? w : 1;
+                for (int i = 0; i < weight; i++) pool.Add(cls);
+            }
+            return pool;
+        }
+
+        private static EquipmentClass PickWeighted(List<EquipmentClass> pool, Random rng)
+            => pool[rng.Next(pool.Count)];
+
+        private static EquipmentModel PickModelWeighted(ICollection<EquipmentModel> models, Random rng)
+        {
+            var pool = new List<EquipmentModel>();
+            foreach (var m in models)
+            {
+                if (!m.Active) continue;
+                var weight = Math.Max(1, m.Weight);
+                for (int i = 0; i < weight; i++) pool.Add(m);
+            }
+            if (pool.Count == 0) return models.First();
+            return pool[rng.Next(pool.Count)];
+        }
+
+        // -------------------------------------------------------------------
+        // Storyline reservation (D5 in EQUIPMENT_CATALOG.md)
+        // -------------------------------------------------------------------
+
+        private static void ReserveStorylineAssets(
+            List<Asset> assets,
+            Dictionary<string, EquipmentClass> classByCode,
+            Random rng,
+            Dictionary<int, EquipmentClass> assetClass,
+            Dictionary<int, EquipmentModel> assetModel,
+            Dictionary<int, Storyline> storylineFlag)
+        {
+            // 1) Haas VF-2SS spindle bearing
+            if (TryReserve(assets, classByCode, "CNC_MACHINING_CENTER", "VF-2SS", rng,
+                assetClass, assetModel, out var haasId))
+            {
+                storylineFlag[haasId] = Storyline.SpindleBearing;
+            }
+
+            // 2) Lincoln Power Wave S350 arc voltage drift
+            if (TryReserve(assets, classByCode, "WELDING_POWER_SOURCE", "Power Wave S350", rng,
+                assetClass, assetModel, out var lincolnId))
+            {
+                storylineFlag[lincolnId] = Storyline.ArcVoltageDrift;
+            }
+
+            // 3) KUKA KR 210 servo overheat
+            if (TryReserve(assets, classByCode, "WELDING_ROBOT", "KR 210 R2700", rng,
+                assetClass, assetModel, out var kukaId))
+            {
+                storylineFlag[kukaId] = Storyline.ServoOverheat;
+            }
+        }
+
+        private static bool TryReserve(
+            List<Asset> assets,
+            Dictionary<string, EquipmentClass> classByCode,
+            string classCode,
+            string targetModelNumber,
+            Random rng,
+            Dictionary<int, EquipmentClass> assetClass,
+            Dictionary<int, EquipmentModel> assetModel,
+            out int assetId)
+        {
+            assetId = 0;
+            if (!classByCode.TryGetValue(classCode, out var cls)) return false;
+            var model = cls.Models.FirstOrDefault(m => m.ModelNumber == targetModelNumber);
+            if (model == null) return false;
+
+            var candidate = assets.FirstOrDefault(a => !assetClass.ContainsKey(a.Id));
+            if (candidate == null) return false;
+
+            assetId = candidate.Id;
+            assetClass[candidate.Id] = cls;
+            assetModel[candidate.Id] = model;
+            return true;
+        }
+
+        // -------------------------------------------------------------------
+        // Misc
+        // -------------------------------------------------------------------
+
+        private static string ExtractUnitNumber(string? assetNumber, Random rng)
+        {
+            if (string.IsNullOrWhiteSpace(assetNumber)) return rng.Next(10, 999).ToString();
+            var digits = new string(assetNumber.Where(char.IsDigit).ToArray());
+            return string.IsNullOrEmpty(digits) ? rng.Next(10, 999).ToString() : digits;
+        }
+
+        private enum Storyline
+        {
+            None = 0,
+            SpindleBearing = 1,    // Haas VF-2SS
+            ArcVoltageDrift = 2,   // Lincoln Power Wave S350
+            ServoOverheat = 3      // KUKA KR 210 R2700
+        }
     }
 }

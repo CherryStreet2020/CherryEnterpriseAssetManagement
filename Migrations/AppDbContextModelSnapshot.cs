@@ -216,6 +216,115 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("AssetSensorReadings");
                 });
 
+            // Sprint 2 PR #117.2 — Equipment Catalog.
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentClass", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active").HasColumnType("boolean");
+                    b.Property<string>("Category").IsRequired().HasMaxLength(60).HasColumnType("character varying(60)");
+                    b.Property<string>("Code").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("Description").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int>("DisplayOrder").HasColumnType("integer");
+                    b.Property<string>("IconCode").HasMaxLength(40).HasColumnType("character varying(40)");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+                    b.HasIndex("Code").IsUnique();
+
+                    b.Navigation("Models");
+                    b.Navigation("SensorProfiles");
+
+                    b.ToTable("EquipmentClasses");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active").HasColumnType("boolean");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<string>("DisplayName").HasMaxLength(180).HasColumnType("character varying(180)");
+                    b.Property<int>("EquipmentClassId").HasColumnType("integer");
+                    b.Property<string>("ImageUrl").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<string>("MaintenanceManualUrl").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<string>("Manufacturer").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<string>("ModelNumber").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
+                    b.Property<string>("Notes").HasMaxLength(1000).HasColumnType("character varying(1000)");
+                    b.Property<string>("ProductPageUrl").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int?>("ServiceLifeYears").HasColumnType("integer");
+                    b.Property<decimal?>("TypicalAcquisitionCost").HasColumnType("numeric(14,2)");
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<int>("Weight").HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentClassId");
+                    b.HasIndex("Manufacturer", "ModelNumber").IsUnique();
+
+                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
+                        .WithMany("Models")
+                        .HasForeignKey("EquipmentClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EquipmentClass");
+
+                    b.ToTable("EquipmentModels");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.SensorProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("BreachOnHighSide").HasColumnType("boolean");
+                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<decimal?>("CriticalThreshold").HasColumnType("numeric(14,4)");
+                    b.Property<int>("DisplayOrder").HasColumnType("integer");
+                    b.Property<int>("EquipmentClassId").HasColumnType("integer");
+                    b.Property<bool>("IsPrimary").HasColumnType("boolean");
+                    b.Property<decimal>("NormalMax").HasColumnType("numeric(14,4)");
+                    b.Property<decimal>("NormalMin").HasColumnType("numeric(14,4)");
+                    b.Property<string>("Notes").HasMaxLength(500).HasColumnType("character varying(500)");
+                    b.Property<int>("ReadingType").HasColumnType("integer");
+                    b.Property<int>("SampleRateMinutes").HasColumnType("integer");
+                    b.Property<string>("SensorName").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
+                    b.Property<string>("Unit").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
+                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
+                    b.Property<decimal?>("WarningThreshold").HasColumnType("numeric(14,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentClassId");
+                    b.HasIndex("EquipmentClassId", "ReadingType");
+
+                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
+                        .WithMany("SensorProfiles")
+                        .HasForeignKey("EquipmentClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EquipmentClass");
+
+                    b.ToTable("SensorProfiles");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
                 {
                     b.Property<int>("Id")

@@ -24,13 +24,23 @@ namespace Abs.FixedAssets.Models
     // ingestion channel.
     public enum SensorReadingType
     {
-        Temperature = 0,    // °F
-        Vibration = 1,      // mm/s RMS
-        Pressure = 2,       // PSI
-        Current = 3,        // Amps (reserved for motors/drives)
-        Speed = 4,          // RPM (reserved for rotating equipment)
-        Flow = 5,           // GPM (reserved for hydraulic/pneumatic)
-        Power = 6           // kW (reserved for energy monitoring)
+        Temperature = 0,    // °F or °C — Unit field carries the exact dimension
+        Vibration = 1,      // mm/s RMS (ISO 10816-3)
+        Pressure = 2,       // PSI or bar — Unit field disambiguates
+        Current = 3,        // Amps (motor current, drive current, weld arc current)
+        Speed = 4,          // RPM (spindle, motor) or in/min (wire feed)
+        Flow = 5,           // GPM or L/min (hydraulic, pneumatic, coolant)
+        Power = 6,          // kW (drive load, compressor output)
+
+        // PR #117.2 — added so SensorProfile can describe class-specific
+        // signals without abusing the original 7 buckets.
+        Voltage = 7,        // V (welding arc voltage, motor bus voltage)
+        Hours = 8,          // Operating hour meter (cumulative, forklift / compressor)
+        Cycles = 9,         // Stroke / cycle counter (stamping press, robot)
+        Humidity = 10,      // % RH (HVAC, paint booth, cleanrooms)
+        DutyCycle = 11,     // % duty over a window (welder, drive)
+        Load = 12,          // % of nameplate (spindle load, motor load)
+        Battery = 13        // % state of charge or volts (forklift, UPS)
     }
 
     public class AssetSensorReading

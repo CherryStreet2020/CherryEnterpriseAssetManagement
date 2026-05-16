@@ -186,6 +186,14 @@ namespace Abs.FixedAssets.Data
         // denormalized Asset.Current* cache columns.
         public DbSet<AssetSensorReading> AssetSensorReadings => Set<AssetSensorReading>();
 
+        // Sprint 2 PR #117.2 — Equipment Catalog (per Dean: "Best in Class
+        // Process to Produce a Best In Class product"). EquipmentClass +
+        // EquipmentModel + SensorProfile are the curated source of asset
+        // attributes — replaces hardcoded C# arrays in IndustrialAssetSeeder.
+        public DbSet<Abs.FixedAssets.Models.Catalog.EquipmentClass> EquipmentClasses => Set<Abs.FixedAssets.Models.Catalog.EquipmentClass>();
+        public DbSet<Abs.FixedAssets.Models.Catalog.EquipmentModel> EquipmentModels => Set<Abs.FixedAssets.Models.Catalog.EquipmentModel>();
+        public DbSet<Abs.FixedAssets.Models.Catalog.SensorProfile> SensorProfiles => Set<Abs.FixedAssets.Models.Catalog.SensorProfile>();
+
         // Work Order Code Tables
         public DbSet<WorkOrderType> WorkOrderTypes => Set<WorkOrderType>();
         public DbSet<MaintenanceTypeCode> MaintenanceTypeCodes => Set<MaintenanceTypeCode>();
@@ -1565,6 +1573,39 @@ namespace Abs.FixedAssets.Data
 
                 entity.HasIndex(ms => ms.AssetId).IsUnique();
                 entity.HasIndex(ms => ms.TenantId);
+            });
+
+            // Sprint 2 PR #117.2 — Equipment Catalog fluent config.
+            // The catalog is small (~20 classes, ~100 models, ~150 sensor
+            // profiles) but it's the source of truth that every asset seed
+            // references, so the indexes matter for the seeder lookup path.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Catalog.EquipmentClass>(e =>
+            {
+                e.ToTable("EquipmentClasses");
+                e.HasIndex(x => x.Code).IsUnique();
+                e.HasIndex(x => x.Category);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Catalog.EquipmentModel>(e =>
+            {
+                e.ToTable("EquipmentModels");
+                e.HasOne(x => x.EquipmentClass)
+                    .WithMany(c => c.Models)
+                    .HasForeignKey(x => x.EquipmentClassId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => x.EquipmentClassId);
+                e.HasIndex(x => new { x.Manufacturer, x.ModelNumber }).IsUnique();
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Catalog.SensorProfile>(e =>
+            {
+                e.ToTable("SensorProfiles");
+                e.HasOne(x => x.EquipmentClass)
+                    .WithMany(c => c.SensorProfiles)
+                    .HasForeignKey(x => x.EquipmentClassId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(x => x.EquipmentClassId);
+                e.HasIndex(x => new { x.EquipmentClassId, x.ReadingType });
             });
         }
 
