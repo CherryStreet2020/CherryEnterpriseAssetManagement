@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
+using Abs.FixedAssets.Services.Approvals;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
@@ -23,16 +25,21 @@ namespace Abs.FixedAssets.Pages.Purchasing
         private readonly ILookupService _lookupService;
         private readonly ITenantContext _tenantContext;
         private readonly IOutboxWriter _outbox;
+        private readonly IApprovalService _approvals;
 
         public DetailsModel(AppDbContext context, IModuleGuardService moduleGuard, ILookupService lookupService,
-            ITenantContext tenantContext, IOutboxWriter outbox)
+            ITenantContext tenantContext, IOutboxWriter outbox, IApprovalService approvals)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _lookupService = lookupService;
             _tenantContext = tenantContext;
             _outbox = outbox;
+            _approvals = approvals;
         }
+
+        // Sprint 2 PR #115: surface the current approval status to the view.
+        public ApprovalDecisionResult? ApprovalStatus { get; set; }
 
         public PurchaseOrder PurchaseOrder { get; set; } = null!;
         public List<Vendor> Vendors { get; set; } = new();
@@ -303,14 +310,46 @@ namespace Abs.FixedAssets.Pages.Purchasing
             return RedirectToPage(new { id });
         }
 
-        public async Task<IActionResult> OnPostApproveAsync(int id)
+        public async Task<IActionResult> OnPostApproveAsync(int id, string? approvalComment = null)
         {
+            // Sprint 2 PR #115 — route through ApprovalService for SoD + N-of-M.
             var po = await _context.PurchaseOrders
+                .Include(p => p.RequestedBy)
                 .Where(p => p.Id == id && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (po == null) return NotFound();
+            if (po.Status != POStatus.PendingApproval)
+            {
+                TempData["ErrorMessage"] = $"PO is in status {po.Status}; only PendingApproval can be approved.";
+                return RedirectToPage(new { id });
+            }
 
-            if (po.Status == POStatus.PendingApproval)
+            var approverUsername = User.Identity?.Name ?? "unknown";
+            var approverRoles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+
+            var result = await _approvals.RecordDecisionAsync(
+                targetEntityType: "PurchaseOrder",
+                targetEntityId: po.Id,
+                workflowType: WorkflowType.PurchaseOrder,
+                amount: po.Total,
+                decision: ApprovalDecision.Approved,
+                approverUserId: approverUsername,
+                approverUsername: approverUsername,
+                approverRoles: approverRoles,
+                creatorUserId: po.RequestedBy?.Username,
+                comment: approvalComment,
+                companyId: po.CompanyId);
+
+            if (result.Outcome == ApprovalOutcome.SodViolation
+                || result.Outcome == ApprovalOutcome.DuplicateApprover
+                || result.Outcome == ApprovalOutcome.InsufficientRole)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+                return RedirectToPage(new { id });
+            }
+
+            if (result.Outcome == ApprovalOutcome.FullyApproved
+                || result.Outcome == ApprovalOutcome.NoWorkflowApplicable)
             {
                 await SyncStatusFkAsync(po, POStatus.Approved);
                 po.ApprovedAt = DateTime.UtcNow;
@@ -330,10 +369,61 @@ namespace Abs.FixedAssets.Pages.Purchasing
                         OrderDate: po.OrderDate,
                         RequiredDate: po.RequiredDate,
                         ApprovedAt: po.ApprovedAt!.Value,
-                        ApproverUsername: User.Identity?.Name),
+                        ApproverUsername: approverUsername),
                     correlationId: $"po-approve-{po.Id}"
                 );
+                TempData["StatusMessage"] = $"PO {po.PONumber} fully approved ({result.ApprovalsRecorded} of {result.ApprovalsRequired}).";
             }
+            else
+            {
+                TempData["StatusMessage"] = $"Approval recorded ({result.ApprovalsRecorded} of {result.ApprovalsRequired}). Awaiting additional approver(s).";
+            }
+
+            return RedirectToPage(new { id });
+        }
+
+        public async Task<IActionResult> OnPostRejectAsync(int id, string? rejectComment = null)
+        {
+            // Sprint 2 PR #115 — reject path routed through ApprovalService.
+            var po = await _context.PurchaseOrders
+                .Include(p => p.RequestedBy)
+                .Where(p => p.Id == id && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+            if (po == null) return NotFound();
+            if (po.Status != POStatus.PendingApproval)
+            {
+                TempData["ErrorMessage"] = "Only PendingApproval POs can be rejected.";
+                return RedirectToPage(new { id });
+            }
+
+            var approverUsername = User.Identity?.Name ?? "unknown";
+            var approverRoles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+
+            var result = await _approvals.RecordDecisionAsync(
+                targetEntityType: "PurchaseOrder",
+                targetEntityId: po.Id,
+                workflowType: WorkflowType.PurchaseOrder,
+                amount: po.Total,
+                decision: ApprovalDecision.Rejected,
+                approverUserId: approverUsername,
+                approverUsername: approverUsername,
+                approverRoles: approverRoles,
+                creatorUserId: po.RequestedBy?.Username,
+                comment: rejectComment,
+                companyId: po.CompanyId);
+
+            if (result.Outcome == ApprovalOutcome.SodViolation
+                || result.Outcome == ApprovalOutcome.InsufficientRole)
+            {
+                TempData["ErrorMessage"] = result.ErrorMessage;
+                return RedirectToPage(new { id });
+            }
+
+            // Reject lands the PO back in Draft so the requester can revise + resubmit.
+            await SyncStatusFkAsync(po, POStatus.Draft);
+            po.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            TempData["StatusMessage"] = $"PO {po.PONumber} rejected and returned to Draft.";
 
             return RedirectToPage(new { id });
         }

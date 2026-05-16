@@ -161,6 +161,12 @@ builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Finance.IPeriodCloseOrchestrationService,
     Abs.FixedAssets.Services.Finance.PeriodCloseOrchestrationService>();
+// Sprint 2 PR #115: Approval Hierarchy + SoD — resolves doc to workflow
+// by (Type, amount), enforces creator-cannot-approve + role gate +
+// N-of-M-from-role, persists every decision as an ApprovalAction row.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Approvals.IApprovalService,
+    Abs.FixedAssets.Services.Approvals.ApprovalService>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
