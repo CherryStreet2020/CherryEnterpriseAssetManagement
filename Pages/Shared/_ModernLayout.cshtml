@@ -218,7 +218,7 @@
                     </div>
                 </div>
 
-                <div class="menu-group @(IsAny("/Books", "/Journals", "/UsTax", "/CCA", "/Reports", "/AccountsPayable") || IsPage("/Admin/GlAccounts") ? "expanded" : "")" data-section="finance">
+                <div class="menu-group @(IsAny("/Books", "/Journals", "/UsTax", "/CCA", "/Reports", "/AccountsPayable", "/Periods") || IsPage("/Admin/GlAccounts") ? "expanded" : "")" data-section="finance">
                     <div class="menu-group-header" data-tooltip="Finance" role="button" tabindex="0" aria-expanded="false">
                         <span class="menu-group-icon"><i class="fas fa-calculator"></i></span>
                         <span class="menu-group-title">Finance</span>
@@ -236,6 +236,10 @@
                         <a href="/Journals" class="menu-item @(IsPage("/Journals") ? "active" : "")" data-nav-route="/Journals">
                             <i class="fas fa-book menu-item-icon"></i>
                             <span>Journals</span>
+                        </a>
+                        <a href="/Periods" class="menu-item @(IsPage("/Periods") ? "active" : "")" data-nav-route="/Periods">
+                            <i class="fas fa-calendar-check menu-item-icon"></i>
+                            <span>Period Close</span>
                         </a>
                         @if (enableAP)
                         {

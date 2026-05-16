@@ -1,0 +1,223 @@
+@page
+@model Abs.FixedAssets.Pages.Periods.CloseModel
+@using Abs.FixedAssets.Services.Finance
+@{
+    ViewData["Title"] = "Close Period";
+    ViewData["TabTitle"] = "Close Period";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerSubtitle = Model.Period != null
+        ? $"{Model.Period.Name} · {Model.Period.StartDate:MMM d, yyyy} – {Model.Period.EndDate:MMM d, yyyy} · {Model.Period.Company?.Name}"
+        : "Period not found";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = Model.Period?.Status == Abs.FixedAssets.Models.PeriodStatus.Open
+            ? "Close Period"
+            : "Period Close Packet",
+        ["HeaderSubtitle"] = headerSubtitle
+    };
+
+    string StatusBadgeStyle(Abs.FixedAssets.Models.PeriodStatus s) => s switch
+    {
+        Abs.FixedAssets.Models.PeriodStatus.Open => "background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35); color: #86efac;",
+        Abs.FixedAssets.Models.PeriodStatus.Closed => "background: rgba(59,130,246,0.10); border: 1px solid rgba(59,130,246,0.35); color: #93c5fd;",
+        Abs.FixedAssets.Models.PeriodStatus.Locked => "background: rgba(168,85,247,0.10); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe;",
+        _ => "background: rgba(120,120,120,0.10); border: 1px solid rgba(120,120,120,0.35); color: #cbd5e1;"
+    };
+
+    string CheckDotStyle(CheckStatus s) => s switch
+    {
+        CheckStatus.Pass => "background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.18);",
+        CheckStatus.Warn => "background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,0.18);",
+        CheckStatus.Fail => "background: #ef4444; box-shadow: 0 0 0 4px rgba(239,68,68,0.18);",
+        _ => "background: #64748b; box-shadow: 0 0 0 4px rgba(100,116,139,0.18);"
+    };
+
+    string CheckRowAccentStyle(CheckStatus s) => s switch
+    {
+        CheckStatus.Pass => "border-left: 3px solid #22c55e;",
+        CheckStatus.Warn => "border-left: 3px solid #f59e0b;",
+        CheckStatus.Fail => "border-left: 3px solid #ef4444;",
+        _ => "border-left: 3px solid #64748b;"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<div data-csp-style="margin-top: 1rem;">
+    <a href="/Periods?CompanyId=@Model.CompanyId" data-csp-style="font-size: 0.875rem; color: var(--text-muted); text-decoration: none;">← All periods</a>
+</div>
+
+@if (Model.Notice != null)
+{
+    <div data-csp-style="margin-top: 1rem; padding: 0.875rem 1.25rem; border-radius: 8px; background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.35); color: #86efac;">
+        <strong>✓</strong> @Model.Notice
+    </div>
+}
+
+@if (Model.Error != null)
+{
+    <div data-csp-style="margin-top: 1rem; padding: 0.875rem 1.25rem; border-radius: 8px; background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.35); color: #fca5a5;">
+        <strong>⚠</strong> @Model.Error
+    </div>
+}
+
+@if (Model.Period != null)
+{
+    var badgeStyle = $"padding: 0.375rem 0.875rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; {StatusBadgeStyle(Model.Period.Status)}";
+
+    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
+        <div class="section-card-body" data-csp-style="padding: 1.5rem; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+            <div data-csp-style="flex: 1; min-width: 240px;">
+                <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Period</div>
+                <h2 data-csp-style="margin: 0.25rem 0 0; font-size: 1.75rem;">@Model.Period.Name</h2>
+                <div data-csp-style="color: var(--text-muted); margin-top: 0.25rem;">
+                    @Model.Period.StartDate.ToString("MMMM d, yyyy") – @Model.Period.EndDate.ToString("MMMM d, yyyy") · @Model.Period.DaysInPeriod days
+                </div>
+            </div>
+            <div data-csp-style="text-align: right;">
+                <span data-csp-style="@badgeStyle">@Model.Period.Status</span>
+                @if (Model.Period.ClosedAt.HasValue)
+                {
+                    <div data-csp-style="margin-top: 0.5rem; font-size: 0.8125rem; color: var(--text-muted);">
+                        Closed @Model.Period.ClosedAt.Value.ToString("yyyy-MM-dd HH:mm") UTC<br/>
+                        by <strong>@Model.Period.ClosedBy</strong>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <h3 data-csp-style="margin-top: 2rem; margin-bottom: 0.5rem;">Pre-flight checks</h3>
+    <p data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0;">
+        Every check must Pass or Warn before close. Failures can be overridden with a written reason — that reason gets captured in the AuditLog and the close packet.
+    </p>
+
+    <div data-csp-style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+        @foreach (var c in Model.Preflight)
+        {
+            var dotStyle = $"display: inline-block; width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; {CheckDotStyle(c.Status)}";
+            var rowStyle = $"display: flex; align-items: flex-start; gap: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04)); {CheckRowAccentStyle(c.Status)}";
+            <div data-csp-style="@rowStyle">
+                <span data-csp-style="@dotStyle"></span>
+                <div data-csp-style="flex: 1; min-width: 0;">
+                    <div data-csp-style="display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; flex-wrap: wrap;">
+                        <strong>@c.Title</strong>
+                        <code data-csp-style="font-size: 0.8125rem; color: var(--text-muted);">@c.ValueLabel</code>
+                    </div>
+                    <div data-csp-style="margin-top: 0.25rem; color: var(--text-muted); font-size: 0.875rem;">@c.Detail</div>
+                    @if (!string.IsNullOrEmpty(c.DrillThroughUrl))
+                    {
+                        <a href="@c.DrillThroughUrl" data-csp-style="display: inline-block; margin-top: 0.375rem; font-size: 0.8125rem;">Inspect →</a>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (Model.Period.Status == Abs.FixedAssets.Models.PeriodStatus.Open && Model.Period.EndDate <= DateTime.UtcNow.Date)
+    {
+        var ctaCardStyle = Model.HasBlockingFailures
+            ? "margin-top: 2rem; padding: 1.5rem; border-radius: 8px; background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.30);"
+            : (Model.HasWarnings
+                ? "margin-top: 2rem; padding: 1.5rem; border-radius: 8px; background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.30);"
+                : "margin-top: 2rem; padding: 1.5rem; border-radius: 8px; background: rgba(34,197,94,0.06); border: 1px solid rgba(34,197,94,0.30);");
+
+        <form method="post" asp-page-handler="Close" data-csp-style="@ctaCardStyle">
+            <input type="hidden" name="FiscalPeriodId" value="@Model.FiscalPeriodId" />
+            <input type="hidden" name="CompanyId" value="@Model.CompanyId" />
+
+            @if (Model.HasBlockingFailures)
+            {
+                <h3 data-csp-style="margin-top: 0; color: #fca5a5;">@(Model.Preflight.Count(c => c.Status == CheckStatus.Fail)) blocking failure(s)</h3>
+                <p data-csp-style="margin-bottom: 1rem; color: var(--text-muted);">
+                    To close anyway, check the override and provide a reason. Both are captured in the AuditLog and the immutable close packet.
+                </p>
+                <label data-csp-style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <input type="checkbox" name="overrideFailures" value="true" />
+                    <span>Override blocking failures</span>
+                </label>
+                <label data-csp-style="display: block; font-size: 0.8125rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Override reason</label>
+                <textarea name="overrideReason" rows="2" data-csp-style="width: 100%; padding: 0.5rem 0.625rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit; resize: vertical;" placeholder="e.g., $200 imbalance is a pre-PR-#84 orphan JournalLine; reconciliation entry will be booked next period."></textarea>
+                <button type="submit" class="btn-p btn-p--primary" data-csp-style="margin-top: 1rem; padding: 0.75rem 1.5rem; font-weight: 600;">Close with override</button>
+            }
+            else if (Model.HasWarnings)
+            {
+                <h3 data-csp-style="margin-top: 0; color: #fcd34d;">All blocking checks pass; @(Model.Preflight.Count(c => c.Status == CheckStatus.Warn)) warning(s)</h3>
+                <p data-csp-style="margin-bottom: 1rem; color: var(--text-muted);">
+                    Warnings won't block the close. They surface items worth confirming before locking the books.
+                </p>
+                <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.75rem 1.5rem; font-weight: 600;">Run sequenced close</button>
+            }
+            else
+            {
+                <h3 data-csp-style="margin-top: 0; color: #86efac;">All pre-flight checks pass</h3>
+                <p data-csp-style="margin-bottom: 1rem; color: var(--text-muted);">
+                    Close will: (1) post monthly depreciation per book, (2) re-verify trial balance, (3) re-verify GR/IR clearing, (4) lock the period, (5) snapshot the close packet on the period record.
+                </p>
+                <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.75rem 1.5rem; font-weight: 600;">Run sequenced close</button>
+            }
+        </form>
+    }
+    else if (Model.Period.Status != Abs.FixedAssets.Models.PeriodStatus.Open)
+    {
+        @if (Model.CapturedPacket != null)
+        {
+            <h3 data-csp-style="margin-top: 2rem;">Close packet</h3>
+            <p data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0;">
+                Immutable record of the sequenced close — exactly what an auditor wants to see.
+            </p>
+
+            <div class="section-card" data-csp-style="margin-top: 1rem;">
+                <div class="section-card-body" data-csp-style="padding: 1.25rem;">
+                    <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem;">
+                        <div>
+                            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Captured At</div>
+                            <div><strong>@Model.CapturedPacket.CapturedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</strong></div>
+                        </div>
+                        <div>
+                            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Captured By</div>
+                            <div><strong>@Model.CapturedPacket.CapturedBy</strong></div>
+                        </div>
+                        <div>
+                            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Override used</div>
+                            <div><strong>@(Model.CapturedPacket.OverrideUsed ? "Yes" : "No")</strong></div>
+                        </div>
+                    </div>
+                    @if (Model.CapturedPacket.OverrideUsed && !string.IsNullOrEmpty(Model.CapturedPacket.OverrideReason))
+                    {
+                        <div data-csp-style="padding: 0.75rem 1rem; border-radius: 6px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.30); margin-bottom: 1rem;">
+                            <strong>Override reason:</strong> @Model.CapturedPacket.OverrideReason
+                        </div>
+                    }
+
+                    <h4 data-csp-style="margin-bottom: 0.5rem;">Steps executed</h4>
+                    <ol data-csp-style="padding-left: 1.25rem; margin: 0;">
+                        @foreach (var step in Model.CapturedPacket.Steps)
+                        {
+                            <li data-csp-style="margin-bottom: 0.5rem;">
+                                <strong>@step.Title</strong> — @(step.Succeeded ? "✓" : "✗") @step.Detail
+                            </li>
+                        }
+                    </ol>
+                </div>
+            </div>
+        }
+
+        if (User.IsInRole("Admin") || User.IsInRole("Finance"))
+        {
+            <form method="post" asp-page-handler="Reopen" data-csp-style="margin-top: 2rem; padding: 1.25rem 1.5rem; border-radius: 8px; background: rgba(168,85,247,0.04); border: 1px dashed rgba(168,85,247,0.30);">
+                <input type="hidden" name="FiscalPeriodId" value="@Model.FiscalPeriodId" />
+                <input type="hidden" name="CompanyId" value="@Model.CompanyId" />
+                <h4 data-csp-style="margin-top: 0;">Reopen this period</h4>
+                <p data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 0.75rem;">
+                    Admin/Finance only. The depreciation entries posted at close stay in place — re-closing won't double-post.
+                </p>
+                <label data-csp-style="display: block; font-size: 0.8125rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Reason</label>
+                <textarea name="reopenReason" rows="2" required data-csp-style="width: 100%; padding: 0.5rem 0.625rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit; resize: vertical;" placeholder="e.g., late-arriving vendor invoice needs to land in this period."></textarea>
+                <button type="submit" class="btn-p btn-p--secondary" data-csp-style="margin-top: 0.75rem; padding: 0.625rem 1.25rem;">Reopen period</button>
+            </form>
+        }
+    }
+}

@@ -3181,6 +3181,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int>("PeriodNumber")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PreflightSnapshotJson")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("timestamp with time zone");
 

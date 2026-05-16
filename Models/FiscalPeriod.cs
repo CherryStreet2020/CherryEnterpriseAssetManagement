@@ -91,6 +91,12 @@ namespace Abs.FixedAssets.Models
         public string? ClosedBy { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // MP #112 — Period Close Orchestration: auditor-facing snapshot of
+        // every pre-flight check value + sequenced-step trace captured at
+        // close time. Serialized PeriodClosePacket JSON; null on periods
+        // closed before the orchestration PR and on currently-open periods.
+        public string? PreflightSnapshotJson { get; set; }
     }
 
     public enum FiscalYearStatus
