@@ -13,6 +13,38 @@
     var hasHealthScore = Model.Asset?.PredictiveHealthScore.HasValue == true;
     var healthScore = Model.Asset?.PredictiveHealthScore ?? 0;
     var healthColor = healthScore >= 80 ? "#10b981" : healthScore >= 60 ? "#f59e0b" : "#ef4444";
+
+    // PR #107 / B-22: read-mode gating helpers so the asset detail page hides
+    // the Current OEE block, Connection Status, and Current Sensor Readings
+    // when no data has been captured. Edit/Create modes still see the full
+    // form so admins can populate manually.
+    var assetForGating = Model.Asset;
+    var hasCurrentOee = assetForGating != null && (
+           assetForGating.CurrentOEE.HasValue
+        || assetForGating.CurrentAvailability.HasValue
+        || assetForGating.CurrentPerformance.HasValue
+        || assetForGating.CurrentQuality.HasValue);
+    var hasIotConnection = assetForGating != null && (
+           assetForGating.IoTEnabled
+        || assetForGating.LastIoTCommunication.HasValue
+        || !string.IsNullOrEmpty(assetForGating.IoTConnectionStatus));
+    var hasSensorReadings = assetForGating != null && (
+           assetForGating.CurrentTemperature.HasValue
+        || assetForGating.CurrentVibration.HasValue
+        || assetForGating.CurrentPressure.HasValue
+        || assetForGating.SensorReadingsLastUpdated.HasValue);
+    // PR #107 / B-23: shared empty-state banner — appears in place of the
+    // would-be-dashes panel and links to the new iot-setup help topic.
+    Func<string, object> reliabilityEmptyState = (string sectionLabel) => {
+        return Html.Raw($@"
+            <div data-csp-style=""border: 1px dashed var(--border, #44424a); padding: 1rem 1.25rem; border-radius: 8px; background: rgba(120,120,200,0.04); margin-top: 12px;"">
+                <p data-csp-style=""margin: 0; color: var(--text-muted, #b0aebd); font-size: 0.875rem; line-height: 1.5;"">
+                    <span data-csp-style=""font-weight: 600; color: var(--text-primary, #e2e8f0);"">{sectionLabel} not yet captured for this asset.</span>
+                    Configure an IoT gateway or MES feed to populate this panel automatically.
+                    <a href=""/Help/Topic?id=iot-setup"" data-csp-style=""color: #60a5fa; text-decoration: none;"">How to connect data sources →</a>
+                </p>
+            </div>");
+    };
     ViewData["ReturnUrl"] = Model.ReturnUrl;
     ViewData["FallbackPage"] = "/Assets";
     ViewData["FallbackLabel"] = "Assets";
@@ -1304,7 +1336,10 @@
                                 else { <div class="form-value"><strong>@(Model.Asset!.TargetOEE?.ToString("N1") ?? "-")%</strong></div> }
                             </div>
                         </div>
-                        @if (!Model.IsCreateMode && !isEditable)
+                        @* PR #107 / B-22: gate the Current OEE block. Read mode only shows it
+                           when at least one of the four metrics is populated. Pre-PR this rendered
+                           "-%" four times on every asset without an MES feed. *@
+                        @if (!Model.IsCreateMode && !isEditable && hasCurrentOee)
                         {
                             <div class="form-row" data-csp-style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
                                 <div class="form-group" data-csp-style="flex: 1;">
@@ -1324,6 +1359,10 @@
                                     <div class="form-value"><strong>@(Model.Asset.CurrentOEE?.ToString("N1") ?? "-")%</strong></div>
                                 </div>
                             </div>
+                        }
+                        else if (!Model.IsCreateMode && !isEditable)
+                        {
+                            @reliabilityEmptyState("Live OEE / availability readings")
                         }
                     </div>
                         </div>
@@ -1491,7 +1530,11 @@
                         </div>
                     </div>
 
-                    @if (!Model.IsCreateMode && !isEditable)
+                    @* PR #107 / B-22: Connection Status panel only renders in read
+                       mode when IoT was enabled, the asset has communicated, or has a
+                       known connection status. Pre-PR it always showed "Status: Unknown,
+                       Last Communication: -" regardless of whether any IoT was wired. *@
+                    @if (!Model.IsCreateMode && !isEditable && hasIotConnection)
                     {
                         <div class="spec-card collapsed">
                             <div class="spec-header">
@@ -1521,7 +1564,14 @@
                         </div>
                             </div>
                         </div>
+                    }
 
+                    @* PR #107 / B-22: Current Sensor Readings panel only renders when
+                       at least one temperature/vibration/pressure/timestamp value exists.
+                       The empty-state banner below covers both this and the Connection
+                       Status section when neither has data, avoiding stacked banners. *@
+                    @if (!Model.IsCreateMode && !isEditable && hasSensorReadings)
+                    {
                         <div class="spec-card collapsed">
                             <div class="spec-header">
                                 <span class="accent-dot accent-dot--cyan"></span>
@@ -1534,7 +1584,7 @@
                             <div class="form-row">
                                 <div class="form-group" data-csp-style="flex: 1;">
                                     <label class="form-label">Temperature</label>
-                                    <div class="form-value">@(Model.Asset.CurrentTemperature?.ToString("N1") ?? "-") °C</div>
+                                    <div class="form-value">@(Model.Asset!.CurrentTemperature?.ToString("N1") ?? "-") °C</div>
                                 </div>
                                 <div class="form-group" data-csp-style="flex: 1;">
                                     <label class="form-label">Vibration</label>
@@ -1552,6 +1602,11 @@
                         </div>
                             </div>
                         </div>
+                    }
+                    else if (!Model.IsCreateMode && !isEditable && !hasIotConnection)
+                    {
+                        @* Neither IoT connection nor sensor readings: single empty-state. *@
+                        @reliabilityEmptyState("Live IoT readings")
                     }
                 </div>
 
