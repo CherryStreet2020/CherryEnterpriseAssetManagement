@@ -2,6 +2,35 @@
 @{
     var isEditable = Model.IsEditMode || Model.IsCreateMode;
     var activeSubtab = Context.Request.Query["subtab"].FirstOrDefault() ?? "mes";
+
+    // PR #107 / B-22: gate the read-mode "Current ___" panels behind a
+    // has-any-data check so assets that aren't wired to an IoT/MES feed
+    // don't render walls of "-" placeholder values that imply tracking
+    // we don't actually do. Edit mode keeps the full form so admins can
+    // populate manually for testing or migration.
+    var hasCurrentOee = Model.Asset.CurrentOEE.HasValue
+        || Model.Asset.CurrentAvailability.HasValue
+        || Model.Asset.CurrentPerformance.HasValue
+        || Model.Asset.CurrentQuality.HasValue;
+    var hasIotConnection = Model.Asset.IoTEnabled
+        || Model.Asset.LastIoTCommunication.HasValue
+        || !string.IsNullOrEmpty(Model.Asset.IoTConnectionStatus);
+    var hasSensorReadings = Model.Asset.CurrentTemperature.HasValue
+        || Model.Asset.CurrentVibration.HasValue
+        || Model.Asset.CurrentPressure.HasValue
+        || Model.Asset.SensorReadingsLastUpdated.HasValue;
+    // PR #107 / B-23: shared empty-state banner — appears in place of a
+    // would-be-dashes panel when nothing is captured and we're in read mode.
+    Func<string, object> reliabilityEmptyState = (string sectionLabel) => {
+        return Html.Raw($@"
+            <div class=""form-section"" data-csp-style=""border: 1px dashed var(--border, #44424a); padding: 1rem 1.25rem; border-radius: 8px; background: rgba(120,120,200,0.04);"">
+                <p data-csp-style=""margin: 0; color: var(--text-muted, #b0aebd); font-size: 0.875rem;"">
+                    <span data-csp-style=""font-weight: 600; color: var(--text-primary, #e2e8f0);"">{sectionLabel} not yet captured for this asset.</span>
+                    Configure an IoT gateway or MES feed to populate this panel automatically.
+                    <a href=""/Help/Topic?id=iot-setup"" data-csp-style=""color: #60a5fa;"">How to connect data sources →</a>
+                </p>
+            </div>");
+    };
 }
 
 @await Html.PartialAsync("_TabNav", new ViewDataDictionary(ViewData) {
@@ -126,7 +155,10 @@
                 else { <div class="form-value"><strong>@(Model.Asset.TargetOEE?.ToString("N1") ?? "-")%</strong></div> }
             </div>
         </div>
-        @if (!Model.IsCreateMode && !isEditable)
+        @* PR #107 / B-22: only render Current OEE block when at least one of
+           the four metrics is populated. Pre-PR, an asset with no MES feed
+           still rendered "- %" four times — a hallucination of tracked data. *@
+        @if (!Model.IsCreateMode && !isEditable && hasCurrentOee)
         {
             <div class="form-row" data-csp-style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
                 <div class="form-group" data-csp-style="flex: 1;">
@@ -145,6 +177,12 @@
                     <label class="form-label">Current OEE</label>
                     <div class="form-value"><strong>@(Model.Asset.CurrentOEE?.ToString("N1") ?? "-")%</strong></div>
                 </div>
+            </div>
+        }
+        else if (!Model.IsCreateMode && !isEditable)
+        {
+            <div data-csp-style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+                @reliabilityEmptyState("Live OEE / availability readings")
             </div>
         }
     </div>
@@ -280,7 +318,10 @@
         </div>
     </div>
 
-    @if (!Model.IsCreateMode && !isEditable)
+    @* PR #107 / B-22: Connection Status panel only shows when IoT was enabled
+       on the asset OR there's been at least one communication. Otherwise the
+       panel was a "Unknown / -" stub that misled readers. *@
+    @if (!Model.IsCreateMode && !isEditable && hasIotConnection)
     {
         <div class="form-section">
             <h4 class="form-section-title">Connection Status</h4>
@@ -301,7 +342,13 @@
                 </div>
             </div>
         </div>
+    }
 
+    @* PR #107 / B-22: same treatment for Current Sensor Readings — render the
+       grid only when at least one reading or the SensorReadingsLastUpdated
+       timestamp is present. Show the shared empty-state otherwise. *@
+    @if (!Model.IsCreateMode && !isEditable && hasSensorReadings)
+    {
         <div class="form-section">
             <h4 class="form-section-title">Current Sensor Readings</h4>
             <div class="form-row">
@@ -323,6 +370,12 @@
                 </div>
             </div>
         </div>
+    }
+    else if (!Model.IsCreateMode && !isEditable && !hasIotConnection)
+    {
+        @* Single empty-state when neither the connection nor any sensor reading
+           is populated. Avoids stacking two banners. *@
+        @reliabilityEmptyState("Live IoT readings")
     }
 </div>
 
