@@ -201,6 +201,13 @@ namespace Abs.FixedAssets.Services.Seeding
             //    into Asset.Current* columns for the legacy Plant Floor tiles.
             await BackfillAssetCacheAsync(allReadings, assets);
 
+            // 7.5) PR #117.5: seed storyline-specific maintenance history so
+            //      the 3 storyline assets have narrative-aligned corrective
+            //      WOs + an overdue WO. Combined with their sensor breaches,
+            //      this guarantees they all land in the Critical band on the
+            //      recompute below.
+            await SeedStorylineMaintenanceAsync(storylineFlag, assets, rng);
+
             // 8) Recompute HealthScore for every asset from the real data.
             var nHealth = await _health.RecomputeAllAsync();
             _logger.LogInformation("IndustrialAssetSeeder: recomputed HealthScore for {Count} assets.", nHealth);
@@ -247,6 +254,126 @@ namespace Abs.FixedAssets.Services.Seeding
             await _db.SaveChangesAsync();
             _logger.LogInformation("IndustrialAssetSeeder: backfilled Asset.Current* cache for {Count} assets.", assets.Count);
         }
+
+        // -------------------------------------------------------------------
+        // PR #117.5 — Storyline-specific maintenance history.
+        //
+        // Each storyline asset gets a small set of corrective WOs that match
+        // the failure narrative being told on the sensor side. The penalty
+        // math: 2 completed Corrective WOs in last 60d = 12 pts; 1 Overdue
+        // WO = 10 pts; sensor breaches = capped 40 pts. Total ≈ 62 pts →
+        // HealthScore ≈ 38 → solidly Critical.
+        //
+        // Idempotent: skipped when matching storyline WO already exists
+        // (filtered by WorkOrderNumber prefix "STORY-{assetId}-").
+        // -------------------------------------------------------------------
+
+        private static readonly Dictionary<Storyline, (string Title1, string Title2, string OverdueTitle)>
+            StorylineNarratives = new()
+            {
+                [Storyline.SpindleBearing] = (
+                    "Spindle bearing vibration alarm — replaced upper bearing race + relubed",
+                    "Spindle bearing vibration alarm — retorqued housing bolts + balanced rotor",
+                    "Spindle taper inspection PM (overdue 12d)"),
+                [Storyline.ArcVoltageDrift] = (
+                    "Arc voltage drift on weld station — replaced contact tip + cleaned wire-feed drive rolls",
+                    "Weld quality reject batch — checked ground clamp, replaced gas diffuser",
+                    "Contact tip + nozzle replacement PM (overdue 18d)"),
+                [Storyline.ServoOverheat] = (
+                    "Axis-3 servo thermal overload — replaced drive cooling fan + cleared coolant tray",
+                    "Joint 3 lubrication low — regrease cycle + harmonic gear inspection",
+                    "Battery backup + drive firmware update PM (overdue 22d)"),
+            };
+
+        private async Task SeedStorylineMaintenanceAsync(
+            Dictionary<int, Storyline> storylineFlag,
+            List<Asset> assets,
+            Random rng)
+        {
+            if (storylineFlag.Count == 0) return;
+
+            var now = DateTime.UtcNow;
+            var assetById = assets.ToDictionary(a => a.Id);
+
+            var storylineAssetIds = storylineFlag.Keys.ToList();
+            var existing = await _db.MaintenanceEvents
+                .Where(m => storylineAssetIds.Contains(m.AssetId)
+                         && m.WorkOrderNumber != null
+                         && m.WorkOrderNumber.StartsWith("STORY-"))
+                .Select(m => m.AssetId)
+                .ToListAsync();
+            var alreadySeeded = new HashSet<int>(existing);
+
+            var toAdd = new List<MaintenanceEvent>();
+            foreach (var (assetId, storyline) in storylineFlag)
+            {
+                if (alreadySeeded.Contains(assetId)) continue;
+                if (!StorylineNarratives.TryGetValue(storyline, out var n)) continue;
+                if (!assetById.TryGetValue(assetId, out var asset)) continue;
+
+                // Corrective WO #1 — completed ~45 days ago (recent enough to count)
+                toAdd.Add(BuildCorrectiveWo(
+                    asset, n.Title1, scheduledDaysAgo: 50, completedDaysAgo: 45,
+                    laborHours: 6.5m, laborCost: 487.50m, partsCost: rng.Next(120, 380),
+                    techName: "MAINTENANCE TECH 1",
+                    seq: 1));
+
+                // Corrective WO #2 — completed ~15 days ago (more recent, same failure mode resurfacing)
+                toAdd.Add(BuildCorrectiveWo(
+                    asset, n.Title2, scheduledDaysAgo: 18, completedDaysAgo: 15,
+                    laborHours: 3.0m, laborCost: 225.00m, partsCost: rng.Next(80, 260),
+                    techName: "MAINTENANCE TECH 2",
+                    seq: 2));
+
+                // Overdue PM — scheduled in the past, status=Overdue
+                toAdd.Add(new MaintenanceEvent
+                {
+                    AssetId = asset.Id,
+                    Type = MaintenanceType.Preventative,
+                    Description = n.OverdueTitle,
+                    ScheduledDate = now.AddDays(-rng.Next(12, 25)).Date,
+                    CompletedDate = null,
+                    Status = MaintenanceStatus.Overdue,
+                    Priority = MaintenancePriority.High,
+                    EstimatedCost = 180m,
+                    WorkOrderNumber = $"STORY-{asset.Id}-PM-OVERDUE",
+                });
+            }
+
+            if (toAdd.Count == 0)
+            {
+                _logger.LogInformation("IndustrialAssetSeeder: storyline maintenance already seeded.");
+                return;
+            }
+
+            _db.MaintenanceEvents.AddRange(toAdd);
+            await _db.SaveChangesAsync();
+            _logger.LogInformation("IndustrialAssetSeeder: seeded {Count} storyline WOs ({Assets} storyline assets).",
+                toAdd.Count, storylineFlag.Count);
+        }
+
+        private static MaintenanceEvent BuildCorrectiveWo(
+            Asset asset, string description,
+            int scheduledDaysAgo, int completedDaysAgo,
+            decimal laborHours, decimal laborCost, decimal partsCost,
+            string techName, int seq) => new()
+            {
+                AssetId = asset.Id,
+                Type = MaintenanceType.Corrective,
+                Description = description,
+                ScheduledDate = DateTime.UtcNow.AddDays(-scheduledDaysAgo).Date,
+                CompletedDate = DateTime.UtcNow.AddDays(-completedDaysAgo).Date,
+                Status = MaintenanceStatus.Completed,
+                Priority = MaintenancePriority.High,
+                EstimatedCost = Math.Round(laborCost + partsCost + 50m, 0),
+                ActualCost = Math.Round(laborCost + partsCost, 2),
+                LaborCost = laborCost,
+                PartsCost = partsCost,
+                LaborHours = laborHours,
+                DowntimeHours = laborHours + 1.5m,
+                TechnicianName = techName,
+                WorkOrderNumber = $"STORY-{asset.Id}-CORR-{seq}",
+            };
 
         // -------------------------------------------------------------------
         // Reading generation
@@ -313,18 +440,27 @@ namespace Abs.FixedAssets.Services.Seeding
             Asset asset, SensorProfile profile, Storyline storyline, DateTime now, Random rng, List<AssetSensorReading> sink)
         {
             // 15-min samples × 7 days = 672 readings, with a rising trend
-            // toward (and through) the critical threshold near the end of
-            // the window. That's "the failure unfolding in real time" on
-            // the Plant Floor sparkline.
+            // toward (and PAST) the critical threshold near the end of the
+            // window. That's "the failure unfolding in real time" on the
+            // Plant Floor sparkline.
+            //
+            // PR #117.5: the previous version targeted the critical threshold
+            // exactly. Strict-> IsBreach check + cubic ramp meant only ~2-3
+            // readings actually breached, which wasn't enough to drive
+            // Lincoln Power Wave S350 into the Critical band. Fix: overshoot
+            // the threshold by 30% of the normal range so the last ~5% of
+            // the window (≈30+ readings) genuinely breach.
             const int sampleMinutes = 15;
             int samples = (int)(TimeSpan.FromDays(7).TotalMinutes / sampleMinutes);
 
-            var baseValue = profile.BreachOnHighSide
-                ? (profile.NormalMin + profile.NormalMax) / 2m
-                : (profile.NormalMin + profile.NormalMax) / 2m;
-            var target = profile.CriticalThreshold ?? (profile.BreachOnHighSide
-                ? profile.NormalMax + (profile.NormalMax - profile.NormalMin) * 0.3m
-                : profile.NormalMin - (profile.NormalMax - profile.NormalMin) * 0.3m);
+            var baseValue = (profile.NormalMin + profile.NormalMax) / 2m;
+            var rangeSize = profile.NormalMax - profile.NormalMin;
+            var overshoot = rangeSize * 0.3m;
+            var thresholdAnchor = profile.CriticalThreshold ??
+                (profile.BreachOnHighSide ? profile.NormalMax : profile.NormalMin);
+            var target = profile.BreachOnHighSide
+                ? thresholdAnchor + overshoot
+                : thresholdAnchor - overshoot;
 
             for (int i = samples - 1; i >= 0; i--)
             {
