@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
-using Abs.FixedAssets.Services.Seeding;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,21 +17,22 @@ namespace Abs.FixedAssets.Pages.Plant
     // List of plants (Sites) with overall health rollup per plant.
     // Click a plant card → /Plant/Floor/{siteId} for the asset-grid view.
     //
-    // Auto-bootstraps health data on first hit if every asset's
-    // PredictiveHealthScore is null — so the demo lights up immediately
-    // without admin clicks.
+    // PR #117.8 — performance fix.
+    // The seeder bootstrap that used to live inside OnGetAsync has moved
+    // to Program.cs as a one-shot startup pass. This page now only READS
+    // — it never mutates data, never invokes the seeder, never blocks on
+    // sensor history generation. The Plant Index load is now a pure
+    // 2-query path (sites + grouped asset rollup), targeting < 500ms.
     [Authorize]
     public class IndexModel : PageModel
     {
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenant;
-        private readonly IIndustrialAssetSeeder _seeder;
 
-        public IndexModel(AppDbContext db, ITenantContext tenant, IIndustrialAssetSeeder seeder)
+        public IndexModel(AppDbContext db, ITenantContext tenant)
         {
             _db = db;
             _tenant = tenant;
-            _seeder = seeder;
         }
 
         public sealed record PlantRow(
@@ -51,11 +51,11 @@ namespace Abs.FixedAssets.Pages.Plant
         public int TotalAssetsAcrossPlants { get; private set; }
         public int TotalRedAssets { get; private set; }
 
-        public async Task<IActionResult> OnGetAsync(bool reseed = false)
+        public async Task<IActionResult> OnGetAsync()
         {
-            // Bootstrap health data on first visit so the demo lights up.
-            await _seeder.SeedAsync(forceReseed: reseed);
-
+            // PR #117.8 — read-only path. Industrial sensor + storyline seed
+            // runs once at Program.cs startup; this handler no longer mutates
+            // or bootstraps. Two queries: sites + grouped asset rollup.
             var sites = await _db.Sites
                 .Where(s => s.Status == SiteStatus.Active
                          && _tenant.VisibleCompanyIds.Contains(s.CompanyId))

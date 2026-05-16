@@ -121,18 +121,91 @@ namespace Abs.FixedAssets.Services.Reliability
 
         public async Task<int> RecomputeAllAsync()
         {
-            var ids = await _db.Assets
+            // PR #117.8 — bulk recompute.
+            //
+            // The previous implementation looped over every asset and called
+            // ComputeAsync per id. ComputeAsync runs 4 queries (asset load +
+            // 3 counts) plus a SaveChanges, so for 320 assets that's ~1,600
+            // round trips and 320 SaveChanges — the dominant cost behind
+            // the seeder's "this takes forever" complaint.
+            //
+            // This implementation does the entire recompute in 4 queries
+            // total: load all active assets once, then 3 grouped-count
+            // queries (sensor breaches, corrective WOs, overdue WOs) keyed
+            // by AssetId. Penalties are computed in memory and persisted
+            // with a single SaveChangesAsync. ~99.7% query reduction.
+            //
+            // Math, thresholds, and caps are unchanged — this is purely
+            // a database-roundtrip optimization, not a scoring change.
+            var now = DateTime.UtcNow;
+            var sevenDays = now.AddDays(-7);
+            var ninetyDays = now.AddDays(-90);
+
+            // 1) Load all active assets.
+            var assets = await _db.Assets
                 .Where(a => a.Active)
-                .Select(a => a.Id)
                 .ToListAsync();
-            int n = 0;
-            foreach (var id in ids)
+            if (assets.Count == 0)
             {
-                await ComputeAsync(id);
-                n++;
+                _logger.LogInformation("AssetHealthService: no active assets to recompute.");
+                return 0;
             }
-            _logger.LogInformation("AssetHealthService: recomputed HealthScore for {Count} assets.", n);
-            return n;
+            var assetIds = assets.Select(a => a.Id).ToList();
+
+            // 2) Sensor breach counts (last 7 days) per asset.
+            var sensorBreachCounts = await _db.AssetSensorReadings
+                .Where(r => assetIds.Contains(r.AssetId)
+                         && r.IsOutOfSpec
+                         && r.ReadingAt >= sevenDays)
+                .GroupBy(r => r.AssetId)
+                .Select(g => new { AssetId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AssetId, x => x.Count);
+
+            // 3) Completed corrective WO counts (last 90 days) per asset.
+            var correctiveCounts = await _db.MaintenanceEvents
+                .Where(m => assetIds.Contains(m.AssetId)
+                         && m.Type == MaintenanceType.Corrective
+                         && m.CompletedDate != null
+                         && m.CompletedDate >= ninetyDays)
+                .GroupBy(m => m.AssetId)
+                .Select(g => new { AssetId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AssetId, x => x.Count);
+
+            // 4) Overdue WO counts per asset.
+            var overdueCounts = await _db.MaintenanceEvents
+                .Where(m => assetIds.Contains(m.AssetId)
+                         && (m.Status == MaintenanceStatus.Overdue
+                          || (m.ScheduledDate < now
+                              && (m.Status == MaintenanceStatus.Scheduled
+                               || m.Status == MaintenanceStatus.InProgress
+                               || m.Status == MaintenanceStatus.OnHold))))
+                .GroupBy(m => m.AssetId)
+                .Select(g => new { AssetId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AssetId, x => x.Count);
+
+            // 5) Compute and mutate in-memory.
+            foreach (var asset in assets)
+            {
+                var sb = sensorBreachCounts.GetValueOrDefault(asset.Id, 0);
+                var cc = correctiveCounts.GetValueOrDefault(asset.Id, 0);
+                var oc = overdueCounts.GetValueOrDefault(asset.Id, 0);
+
+                var sensorPenalty = Math.Min(SensorPenaltyCap, sb * 2m);
+                var correctivePenalty = Math.Min(CorrectivePenaltyCap, cc * CorrectivePerEvent);
+                var overduePenalty = Math.Min(OverduePenaltyCap, oc * OverduePerEvent);
+
+                var score = Math.Max(0m, 100m - sensorPenalty - correctivePenalty - overduePenalty);
+                asset.PredictiveHealthScore = Math.Round(score, 2);
+                asset.HealthScoreLastCalculated = now;
+            }
+
+            // 6) Single SaveChanges for the whole batch.
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "AssetHealthService: recomputed HealthScore for {Count} assets in 4 queries + 1 SaveChanges.",
+                assets.Count);
+            return assets.Count;
         }
     }
 }

@@ -555,6 +555,27 @@ using (var scope = app.Services.CreateScope())
         Console.WriteLine($"[Startup] WARNING: Fiscal calendar coverage failed: {ex.Message}");
     }
 
+    // PR #117.8 — Industrial sensor + storyline seed.
+    //
+    // Moved out of Pages/Plant/Index.cshtml.cs::OnGetAsync, which was
+    // calling SeedAsync on EVERY page hit and adding 6+ seconds to the
+    // Plant Index load. The seeder is idempotent (PR #117.6 simplified
+    // it to a single-pass single-SaveChanges design at ~5K rows), so
+    // running it once per startup is safe and keeps the demo lighting
+    // up the first time a fresh DB is hit. Wrapped in try/catch so a
+    // seeder failure can never block the app from coming up.
+    try
+    {
+        var industrialSeeder = scope.ServiceProvider
+            .GetRequiredService<Abs.FixedAssets.Services.Seeding.IIndustrialAssetSeeder>();
+        await industrialSeeder.SeedAsync();
+        Console.WriteLine("[Startup] Industrial sensor + storyline seed completed");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: Industrial seeder failed: {ex.Message}");
+    }
+
         } // end: if (seedLockAcquired)
     }
     finally

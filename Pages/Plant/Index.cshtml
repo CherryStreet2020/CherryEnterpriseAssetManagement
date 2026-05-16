@@ -85,7 +85,8 @@ else
         }
     </div>
 
-    <div data-csp-style="margin-top: 1.5rem; text-align: right;">
-        <a href="?reseed=true" data-csp-style="font-size: 0.75rem; color: var(--text-muted);">Refresh demo health data ↻</a>
-    </div>
+    @* PR #117.8 — the "Refresh demo health data" link was removed because
+       the page no longer re-seeds on load (that work moved to Program.cs
+       startup). A proper admin re-seed surface will land alongside the
+       new sensor architecture in PR #118 (/Admin/Snapshots / /Admin/Seed). *@
 }
