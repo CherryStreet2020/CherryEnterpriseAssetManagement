@@ -64,6 +64,14 @@ namespace Abs.FixedAssets.Models
         AccountsPayable = 300,
         Cash = 310,
         PurchasePriceVariance = 320,
+        // PR #102 (B-09): tax + freight on the AP side. Header invoice
+        // amounts in TaxAmount + ShippingAmount used to vanish at posting
+        // time — the JE only debited line subtotals, leaving the CR AP
+        // line short of invoice.Total. Adding these accounts lets the
+        // approval JE include the header tax + freight as DR lines so
+        // CR AP matches the real liability.
+        SalesTaxRecoverable = 330,
+        FreightExpense = 340,
 
         // CIP side
         CipPending = 400,                  // Construction-in-progress accumulator

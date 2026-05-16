@@ -156,6 +156,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingSe
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
 builder.Services.AddScoped<DepreciationBackfillService>();
+// PR #102 (B-10): Capital Improvement → JE service. Wired into
+// Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
+builder.Services.AddScoped<ICapitalImprovementPostingService, CapitalImprovementPostingService>();
 builder.Services.AddScoped<HistoricJournalBackfillService>();
 builder.Services.AddScoped<CcaService>();
 builder.Services.AddScoped<CcaBackfillService>();

@@ -157,6 +157,30 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 // else handled in the credit-line section below
             }
 
+            // PR #102 (B-09): Tax + Freight from the invoice header. Pre-fix,
+            // invoice.TaxAmount and invoice.ShippingAmount were stored on the
+            // header but never debited — so totalCredit (sum of line totals)
+            // was strictly less than invoice.Total (= subtotal + tax + freight).
+            // The PR #84 balance guard refused to save such JEs entirely, which
+            // meant every invoice with non-zero tax or freight failed at the
+            // approval handler with a cryptic balance error. Adding explicit
+            // DR lines for tax + freight and bumping totalCredit by the same
+            // amount keeps the JE balanced AND posts the full liability to AP.
+            // The tax account is conceptually "recoverable" for now; PR #130
+            // (tax matrix) refines for jurisdictions and non-recoverable rules.
+            if (invoice.TaxAmount > 0m)
+            {
+                var taxAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.SalesTaxRecoverable, new GlResolveContext());
+                debitTotals[taxAccount] = debitTotals.GetValueOrDefault(taxAccount, 0m) + invoice.TaxAmount;
+                totalCredit += invoice.TaxAmount;
+            }
+            if (invoice.ShippingAmount > 0m)
+            {
+                var freightAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.FreightExpense, new GlResolveContext());
+                debitTotals[freightAccount] = debitTotals.GetValueOrDefault(freightAccount, 0m) + invoice.ShippingAmount;
+                totalCredit += invoice.ShippingAmount;
+            }
+
             var apAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext());
 
             var je = new JournalEntry
