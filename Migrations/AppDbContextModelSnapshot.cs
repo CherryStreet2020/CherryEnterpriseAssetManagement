@@ -70,6 +70,9 @@ namespace Abs.FixedAssets.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("CompanyId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -104,6 +107,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<string>("Scopes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 

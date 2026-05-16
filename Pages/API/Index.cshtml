@@ -38,8 +38,11 @@
             </svg>
             API Keys
         </h3>
-        <form method="post" asp-page-handler="CreateKey" data-csp-style="display: flex; gap: 0.5rem;">
+        <form method="post" asp-page-handler="CreateKey" data-csp-style="display: flex; gap: 0.5rem; align-items: center;">
             <input type="text" name="keyName" placeholder="Key name" class="form-control" data-csp-style="width: 200px;" required />
+            @* PR #101: optional company-scope narrowing. Empty = the key reads every company visible to the tenant. *@
+            <label data-csp-style="font-size: 0.85rem; color: var(--lux-text-muted, #6b7280);" for="apiKeyCompanyId">Company scope</label>
+            <select id="apiKeyCompanyId" name="companyId" class="form-control" data-csp-style="width: 240px;" asp-items="Model.CompanyOptions"></select>
             <button type="submit" class="btn-p btn-p--primary">Generate Key</button>
         </form>
     </div>
@@ -51,6 +54,8 @@
                     <tr>
                         <th>Name</th>
                         <th>Prefix</th>
+                        <th>Tenant</th>
+                        <th>Company Scope</th>
                         <th>Created</th>
                         <th>Last Used</th>
                         <th>Status</th>
@@ -63,6 +68,26 @@
                         <tr>
                             <td><strong>@key.Name</strong></td>
                             <td><code>@key.KeyPrefix***</code></td>
+                            <td>
+                                @if (key.TenantId == 0)
+                                {
+                                    <span class="badge badge-warning" title="Pre-PR-#101 key; re-issue required">Needs reissue</span>
+                                }
+                                else
+                                {
+                                    <span>@key.TenantId</span>
+                                }
+                            </td>
+                            <td>
+                                @if (key.CompanyId.HasValue)
+                                {
+                                    <span>@(Model.CompanyNames.TryGetValue(key.CompanyId.Value, out var n) ? n : $"Company #{key.CompanyId}")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-theme-muted">All visible</span>
+                                }
+                            </td>
                             <td>@key.CreatedAt.ToString("MMM dd, yyyy")</td>
                             <td>@(key.LastUsedAt?.ToString("MMM dd HH:mm") ?? "Never")</td>
                             <td>

@@ -14,20 +14,46 @@ public class AssetsApiController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly ApiService _apiService;
+    private readonly ITenantContext _tenantContext;
 
-    public AssetsApiController(AppDbContext context, ApiService apiService)
+    public AssetsApiController(AppDbContext context, ApiService apiService, ITenantContext tenantContext)
     {
         _context = context;
         _apiService = apiService;
+        _tenantContext = tenantContext;
     }
 
-    private async Task<ApiKey?> ValidateApiKey()
+    // PR #101: validates the X-API-Key header AND binds the request's tenant
+    // context to the key's TenantId/CompanyId. Returns (key, null) on success
+    // or (null, errorResult) which the caller must return verbatim. Keys
+    // issued before PR #101 carry TenantId == 0 and are refused — admins must
+    // re-issue them. Every query in this controller MUST go through this gate
+    // and scope by _tenantContext.VisibleCompanyIds; querying _context.Assets
+    // without that filter is the cross-tenant leak this PR closes.
+    private async Task<(ApiKey? key, IActionResult? error)> RequireApiKeyWithTenantScope()
     {
         if (!Request.Headers.TryGetValue("X-API-Key", out var apiKeyHeader))
-        {
-            return null;
-        }
-        return await _apiService.ValidateKeyAsync(apiKeyHeader.ToString());
+            return (null, Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" }));
+
+        var key = await _apiService.ValidateKeyAsync(apiKeyHeader.ToString());
+        if (key == null)
+            return (null, Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" }));
+
+        if (key.TenantId == 0)
+            return (null, StatusCode(403, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "This API key was issued before tenant scoping was enforced. Re-issue the key in your admin console — pre-#101 keys do not carry a tenant binding and are refused for safety."
+            }));
+
+        // Set tenant context for downstream queries to scope correctly.
+        _tenantContext.SetContext(key.TenantId, key.CompanyId, null);
+        if (key.CompanyId.HasValue)
+            _tenantContext.SetHierarchyContext(key.CompanyId, new List<int> { key.CompanyId.Value });
+        else
+            _tenantContext.SetHierarchyContext(null, new List<int>());
+
+        return (key, null);
     }
 
     [HttpGet]
@@ -37,13 +63,16 @@ public class AssetsApiController : ControllerBase
         [FromQuery] string? location = null,
         [FromQuery] string? status = null)
     {
-        var apiKey = await ValidateApiKey();
-        if (apiKey == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
-        }
+        var (apiKey, error) = await RequireApiKeyWithTenantScope();
+        if (error != null) return error;
 
-        var query = _context.Assets.AsQueryable();
+        var visible = _tenantContext.VisibleCompanyIds;
+        var tenantId = apiKey!.TenantId;
+        var hasCompanyScope = apiKey.CompanyId.HasValue;
+        var query = hasCompanyScope
+            ? _context.Assets.Where(a => a.CompanyId.HasValue && visible.Contains(a.CompanyId.Value))
+            : _context.Assets.Where(a => a.CompanyId.HasValue
+                && _context.Companies.Any(c => c.Id == a.CompanyId.Value && c.TenantId == tenantId));
 
         if (!string.IsNullOrEmpty(location))
             query = query.Where(a => a.LocationRef != null && a.LocationRef.Name == location);
@@ -70,13 +99,21 @@ public class AssetsApiController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetAsset(int id)
     {
-        var apiKey = await ValidateApiKey();
-        if (apiKey == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
-        }
+        var (apiKey, error) = await RequireApiKeyWithTenantScope();
+        if (error != null) return error;
 
-        var asset = await _context.Assets.FindAsync(id);
+        var visible = _tenantContext.VisibleCompanyIds;
+        var tenantId = apiKey!.TenantId;
+        var hasCompanyScope = apiKey.CompanyId.HasValue;
+        var asset = hasCompanyScope
+            ? await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue && visible.Contains(a.CompanyId.Value))
+                .FirstOrDefaultAsync()
+            : await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue
+                    && _context.Companies.Any(c => c.Id == a.CompanyId.Value && c.TenantId == tenantId))
+                .FirstOrDefaultAsync();
+
         if (asset == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
@@ -140,18 +177,26 @@ public class AssetsApiController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateAsset([FromBody] CreateAssetRequest request)
     {
-        var apiKey = await ValidateApiKey();
-        if (apiKey == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
-        }
+        var (apiKey, error) = await RequireApiKeyWithTenantScope();
+        if (error != null) return error;
 
         if (string.IsNullOrEmpty(request.AssetNumber) || string.IsNullOrEmpty(request.Description))
         {
             return BadRequest(new ApiResponse<object> { Success = false, Message = "AssetNumber and Description are required" });
         }
 
-        var existing = await _context.Assets.AnyAsync(a => a.AssetNumber == request.AssetNumber);
+        // AssetNumber uniqueness is scoped per-company. Check existing only
+        // within the key's visible companies — otherwise a key for Tenant B
+        // could be denied creating "FA-1001" because Tenant A already has one.
+        var visible = _tenantContext.VisibleCompanyIds;
+        var tenantId = apiKey!.TenantId;
+        var hasCompanyScope = apiKey.CompanyId.HasValue;
+        var existing = hasCompanyScope
+            ? await _context.Assets.AnyAsync(a => a.AssetNumber == request.AssetNumber
+                && a.CompanyId.HasValue && visible.Contains(a.CompanyId.Value))
+            : await _context.Assets.AnyAsync(a => a.AssetNumber == request.AssetNumber
+                && a.CompanyId.HasValue
+                && _context.Companies.Any(c => c.Id == a.CompanyId.Value && c.TenantId == tenantId));
         if (existing)
         {
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Asset number already exists" });
@@ -168,7 +213,10 @@ public class AssetsApiController : ControllerBase
             SalvageValue = request.SalvageValue,
             UsefulLifeMonths = request.UsefulLifeMonths,
             Department = request.Department,
-            Status = AssetStatus.Active
+            Status = AssetStatus.Active,
+            // PR #101: stamp the asset with the key's company scope so it
+            // lands inside the same boundary the key reads from.
+            CompanyId = apiKey.CompanyId
         };
 
         _context.Assets.Add(asset);
@@ -185,11 +233,8 @@ public class AssetsApiController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateAsset(int id, [FromBody] UpdateAssetRequest request)
     {
-        var apiKey = await ValidateApiKey();
-        if (apiKey == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
-        }
+        var (apiKey, error) = await RequireApiKeyWithTenantScope();
+        if (error != null) return error;
 
         var ifMatch = Request.Headers.IfMatch.ToString();
         if (string.IsNullOrWhiteSpace(ifMatch))
@@ -205,7 +250,17 @@ public class AssetsApiController : ControllerBase
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Malformed If-Match header." });
         }
 
-        var asset = await _context.Assets.FindAsync(id);
+        var visible = _tenantContext.VisibleCompanyIds;
+        var tenantId = apiKey!.TenantId;
+        var hasCompanyScope = apiKey.CompanyId.HasValue;
+        var asset = hasCompanyScope
+            ? await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue && visible.Contains(a.CompanyId.Value))
+                .FirstOrDefaultAsync()
+            : await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue
+                    && _context.Companies.Any(c => c.Id == a.CompanyId.Value && c.TenantId == tenantId))
+                .FirstOrDefaultAsync();
         if (asset == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
@@ -262,13 +317,20 @@ public class AssetsApiController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteAsset(int id)
     {
-        var apiKey = await ValidateApiKey();
-        if (apiKey == null)
-        {
-            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Invalid or missing API key" });
-        }
+        var (apiKey, error) = await RequireApiKeyWithTenantScope();
+        if (error != null) return error;
 
-        var asset = await _context.Assets.FindAsync(id);
+        var visible = _tenantContext.VisibleCompanyIds;
+        var tenantId = apiKey!.TenantId;
+        var hasCompanyScope = apiKey.CompanyId.HasValue;
+        var asset = hasCompanyScope
+            ? await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue && visible.Contains(a.CompanyId.Value))
+                .FirstOrDefaultAsync()
+            : await _context.Assets
+                .Where(a => a.Id == id && a.CompanyId.HasValue
+                    && _context.Companies.Any(c => c.Id == a.CompanyId.Value && c.TenantId == tenantId))
+                .FirstOrDefaultAsync();
         if (asset == null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Asset not found" });
