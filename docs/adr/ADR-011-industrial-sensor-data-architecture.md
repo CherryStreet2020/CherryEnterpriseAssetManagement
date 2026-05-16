@@ -8,6 +8,37 @@
 **Supersedes:** the implicit "single `AssetSensorReadings` table is sufficient" decision baked into PR #117.1.
 **Related:** ADR-001 (Receiving accrual), ADR-003 (GL account resolver).
 
+## What changed in v0.3 (deploy-day addendum, 2026-05-16 evening)
+
+PR #118.1 deployed and crashed on the first migration apply — the Replit Agent caught a real architectural constraint I'd missed: **Replit Postgres ships the Apache 2.0 build of TimescaleDB 2.13, not the Community (TSL) build.** Several core features of v0.2's design are TSL-only:
+
+- `CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous) AS ...` (continuous aggregates)
+- `SELECT add_continuous_aggregate_policy(...)`
+- `SELECT add_compression_policy(...)`
+- `SELECT add_retention_policy(...)`
+- `ALTER TABLE ... SET (timescaledb.compress, ...)`
+
+All raise `Npgsql.PostgresException: 0A000: functionality not supported under the current "apache" license` on the Apache build, aborting EF's MigrateAsync transaction and preventing app startup.
+
+PR #118.1.1 stripped these from the migration. The substrate now deploys cleanly, but the rollup/compression/retention machinery has to move from "Timescale does it for us" to **app-layer scheduled jobs**:
+
+| Original (TSL, v0.2) | Replacement (Apache, v0.3) |
+|---|---|
+| `WITH (timescaledb.continuous)` continuous aggregates with auto-refresh | Regular `CREATE MATERIALIZED VIEW ... AS SELECT ...` + Hangfire/Quartz `REFRESH MATERIALIZED VIEW CONCURRENTLY` at the same cadence (1 min / 5 min / 1 hour) |
+| `add_compression_policy('SensorEvents', INTERVAL '7 days')` | App-layer scheduled job calling `SELECT compress_chunk(chunk_name)` for chunks older than 7 days |
+| `add_retention_policy('SensorEvents', INTERVAL '90 days')` | App-layer scheduled job calling `SELECT drop_chunks('SensorEvents', INTERVAL '90 days')` |
+| `ALTER TABLE SET (timescaledb.compress, segmentby = ...)` | Set up segmentby on the chunk before `compress_chunk()` via raw SQL on first compression run |
+
+Trade-offs:
+
+- **Slower refresh of rollups** — TSL's continuous aggregates use incremental merge-based refresh. Our regular MV `REFRESH CONCURRENTLY` is a full re-aggregation over the bucket window each cycle. Acceptable at our scale; revisit if a customer-scale TSL upgrade becomes available.
+- **More moving parts** — three background jobs to schedule, monitor, alert. Mitigated by Hangfire's dashboard + retry semantics.
+- **Lighter Postgres-side dependency** — we use *less* of TimescaleDB. Easier to migrate to plain Postgres partitioning later if we ever need to leave TimescaleDB entirely. Net portability win.
+
+Long-term escape hatch: if a Cherry deployment hosts on Azure Database for PostgreSQL Flexible Server (or any environment that supports TimescaleDB Community), we can re-introduce the continuous aggregates with a one-migration restoration. The schema is forward-compatible.
+
+PR #118.2's `SensorIngestService` ships the write path; the three app-layer scheduled jobs (rollup refresh, compression, retention) land in PR #118.4. Same cadences as the original ADR.
+
 ## What changed in v0.2
 
 After Dean's "is this best in class?" challenge, I did the web-research homework. Twelve gaps from v0.1 are now closed with standards-grounded specifics. Major additions:
@@ -735,3 +766,4 @@ data/                                (seed catalogs — JSON)
 |------|--------|-------------|
 | 2026-05-16 morning | Claude (with Dean) | v0.1 — initial 5-table proposal. |
 | 2026-05-16 evening | Claude (with Dean) | v0.2 — after web-research pass closing 12 gaps from Dean's "is this best in class?" challenge. Added ISA-18.2 alarm rationalization, NAMUR NE 107, typed UoM, schema versioning, out-of-order ingest contract, AAS endpoints, high-frequency path, ML feature store, IEC 62443 zones, regional data residency, concrete TimescaleDB defaults, expanded standards conformance table, ISO 22400-2 OEE formula. |
+| 2026-05-16 night | Claude (with Dean) | v0.3 — deploy-day addendum. Replit Postgres ships Apache 2.0 TimescaleDB, not Community/TSL. Continuous aggregates + auto-policies move from "Timescale does it for us" to app-layer scheduled jobs (Hangfire/Quartz REFRESH MATERIALIZED VIEW CONCURRENTLY + periodic compress_chunk / drop_chunks). Schema is forward-compatible; can restore continuous aggregates on TSL deployments later. |

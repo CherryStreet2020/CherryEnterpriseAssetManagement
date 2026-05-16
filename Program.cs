@@ -180,6 +180,15 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Reliability.IAssetHealthService,
     Abs.FixedAssets.Services.Reliability.AssetHealthService>();
+// Sprint 2 PR #118.2 — Telemetry write path (ADR-011 industrial sensor
+// architecture). SensorIngestService is the single entry point for every
+// sensor reading; it writes the SensorEvent hypertable, upserts
+// AssetSensorLatest, and computes IsOutOfSpec / Tone from SensorProfile
+// thresholds in one transaction. SensorAlarmService + SensorSnapshotService
+// implementations land in PR #118.3 / #118.6.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Telemetry.ISensorIngestService,
+    Abs.FixedAssets.Services.Telemetry.SensorIngestService>();
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.IIndustrialAssetSeeder,
     Abs.FixedAssets.Services.Seeding.IndustrialAssetSeeder>();
