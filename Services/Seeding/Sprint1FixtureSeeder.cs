@@ -58,7 +58,7 @@ namespace Abs.FixedAssets.Services.Seeding
             // otherwise pick the first company that has at least one active
             // asset (skipping demo-empty tenants).
             int companyId = requestedCompanyId ?? await _db.Assets
-                .Where(a => a.IsActive && a.CompanyId.HasValue)
+                .Where(a => a.Active && a.CompanyId.HasValue)
                 .GroupBy(a => a.CompanyId!.Value)
                 .OrderByDescending(g => g.Count())
                 .Select(g => g.Key)
@@ -71,7 +71,7 @@ namespace Abs.FixedAssets.Services.Seeding
             // Pick 8 assets in that company. If the company doesn't have 8 yet,
             // fall back to whatever it has — we just spread WOs more thinly.
             var seedAssets = await _db.Assets
-                .Where(a => a.CompanyId == companyId && a.IsActive)
+                .Where(a => a.CompanyId == companyId && a.Active)
                 .OrderBy(a => a.Id)
                 .Take(8)
                 .Select(a => new { a.Id, a.AssetNumber, a.Description, a.SiteId })
