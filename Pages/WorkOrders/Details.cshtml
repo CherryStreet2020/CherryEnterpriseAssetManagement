@@ -126,6 +126,20 @@
                     <label class="form-label-p" data-csp-style="font-size:0.8em;">Estimated Cost</label>
                     <input type="number" name="estimatedCost" class="form-input-p" step="any" min="0" value="@Model.WorkOrder.EstimatedCost" />
                 </div>
+                @* PR #104 (B-16): FailureCode dropdown sourced from the
+                   seeded FailureCode master. Operator picks the canonical
+                   code; the handler writes both the FK and the denormalized
+                   text label so downstream reports keep working. *@
+                <div>
+                    <label class="form-label-p" data-csp-style="font-size:0.8em;">Failure Code</label>
+                    <select name="failureCodeId" class="form-input-p">
+                        <option value="">— none —</option>
+                        @foreach (var fc in Model.FailureCodeOptions)
+                        {
+                            <option value="@fc.Id" selected="@(Model.WorkOrder.FailureCodeId == fc.Id)">@fc.Code — @fc.Name</option>
+                        }
+                    </select>
+                </div>
             </div>
             <div data-csp-style="margin-top:1rem;">
                 <label class="form-label-p" data-csp-style="font-size:0.8em;">Description</label>

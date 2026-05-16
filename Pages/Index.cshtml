@@ -192,7 +192,27 @@ else
         <div class="kpi-stat-card border-left-blue">
             <div class="kpi-stat-label">MTTR</div>
             <div class="kpi-stat-value">@Model.MTTRHours.ToString("0.0")</div>
+            @* PR #104 (B-14): sublabel updated to reflect what MTTR
+               actually measures now — StartedAt → CompletedDate. *@
             <div class="kpi-stat-sublabel">avg hours to repair</div>
+        </div>
+        @* PR #104 (B-15): MTBF tile. Mean Time Between Failures, computed
+           as the avg hours between consecutive corrective WO closes per
+           asset, averaged across assets with 2+ failures. Renders "N/A"
+           when no asset in the org has enough failure history. *@
+        <div class="kpi-stat-card border-left-purple">
+            <div class="kpi-stat-label">MTBF</div>
+            <div class="kpi-stat-value">
+                @if (Model.MTBFHasData)
+                {
+                    @Model.MTBFHours.ToString("0.0")
+                }
+                else
+                {
+                    <text>N/A</text>
+                }
+            </div>
+            <div class="kpi-stat-sublabel">avg hours between failures</div>
         </div>
         <div class="kpi-stat-card border-left-red">
             <div class="kpi-stat-label">Overdue WOs</div>
