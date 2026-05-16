@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
-using Abs.FixedAssets.Services.Reliability;
+using Abs.FixedAssets.Services.Seeding;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -26,9 +26,9 @@ namespace Abs.FixedAssets.Pages.Plant
     {
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenant;
-        private readonly IPlantFloorHealthSeeder _seeder;
+        private readonly IIndustrialAssetSeeder _seeder;
 
-        public IndexModel(AppDbContext db, ITenantContext tenant, IPlantFloorHealthSeeder seeder)
+        public IndexModel(AppDbContext db, ITenantContext tenant, IIndustrialAssetSeeder seeder)
         {
             _db = db;
             _tenant = tenant;

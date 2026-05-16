@@ -182,6 +182,9 @@ namespace Abs.FixedAssets.Data
         public DbSet<ApprovalWorkflow> ApprovalWorkflows => Set<ApprovalWorkflow>();
         // Sprint 2 PR #115 — Approval Hierarchy + SoD: immutable decision log.
         public DbSet<ApprovalAction> ApprovalActions => Set<ApprovalAction>();
+        // Sprint 2 PR #117.1 — Real sensor history. Source of truth for the
+        // denormalized Asset.Current* cache columns.
+        public DbSet<AssetSensorReading> AssetSensorReadings => Set<AssetSensorReading>();
 
         // Work Order Code Tables
         public DbSet<WorkOrderType> WorkOrderTypes => Set<WorkOrderType>();

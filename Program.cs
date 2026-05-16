@@ -167,12 +167,22 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Approvals.IApprovalService,
     Abs.FixedAssets.Services.Approvals.ApprovalService>();
-// Sprint 2 PR #117: Plant Floor Live View — populates the decorative
-// Asset.HealthScore + CurrentTemperature/Vibration/Pressure fields with
-// realistic demo data so the plant floor view lights up immediately.
+// Sprint 2 PR #117.1: Plant Floor Live View — real sensor history table.
+// AssetSensorService writes every reading to AssetSensorReadings AND
+// updates the denormalized Asset.Current* cache columns atomically.
+// AssetHealthService computes HealthScore from real signals (sensor
+// breaches + corrective WO freq + overdue WO count) — no more random.
+// IndustrialAssetSeeder fixes brand+type pairings and seeds 30 days of
+// readings on first hit.
 builder.Services.AddScoped<
-    Abs.FixedAssets.Services.Reliability.IPlantFloorHealthSeeder,
-    Abs.FixedAssets.Services.Reliability.PlantFloorHealthSeeder>();
+    Abs.FixedAssets.Services.Reliability.IAssetSensorService,
+    Abs.FixedAssets.Services.Reliability.AssetSensorService>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Reliability.IAssetHealthService,
+    Abs.FixedAssets.Services.Reliability.AssetHealthService>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.IIndustrialAssetSeeder,
+    Abs.FixedAssets.Services.Seeding.IndustrialAssetSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
