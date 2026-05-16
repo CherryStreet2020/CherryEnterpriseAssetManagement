@@ -172,6 +172,50 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("ApprovalWorkflows");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.AssetSensorReading", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsOutOfSpec")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ReadingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(12,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReadingAt");
+                    b.HasIndex("AssetId", "ReadingType", "ReadingAt");
+
+                    b.ToTable("AssetSensorReadings");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
                 {
                     b.Property<int>("Id")
