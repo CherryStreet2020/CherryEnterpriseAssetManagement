@@ -40,6 +40,16 @@ namespace Abs.FixedAssets.Services.Receiving
     public interface IReceivingPostingService
     {
         Task<ReceivingPostingResult> PostReceiptAsync(int goodsReceiptId);
+
+        /// <summary>
+        /// PR #105 / B-17: reverse the inventory move + post a reversing JE
+        /// for any GR line where the inspector recorded a non-zero
+        /// <c>QuantityRejected</c>. Called at the end of an Inspect-Complete
+        /// workflow. Idempotent: re-running against the same receipt skips
+        /// when a "GR-REV" reference already exists. Returns the reversing
+        /// JE id (or null if there was nothing to reverse).
+        /// </summary>
+        Task<ReceivingPostingResult> PostRejectionReversalAsync(int goodsReceiptId);
     }
 
     public class ReceivingPostingService : IReceivingPostingService
@@ -306,6 +316,177 @@ namespace Abs.FixedAssets.Services.Receiving
             });
 
             return inv.QuantityOnHand;
+        }
+
+        /// <summary>
+        /// PR #105 / B-17: Reverse the inventory move + post a balanced
+        /// reversing JE for any GR line where <c>QuantityRejected &gt; 0</c>.
+        /// Mirrors the shape of <see cref="PostReceiptAsync"/> but with
+        /// debits and credits flipped, scoped only to the rejected portion
+        /// of each line. Idempotent via Source="GR-REV" + Reference lookup.
+        /// </summary>
+        public async Task<ReceivingPostingResult> PostRejectionReversalAsync(int goodsReceiptId)
+        {
+            var receipt = await _db.GoodsReceipts
+                .Include(r => r.Lines)
+                    .ThenInclude(l => l.PurchaseOrderLine)
+                        .ThenInclude(pl => pl!.Item)
+                .Where(r => r.Id == goodsReceiptId &&
+                    _tenantContext.VisibleCompanyIds.Contains(r.CompanyId ?? 0))
+                .FirstOrDefaultAsync();
+
+            if (receipt == null)
+            {
+                _logger.LogWarning("PostRejectionReversalAsync: GR {Id} not found or out of tenant scope.", goodsReceiptId);
+                return new ReceivingPostingResult(goodsReceiptId, null, 0, 0m);
+            }
+
+            var revReference = $"REV-GR-{receipt.ReceiptNumber}";
+
+            // Idempotency: if a reversal already exists, do nothing. A
+            // second-pass inspection that changes the rejection number after
+            // the first commit would need a different ref scheme; for the
+            // single-shot OnPostCompleteAsync invocation this is correct.
+            var existingRev = await _db.JournalEntries
+                .Where(j => j.Reference == revReference && j.Source == "GR-REV")
+                .Select(j => (int?)j.Id)
+                .FirstOrDefaultAsync();
+            if (existingRev.HasValue)
+            {
+                _logger.LogInformation("PostRejectionReversalAsync: GR {Id} already reversed as JE {JeId}, skipping.",
+                    goodsReceiptId, existingRev.Value);
+                return new ReceivingPostingResult(goodsReceiptId, existingRev.Value, 0, 0m);
+            }
+
+            var receiptCompanyId = receipt.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            if (receiptCompanyId == 0)
+            {
+                _logger.LogWarning("PostRejectionReversalAsync: GR {Id} has no resolvable CompanyId; skipping.", goodsReceiptId);
+                return new ReceivingPostingResult(goodsReceiptId, null, 0, 0m);
+            }
+
+            var creditTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            decimal totalReversed = 0m;
+            int inventoryRowsTouched = 0;
+
+            foreach (var line in receipt.Lines)
+            {
+                if (line.QuantityRejected <= 0) continue;
+
+                var poLine = line.PurchaseOrderLine;
+                if (poLine == null) continue;
+
+                var qty = line.QuantityRejected;
+                var amount = qty * poLine.UnitPrice;
+                if (amount <= 0) continue;
+
+                var item = poLine.Item;
+                var isStock = item != null && item.Type != ItemType.Service;
+                var isCipTagged = (line.CipProjectId ?? poLine.CipProjectId).HasValue;
+
+                if (isCipTagged)
+                {
+                    // CIP receipts never moved inventory and never debited
+                    // Inventory/Expense — they routed straight to CIP-Pending
+                    // via a separate service. Rejection reversal on CIP lines
+                    // is out of scope for this PR (admins handle CIP manually).
+                    continue;
+                }
+
+                GlAccountKind crKind = isStock ? GlAccountKind.Inventory : GlAccountKind.DirectExpense;
+                var ctx = new GlResolveContext(PurchaseOrderLineId: poLine.Id);
+                var crAccount = await _glResolver.ResolveAsync(receiptCompanyId, crKind, ctx);
+                creditTotals[crAccount] = creditTotals.GetValueOrDefault(crAccount, 0m) + amount;
+                totalReversed += amount;
+
+                // Stock items: decrement on-hand + write a negative-qty Adjust
+                // transaction. Don't go below zero — if inventory has already
+                // been issued, the supplier-return path should handle that
+                // separately. This service handles the clean "rejected on
+                // dock, never entered usable inventory" case.
+                if (isStock && line.ReceivingLocationId.HasValue)
+                {
+                    var locationId = line.ReceivingLocationId.Value;
+                    var inv = await _db.Set<ItemInventory>()
+                        .FirstOrDefaultAsync(i =>
+                            i.ItemId == poLine.ItemId &&
+                            i.LocationId == locationId &&
+                            i.CompanyId == receiptCompanyId);
+                    if (inv != null)
+                    {
+                        inv.QuantityOnHand -= qty;
+                        if (inv.QuantityOnHand < 0m) inv.QuantityOnHand = 0m;
+                        inv.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    _db.Set<ItemTransaction>().Add(new ItemTransaction
+                    {
+                        TransactionNumber = $"GR-REV{line.GoodsReceiptId}-L{line.LineNumber}-{DateTime.UtcNow.Ticks}",
+                        ItemId = poLine.ItemId ?? 0,
+                        Type = TransactionType.Adjust,
+                        Quantity = -qty,
+                        UnitCost = poLine.UnitPrice,
+                        ToLocationId = locationId,
+                        LotNumber = line.LotNumber,
+                        SerialNumber = line.SerialNumber
+                    });
+                    inventoryRowsTouched++;
+                }
+            }
+
+            if (totalReversed <= 0)
+            {
+                return new ReceivingPostingResult(goodsReceiptId, null, 0, 0m);
+            }
+
+            // Reversing JE: DR GR-Accrued / CR Inventory (or DirectExpense per
+            // line) for the rejected portion. Trial balance net of the
+            // Receipt JE + this reversal equals just the accepted portion,
+            // which is what AP will eventually invoice and pay against.
+            var grAccruedAccount = await _glResolver.ResolveAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext());
+
+            var je = new JournalEntry
+            {
+                BookId = null,
+                Batch = revReference,
+                Period = int.Parse(receipt.ReceiptDate.ToString("yyyyMM")),
+                PostingDate = DateTime.UtcNow.Date,
+                Source = "GR-REV",
+                Reference = revReference,
+                Description = $"Rejection reversal for {receipt.ReceiptNumber}",
+                CreatedUtc = DateTime.UtcNow,
+                Lines = new List<JournalLine>()
+            };
+
+            int lineNo = 1;
+            je.Lines.Add(new JournalLine
+            {
+                LineNo = lineNo++,
+                Account = grAccruedAccount,
+                Description = $"GR-REV {receipt.ReceiptNumber}",
+                Debit = totalReversed,
+                Credit = 0m
+            });
+            foreach (var (account, amount) in creditTotals.OrderBy(kv => kv.Key))
+            {
+                je.Lines.Add(new JournalLine
+                {
+                    LineNo = lineNo++,
+                    Account = account,
+                    Description = $"GR-REV {receipt.ReceiptNumber}",
+                    Debit = 0m,
+                    Credit = amount
+                });
+            }
+
+            _db.JournalEntries.Add(je);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "PostRejectionReversalAsync: posted GR-REV for {Id} → JE {JeId}, reversed {Total} across {CrCount} credit account(s), {InvCount} inventory rows adjusted",
+                goodsReceiptId, je.Id, totalReversed, creditTotals.Count, inventoryRowsTouched);
+
+            return new ReceivingPostingResult(goodsReceiptId, je.Id, inventoryRowsTouched, totalReversed);
         }
     }
 }

@@ -3,6 +3,15 @@
     var inv = ViewData["Invoice"] as VendorInvoice;
     var backUrl = ViewData["BackUrl"]?.ToString() ?? "/AccountsPayable";
     var canEdit = inv != null && (inv.Status == InvoiceStatus.Draft || inv.Status == InvoiceStatus.PendingApproval);
+    // PR #105 / B-19: override-approve is an Admin-only escape hatch surfaced only
+    // when the 3-way match would block a clean Approve. Accountants see the normal
+    // Approve button (which the server will refuse if match fails); Admins also see
+    // the Override panel below that captures a required reason.
+    var isAdmin = User.IsInRole("Admin");
+    var showOverridePanel = inv != null
+        && inv.Status == InvoiceStatus.PendingApproval
+        && inv.MatchStatus != InvoiceMatchStatus.FullyMatched
+        && isAdmin;
     if (inv == null) return;
 }
 <div class="hero-tags">
@@ -53,3 +62,24 @@
         </form>
     }
 </div>
+@if (showOverridePanel)
+{
+    <details class="ap-override-panel" style="margin-top:0.75rem; border:1px solid var(--hero-border, #44424a); border-radius:8px; padding:0.75rem 1rem; background:rgba(255, 220, 100, 0.05);">
+        <summary style="cursor:pointer; font-weight:600; color:#f0b429;">⚠ Approve with match override (Admin only)</summary>
+        <p style="margin:0.5rem 0; font-size:0.875rem; color:var(--text-muted, #b0aebd);">
+            This invoice did not pass the 3-way match. Override only when you have verified the variance offline. Every override is written to the AuditLog with your user, timestamp, and the reason below.
+        </p>
+        <form method="post" asp-page-handler="Approve" onsubmit="return confirm('Approve this invoice with match override? This will be recorded in the audit trail.');">
+            <input type="hidden" name="id" value="@inv.Id" />
+            <input type="hidden" name="returnUrl" value="@backUrl" />
+            <input type="hidden" name="overrideMatch" value="true" />
+            <label for="overrideReason_@inv.Id" style="display:block; font-size:0.875rem; font-weight:600; margin-bottom:0.25rem;">Reason (required)</label>
+            <input type="text" id="overrideReason_@inv.Id" name="overrideReason" required minlength="5" maxlength="500"
+                placeholder="e.g. Vendor agreed to rebate the variance; credit memo CM-2025-117 to follow"
+                style="width:100%; padding:0.5rem; border-radius:6px; border:1px solid var(--hero-border, #44424a); background:rgba(0,0,0,0.2); color:inherit;" />
+            <button type="submit" class="hero-btn hero-btn-warning" style="margin-top:0.5rem;">
+                Approve with Override
+            </button>
+        </form>
+    </details>
+}

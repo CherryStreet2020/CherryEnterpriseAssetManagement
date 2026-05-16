@@ -8,7 +8,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Pages.AccountsPayable
 {
-    [Authorize]
+    // PR #105 / B-18: AP list shows vendor balances + drill-through into
+    // approval/payment surfaces. Tighten from [Authorize] (any user) to the
+    // same role gate used on the Purchasing pages.
+    [Authorize(Roles = "Admin,Accountant")]
     public class IndexModel : PageModel
     {
         private readonly AppDbContext _context;

@@ -4,6 +4,7 @@ using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -11,6 +12,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Pages.Purchasing
 {
+    // PR #105 / B-18: Purchasing detail page hosts the OnPostApproveAsync,
+    // OnPostAddLine, OnPostDeleteLine, OnPostDeletePO etc. handlers — all of
+    // which commit money or change order state. Restrict at the class level.
+    [Authorize(Roles = "Admin,Accountant")]
     public class DetailsModel : PageModel
     {
         private readonly AppDbContext _context;

@@ -2,6 +2,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -9,6 +10,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Abs.FixedAssets.Pages.Purchasing
 {
+    // PR #105 / B-18: Purchasing write surfaces are restricted to roles that
+    // can spend company money. Viewer was previously able to GET /Purchasing
+    // and POST to OnPostCreatePOAsync because no role gate existed at all.
+    [Authorize(Roles = "Admin,Accountant")]
     public class IndexModel : PageModel
     {
         private readonly AppDbContext _context;
