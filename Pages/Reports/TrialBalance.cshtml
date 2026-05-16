@@ -81,30 +81,38 @@ else
                 <tbody>
                     @foreach (var r in Model.Rows)
                     {
-                        var netColor = r.Net switch
-                        {
-                            < 0 => "#fbbf24",
-                            > 0 => "#34d399",
-                            _ => "var(--text-muted)"
-                        };
+                        // Hoist all conditional logic out of the inline attributes —
+                        // Razor's source generator chokes on nested double-quoted
+                        // strings inside double-quoted attribute values.
+                        string netColor;
+                        if (r.Net < 0m) { netColor = "#fbbf24"; }
+                        else if (r.Net > 0m) { netColor = "#34d399"; }
+                        else { netColor = "var(--text-muted)"; }
+                        var debitsDisplay = r.Debits == 0m ? "—" : r.Debits.ToString("N2");
+                        var creditsDisplay = r.Credits == 0m ? "—" : r.Credits.ToString("N2");
+                        var netCellStyle = "padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace; font-weight: 600; color: " + netColor + ";";
                         <tr>
                             <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); font-family: ui-monospace, monospace;">
                                 <a href="/Journals?account=@r.AccountNumber" data-csp-style="color: #60a5fa; text-decoration: none;">@r.AccountNumber</a>
                             </td>
                             <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border);">@r.AccountName</td>
                             <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.875rem;">@r.AccountType</td>
-                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@(r.Debits == 0m ? "—" : r.Debits.ToString("N2"))</td>
-                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@(r.Credits == 0m ? "—" : r.Credits.ToString("N2"))</td>
-                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace; font-weight: 600; color: @netColor;">@r.Net.ToString("N2")</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@debitsDisplay</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@creditsDisplay</td>
+                            <td data-csp-style="@netCellStyle">@r.Net.ToString("N2")</td>
                         </tr>
                     }
                 </tbody>
                 <tfoot>
+                    @{
+                        var grandColor = Model.IsBalanced ? "#34d399" : "#f87171";
+                        var grandNetStyle = "padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace; color: " + grandColor + ";";
+                    }
                     <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.06)); font-weight: 700;">
                         <td colspan="3" data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border);">TOTAL</td>
                         <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@Model.TotalDebits.ToString("N2")</td>
                         <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@Model.TotalCredits.ToString("N2")</td>
-                        <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace; color: @(Model.IsBalanced ? "#34d399" : "#f87171");">@Model.NetDifference.ToString("N2")</td>
+                        <td data-csp-style="@grandNetStyle">@Model.NetDifference.ToString("N2")</td>
                     </tr>
                 </tfoot>
             </table>
