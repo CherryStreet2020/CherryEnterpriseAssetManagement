@@ -1,0 +1,112 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.TrialBalanceModel
+@{
+    ViewData["Title"] = "Trial Balance";
+    ViewData["TabTitle"] = "Trial Balance";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Trial Balance",
+        ["HeaderSubtitle"] = $"{Model.StartDate:MMM d, yyyy} – {Model.EndDate:MMM d, yyyy} · {Model.Rows.Count} accounts with activity"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<form method="get" class="filter-bar" data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04)); display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
+        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Start Date</label>
+        <input type="date" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+    </div>
+    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
+        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">End Date</label>
+        <input type="date" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+    </div>
+    <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1.25rem; font-weight: 600;">Update</button>
+    <a href="?StartDate=@(Model.StartDate?.ToString("yyyy-MM-dd"))&EndDate=@(Model.EndDate?.ToString("yyyy-MM-dd"))&Format=csv" class="btn-p btn-p--secondary" data-csp-style="padding: 0.5rem 1.25rem;">⤓ CSV</a>
+</form>
+
+@* Balance status banner — the marquee finding on this report *@
+<div data-csp-style="margin-top: 1.5rem; padding: 1rem 1.25rem; border-radius: 8px; @(Model.IsBalanced ? "background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac;" : "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;")">
+    @if (Model.IsBalanced)
+    {
+        <strong>✓ Trial balance is balanced.</strong>
+        <span data-csp-style="margin-left: 0.5rem;">Σ Debits = Σ Credits = @Model.TotalDebits.ToString("C2")</span>
+    }
+    else
+    {
+        <strong>⚠ Trial balance is OFF by @Math.Abs(Model.NetDifference).ToString("C2").</strong>
+        <span data-csp-style="margin-left: 0.5rem;">
+            Debits: @Model.TotalDebits.ToString("C2") · Credits: @Model.TotalCredits.ToString("C2") · Net: @Model.NetDifference.ToString("C2")
+        </span>
+        <div data-csp-style="margin-top: 0.5rem; font-size: 0.875rem;">
+            A non-zero net suggests an unbalanced JE made it past the PR #84 persistence guard, or a JournalLine row got orphaned. Drill into the largest-net accounts below to investigate.
+        </div>
+    }
+</div>
+
+@if (Model.Rows.Count == 0)
+{
+    <div class="section-card" data-csp-style="margin-top: 1rem;">
+        <div class="section-card-body" data-csp-style="padding: 2rem; text-align: center;">
+            <h3 data-csp-style="margin-top: 0;">No journal activity in this window</h3>
+            <p data-csp-style="color: var(--text-muted);">
+                Try widening the date range. Default is current month to date.
+            </p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
+            <table class="ledger-table" data-csp-style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <th data-csp-style="text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Account #</th>
+                        <th data-csp-style="text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Account Name</th>
+                        <th data-csp-style="text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Type</th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Debits</th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Credits</th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Net (DR − CR)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        var netColor = r.Net switch
+                        {
+                            < 0 => "#fbbf24",
+                            > 0 => "#34d399",
+                            _ => "var(--text-muted)"
+                        };
+                        <tr>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); font-family: ui-monospace, monospace;">
+                                <a href="/Journals?account=@r.AccountNumber" data-csp-style="color: #60a5fa; text-decoration: none;">@r.AccountNumber</a>
+                            </td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border);">@r.AccountName</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.875rem;">@r.AccountType</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@(r.Debits == 0m ? "—" : r.Debits.ToString("N2"))</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@(r.Credits == 0m ? "—" : r.Credits.ToString("N2"))</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace; font-weight: 600; color: @netColor;">@r.Net.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.06)); font-weight: 700;">
+                        <td colspan="3" data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border);">TOTAL</td>
+                        <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@Model.TotalDebits.ToString("N2")</td>
+                        <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">@Model.TotalCredits.ToString("N2")</td>
+                        <td data-csp-style="padding: 0.75rem 1rem; border-top: 2px solid var(--border); text-align: right; font-family: ui-monospace, monospace; color: @(Model.IsBalanced ? "#34d399" : "#f87171");">@Model.NetDifference.ToString("N2")</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <p data-csp-style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+        Click any account number to drill through to the underlying journal entries.
+        For period-end close, the trial balance must be balanced before
+        depreciation runs and the period can be locked (PR #112).
+    </p>
+}
