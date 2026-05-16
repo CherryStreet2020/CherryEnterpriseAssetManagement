@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
@@ -11,9 +10,12 @@ namespace Abs.FixedAssets.Services
     public static class JournalGenerator
     {
         /// <summary>
-        /// Public, on-demand monthly depreciation entry. Computes the total internally
-        /// (via DepreciationService reflection or straight-line fallback) and persists.
-        /// Used by /Pages/Journals (manual one-shot generation).
+        /// Public, on-demand monthly depreciation entry. Computes the total
+        /// internally via <see cref="DepreciationService.CalculateMonthlyDepreciation"/>
+        /// per asset, summed over the book's company scope. Method-aware
+        /// (MACRS / DDB / 150DB / SYD / SL all honored — see PR #102 B-11
+        /// for the reflection-bug history). Used by /Pages/Journals (manual
+        /// one-shot generation).
         /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyAsync(
             AppDbContext db,
@@ -25,8 +27,16 @@ namespace Abs.FixedAssets.Services
         {
             var period = new DateTime(month.Year, month.Month, 1);
 
-            decimal totalMonthly = await TryUseExistingDepreciationService(db, bookId, period)
-                                   ?? await FallbackStraightLineMonthlyAsync(db, bookId, period, companyId);
+            // PR #102 (B-11): compute the monthly total via the canonical
+            // DepreciationService.CalculateMonthlyDepreciation. The previous
+            // path reflected for a method named CalculateMonthly or Calculate;
+            // the real method is CalculateMonthlyDepreciation, so the
+            // reflection silently returned null and FallbackStraightLineMonthly
+            // ran for every asset — stripping MACRS / DDB / SYD acceleration
+            // from the monthly GL aggregate. Per-asset snapshots stayed
+            // correct; the JE that hit the books did not. This direct call
+            // honors asset.DepreciationMethod end-to-end.
+            decimal totalMonthly = await ComputeMethodAwareMonthlyTotalAsync(db, bookId, period, companyId);
 
             return await GenerateMonthlyWithAmountAsync(
                 db, bookId, month, totalMonthly,
@@ -129,80 +139,19 @@ namespace Abs.FixedAssets.Services
             return entry;
         }
 
-        private static async Task<decimal?> TryUseExistingDepreciationService(AppDbContext db, int bookId, DateTime period)
-        {
-            var svcType = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .FirstOrDefault(t => t.Name == "DepreciationService");
-
-            if (svcType == null) return null;
-
-            object? svc = null;
-            try
-            {
-                var ctor = svcType.GetConstructors()
-                    .FirstOrDefault(c =>
-                    {
-                        var ps = c.GetParameters();
-                        return ps.Length == 1 && ps[0].ParameterType.IsAssignableFrom(typeof(AppDbContext));
-                    });
-
-                svc = ctor != null ? ctor.Invoke(new object[] { db }) : Activator.CreateInstance(svcType);
-            }
-            catch
-            {
-            }
-
-            if (svc == null) return null;
-
-            var method = svcType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
-                .FirstOrDefault(m => m.Name is "CalculateMonthly" or "Calculate" &&
-                                     m.GetParameters().Any(p => p.ParameterType == typeof(int)) &&
-                                     m.GetParameters().Any(p => p.ParameterType == typeof(DateTime)));
-
-            if (method == null) return null;
-
-            object? result;
-            try
-            {
-                var parameters = method.GetParameters();
-                object[] args = parameters.Length switch
-                {
-                    2 => new object[] { bookId, period },
-                    3 => new object[] { bookId, period, null! },
-                    _ => new object[] { bookId, period }
-                };
-
-                result = method.Invoke(svc, args);
-            }
-            catch
-            {
-                return null;
-            }
-
-            if (result is Task task)
-            {
-                await task.ConfigureAwait(false);
-                var prop = task.GetType().GetProperty("Result");
-                result = prop?.GetValue(task);
-            }
-
-            if (result is System.Collections.IEnumerable rows)
-            {
-                decimal sum = 0m;
-                foreach (var r in rows)
-                {
-                    var t = r.GetType();
-                    var val = GetDecimalByNames(r, t, "Monthly", "Depreciation", "Amount");
-                    sum += val;
-                }
-                return sum;
-            }
-
-            return null;
-        }
-
-        private static async Task<decimal> FallbackStraightLineMonthlyAsync(AppDbContext db, int bookId, DateTime period, int? companyId = null)
+        // PR #102 (B-11): Method-aware monthly total. Replaces the previous
+        // reflection-based TryUseExistingDepreciationService + straight-line
+        // fallback pair. The reflection used to look for a method named
+        // CalculateMonthly OR Calculate; the real DepreciationService method
+        // is CalculateMonthlyDepreciation, so the reflection always returned
+        // null and every monthly aggregate JE was computed straight-line
+        // regardless of asset.DepreciationMethod — silently stripping MACRS
+        // bonus first-year acceleration, DDB front-loading, SYD, and 150DB
+        // out of the GL totals. Per-asset snapshots stayed correct; the
+        // posted JE did not. This direct call honors the configured method
+        // end-to-end and matches the per-asset depreciation that the asset
+        // detail page already shows.
+        private static async Task<decimal> ComputeMethodAwareMonthlyTotalAsync(AppDbContext db, int bookId, DateTime period, int? companyId)
         {
             _ = await db.Books.FirstAsync(b => b.Id == bookId);
 
@@ -210,62 +159,46 @@ namespace Abs.FixedAssets.Services
             if (companyId.HasValue)
                 assetsQuery = assetsQuery.Where(a => a.CompanyId == companyId);
 
-            var assets   = await assetsQuery.ToListAsync();
+            var assets = await assetsQuery.ToListAsync();
             var monthEnd = new DateTime(period.Year, period.Month, DateTime.DaysInMonth(period.Year, period.Month));
 
+            var svc = new DepreciationService();
             decimal total = 0m;
-            foreach (var a in assets)
+            foreach (var asset in assets)
             {
-                var t = a.GetType();
+                if (asset.UsefulLifeMonths <= 0) continue;
+                if (asset.InServiceDate > monthEnd) continue;
 
-                var cost    = GetDecimalByNames(a, t, "Cost", "Acquisition", "AcquisitionCost", "AcqCost");
-                var salvage = GetDecimalByNames(a, t, "Salvage", "SalvageValue");
-                var life    = (int)GetDecimalByNames(a, t, "LifeMonths", "UsefulLifeMonths", "Life", "LifeMo");
-
-                var dInSvc = GetDateByNames(a, t, "InServiceDate", "InService", "PlacedInService", "ServiceDate")
-                             ?? DateTime.MinValue;
-
-                if (life <= 0) continue;
-                if (dInSvc > monthEnd) continue;
-
-                var basis = cost - salvage;
+                var basis = asset.AcquisitionCost - asset.SalvageValue;
                 if (basis <= 0) continue;
 
-                var monthly = basis / life;
+                // 1-based month index inside the asset's service life. Beyond
+                // the last month, depreciation is zero.
+                var monthsInService = ((period.Year - asset.InServiceDate.Year) * 12)
+                                      + (period.Month - asset.InServiceDate.Month)
+                                      + 1;
+                if (monthsInService < 1 || monthsInService > asset.UsefulLifeMonths) continue;
+
+                // Current NBV drives DDB / 150DB / SYD. Reads the cached
+                // AccumulatedDepreciation snapshot; if the snapshot is stale
+                // the per-asset background recompute (DepreciationBackfillService)
+                // restamps it on the next read of the asset detail page.
+                var currentNBV = asset.AcquisitionCost - asset.AccumulatedDepreciation;
+                var lifeYears = Math.Max(1, asset.UsefulLifeMonths / 12);
+
+                var monthly = svc.CalculateMonthlyDepreciation(
+                    cost: asset.AcquisitionCost,
+                    salvage: asset.SalvageValue,
+                    lifeMonths: asset.UsefulLifeMonths,
+                    method: asset.DepreciationMethod,
+                    currentMonth: monthsInService,
+                    currentNBV: currentNBV,
+                    lifeYears: lifeYears);
+
                 total += monthly;
             }
 
             return total;
-        }
-
-        private static decimal GetDecimalByNames(object obj, Type t, params string[] names)
-        {
-            foreach (var n in names)
-            {
-                var p = t.GetProperty(n, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
-                if (p != null)
-                {
-                    var v = p.GetValue(obj);
-                    if (v == null) continue;
-                    try { return Convert.ToDecimal(v); } catch { }
-                }
-            }
-            return 0m;
-        }
-
-        private static DateTime? GetDateByNames(object obj, Type t, params string[] names)
-        {
-            foreach (var n in names)
-            {
-                var p = t.GetProperty(n, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
-                if (p != null)
-                {
-                    var v = p.GetValue(obj);
-                    if (v == null) continue;
-                    try { return Convert.ToDateTime(v); } catch { }
-                }
-            }
-            return null;
         }
     }
 }

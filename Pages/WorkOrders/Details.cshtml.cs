@@ -38,10 +38,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // technician). Same service the legacy /Maintenance/Details surface
         // calls so behavior is bit-identical.
         private readonly MaintenanceService _maintenanceService;
+        // PR #102 (B-10): Capitalize-to-CIP now posts a real GL entry.
+        // Pre-fix, Asset.AcquisitionCost was bumped in-place with no offsetting
+        // CR — every capitalization broke trial balance silently.
+        private readonly ICapitalImprovementPostingService _improvementPosting;
 
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
             IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService,
-            IPeriodGuard periodGuard, DepreciationBackfillService depBackfill, MaintenanceService maintenanceService)
+            IPeriodGuard periodGuard, DepreciationBackfillService depBackfill, MaintenanceService maintenanceService,
+            ICapitalImprovementPostingService improvementPosting)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -54,6 +59,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _periodGuard = periodGuard;
             _depBackfill = depBackfill;
             _maintenanceService = maintenanceService;
+            _improvementPosting = improvementPosting;
         }
 
         public MaintenanceEvent WorkOrder { get; set; } = null!;
@@ -1086,6 +1092,33 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             wo.CustomField2 = $"IMPR:{improvement.Id}";
             await _context.SaveChangesAsync();
+
+            // PR #102 (B-10): post the JE that finally makes this a real GL
+            // event. Pre-fix, AcquisitionCost was bumped on line 1090 above
+            // and the GL never saw a thing — trial balance silently drifted
+            // every time someone capitalized a WO. Service posts DR AssetCost
+            // / CR CipPending and respects the fiscal-period guard.
+            try
+            {
+                await _improvementPosting.PostImprovementJeAsync(
+                    improvementId: improvement.Id,
+                    assetId: wo.AssetId,
+                    companyId: assetCompanyId,
+                    amount: amount,
+                    improvementDate: improvementDate,
+                    description: $"WO {wo.WorkOrderNumber} — {wo.Description}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Period-guard refusal. The WO close above already passed the
+                // period check; this is defense-in-depth. Surface the message
+                // and return — the AcquisitionCost bump and improvement row
+                // are already committed, so the operator sees the capitalize
+                // succeeded with a GL posting refusal noted. The follow-up is
+                // to either re-open the period and retry, or post a manual JE.
+                TempData["Error"] = $"Capitalized to asset successfully, but the GL posting was refused: {ex.Message}";
+                return RedirectToPage(new { id });
+            }
 
             // Refresh the depreciation snapshot on Asset and each
             // AssetBookSettings so subsequent reads (asset detail, KPI

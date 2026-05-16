@@ -217,6 +217,13 @@ namespace Abs.FixedAssets.Services
                 GlAccountKind.AccountsPayable => "2000",
                 GlAccountKind.Cash => "1110",
                 GlAccountKind.PurchasePriceVariance => "5900",
+                // PR #102 (B-09): tax + freight on the AP side. 1290 sits next
+                // to inventory/receivables (current assets, recoverable VAT
+                // treatment). 6300 is freight-in expense, slotted before the
+                // 6200-series maintenance accounts. Per-company override via
+                // CompanyGlAccountConfigs works the same as every other Kind.
+                GlAccountKind.SalesTaxRecoverable => "1290",
+                GlAccountKind.FreightExpense => "6300",
                 GlAccountKind.CipPending => "1400",
                 GlAccountKind.MaintenanceLabor => "6200",
                 GlAccountKind.MaintenanceMaterials => "6210",

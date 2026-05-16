@@ -18,10 +18,15 @@ public class ImproveModel : PageModel
     private readonly IPeriodGuard _periodGuard;
     private readonly DepreciationBackfillService _depBackfill;
     private readonly IOutboxWriter _outbox;
+    // PR #102 (B-10): improvements now post a JE alongside the AcquisitionCost
+    // bump. The previous code path silently broke trial balance on every
+    // capitalized improvement.
+    private readonly ICapitalImprovementPostingService _improvementPosting;
 
     public ImproveModel(AppDbContext db, ITenantContext tenantContext,
             IModuleGuardService moduleGuard, IPeriodGuard periodGuard,
-            DepreciationBackfillService depBackfill, IOutboxWriter outbox)
+            DepreciationBackfillService depBackfill, IOutboxWriter outbox,
+            ICapitalImprovementPostingService improvementPosting)
     {
         _moduleGuard = moduleGuard;
         _db = db;
@@ -29,6 +34,7 @@ public class ImproveModel : PageModel
         _periodGuard = periodGuard;
         _depBackfill = depBackfill;
         _outbox = outbox;
+        _improvementPosting = improvementPosting;
     }
 
     public string? ErrorMessage { get; set; }
@@ -137,6 +143,37 @@ public class ImproveModel : PageModel
         }
 
         await _db.SaveChangesAsync();
+
+        // PR #102 (B-10): post the GL entry for the improvement. Pre-fix,
+        // Asset.AcquisitionCost was bumped above but the GL never saw it —
+        // trial balance drifted silently. Service posts DR AssetCost / CR
+        // CipPending and refuses on a closed period. Only post when the
+        // improvement was actually capitalized (Capitalize == true); a
+        // non-capitalized improvement is a metadata-only event with no
+        // basis change and so no GL impact.
+        if (Capitalize)
+        {
+            try
+            {
+                await _improvementPosting.PostImprovementJeAsync(
+                    improvementId: improvement.Id,
+                    assetId: AssetId,
+                    companyId: assetCompanyId,
+                    amount: Cost,
+                    improvementDate: ImprovementDate,
+                    description: Description);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Period-guard refusal from the posting service. The form-level
+                // guard upstream should catch this, but defending again here
+                // surfaces the message instead of crashing the page.
+                ModelState.AddModelError(nameof(ImprovementDate), ex.Message);
+                ErrorMessage = ex.Message;
+                await LoadPreviousImprovementsAsync(AssetId);
+                return Page();
+            }
+        }
 
         // Refresh the cached depreciation snapshot on Asset and each
         // AssetBookSettings row so subsequent reads (asset detail page,
