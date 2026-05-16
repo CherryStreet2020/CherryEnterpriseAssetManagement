@@ -172,6 +172,65 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("ApprovalWorkflows");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApprovalWorkflowId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ApproverRole")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DecidedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("DecidedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TargetEntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("TargetEntityId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalWorkflowId");
+                    b.HasIndex("CompanyId");
+                    b.HasIndex("DecidedByUserId");
+                    b.HasIndex("TargetEntityType", "TargetEntityId");
+
+                    b.ToTable("ApprovalActions");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.Asset", b =>
                 {
                     b.Property<int>("Id")

@@ -180,6 +180,8 @@ namespace Abs.FixedAssets.Data
         public DbSet<TaxCode> TaxCodes => Set<TaxCode>();
         public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
         public DbSet<ApprovalWorkflow> ApprovalWorkflows => Set<ApprovalWorkflow>();
+        // Sprint 2 PR #115 — Approval Hierarchy + SoD: immutable decision log.
+        public DbSet<ApprovalAction> ApprovalActions => Set<ApprovalAction>();
 
         // Work Order Code Tables
         public DbSet<WorkOrderType> WorkOrderTypes => Set<WorkOrderType>();

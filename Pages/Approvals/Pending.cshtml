@@ -1,0 +1,63 @@
+@page
+@model Abs.FixedAssets.Pages.Approvals.PendingModel
+@{
+    ViewData["Title"] = "Pending Approvals";
+    ViewData["TabTitle"] = "Pending Approvals";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Pending Approvals",
+        ["HeaderSubtitle"] = $"{Model.Rows.Count} item(s) waiting on you · Acting as: {Model.CurrentUserRoles}"
+    };
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@if (Model.Rows.Count == 0)
+{
+    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
+        <div class="section-card-body" data-csp-style="padding: 2.5rem; text-align: center;">
+            <h3 data-csp-style="margin-top: 0;">Inbox zero ✓</h3>
+            <p data-csp-style="color: var(--text-muted);">
+                Nothing is waiting on your approval right now.
+            </p>
+        </div>
+    </div>
+}
+else
+{
+    <div data-csp-style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+        @foreach (var r in Model.Rows)
+        {
+            var fillRatio = r.ApprovalsRequired > 0 ? (double)r.ApprovalsRecorded / r.ApprovalsRequired : 0;
+            var fillPct = (int)System.Math.Round(fillRatio * 100);
+            var ratioStyle = $"display: inline-block; width: 80px; height: 6px; border-radius: 999px; background: rgba(120,120,200,0.10); overflow: hidden; position: relative;";
+            var fillStyle = $"position: absolute; left: 0; top: 0; height: 100%; width: {fillPct}%; background: linear-gradient(90deg, #6366f1, #8b5cf6);";
+
+            <div class="section-card" data-csp-style="border-left: 3px solid #6366f1;">
+                <div class="section-card-body" data-csp-style="padding: 1rem 1.25rem; display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
+                    <div data-csp-style="flex: 1; min-width: 240px;">
+                        <div data-csp-style="display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap;">
+                            <strong data-csp-style="font-size: 1rem;">@r.Title</strong>
+                            <span data-csp-style="padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.7rem; background: rgba(99,102,241,0.10); color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;">@r.TargetEntityType</span>
+                        </div>
+                        <div data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">
+                            @r.Subtitle · Workflow: @r.WorkflowName
+                        </div>
+                    </div>
+                    <div data-csp-style="text-align: right;">
+                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Approvals</div>
+                        <div data-csp-style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
+                            <span data-csp-style="@ratioStyle">
+                                <span data-csp-style="@fillStyle"></span>
+                            </span>
+                            <span><strong>@r.ApprovalsRecorded</strong> of @r.ApprovalsRequired</span>
+                        </div>
+                    </div>
+                    <a class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1rem; font-weight: 600;" href="@r.DetailUrl">Review →</a>
+                </div>
+            </div>
+        }
+    </div>
+}
