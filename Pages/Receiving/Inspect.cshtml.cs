@@ -2,11 +2,13 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Receiving;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.Receiving
 {
@@ -17,14 +19,19 @@ namespace Abs.FixedAssets.Pages.Receiving
         private readonly IModuleGuardService _moduleGuard;
         private readonly ITenantContext _tenantContext;
         private readonly ILookupService _lookupService;
+        private readonly IReceivingPostingService _receivingPosting;
+        private readonly ILogger<InspectModel> _logger;
 
         public InspectModel(AppDbContext context, IModuleGuardService moduleGuard,
-            ITenantContext tenantContext, ILookupService lookupService)
+            ITenantContext tenantContext, ILookupService lookupService,
+            IReceivingPostingService receivingPosting, ILogger<InspectModel> logger)
         {
             _context = context;
             _moduleGuard = moduleGuard;
             _tenantContext = tenantContext;
             _lookupService = lookupService;
+            _receivingPosting = receivingPosting;
+            _logger = logger;
         }
 
         public GoodsReceipt Receipt { get; set; } = null!;
@@ -184,6 +191,28 @@ namespace Abs.FixedAssets.Pages.Receiving
             {
                 TempData["Error"] = "An error occurred while completing the inspection.";
                 return RedirectToPage("Inspect", new { id });
+            }
+
+            // PR #105 / B-17: when rejections were recorded, post the reversing
+            // inventory + JE moves. Idempotent via the GR-REV reference so a
+            // refresh-and-re-submit doesn't double-book. Surfaces a follow-up
+            // message but does not block completion if reversal fails — the
+            // operational status flip is what gates the rest of the P2P path.
+            if (hasRejections)
+            {
+                try
+                {
+                    var revResult = await _receivingPosting.PostRejectionReversalAsync(id);
+                    if (revResult.JournalEntryId.HasValue && revResult.TotalAccrued > 0m)
+                    {
+                        TempData["Success"] += $" Reversal JE #{revResult.JournalEntryId} posted for ${revResult.TotalAccrued:N2} ({revResult.InventoryRowsTouched} inventory row(s) adjusted).";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Rejection reversal failed for receipt {Id}", id);
+                    TempData["Error"] = $"Inspection saved, but rejection reversal failed: {ex.Message}. Please contact Accounting.";
+                }
             }
 
             return RedirectToPage("Details", new { id });

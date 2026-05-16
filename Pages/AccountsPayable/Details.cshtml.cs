@@ -13,7 +13,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.AccountsPayable
 {
-    [Authorize]
+    // PR #105 / B-18: AP details page hosts Approve / Record Payment / Void —
+    // every handler commits money. Tighten the role gate.
+    [Authorize(Roles = "Admin,Accountant")]
     public class DetailsModel : PageModel
     {
         private readonly AppDbContext _context;
@@ -168,10 +170,36 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 .ToListAsync();
         }
 
-        public async Task<IActionResult> OnPostApproveAsync(int id, string? returnUrl, bool overrideMatch = false)
+        public async Task<IActionResult> OnPostApproveAsync(int id, string? returnUrl, bool overrideMatch = false, string? overrideReason = null)
         {
             var invoice = await LoadInvoiceScopedAsync(id);
             if (invoice == null) return NotFound();
+
+            // PR #105 / B-19: overrideMatch=true bypasses the 3-way match gate
+            // and is a sensitive privilege. Two guards layered on top of the
+            // delegate call:
+            //   1) Role gate — only Admin can force-approve with override.
+            //      Accountant gets a 403 here even though they can approve
+            //      cleanly-matched invoices via the normal path.
+            //   2) Reason required — the override leaves an audit trail with
+            //      a free-text explanation, which lands in AuditLogs alongside
+            //      the user identity for SOX-style internal control review.
+            // The non-override happy path is unchanged.
+            var fallbackReturn = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+            if (overrideMatch)
+            {
+                if (!User.IsInRole("Admin"))
+                {
+                    _logger.LogWarning("AP override-approval denied for invoice {Id} — user {User} lacks Admin role", id, User.Identity?.Name);
+                    TempData["Error"] = "Override approval requires the Admin role.";
+                    return RedirectToPage(new { id, returnUrl = fallbackReturn });
+                }
+                if (string.IsNullOrWhiteSpace(overrideReason))
+                {
+                    TempData["Error"] = "A reason is required when approving with match override.";
+                    return RedirectToPage(new { id, returnUrl = fallbackReturn });
+                }
+            }
 
             // S1-5: delegate to ApPostingService — runs the 3-way match gate,
             // posts the approval JE (Dr GR-Accrued/Expense + PPV / Cr AP),
@@ -191,6 +219,35 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             // Reload to pick up the status flip + JE link.
             invoice = await LoadInvoiceScopedAsync(id);
             if (invoice == null) return NotFound();
+
+            // PR #105 / B-19: if override took the place of a clean match, leave
+            // the audit trail. AuditLog rows are read by the SOX testing skill +
+            // by any downstream forensic review of approval decisions. The Match
+            // status before override is captured in BeforeJson; the reason in
+            // Description for fast scanning.
+            if (overrideMatch)
+            {
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    EntityType = "VendorInvoice",
+                    EntityId = invoice.Id,
+                    Action = "ApproveWithMatchOverride",
+                    BeforeJson = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        invoiceNumber = invoice.InvoiceNumber,
+                        matchStatusAtOverride = invoice.MatchStatus.ToString(),
+                        totalAmount = invoice.Total,
+                        vendorId = invoice.VendorId
+                    }),
+                    Username = User.Identity?.Name,
+                    Description = $"Override reason: {overrideReason}",
+                    IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
+                _logger.LogWarning("AP override approval committed for invoice {InvoiceNumber} by {User}: {Reason}",
+                    invoice.InvoiceNumber, User.Identity?.Name, overrideReason);
+            }
 
             // Mirror status to the LookupValue FK (legacy paired-enum convention).
             var approvedLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)InvoiceStatus.Approved).ToString());
