@@ -351,13 +351,43 @@ namespace Abs.FixedAssets.Services.Finance
 
                 // Audit log entry — paired with the JSON snapshot on the period
                 // record, this gives an auditor everything they need.
-                await _audit.LogAsync<FiscalPeriod>(
-                    action: blocking.Any() ? "PeriodCloseWithOverride" : "PeriodClose",
-                    before: null,
-                    after: period,
-                    username: username,
-                    description: $"Closed period {period.Name}. Preflight had {blocking.Count} blocking failure(s). " +
-                                 (overrideReason != null ? $"Override reason: {overrideReason}" : "No override needed."));
+                // Pass a FLAT snapshot DTO (not the EF entity) because
+                // AuditService.LogAsync<T> JsonSerializer-serializes the
+                // entity with default options and chokes on the
+                // FiscalPeriod ↔ FiscalYear circular nav. Wrapped in
+                // try/catch so an audit-log hiccup never aborts a
+                // successfully-committed close (paired with LockPeriodAsync).
+                try
+                {
+                    var auditSnapshot = new
+                    {
+                        period.Id,
+                        period.Name,
+                        period.CompanyId,
+                        period.FiscalYearId,
+                        Status = period.Status.ToString(),
+                        period.ClosedAt,
+                        period.ClosedBy,
+                        period.StartDate,
+                        period.EndDate,
+                        period.DepreciationCalculated,
+                        period.DepreciationPosted,
+                        PreflightSnapshotJsonLength = period.PreflightSnapshotJson?.Length ?? 0
+                    };
+                    await _audit.LogAsync<object>(
+                        action: blocking.Any() ? "PeriodCloseWithOverride" : "PeriodClose",
+                        before: null,
+                        after: auditSnapshot,
+                        username: username,
+                        description: $"Closed period {period.Name}. Preflight had {blocking.Count} blocking failure(s). " +
+                                     (overrideReason != null ? $"Override reason: {overrideReason}" : "No override needed."));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "AuditService.LogAsync failed for period close (period {PeriodId}) — close itself still succeeded.",
+                        period.Id);
+                }
 
                 await tx.CommitAsync();
 
@@ -429,12 +459,31 @@ namespace Abs.FixedAssets.Services.Finance
                 _logger.LogWarning(ex, "Legacy PeriodLock unlock failed but FiscalPeriod reopen succeeded.");
             }
 
-            await _audit.LogAsync<FiscalPeriod>(
-                action: "PeriodReopen",
-                before: null,
-                after: period,
-                username: username,
-                description: $"Reopened period {period.Name}. Reason: {reason}");
+            try
+            {
+                var auditSnapshot = new
+                {
+                    period.Id,
+                    period.Name,
+                    period.CompanyId,
+                    period.FiscalYearId,
+                    Status = period.Status.ToString(),
+                    period.StartDate,
+                    period.EndDate
+                };
+                await _audit.LogAsync<object>(
+                    action: "PeriodReopen",
+                    before: null,
+                    after: auditSnapshot,
+                    username: username,
+                    description: $"Reopened period {period.Name}. Reason: {reason}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "AuditService.LogAsync failed for period reopen (period {PeriodId}) — reopen itself still succeeded.",
+                    period.Id);
+            }
 
             var packet = new PeriodClosePacket(
                 FiscalPeriodId: period.Id,
