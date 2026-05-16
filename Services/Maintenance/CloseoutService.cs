@@ -191,6 +191,12 @@ public class CloseoutService : ICloseoutService
             var laborPrefix = $"WO-LBR-{workOrderId}-";
             var issuePrefix = $"WO-ISS-{workOrderId}-";
             var returnPrefix = $"WO-RTN-{workOrderId}-";
+            // PR #106 (B-20): operation-level parts post under WO-ISS-OP /
+            // WO-RTN-OP sources with reference prefix WO-{ISS|RTN}-OP-{woId}-.
+            // Include them in the same rollup so the WO header costs reflect
+            // both header-level and per-operation material moves.
+            var issueOpPrefix = $"WO-ISS-OP-{workOrderId}-";
+            var returnOpPrefix = $"WO-RTN-OP-{workOrderId}-";
 
             var laborTotal = await _db.JournalEntries
                 .Where(j => j.Source == "WO-LBR" && j.Reference != null && j.Reference.StartsWith(laborPrefix))
@@ -198,12 +204,16 @@ public class CloseoutService : ICloseoutService
                 .Where(l => l.Debit > 0m)
                 .SumAsync(l => (decimal?)l.Debit) ?? 0m;
             var materialsIssued = await _db.JournalEntries
-                .Where(j => j.Source == "WO-ISS" && j.Reference != null && j.Reference.StartsWith(issuePrefix))
+                .Where(j => (j.Source == "WO-ISS" || j.Source == "WO-ISS-OP")
+                    && j.Reference != null
+                    && (j.Reference.StartsWith(issuePrefix) || j.Reference.StartsWith(issueOpPrefix)))
                 .SelectMany(j => j.Lines)
                 .Where(l => l.Debit > 0m)
                 .SumAsync(l => (decimal?)l.Debit) ?? 0m;
             var materialsReturned = await _db.JournalEntries
-                .Where(j => j.Source == "WO-RTN" && j.Reference != null && j.Reference.StartsWith(returnPrefix))
+                .Where(j => (j.Source == "WO-RTN" || j.Source == "WO-RTN-OP")
+                    && j.Reference != null
+                    && (j.Reference.StartsWith(returnPrefix) || j.Reference.StartsWith(returnOpPrefix)))
                 .SelectMany(j => j.Lines)
                 .Where(l => l.Debit > 0m)
                 .SumAsync(l => (decimal?)l.Debit) ?? 0m;

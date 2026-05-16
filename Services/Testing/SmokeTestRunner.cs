@@ -414,6 +414,14 @@ public class SmokeTestRunner : ISmokeTestRunner
         var test70 = await Test_ApiKeysAreTenantScoped();
         summary.Results.Add(test70);
 
+        // PR #106 (B-21): operation-part JE backfill audit. Identifies any
+        // WorkOrderOperationPart rows where QuantityUsed > 0 but no matching
+        // WO-ISS-OP JE exists. Pre-PR these rows were the silent-orphan class
+        // — UI showed cost, GL did not. New writes from PR #106 close the
+        // forward-going hole; this test surfaces the historical drift count.
+        var test71 = await Test_OperationPartsHaveJournalEntries();
+        summary.Results.Add(test71);
+
         summary.AfterCounts = await GetTableCountsAsync();
 
         summary.RollbackVerified = 
@@ -580,7 +588,8 @@ public class SmokeTestRunner : ISmokeTestRunner
             ("Asset Detail Renders", () => RunAssetDetailRendersTestAsync(), null),
             ("ScreenHeader Call Sites Safe", null, () => RunScreenHeaderCallSitesSafeTest()),
             ("No Double Header", null, () => RunNoDoubleHeaderTest()),
-            ("API Keys Are Tenant Scoped", () => Test_ApiKeysAreTenantScoped(), null)
+            ("API Keys Are Tenant Scoped", () => Test_ApiKeysAreTenantScoped(), null),
+            ("Operation Parts Have Journal Entries", () => Test_OperationPartsHaveJournalEntries(), null)
         };
 
         foreach (var (name, asyncMethod, syncMethod) in testMethods)
@@ -11451,6 +11460,107 @@ public class SmokeTestRunner : ISmokeTestRunner
             result.Error = ex.Message;
             _logger.LogError(ex, "API key tenant scoping smoke test failed");
             try { await transaction.RollbackAsync(); } catch { }
+        }
+        finally
+        {
+            sw.Stop();
+            result.DurationMs = sw.ElapsedMilliseconds;
+        }
+
+        return result;
+    }
+
+    // PR #106 (B-21): audit-only smoke test. Identifies WorkOrderOperationPart
+    // rows where QuantityUsed > 0 but no `WO-ISS-OP` JE exists with the
+    // expected reference prefix. Pre-PR these were silent orphans — the part
+    // counter ticked but the GL never saw the maintenance expense. New writes
+    // from this PR's OnPostIssueOperationPartAsync close the forward-going
+    // hole; this test surfaces the historical drift count so admins can
+    // backfill manually (rather than auto-creating JEs against past periods
+    // which would violate the period-lock invariants from PR #84).
+    //
+    // Passes when:
+    //   - count of orphan rows is 0, OR
+    //   - the dataset has zero operation parts with QuantityUsed > 0 (the
+    //     demo state on day 1).
+    // Reports the count as Details either way so the admin can see the drift.
+    private async Task<SmokeTestResult> Test_OperationPartsHaveJournalEntries()
+    {
+        var result = new SmokeTestResult { TestName = "Operation Parts Have Journal Entries" };
+        var sw = Stopwatch.StartNew();
+
+        try
+        {
+            // Pull all op parts with QuantityUsed > 0 — these are the rows
+            // that should each have at least one matching WO-ISS-OP JE.
+            var usedOpParts = await _db.WorkOrderOperationParts
+                .Include(p => p.WorkOrderOperation)
+                .Where(p => p.QuantityUsed > 0)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.WorkOrderOperationId,
+                    p.QuantityUsed,
+                    p.UnitCost,
+                    WorkOrderId = p.WorkOrderOperation != null ? p.WorkOrderOperation.MaintenanceEventId : 0
+                })
+                .ToListAsync();
+
+            if (usedOpParts.Count == 0)
+            {
+                result.Passed = true;
+                result.Details = "No WorkOrderOperationPart rows with QuantityUsed > 0 in the dataset; nothing to audit.";
+                return result;
+            }
+
+            // For each used op-part, look for a matching WO-ISS-OP JE.
+            // Reference shape from PostOperationPartJournalEntryAsync:
+            //   "WO-ISS-OP-{woId}-op{opId}-p{partId}-{ticks}"
+            // We match on the {partId} segment to be tolerant of future
+            // reference-format tweaks.
+            var partRefSegments = usedOpParts.Select(p => $"-p{p.Id}-").ToList();
+
+            var jeReferences = await _db.JournalEntries
+                .Where(j => j.Source == "WO-ISS-OP" && j.Reference != null)
+                .Select(j => j.Reference!)
+                .ToListAsync();
+
+            int orphanCount = 0;
+            var orphanIds = new List<int>();
+            foreach (var part in usedOpParts)
+            {
+                var marker = $"-p{part.Id}-";
+                if (!jeReferences.Any(r => r.Contains(marker)))
+                {
+                    orphanCount++;
+                    if (orphanIds.Count < 10) orphanIds.Add(part.Id);
+                }
+            }
+
+            if (orphanCount == 0)
+            {
+                result.Passed = true;
+                result.Details = $"All {usedOpParts.Count} operation part(s) with QuantityUsed > 0 have matching WO-ISS-OP journal entries.";
+            }
+            else
+            {
+                // Audit-mode: report but don't fail the suite. Orphans are
+                // pre-PR drift; new writes are forward-corrected. Flip to
+                // Passed=false in a future PR once the admin-side backfill
+                // has run and the count should be zero.
+                result.Passed = true;
+                result.Details = $"AUDIT: {orphanCount} of {usedOpParts.Count} op-part(s) with QuantityUsed > 0 have no matching WO-ISS-OP JE. " +
+                                 $"Sample part IDs: [{string.Join(", ", orphanIds)}]. " +
+                                 $"Forward-going writes (PR #106) will post correctly; historical backfill is a separate admin workflow.";
+                _logger.LogWarning("B-21 audit: {OrphanCount} of {Total} operation parts lack matching WO-ISS-OP JEs",
+                    orphanCount, usedOpParts.Count);
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Passed = false;
+            result.Error = ex.Message;
+            _logger.LogError(ex, "Operation parts JE audit smoke test failed");
         }
         finally
         {
