@@ -6,9 +6,21 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Abs.FixedAssets.Migrations
 {
-    // Sprint 2 PR #118.1 — Industrial Sensor Data Architecture (ADR-011).
+    // Sprint 2 PR #118.1 (revised by #118.1.1) — Industrial Sensor Data
+    // Architecture (ADR-011). Apache TimescaleDB compatible.
     //
-    // Lays down the substrate the rest of PR #118 builds on:
+    // Replit Postgres ships the Apache-2.0-licensed build of TimescaleDB
+    // 2.13. Continuous aggregates (`WITH (timescaledb.continuous)`),
+    // `add_continuous_aggregate_policy`, `add_compression_policy`,
+    // `add_retention_policy`, and `ALTER TABLE SET (timescaledb.compress,
+    // ...)` are ALL gated behind the Community (TSL) license and fail
+    // with "functionality not supported under the current 'apache' license"
+    // on Apache builds. The Agent caught this on the first deploy of
+    // PR #118.1 — the migration crashed mid-transaction in EF Core's
+    // MigrateAsync, rolling everything back and preventing the Web
+    // Server from starting.
+    //
+    // This revised migration lays down ONLY the Apache-licensed pieces:
     //
     //   1. Enable the timescaledb extension.
     //   2. Create the regular telemetry tables (AssetSensorLatest,
@@ -16,13 +28,20 @@ namespace Abs.FixedAssets.Migrations
     //      AlarmRationalizations, UnitConversions).
     //   3. Create SensorEvents and convert it to a TimescaleDB
     //      hypertable partitioned by ReadingAt (1-day chunks).
-    //   4. Create three continuous-aggregate materialized views
-    //      (SensorRollupMinute / Hour / Day) with auto-refresh policies.
-    //   5. Add compression policy (compress chunks after 7 days) and
-    //      retention policy (drop chunks after 90 days) on SensorEvents.
+    //   4. Create indexes (asset/type/time + partial OOS).
+    //
+    // Deferred to PR #118.2 (app-layer in C# instead of TimescaleDB-managed):
+    //   * Rollup materialization — regular Postgres MATERIALIZED VIEWs
+    //     refreshed by a Hangfire/Quartz job at the cadence the ADR
+    //     specified for the continuous aggregates. OR computed on
+    //     demand from the hypertable for low-volume tenants.
+    //   * Compression — app-layer scheduled job calling
+    //     `SELECT compress_chunk(...)` on chunks older than 7 days.
+    //   * Retention — app-layer scheduled job calling
+    //     `SELECT drop_chunks('SensorEvents', INTERVAL '90 days')`.
     //
     // All SQL uses IF NOT EXISTS / idempotent guards so the migration
-    // re-runs safely during dual-write and read-cutover phases.
+    // re-runs safely.
     //
     // No data migration. No behavior change. Subsequent PRs (#118.2-.6)
     // wire the services, swap the read path, and ship the UI.
@@ -284,161 +303,31 @@ namespace Abs.FixedAssets.Migrations
             ");
 
             // ============================================================
-            // 8. Continuous aggregates — SensorRollupMinute / Hour / Day.
+            // 8. (REMOVED in PR #118.1.1) Continuous aggregates +
+            //    compression/retention policies were TSL-licensed
+            //    operations that crash on Replit's Apache TimescaleDB 2.13.
+            //    Deferred to PR #118.2 as app-layer scheduled jobs.
             //
-            // Excludes Failure (2) and OutOfService (4) NE 107 states
-            // from the value aggregates so corrupt or disabled readings
-            // don't distort the time-series shape. Counts per quality
-            // state are preserved for data-quality dashboards.
-            // ============================================================
-            migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW IF NOT EXISTS ""SensorRollupMinute""
-                WITH (timescaledb.continuous) AS
-                SELECT
-                    ""AssetId"",
-                    ""ReadingType"",
-                    time_bucket(INTERVAL '1 minute', ""ReadingAt"") AS ""BucketStart"",
-                    AVG(""Value"")                                             AS ""AvgValue"",
-                    MIN(""Value"")                                             AS ""MinValue"",
-                    MAX(""Value"")                                             AS ""MaxValue"",
-                    STDDEV_SAMP(""Value"")                                     AS ""StdDev"",
-                    COUNT(*)                                                  AS ""SampleCount"",
-                    COUNT(*) FILTER (WHERE ""IsOutOfSpec"")                    AS ""OosCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 1)                AS ""UncertainCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 2)                AS ""FailureCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 3)                AS ""MaintenanceCount""
-                FROM ""SensorEvents""
-                WHERE ""QualityCode"" IN (0, 1, 3)
-                GROUP BY ""AssetId"", ""ReadingType"", time_bucket(INTERVAL '1 minute', ""ReadingAt"")
-                WITH NO DATA;
-            ");
-
-            migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW IF NOT EXISTS ""SensorRollupHour""
-                WITH (timescaledb.continuous) AS
-                SELECT
-                    ""AssetId"",
-                    ""ReadingType"",
-                    time_bucket(INTERVAL '1 hour', ""ReadingAt"") AS ""BucketStart"",
-                    AVG(""Value"")                                             AS ""AvgValue"",
-                    MIN(""Value"")                                             AS ""MinValue"",
-                    MAX(""Value"")                                             AS ""MaxValue"",
-                    STDDEV_SAMP(""Value"")                                     AS ""StdDev"",
-                    COUNT(*)                                                  AS ""SampleCount"",
-                    COUNT(*) FILTER (WHERE ""IsOutOfSpec"")                    AS ""OosCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 1)                AS ""UncertainCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 2)                AS ""FailureCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 3)                AS ""MaintenanceCount""
-                FROM ""SensorEvents""
-                WHERE ""QualityCode"" IN (0, 1, 3)
-                GROUP BY ""AssetId"", ""ReadingType"", time_bucket(INTERVAL '1 hour', ""ReadingAt"")
-                WITH NO DATA;
-            ");
-
-            migrationBuilder.Sql(@"
-                CREATE MATERIALIZED VIEW IF NOT EXISTS ""SensorRollupDay""
-                WITH (timescaledb.continuous) AS
-                SELECT
-                    ""AssetId"",
-                    ""ReadingType"",
-                    time_bucket(INTERVAL '1 day', ""ReadingAt"") AS ""BucketStart"",
-                    AVG(""Value"")                                             AS ""AvgValue"",
-                    MIN(""Value"")                                             AS ""MinValue"",
-                    MAX(""Value"")                                             AS ""MaxValue"",
-                    STDDEV_SAMP(""Value"")                                     AS ""StdDev"",
-                    COUNT(*)                                                  AS ""SampleCount"",
-                    COUNT(*) FILTER (WHERE ""IsOutOfSpec"")                    AS ""OosCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 1)                AS ""UncertainCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 2)                AS ""FailureCount"",
-                    COUNT(*) FILTER (WHERE ""QualityCode"" = 3)                AS ""MaintenanceCount""
-                FROM ""SensorEvents""
-                WHERE ""QualityCode"" IN (0, 1, 3)
-                GROUP BY ""AssetId"", ""ReadingType"", time_bucket(INTERVAL '1 day', ""ReadingAt"")
-                WITH NO DATA;
-            ");
-
-            // ============================================================
-            // 9. Continuous-aggregate refresh policies.
+            //    Original design (preserved for PR #118.2 reference):
+            //      - SensorRollupMinute / Hour / Day continuous aggregates
+            //        with 1-min / 5-min / 1-hour refresh policies
+            //      - 7-day columnar compression policy
+            //      - 90-day retention policy
             //
-            // Minute rollup refreshes every minute, covering the last 2 hours.
-            // This handles 99% of edge store-and-forward replay (events
-            // arriving > 2 hours late get a one-shot manual refresh in PR
-            // #118.2's ingest service).
+            //    Replacement in PR #118.2:
+            //      - Regular MATERIALIZED VIEWs with same SELECT body,
+            //        refreshed by a Hangfire/Quartz job at the same cadence
+            //      - Periodic `SELECT compress_chunk(...)` for chunks
+            //        older than 7 days
+            //      - Periodic `SELECT drop_chunks(...)` for chunks
+            //        older than 90 days
             // ============================================================
-            migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy(
-                    '""SensorRollupMinute""',
-                    start_offset      => INTERVAL '2 hours',
-                    end_offset        => INTERVAL '1 minute',
-                    schedule_interval => INTERVAL '1 minute',
-                    if_not_exists     => TRUE
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy(
-                    '""SensorRollupHour""',
-                    start_offset      => INTERVAL '6 hours',
-                    end_offset        => INTERVAL '1 hour',
-                    schedule_interval => INTERVAL '5 minutes',
-                    if_not_exists     => TRUE
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_continuous_aggregate_policy(
-                    '""SensorRollupDay""',
-                    start_offset      => INTERVAL '3 days',
-                    end_offset        => INTERVAL '1 day',
-                    schedule_interval => INTERVAL '1 hour',
-                    if_not_exists     => TRUE
-                );
-            ");
-
-            // ============================================================
-            // 10. Compression + retention policies on SensorEvents.
-            //
-            // Compress after 7 days — leaves headroom for late-arriving
-            // out-of-order events from offline edge gateways. Expected
-            // 10-20x columnar compression on slowly-changing process data
-            // (TimescaleDB Gorilla-style delta+XOR — the open-source
-            // equivalent of PI's SmartCompression).
-            //
-            // Retention 90 days hot. Per-tenant override via the
-            // ITenantContext when FDA / SOX regulatory retention demands
-            // it. SensorSnapshots are append-only and never dropped.
-            // ============================================================
-            migrationBuilder.Sql(@"
-                ALTER TABLE ""SensorEvents""
-                SET (timescaledb.compress, timescaledb.compress_segmentby = '""AssetId"",""ReadingType""');
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_compression_policy(
-                    '""SensorEvents""',
-                    compress_after => INTERVAL '7 days',
-                    if_not_exists  => TRUE
-                );
-            ");
-
-            migrationBuilder.Sql(@"
-                SELECT add_retention_policy(
-                    '""SensorEvents""',
-                    drop_after    => INTERVAL '90 days',
-                    if_not_exists => TRUE
-                );
-            ");
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Drop in reverse order. Continuous aggregates first (depend
-            // on the hypertable), then policies, then the hypertable
-            // itself, then dependent tables.
-            migrationBuilder.Sql(@"DROP MATERIALIZED VIEW IF EXISTS ""SensorRollupDay"" CASCADE;");
-            migrationBuilder.Sql(@"DROP MATERIALIZED VIEW IF EXISTS ""SensorRollupHour"" CASCADE;");
-            migrationBuilder.Sql(@"DROP MATERIALIZED VIEW IF EXISTS ""SensorRollupMinute"" CASCADE;");
-
+            // Drop in reverse order. Dependent tables first, then the
+            // hypertable itself.
             migrationBuilder.Sql(@"DROP TABLE IF EXISTS ""SensorAlarms"" CASCADE;");
             migrationBuilder.Sql(@"DROP TABLE IF EXISTS ""AlarmRationalizations"" CASCADE;");
             migrationBuilder.Sql(@"DROP TABLE IF EXISTS ""SensorSnapshotValues"" CASCADE;");
