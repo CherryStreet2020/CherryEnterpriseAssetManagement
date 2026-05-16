@@ -85,6 +85,10 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // PR #97: WO-level lookup dropdowns for the Edit form.
         public List<SelectListItem> MaintenanceTypeOptions { get; set; } = new();
         public List<SelectListItem> MaintenancePriorityOptions { get; set; } = new();
+        // PR #104 (B-16): FailureCode master, seeded reference data. Loaded
+        // in OnGetAsync for the Edit form's dropdown so operators can no
+        // longer free-text the value.
+        public List<FailureCode> FailureCodeOptions { get; set; } = new();
 
         [BindProperty(SupportsGet = true)]
         public string? ReturnUrl { get; set; }
@@ -168,6 +172,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // sees what the WO is set to, not a placeholder.
             MaintenanceTypeOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceType", wo.TypeLookupValueId, "");
             MaintenancePriorityOptions = await _lookupService.GetSelectListByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenancePriority", wo.PriorityLookupValueId, "");
+
+            // PR #104 (B-16): seeded FailureCode master, sorted by code so
+            // the dropdown reads naturally (BRG-* before HYD-* before MOT-*).
+            // Active-only — admins can deactivate retired codes from the
+            // admin UI without removing them from historical WOs.
+            FailureCodeOptions = await _context.FailureCodes
+                .Where(f => f.IsActive)
+                .OrderBy(f => f.Code)
+                .ToListAsync();
 
             return Page();
         }
@@ -932,7 +945,8 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             int? technicianId,
             decimal estimatedCost,
             string? description,
-            string? notes)
+            string? notes,
+            int? failureCodeId)
         {
             var wo = await _context.MaintenanceEvents
                 .Where(m => m.Id == id
@@ -973,6 +987,28 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             wo.EstimatedCost = estimatedCost;
             wo.Description = description ?? "";
             wo.Notes = notes;
+
+            // PR #104 (B-16): write the FK alongside the denormalized
+            // FailureCode text label. Reads the master row to populate the
+            // string field with its canonical Name so downstream code that
+            // still consumes wo.FailureCode (legacy reports, the closeout
+            // summary template) shows the operator-friendly label, not the
+            // numeric Id. Null FK clears the label.
+            if (failureCodeId.HasValue && failureCodeId.Value > 0)
+            {
+                var fc = await _context.FailureCodes
+                    .FirstOrDefaultAsync(f => f.Id == failureCodeId.Value && f.IsActive);
+                if (fc != null)
+                {
+                    wo.FailureCodeId = fc.Id;
+                    wo.FailureCode = fc.Name;
+                }
+            }
+            else
+            {
+                wo.FailureCodeId = null;
+                wo.FailureCode = null;
+            }
 
             await _context.SaveChangesAsync();
             TempData["Success"] = "Work order updated.";

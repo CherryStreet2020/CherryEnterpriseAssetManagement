@@ -40,6 +40,14 @@ namespace Abs.FixedAssets.Pages
         public int WorkOrderBacklog { get; private set; }
         public decimal PMCompliancePercent { get; private set; }
         public decimal MTTRHours { get; private set; }
+        // PR #104 (B-15): Mean Time Between Failures, org-wide. Computed as
+        // the average gap (in hours) between consecutive corrective WO
+        // close-times across all assets that have at least two completed
+        // corrective WOs in the window. Zero when fewer than two data
+        // points per asset across the whole org — surfaced as "N/A" in the
+        // dashboard tile.
+        public decimal MTBFHours { get; private set; }
+        public bool MTBFHasData { get; private set; }
         
         // PM Schedule KPIs
         public int TotalSchedules { get; private set; }
@@ -149,21 +157,81 @@ namespace Abs.FixedAssets.Pages
             var onTimePM = completedPM.Count(m => m.CompletedDate!.Value <= m.ScheduledDate.AddDays(7));
             PMCompliancePercent = completedPM.Count > 0 ? (decimal)onTimePM / completedPM.Count * 100 : 100;
             
-            // MTTR: Average hours from scheduled to completed for completed corrective work orders
-            var completedCorrective = maintenanceEvents
-                .Where(m => m.Status == MaintenanceStatus.Completed && 
-                            m.CompletedDate.HasValue && 
-                            m.Type == MaintenanceType.Corrective)
+            // PR #104 (B-14): MTTR = Mean Time To Repair = avg hours between
+            // StartedAt (when the technician actually began the work, i.e.
+            // status moved to InProgress) and CompletedDate. The pre-fix
+            // formula used `CompletedDate - ScheduledDate` which measures
+            // *lateness vs. the calendar*, not repair time — a WO scheduled
+            // for Tuesday and completed Friday counted as 72 MTTR-hours
+            // regardless of whether the actual fix took 30 minutes. With
+            // StartedAt as the start anchor, MTTR finally answers the
+            // question the KPI label promises: "how long does it take us
+            // to fix a corrective WO once we start working it?"
+            //
+            // Only include WOs where both StartedAt and CompletedDate are
+            // non-null — WOs that closed without ever going InProgress are
+            // operational anomalies (likely zero-effort cancellations
+            // mistakenly closed) and excluding them prevents skew.
+            var correctiveWithBothTimestamps = maintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Completed
+                            && m.CompletedDate.HasValue
+                            && m.StartedAt.HasValue
+                            && m.Type == MaintenanceType.Corrective)
                 .ToList();
-            if (completedCorrective.Count > 0)
+            if (correctiveWithBothTimestamps.Count > 0)
             {
-                var totalHours = completedCorrective
-                    .Sum(m => (m.CompletedDate!.Value - m.ScheduledDate).TotalHours);
-                MTTRHours = (decimal)(totalHours / completedCorrective.Count);
+                var totalRepairHours = correctiveWithBothTimestamps
+                    .Sum(m => (m.CompletedDate!.Value - m.StartedAt!.Value).TotalHours);
+                MTTRHours = (decimal)(totalRepairHours / correctiveWithBothTimestamps.Count);
             }
             else
             {
                 MTTRHours = 0;
+            }
+
+            // PR #104 (B-15): MTBF = Mean Time Between Failures. For each
+            // asset that has 2+ completed corrective WOs in the window,
+            // compute the gaps between consecutive close-times and average
+            // them. Then average those per-asset MTBFs across the org so a
+            // 50-asset fleet doesn't get dominated by one asset that fails
+            // every shift.
+            //
+            // Edge cases:
+            // - Asset with 0 or 1 corrective WO → no MTBF data point (skip)
+            // - All assets with 0 or 1 → org MTBF is 0 + MTBFHasData=false
+            // - Sub-hour MTBFs are theoretically valid but visually scary;
+            //   we report the raw number and let the UI format/contextualize
+            var correctiveCloses = maintenanceEvents
+                .Where(m => m.Status == MaintenanceStatus.Completed
+                            && m.CompletedDate.HasValue
+                            && m.Type == MaintenanceType.Corrective
+                            && m.AssetId > 0)
+                .GroupBy(m => m.AssetId)
+                .Select(g => g.Select(m => m.CompletedDate!.Value).OrderBy(d => d).ToList())
+                .Where(closes => closes.Count >= 2)
+                .ToList();
+            if (correctiveCloses.Count > 0)
+            {
+                decimal sumOfPerAssetMtbfHours = 0m;
+                int assetsCounted = 0;
+                foreach (var asset in correctiveCloses)
+                {
+                    decimal gapSum = 0m;
+                    for (int i = 1; i < asset.Count; i++)
+                    {
+                        gapSum += (decimal)(asset[i] - asset[i - 1]).TotalHours;
+                    }
+                    var perAssetMtbf = gapSum / (asset.Count - 1);
+                    sumOfPerAssetMtbfHours += perAssetMtbf;
+                    assetsCounted++;
+                }
+                MTBFHours = sumOfPerAssetMtbfHours / assetsCounted;
+                MTBFHasData = true;
+            }
+            else
+            {
+                MTBFHours = 0;
+                MTBFHasData = false;
             }
             
             // PM Schedule KPIs - Use canonical PMSchedule model with tenant scoping

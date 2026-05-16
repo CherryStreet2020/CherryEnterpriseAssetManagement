@@ -106,8 +106,21 @@ namespace Abs.FixedAssets.Models
 
         public DateTime? RequestedAt { get; set; }
 
+        // PR #104 (B-16): FailureCode was a free-text string from day one.
+        // Operators typed inconsistently ("BRG-WEAR", "bearing wear", "bearing-wear")
+        // which broke the Pareto / Weibull aggregation that needs canonical codes.
+        // Kept the string field for backward compatibility with existing reports
+        // and CloseoutService.GenerateCloseoutSummary; new code reads/writes via
+        // the FK to the seeded FailureCode master (24 standard rows). The text
+        // column is treated as a denormalized display label going forward, set
+        // alongside the FK at write time. Backfill in the 20260516 migration
+        // matches on Code (case-insensitive) and stamps FailureCodeId where
+        // an unambiguous master row exists.
         [StringLength(500)]
         public string? FailureCode { get; set; }
+
+        public int? FailureCodeId { get; set; }
+        public FailureCode? FailureCodeRef { get; set; }
 
         [StringLength(500)]
         public string? RootCause { get; set; }
