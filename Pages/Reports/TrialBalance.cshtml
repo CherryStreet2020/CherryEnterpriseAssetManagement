@@ -26,8 +26,15 @@
     <a href="?StartDate=@(Model.StartDate?.ToString("yyyy-MM-dd"))&EndDate=@(Model.EndDate?.ToString("yyyy-MM-dd"))&Format=csv" class="btn-p btn-p--secondary" data-csp-style="padding: 0.5rem 1.25rem;">⤓ CSV</a>
 </form>
 
-@* Balance status banner — the marquee finding on this report *@
-<div data-csp-style="margin-top: 1.5rem; padding: 1rem 1.25rem; border-radius: 8px; @(Model.IsBalanced ? "background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac;" : "background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;")">
+@* Balance status banner — the marquee finding on this report. *@
+@{
+    // Hoisted out of the inline attribute because Razor's parser chokes on
+    // the nested double-quoted strings inside a double-quoted attribute.
+    var bannerStyle = Model.IsBalanced
+        ? "margin-top: 1.5rem; padding: 1rem 1.25rem; border-radius: 8px; background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #86efac;"
+        : "margin-top: 1.5rem; padding: 1rem 1.25rem; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5;";
+}
+<div data-csp-style="@bannerStyle">
     @if (Model.IsBalanced)
     {
         <strong>✓ Trial balance is balanced.</strong>
