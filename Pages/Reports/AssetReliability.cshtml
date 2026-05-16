@@ -1,0 +1,114 @@
+@page
+@model Abs.FixedAssets.Pages.Reports.AssetReliabilityModel
+@{
+    ViewData["Title"] = "Per-Asset Reliability";
+    ViewData["TabTitle"] = "Asset Reliability";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Per-Asset Reliability",
+        ["HeaderSubtitle"] = $"{Model.StartDate:MMM d, yyyy} – {Model.EndDate:MMM d, yyyy} · {Model.Rows.Count} assets · window: {Model.WindowHours:F0} hrs"
+    };
+
+    string SortHref(string col)
+    {
+        var nextDesc = (Model.Sort == col) ? !Model.Desc : true; // toggle when clicking same column
+        var dateParams = $"StartDate={Model.StartDate?.ToString("yyyy-MM-dd")}&EndDate={Model.EndDate?.ToString("yyyy-MM-dd")}";
+        return $"?Sort={col}&Desc={nextDesc.ToString().ToLower()}&{dateParams}";
+    }
+
+    string SortArrow(string col) => Model.Sort == col ? (Model.Desc ? "↓" : "↑") : "";
+}
+
+@await Html.PartialAsync("_ScreenHeader", headerVd)
+
+<form method="get" class="filter-bar" data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04)); display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
+        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Start Date</label>
+        <input type="date" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+    </div>
+    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
+        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">End Date</label>
+        <input type="date" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+    </div>
+    <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1.25rem; font-weight: 600;">Update</button>
+    <a href="?StartDate=@(Model.StartDate?.ToString("yyyy-MM-dd"))&EndDate=@(Model.EndDate?.ToString("yyyy-MM-dd"))&Sort=@Model.Sort&Desc=@Model.Desc.ToString().ToLower()&Format=csv" class="btn-p btn-p--secondary" data-csp-style="padding: 0.5rem 1.25rem;">⤓ CSV</a>
+</form>
+
+@if (Model.Rows.Count == 0)
+{
+    <div class="section-card" data-csp-style="margin-top: 1rem;">
+        <div class="section-card-body" data-csp-style="padding: 2rem; text-align: center;">
+            <h3 data-csp-style="margin-top: 0;">No WO activity in this window</h3>
+            <p data-csp-style="color: var(--text-muted);">
+                Per-asset reliability needs Completed WorkOrders with non-null CompletedDate in the selected range. Try widening the window or seed demo data via the
+                <a href="/Admin/Sprint1Fixture" data-csp-style="color: #60a5fa;">Sprint 1 Fixture page</a>.
+            </p>
+        </div>
+    </div>
+}
+else
+{
+    <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Assets with Activity</div>
+            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.Rows.Count</div>
+        </div>
+        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Avg MTBF (assets w/ 2+ closes)</div>
+            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.AvgMtbf.ToString("N1") hrs</div>
+        </div>
+        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Avg Availability %</div>
+            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.AvgAvailability.ToString("N2")%</div>
+        </div>
+        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
+            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Window Length</div>
+            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@((Model.WindowHours / 24m).ToString("N0")) days</div>
+        </div>
+    </div>
+
+    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
+        <div class="section-card-body" data-csp-style="padding: 0;">
+            <table class="ledger-table" data-csp-style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.04));">
+                        <th data-csp-style="text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);"><a href="@SortHref("asset")" data-csp-style="color: inherit; text-decoration: none;">Asset @SortArrow("asset")</a></th>
+                        <th data-csp-style="text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);">Description</th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);"><a href="@SortHref("wos")" data-csp-style="color: inherit; text-decoration: none;">Corrective WOs @SortArrow("wos")</a></th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);"><a href="@SortHref("mtbf")" data-csp-style="color: inherit; text-decoration: none;">MTBF (hrs) @SortArrow("mtbf")</a></th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);"><a href="@SortHref("avail")" data-csp-style="color: inherit; text-decoration: none;">Availability % @SortArrow("avail")</a></th>
+                        <th data-csp-style="text-align: right; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);"><a href="@SortHref("spend")" data-csp-style="color: inherit; text-decoration: none;">Spend @SortArrow("spend")</a></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        var availColor = r.AvailabilityPercent >= 95m ? "#34d399"
+                            : r.AvailabilityPercent >= 90m ? "#fbbf24"
+                            : "#f87171";
+                        <tr>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); font-family: ui-monospace, monospace; font-size: 0.875rem;">
+                                <a href="/Assets/Asset?id=@r.AssetId" data-csp-style="color: #60a5fa; text-decoration: none;">@r.AssetNumber</a>
+                            </td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border);">@r.Description</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right;">@r.CorrectiveWoCount</td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">
+                                @(r.MtbfHours.HasValue ? r.MtbfHours.Value.ToString("N1") : "—")
+                            </td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right; font-weight: 600; color: @availColor;">
+                                @r.AvailabilityPercent.ToString("N2")%
+                            </td>
+                            <td data-csp-style="padding: 0.5rem 1rem; border-top: 1px solid var(--border); text-align: right;">@r.SpendInWindow.ToString("C0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p data-csp-style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+        <strong>MTBF</strong>: average hours between consecutive corrective-WO close timestamps. <em>—</em> means fewer than 2 closes in the window; not enough data to compute.
+        <strong>Availability</strong>: (window hours − Σ downtime) ÷ window hours. Downtime per WO = CompletedDate − StartedAt.
+        <strong>Spend</strong>: sum of WO-LBR + WO-ISS-OP JE debits minus WO-RTN/RTN-OP. Same source as the Pareto report and dashboard tile.
+    </p>
+}
