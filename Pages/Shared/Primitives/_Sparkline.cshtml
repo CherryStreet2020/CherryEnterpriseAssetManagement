@@ -44,11 +44,11 @@
 
 @if (arr.Length < 2)
 {
-    <svg class="ds-spark@extraCls" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true"></svg>
+    <svg class="ds-spark@(extraCls)" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true"></svg>
 }
 else
 {
-    <svg class="ds-spark@extraCls" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true">
+    <svg class="ds-spark@(extraCls)" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true">
         @if (Model.ShowArea)
         {
             <path class="ds-spark__area" d="@areaPath"></path>
