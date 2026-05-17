@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Catalog;
+using Abs.FixedAssets.Models.Telemetry;
 using Abs.FixedAssets.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -99,7 +100,22 @@ namespace Abs.FixedAssets.Pages.Plant
                 .Where(l => locationIds.Contains(l.Id))
                 .ToDictionaryAsync(l => l.Id, l => l.Name);
 
-            // -------- PR #117.2: class-appropriate sensor tiles --------
+            // -------- PR #117.2 + PR #118.6: class-appropriate sensor tiles --------
+            //
+            // PR #117.2 introduced the SensorProfile-driven tile layout.
+            // PR #118.6 cuts the per-tile READ over from AssetSensorReadings
+            // (the legacy per-row hot table) to AssetSensorLatest (PR #118.1
+            // denormalized 1-row-per-(asset, type) cache). This collapses
+            // 5-8 GroupBy-First round trips into a SINGLE point-lookup join,
+            // and the per-tile Tone is now stamped at write time by
+            // SensorIngestService so the Plant Floor page does zero math.
+            //
+            // We still load the EquipmentClass + SensorProfile graph because
+            // it drives WHICH tiles each asset shows (label, unit, display
+            // order). Threshold math is only used in the fallback path for
+            // assets that have a profile but no AssetSensorLatest row yet
+            // (e.g. brand-new assets before the next ingest tick).
+
             // 1) Resolve each asset's EquipmentClass via Asset.AssetType ==
             //    EquipmentClass.Name. (Until we add EquipmentClassId FK on
             //    Asset, this is the match; the seeder writes the class name
@@ -110,35 +126,21 @@ namespace Abs.FixedAssets.Pages.Plant
                 .ToListAsync();
             var classByName = classes.ToDictionary(c => c.Name, c => c, StringComparer.OrdinalIgnoreCase);
 
-            // 2) Latest reading per (AssetId, ReadingType) — query per type
-            //    rather than a 2-key GroupBy (EF Core 9 is far more reliable
-            //    at translating "first per group" inside a single partition).
-            //    Only fetch types that any primary sensor profile cares about
-            //    so the round-trip count stays bounded (~5-8).
-            var primaryTypes = classes
-                .SelectMany(c => c.SensorProfiles)
-                .Where(p => p.IsPrimary)
-                .Select(p => p.ReadingType)
-                .Distinct()
-                .ToList();
-
-            var readingMap = new Dictionary<(int, SensorReadingType), AssetSensorReading>();
-            foreach (var type in primaryTypes)
-            {
-                var perType = await _db.AssetSensorReadings
-                    .Where(r => assetIds.Contains(r.AssetId) && r.ReadingType == type)
-                    .GroupBy(r => r.AssetId)
-                    .Select(g => g.OrderByDescending(x => x.ReadingAt).First())
-                    .ToListAsync();
-                foreach (var r in perType)
-                {
-                    readingMap[(r.AssetId, r.ReadingType)] = r;
-                }
-            }
+            // 2) Single point-lookup against AssetSensorLatest — keyed
+            //    (AssetId, ReadingType). Composite PK on this table makes
+            //    this a clustered-index seek per (asset, type). For the
+            //    Main Manufacturing Plant view (~320 assets × ~3 primary
+            //    types each), this is one query returning ~960 rows.
+            var latestRows = await _db.AssetSensorLatest
+                .AsNoTracking()
+                .Where(x => assetIds.Contains(x.AssetId))
+                .ToListAsync();
+            var latestMap = latestRows
+                .ToDictionary(r => (r.AssetId, r.ReadingType));
 
             var allCards = assets.Select(a =>
             {
-                var tiles = BuildTilesForAsset(a, classByName, readingMap);
+                var tiles = BuildTilesForAsset(a, classByName, latestMap);
                 return new AssetCard(
                     Id: a.Id,
                     AssetNumber: a.AssetNumber,
@@ -172,17 +174,26 @@ namespace Abs.FixedAssets.Pages.Plant
         }
 
         // -------- Tile builder: 3 primary tiles per asset's class --------
+        //
+        // PR #118.6: reads come from AssetSensorLatest (the denormalized
+        // cache populated by SensorIngestService on every ingest). The
+        // Tone field is stamped at write time, so this method does zero
+        // threshold math in the common path. The SensorProfile-driven
+        // fallback only fires for assets whose AssetSensorLatest row
+        // hasn't been written yet (brand-new asset, between ticks, etc.).
 
         private static IReadOnlyList<SensorTile> BuildTilesForAsset(
             Asset asset,
             Dictionary<string, EquipmentClass> classByName,
-            Dictionary<(int, SensorReadingType), AssetSensorReading> readingMap)
+            Dictionary<(int, SensorReadingType), AssetSensorLatest> latestMap)
         {
             if (string.IsNullOrEmpty(asset.AssetType) ||
                 !classByName.TryGetValue(asset.AssetType, out var cls))
             {
                 // Asset class unresolved — show legacy denormalized cache
                 // columns so the page never goes blank on partial seed.
+                // (These Asset.Current* columns are deprecated by ADR-011
+                // and slated for drop in PR #118.6.1.)
                 return LegacyTiles(asset);
             }
 
@@ -202,12 +213,25 @@ namespace Abs.FixedAssets.Pages.Plant
 
             return primary.Select(p =>
             {
-                readingMap.TryGetValue((asset.Id, p.ReadingType), out var r);
+                // Common path: AssetSensorLatest has a row for this
+                // (asset, type). Trust the pre-stamped Tone.
+                if (latestMap.TryGetValue((asset.Id, p.ReadingType), out var latest))
+                {
+                    return new SensorTile(
+                        Label: p.SensorName,
+                        Value: latest.Value,
+                        Unit: p.Unit,
+                        Tone: latest.Tone,
+                        DisplayOrder: p.DisplayOrder);
+                }
+
+                // Fallback: no telemetry row yet → render the tile shell
+                // so the layout doesn't shift, but mark it muted.
                 return new SensorTile(
                     Label: p.SensorName,
-                    Value: r?.Value,
+                    Value: null,
                     Unit: p.Unit,
-                    Tone: ClassifyTone(p, r?.Value),
+                    Tone: "muted",
                     DisplayOrder: p.DisplayOrder);
             }).ToList();
         }
@@ -218,26 +242,5 @@ namespace Abs.FixedAssets.Pages.Plant
             new("Vib",  a.CurrentVibration,   "mm/s", "muted", 20),
             new("PSI",  a.CurrentPressure,    "PSI", "muted", 30),
         };
-
-        private static string ClassifyTone(SensorProfile p, decimal? value)
-        {
-            if (!value.HasValue) return "muted";
-            var v = value.Value;
-            if (p.CriticalThreshold.HasValue)
-            {
-                bool crit = p.BreachOnHighSide
-                    ? v >= p.CriticalThreshold.Value
-                    : v <= p.CriticalThreshold.Value;
-                if (crit) return "crit";
-            }
-            if (p.WarningThreshold.HasValue)
-            {
-                bool warn = p.BreachOnHighSide
-                    ? v >= p.WarningThreshold.Value
-                    : v <= p.WarningThreshold.Value;
-                if (warn) return "warn";
-            }
-            return "ok";
-        }
     }
 }

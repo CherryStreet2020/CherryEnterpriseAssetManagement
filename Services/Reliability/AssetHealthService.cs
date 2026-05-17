@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.Telemetry;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -74,10 +75,14 @@ namespace Abs.FixedAssets.Services.Reliability
             var sevenDays = now.AddDays(-7);
             var ninetyDays = now.AddDays(-90);
 
-            var sensorBreaches = await _db.AssetSensorReadings
-                .Where(r => r.AssetId == assetId
-                         && r.IsOutOfSpec
-                         && r.ReadingAt >= sevenDays)
+            // PR #118.6 — read OOS counts from the new SensorEvents
+            // hypertable (TimescaleDB time-partitioned, indexed on
+            // (AssetId, ReadingAt DESC)). The legacy AssetSensorReadings
+            // table is now read-only and slated for drop in PR #118.6.1.
+            var sensorBreaches = await _db.SensorEvents
+                .Where(e => e.AssetId == assetId
+                         && e.IsOutOfSpec
+                         && e.ReadingAt >= sevenDays)
                 .CountAsync();
 
             var correctiveCount = await _db.MaintenanceEvents
@@ -153,11 +158,15 @@ namespace Abs.FixedAssets.Services.Reliability
             var assetIds = assets.Select(a => a.Id).ToList();
 
             // 2) Sensor breach counts (last 7 days) per asset.
-            var sensorBreachCounts = await _db.AssetSensorReadings
-                .Where(r => assetIds.Contains(r.AssetId)
-                         && r.IsOutOfSpec
-                         && r.ReadingAt >= sevenDays)
-                .GroupBy(r => r.AssetId)
+            //    PR #118.6 — switched from AssetSensorReadings to the new
+            //    SensorEvents hypertable. TimescaleDB time-partitioning +
+            //    index on (AssetId, ReadingAt) keeps this fast even with
+            //    millions of rows across 30 days of backfill.
+            var sensorBreachCounts = await _db.SensorEvents
+                .Where(e => assetIds.Contains(e.AssetId)
+                         && e.IsOutOfSpec
+                         && e.ReadingAt >= sevenDays)
+                .GroupBy(e => e.AssetId)
                 .Select(g => new { AssetId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.AssetId, x => x.Count);
 
