@@ -60,7 +60,8 @@ echo "[Operational routes] dashboard + WO + asset"
 probe "Dashboard root"      /                          302
 probe "Maintenance index"   /Maintenance               302
 probe "Assets index"        /Assets                    302
-probe "CIP Projects"        /CipProjects               302
+probe "CIP Projects"        /CIP                       302
+probe "CIP Costs"           /CIP/Costs                 302
 probe "Maintenance/PMTemplates" /Maintenance/PMTemplates 302
 probe "Maintenance/Schedules"   /Maintenance/Schedules   302
 
