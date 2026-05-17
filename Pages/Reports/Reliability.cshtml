@@ -1,5 +1,6 @@
 @page
 @model Abs.FixedAssets.Pages.Reports.ReliabilityModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Reliability — Failure Mode Pareto";
     ViewData["TabTitle"] = "Reliability";
@@ -13,153 +14,213 @@
     // For the SVG bar chart we need the maximum count + cost to scale bars.
     var maxCount = Model.ByFrequency.Count == 0 ? 1 : Model.ByFrequency.Max(r => r.WoCount);
     var maxCost = Model.ByCost.Count == 0 ? 1m : Model.ByCost.Max(r => r.TotalCost);
+
+    // Window length in days — drives per-day burn rate on KPI deltas so we don't
+    // need a separate time-series query to make the numbers tell a story.
+    var windowDays = Model.StartDate.HasValue && Model.EndDate.HasValue
+        ? Math.Max(1, (int)(Model.EndDate.Value - Model.StartDate.Value).TotalDays + 1)
+        : 90;
+    var dailyWos = Model.TotalWos > 0 ? (double)Model.TotalWos / windowDays : 0.0;
+    var dailySpend = Model.TotalCost > 0m ? (double)Model.TotalCost / windowDays : 0.0;
+    var avgCost = Model.TotalWos > 0 ? Model.TotalCost / Model.TotalWos : 0m;
+
+    // Vital-few count (codes that fall inside the 80% cumulative band) — a real
+    // Pareto-meaningful metric we can surface on the Failure Codes tile.
+    var vitalFewCount = Model.ByFrequency.Count(r => r.CumulativePctByCount <= 80m);
+    if (vitalFewCount == 0 && Model.ByFrequency.Count > 0) vitalFewCount = 1; // at least the top code
 }
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
 
-<form method="get" class="filter-bar" data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04)); display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
-    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
-        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Start Date</label>
-        <input type="date" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+@* PR #116d.10 — Filter bar restyled on the design system. Uses ds-btn for both
+   the Update CTA and the CSV download. Inputs keep their inline shape for now
+   (a future PR can introduce a `<DateRangePicker>` primitive). *@
+<form method="get" class="ds-card" data-tone="neutral" style="margin-top: 1rem; display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 160px;">
+        <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Start Date</label>
+        <input type="date" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
     </div>
-    <div class="form-group" data-csp-style="flex: 1; min-width: 160px;">
-        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">End Date</label>
-        <input type="date" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;" />
+    <div style="flex: 1; min-width: 160px;">
+        <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">End Date</label>
+        <input type="date" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
     </div>
-    <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1.25rem; font-weight: 600;">Update</button>
-    <a href="?StartDate=@(Model.StartDate?.ToString("yyyy-MM-dd"))&EndDate=@(Model.EndDate?.ToString("yyyy-MM-dd"))&Format=csv" class="btn-p btn-p--secondary" data-csp-style="padding: 0.5rem 1.25rem;">⤓ CSV</a>
+    <button type="submit" class="ds-btn ds-btn--primary ds-btn--md">Update</button>
+    <a href="?StartDate=@(Model.StartDate?.ToString("yyyy-MM-dd"))&EndDate=@(Model.EndDate?.ToString("yyyy-MM-dd"))&Format=csv" class="ds-btn ds-btn--secondary ds-btn--md">⤓ CSV</a>
 </form>
 
 @if (Model.TotalWos == 0)
 {
-    <div class="section-card" data-csp-style="margin-top: 1rem;">
-        <div class="section-card-body" data-csp-style="padding: 2rem; text-align: center;">
-            <h3 data-csp-style="margin-top: 0;">No corrective WO data in this window</h3>
-            <p data-csp-style="color: var(--text-muted);">
-                Pareto analysis needs corrective WorkOrders with FailureCodeId set and a CompletedDate in the selected window. Try widening the date range.
-            </p>
-        </div>
+    @* PR #116d.10 — Empty state v2 with chart icon + info tone. Honest about
+       what's missing (corrective WOs with FailureCodeId + CompletedDate) and
+       offers an actionable CTA (widen the date range to a year). *@
+    <div style="margin-top: 24px;">
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Icon = "chart",
+            Tone = "info",
+            Title = "No corrective WO data in this window",
+            Body = "Pareto analysis needs corrective WorkOrders with a FailureCode set and a CompletedDate inside the selected window. Try widening the range, or check that completed corrective WOs are being tagged with failure codes.",
+            CtaLabel = "Try last 365 days",
+            CtaHref = $"?StartDate={DateTime.UtcNow.Date.AddDays(-365):yyyy-MM-dd}&EndDate={DateTime.UtcNow.Date:yyyy-MM-dd}",
+            SecondaryLabel = "Back to Reports",
+            SecondaryHref = "/Reports"
+        })
     </div>
 }
 else
 {
-    <div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
-        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
-            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Corrective WOs</div>
-            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.TotalWos</div>
-        </div>
-        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
-            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Failure Codes Active</div>
-            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.FailureCodeCount</div>
-        </div>
-        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
-            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Total Maintenance Spend</div>
-            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@Model.TotalCost.ToString("C0")</div>
-        </div>
-        <div class="kpi-card" data-csp-style="padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04));">
-            <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Avg Cost / WO</div>
-            <div data-csp-style="font-size: 1.875rem; font-weight: 700;">@((Model.TotalWos > 0 ? (Model.TotalCost / Model.TotalWos) : 0m).ToString("C0"))</div>
-        </div>
+    @* PR #116d.10 — Top KPIs as 4 tone-driven KPITiles. Spend tone goes WARNING when
+       the average burn is over $1k/day (rough heuristic — easy to tune), otherwise
+       brand. Failure-codes tile surfaces vital-few count as a Pareto-meaningful
+       secondary signal instead of just "X codes active". *@
+    var spendTone = dailySpend >= 1000.0 ? "warning" : "brand";
+    var spendDirection = dailySpend >= 1000.0 ? "up" : "flat";
+    var costPerWoTone = avgCost >= 500m ? "warning" : "info";
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Corrective WOs",
+            Value = Model.TotalWos.ToString("N0"),
+            DeltaText = $"~ {dailyWos.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}/day in window",
+            DeltaDirection = "flat",
+            SparkTone = "danger"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Failure Codes",
+            Value = Model.FailureCodeCount.ToString("N0"),
+            DeltaText = $"{vitalFewCount} drive 80% (vital few)",
+            DeltaDirection = "flat",
+            SparkTone = "info"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Total Maintenance Spend",
+            Value = Model.TotalCost.ToString("C0"),
+            DeltaText = $"~ ${dailySpend.ToString("N0", System.Globalization.CultureInfo.InvariantCulture)}/day burn",
+            DeltaDirection = spendDirection,
+            SparkTone = spendTone
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Avg Cost / WO",
+            Value = avgCost.ToString("C0"),
+            DeltaText = "labor + parts (JE-sourced)",
+            DeltaDirection = "flat",
+            SparkTone = costPerWoTone
+        })
     </div>
 
-    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
-        <div class="section-card-header" data-csp-style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);">
-            <h3 data-csp-style="margin: 0;">Pareto — by Frequency</h3>
-            <p data-csp-style="margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.875rem;">Which failure codes drive the most work orders. Bars are WO count; the cumulative-% line shows when you hit the 80% threshold.</p>
+    @* PR #116d.10 — Pareto by Frequency wrapped in a DataCard with brand tone.
+       The vital-few bars use --ds-danger (these are the codes you actually need
+       to fix); the trivial-many tail uses --text-muted for de-emphasis. *@
+    <div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Pareto Analysis</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">By Frequency</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                Which failure codes drive the most work orders. Bars are WO count; the cumulative-% column reveals when you hit the 80% threshold — that's the "vital few" you should engineer out.
+            </div>
         </div>
-        <div class="section-card-body" data-csp-style="padding: 1rem 1.25rem;">
-            @* Render a clean text-bar Pareto. Each row has the failure code,
-               WO count, a horizontal proportional bar, and the cumulative %.
-               The 80%-line callout marks the inflection. *@
-            <table class="ledger-table" data-csp-style="width: 100%;">
+        <div style="padding: 8px 22px 18px;">
+            <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
-                        <th data-csp-style="text-align: left; padding: 0.5rem;">Code</th>
-                        <th data-csp-style="text-align: left; padding: 0.5rem;">Name</th>
-                        <th data-csp-style="text-align: right; padding: 0.5rem; width: 70px;">WOs</th>
-                        <th data-csp-style="text-align: left; padding: 0.5rem; width: 50%;">Distribution</th>
-                        <th data-csp-style="text-align: right; padding: 0.5rem; width: 100px;">Cum %</th>
+                        <th style="text-align: left; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Code</th>
+                        <th style="text-align: left; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Name</th>
+                        <th style="text-align: right; padding: 10px 8px; width: 70px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">WOs</th>
+                        <th style="text-align: left; padding: 10px 8px; width: 50%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Distribution</th>
+                        <th style="text-align: right; padding: 10px 8px; width: 100px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Cum %</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var row in Model.ByFrequency)
                     {
                         var widthPct = maxCount == 0 ? 0 : (row.WoCount * 100.0 / maxCount);
-                        var inEightyClass = row.CumulativePctByCount <= 80m ? "rgba(239, 68, 68, 0.75)" : "rgba(96, 165, 250, 0.55)";
-                        <tr>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); font-family: ui-monospace, monospace; font-size: 0.875rem;">
-                                <a href="/Maintenance?failureCode=@row.Code" data-csp-style="color: #60a5fa; text-decoration: none;">@row.Code</a>
+                        var isVital = row.CumulativePctByCount <= 80m;
+                        var barColor = isVital ? "var(--ds-danger, rgba(239, 68, 68, 0.85))" : "var(--ds-info, rgba(96, 165, 250, 0.45))";
+                        <tr style="border-top: 1px solid var(--border);">
+                            <td style="padding: 12px 8px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px;">
+                                <a href="/Maintenance?failureCode=@row.Code" style="color: var(--ds-brand, #60a5fa); text-decoration: none; font-weight: 600;">@row.Code</a>
                             </td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border);">@row.Name</td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); text-align: right; font-weight: 600;">@row.WoCount</td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border);">
-                                <div data-csp-style="position: relative; height: 18px; background: rgba(0,0,0,0.15); border-radius: 4px; overflow: hidden;">
-                                    <div data-csp-style="position: absolute; left: 0; top: 0; bottom: 0; width: @($"{widthPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%"); background: @inEightyClass;"></div>
+                            <td style="padding: 12px 8px; color: var(--text-primary);">@row.Name</td>
+                            <td style="padding: 12px 8px; text-align: right; font-weight: 700; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-primary);">@row.WoCount</td>
+                            <td style="padding: 12px 8px;">
+                                <div style="position: relative; height: 18px; background: rgba(0,0,0,0.15); border-radius: 6px; overflow: hidden;">
+                                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @($"{widthPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%"); background: @barColor; transition: width 0.4s ease;"></div>
                                 </div>
                             </td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">
+                            <td style="padding: 12px 8px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--text-primary);">
                                 @row.CumulativePctByCount.ToString("0.0")%
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
-            <p data-csp-style="margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-                <span data-csp-style="display: inline-block; width: 12px; height: 12px; background: rgba(239, 68, 68, 0.75); border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>
-                Vital few (≤80% of WOs)
-                &nbsp;·&nbsp;
-                <span data-csp-style="display: inline-block; width: 12px; height: 12px; background: rgba(96, 165, 250, 0.55); border-radius: 2px; vertical-align: middle; margin-right: 4px;"></span>
-                Trivial many (the long tail)
-            </p>
+            <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = $"Vital few · ≤80% of WOs · {vitalFewCount} code(s)", Tone = "danger", ShowDot = true })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = $"Trivial many · long tail · {Model.ByFrequency.Count - vitalFewCount} code(s)", Tone = "info", ShowDot = true })
+            </div>
         </div>
     </div>
 
-    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
-        <div class="section-card-header" data-csp-style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);">
-            <h3 data-csp-style="margin: 0;">Pareto — by Cost</h3>
-            <p data-csp-style="margin: 0.25rem 0 0; color: var(--text-muted); font-size: 0.875rem;">Same failure codes, sorted by $$ instead of count. Highlights expensive-but-rare failure modes that frequency-sort hides.</p>
+    @* PR #116d.10 — Pareto by Cost. Same shape, warning tone on vital-few bars
+       to distinguish "expensive-but-rare" failures from the frequency view. *@
+    var vitalFewCostCount = Model.ByCost.Count(r => r.CumulativePctByCost <= 80m);
+    if (vitalFewCostCount == 0 && Model.ByCost.Count > 0) vitalFewCostCount = 1;
+    <div class="ds-card" data-tone="warning" style="margin-top: 24px; padding: 0;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Pareto Analysis</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">By Cost</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
+                Same failure codes, sorted by $$ instead of count. Highlights expensive-but-rare failure modes that frequency-sort hides — the kind of failure your CFO cares about.
+            </div>
         </div>
-        <div class="section-card-body" data-csp-style="padding: 1rem 1.25rem;">
-            <table class="ledger-table" data-csp-style="width: 100%;">
+        <div style="padding: 8px 22px 18px;">
+            <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr>
-                        <th data-csp-style="text-align: left; padding: 0.5rem;">Code</th>
-                        <th data-csp-style="text-align: left; padding: 0.5rem;">Name</th>
-                        <th data-csp-style="text-align: right; padding: 0.5rem; width: 130px;">Spend</th>
-                        <th data-csp-style="text-align: left; padding: 0.5rem; width: 50%;">Distribution</th>
-                        <th data-csp-style="text-align: right; padding: 0.5rem; width: 100px;">Cum %</th>
+                        <th style="text-align: left; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Code</th>
+                        <th style="text-align: left; padding: 10px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Name</th>
+                        <th style="text-align: right; padding: 10px 8px; width: 130px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Spend</th>
+                        <th style="text-align: left; padding: 10px 8px; width: 50%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Distribution</th>
+                        <th style="text-align: right; padding: 10px 8px; width: 100px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Cum %</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var row in Model.ByCost)
                     {
                         var widthPct = maxCost == 0m ? 0.0 : ((double)row.TotalCost * 100.0 / (double)maxCost);
-                        var inEightyClass = row.CumulativePctByCost <= 80m ? "rgba(245, 158, 11, 0.75)" : "rgba(96, 165, 250, 0.55)";
-                        <tr>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); font-family: ui-monospace, monospace; font-size: 0.875rem;">
-                                <a href="/Maintenance?failureCode=@row.Code" data-csp-style="color: #60a5fa; text-decoration: none;">@row.Code</a>
+                        var isVital = row.CumulativePctByCost <= 80m;
+                        var barColor = isVital ? "var(--ds-warning, rgba(245, 158, 11, 0.85))" : "var(--ds-info, rgba(96, 165, 250, 0.45))";
+                        <tr style="border-top: 1px solid var(--border);">
+                            <td style="padding: 12px 8px; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px;">
+                                <a href="/Maintenance?failureCode=@row.Code" style="color: var(--ds-brand, #60a5fa); text-decoration: none; font-weight: 600;">@row.Code</a>
                             </td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border);">@row.Name</td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); text-align: right; font-weight: 600;">@row.TotalCost.ToString("C0")</td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border);">
-                                <div data-csp-style="position: relative; height: 18px; background: rgba(0,0,0,0.15); border-radius: 4px; overflow: hidden;">
-                                    <div data-csp-style="position: absolute; left: 0; top: 0; bottom: 0; width: @($"{widthPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%"); background: @inEightyClass;"></div>
+                            <td style="padding: 12px 8px; color: var(--text-primary);">@row.Name</td>
+                            <td style="padding: 12px 8px; text-align: right; font-weight: 700; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-primary);">@row.TotalCost.ToString("C0")</td>
+                            <td style="padding: 12px 8px;">
+                                <div style="position: relative; height: 18px; background: rgba(0,0,0,0.15); border-radius: 6px; overflow: hidden;">
+                                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: @($"{widthPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}%"); background: @barColor; transition: width 0.4s ease;"></div>
                                 </div>
                             </td>
-                            <td data-csp-style="padding: 0.5rem; border-top: 1px solid var(--border); text-align: right; font-family: ui-monospace, monospace;">
+                            <td style="padding: 12px 8px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--text-primary);">
                                 @row.CumulativePctByCost.ToString("0.0")%
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+            <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap;">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = $"Vital few · ≤80% of spend · {vitalFewCostCount} code(s)", Tone = "warning", ShowDot = true })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = $"Trivial many · long tail · {Model.ByCost.Count - vitalFewCostCount} code(s)", Tone = "info", ShowDot = true })
+            </div>
         </div>
     </div>
 
-    <p data-csp-style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem;">
+    <p style="margin-top: 18px; color: var(--text-muted); font-size: 13px; line-height: 1.55;">
         Click any failure code to drill into the underlying corrective WOs.
         Cost is sourced from balanced WO-LBR + WO-ISS-OP JE rows (PR #93 / PR #106 chain),
-        with a fallback to <code>WorkOrder</code> header rollup for any WO whose JEs
-        haven't posted yet.
+        with a fallback to <code style="font-family: var(--font-mono, monospace); padding: 1px 6px; background: rgba(0,0,0,0.18); border-radius: 4px;">WorkOrder</code> header rollup for any WO whose JEs haven't posted yet.
     </p>
 }
