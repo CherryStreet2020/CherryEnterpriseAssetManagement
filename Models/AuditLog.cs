@@ -33,6 +33,33 @@ public class AuditLog
 
     [StringLength(500)]
     public string? Description { get; set; }
+
+    // ADR-014 D3 — AI-on-behalf-of metadata. NULL for direct-user
+    // actions. Populated when the future voice-AI layer mediates an
+    // action. The human is ALWAYS the principal Actor (Username
+    // above). This matches Microsoft Purview CopilotInteraction
+    // schema convention.
+
+    public ActorKind ActorKind { get; set; } = ActorKind.User;
+
+    // FK-shaped reference to Users.Id (int). No FK constraint —
+    // history survives user deletion (like the existing Username).
+    public int? OnBehalfOfUserId { get; set; }
+
+    // Correlates rows from one multi-turn voice conversation.
+    public Guid? AiSessionId { get; set; }
+
+    // Raw natural-language utterance. May contain PII.
+    public string? AiCommandText { get; set; }
+
+    [StringLength(64)]
+    public string? AiModelVersion { get; set; }
+
+    [StringLength(128)]
+    public string? AiToolName { get; set; }
+
+    [Column(TypeName = "decimal(4,3)")]
+    public decimal? AiConfidence { get; set; }
 }
 
 [Table("PeriodLocks")]
