@@ -13,6 +13,15 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using NpgsqlTypes;
 
+// PR #118.5.1 — Disambiguate UnitOfMeasure. The root namespace
+// Abs.FixedAssets.Models has a pre-existing UnitOfMeasure enum (used
+// by legacy AssetSensor channel columns) and the new
+// Abs.FixedAssets.Models.Telemetry namespace introduced its own
+// expanded UnitOfMeasure enum (PR #118.1). Both `using`s above are
+// needed for other types, so we alias the Telemetry one as `Uom`
+// throughout this file. This is the only collision in the codebase.
+using Uom = Abs.FixedAssets.Models.Telemetry.UnitOfMeasure;
+
 namespace Abs.FixedAssets.Services.Seeding
 {
     // Sprint 2 PR #118.5 — Historical backfill for the new telemetry
@@ -148,7 +157,7 @@ namespace Abs.FixedAssets.Services.Seeding
             int totalRows = 0;
             var rng = new Random(unchecked((int)0xDEC0DE17)); // deterministic for demo repeatability
             var ingestedAt = now;
-            var unitFallback = (short)UnitOfMeasure.Percent; // safety default
+            var unitFallback = (short)Uom.Percent; // safety default
 
             // Track latest value per (assetId, readingType) for AssetSensorLatest upsert.
             var latestPerKey = new Dictionary<(int assetId, SensorReadingType), (decimal value, short unit, DateTime readingAt, bool isOutOfSpec, string tone)>();
@@ -289,7 +298,7 @@ namespace Abs.FixedAssets.Services.Seeding
                     if (value.readingAt >= existing.ReadingAt)
                     {
                         existing.Value = value.value;
-                        existing.Unit = (UnitOfMeasure)value.unit;
+                        existing.Unit = (Uom)value.unit;
                         existing.ReadingAt = value.readingAt;
                         existing.QualityCode = DeviceHealthCode.Good;
                         existing.IsOutOfSpec = value.isOutOfSpec;
@@ -305,7 +314,7 @@ namespace Abs.FixedAssets.Services.Seeding
                         AssetId = key.assetId,
                         ReadingType = key.Item2,
                         Value = value.value,
-                        Unit = (UnitOfMeasure)value.unit,
+                        Unit = (Uom)value.unit,
                         ReadingAt = value.readingAt,
                         QualityCode = DeviceHealthCode.Good,
                         IsOutOfSpec = value.isOutOfSpec,
@@ -410,23 +419,23 @@ namespace Abs.FixedAssets.Services.Seeding
         {
             return (unit?.Trim().ToLowerInvariant()) switch
             {
-                "°c" or "c" or "celsius" => (short)UnitOfMeasure.DegreesCelsius,
-                "°f" or "f" or "fahrenheit" => (short)UnitOfMeasure.DegreesFahrenheit,
-                "psi" => (short)UnitOfMeasure.PSI,
-                "bar" => (short)UnitOfMeasure.Bar,
-                "kpa" => (short)UnitOfMeasure.KiloPascal,
-                "rpm" => (short)UnitOfMeasure.RPM,
-                "mm/s" => (short)UnitOfMeasure.MillimetersPerSecond,
-                "in/s" => (short)UnitOfMeasure.InchesPerSecond,
-                "g" => (short)UnitOfMeasure.GravityForce,
-                "gpm" => (short)UnitOfMeasure.GallonsPerMinute,
-                "l/min" or "lpm" => (short)UnitOfMeasure.LitersPerMinute,
-                "v" or "volts" => (short)UnitOfMeasure.Volts,
-                "a" or "amps" or "amperes" => (short)UnitOfMeasure.Amperes,
-                "kw" => (short)UnitOfMeasure.KiloWatts,
-                "kwh" => (short)UnitOfMeasure.KiloWattHours,
-                "hz" => (short)UnitOfMeasure.HertzAC,
-                "%" or "percent" => (short)UnitOfMeasure.Percent,
+                "°c" or "c" or "celsius" => (short)Uom.DegreesCelsius,
+                "°f" or "f" or "fahrenheit" => (short)Uom.DegreesFahrenheit,
+                "psi" => (short)Uom.PSI,
+                "bar" => (short)Uom.Bar,
+                "kpa" => (short)Uom.KiloPascal,
+                "rpm" => (short)Uom.RPM,
+                "mm/s" => (short)Uom.MillimetersPerSecond,
+                "in/s" => (short)Uom.InchesPerSecond,
+                "g" => (short)Uom.GravityForce,
+                "gpm" => (short)Uom.GallonsPerMinute,
+                "l/min" or "lpm" => (short)Uom.LitersPerMinute,
+                "v" or "volts" => (short)Uom.Volts,
+                "a" or "amps" or "amperes" => (short)Uom.Amperes,
+                "kw" => (short)Uom.KiloWatts,
+                "kwh" => (short)Uom.KiloWattHours,
+                "hz" => (short)Uom.HertzAC,
+                "%" or "percent" => (short)Uom.Percent,
                 _ => fallback,
             };
         }
