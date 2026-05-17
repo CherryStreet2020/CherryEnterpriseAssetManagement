@@ -1,6 +1,7 @@
 @page "{id:int?}"
 @model Abs.FixedAssets.Pages.WorkOrders.DetailsModel
 @using Abs.FixedAssets.Helpers
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     var woNumber = Model.WorkOrder?.WorkOrderNumber ?? "";
     ViewData["Title"] = UiTerms.ModuleName;
@@ -44,23 +45,58 @@
 
 <link rel="stylesheet" href="/css/premium-components.css" />
 
-<div class="quick-stats-row-4">
-    <div class="quick-stat-card">
-        <div class="quick-stat-label">Planned Hours</div>
-        <div class="quick-stat-value">@Model.TotalPlannedHours.ToString("N1")</div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-label">Actual Hours</div>
-        <div class="quick-stat-value @(Model.TotalActualHours > Model.TotalPlannedHours ? "warning" : "")">@Model.TotalActualHours.ToString("N1")</div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-label">Parts Used</div>
-        <div class="quick-stat-value">@Model.TotalPartsCount</div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-label">Total Cost</div>
-        <div class="quick-stat-value success">@((Model.TotalLaborCost + Model.TotalPartsCost).ToString("C0"))</div>
-    </div>
+@* PR #116d.8 — Operations Cockpit KPI strip rebuilt with <KPITile> primitives.
+   Tone follows the metric: Actual Hours danger when over plan. Total Cost
+   gets brand-tint to surface as the prominent number. *@
+@{
+    var overPlan = Model.TotalActualHours > Model.TotalPlannedHours;
+    var hoursVariancePct = Model.TotalPlannedHours > 0
+        ? ((double)(Model.TotalActualHours - Model.TotalPlannedHours) / (double)Model.TotalPlannedHours) * 100
+        : 0.0;
+    var totalCost = Model.TotalLaborCost + Model.TotalPartsCost;
+}
+<div class="ds-showcase__grid ds-showcase__grid--4" style="margin-bottom: 24px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Planned hours",
+        Value = Model.TotalPlannedHours.ToString("N1"),
+        Unit = "hrs",
+        DeltaText = Model.TotalPlannedHours > 0 ? "▼ estimated effort" : "no plan yet",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours, (double)Model.TotalPlannedHours },
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Actual hours",
+        Value = Model.TotalActualHours.ToString("N1"),
+        Unit = "hrs",
+        DeltaText = overPlan
+            ? $"▲ {hoursVariancePct:0.0}% over plan"
+            : (Model.TotalActualHours > 0 ? "▼ under plan" : "not started"),
+        DeltaDirection = overPlan ? "down" : (Model.TotalActualHours > 0 ? "up" : "flat"),
+        SparkPoints = new[] { 0.0, (double)Model.TotalActualHours * 0.2, (double)Model.TotalActualHours * 0.4, (double)Model.TotalActualHours * 0.6, (double)Model.TotalActualHours * 0.75, (double)Model.TotalActualHours * 0.9, (double)Model.TotalActualHours },
+        SparkTone = overPlan ? "danger" : "success"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Parts used",
+        Value = Model.TotalPartsCount.ToString(),
+        Unit = Model.TotalPartsCount == 1 ? "line" : "lines",
+        DeltaText = Model.TotalPartsCost > 0 ? $"materials: {Model.TotalPartsCost.ToString("C0")}" : "no parts issued",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { 0.0, (double)Model.TotalPartsCount * 0.25, (double)Model.TotalPartsCount * 0.5, (double)Model.TotalPartsCount * 0.7, (double)Model.TotalPartsCount * 0.85, (double)Model.TotalPartsCount * 0.95, (double)Model.TotalPartsCount },
+        SparkTone = "warning"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total cost",
+        Value = totalCost.ToString("C0"),
+        DeltaText = $"labor {Model.TotalLaborCost.ToString("C0")} + parts {Model.TotalPartsCost.ToString("C0")}",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { (double)totalCost * 0.15, (double)totalCost * 0.3, (double)totalCost * 0.45, (double)totalCost * 0.6, (double)totalCost * 0.75, (double)totalCost * 0.9, (double)totalCost },
+        SparkTone = "brand"
+    })
 </div>
 
 @* PR #97: Edit Work Order, migrated from legacy /Maintenance/Details. The
