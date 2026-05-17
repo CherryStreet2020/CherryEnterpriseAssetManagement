@@ -7,6 +7,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Catalog;
 using Abs.FixedAssets.Models.Telemetry;
+using Abs.FixedAssets.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -38,17 +39,54 @@ namespace Abs.FixedAssets.Services.Telemetry
     public class SensorIngestService : ISensorIngestService
     {
         private readonly AppDbContext _db;
+        private readonly ITenantContext _tenant;
         private readonly ILogger<SensorIngestService> _logger;
 
-        public SensorIngestService(AppDbContext db, ILogger<SensorIngestService> logger)
+        public SensorIngestService(
+            AppDbContext db,
+            ITenantContext tenant,
+            ILogger<SensorIngestService> logger)
         {
             _db = db;
+            _tenant = tenant;
             _logger = logger;
+        }
+
+        // PR #118.4 — Sentinel thrown when the caller posts an event for
+        // an Asset outside their tenant scope. Surfaced as 403 Forbidden
+        // by the SensorEventsController. App-layer enforcement until
+        // Postgres RLS lands in PR #122; that's defense-in-depth.
+        public sealed class TenantScopeViolationException : InvalidOperationException
+        {
+            public TenantScopeViolationException(string msg) : base(msg) { }
+        }
+
+        // Returns the set of AssetIds the caller may legally write to.
+        // Empty caller scope means a public/anonymous request to an
+        // open API; we don't trust the IngestedAt path with that, so
+        // an empty VisibleCompanyIds list rejects every event.
+        private async Task<HashSet<int>> VisibleAssetIdsAsync(
+            IReadOnlyCollection<int> assetIds, CancellationToken ct)
+        {
+            if (_tenant.VisibleCompanyIds.Count == 0) return new HashSet<int>();
+            var visible = await _db.Assets
+                .AsNoTracking()
+                .Where(a => assetIds.Contains(a.Id))
+                .Where(a => _tenant.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
+                .Select(a => a.Id)
+                .ToListAsync(ct);
+            return new HashSet<int>(visible);
         }
 
         public async Task IngestAsync(SensorEvent evt, CancellationToken ct = default)
         {
             if (evt == null) throw new ArgumentNullException(nameof(evt));
+
+            // PR #118.4 — Tenant scope check FIRST. Reject before any write.
+            var visible = await VisibleAssetIdsAsync(new[] { evt.AssetId }, ct);
+            if (!visible.Contains(evt.AssetId))
+                throw new TenantScopeViolationException(
+                    $"AssetId {evt.AssetId} is not in the caller's tenant scope.");
 
             // Server-stamped IngestedAt always wins; clients can't backdate.
             evt.IngestedAt = DateTime.UtcNow;
@@ -105,6 +143,18 @@ namespace Abs.FixedAssets.Services.Telemetry
             if (events == null) throw new ArgumentNullException(nameof(events));
             var list = events.ToList();
             if (list.Count == 0) return 0;
+
+            // PR #118.4 — Tenant scope filter. Resolve once for all
+            // distinct AssetIds in the batch; throw if ANY event refers
+            // to an asset outside the caller's tenant scope. We don't
+            // silently drop because a partial-success batch is hard to
+            // reason about for gateway clients.
+            var batchAssetIds = list.Select(e => e.AssetId).Distinct().ToList();
+            var visibleSet = await VisibleAssetIdsAsync(batchAssetIds, ct);
+            var unauthorized = batchAssetIds.Where(id => !visibleSet.Contains(id)).ToList();
+            if (unauthorized.Count > 0)
+                throw new TenantScopeViolationException(
+                    $"AssetIds [{string.Join(", ", unauthorized)}] are not in the caller's tenant scope.");
 
             // PR #118.3 — optimized batch path. Single SaveChanges + at
             // most 4 round-trips to Postgres regardless of batch size.
