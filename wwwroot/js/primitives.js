@@ -16,6 +16,43 @@
 (function () {
   'use strict';
 
+  // ---------------------------------------------------------------------------
+  // Chrome-extension noise filter
+  //
+  // Browser extensions (Wispr Flow, password managers, dev-tool extensions, etc.)
+  // commonly register `chrome.runtime.onMessage.addListener` callbacks that
+  // `return true` to signal an async response — but never call sendResponse.
+  // When the underlying message channel closes, Chrome raises:
+  //
+  //   Uncaught (in promise) Error: A listener indicated an asynchronous response
+  //   by returning true, but the message channel closed before a response was received.
+  //
+  // The error is attributed to "line 0 col 0" of the current page URL, NOT to
+  // the extension that caused it. That makes our app's console look broken when
+  // it isn't, and pollutes any error-tracking pipeline we wire in later.
+  //
+  // We swallow that one specific message (and nothing else). Real app errors
+  // still surface as before.
+  // ---------------------------------------------------------------------------
+  const EXT_NOISE_RE = /listener indicated an asynchronous response by returning true.*message channel closed/i;
+
+  window.addEventListener('error', function (evt) {
+    if (evt && evt.message && EXT_NOISE_RE.test(evt.message)) {
+      evt.stopImmediatePropagation();
+      evt.preventDefault();
+      return true;
+    }
+  }, true);
+
+  window.addEventListener('unhandledrejection', function (evt) {
+    const msg = evt && evt.reason && (evt.reason.message || String(evt.reason));
+    if (msg && EXT_NOISE_RE.test(msg)) {
+      evt.stopImmediatePropagation();
+      evt.preventDefault();
+      return true;
+    }
+  }, true);
+
   const STORAGE_KEY = 'cherryai.density';
   const VALID_MODES = ['compact', 'comfortable', 'spacious'];
   const prefersReducedMotion = typeof window.matchMedia === 'function'
