@@ -156,6 +156,34 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "Vendor Expected Return")]
         public DateTime? VendorExpectedReturnDate { get; set; }
 
+        // ADR-013 / PR #119.13a — Shared-operation batching primitives.
+        //
+        // BatchPoolCode:     Tag identifying batch-eligibility groups —
+        //                    operations with the same code are eligible
+        //                    to share a ProductionBatch run. Example:
+        //                    "HT-1450-OIL" (heat treat at 1450 oil
+        //                    quench), "PAINT-RAL9010", "PLATE-NI-30um".
+        //                    Free-text 64 chars; every shop coins its
+        //                    own taxonomy.
+        //
+        // ProductionBatchId: Set when this operation is assigned to a
+        //                    specific batch run. SET NULL on batch
+        //                    delete preserves the operation history.
+        //
+        // BatchSequenceNo:   Position within the batch when the batch
+        //                    is a multi-stage flow (plating line:
+        //                    pre-clean -> activate -> plate -> rinse -> bake).
+        //                    Lets each operation know its sequence.
+
+        [StringLength(64)]
+        [Display(Name = "Batch Pool Code")]
+        public string? BatchPoolCode { get; set; }
+
+        public int? ProductionBatchId { get; set; }
+        public Abs.FixedAssets.Models.Production.ProductionBatch? ProductionBatch { get; set; }
+
+        public int? BatchSequenceNo { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [StringLength(100)]

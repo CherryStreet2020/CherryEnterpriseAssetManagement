@@ -103,6 +103,36 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionJobShopDetail> ProductionJobShopDetails
             => Set<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>();
 
+        // ADR-013 / PR #119.13a — Polymorphic ProductionBatch parent + subtypes.
+        // Shared-operation batching backbone. Tulip-class composable MES at
+        // schema level: one ProductionBatch row per physical execution, with
+        // Nest or ProcessBatch subtype for type-specific fields.
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionBatch> ProductionBatches
+            => Set<Abs.FixedAssets.Models.Production.ProductionBatch>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.Nest> Nests
+            => Set<Abs.FixedAssets.Models.Production.Nest>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.ProcessBatch> ProcessBatches
+            => Set<Abs.FixedAssets.Models.Production.ProcessBatch>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionBatchAllocation> ProductionBatchAllocations
+            => Set<Abs.FixedAssets.Models.Production.ProductionBatchAllocation>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink> ProductionBatchEquipmentLinks
+            => Set<Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionBatchStateEvent> ProductionBatchStateEvents
+            => Set<Abs.FixedAssets.Models.Production.ProductionBatchStateEvent>();
+
+        // Stub FK targets so RecipeRevisionId and MrbDispositionId are
+        // valid foreign keys from day one. Full content schemas land later.
+        public DbSet<Abs.FixedAssets.Models.Production.RecipeRevision> RecipeRevisions
+            => Set<Abs.FixedAssets.Models.Production.RecipeRevision>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.MrbDisposition> MrbDispositions
+            => Set<Abs.FixedAssets.Models.Production.MrbDisposition>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -836,8 +866,9 @@ namespace Abs.FixedAssets.Data
 
             // ADR-013 / PR #119.12 — ProductionJobShopDetail satellite.
             // 1:0..1 with ProductionOrder via UNIQUE on ProductionOrderId.
-            // CutListId / NestPlanId are forward refs to PR #119.13 entities —
-            // FKs will be added by that PR's migration.
+            // PR #119.13a drops the CutListId placeholder column (cut-list
+            // lookups go via CutListLine.SourceProductionOrderId) and FK-wires
+            // NestPlanId -> Nests below.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>(e =>
             {
                 e.HasIndex(x => x.ProductionOrderId).IsUnique();
@@ -853,16 +884,167 @@ namespace Abs.FixedAssets.Data
             // ADR-013 / PR #119.12 — WorkOrderOperation Vendor FK for outside-
             // processing (SAP PP02 pattern). Optional FK, SET NULL on vendor
             // delete so historical operations retain their record.
-            // IsExternal / AutoGeneratePR are flag-only here; the auto-fire
-            // purchase-requisition path lands with the WO release wiring PR.
+            // PR #119.13a extension: ProductionBatch FK + batch-pool tag for
+            // shared-operation batching. ProductionBatch SET NULL on delete
+            // so operation history survives even if a batch is cleaned up.
             modelBuilder.Entity<WorkOrderOperation>(e =>
             {
                 e.HasOne(x => x.Vendor)
                     .WithMany()
                     .HasForeignKey(x => x.VendorId)
                     .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProductionBatch)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(x => x.IsExternal);
                 e.HasIndex(x => x.VendorId);
+                e.HasIndex(x => x.ProductionBatchId);
+                e.HasIndex(x => x.BatchPoolCode);
+            });
+
+            // ADR-013 / PR #119.13a — ProductionBatch polymorphic parent.
+            // BatchNumber UNIQUE. Type / Status / BatchPoolCode all indexed
+            // for queue + dashboard filtering. PrimaryEquipment SET NULL on
+            // equipment delete (the batch record outlives the machine).
+            // RecipeRevision SET NULL on delete (stub table; full revisioning
+            // in PR #119.14). MrbDisposition SET NULL on delete.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionBatch>(e =>
+            {
+                e.HasIndex(x => x.BatchNumber).IsUnique();
+                e.HasIndex(x => x.BatchType);
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.BatchPoolCode);
+                e.HasIndex(x => x.ScheduledStartAt);
+                e.HasOne(x => x.PrimaryEquipment)
+                    .WithMany()
+                    .HasForeignKey(x => x.PrimaryEquipmentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.RecipeRevision)
+                    .WithMany()
+                    .HasForeignKey(x => x.RecipeRevisionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.QuarantineDisposition)
+                    .WithMany()
+                    .HasForeignKey(x => x.QuarantineDispositionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-013 / PR #119.13a — Nest subtype.
+            // 1:0..1 with ProductionBatch via UNIQUE on ProductionBatchId,
+            // ON DELETE CASCADE. StockItem RESTRICT — can't delete sheet SKU
+            // that's referenced by a nest.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Nest>(e =>
+            {
+                e.HasIndex(x => x.ProductionBatchId).IsUnique();
+                e.HasIndex(x => x.StockItemId);
+                e.HasOne(x => x.ProductionBatch)
+                    .WithOne(x => x.Nest)
+                    .HasForeignKey<Abs.FixedAssets.Models.Production.Nest>(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.StockItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.StockItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ADR-013 / PR #119.13a — ProcessBatch subtype.
+            // 1:0..1 with ProductionBatch via UNIQUE on ProductionBatchId,
+            // ON DELETE CASCADE. ProcessType indexed for "all heat-treat
+            // batches" / "all paint batches" queries.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProcessBatch>(e =>
+            {
+                e.HasIndex(x => x.ProductionBatchId).IsUnique();
+                e.HasIndex(x => x.ProcessType);
+                e.HasOne(x => x.ProductionBatch)
+                    .WithOne(x => x.ProcessBatch)
+                    .HasForeignKey<Abs.FixedAssets.Models.Production.ProcessBatch>(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ADR-013 / PR #119.13a — ProductionBatchAllocation.
+            // UNIQUE on (ProductionBatchId, WorkOrderOperationId) — one
+            // allocation per operation per batch. CASCADE from both parents.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionBatchAllocation>(e =>
+            {
+                e.HasIndex(x => new { x.ProductionBatchId, x.WorkOrderOperationId }).IsUnique();
+                e.HasIndex(x => x.ProductionOrderId);
+                e.HasOne(x => x.ProductionBatch)
+                    .WithMany(x => x.Allocations)
+                    .HasForeignKey(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.WorkOrderOperation)
+                    .WithMany()
+                    .HasForeignKey(x => x.WorkOrderOperationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ADR-013 / PR #119.13a — ProductionBatchEquipmentLink.
+            // Multi-equipment child for plating lines + multi-zone furnaces.
+            // CASCADE from ProductionBatch; RESTRICT on Equipment (audit trail).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink>(e =>
+            {
+                e.HasIndex(x => new { x.ProductionBatchId, x.SequenceNo });
+                e.HasIndex(x => x.EquipmentId);
+                e.HasOne(x => x.ProductionBatch)
+                    .WithMany(x => x.EquipmentLinks)
+                    .HasForeignKey(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Equipment)
+                    .WithMany()
+                    .HasForeignKey(x => x.EquipmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ADR-013 / PR #119.13a — ProductionBatchStateEvent audit log.
+            // Append-only. Indexed on batch + change time for chronological
+            // reads. CASCADE from ProductionBatch (rare — regulated workflows
+            // don't delete batches).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionBatchStateEvent>(e =>
+            {
+                e.HasIndex(x => new { x.ProductionBatchId, x.ChangedAt });
+                e.HasOne(x => x.ProductionBatch)
+                    .WithMany(x => x.StateEvents)
+                    .HasForeignKey(x => x.ProductionBatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.MrbDisposition)
+                    .WithMany()
+                    .HasForeignKey(x => x.MrbDispositionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ADR-013 / PR #119.13a — RecipeRevision stub.
+            // Master-revision self-FK SET NULL on master delete (mirrors
+            // WorkOrder.MasterWorkOrder pattern).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.RecipeRevision>(e =>
+            {
+                e.HasIndex(x => new { x.Name, x.Version }).IsUnique();
+                e.HasIndex(x => x.Status);
+                e.HasOne(x => x.MasterRecipe)
+                    .WithMany()
+                    .HasForeignKey(x => x.MasterRecipeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ADR-013 / PR #119.13a — MrbDisposition stub.
+            // DispositionNumber UNIQUE. Outcome indexed for "all open MRBs"
+            // queries.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MrbDisposition>(e =>
+            {
+                e.HasIndex(x => x.DispositionNumber).IsUnique();
+                e.HasIndex(x => x.Outcome);
+            });
+
+            // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
+            // FK to Nests on the existing NestPlanId placeholder column.
+            // SET NULL on nest delete preserves the order history.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>(e =>
+            {
+                e.HasOne(x => x.NestPlan)
+                    .WithMany()
+                    .HasForeignKey(x => x.NestPlanId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Maintenance Schedules
