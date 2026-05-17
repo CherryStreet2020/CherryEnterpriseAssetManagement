@@ -221,6 +221,33 @@ namespace Abs.FixedAssets.Models
 
         [StringLength(32)]
         public string? ExternalSource { get; set; }
+
+        // ADR-012 v0.2 / PR #119.6 — Revision tracking for re-issued WOs.
+        //
+        // Pattern:
+        //   Master (original) WO: Revision = 0, MasterWorkOrderId = NULL
+        //   Revision N derived:   Revision = N, MasterWorkOrderId = master.Id
+        //
+        // Critical for:
+        //   - CIP / AFE supplements (AFE-2026-005 r0, r1, r2 as scope grows)
+        //   - Engineering ECO/MOC re-issues (ECO-2026-12-001 r0 → r1 with
+        //     additional PHA findings per 29 CFR 1910.119)
+        //   - Maintenance re-issued correctives (rare but happens when scope
+        //     expands mid-job — new revision rather than editing the original)
+        //
+        // The original WO stays editable until its first revision is created;
+        // after that, the original is read-only and revisions accumulate
+        // forward. Re-issue UI ships in Phase F.
+        //
+        // Self-FK uses ON DELETE SET NULL: deleting a master orphans its
+        // revisions rather than cascade-deleting them. Each orphan becomes
+        // its own master (Revision stays at its old value, MasterWorkOrderId
+        // becomes NULL). Most-forgiving option — admins can re-link by hand;
+        // cascade deletes would silently wipe historical audit trail.
+        public short Revision { get; set; } = 0;
+
+        public int? MasterWorkOrderId { get; set; }
+        public MaintenanceEvent? MasterWorkOrder { get; set; }
     }
 
     public class MaintenanceSchedule
