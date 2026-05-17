@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Telemetry;
+using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Telemetry;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -30,15 +31,18 @@ public class SensorEventsController : ControllerBase
 {
     private readonly ISensorIngestService _ingest;
     private readonly AppDbContext _db;
+    private readonly ITenantContext _tenant;
     private readonly ILogger<SensorEventsController> _logger;
 
     public SensorEventsController(
         ISensorIngestService ingest,
         AppDbContext db,
+        ITenantContext tenant,
         ILogger<SensorEventsController> logger)
     {
         _ingest = ingest;
         _db = db;
+        _tenant = tenant;
         _logger = logger;
     }
 
@@ -69,6 +73,11 @@ public class SensorEventsController : ControllerBase
         {
             var n = await _ingest.IngestBatchAsync(req.Events, ct);
             return Ok(new { ingested = n });
+        }
+        catch (SensorIngestService.TenantScopeViolationException tex)
+        {
+            _logger.LogWarning(tex, "SensorEventsController: tenant scope violation");
+            return StatusCode(403, new { error = "forbidden", detail = tex.Message });
         }
         catch (System.ArgumentException ax)
         {
@@ -109,7 +118,18 @@ public class SensorEventsController : ControllerBase
 
         var typeFilter = ParseEnumList<SensorReadingType>(readingTypes);
 
-        var q = _db.AssetSensorLatest.AsNoTracking().Where(x => ids.Contains(x.AssetId));
+        // PR #118.4 — Tenant filter the requested assetIds to those
+        // whose owning Company is in the caller's tenant scope. Silent
+        // filter (drop ineligible IDs) rather than throw — read-side
+        // bulk requests are common and partial visibility is the norm.
+        var visibleAssetIds = await _db.Assets
+            .AsNoTracking()
+            .Where(a => ids.Contains(a.Id)
+                     && _tenant.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
+            .Select(a => a.Id)
+            .ToListAsync(ct);
+
+        var q = _db.AssetSensorLatest.AsNoTracking().Where(x => visibleAssetIds.Contains(x.AssetId));
         if (typeFilter.Count > 0)
             q = q.Where(x => typeFilter.Contains(x.ReadingType));
 
@@ -150,6 +170,16 @@ public class SensorEventsController : ControllerBase
             return BadRequest(new { error = "assetId is required" });
         if (limit < 1) limit = 1;
         if (limit > 1000) limit = 1000;
+
+        // PR #118.4 — Tenant scope check. The asset must belong to a
+        // Company in the caller's visible scope. Return 404 (not 403)
+        // on miss to avoid disclosing existence of out-of-scope assets.
+        var assetVisible = await _db.Assets
+            .AsNoTracking()
+            .AnyAsync(a => a.Id == assetId
+                        && _tenant.VisibleCompanyIds.Contains(a.CompanyId ?? 0), ct);
+        if (!assetVisible)
+            return NotFound(new { error = $"asset {assetId} not found in your tenant scope" });
 
         var q = _db.SensorEvents.AsNoTracking()
             .Where(e => e.AssetId == assetId && e.ReadingType == readingType);
