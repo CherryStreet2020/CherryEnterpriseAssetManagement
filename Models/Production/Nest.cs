@@ -38,13 +38,22 @@ namespace Abs.FixedAssets.Models.Production
         public int ProductionBatchId { get; set; }
         public ProductionBatch? ProductionBatch { get; set; }
 
-        // The sheet-stock SKU being consumed. Physical-lot traceability
-        // (heat number, mill cert) ships in PR #119.13b via a
-        // StockReceiptId FK to the physical sheet. For now the SKU FK
-        // is sufficient to model "what kind of sheet is this nest
-        // cutting from."
+        // The sheet-stock SKU being consumed. Useful as a fast filter
+        // ("nests cutting 1/4 A36") even after the receipt FK is set.
         public int? StockItemId { get; set; }
         public Item? StockItem { get; set; }
+
+        // ADR-013 / PR #119.13b — physical-lot FK.
+        //
+        // The specific StockReceipt (sheet) being cut. Heat number /
+        // mill cert / source PO traceability flows from this FK:
+        //   part cut -> CutListLine.NestId -> Nest.StockReceiptId
+        //               -> StockReceipt.HeatNumber
+        //
+        // SET NULL on receipt delete (rare — receipts have remnants
+        // and historical references; mostly Status -> Scrapped).
+        public int? StockReceiptId { get; set; }
+        public StockReceipt? StockReceipt { get; set; }
 
         // DXF file pointer to external storage (Box / SharePoint / S3).
         // We deliberately do NOT parse DXF in-app — every CAM vendor
