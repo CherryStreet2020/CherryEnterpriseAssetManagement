@@ -205,6 +205,20 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.ITelemetryHistoricalBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.TelemetryHistoricalBackfillSeeder>();
+
+// Sprint 3 PR #119.2 (ADR-012 v0.2): Unified WorkOrder configuration backbone.
+// WorkOrderFieldVisibility is the SAP-OIAN-pattern field-selection table that
+// drives per-classification UX with zero code branching in the renderer.
+// Cache is Singleton (process-wide); service is Scoped (so it can inject
+// AppDbContext). Seeder runs ONCE on startup with ~75 global default rows
+// covering Maintenance/Quality/Engineering/HSE/CIP.
+builder.Services.AddSingleton<Abs.FixedAssets.Services.WorkOrders.WorkOrderFieldVisibilityCache>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.WorkOrders.IWorkOrderFieldVisibilityService,
+    Abs.FixedAssets.Services.WorkOrders.WorkOrderFieldVisibilityService>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.IWorkOrderFieldVisibilitySeeder,
+    Abs.FixedAssets.Services.Seeding.WorkOrderFieldVisibilitySeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
@@ -615,6 +629,26 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: Telemetry historical backfill failed: {ex.Message}");
+    }
+
+    // PR #119.2 — WorkOrderFieldVisibility seeder (ADR-012 v0.2 config backbone).
+    //
+    // Seeds ~75 global default rows covering Maintenance/Quality/Engineering/
+    // HSE/CIP × the high-value header fields. Idempotent — skips if any
+    // global (TenantId IS NULL) row already exists. Per-tenant overrides
+    // ship via the admin UI (Sprint 4), never via this seeder.
+    //
+    // Wrapped in try/catch so a seeder failure can never block app startup.
+    try
+    {
+        var fieldVisSeeder = scope.ServiceProvider
+            .GetRequiredService<Abs.FixedAssets.Services.Seeding.IWorkOrderFieldVisibilitySeeder>();
+        var rows = await fieldVisSeeder.SeedAsync();
+        Console.WriteLine($"[Startup] WorkOrderFieldVisibility: {rows} global default rows seeded");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: WorkOrderFieldVisibility seeder failed: {ex.Message}");
     }
 
         } // end: if (seedLockAcquired)
