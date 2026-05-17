@@ -109,9 +109,14 @@
         } catch (e) { /* quota / disabled — fail silently */ }
     }
 
-    function navigate(path) {
+    function navigate(path, newTab) {
         pushRecent(path);
-        window.location.href = path;
+        if (newTab) {
+            window.open(path, '_blank', 'noopener');
+            close();
+        } else {
+            window.location.href = path;
+        }
     }
 
     function open() {
@@ -175,8 +180,9 @@
 
         var items = resultsEl.querySelectorAll('.command-palette-item');
         items.forEach(function(item) {
-            item.addEventListener('click', function() {
-                navigate(item.dataset.path);
+            item.addEventListener('click', function(e) {
+                var newTab = e.metaKey || e.ctrlKey;
+                navigate(item.dataset.path, newTab);
             });
             item.addEventListener('mouseenter', function() {
                 var idx = parseInt(item.dataset.index, 10);
@@ -214,18 +220,24 @@
 
     function handleKeydown(e) {
         var items = resultsEl.querySelectorAll('.command-palette-item');
-        if (e.key === 'ArrowDown') {
+        // Ctrl-N / Ctrl-P provide vim-ish next/previous nav that doesn't steal
+        // letters from search input. Arrows remain the primary affordance.
+        var isCtrlN = (e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N');
+        var isCtrlP = (e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P');
+        if (e.key === 'ArrowDown' || isCtrlN) {
             e.preventDefault();
             selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
             updateSelection(items);
-        } else if (e.key === 'ArrowUp') {
+        } else if (e.key === 'ArrowUp' || isCtrlP) {
             e.preventDefault();
             selectedIndex = Math.max(selectedIndex - 1, 0);
             updateSelection(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (items[selectedIndex]) {
-                navigate(items[selectedIndex].dataset.path);
+                // Cmd-Enter / Ctrl-Enter opens in new tab; Enter alone navigates.
+                var newTab = e.metaKey || e.ctrlKey;
+                navigate(items[selectedIndex].dataset.path, newTab);
             }
         } else if (e.key === 'Escape') {
             e.preventDefault();
