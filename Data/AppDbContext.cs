@@ -87,6 +87,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails> QualityWorkOrderDetails
             => Set<Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails>();
 
+        // ADR-012 v0.2 / PR #119.10 — Engineering satellite (Classification=Engineering only).
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails> EngineeringWorkOrderDetails
+            => Set<Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -759,6 +763,18 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.QualityIssueType);
                 e.HasIndex(x => x.CapaWorkOrderId);
                 e.HasIndex(x => x.LinkedNcrId);
+            });
+
+            // ADR-012 v0.2 / PR #119.10 — EngineeringWorkOrderDetails satellite.
+            // 1:0..1 with WorkOrder. LinkedNcrWorkOrderId is an optional
+            // self-FK to the Quality NCR that triggered this engineering
+            // CAPA, ON DELETE SET NULL in raw SQL.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails>(e =>
+            {
+                e.HasIndex(x => x.WorkOrderId).IsUnique();
+                e.HasIndex(x => x.EcoNumber);
+                e.HasIndex(x => x.EngineeringIssueType);
+                e.HasIndex(x => x.LinkedNcrWorkOrderId);
             });
 
             // Maintenance Schedules
