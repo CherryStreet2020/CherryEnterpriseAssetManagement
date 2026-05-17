@@ -272,12 +272,203 @@
     </section>
 
     @* ====================================================================
+       ButtonGroup
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Button group · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;ButtonGroup&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_ButtonGroup.cshtml</span>
+        </div>
+        <div class="ds-card">
+            <div style="display: grid; gap: 16px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                    @await Html.PartialAsync("Primitives/_ButtonGroup", new ButtonGroupModel
+                    {
+                        Buttons = new()
+                        {
+                            new ButtonModel { Label = "Primary", Variant = "primary", Size = "md" },
+                            new ButtonModel { Label = "Secondary", Variant = "secondary", Size = "md" },
+                            new ButtonModel { Label = "Ghost", Variant = "ghost", Size = "md" },
+                            new ButtonModel { Label = "Danger", Variant = "danger", Size = "md" },
+                            new ButtonModel { Label = "Disabled", Variant = "primary", Size = "md", Disabled = true },
+                        }
+                    })
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                    @await Html.PartialAsync("Primitives/_ButtonGroup", new ButtonGroupModel
+                    {
+                        Buttons = new()
+                        {
+                            new ButtonModel { Label = "Small", Variant = "secondary", Size = "sm" },
+                            new ButtonModel { Label = "Medium", Variant = "secondary", Size = "md" },
+                            new ButtonModel { Label = "Large", Variant = "secondary", Size = "lg" },
+                        }
+                    })
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       BrandChip
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Brand chip · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;BrandChip&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_BrandChip.cshtml</span>
+        </div>
+        <div class="ds-card">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Haas", Model = "VF-2SS" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Mazak", Model = "VARIAXIS i-700" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Lincoln Electric", Model = "Power Wave S350" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "KUKA", Model = "KR 210 R2700" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "FANUC", Model = "R-2000iC" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Trumpf", Model = "TruLaser 5030" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "DMG MORI", Model = "NLX 2500" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Schuler", Model = "MSP 400" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "ABB", Model = "IRB 6700" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Yaskawa Motoman", Model = "MA-2010" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Atlas Copco", Model = "GA 75 VSD+" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Fronius", Model = "TPS 400i" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Siemens", Model = "S7-1500" })
+                @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel { Manufacturer = "Doosan", Model = "Lynx 2100" })
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       DataTable
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Data table · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;DataTable&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_DataTable.cshtml · click headers to sort</span>
+        </div>
+        @await Html.PartialAsync("Primitives/_DataTable", new DataTableModel
+        {
+            Eyebrow = "Maintenance",
+            Title = "Work orders · sample",
+            CountText = "5 rows",
+            Columns = new()
+            {
+                new DataTableColumn { Label = "WO #",     Mono = true, Width = "120px", Sortable = true },
+                new DataTableColumn { Label = "Asset",    Sortable = true },
+                new DataTableColumn { Label = "Tech",     Sortable = true },
+                new DataTableColumn { Label = "Priority", Sortable = true },
+                new DataTableColumn { Label = "Status",   Align = "right" },
+            },
+            RowsHtml = new()
+            {
+                "<td style='font-family: var(--font-mono); font-feature-settings: \"tnum\" 1; color: var(--text-secondary);'>WO-26-00001</td><td>Haas VF-2SS</td><td>Sarah Johnson</td><td>P1</td><td style='text-align:right'><span class='ds-pill' data-tone='critical'><span class='ds-pill__dot'></span>Open</span></td>",
+                "<td style='font-family: var(--font-mono); font-feature-settings: \"tnum\" 1; color: var(--text-secondary);'>WO-26-00002</td><td>Lincoln Power Wave S350</td><td>Maria Ruiz</td><td>P2</td><td style='text-align:right'><span class='ds-pill' data-tone='warning'><span class='ds-pill__dot'></span>In progress</span></td>",
+                "<td style='font-family: var(--font-mono); font-feature-settings: \"tnum\" 1; color: var(--text-secondary);'>WO-26-00003</td><td>KUKA KR 210 R2700</td><td>Tom Wei</td><td>P1</td><td style='text-align:right'><span class='ds-pill' data-tone='critical'><span class='ds-pill__dot'></span>Open</span></td>",
+                "<td style='font-family: var(--font-mono); font-feature-settings: \"tnum\" 1; color: var(--text-secondary);'>WO-26-00004</td><td>Mazak VARIAXIS i-700</td><td>Sarah Johnson</td><td>P3</td><td style='text-align:right'><span class='ds-pill' data-tone='success'><span class='ds-pill__dot'></span>Closed</span></td>",
+                "<td style='font-family: var(--font-mono); font-feature-settings: \"tnum\" 1; color: var(--text-secondary);'>WO-26-00005</td><td>Trumpf TruLaser 5030</td><td>Maria Ruiz</td><td>P2</td><td style='text-align:right'><span class='ds-pill' data-tone='info'><span class='ds-pill__dot'></span>Scheduled</span></td>",
+            }
+        })
+    </section>
+
+    @* ====================================================================
+       EmptyState v2
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Empty state v2 · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;EmptyState&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_EmptyStateV2.cshtml</span>
+        </div>
+        <div class="ds-showcase__grid ds-showcase__grid--2">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "wrench",
+                Tone = "success",
+                Title = "No critical work orders",
+                Body = "All clear. The next preventative maintenance is in 12 days.",
+                CtaLabel = "Schedule a new WO",
+                CtaHref = "#",
+                SecondaryLabel = "View calendar",
+                SecondaryHref = "#"
+            })
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "search",
+                Tone = "info",
+                Title = "No matches",
+                Body = "We couldn't find any assets matching your filters. Try widening the criteria.",
+                CtaLabel = "Reset filters",
+                CtaHref = "#"
+            })
+        </div>
+    </section>
+
+    @* ====================================================================
+       SkeletonLoader
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Skeleton loader · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;SkeletonLoader&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_SkeletonLoader.cshtml</span>
+        </div>
+        <div style="display: grid; gap: 20px;">
+            <div>
+                <div class="ds-card__eyebrow-label" style="margin-bottom: 8px;">Shape: kpi</div>
+                @await Html.PartialAsync("Primitives/_SkeletonLoader", new SkeletonLoaderModel { Shape = "kpi", TileCount = 4 })
+            </div>
+            <div>
+                <div class="ds-card__eyebrow-label" style="margin-bottom: 8px;">Shape: card</div>
+                <div class="ds-showcase__grid ds-showcase__grid--2">
+                    @await Html.PartialAsync("Primitives/_SkeletonLoader", new SkeletonLoaderModel { Shape = "card" })
+                    @await Html.PartialAsync("Primitives/_SkeletonLoader", new SkeletonLoaderModel { Shape = "card" })
+                </div>
+            </div>
+            <div>
+                <div class="ds-card__eyebrow-label" style="margin-bottom: 8px;">Shape: table</div>
+                @await Html.PartialAsync("Primitives/_SkeletonLoader", new SkeletonLoaderModel { Shape = "table", RowCount = 4 })
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       ContextDrawer
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Context drawer · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;ContextDrawer&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_ContextDrawer.cshtml · ESC or backdrop closes</span>
+        </div>
+        <div class="ds-card">
+            <p style="font-size: var(--font-size-13); color: var(--text-secondary); margin-bottom: 12px;">
+                Slide-in right drawer for "detail without leaving the list." Open via <code style="font-family: var(--font-mono);">CherryDS.drawer.open('demo-drawer')</code> or a button with <code style="font-family: var(--font-mono);">data-drawer-open</code>.
+            </p>
+            <button type="button" class="ds-btn ds-btn--primary ds-btn--md" data-drawer-open="demo-drawer">
+                Open demo drawer
+            </button>
+        </div>
+    </section>
+
+    @await Html.PartialAsync("Primitives/_ContextDrawer", new ContextDrawerModel
+    {
+        Id = "demo-drawer",
+        Title = "WO-26-00001",
+        Subtitle = "Haas VF-2SS · Spindle bearing service",
+        Width = 520,
+        BodyHtml = "<div style='display: grid; gap: 16px;'>" +
+                   "<div><div class='ds-card__eyebrow-label' style='margin-bottom:6px;'>Status</div><span class='ds-pill' data-tone='critical'><span class='ds-pill__dot'></span><span class='ds-pill__num'>P1</span><span>Open</span></span></div>" +
+                   "<div><div class='ds-card__eyebrow-label' style='margin-bottom:6px;'>Asset</div><div style='font-weight: 500;'>Haas VF-2SS · AST-00001</div></div>" +
+                   "<div><div class='ds-card__eyebrow-label' style='margin-bottom:6px;'>Assigned</div><div>Sarah Johnson</div></div>" +
+                   "<div><div class='ds-card__eyebrow-label' style='margin-bottom:6px;'>AI narrative</div><div style='font-size: 13px; color: var(--text-secondary); line-height: 1.5;'>Spindle bearing temperature has been trending toward failure for ~6 days. AI predicts a 4-7 day window before breakdown. Recommended: pull from production today; replace bearing assembly; bench-test 24 hours before returning to service.</div></div>" +
+                   "</div>",
+        FooterHtml = "<button type='button' class='ds-btn ds-btn--ghost ds-btn--md' data-drawer-close='demo-drawer'>Cancel</button>" +
+                     "<button type='button' class='ds-btn ds-btn--primary ds-btn--md'>Acknowledge</button>"
+    })
+
+    @* ====================================================================
        Footer notes
        ==================================================================== *@
     <section class="ds-showcase__section" style="margin-top: 56px;">
         <div class="ds-card" style="text-align: center; padding: 24px;">
             <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
-                PR #116d.1a · Foundation tokens + 4 hero primitives. Next: <code style="font-family: var(--font-mono);">&lt;DataTable&gt;</code>, <code style="font-family: var(--font-mono);">&lt;EmptyState&gt;</code>, <code style="font-family: var(--font-mono);">&lt;SkeletonLoader&gt;</code>, <code style="font-family: var(--font-mono);">&lt;ContextDrawer&gt;</code>, <code style="font-family: var(--font-mono);">&lt;ButtonGroup&gt;</code>, <code style="font-family: var(--font-mono);">&lt;BrandChip&gt;</code>, Cmd-K palette hardening.
+                PR #116d.1a + #116d.1b · 10 primitives locked. Next: <code style="font-family: var(--font-mono);">Cmd-K</code> palette hardening (PR #116d.1c), then Dashboard exemplar (PR #116d.2), then page-by-page rollout (PR #116d.3-22).
             </p>
         </div>
     </section>

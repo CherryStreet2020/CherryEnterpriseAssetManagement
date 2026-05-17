@@ -1,0 +1,46 @@
+@*
+    _BrandChip.cshtml — per-OEM color-accent chip. Maps a manufacturer name to its
+    brand color so chips render consistently across Plant Floor, Asset Register, etc.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_BrandChip", new BrandChipModel {
+          Manufacturer = "Haas",
+          Model = "VF-2SS",
+          Size = "md"
+      })
+
+    Recognized manufacturers map to brand-specific tints. Unrecognized fall back to neutral.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model BrandChipModel
+@{
+    // Mfr brand-color slug. Resolved against CSS classes in primitives.css.
+    var slug = Model.Manufacturer.ToLowerInvariant() switch
+    {
+        var s when s.Contains("haas") => "haas",
+        var s when s.Contains("mazak") => "mazak",
+        var s when s.Contains("lincoln") => "lincoln",
+        var s when s.Contains("kuka") => "kuka",
+        var s when s.Contains("fanuc") => "fanuc",
+        var s when s.Contains("trumpf") || s.Contains("trump") => "trumpf",
+        var s when s.Contains("dmg") => "dmgmori",
+        var s when s.Contains("schuler") => "schuler",
+        var s when s.Contains("abb") => "abb",
+        var s when s.Contains("yaskawa") => "yaskawa",
+        var s when s.Contains("atlas") => "atlas",
+        var s when s.Contains("fronius") => "fronius",
+        var s when s.Contains("siemens") => "siemens",
+        var s when s.Contains("motoman") => "yaskawa",
+        var s when s.Contains("doosan") => "doosan",
+        _ => "neutral",
+    };
+}
+
+<span class="ds-brand-chip ds-brand-chip--@slug ds-brand-chip--@Model.Size">
+    <span class="ds-brand-chip__dot" aria-hidden="true"></span>
+    <span class="ds-brand-chip__mfr">@Model.Manufacturer</span>
+    @if (!string.IsNullOrEmpty(Model.Model))
+    {
+        <span class="ds-brand-chip__model">@Model.Model</span>
+    }
+</span>

@@ -1,0 +1,39 @@
+@*
+    _ButtonGroup.cshtml — a row of related buttons with variant + size handling.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_ButtonGroup", new ButtonGroupModel {
+          Align = "end",
+          Buttons = new() {
+              new ButtonModel { Label = "Cancel", Variant = "ghost" },
+              new ButtonModel { Label = "Save", Variant = "primary", Href = "/save" },
+          }
+      })
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model ButtonGroupModel
+@{
+    var alignCls = Model.Align switch { "center" => "ds-btn-group--center", "end" => "ds-btn-group--end", _ => "ds-btn-group--start" };
+}
+
+<div class="ds-btn-group @alignCls">
+    @foreach (var b in Model.Buttons)
+    {
+        var btnCls = $"ds-btn ds-btn--{b.Variant} ds-btn--{b.Size}";
+        if (b.Disabled) { btnCls += " is-disabled"; }
+        if (!string.IsNullOrEmpty(b.Href) && !b.Disabled)
+        {
+            <a class="@btnCls" href="@b.Href">
+                @if (!string.IsNullOrEmpty(b.IconHtml)) { @Html.Raw(b.IconHtml) }
+                <span>@b.Label</span>
+            </a>
+        }
+        else
+        {
+            <button type="button" class="@btnCls" @(b.Disabled ? "disabled" : "") onclick="@b.OnClick">
+                @if (!string.IsNullOrEmpty(b.IconHtml)) { @Html.Raw(b.IconHtml) }
+                <span>@b.Label</span>
+            </button>
+        }
+    }
+</div>

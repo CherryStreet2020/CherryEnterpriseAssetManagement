@@ -1,0 +1,44 @@
+@*
+    _ContextDrawer.cshtml — slide-in right drawer for "detail without leaving the list."
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_ContextDrawer", new ContextDrawerModel {
+          Id = "wo-drawer",
+          Title = "WO-26-00001",
+          Subtitle = "HAAS VF-2SS spindle bearing service",
+          Width = 520,
+          BodyHtml = "...",
+          FooterHtml = "<button class='ds-btn ds-btn--primary ds-btn--md'>Acknowledge</button>"
+      })
+
+    Opens via window.CherryDS.drawer.open('wo-drawer'). Backdrop click + ESC close it.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model ContextDrawerModel
+
+<div class="ds-drawer" id="@Model.Id" aria-hidden="true" role="dialog" aria-labelledby="@(Model.Id)-title">
+    <div class="ds-drawer__backdrop" data-drawer-close="@Model.Id"></div>
+    <div class="ds-drawer__panel" style="width: @(Model.Width)px;">
+        <header class="ds-drawer__head">
+            <div>
+                <div class="ds-drawer__title" id="@(Model.Id)-title">@Model.Title</div>
+                @if (!string.IsNullOrEmpty(Model.Subtitle))
+                {
+                    <div class="ds-drawer__subtitle">@Model.Subtitle</div>
+                }
+            </div>
+            <button class="ds-drawer__close" type="button" data-drawer-close="@Model.Id" aria-label="Close drawer">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg>
+            </button>
+        </header>
+        <div class="ds-drawer__body">
+            @Html.Raw(Model.BodyHtml)
+        </div>
+        @if (!string.IsNullOrEmpty(Model.FooterHtml))
+        {
+            <footer class="ds-drawer__foot">
+                @Html.Raw(Model.FooterHtml)
+            </footer>
+        }
+    </div>
+</div>

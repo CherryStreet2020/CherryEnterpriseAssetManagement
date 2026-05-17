@@ -1,0 +1,82 @@
+@*
+    _DataTable.cshtml — sortable, sticky-header data table primitive.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_DataTable", new DataTableModel {
+          Eyebrow = "Maintenance",
+          Title = "Work orders",
+          CountText = "279 rows",
+          StickyHeader = true,
+          Columns = new() {
+              new DataTableColumn { Label = "WO #", Mono = true, Width = "100px" },
+              new DataTableColumn { Label = "Asset", Sortable = true },
+              new DataTableColumn { Label = "Tech" },
+              new DataTableColumn { Label = "Status", Align = "right" },
+          },
+          RowsHtml = new() {
+              "<td>WO-26-00001</td><td>HAAS VF-2SS</td><td>Sarah Johnson</td><td style='text-align:right'>Open</td>",
+              ...
+          }
+      })
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model DataTableModel
+@{
+    var rootCls = "ds-table" + (Model.StickyHeader ? " ds-table--sticky" : "");
+    if (!string.IsNullOrEmpty(Model.ExtraClasses)) rootCls += " " + Model.ExtraClasses;
+}
+
+<div class="@rootCls">
+    @if (!string.IsNullOrEmpty(Model.Title) || !string.IsNullOrEmpty(Model.CountText))
+    {
+        <div class="ds-table__head">
+            <div>
+                @if (!string.IsNullOrEmpty(Model.Eyebrow))
+                {
+                    <div class="ds-card__eyebrow-label">@Model.Eyebrow</div>
+                }
+                @if (!string.IsNullOrEmpty(Model.Title))
+                {
+                    <div class="ds-table__title">@Model.Title</div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.CountText))
+            {
+                <div class="ds-table__count">@Model.CountText</div>
+            }
+        </div>
+    }
+    <div class="ds-table__scroll">
+        <table>
+            <thead>
+                <tr>
+                    @foreach (var col in Model.Columns)
+                    {
+                        var thStyle = string.IsNullOrEmpty(col.Width) ? "" : $"width: {col.Width};";
+                        var thAlign = col.Align != "left" ? $" text-align: {col.Align};" : "";
+                        <th style="@(thStyle)@(thAlign)" data-sortable="@(col.Sortable ? "true" : null)">
+                            <span>@col.Label</span>
+                            @if (col.Sortable)
+                            {
+                                <svg class="ds-table__sort" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 4 L5 2 L7 4 M3 6 L5 8 L7 6" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+                            }
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.RowsHtml.Count == 0)
+                {
+                    <tr><td colspan="@Model.Columns.Count" class="ds-table__empty">@Model.EmptyMessage</td></tr>
+                }
+                else
+                {
+                    foreach (var rowHtml in Model.RowsHtml)
+                    {
+                        <tr>@Html.Raw(rowHtml)</tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

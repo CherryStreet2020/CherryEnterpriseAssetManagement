@@ -179,13 +179,91 @@
   }
 
   // -------------------------------------------------------------------------
+  // Context drawer — open/close + ESC + backdrop click + focus trap
+  // -------------------------------------------------------------------------
+  function drawerOpen(id) {
+    const el = document.getElementById(id);
+    if (!el || !el.classList.contains('ds-drawer')) return;
+    el.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    // Move focus to first focusable element inside the panel.
+    const focusable = el.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (focusable) focusable.focus();
+  }
+
+  function drawerClose(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function drawerCloseAll() {
+    document.querySelectorAll('.ds-drawer[aria-hidden="false"]').forEach(el => {
+      el.setAttribute('aria-hidden', 'true');
+    });
+    document.body.style.overflow = '';
+  }
+
+  function wireDrawers(root) {
+    (root || document).querySelectorAll('[data-drawer-close]').forEach(btn => {
+      btn.addEventListener('click', () => drawerClose(btn.getAttribute('data-drawer-close')));
+    });
+    (root || document).querySelectorAll('[data-drawer-open]').forEach(btn => {
+      btn.addEventListener('click', () => drawerOpen(btn.getAttribute('data-drawer-open')));
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // DataTable — column sort on click of [data-sortable] th
+  // -------------------------------------------------------------------------
+  function wireDataTables(root) {
+    (root || document).querySelectorAll('.ds-table table').forEach(table => {
+      const thead = table.querySelector('thead');
+      if (!thead) return;
+      thead.querySelectorAll('th[data-sortable="true"]').forEach((th, idx) => {
+        th.addEventListener('click', () => sortByColumn(table, idx, th));
+      });
+    });
+  }
+
+  function sortByColumn(table, columnIndex, th) {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.children.length > columnIndex);
+    const current = th.getAttribute('data-sort-dir') || '';
+    const next = current === 'asc' ? 'desc' : 'asc';
+    // Clear sibling sort indicators
+    th.parentElement.querySelectorAll('th').forEach(t => t.removeAttribute('data-sort-dir'));
+    th.setAttribute('data-sort-dir', next);
+
+    const numericRe = /^[-+]?[\d,]+(?:\.\d+)?$/;
+    rows.sort((a, b) => {
+      const av = a.children[columnIndex].textContent.trim();
+      const bv = b.children[columnIndex].textContent.trim();
+      const an = av.replace(/,/g, '');
+      const bn = bv.replace(/,/g, '');
+      if (numericRe.test(an) && numericRe.test(bn)) {
+        return (next === 'asc' ? 1 : -1) * (parseFloat(an) - parseFloat(bn));
+      }
+      return (next === 'asc' ? 1 : -1) * av.localeCompare(bv);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  }
+
+  // -------------------------------------------------------------------------
   // Bootstrap on DOM ready
   // -------------------------------------------------------------------------
   function init() {
     applyDensity(getDensity());
     wireDensityToggle();
     observeCountUp();
+    wireDrawers();
+    wireDataTables();
     startNoise();
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') drawerCloseAll();
+    });
   }
 
   if (document.readyState === 'loading') {
@@ -200,6 +278,8 @@
   window.CherryDS = {
     density: { set: setDensity, get: getDensity, apply: applyDensity },
     countUp: { animate: animateCountUp, observe: observeCountUp },
-    noise: { start: startNoise, stop: stopNoise }
+    noise: { start: startNoise, stop: stopNoise },
+    drawer: { open: drawerOpen, close: drawerClose, closeAll: drawerCloseAll },
+    table: { sortByColumn: sortByColumn, wireAll: wireDataTables }
   };
 })();
