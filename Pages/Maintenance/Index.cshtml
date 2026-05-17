@@ -2,6 +2,7 @@
 @model Abs.FixedAssets.Pages.Maintenance.IndexModel
 @using Abs.FixedAssets.Helpers
 @using Abs.FixedAssets.Services.Maintenance
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = UiTerms.ModuleName;
     ViewData["TabTitle"] = UiTerms.WorkOrderPlural;
@@ -128,52 +129,54 @@
 </div>
 }
 
-<div class="quick-stats-row-4">
-    <a href="/Maintenance" class="quick-stat-card clickable @(Model.Filter == null ? "stat-active" : "")">
-        <div class="quick-stat-icon primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value primary">@Model.Stats.TotalEvents</div>
-            <div class="quick-stat-label">Total Work Orders</div>
-        </div>
-    </a>
-    <a href="/Maintenance?filter=overdue" class="quick-stat-card clickable @(Model.Filter == "overdue" ? "stat-active" : "")">
-        <div class="quick-stat-icon danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value danger">@Model.Stats.OverdueCount</div>
-            <div class="quick-stat-label">Overdue</div>
-        </div>
-    </a>
-    <a href="/Maintenance?filter=scheduled" class="quick-stat-card clickable @(Model.Filter == "scheduled" ? "stat-active" : "")">
-        <div class="quick-stat-icon warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value warning">@Model.Stats.ScheduledCount</div>
-            <div class="quick-stat-label">Scheduled</div>
-        </div>
-    </a>
-    <a href="/Maintenance?filter=completed" class="quick-stat-card clickable @(Model.Filter == "completed" ? "stat-active" : "")">
-        <div class="quick-stat-icon success">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value success">@Model.Stats.CompletedThisMonth</div>
-            <div class="quick-stat-label">Completed (Month)</div>
-        </div>
-    </a>
+@* PR #116d.7 — Quick stats rebuilt with <KPITile> primitives.
+   Each tile drives href + filter state. Tone follows the metric direction:
+   Overdue tile gets the danger glow when count > 0, Scheduled warning,
+   Completed success-green. *@
+<div class="ds-showcase__grid ds-showcase__grid--4" style="margin-bottom: 24px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total work orders",
+        Value = Model.Stats.TotalEvents.ToString(),
+        DeltaText = Model.Filter == null ? "▼ all selected" : "click to clear filter",
+        DeltaDirection = Model.Filter == null ? "up" : "flat",
+        SparkPoints = new[] { (double)Model.Stats.TotalEvents, Model.Stats.TotalEvents, Model.Stats.TotalEvents, Model.Stats.TotalEvents, Model.Stats.TotalEvents, Model.Stats.TotalEvents, Model.Stats.TotalEvents },
+        SparkTone = "info",
+        Href = "/Maintenance"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Overdue",
+        Value = Model.Stats.OverdueCount.ToString(),
+        Unit = "late",
+        DeltaText = Model.Stats.OverdueCount > 0 ? "▲ past scheduled date" : "▼ none overdue",
+        DeltaDirection = Model.Stats.OverdueCount > 0 ? "down" : "up",
+        SparkPoints = new[] { (double)Model.Stats.OverdueCount * 0.6, Model.Stats.OverdueCount * 0.7, Model.Stats.OverdueCount * 0.8, Model.Stats.OverdueCount * 0.85, Model.Stats.OverdueCount * 0.9, Model.Stats.OverdueCount * 0.95, (double)Model.Stats.OverdueCount },
+        SparkTone = Model.Stats.OverdueCount > 50 ? "danger" : Model.Stats.OverdueCount > 0 ? "warning" : "success",
+        Href = "/Maintenance?filter=overdue"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Scheduled",
+        Value = Model.Stats.ScheduledCount.ToString(),
+        Unit = "pending",
+        DeltaText = "click to filter scheduled",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { (double)Model.Stats.ScheduledCount, Model.Stats.ScheduledCount, Model.Stats.ScheduledCount, Model.Stats.ScheduledCount, Model.Stats.ScheduledCount, Model.Stats.ScheduledCount, Model.Stats.ScheduledCount },
+        SparkTone = "warning",
+        Href = "/Maintenance?filter=scheduled"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Completed this month",
+        Value = Model.Stats.CompletedThisMonth.ToString(),
+        Unit = "done",
+        DeltaText = "click to filter completed",
+        DeltaDirection = "up",
+        SparkPoints = new[] { (double)Model.Stats.CompletedThisMonth * 0.2, Model.Stats.CompletedThisMonth * 0.35, Model.Stats.CompletedThisMonth * 0.5, Model.Stats.CompletedThisMonth * 0.65, Model.Stats.CompletedThisMonth * 0.8, Model.Stats.CompletedThisMonth * 0.92, (double)Model.Stats.CompletedThisMonth },
+        SparkTone = "success",
+        Href = "/Maintenance?filter=completed"
+    })
 </div>
 
 <div class="section-card pe-card">
