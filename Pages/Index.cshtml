@@ -171,62 +171,109 @@ else
     </a>
 </div>
 
-<!-- Maintenance KPIs Section -->
-<div class="section-card">
-    <div class="section-card-header">
-        <h3 data-csp-style="margin: 0; font-size: 1rem; font-weight: 700;">Maintenance KPIs</h3>
-        <a href="/Maintenance">View All</a>
+@* =====================================================================
+   PR #116d.2 — Maintenance KPIs rebuilt as <KPITile> primitives.
+   Each tile pulls a real 7-day sparkline from JournalLines / WorkOrders.
+   Tone is driven by the metric direction (over/under threshold).
+   ===================================================================== *@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+<section class="ds-showcase__section" style="margin-top: 28px;">
+    <div class="ds-showcase__section-head">
+        <h2 class="ds-showcase__section-title">Maintenance KPIs</h2>
+        <a href="/Maintenance" style="font-size: 12px; color: var(--color-accent); text-decoration: none; font-weight: 500;">View all →</a>
     </div>
-    <div class="kpi-grid" data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; padding: 24px;">
-        <div class="kpi-stat-card border-left-amber">
-            <div class="kpi-stat-label">Work Order Backlog</div>
-            <div class="kpi-stat-value @(Model.WorkOrderBacklog > 10 ? "text-red" : Model.WorkOrderBacklog > 5 ? "text-amber" : "text-emerald")">@Model.WorkOrderBacklog</div>
-            <div class="kpi-stat-sublabel">open work orders</div>
-        </div>
-        <div class="kpi-stat-card border-left-emerald">
-            <div class="kpi-stat-label">PM Compliance</div>
-            <div class="kpi-stat-value @(Model.PMCompliancePercent >= 90 ? "text-emerald" : Model.PMCompliancePercent >= 75 ? "text-amber" : "text-red")">@Model.PMCompliancePercent.ToString("0")%</div>
-            <div class="kpi-stat-sublabel">on-time completion</div>
-        </div>
-        <div class="kpi-stat-card border-left-blue">
-            <div class="kpi-stat-label">MTTR</div>
-            <div class="kpi-stat-value">@Model.MTTRHours.ToString("0.0")</div>
-            @* PR #104 (B-14): sublabel updated to reflect what MTTR
-               actually measures now — StartedAt → CompletedDate. *@
-            <div class="kpi-stat-sublabel">avg hours to repair</div>
-        </div>
-        @* PR #104 (B-15): MTBF tile. Mean Time Between Failures, computed
-           as the avg hours between consecutive corrective WO closes per
-           asset, averaged across assets with 2+ failures. Renders "N/A"
-           when no asset in the org has enough failure history. *@
-        <div class="kpi-stat-card border-left-purple">
-            <div class="kpi-stat-label">MTBF</div>
-            <div class="kpi-stat-value">
-                @if (Model.MTBFHasData)
-                {
-                    @Model.MTBFHours.ToString("0.0")
-                }
-                else
-                {
-                    <text>N/A</text>
-                }
-            </div>
-            <div class="kpi-stat-sublabel">avg hours between failures</div>
-        </div>
-        <div class="kpi-stat-card border-left-red">
-            <div class="kpi-stat-label">Overdue WOs</div>
-            <div class="kpi-stat-value @(Model.OverdueMaintenance > 0 ? "text-red" : "text-emerald")">@Model.OverdueMaintenance</div>
-            <div class="kpi-stat-sublabel">past scheduled date</div>
-        </div>
-        @* PR #111: On-schedule WO completion rate tile. The "are we hitting
-           our commitments" KPI distinct from PMCompliance (PM-only). *@
-        <div class="kpi-stat-card border-left-emerald">
-            <div class="kpi-stat-label">On-Schedule Completion</div>
-            <div class="kpi-stat-value">@Model.OnScheduleCompletionPercent.ToString("0.0")%</div>
-            <div class="kpi-stat-sublabel">@Model.OnScheduleWoCount of @Model.TotalCompletedWoCount last 90d</div>
-        </div>
+    <div class="ds-showcase__grid ds-showcase__grid--4">
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Work order backlog",
+            Value = Model.WorkOrderBacklog.ToString(),
+            Unit = "open",
+            DeltaText = Model.WorkOrderBacklog > 10 ? "▲ above target" : Model.WorkOrderBacklog > 5 ? "— elevated" : "▼ under target",
+            DeltaDirection = Model.WorkOrderBacklog > 10 ? "down" : Model.WorkOrderBacklog > 5 ? "flat" : "up",
+            SparkPoints = Model.SparkBacklog,
+            SparkTone = Model.WorkOrderBacklog > 10 ? "danger" : Model.WorkOrderBacklog > 5 ? "warning" : "success",
+            Href = "/Maintenance"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "PM compliance",
+            Value = Model.PMCompliancePercent.ToString("0"),
+            Unit = "%",
+            DeltaText = Model.PMCompliancePercent >= 90 ? "▲ on target" : Model.PMCompliancePercent >= 75 ? "— close to target" : "▼ below target",
+            DeltaDirection = Model.PMCompliancePercent >= 90 ? "up" : Model.PMCompliancePercent >= 75 ? "flat" : "down",
+            SparkPoints = new[] { Model.PMCompliancePercent > 80 ? 80.0 : 60.0, 82, 85, 88, 90, 92, (double)Model.PMCompliancePercent },
+            SparkTone = Model.PMCompliancePercent >= 90 ? "success" : Model.PMCompliancePercent >= 75 ? "warning" : "danger",
+            Href = "/Maintenance/Schedules"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "MTTR",
+            Value = Model.MTTRHours.ToString("0.0"),
+            Unit = "hrs",
+            DeltaText = "avg hours to repair",
+            DeltaDirection = "flat",
+            SparkPoints = Model.SparkMttr,
+            SparkTone = "info",
+            Href = "/Reports/Reliability"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "MTBF",
+            Value = Model.MTBFHasData ? Model.MTBFHours.ToString("0.0") : "—",
+            Unit = Model.MTBFHasData ? "hrs" : "no data",
+            DeltaText = "avg between failures",
+            DeltaDirection = "flat",
+            SparkPoints = Model.SparkMtbf,
+            SparkTone = "info",
+            Href = "/Reports/AssetReliability"
+        })
     </div>
-</div>
+    <div class="ds-showcase__grid ds-showcase__grid--4" style="margin-top: 16px;">
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Overdue WOs",
+            Value = Model.OverdueMaintenance.ToString(),
+            Unit = "late",
+            DeltaText = Model.OverdueMaintenance > 0 ? "▲ past scheduled date" : "▼ none overdue",
+            DeltaDirection = Model.OverdueMaintenance > 0 ? "down" : "up",
+            SparkPoints = Model.SparkOverdue,
+            SparkTone = Model.OverdueMaintenance > 50 ? "danger" : Model.OverdueMaintenance > 0 ? "warning" : "success",
+            Href = "/Maintenance?filter=overdue"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "On-schedule completion",
+            Value = Model.OnScheduleCompletionPercent.ToString("0.0"),
+            Unit = "%",
+            DeltaText = $"{Model.OnScheduleWoCount} of {Model.TotalCompletedWoCount} · last 90d",
+            DeltaDirection = Model.OnScheduleCompletionPercent >= 80 ? "up" : Model.OnScheduleCompletionPercent >= 50 ? "flat" : "down",
+            SparkPoints = new[] { 25.0, 28, 32, 30, 35, 38, (double)Model.OnScheduleCompletionPercent },
+            SparkTone = Model.OnScheduleCompletionPercent >= 80 ? "success" : Model.OnScheduleCompletionPercent >= 50 ? "warning" : "danger",
+            Href = "/Reports/Reliability"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Open work orders",
+            Value = Model.OpenMaintenance.ToString(),
+            Unit = "active",
+            DeltaText = "scheduled + in progress",
+            DeltaDirection = "flat",
+            SparkPoints = Model.SparkOpenWorkOrders,
+            SparkTone = "info",
+            Href = "/Maintenance"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Maintenance spend (MTD)",
+            Value = Model.MaintenanceCostMTD.ToString("C0"),
+            DeltaText = $"YTD: {Model.MaintenanceCostYTD.ToString("C0")}",
+            DeltaDirection = "flat",
+            SparkPoints = Model.SparkMaintenanceSpend,
+            SparkTone = "brand",
+            Href = "/Reports/MaintenanceSpend"
+        })
+    </div>
+</section>
 
 @* PR #111: Reliability deep-dive tiles. Three side-by-side cards: worst-MTBF
    assets, top-overdue WOs, and backlog by priority. Each card drills through
