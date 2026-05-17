@@ -121,14 +121,24 @@ namespace Abs.FixedAssets.Migrations
                 WHERE ""TargetEntityType"" = 'MaintenanceEvent';
             ");
 
-            // 6) Backfill AuditEntityTypes lookup row. The seed JSON
-            //    file (seed/reference-data/AuditEntityType.json) was
-            //    updated; this aligns the existing DB row so the FK
-            //    audit-log labels stay correct.
+            // 6) Backfill AuditEntityTypes lookup row IF the table exists.
+            //
+            // PR #119.7.1 fix: in some environments AuditEntityTypes is
+            // seeded at runtime by MasterDataBootstrapService rather than
+            // via a migration, so the table may not exist yet when this
+            // migration runs. Guard the UPDATE with a to_regclass check
+            // so the whole migration doesn't roll back when the table is
+            // absent. The runtime seeder will pick up the renamed JSON
+            // (already updated in this PR) on next bootstrap.
             migrationBuilder.Sql(@"
-                UPDATE ""AuditEntityTypes""
-                SET ""Code"" = 'WorkOrder', ""Name"" = 'Work Order'
-                WHERE ""Code"" = 'MaintenanceEvent';
+                DO $$
+                BEGIN
+                    IF to_regclass('public.""AuditEntityTypes""') IS NOT NULL THEN
+                        UPDATE ""AuditEntityTypes""
+                        SET ""Code"" = 'WorkOrder', ""Name"" = 'Work Order'
+                        WHERE ""Code"" = 'MaintenanceEvent';
+                    END IF;
+                END $$;
             ");
         }
 
@@ -136,11 +146,16 @@ namespace Abs.FixedAssets.Migrations
         {
             // Reverse order.
 
-            // 6) Reverse the AuditEntityTypes backfill.
+            // 6) Reverse the AuditEntityTypes backfill IF the table exists.
             migrationBuilder.Sql(@"
-                UPDATE ""AuditEntityTypes""
-                SET ""Code"" = 'MaintenanceEvent', ""Name"" = 'Maintenance Event'
-                WHERE ""Code"" = 'WorkOrder';
+                DO $$
+                BEGIN
+                    IF to_regclass('public.""AuditEntityTypes""') IS NOT NULL THEN
+                        UPDATE ""AuditEntityTypes""
+                        SET ""Code"" = 'MaintenanceEvent', ""Name"" = 'Maintenance Event'
+                        WHERE ""Code"" = 'WorkOrder';
+                    END IF;
+                END $$;
             ");
 
             // 5) Reverse the ApprovalAction backfill.
