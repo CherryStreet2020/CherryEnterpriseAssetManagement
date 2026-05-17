@@ -75,6 +75,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval> WorkOrderApproval
             => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval>();
 
+        // ADR-012 v0.2 / PR #119.5 — Atomic WO-number generator (SAP NRIV pattern).
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.NumberSequence> NumberSequence
+            => Set<Abs.FixedAssets.Models.WorkOrders.NumberSequence>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -698,6 +702,15 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.ApproverUserId)
                     .OnDelete(DeleteBehavior.SetNull);
 
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-012 v0.2 / PR #119.5 — NumberSequence table.
+            // Unique index uses COALESCE(TenantId, 0) — created by the
+            // migration via raw SQL.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.NumberSequence>(e =>
+            {
+                e.HasIndex(x => new { x.Classification, x.Year, x.TenantId });
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 

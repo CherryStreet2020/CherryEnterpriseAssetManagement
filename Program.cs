@@ -241,6 +241,16 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.WorkOrders.IWorkOrderApprovalService,
     Abs.FixedAssets.Services.WorkOrders.WorkOrderApprovalService>();
+
+// Sprint 3 PR #119.5 (ADR-012 v0.2): Atomic WO-number generator.
+// SAP NRIV pattern. SELECT FOR UPDATE inside a short transaction
+// guarantees no two concurrent WO creates ever get the same number.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.WorkOrders.INumberSequenceService,
+    Abs.FixedAssets.Services.WorkOrders.NumberSequenceService>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.INumberSequenceSeeder,
+    Abs.FixedAssets.Services.Seeding.NumberSequenceSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
@@ -687,6 +697,21 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: WorkOrderStatus seeder failed: {ex.Message}");
+    }
+
+    // PR #119.5 — NumberSequence seeder (atomic WO-number generator).
+    // Primes one global row per (Classification, current year) so the
+    // first WO of the year doesn't pay the auto-create cost. Idempotent.
+    try
+    {
+        var numSeqSeeder = scope.ServiceProvider
+            .GetRequiredService<Abs.FixedAssets.Services.Seeding.INumberSequenceSeeder>();
+        var rows = await numSeqSeeder.SeedAsync();
+        Console.WriteLine($"[Startup] NumberSequence: {rows} global rows seeded");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: NumberSequence seeder failed: {ex.Message}");
     }
 
         } // end: if (seedLockAcquired)
