@@ -1911,7 +1911,7 @@ namespace Abs.FixedAssets.Data
 
         private void CapitalizeStringProperties()
         {
-            // PR #118.1 — namespace exemption.
+            // PR #118.1 + PR #119.5.1 — namespace exemptions.
             //
             // Telemetry entities (SensorEvent, AssetSensorLatest, SensorAlarm,
             // AlarmRationalization, UnitConversion, etc.) carry case-sensitive
@@ -1921,7 +1921,24 @@ namespace Abs.FixedAssets.Data
             // and break exact-match queries the same way the PR #117.5–117.7
             // saga corrupted the EquipmentModel.ModelNumber lookup. Skip the
             // entire Telemetry namespace.
+            //
+            // WorkOrders entities (WorkOrderFieldVisibility,
+            // WorkOrderStatusProfile/Label/Transition, WorkOrderApproval,
+            // NumberSequence) carry case-sensitive config keys:
+            //   - StatusKey ("PssrRequired", "SubstantialComplete") used as
+            //     code-side sentinels.
+            //   - GuardServiceName ("PssrCompletionGuard",
+            //     "CipCapitalizationGuard") used as DI keys — case-sensitive
+            //     lookup at runtime.
+            //   - DisplayColor ("gray","blue","amber","green","red") used as
+            //     Tailwind class names — must be lowercase.
+            //   - Stage (WorkOrderApproval) used to match required-approval
+            //     gates exactly.
+            //   - FieldName (WorkOrderFieldVisibility) is a C# property
+            //     name in PascalCase.
+            // Same exemption pattern as Telemetry.
             const string telemetryNamespace = "Abs.FixedAssets.Models.Telemetry";
+            const string workOrdersNamespace = "Abs.FixedAssets.Models.WorkOrders";
 
             var entries = ChangeTracker.Entries()
                 .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
@@ -1929,7 +1946,9 @@ namespace Abs.FixedAssets.Data
             foreach (var entry in entries)
             {
                 var entityNamespace = entry.Entity.GetType().Namespace;
-                if (entityNamespace != null && entityNamespace.StartsWith(telemetryNamespace))
+                if (entityNamespace != null && (
+                        entityNamespace.StartsWith(telemetryNamespace)
+                     || entityNamespace.StartsWith(workOrdersNamespace)))
                     continue;
 
                 var properties = entry.Properties
