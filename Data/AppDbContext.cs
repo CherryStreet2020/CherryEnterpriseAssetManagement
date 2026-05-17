@@ -618,6 +618,12 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.AssetId);
                 e.HasIndex(x => x.ScheduledDate);
                 e.HasIndex(x => x.Status);
+
+                // ADR-012 / PR #119.1 — top-level category for the unified
+                // work queue filter chips. Composite partial unique index
+                // on (ExternalSource, ExternalWorkOrderId) is created by
+                // the migration directly (EF can't express partial unique).
+                e.HasIndex(x => x.Category);
                 e.HasOne(x => x.Asset)
                     .WithMany(a => a.MaintenanceEvents)
                     .HasForeignKey(x => x.AssetId)

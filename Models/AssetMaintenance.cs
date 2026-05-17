@@ -11,6 +11,23 @@ namespace Abs.FixedAssets.Models
         public int AssetId { get; set; }
         public Asset? Asset { get; set; }
 
+        // ADR-012 / PR #119.1 — Unified Work Orders.
+        //
+        // Category is the top-level discriminator across Maintenance,
+        // Production, Quality, Engineering, HSE, and Project work orders.
+        // Existing rows backfill to Maintenance (lossless). The .NET class
+        // name MaintenanceEvent is retained for backward compatibility —
+        // it's now a misnomer but a clean rename is deferred to a future
+        // sprint with a freeze window. Conceptually this IS the
+        // WorkOrder header table.
+        //
+        // The legacy MaintenanceType enum is now the sub-type WITHIN
+        // Category=Maintenance. For non-Maintenance categories the Type
+        // column defaults to Other and is ignored by the UI; per-category
+        // detail lives in the satellite tables shipped in PR #119.2
+        // (Production/Quality/Engineering/HseWorkOrderDetails).
+        public WorkOrderCategory Category { get; set; } = WorkOrderCategory.Maintenance;
+
         public MaintenanceType Type { get; set; } = MaintenanceType.Preventative;
 
         public int? TypeLookupValueId { get; set; }
@@ -183,6 +200,21 @@ namespace Abs.FixedAssets.Models
         // Data/XminRowVersionExtensions.cs.
         [Timestamp]
         public byte[]? RowVersion { get; set; }
+
+        // ADR-012 / PR #119.1 — Unified Work Orders: ERP / external-system linkage.
+        //
+        // Set when this work order was created from (or synced to) an external
+        // system: SAP PP, Oracle EBS, Dynamics 365, Plex, Epicor, manual CSV
+        // import, etc. NULL for native Cherry-created WOs.
+        //
+        // ExternalSource is free text in PR #119.1; a lookup-table migration
+        // (PR #119.4) will harden this once we have 3+ live integrations to
+        // seed the dropdown with.
+        [StringLength(64)]
+        public string? ExternalWorkOrderId { get; set; }
+
+        [StringLength(32)]
+        public string? ExternalSource { get; set; }
     }
 
     public class MaintenanceSchedule
@@ -276,5 +308,41 @@ namespace Abs.FixedAssets.Models
         Approved = 2,
         Rejected = 3,
         Cancelled = 4
+    }
+
+    // ADR-012 / PR #119.1 — Unified Work Orders top-level discriminator.
+    //
+    // Sequence is stable; never renumber. Adding a new category appends to
+    // the end and ships a follow-up migration adding any satellite table.
+    public enum WorkOrderCategory
+    {
+        // PM, Corrective, Predictive, Emergency, Inspection, Calibration,
+        // Upgrade. Sub-type lives in MaintenanceEvent.Type. This is the
+        // default for every existing row backfilled by the PR #119.1
+        // migration.
+        Maintenance = 0,
+
+        // MES / MRP / ERP-sourced production order — make N units of part X
+        // on this asset. Per-category fields land in ProductionWorkOrderDetails
+        // (PR #119.2).
+        Production = 1,
+
+        // NCR, deviation, CAPA, audit finding, customer complaint.
+        // Per-category fields in QualityWorkOrderDetails (PR #119.2).
+        Quality = 2,
+
+        // ECO, MOC, design change, BOM revision, procedure update.
+        // Per-category fields in EngineeringWorkOrderDetails (PR #119.2).
+        Engineering = 3,
+
+        // Safety inspection, hazard report, near-miss, incident, JSA.
+        // Per-category fields in HseWorkOrderDetails (PR #119.2).
+        HSE = 4,
+
+        // Capital project task that touches an asset. Today this is overloaded
+        // into MaintenanceEvent.CipProjectId; promoting it to a first-class
+        // category lets us model capital project workflows cleanly without
+        // pretending they're maintenance.
+        Project = 5,
     }
 }
