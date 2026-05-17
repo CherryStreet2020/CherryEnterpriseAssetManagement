@@ -59,6 +59,14 @@ builder.Services.AddRazorPages(options =>
     options.Conventions.AddPageRoute("/Admin/ItemCategories", "/Materials/Categories");
     options.Conventions.AddPageRoute("/Admin/AssetCategories", "/Assets/Categories");
     options.Conventions.AddPageRoute("/Admin/Barcodes", "/Assets/Barcodes");
+
+    // ADR-014 D1 — VoiceContextEmitter page filter. Runs post-handler
+    // on every Razor Pages request; if the page model inherits from
+    // VoiceReadyPageModel, captures the per-page voice context payload
+    // into HttpContext.Items["voice.ctx"] for the Sprint 5 voice client
+    // to read.
+    options.Conventions.ConfigureFilter(
+        new Abs.FixedAssets.Services.Infrastructure.VoiceContextEmitter());
 });
 builder.Services.AddHttpClient();
 
@@ -473,7 +481,18 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy("AccountantOrAdmin", policy => policy.RequireRole("Admin", "Accountant"));
     options.AddPolicy("AllUsers", policy => policy.RequireAuthenticatedUser());
+
+    // ADR-014 D5 — Phase F resource-based policies. Voice-AI never
+    // gets its own identity; AI executes as the invoking user and
+    // is gated by these policies via IAuthorizationService.AuthorizeAsync.
+    Abs.FixedAssets.Authorization.AuthorizationPolicies.Configure(options);
 });
+
+// ADR-014 / Sprint 4 PR #1 — Voice-ready infrastructure DI registration.
+// IdempotencyMediator dedups voice + UI mutations (Stripe pattern).
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Infrastructure.IIdempotencyMediator,
+    Abs.FixedAssets.Services.Infrastructure.IdempotencyMediator>();
 
 var app = builder.Build();
 

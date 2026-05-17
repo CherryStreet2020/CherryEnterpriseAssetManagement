@@ -169,6 +169,15 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.RegulatoryProfile> RegulatoryProfiles
             => Set<Abs.FixedAssets.Models.Production.RegulatoryProfile>();
 
+        // ADR-014 / Sprint 4 PR #1 — Voice-ready infrastructure DbSets.
+        // VoiceSessions: Sprint 5 multi-turn conversation state.
+        // IdempotencyKeys: Stripe-pattern (UserId, Key) dedup.
+        public DbSet<Abs.FixedAssets.Models.Infrastructure.VoiceSession> VoiceSessions
+            => Set<Abs.FixedAssets.Models.Infrastructure.VoiceSession>();
+
+        public DbSet<Abs.FixedAssets.Models.Infrastructure.IdempotencyKey> IdempotencyKeys
+            => Set<Abs.FixedAssets.Models.Infrastructure.IdempotencyKey>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -1288,6 +1297,23 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.Name).IsUnique();
                 e.HasIndex(x => x.Regime);
                 e.HasIndex(x => x.IsActive);
+            });
+
+            // ADR-014 / Sprint 4 PR #1 — VoiceSession. Per-tenant + per-user
+            // indexes for "find this user's recent sessions" queries.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Infrastructure.VoiceSession>(e =>
+            {
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => new { x.TenantId, x.UserId, x.LastTurnAt });
+                e.HasIndex(x => x.ExpiresAt);
+            });
+
+            // ADR-014 / Sprint 4 PR #1 — IdempotencyKey. Composite PK on
+            // (UserId, Key). ExpiresAt indexed for the future TTL-sweep job.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Infrastructure.IdempotencyKey>(e =>
+            {
+                e.HasKey(x => new { x.UserId, x.Key });
+                e.HasIndex(x => x.ExpiresAt);
             });
 
             // ADR-013 / PR #119.14 — wire ProductionOrder.MaterialStructureId

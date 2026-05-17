@@ -288,6 +288,39 @@ fk_with_action FK_MaterialStructureLines_Items_ItemId RESTRICT
 fk_with_action FK_RecipePhases_Recipes_RecipeId CASCADE
 fk_with_action FK_ProductionOrders_MaterialStructures_MaterialStructureId SETNULL
 
+# ----- Sprint 4 PR #1: Voice-ready foundational infrastructure -----
+echo ""
+echo "[Sprint 4 PR #1] Voice-ready infrastructure (VoiceSessions + IdempotencyKeys + AuditLog AI cols)"
+table_exists VoiceSessions
+table_exists IdempotencyKeys
+column_exists VoiceSessions Id
+column_exists VoiceSessions TenantId
+column_exists VoiceSessions UserId
+column_exists VoiceSessions StartedAt
+column_exists VoiceSessions LastTurnAt
+column_exists VoiceSessions StateJson
+column_exists VoiceSessions ExpiresAt
+column_exists IdempotencyKeys UserId
+column_exists IdempotencyKeys Key
+column_exists IdempotencyKeys RequestHash
+column_exists IdempotencyKeys ResponseStatus
+column_exists IdempotencyKeys ResponseBody
+column_exists IdempotencyKeys LockedAt
+column_exists IdempotencyKeys CompletedAt
+column_exists IdempotencyKeys ExpiresAt
+column_exists AuditLogs ActorKind
+column_exists AuditLogs OnBehalfOfUserId
+column_exists AuditLogs AiSessionId
+column_exists AuditLogs AiCommandText
+column_exists AuditLogs AiModelVersion
+column_exists AuditLogs AiToolName
+column_exists AuditLogs AiConfidence
+index_exists IX_VoiceSessions_TenantId_UserId_LastTurnAt VoiceSessions
+index_exists IX_VoiceSessions_ExpiresAt VoiceSessions
+index_exists IX_IdempotencyKeys_ExpiresAt IdempotencyKeys
+index_exists IX_AuditLogs_ActorKind AuditLogs
+index_exists IX_AuditLogs_AiSessionId AuditLogs
+
 # ----- Summary -----
 echo ""
 echo "================================================================"
