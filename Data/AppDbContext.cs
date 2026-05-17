@@ -95,6 +95,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails> HseWorkOrderDetails
             => Set<Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails>();
 
+        // ADR-013 / PR #119.12 — Production-order header (sibling to WorkOrder).
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionOrder> ProductionOrders
+            => Set<Abs.FixedAssets.Models.Production.ProductionOrder>();
+
+        // ADR-013 / PR #119.12 — JobShop satellite (ProductionOrder.Type=JobShop only).
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionJobShopDetail> ProductionJobShopDetails
+            => Set<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -792,6 +800,69 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.HseIssueType);
                 e.HasIndex(x => x.RecordabilityClass);
                 e.HasIndex(x => x.RiskScore);
+            });
+
+            // ADR-013 / PR #119.12 — ProductionOrder header (sibling to WorkOrder).
+            // Status, Type, ScheduledStart, ScheduledEnd all carry indexes
+            // for queue/dashboard filtering. Revision-chain self-FK mirrors
+            // WorkOrder.MasterWorkOrderId pattern (SET NULL on master delete).
+            // OrderNumber UNIQUE — one human-facing identifier per order.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrder>(e =>
+            {
+                e.HasIndex(x => x.OrderNumber).IsUnique();
+                e.HasIndex(x => x.Type);
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.ScheduledStart);
+                e.HasIndex(x => x.ScheduledEnd);
+                e.HasIndex(x => new { x.MasterProductionOrderId, x.Revision });
+                e.HasOne(x => x.MasterProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.MasterProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Location)
+                    .WithMany()
+                    .HasForeignKey(x => x.LocationId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-013 / PR #119.12 — ProductionJobShopDetail satellite.
+            // 1:0..1 with ProductionOrder via UNIQUE on ProductionOrderId.
+            // CutListId / NestPlanId are forward refs to PR #119.13 entities —
+            // FKs will be added by that PR's migration.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>(e =>
+            {
+                e.HasIndex(x => x.ProductionOrderId).IsUnique();
+                e.HasIndex(x => x.DrawingNumber);
+                e.HasIndex(x => x.PriorityRank);
+                e.HasIndex(x => x.HasOutsideOperations);
+                e.HasOne(x => x.ProductionOrder)
+                    .WithOne(x => x.JobShopDetail)
+                    .HasForeignKey<Abs.FixedAssets.Models.Production.ProductionJobShopDetail>(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ADR-013 / PR #119.12 — WorkOrderOperation Vendor FK for outside-
+            // processing (SAP PP02 pattern). Optional FK, SET NULL on vendor
+            // delete so historical operations retain their record.
+            // IsExternal / AutoGeneratePR are flag-only here; the auto-fire
+            // purchase-requisition path lands with the WO release wiring PR.
+            modelBuilder.Entity<WorkOrderOperation>(e =>
+            {
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.IsExternal);
+                e.HasIndex(x => x.VendorId);
             });
 
             // Maintenance Schedules
