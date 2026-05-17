@@ -83,6 +83,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails> CipWorkOrderDetails
             => Set<Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails>();
 
+        // ADR-012 v0.2 / PR #119.9 — Quality satellite (Classification=Quality only).
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails> QualityWorkOrderDetails
+            => Set<Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -740,6 +744,21 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.AfeNumber);
                 e.HasIndex(x => x.Stage);
                 e.HasIndex(x => x.TargetFixedAssetId);
+            });
+
+            // ADR-012 v0.2 / PR #119.9 — QualityWorkOrderDetails satellite.
+            // 1:0..1 with WorkOrder. Two self-links via WorkOrder FK:
+            // CapaWorkOrderId (NCR -> CAPA forward), LinkedNcrId (CAPA -> NCR back).
+            // Both nullable. EF doesn't enforce these FKs (we use raw SQL
+            // in the migration to set ON DELETE SET NULL precisely).
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails>(e =>
+            {
+                e.HasIndex(x => x.WorkOrderId).IsUnique();
+                e.HasIndex(x => x.NcrNumber);
+                e.HasIndex(x => x.DispositionCode);
+                e.HasIndex(x => x.QualityIssueType);
+                e.HasIndex(x => x.CapaWorkOrderId);
+                e.HasIndex(x => x.LinkedNcrId);
             });
 
             // Maintenance Schedules
