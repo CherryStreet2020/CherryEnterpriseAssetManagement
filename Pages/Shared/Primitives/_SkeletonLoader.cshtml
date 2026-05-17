@@ -16,7 +16,7 @@
 @switch (Model.Shape)
 {
     case "card":
-        <div class="ds-skel ds-skel--card@extra" aria-busy="true" aria-label="Loading">
+        <div class="ds-skel ds-skel--card@(extra)" aria-busy="true" aria-label="Loading">
             <div class="ds-skel__shimmer"></div>
             <div class="ds-skel__line ds-skel__line--w50"></div>
             <div class="ds-skel__line ds-skel__line--w90 ds-skel__line--lg"></div>
@@ -24,7 +24,7 @@
         </div>
         break;
     case "table":
-        <div class="ds-skel ds-skel--table@extra" aria-busy="true" aria-label="Loading">
+        <div class="ds-skel ds-skel--table@(extra)" aria-busy="true" aria-label="Loading">
             <div class="ds-skel__shimmer"></div>
             @for (int i = 0; i < Model.RowCount; i++)
             {
@@ -38,7 +38,7 @@
         </div>
         break;
     case "kpi":
-        <div class="ds-skel-grid@extra">
+        <div class="ds-skel-grid@(extra)">
             @for (int i = 0; i < Model.TileCount; i++)
             {
                 <div class="ds-skel ds-skel--kpi" aria-busy="true" aria-label="Loading">
@@ -51,7 +51,7 @@
         </div>
         break;
     default: /* line */
-        <div class="ds-skel ds-skel--lines@extra" aria-busy="true" aria-label="Loading">
+        <div class="ds-skel ds-skel--lines@(extra)" aria-busy="true" aria-label="Loading">
             <div class="ds-skel__shimmer"></div>
             @for (int i = 0; i < Model.LineCount; i++)
             {
