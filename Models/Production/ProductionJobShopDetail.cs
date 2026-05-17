@@ -58,10 +58,17 @@ namespace Abs.FixedAssets.Models.Production
         public int ProductionOrderId { get; set; }
         public ProductionOrder? ProductionOrder { get; set; }
 
-        // Forward refs to PR #119.13 entities. Columns exist now; FKs +
-        // ON DELETE SET NULL will be added by that PR's migration.
-        public int? CutListId { get; set; }
+        // The primary nest for this JobShop order — set when a Nest is
+        // associated. Cut-list lookup is done via a query through
+        // CutListLine.SourceProductionOrderId (a CutList isn't a single
+        // entity — it's a collection of lines), so no CutListId column.
+        // CutListId was a placeholder in PR #119.12; dropped in PR
+        // #119.13a.
+        //
+        // FK constraint to Nests(Id) ON DELETE SET NULL is added in
+        // PR #119.13a's migration once the Nests table exists.
         public int? NestPlanId { get; set; }
+        public Nest? NestPlan { get; set; }
 
         [StringLength(64)]
         public string? DrawingNumber { get; set; }
