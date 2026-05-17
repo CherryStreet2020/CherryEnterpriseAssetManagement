@@ -316,39 +316,53 @@ namespace Abs.FixedAssets.Models
         Cancelled = 4
     }
 
-    // ADR-012 / PR #119.1 — Unified Work Orders top-level discriminator.
+    // ADR-012 v0.2 — Unified Work Orders top-level discriminator.
     //
-    // Sequence is stable; never renumber. Adding a new category appends to
-    // the end and ships a follow-up migration adding any satellite table.
+    // Sequence is stable; never renumber. The gap at 1 is intentional: v0.1
+    // briefly defined Production=1 here but v0.2 lifted Production out to
+    // its own sibling table (ProductionOrder) per ADR-012 v0.2 §"Six
+    // structural commitments" — production's event cadence, state machine,
+    // and KPI surface (OEE) don't fit a maintenance-shaped header. Leaving
+    // the gap avoids analytics churn for any tooling that ever inspected
+    // historical enum values.
+    //
+    // Adding a new classification appends to the end (next free = 6) and
+    // ships a follow-up migration adding any satellite table per the
+    // four-config-table pattern (FieldVisibility / StatusProfile /
+    // Approval / NumberSequence).
     public enum WorkOrderClassification
     {
         // PM, Corrective, Predictive, Emergency, Inspection, Calibration,
-        // Upgrade. Sub-type lives in MaintenanceEvent.Type. This is the
+        // Upgrade. Sub-type lives in MaintenanceEvent.Type. No satellite —
+        // the existing header fields ARE the maintenance shape. This is the
         // default for every existing row backfilled by the PR #119.1
         // migration.
         Maintenance = 0,
 
-        // MES / MRP / ERP-sourced production order — make N units of part X
-        // on this asset. Per-category fields land in ProductionWorkOrderDetails
-        // (PR #119.2).
-        Production = 1,
+        // (gap — formerly Production in v0.1; now lives in the sibling
+        //  ProductionOrder table per ADR-012 v0.2. Do NOT reuse value 1.)
 
         // NCR, deviation, CAPA, audit finding, customer complaint.
-        // Per-category fields in QualityWorkOrderDetails (PR #119.2).
+        // Per-classification fields in QualityWorkOrderDetails (PR #119.9).
         Quality = 2,
 
         // ECO, MOC, design change, BOM revision, procedure update.
-        // Per-category fields in EngineeringWorkOrderDetails (PR #119.2).
+        // Per-classification fields in EngineeringWorkOrderDetails
+        // (PR #119.10). Carries revision tracking + PSSR sign-off chain.
         Engineering = 3,
 
         // Safety inspection, hazard report, near-miss, incident, JSA.
-        // Per-category fields in HseWorkOrderDetails (PR #119.2).
+        // Per-classification fields in HseWorkOrderDetails (PR #119.11)
+        // including OSHA 300/301 + ANSI Z10 severity × likelihood.
         HSE = 4,
 
-        // Capital project task that touches an asset. Today this is overloaded
-        // into MaintenanceEvent.CipProjectId; promoting it to a first-class
-        // category lets us model capital project workflows cleanly without
-        // pretending they're maintenance.
-        Project = 5,
+        // Capital project work — AFE-tracked cost rollup that reclassifies
+        // to the fixed-asset ledger on substantial completion. Per ASC
+        // 360-10 + ASC 835-20. Per-classification fields in
+        // CipWorkOrderDetails (PR #119.8). Renamed from "Project" in v0.2
+        // to match the precise accounting term; tenant-level customizable
+        // via WorkOrderFieldVisibility config table if a customer needs a
+        // non-CIP "Project" label.
+        CIP = 5,
     }
 }
