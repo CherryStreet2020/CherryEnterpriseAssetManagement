@@ -46,7 +46,9 @@ class EnhancedGrid {
         }
         
         if (this.table._enhancedGridInitialized) {
-            console.warn(`EnhancedGrid: Table #${tableId} already initialized`);
+            // Already initialized — bail silently. Most grid pages instantiate
+            // twice (auto-init from this file + explicit `new EnhancedGrid()` in
+            // a page script). The guard is intentional; the warn was noise.
             return;
         }
         this.table._enhancedGridInitialized = true;
