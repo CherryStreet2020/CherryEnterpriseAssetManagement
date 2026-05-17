@@ -148,6 +148,27 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.CutListLine> CutListLines
             => Set<Abs.FixedAssets.Models.Production.CutListLine>();
 
+        // ADR-013 / PR #119.14 — Polymorphic MaterialStructure + subtypes +
+        // shared lines + RecipePhases + RegulatoryProfiles. The third
+        // polymorphic primitive (after ProductionBatch in #119.13a).
+        public DbSet<Abs.FixedAssets.Models.Production.MaterialStructure> MaterialStructures
+            => Set<Abs.FixedAssets.Models.Production.MaterialStructure>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.Bom> Boms
+            => Set<Abs.FixedAssets.Models.Production.Bom>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.Recipe> Recipes
+            => Set<Abs.FixedAssets.Models.Production.Recipe>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.MaterialStructureLine> MaterialStructureLines
+            => Set<Abs.FixedAssets.Models.Production.MaterialStructureLine>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.RecipePhase> RecipePhases
+            => Set<Abs.FixedAssets.Models.Production.RecipePhase>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.RegulatoryProfile> RegulatoryProfiles
+            => Set<Abs.FixedAssets.Models.Production.RegulatoryProfile>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -1168,6 +1189,117 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.StockReceipt)
                     .WithMany()
                     .HasForeignKey(x => x.StockReceiptId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ADR-013 / PR #119.14 — MaterialStructure polymorphic parent.
+            // StructureNumber UNIQUE. StructureType / Status indexed for
+            // queue/dashboard filtering. Revision-chain self-FK mirrors
+            // RecipeRevision pattern (SET NULL on master delete).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MaterialStructure>(e =>
+            {
+                e.HasIndex(x => x.StructureNumber).IsUnique();
+                e.HasIndex(x => x.StructureType);
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.OutputItemId);
+                e.HasOne(x => x.OutputItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.OutputItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.MasterStructure)
+                    .WithMany()
+                    .HasForeignKey(x => x.MasterStructureId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.RegulatoryProfile)
+                    .WithMany()
+                    .HasForeignKey(x => x.RegulatoryProfileId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-013 / PR #119.14 — Bom subtype.
+            // 1:0..1 with MaterialStructure via UNIQUE on MaterialStructureId,
+            // ON DELETE CASCADE.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Bom>(e =>
+            {
+                e.HasIndex(x => x.MaterialStructureId).IsUnique();
+                e.HasIndex(x => x.BomType);
+                e.HasOne(x => x.MaterialStructure)
+                    .WithOne(x => x.Bom)
+                    .HasForeignKey<Abs.FixedAssets.Models.Production.Bom>(x => x.MaterialStructureId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ADR-013 / PR #119.14 — Recipe subtype.
+            // 1:0..1 with MaterialStructure. RecipeRevision SET NULL on delete
+            // (links into the stub from #119.13a). IntermediateItem RESTRICT.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Recipe>(e =>
+            {
+                e.HasIndex(x => x.MaterialStructureId).IsUnique();
+                e.HasIndex(x => x.RecipeRevisionId);
+                e.HasOne(x => x.MaterialStructure)
+                    .WithOne(x => x.Recipe)
+                    .HasForeignKey<Abs.FixedAssets.Models.Production.Recipe>(x => x.MaterialStructureId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.RecipeRevision)
+                    .WithMany()
+                    .HasForeignKey(x => x.RecipeRevisionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.IntermediateItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.IntermediateItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ADR-013 / PR #119.14 — MaterialStructureLine.
+            // Shared by Bom and Recipe subtypes. CASCADE from parent.
+            // Item RESTRICT (can't delete SKU with active structure lines).
+            // (MaterialStructureId, Sequence) UNIQUE for deterministic ordering.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MaterialStructureLine>(e =>
+            {
+                e.HasIndex(x => new { x.MaterialStructureId, x.Sequence }).IsUnique();
+                e.HasIndex(x => x.LineKind);
+                e.HasIndex(x => x.ItemId);
+                e.HasOne(x => x.MaterialStructure)
+                    .WithMany(x => x.Lines)
+                    .HasForeignKey(x => x.MaterialStructureId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ADR-013 / PR #119.14 — RecipePhase.
+            // 1:N with Recipe via CASCADE. (RecipeId, Sequence) UNIQUE.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.RecipePhase>(e =>
+            {
+                e.HasIndex(x => new { x.RecipeId, x.Sequence }).IsUnique();
+                e.HasOne(x => x.Recipe)
+                    .WithMany(x => x.Phases)
+                    .HasForeignKey(x => x.RecipeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ADR-013 / PR #119.14 — RegulatoryProfile config.
+            // Name UNIQUE. Regime indexed for "find all FDA profiles" queries.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.RegulatoryProfile>(e =>
+            {
+                e.HasIndex(x => x.Name).IsUnique();
+                e.HasIndex(x => x.Regime);
+                e.HasIndex(x => x.IsActive);
+            });
+
+            // ADR-013 / PR #119.14 — wire ProductionOrder.MaterialStructureId
+            // FK to MaterialStructures. SET NULL on structure delete so the
+            // order's history (status, schedule, allocations) survives even
+            // if the structure is administratively retired.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrder>(e =>
+            {
+                e.HasIndex(x => x.MaterialStructureId);
+                e.HasOne(x => x.MaterialStructure)
+                    .WithMany()
+                    .HasForeignKey(x => x.MaterialStructureId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 

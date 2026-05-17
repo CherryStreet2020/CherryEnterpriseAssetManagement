@@ -227,6 +227,67 @@ fk_with_action FK_CutListLines_Nests_NestId SETNULL
 fk_with_action FK_CutListLines_ProductionOrders_SourceProductionOrderId SETNULL
 fk_with_action FK_Nests_StockReceipts_StockReceiptId SETNULL
 
+# ----- PR #119.14: MaterialStructure + Bom + Recipe + Lines + Phases + RegulatoryProfile -----
+echo ""
+echo "[PR #119.14] Polymorphic MaterialStructure + Bom + Recipe (6 tables)"
+table_exists MaterialStructures
+table_exists Boms
+table_exists Recipes
+table_exists MaterialStructureLines
+table_exists RecipePhases
+table_exists RegulatoryProfiles
+column_exists MaterialStructures StructureNumber
+column_exists MaterialStructures StructureType
+column_exists MaterialStructures Status
+column_exists MaterialStructures OutputItemId
+column_exists MaterialStructures MasterStructureId
+column_exists MaterialStructures RegulatoryProfileId
+column_exists MaterialStructures IsControlled
+column_exists Boms MaterialStructureId
+column_exists Boms BomType
+column_exists Boms IsPhantom
+column_exists Boms TotalWeightKg
+column_exists Boms YieldPercent
+column_exists Recipes MaterialStructureId
+column_exists Recipes RecipeRevisionId
+column_exists Recipes ScalingMode
+column_exists Recipes StandardBatchSize
+column_exists Recipes IntermediateItemId
+column_exists MaterialStructureLines MaterialStructureId
+column_exists MaterialStructureLines ItemId
+column_exists MaterialStructureLines LineKind
+column_exists MaterialStructureLines Sequence
+column_exists MaterialStructureLines Quantity
+column_exists MaterialStructureLines PhaseSequence
+column_exists MaterialStructureLines TypeSpecificProperties
+column_exists RecipePhases RecipeId
+column_exists RecipePhases Sequence
+column_exists RecipePhases SetpointTempC
+column_exists RecipePhases AtmosphereType
+column_exists RecipePhases HasQualityHold
+column_exists RegulatoryProfiles Name
+column_exists RegulatoryProfiles Regime
+column_exists RegulatoryProfiles Gates
+column_exists RegulatoryProfiles MinimumRetentionYears
+column_exists ProductionOrders MaterialStructureId
+unique_index IX_MaterialStructures_StructureNumber MaterialStructures
+unique_index IX_Boms_MaterialStructureId Boms
+unique_index IX_Recipes_MaterialStructureId Recipes
+unique_index IX_MaterialStructureLines_StructureId_Sequence MaterialStructureLines
+unique_index IX_RecipePhases_RecipeId_Sequence RecipePhases
+unique_index IX_RegulatoryProfiles_Name RegulatoryProfiles
+fk_with_action FK_MaterialStructures_Items_OutputItemId RESTRICT
+fk_with_action FK_MaterialStructures_MaterialStructures_MasterStructureId SETNULL
+fk_with_action FK_MaterialStructures_RegulatoryProfiles_RegulatoryProfileId SETNULL
+fk_with_action FK_Boms_MaterialStructures_MaterialStructureId CASCADE
+fk_with_action FK_Recipes_MaterialStructures_MaterialStructureId CASCADE
+fk_with_action FK_Recipes_RecipeRevisions_RecipeRevisionId SETNULL
+fk_with_action FK_Recipes_Items_IntermediateItemId RESTRICT
+fk_with_action FK_MaterialStructureLines_MaterialStructures_MaterialStructureId CASCADE
+fk_with_action FK_MaterialStructureLines_Items_ItemId RESTRICT
+fk_with_action FK_RecipePhases_Recipes_RecipeId CASCADE
+fk_with_action FK_ProductionOrders_MaterialStructures_MaterialStructureId SETNULL
+
 # ----- Summary -----
 echo ""
 echo "================================================================"

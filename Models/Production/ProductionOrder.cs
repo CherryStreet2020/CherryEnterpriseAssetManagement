@@ -121,6 +121,13 @@ namespace Abs.FixedAssets.Models.Production
         public ProductionOrder? MasterProductionOrder { get; set; }
         public int Revision { get; set; } = 0;
 
+        // ADR-013 / PR #119.14 — MaterialStructure FK.
+        // Which Bom or Recipe is this order producing? SET NULL on
+        // structure delete — order history survives administrative
+        // structure cleanup (rare; usually Status -> Retired).
+        public int? MaterialStructureId { get; set; }
+        public MaterialStructure? MaterialStructure { get; set; }
+
         // Audit fields — same convention as WorkOrder.
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
