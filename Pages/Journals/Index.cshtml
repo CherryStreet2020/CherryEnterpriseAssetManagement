@@ -16,6 +16,15 @@
     var totalCredits = Model.Items?.Sum(j => j.Lines.Sum(l => l.Credit)) ?? 0;
     var totalLines = Model.Items?.Sum(j => j.Lines.Count) ?? 0;
 
+    // PR #116d.12.1 — Set ViewData keys consumed by _JournalsKpis BEFORE constructing
+    // headerVd so the KPI partial sees them when _ScreenHeader invokes it. Also stash
+    // them on headerVd directly so the partial works regardless of which ViewData
+    // _ScreenHeader propagates.
+    ViewData["TotalEntries"] = totalEntries;
+    ViewData["TotalLines"] = totalLines;
+    ViewData["TotalDebits"] = totalDebits;
+    ViewData["TotalCredits"] = totalCredits;
+
     var headerVd = new ViewDataDictionary(ViewData)
     {
         ["HeaderTitle"] = "Journal Entries",
@@ -25,12 +34,12 @@
         ["StatusTone"] = "success",
         ["ContextText"] = $"{totalLines} Lines / {totalDebits:C0} Total",
         ["KpisPartial"] = "Journals/_JournalsKpis",
-        ["ActionsPartial"] = "Journals/_JournalsActions"
+        ["ActionsPartial"] = "Journals/_JournalsActions",
+        ["TotalEntries"] = totalEntries,
+        ["TotalLines"] = totalLines,
+        ["TotalDebits"] = totalDebits,
+        ["TotalCredits"] = totalCredits
     };
-    ViewData["TotalEntries"] = totalEntries;
-    ViewData["TotalLines"] = totalLines;
-    ViewData["TotalDebits"] = totalDebits;
-    ViewData["TotalCredits"] = totalCredits;
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
