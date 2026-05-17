@@ -1,22 +1,62 @@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@*
+    PR #116d.12 — Journals KPI strip rebuilt with 4 KPITile primitives.
+
+    Tones:
+      - Entries → info (count of journal entries)
+      - Lines   → muted/info (line-count is descriptive, not actionable)
+      - Debits  → success (debits represent money/value moving in)
+      - Credits → danger (credits balance against debits — flag asymmetry)
+
+    Balance check on the delta: if Debits == Credits the books balance,
+    surfaced as "▲ balanced" success delta on the Debits tile.
+*@
 @{
     var totalEntries = (int)(ViewData["TotalEntries"] ?? 0);
     var totalLines = (int)(ViewData["TotalLines"] ?? 0);
     var totalDebits = (decimal)(ViewData["TotalDebits"] ?? 0m);
     var totalCredits = (decimal)(ViewData["TotalCredits"] ?? 0m);
+
+    var balanceDiff = totalDebits - totalCredits;
+    var isBalanced = totalDebits > 0m && System.Math.Abs(balanceDiff) < 0.01m;
+    var debitsDelta = isBalanced ? "▲ books balanced" : (balanceDiff > 0m ? $"▲ {balanceDiff.ToString("C0")} over credits" : $"▼ {System.Math.Abs(balanceDiff).ToString("C0")} under credits");
+    var debitsDirection = isBalanced ? "up" : (balanceDiff > 0m ? "up" : "down");
+    var debitsTone = isBalanced ? "success" : "warning";
+
+    var linesPerEntry = totalEntries > 0 ? (double)totalLines / totalEntries : 0.0;
 }
-<div class="kpi-card">
-    <div class="kpi-label">Entries</div>
-    <div class="kpi-value">@totalEntries</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Lines</div>
-    <div class="kpi-value">@totalLines</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Debits</div>
-    <div class="kpi-value success">@totalDebits.ToString("C0")</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Credits</div>
-    <div class="kpi-value danger">@totalCredits.ToString("C0")</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Entries",
+        Value = totalEntries.ToString("N0"),
+        DeltaText = "in current filter view",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Lines",
+        Value = totalLines.ToString("N0"),
+        DeltaText = totalEntries > 0 ? $"~ {linesPerEntry.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} lines/entry" : "no entries yet",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Debits",
+        Value = totalDebits.ToString("C0"),
+        DeltaText = debitsDelta,
+        DeltaDirection = debitsDirection,
+        SparkTone = debitsTone
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Credits",
+        Value = totalCredits.ToString("C0"),
+        DeltaText = isBalanced ? "▲ balanced w/ debits" : "balance check above",
+        DeltaDirection = isBalanced ? "up" : "flat",
+        SparkTone = isBalanced ? "success" : "danger"
+    })
 </div>
