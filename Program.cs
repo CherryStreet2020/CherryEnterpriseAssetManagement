@@ -198,6 +198,13 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.IEquipmentCatalogSeeder,
     Abs.FixedAssets.Services.Seeding.EquipmentCatalogSeeder>();
+// Sprint 2 PR #118.5: 30-day telemetry historical backfill (ADR-011 Layer 1).
+// Runs ONCE after IndustrialAssetSeeder. Uses Npgsql Binary COPY for bulk
+// insert (~2M rows in 10-30 seconds). Idempotent — skips if SensorEvents
+// already has > 1000 rows.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.ITelemetryHistoricalBackfillSeeder,
+    Abs.FixedAssets.Services.Seeding.TelemetryHistoricalBackfillSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
@@ -583,6 +590,31 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: Industrial seeder failed: {ex.Message}");
+    }
+
+    // PR #118.5 — Telemetry historical backfill (ADR-011 Layer 1).
+    //
+    // After the legacy IndustrialAssetSeeder populates the old
+    // AssetSensorReadings table for backward-compat, this seeder
+    // populates the NEW substrate (SensorEvents hypertable + the
+    // AssetSensorLatest read cache). ~30 days at 15-min resolution,
+    // plus 7 days at 1-min for the three storyline assets. Patterns:
+    // daily cycle, weekend dip, noise, occasional out-of-spec spikes,
+    // storyline rising trends.
+    //
+    // Idempotent — skips if SensorEvents already has > 1000 rows so
+    // subsequent restarts don't re-seed. Wrapped in try/catch so a
+    // seeder failure can never block app startup.
+    try
+    {
+        var backfillSeeder = scope.ServiceProvider
+            .GetRequiredService<Abs.FixedAssets.Services.Seeding.ITelemetryHistoricalBackfillSeeder>();
+        var rows = await backfillSeeder.SeedAsync();
+        Console.WriteLine($"[Startup] Telemetry historical backfill: {rows} SensorEvent rows seeded");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: Telemetry historical backfill failed: {ex.Message}");
     }
 
         } // end: if (seedLockAcquired)
