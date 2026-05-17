@@ -1,5 +1,6 @@
 @page
 @model Abs.FixedAssets.Pages.Approvals.PendingModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Pending Approvals";
     ViewData["TabTitle"] = "Pending Approvals";
@@ -16,46 +17,57 @@
 
 @if (Model.Rows.Count == 0)
 {
-    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
-        <div class="section-card-body" data-csp-style="padding: 2.5rem; text-align: center;">
-            <h3 data-csp-style="margin-top: 0;">Inbox zero ✓</h3>
-            <p data-csp-style="color: var(--text-muted);">
-                Nothing is waiting on your approval right now.
-            </p>
-        </div>
+    @* PR #116d.9 — Inbox-zero empty state via <EmptyState> v2. Success tone
+       with sparkle icon so "all clear" feels rewarding rather than vacant. *@
+    <div style="margin-top: 24px;">
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Icon = "sparkle",
+            Tone = "success",
+            Title = "Inbox zero",
+            Body = "Nothing is waiting on your approval right now. Take the win.",
+            CtaLabel = "Back to Dashboard",
+            CtaHref = "/"
+        })
     </div>
 }
 else
 {
-    <div data-csp-style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+    @* PR #116d.9 — Pending rows rebuilt with <DataCard> brand-tone primitives.
+       Each row surfaces the title, entity type as a brand pill, workflow name
+       in subtitle, approvals ratio as a mono-numeric chip, and a primary "Review →"
+       button styled on the design system. *@
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
         @foreach (var r in Model.Rows)
         {
-            var fillRatio = r.ApprovalsRequired > 0 ? (double)r.ApprovalsRecorded / r.ApprovalsRequired : 0;
-            var fillPct = (int)System.Math.Round(fillRatio * 100);
-            var ratioStyle = $"display: inline-block; width: 80px; height: 6px; border-radius: 999px; background: rgba(120,120,200,0.10); overflow: hidden; position: relative;";
-            var fillStyle = $"position: absolute; left: 0; top: 0; height: 100%; width: {fillPct}%; background: linear-gradient(90deg, #6366f1, #8b5cf6);";
+            var ratioPct = r.ApprovalsRequired > 0 ? (int)System.Math.Round((double)r.ApprovalsRecorded / r.ApprovalsRequired * 100) : 0;
+            var ratioTone = ratioPct >= 100 ? "success" : ratioPct >= 50 ? "warning" : "brand";
+            <div class="ds-card" data-tone="brand">
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 240px;">
+                        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                            <strong style="font-size: 15px; color: var(--text-primary);">@r.Title</strong>
+                            @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = r.TargetEntityType, Tone = "brand", ShowDot = false })
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 12.5px; margin-top: 4px;">
+                            @r.Subtitle · <span style="color: var(--text-secondary);">Workflow: @r.WorkflowName</span>
+                        </div>
+                    </div>
 
-            <div class="section-card" data-csp-style="border-left: 3px solid #6366f1;">
-                <div class="section-card-body" data-csp-style="padding: 1rem 1.25rem; display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap;">
-                    <div data-csp-style="flex: 1; min-width: 240px;">
-                        <div data-csp-style="display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap;">
-                            <strong data-csp-style="font-size: 1rem;">@r.Title</strong>
-                            <span data-csp-style="padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.7rem; background: rgba(99,102,241,0.10); color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em;">@r.TargetEntityType</span>
-                        </div>
-                        <div data-csp-style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">
-                            @r.Subtitle · Workflow: @r.WorkflowName
-                        </div>
-                    </div>
-                    <div data-csp-style="text-align: right;">
-                        <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);">Approvals</div>
-                        <div data-csp-style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem;">
-                            <span data-csp-style="@ratioStyle">
-                                <span data-csp-style="@fillStyle"></span>
-                            </span>
-                            <span><strong>@r.ApprovalsRecorded</strong> of @r.ApprovalsRequired</span>
+                    <div style="text-align: right;">
+                        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Approvals</div>
+                        <div style="margin-top: 6px;">
+                            @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel {
+                                Label = $"of {r.ApprovalsRequired}",
+                                Tone = ratioTone,
+                                MonoNum = r.ApprovalsRecorded.ToString()
+                            })
                         </div>
                     </div>
-                    <a class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1rem; font-weight: 600;" href="@r.DetailUrl">Review →</a>
+
+                    <a class="ds-btn ds-btn--primary ds-btn--md" href="@r.DetailUrl">
+                        Review →
+                    </a>
                 </div>
             </div>
         }
