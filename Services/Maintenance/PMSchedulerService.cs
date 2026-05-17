@@ -297,7 +297,7 @@ public class PMSchedulerService : IPMSchedulerService
         }
 
         // S1-2: load the full PMTemplateAsset rows so we can stamp the
-        // assignment id on each generated MaintenanceEvent. The legacy
+        // assignment id on each generated WorkOrder. The legacy
         // path projected only AssetId; the assignment id was lost and the
         // CustomField1 hack tried to recover it from the wrong table.
         var templateAssets = await _db.PMTemplateAssets
@@ -341,7 +341,7 @@ public class PMSchedulerService : IPMSchedulerService
         return createdWorkOrderId;
     }
 
-    private async Task<MaintenanceEvent?> CreateWorkOrderFromTemplateAsync(
+    private async Task<WorkOrder?> CreateWorkOrderFromTemplateAsync(
         PMSchedule schedule,
         PMTemplate? template,
         PMOccurrence occurrence,
@@ -366,7 +366,7 @@ public class PMSchedulerService : IPMSchedulerService
 
         var woNumber = await GenerateWorkOrderNumberAsync();
 
-        var workOrder = new MaintenanceEvent
+        var workOrder = new WorkOrder
         {
             AssetId = assetId > 0 ? assetId : 1,
             Type = useType,
@@ -382,7 +382,7 @@ public class PMSchedulerService : IPMSchedulerService
             PMTemplateAssetId = pmTemplateAssetId
         };
 
-        _db.MaintenanceEvents.Add(workOrder);
+        _db.WorkOrders.Add(workOrder);
         await _db.SaveChangesAsync();
 
         if (revision?.Operations?.Any() == true)
@@ -392,7 +392,7 @@ public class PMSchedulerService : IPMSchedulerService
             {
                 var operation = new WorkOrderOperation
                 {
-                    MaintenanceEventId = workOrder.Id,
+                    WorkOrderId = workOrder.Id,
                     OperationNumber = seq.ToString("D3"),
                     Sequence = seq,
                     Type = OperationType.Inspection,
@@ -409,7 +409,7 @@ public class PMSchedulerService : IPMSchedulerService
         {
             var operation = new WorkOrderOperation
             {
-                MaintenanceEventId = workOrder.Id,
+                WorkOrderId = workOrder.Id,
                 OperationNumber = "010",
                 Sequence = 10,
                 Type = OperationType.Inspection,
@@ -427,7 +427,7 @@ public class PMSchedulerService : IPMSchedulerService
             {
                 var part = new WorkOrderPart
                 {
-                    MaintenanceEventId = workOrder.Id,
+                    WorkOrderId = workOrder.Id,
                     ItemId = item.ItemId,
                     QuantityPlanned = item.Quantity,
                     CreatedAt = DateTime.UtcNow
@@ -651,7 +651,7 @@ public class PMSchedulerService : IPMSchedulerService
     {
         var today = DateTime.UtcNow;
         var prefix = $"WO-{today:yyyyMM}-";
-        var count = await _db.MaintenanceEvents
+        var count = await _db.WorkOrders
             .CountAsync(e => e.WorkOrderNumber != null && e.WorkOrderNumber.StartsWith(prefix));
         return $"{prefix}{(count + 1):D5}";
     }

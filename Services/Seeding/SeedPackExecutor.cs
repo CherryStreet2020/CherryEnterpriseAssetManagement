@@ -80,7 +80,7 @@ namespace Abs.FixedAssets.Services.Seeding
                 result.TableResults["PMTemplates"] = await SeedPMTemplatesAsync(pack.PMTemplateCount);
                 result.TableResults["PMTemplateAssets"] = await SeedPMTemplateAssetsAsync();
                 result.TableResults["PMSchedules"] = await SeedPMSchedulesAsync();
-                result.TableResults["MaintenanceEvents"] = await SeedMaintenanceEventsAsync(pack.MaintenanceEventCount);
+                result.TableResults["WorkOrders"] = await SeedWorkOrdersAsync(pack.WorkOrderCount);
                 result.TableResults["MaintenanceSchedules"] = await SeedMaintenanceSchedulesAsync(pack.MaintenanceScheduleCount);
                 result.TableResults["ScheduledEvents"] = await GenerateScheduledEventsAsync();
 
@@ -555,10 +555,10 @@ namespace Abs.FixedAssets.Services.Seeding
             return tableResult;
         }
 
-        private async Task<SeedPackTableResult> SeedMaintenanceEventsAsync(int targetCount)
+        private async Task<SeedPackTableResult> SeedWorkOrdersAsync(int targetCount)
         {
-            var existing = await _context.MaintenanceEvents.CountAsync();
-            var tableResult = new SeedPackTableResult { TableName = "MaintenanceEvents", TargetCount = targetCount, ExistingCount = existing };
+            var existing = await _context.WorkOrders.CountAsync();
+            var tableResult = new SeedPackTableResult { TableName = "WorkOrders", TargetCount = targetCount, ExistingCount = existing };
 
             if (existing >= targetCount)
             {
@@ -582,7 +582,7 @@ namespace Abs.FixedAssets.Services.Seeding
                 var isComplete = _random.Next(100) < 70;
 
                 var woNumber = $"WO-{DateTime.UtcNow:yy}-{(existing + i + 1):D5}";
-                _context.MaintenanceEvents.Add(new MaintenanceEvent
+                _context.WorkOrders.Add(new WorkOrder
                 {
                     AssetId = asset.Id,
                     ScheduledDate = scheduledDate,
@@ -907,7 +907,7 @@ namespace Abs.FixedAssets.Services.Seeding
                 {
                     if (daysFromNow <= 0 || daysFromNow > horizon) continue;
 
-                    var existingEvent = await _context.MaintenanceEvents.AnyAsync(e =>
+                    var existingEvent = await _context.WorkOrders.AnyAsync(e =>
                         e.AssetId == schedule.AssetId &&
                         e.Description != null &&
                         e.Description.Contains($"[Schedule:{schedule.Id}]") &&
@@ -918,9 +918,9 @@ namespace Abs.FixedAssets.Services.Seeding
                         var tech = technicians.Any() ? technicians[_random.Next(technicians.Count)] : null;
                         var woNumber = $"WO-SCH-{schedule.Id:D4}-{nextDue:yyyyMMdd}";
 
-                        if (!await _context.MaintenanceEvents.AnyAsync(e => e.WorkOrderNumber == woNumber))
+                        if (!await _context.WorkOrders.AnyAsync(e => e.WorkOrderNumber == woNumber))
                         {
-                            _context.MaintenanceEvents.Add(new MaintenanceEvent
+                            _context.WorkOrders.Add(new WorkOrder
                             {
                                 AssetId = schedule.AssetId,
                                 Type = schedule.Type,

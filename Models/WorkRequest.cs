@@ -77,7 +77,7 @@ public class WorkRequest
 
     public int? GeneratedWorkOrderId { get; set; }
     [Display(Name = "Work Order")]
-    public MaintenanceEvent? GeneratedWorkOrder { get; set; }
+    public WorkOrder? GeneratedWorkOrder { get; set; }
 
     [Display(Name = "AI Assisted")]
     public bool IsAIAssisted { get; set; } = false;

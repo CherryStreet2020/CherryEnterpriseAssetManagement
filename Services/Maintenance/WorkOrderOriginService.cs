@@ -24,7 +24,7 @@ public class WorkOrderOriginInfo
 public interface IWorkOrderOriginService
 {
     Task<WorkOrderOriginInfo> GetOriginAsync(int maintenanceEventId);
-    Task<WorkOrderOriginInfo> GetOriginAsync(MaintenanceEvent evt);
+    Task<WorkOrderOriginInfo> GetOriginAsync(WorkOrder evt);
     Task<Dictionary<int, WorkOrderOriginInfo>> GetOriginsForEventsAsync(IEnumerable<int> eventIds);
 }
 
@@ -39,14 +39,14 @@ public class WorkOrderOriginService : IWorkOrderOriginService
 
     public async Task<WorkOrderOriginInfo> GetOriginAsync(int maintenanceEventId)
     {
-        var evt = await _context.MaintenanceEvents.Where(e => e.Id == maintenanceEventId).FirstOrDefaultAsync();
+        var evt = await _context.WorkOrders.Where(e => e.Id == maintenanceEventId).FirstOrDefaultAsync();
         if (evt == null)
             return new WorkOrderOriginInfo();
 
         return await GetOriginAsync(evt);
     }
 
-    public async Task<WorkOrderOriginInfo> GetOriginAsync(MaintenanceEvent evt)
+    public async Task<WorkOrderOriginInfo> GetOriginAsync(WorkOrder evt)
     {
         var workRequest = await _context.WorkRequests
             .FirstOrDefaultAsync(wr => wr.GeneratedWorkOrderId == evt.Id);
@@ -137,7 +137,7 @@ public class WorkOrderOriginService : IWorkOrderOriginService
         if (!eventIdList.Any())
             return new Dictionary<int, WorkOrderOriginInfo>();
 
-        var events = await _context.MaintenanceEvents
+        var events = await _context.WorkOrders
             .Where(e => eventIdList.Contains(e.Id))
             .ToListAsync();
 

@@ -19,7 +19,7 @@ namespace Abs.FixedAssets.Services.Seeding
     ///
     /// Idempotent: every seeded WorkOrderNumber begins with "FIX-S1-". A
     /// second run that finds at least one such WO short-circuits without
-    /// re-seeding. To re-seed, an admin deletes the FIX-S1-* MaintenanceEvents
+    /// re-seeding. To re-seed, an admin deletes the FIX-S1-* WorkOrders
     /// (and their JE rows) manually first.
     /// </summary>
     public class Sprint1FixtureSeeder
@@ -44,11 +44,11 @@ namespace Abs.FixedAssets.Services.Seeding
         public async Task<SeedResult> SeedAsync(int? requestedCompanyId = null)
         {
             // Idempotency guard
-            var alreadySeeded = await _db.MaintenanceEvents
+            var alreadySeeded = await _db.WorkOrders
                 .AnyAsync(m => m.WorkOrderNumber != null && m.WorkOrderNumber.StartsWith("FIX-S1-"));
             if (alreadySeeded)
             {
-                var existingCount = await _db.MaintenanceEvents
+                var existingCount = await _db.WorkOrders
                     .CountAsync(m => m.WorkOrderNumber != null && m.WorkOrderNumber.StartsWith("FIX-S1-"));
                 _logger.LogInformation("Sprint1FixtureSeeder: {Count} FIX-S1-* WOs already present, skipping.", existingCount);
                 return new SeedResult(0, 0, 0m, 0m, new(), $"Already seeded ({existingCount} FIX-S1-* WOs in dataset). To re-seed, delete them first.");
@@ -119,7 +119,7 @@ namespace Abs.FixedAssets.Services.Seeding
             }
 
             // Pre-pick lookup values for WO Type / Status etc. via raw enum
-            // ints — the LookupValue FK is nullable on MaintenanceEvent so
+            // ints — the LookupValue FK is nullable on WorkOrder so
             // we can leave it null on the seed rows; the legacy enum suffices.
             int woCreated = 0;
             int jeCreated = 0;
@@ -164,7 +164,7 @@ namespace Abs.FixedAssets.Services.Seeding
                     // sort cleanly.
                     var woNumber = $"FIX-S1-{(woCreated + 1):D3}-{fc.Code}";
 
-                    var me = new MaintenanceEvent
+                    var me = new WorkOrder
                     {
                         AssetId = asset.Id,
                         Type = MaintenanceType.Corrective,
@@ -185,7 +185,7 @@ namespace Abs.FixedAssets.Services.Seeding
                         ApprovalStatus = WorkOrderApprovalStatus.Approved,
                         CreatedAt = scheduledAt
                     };
-                    _db.MaintenanceEvents.Add(me);
+                    _db.WorkOrders.Add(me);
                     await _db.SaveChangesAsync(); // need the Id for the JE Reference
                     woCreated++;
                     totalLabor += laborCost;

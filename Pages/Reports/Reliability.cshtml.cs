@@ -31,7 +31,7 @@ namespace Abs.FixedAssets.Pages.Reports
     ///     vs frequent-but-cheap).
     ///
     /// Data sources:
-    ///   - <see cref="MaintenanceEvent"/> filtered to Type=Corrective, FailureCodeId IS NOT NULL,
+    ///   - <see cref="WorkOrder"/> filtered to Type=Corrective, FailureCodeId IS NOT NULL,
     ///     CompletedDate within the [StartDate, EndDate] window.
     ///   - Cost = Σ JournalLine.Debit across WO-LBR + WO-ISS-OP for each WO,
     ///     minus WO-RTN / WO-RTN-OP returns. Single source of truth with the
@@ -91,7 +91,7 @@ namespace Abs.FixedAssets.Pages.Reports
 
             // 1. Pull corrective WOs with FailureCodeId set in the window.
             var wos = await (
-                from m in _context.MaintenanceEvents
+                from m in _context.WorkOrders
                 join a in _context.Assets on m.AssetId equals a.Id
                 join fc in _context.FailureCodes on m.FailureCodeId equals fc.Id
                 where m.Type == MaintenanceType.Corrective

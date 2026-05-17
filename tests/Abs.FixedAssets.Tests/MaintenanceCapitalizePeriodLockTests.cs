@@ -130,7 +130,7 @@ public class MaintenanceCapitalizePeriodLockTests
         page.TempData = new TempDataDictionary(http, new InMemoryTempDataProvider());
     }
 
-    private static async Task<(AppDbContext db, Asset asset, MaintenanceEvent wo, Abs.FixedAssets.Pages.Maintenance.DetailsModel page, StubPeriodGuard guard)>
+    private static async Task<(AppDbContext db, Asset asset, WorkOrder wo, Abs.FixedAssets.Pages.Maintenance.DetailsModel page, StubPeriodGuard guard)>
         SetupAsync(int companyId, bool periodAllowed)
     {
         var db = NewDb();
@@ -176,7 +176,7 @@ public class MaintenanceCapitalizePeriodLockTests
             UpdatedAt = DateTime.UtcNow
         });
 
-        var wo = new MaintenanceEvent
+        var wo = new WorkOrder
         {
             WorkOrderNumber = "WO-CAP",
             AssetId = asset.Id,
@@ -187,7 +187,7 @@ public class MaintenanceCapitalizePeriodLockTests
             Description = "Compressor swap",
             Type = MaintenanceType.Corrective
         };
-        db.MaintenanceEvents.Add(wo);
+        db.WorkOrders.Add(wo);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };

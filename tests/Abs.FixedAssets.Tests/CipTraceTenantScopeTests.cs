@@ -83,7 +83,7 @@ public class CipTraceTenantScopeTests
 
         // Add a WO tied to the foreign project — under the buggy pre-fix
         // service, this would have leaked back to a Tenant A user.
-        db.MaintenanceEvents.Add(new MaintenanceEvent
+        db.WorkOrders.Add(new WorkOrder
         {
             WorkOrderNumber = "WO-LEAK", AssetId = asset.Id,
             CipProjectId = foreignProject.Id,
@@ -120,7 +120,7 @@ public class CipTraceTenantScopeTests
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        db.MaintenanceEvents.Add(new MaintenanceEvent
+        db.WorkOrders.Add(new WorkOrder
         {
             WorkOrderNumber = "WO-OK", AssetId = asset.Id,
             CipProjectId = project.Id,

@@ -15,7 +15,7 @@ namespace Abs.FixedAssets.Data
     ///
     /// Used by every entity in a state-machine-managed transition surface
     /// where two concurrent updates would otherwise silently overwrite
-    /// each other (Asset, PurchaseOrder, MaintenanceEvent, GoodsReceipt,
+    /// each other (Asset, PurchaseOrder, WorkOrder, GoodsReceipt,
     /// VendorInvoice, CipProject — see audit S1-8 / S2-8).
     ///
     /// xmin is a system column on every PG row, no DDL is required.

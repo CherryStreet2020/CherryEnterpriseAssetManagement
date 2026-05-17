@@ -7,7 +7,7 @@ namespace Abs.FixedAssets.Models.WorkOrders
     // ADR-012 v0.2 / PR #119.4 — Polymorphic approval chain.
     //
     // Replaces the single ApprovedBy/ApprovedAt/ApprovalStatus columns
-    // on MaintenanceEvent with a 1:N child table. Lets one WorkOrder
+    // on WorkOrder with a 1:N child table. Lets one WorkOrder
     // carry an arbitrarily long approval chain whose shape depends on
     // classification + threshold:
     //
@@ -28,7 +28,7 @@ namespace Abs.FixedAssets.Models.WorkOrders
     // Stage strings are stable identifiers used by the engine + guards.
     // DisplayLabel renders the human-friendly version in the UI.
     //
-    // Legacy back-compat: existing MaintenanceEvent.ApprovedById columns
+    // Legacy back-compat: existing WorkOrder.ApprovedById columns
     // stay in place. The PR #119.4 migration backfills a Stage='Legacy'
     // row for every existing approved WO so historical state survives.
     // PR #119.4.1 (deferred) drops the legacy columns once the UI cuts
@@ -38,7 +38,7 @@ namespace Abs.FixedAssets.Models.WorkOrders
     {
         public int Id { get; set; }
 
-        // FK to MaintenanceEvent (renamed to WorkOrder in PR #119.7).
+        // FK to WorkOrder (renamed to WorkOrder in PR #119.7).
         // No navigation property because we're carrying the FK through
         // the upcoming rename without churn.
         public int WorkOrderId { get; set; }

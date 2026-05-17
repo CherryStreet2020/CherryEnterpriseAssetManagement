@@ -246,7 +246,7 @@ public class ExportService
         return stream.ToArray();
     }
 
-    public byte[] ExportMaintenanceToExcel(IEnumerable<MaintenanceEvent> events)
+    public byte[] ExportMaintenanceToExcel(IEnumerable<WorkOrder> events)
     {
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Maintenance Events");

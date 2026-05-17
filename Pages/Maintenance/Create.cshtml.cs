@@ -129,7 +129,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
             var scheduledLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceStatus", "Scheduled");
 
-            var evt = new MaintenanceEvent
+            var evt = new WorkOrder
             {
                 AssetId = assetId,
                 Type = resolvedType,

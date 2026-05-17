@@ -25,7 +25,7 @@ public class LessonLearned
     public string? Title { get; set; }
 
     public int? SourceWorkOrderId { get; set; }
-    public MaintenanceEvent? SourceWorkOrder { get; set; }
+    public WorkOrder? SourceWorkOrder { get; set; }
 
     [StringLength(100)]
     public string? FailureCode { get; set; }

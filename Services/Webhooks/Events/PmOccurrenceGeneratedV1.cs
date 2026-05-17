@@ -5,7 +5,7 @@ namespace Abs.FixedAssets.Services.Webhooks.Events;
 /// <summary>
 /// PM occurrence generated payload, V1. Emitted by
 /// <c>Services/Maintenance/PMSchedulerService</c> after a new
-/// <c>PMOccurrence</c> + (one or more) <c>MaintenanceEvent</c>
+/// <c>PMOccurrence</c> + (one or more) <c>WorkOrder</c>
 /// work orders are committed for a PM schedule's due date. One
 /// event per occurrence, regardless of how many work orders were
 /// fanned out across template-assets.

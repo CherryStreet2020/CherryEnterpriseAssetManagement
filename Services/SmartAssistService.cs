@@ -27,7 +27,7 @@ public class SmartAssistResult
 public interface ISmartAssistService
 {
     Task<SmartAssistResult> AnalyzeRequestAsync(WorkRequest request, int? siteId);
-    Task<MaintenanceEvent?> GenerateDraftWorkOrderAsync(WorkRequest request, SmartAssistResult assist, string username);
+    Task<WorkOrder?> GenerateDraftWorkOrderAsync(WorkRequest request, SmartAssistResult assist, string username);
 }
 
 public class SmartAssistService : ISmartAssistService
@@ -356,7 +356,7 @@ public class SmartAssistService : ISmartAssistService
         return string.Join("\n", lines);
     }
 
-    public async Task<MaintenanceEvent?> GenerateDraftWorkOrderAsync(WorkRequest request, SmartAssistResult assist, string username)
+    public async Task<WorkOrder?> GenerateDraftWorkOrderAsync(WorkRequest request, SmartAssistResult assist, string username)
     {
         if (assist.SuggestedAssetId == null)
         {
@@ -366,7 +366,7 @@ public class SmartAssistService : ISmartAssistService
 
         var woNumber = await GenerateWorkOrderNumberAsync();
 
-        var workOrder = new MaintenanceEvent
+        var workOrder = new WorkOrder
         {
             AssetId = assist.SuggestedAssetId.Value,
             Type = MaintenanceType.Corrective,
@@ -393,7 +393,7 @@ public class SmartAssistService : ISmartAssistService
             ApprovalStatus = WorkOrderApprovalStatus.PendingApproval
         };
 
-        _db.MaintenanceEvents.Add(workOrder);
+        _db.WorkOrders.Add(workOrder);
         await _db.SaveChangesAsync();
 
         var seq = 10;
@@ -401,7 +401,7 @@ public class SmartAssistService : ISmartAssistService
         {
             var operation = new WorkOrderOperation
             {
-                MaintenanceEventId = workOrder.Id,
+                WorkOrderId = workOrder.Id,
                 OperationNumber = $"OP{seq:D3}",
                 Sequence = seq,
                 Type = OperationType.Inspection,
@@ -435,12 +435,12 @@ public class SmartAssistService : ISmartAssistService
     {
         var today = DateTime.UtcNow;
         var prefix = $"WO-{today:yyyyMM}-";
-        var count = await _db.MaintenanceEvents
+        var count = await _db.WorkOrders
             .CountAsync(e => e.WorkOrderNumber != null && e.WorkOrderNumber.StartsWith(prefix));
         return $"{prefix}{(count + 1):D4}";
     }
 
-    private async Task LogAuditAsync(WorkRequest request, MaintenanceEvent wo, SmartAssistResult assist, string username)
+    private async Task LogAuditAsync(WorkRequest request, WorkOrder wo, SmartAssistResult assist, string username)
     {
         var auditEntry = new AuditLog
         {

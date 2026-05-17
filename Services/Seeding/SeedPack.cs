@@ -19,7 +19,7 @@ namespace Abs.FixedAssets.Services.Seeding
         public int AssetCount { get; set; }
         public int VendorCount { get; set; }
         public int TechnicianCount { get; set; }
-        public int MaintenanceEventCount { get; set; }
+        public int WorkOrderCount { get; set; }
         public int PMTemplateCount { get; set; }
         public int MaintenanceScheduleCount { get; set; }
         public bool IncludeWorkOrders { get; set; }
@@ -41,7 +41,7 @@ namespace Abs.FixedAssets.Services.Seeding
             AssetCount = 25,
             VendorCount = 5,
             TechnicianCount = 2,
-            MaintenanceEventCount = 15,
+            WorkOrderCount = 15,
             PMTemplateCount = 3,
             MaintenanceScheduleCount = 5,
             IncludeWorkOrders = false,
@@ -61,7 +61,7 @@ namespace Abs.FixedAssets.Services.Seeding
             AssetCount = 100,
             VendorCount = 8,
             TechnicianCount = 5,
-            MaintenanceEventCount = 75,
+            WorkOrderCount = 75,
             PMTemplateCount = 8,
             MaintenanceScheduleCount = 15,
             IncludeWorkOrders = true,
@@ -81,7 +81,7 @@ namespace Abs.FixedAssets.Services.Seeding
             AssetCount = 321,
             VendorCount = 10,
             TechnicianCount = 5,
-            MaintenanceEventCount = 239,
+            WorkOrderCount = 239,
             PMTemplateCount = 15,
             MaintenanceScheduleCount = 25,
             IncludeWorkOrders = true,

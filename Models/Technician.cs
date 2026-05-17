@@ -37,7 +37,7 @@ namespace Abs.FixedAssets.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public ICollection<MaintenanceEvent>? MaintenanceEvents { get; set; }
+        public ICollection<WorkOrder>? WorkOrders { get; set; }
 
         [StringLength(30)]
         public string? EmployeeId { get; set; }

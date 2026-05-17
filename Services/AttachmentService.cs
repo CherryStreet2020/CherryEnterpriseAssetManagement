@@ -74,8 +74,8 @@ namespace Abs.FixedAssets.Services
 
             switch (source)
             {
-                case AttachmentSource.MaintenanceEvent:
-                    attachment.MaintenanceEventId = sourceId;
+                case AttachmentSource.WorkOrder:
+                    attachment.WorkOrderId = sourceId;
                     break;
                 case AttachmentSource.CipProject:
                     attachment.CipProjectId = sourceId;
@@ -106,11 +106,11 @@ namespace Abs.FixedAssets.Services
                 .ToListAsync();
         }
 
-        public async Task<List<Attachment>> GetByMaintenanceEventAsync(int eventId)
+        public async Task<List<Attachment>> GetByWorkOrderAsync(int eventId)
         {
             var companyId = GetCompanyId();
             return await _context.Attachments
-                .Where(a => a.MaintenanceEventId == eventId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
+                .Where(a => a.WorkOrderId == eventId && _tenantContext.VisibleCompanyIds.Contains(a.CompanyId ?? 0))
                 .OrderByDescending(a => a.UploadedAt)
                 .ToListAsync();
         }

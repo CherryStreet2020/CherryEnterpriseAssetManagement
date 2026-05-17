@@ -25,7 +25,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
         // Returns the legal transitions out of the WO's current status.
         // Render these as buttons / menu options in the UI.
         Task<IReadOnlyList<TransitionOption>> GetAvailableTransitionsAsync(
-            MaintenanceEvent workOrder,
+            WorkOrder workOrder,
             CancellationToken ct = default);
 
         // Attempts the transition. Returns the result so the UI can
@@ -35,7 +35,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
         // side effects) happen inside this call. The caller is
         // responsible for the surrounding DbContext.SaveChangesAsync().
         Task<TransitionResult> TryTransitionAsync(
-            MaintenanceEvent workOrder,
+            WorkOrder workOrder,
             short toStatusCode,
             int userId,
             string? comment,
@@ -108,7 +108,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
     public interface IWorkOrderTransitionGuard
     {
         Task<GuardResult> RunAsync(
-            MaintenanceEvent workOrder,
+            WorkOrder workOrder,
             short fromStatusCode,
             short toStatusCode,
             int userId,

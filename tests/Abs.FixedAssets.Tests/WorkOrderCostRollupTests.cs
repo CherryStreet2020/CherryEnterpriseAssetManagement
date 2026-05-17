@@ -120,7 +120,7 @@ public class WorkOrderCostRollupTests
         page.TempData = new TempDataDictionary(http, new InMemoryTempDataProvider());
     }
 
-    private static async Task<(AppDbContext db, MaintenanceEvent wo, Abs.FixedAssets.Pages.Maintenance.DetailsModel page)>
+    private static async Task<(AppDbContext db, WorkOrder wo, Abs.FixedAssets.Pages.Maintenance.DetailsModel page)>
         SetupWoAsync(int companyId)
     {
         var db = NewDb();
@@ -135,7 +135,7 @@ public class WorkOrderCostRollupTests
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var wo = new MaintenanceEvent
+        var wo = new WorkOrder
         {
             WorkOrderNumber = "WO-ROLLUP",
             AssetId = asset.Id,
@@ -144,7 +144,7 @@ public class WorkOrderCostRollupTests
             CreatedAt = DateTime.UtcNow,
             Description = "Rollup test"
         };
-        db.MaintenanceEvents.Add(wo);
+        db.WorkOrders.Add(wo);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
@@ -175,7 +175,7 @@ public class WorkOrderCostRollupTests
         // Two operations, each with labor entries (Hours × HourlyRate) and parts (Qty × UnitCost).
         var op1 = new WorkOrderOperation
         {
-            MaintenanceEventId = wo.Id,
+            WorkOrderId = wo.Id,
             OperationNumber = "OP-001",
             Sequence = 10,
             Title = "Inspect",
@@ -184,7 +184,7 @@ public class WorkOrderCostRollupTests
         };
         var op2 = new WorkOrderOperation
         {
-            MaintenanceEventId = wo.Id,
+            WorkOrderId = wo.Id,
             OperationNumber = "OP-002",
             Sequence = 20,
             Title = "Replace",
@@ -216,7 +216,7 @@ public class WorkOrderCostRollupTests
         // Plus a WO-level WorkOrderPart: 2 × $35 = 70.
         db.WorkOrderParts.Add(new WorkOrderPart
         {
-            MaintenanceEventId = wo.Id,
+            WorkOrderId = wo.Id,
             ItemId = item.Id,
             QuantityUsed = 2m,
             UnitCost = 35m
@@ -231,7 +231,7 @@ public class WorkOrderCostRollupTests
             partsCost: 0m,
             outsideVendorCost: 50m);       // user-typed; no operation source
 
-        var fromDb = await db.MaintenanceEvents.AsNoTracking().FirstAsync(e => e.Id == wo.Id);
+        var fromDb = await db.WorkOrders.AsNoTracking().FirstAsync(e => e.Id == wo.Id);
         Assert.Equal(620m, fromDb.LaborCost);          // 2×3×50 + 1×4×80
         Assert.Equal(170m, fromDb.PartsCost);          // op-parts 100 + WO parts 70
         Assert.Equal(99m, fromDb.MaterialsCost);       // user input passes through
@@ -253,7 +253,7 @@ public class WorkOrderCostRollupTests
             partsCost: 25m,
             outsideVendorCost: 10m);
 
-        var fromDb = await db.MaintenanceEvents.AsNoTracking().FirstAsync(e => e.Id == wo.Id);
+        var fromDb = await db.WorkOrders.AsNoTracking().FirstAsync(e => e.Id == wo.Id);
         Assert.Equal(100m, fromDb.LaborCost);
         Assert.Equal(50m, fromDb.MaterialsCost);
         Assert.Equal(25m, fromDb.PartsCost);

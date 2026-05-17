@@ -53,7 +53,7 @@ public class CatalogPageTests
         page.OnGet();
 
         var closed = page.Events.Single(e => e.EventType == "workorder.closed");
-        Assert.Equal("MaintenanceEvent", closed.EntityType);
+        Assert.Equal("WorkOrder", closed.EntityType);
         Assert.Equal(nameof(WorkOrderClosedV1), closed.ClrTypeName);
 
         var propNames = closed.Properties.Select(p => p.Name).ToList();

@@ -56,10 +56,10 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
 
-        private async Task<MaintenanceEvent?> GetScopedEventAsync(int id)
+        private async Task<WorkOrder?> GetScopedEventAsync(int id)
         {
             var companyId = GetCompanyId();
-            return await _context.MaintenanceEvents
+            return await _context.WorkOrders
                 .Include(e => e.Asset)
                 .Include(e => e.Technician)
                 .Include(e => e.Operations)!
@@ -68,16 +68,16 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
 
-        private async Task<MaintenanceEvent?> GetScopedEventSimpleAsync(int id)
+        private async Task<WorkOrder?> GetScopedEventSimpleAsync(int id)
         {
             var companyId = GetCompanyId();
-            return await _context.MaintenanceEvents
+            return await _context.WorkOrders
                 .Include(e => e.Asset)
                 .Where(e => e.Asset != null && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || e.Asset.SiteId == _tenantContext.SiteId.Value))
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
 
-        public MaintenanceEvent Event { get; set; } = null!;
+        public WorkOrder Event { get; set; } = null!;
         public WorkOrderOriginInfo Origin { get; set; } = new();
         public List<Attachment> Attachments { get; set; } = new();
         public List<Technician> Technicians { get; set; } = new();
@@ -122,7 +122,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 new { id, returnUrl = ReturnUrl });
         }
 
-        private async Task SyncStatusFkAsync(MaintenanceEvent evt, MaintenanceStatus status)
+        private async Task SyncStatusFkAsync(WorkOrder evt, MaintenanceStatus status)
         {
             evt.Status = status;
             var lv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceStatus", ((int)status).ToString());
@@ -184,7 +184,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             var operationsWithDetails = await _context.Set<WorkOrderOperation>()
                 .Include(o => o.LaborEntries)
                 .Include(o => o.Parts)
-                .Where(o => o.MaintenanceEventId == evt.Id)
+                .Where(o => o.WorkOrderId == evt.Id)
                 .ToListAsync();
 
             decimal operationLaborTotal = operationsWithDetails
@@ -196,7 +196,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 .Sum(p => p.TotalCost);
 
             decimal workOrderPartsTotal = await _context.WorkOrderParts
-                .Where(p => p.MaintenanceEventId == evt.Id)
+                .Where(p => p.WorkOrderId == evt.Id)
                 .SumAsync(p => p.QuantityUsed * p.UnitCost);
 
             // Rollups override the manual fields when operation-level data
@@ -282,7 +282,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 file.ContentType,
                 file.Length,
                 evt.AssetId,
-                AttachmentSource.MaintenanceEvent,
+                AttachmentSource.WorkOrder,
                 id,
                 (AttachmentCategory)category,
                 description,
@@ -299,7 +299,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
                 return NotFound();
 
             var attachment = await _context.Attachments
-                .Where(a => a.Id == attachmentId && a.MaintenanceEventId == id)
+                .Where(a => a.Id == attachmentId && a.WorkOrderId == id)
                 .FirstOrDefaultAsync();
             if (attachment == null)
                 return RedirectToPage(new { id });

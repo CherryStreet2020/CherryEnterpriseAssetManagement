@@ -12,7 +12,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
     //
     // The unified WorkOrder save path (Phase F) calls NextAsync
     // exactly once when creating a new WO. The returned string is
-    // assigned to MaintenanceEvent.WorkOrderNumber.
+    // assigned to WorkOrder.WorkOrderNumber.
     public interface INumberSequenceService
     {
         // Returns the next formatted number (e.g. "PM-2026-001234",

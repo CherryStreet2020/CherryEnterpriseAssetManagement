@@ -58,7 +58,7 @@ namespace Abs.FixedAssets.Pages.CIP
         public int? CompletedStatusLvId { get; set; }
 
         public CipCostSummary CostSummary { get; set; } = new();
-        public List<MaintenanceEvent> RelatedWorkOrders { get; set; } = new();
+        public List<WorkOrder> RelatedWorkOrders { get; set; } = new();
         public List<PurchaseOrder> RelatedPurchaseOrders { get; set; } = new();
         public List<VendorInvoice> RelatedInvoices { get; set; } = new();
         public List<JournalEntry> RelatedJournals { get; set; } = new();

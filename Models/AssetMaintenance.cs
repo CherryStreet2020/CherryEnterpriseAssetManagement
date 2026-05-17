@@ -4,7 +4,27 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Abs.FixedAssets.Models
 {
-    public class MaintenanceEvent
+    // ADR-012 v0.2 / PR #119.7 — Renamed from `MaintenanceEvent`.
+    //
+    // The class is the unified WorkOrder header — spans Maintenance,
+    // CIP, Quality, HSE, Engineering classifications (Production is a
+    // sibling table, not a subtype, per the v0.2 decision).
+    //
+    // The [Table("WorkOrders")] attribute pairs the new class name
+    // with the renamed DB table. PR #119.7's migration runs
+    // `ALTER TABLE "MaintenanceEvents" RENAME TO "WorkOrders"` + renames
+    // every FK constraint + every index. Migration history files keep
+    // referring to "MaintenanceEvents" because they're immutable
+    // snapshots of what the schema was at THAT migration's point in time.
+    //
+    // The class lives in `Abs.FixedAssets.Models` (root namespace), not
+    // `Abs.FixedAssets.Models.WorkOrders`, because it's a grand entity
+    // (like Asset) — the WorkOrders sub-namespace holds the satellite
+    // tables (CipWorkOrderDetails, QualityWorkOrderDetails, etc.) and
+    // the configuration tables (WorkOrderFieldVisibility, StatusProfile,
+    // Approval, NumberSequence).
+    [Table("WorkOrders")]
+    public class WorkOrder
     {
         public int Id { get; set; }
 
@@ -247,7 +267,7 @@ namespace Abs.FixedAssets.Models
         public short Revision { get; set; } = 0;
 
         public int? MasterWorkOrderId { get; set; }
-        public MaintenanceEvent? MasterWorkOrder { get; set; }
+        public WorkOrder? MasterWorkOrder { get; set; }
     }
 
     public class MaintenanceSchedule

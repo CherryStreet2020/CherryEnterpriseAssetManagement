@@ -310,7 +310,7 @@ namespace Abs.FixedAssets.Services.Seeding
             var assetById = assets.ToDictionary(a => a.Id);
 
             var storylineAssetIds = storylineFlag.Keys.ToList();
-            var existing = await _db.MaintenanceEvents
+            var existing = await _db.WorkOrders
                 .Where(m => storylineAssetIds.Contains(m.AssetId)
                          && m.WorkOrderNumber != null
                          && m.WorkOrderNumber.StartsWith("STORY-"))
@@ -318,7 +318,7 @@ namespace Abs.FixedAssets.Services.Seeding
                 .ToListAsync();
             var alreadySeeded = new HashSet<int>(existing);
 
-            var toAdd = new List<MaintenanceEvent>();
+            var toAdd = new List<WorkOrder>();
             foreach (var (assetId, storyline) in storylineFlag)
             {
                 if (alreadySeeded.Contains(assetId)) continue;
@@ -340,7 +340,7 @@ namespace Abs.FixedAssets.Services.Seeding
                     seq: 2));
 
                 // Overdue PM — scheduled in the past, status=Overdue
-                toAdd.Add(new MaintenanceEvent
+                toAdd.Add(new WorkOrder
                 {
                     AssetId = asset.Id,
                     Type = MaintenanceType.Preventative,
@@ -360,13 +360,13 @@ namespace Abs.FixedAssets.Services.Seeding
                 return;
             }
 
-            _db.MaintenanceEvents.AddRange(toAdd);
+            _db.WorkOrders.AddRange(toAdd);
             await _db.SaveChangesAsync();
             _logger.LogInformation("IndustrialAssetSeeder: seeded {Count} storyline WOs ({Assets} storyline assets).",
                 toAdd.Count, storylineFlag.Count);
         }
 
-        private static MaintenanceEvent BuildCorrectiveWo(
+        private static WorkOrder BuildCorrectiveWo(
             Asset asset, string description,
             int scheduledDaysAgo, int completedDaysAgo,
             decimal laborHours, decimal laborCost, decimal partsCost,

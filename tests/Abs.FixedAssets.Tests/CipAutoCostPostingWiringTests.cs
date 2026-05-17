@@ -336,7 +336,7 @@ public class CipAutoCostPostingWiringTests
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var evt = new MaintenanceEvent
+        var evt = new WorkOrder
         {
             WorkOrderNumber = "WO-CIP",
             AssetId = asset.Id,
@@ -345,7 +345,7 @@ public class CipAutoCostPostingWiringTests
             CreatedAt = DateTime.UtcNow,
             CipProjectId = project.Id
         };
-        db.MaintenanceEvents.Add(evt);
+        db.WorkOrders.Add(evt);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };

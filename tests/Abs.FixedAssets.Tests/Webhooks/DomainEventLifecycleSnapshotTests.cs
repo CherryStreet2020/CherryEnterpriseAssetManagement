@@ -64,7 +64,7 @@ public class DomainEventLifecycleSnapshotTests
 
         Assert.Equal("workorder.created", root.GetProperty("eventType").GetString());
         Assert.Equal(1, root.GetProperty("version").GetInt32());
-        Assert.Equal("MaintenanceEvent", root.GetProperty("entityType").GetString());
+        Assert.Equal("WorkOrder", root.GetProperty("entityType").GetString());
         Assert.Equal("100", root.GetProperty("entityId").GetString());
         Assert.Equal(100, root.GetProperty("workOrderId").GetInt32());
         Assert.Equal("Scheduled", root.GetProperty("status").GetString());

@@ -80,14 +80,14 @@ namespace Abs.FixedAssets.Services
             context.AppendLine();
 
             // ========== MAINTENANCE STATUS ==========
-            var maintenanceOverdue = await _context.MaintenanceEvents
+            var maintenanceOverdue = await _context.WorkOrders
                 .CountAsync(m => m.ScheduledDate < DateTime.UtcNow && m.Status != MaintenanceStatus.Completed);
 
-            var upcomingMaintenance = await _context.MaintenanceEvents
+            var upcomingMaintenance = await _context.WorkOrders
                 .Where(m => m.ScheduledDate >= DateTime.UtcNow && m.ScheduledDate <= DateTime.UtcNow.AddDays(30))
                 .CountAsync();
 
-            var maintenanceByType = await _context.MaintenanceEvents
+            var maintenanceByType = await _context.WorkOrders
                 .Where(m => m.Status != MaintenanceStatus.Completed)
                 .GroupBy(m => m.Type)
                 .Select(g => new { Type = g.Key, Count = g.Count() })
@@ -180,7 +180,7 @@ namespace Abs.FixedAssets.Services
                 .Select(t => new { t.Id, t.Name, t.Specialty, t.HourlyRate })
                 .ToListAsync();
 
-            var technicianWorkload = await _context.MaintenanceEvents
+            var technicianWorkload = await _context.WorkOrders
                 .Where(m => m.TechnicianId != null && m.Status != MaintenanceStatus.Completed)
                 .GroupBy(m => m.TechnicianId)
                 .Select(g => new { TechnicianId = g.Key, OpenTasks = g.Count() })

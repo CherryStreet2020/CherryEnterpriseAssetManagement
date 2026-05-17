@@ -20,6 +20,6 @@ public sealed record WorkOrderClosedV1(
 {
     public string EventType => "workorder.closed";
     public int Version => 1;
-    public string EntityType => "MaintenanceEvent";
+    public string EntityType => "WorkOrder";
     public string EntityId => WorkOrderId.ToString();
 }

@@ -14,8 +14,8 @@ namespace Abs.FixedAssets.Models
         public int? AssetId { get; set; }
         public Asset? Asset { get; set; }
 
-        public int? MaintenanceEventId { get; set; }
-        public MaintenanceEvent? MaintenanceEvent { get; set; }
+        public int? WorkOrderId { get; set; }
+        public WorkOrder? WorkOrder { get; set; }
 
         public int? CipProjectId { get; set; }
         public CipProject? CipProject { get; set; }
@@ -60,7 +60,7 @@ namespace Abs.FixedAssets.Models
     public enum AttachmentSource
     {
         Asset = 0,
-        MaintenanceEvent = 1,
+        WorkOrder = 1,
         CipProject = 2,
         CipCost = 3,
         AssetTransfer = 4,

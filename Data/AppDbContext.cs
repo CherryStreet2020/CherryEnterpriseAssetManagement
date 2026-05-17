@@ -54,7 +54,7 @@ namespace Abs.FixedAssets.Data
         public DbSet<InventoryScan> InventoryScans => Set<InventoryScan>();
 
         // Asset Maintenance
-        public DbSet<MaintenanceEvent> MaintenanceEvents => Set<MaintenanceEvent>();
+        public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
         public DbSet<MaintenanceSchedule> MaintenanceSchedules => Set<MaintenanceSchedule>();
         public DbSet<WorkRequest> WorkRequests => Set<WorkRequest>();
         public DbSet<LessonLearned> LessonsLearned => Set<LessonLearned>();
@@ -633,7 +633,7 @@ namespace Abs.FixedAssets.Data
             });
 
             // Maintenance Events
-            modelBuilder.Entity<MaintenanceEvent>(e =>
+            modelBuilder.Entity<WorkOrder>(e =>
             {
                 e.HasIndex(x => x.AssetId);
                 e.HasIndex(x => x.ScheduledDate);
@@ -655,7 +655,7 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.MasterWorkOrderId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Asset)
-                    .WithMany(a => a.MaintenanceEvents)
+                    .WithMany(a => a.WorkOrders)
                     .HasForeignKey(x => x.AssetId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.TypeLookupValue)
@@ -701,7 +701,7 @@ namespace Abs.FixedAssets.Data
             });
 
             // ADR-012 v0.2 / PR #119.4 — WorkOrderApproval table.
-            // FK to User registered here; FK to MaintenanceEvent + the
+            // FK to User registered here; FK to WorkOrder + the
             // hot-path index are added by the migration directly.
             modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval>(e =>
             {
@@ -891,15 +891,15 @@ namespace Abs.FixedAssets.Data
             modelBuilder.Entity<Attachment>(e =>
             {
                 e.HasIndex(x => x.AssetId);
-                e.HasIndex(x => x.MaintenanceEventId);
+                e.HasIndex(x => x.WorkOrderId);
                 e.HasIndex(x => x.CipProjectId);
                 e.HasOne(x => x.Asset)
                     .WithMany(a => a.Attachments)
                     .HasForeignKey(x => x.AssetId)
                     .OnDelete(DeleteBehavior.Cascade);
-                e.HasOne(x => x.MaintenanceEvent)
+                e.HasOne(x => x.WorkOrder)
                     .WithMany()
-                    .HasForeignKey(x => x.MaintenanceEventId)
+                    .HasForeignKey(x => x.WorkOrderId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.CipProject)
                     .WithMany()
@@ -931,7 +931,7 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.SiteId);
                 e.HasIndex(x => x.EmployeeId);
-                e.HasMany(x => x.MaintenanceEvents)
+                e.HasMany(x => x.WorkOrders)
                     .WithOne(m => m.Technician)
                     .HasForeignKey(m => m.TechnicianId)
                     .OnDelete(DeleteBehavior.SetNull);
@@ -1420,10 +1420,10 @@ namespace Abs.FixedAssets.Data
             // Work Order Parts
             modelBuilder.Entity<WorkOrderPart>(e =>
             {
-                e.HasIndex(x => new { x.MaintenanceEventId, x.ItemId });
-                e.HasOne(x => x.MaintenanceEvent)
+                e.HasIndex(x => new { x.WorkOrderId, x.ItemId });
+                e.HasOne(x => x.WorkOrder)
                     .WithMany()
-                    .HasForeignKey(x => x.MaintenanceEventId)
+                    .HasForeignKey(x => x.WorkOrderId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Item)
                     .WithMany()

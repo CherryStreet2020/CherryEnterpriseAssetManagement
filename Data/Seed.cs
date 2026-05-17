@@ -28,7 +28,7 @@ namespace Abs.FixedAssets.Data
             await SeedLocationsAsync(db);
             await SeedDepreciationPoliciesAsync(db);
             await SeedAssetsAsync(db);
-            await SeedMaintenanceEventsAsync(db);
+            await SeedWorkOrdersAsync(db);
             await SeedWorkOrderOperationsAsync(db);
             Console.WriteLine("[Seed] Database initialization complete");
         }
@@ -173,9 +173,9 @@ namespace Abs.FixedAssets.Data
             Console.WriteLine($"[Seed] Seeded {assets.Count} assets");
         }
 
-        private static async Task SeedMaintenanceEventsAsync(AppDbContext db)
+        private static async Task SeedWorkOrdersAsync(AppDbContext db)
         {
-            if (await db.MaintenanceEvents.AnyAsync())
+            if (await db.WorkOrders.AnyAsync())
                 return;
 
             var assets = await db.Assets.Take(100).ToListAsync();
@@ -187,7 +187,7 @@ namespace Abs.FixedAssets.Data
                 return;
             }
 
-            var events = new List<MaintenanceEvent>();
+            var events = new List<WorkOrder>();
             var types = new[] { MaintenanceType.Preventative, MaintenanceType.Corrective, MaintenanceType.Inspection, MaintenanceType.Calibration };
             var statuses = new[] { MaintenanceStatus.Completed, MaintenanceStatus.InProgress, MaintenanceStatus.Scheduled };
 
@@ -202,7 +202,7 @@ namespace Abs.FixedAssets.Data
                     
                     var year = DateTime.UtcNow.Year.ToString().Substring(2);
                     var woSeq = events.Count + 1;
-                    events.Add(new MaintenanceEvent
+                    events.Add(new WorkOrder
                     {
                         AssetId = asset.Id,
                         Type = types[_random.Next(types.Length)],
@@ -222,7 +222,7 @@ namespace Abs.FixedAssets.Data
                 }
             }
 
-            db.MaintenanceEvents.AddRange(events);
+            db.WorkOrders.AddRange(events);
             await db.SaveChangesAsync();
             Console.WriteLine($"[Seed] Seeded {events.Count} maintenance events");
         }
@@ -232,7 +232,7 @@ namespace Abs.FixedAssets.Data
             if (await db.WorkOrderOperations.AnyAsync())
                 return;
 
-            var workOrders = await db.MaintenanceEvents
+            var workOrders = await db.WorkOrders
                 .Where(m => m.Status == MaintenanceStatus.InProgress || m.Status == MaintenanceStatus.Scheduled)
                 .Take(10)
                 .ToListAsync();
@@ -257,7 +257,7 @@ namespace Abs.FixedAssets.Data
                 
                 var op1 = new WorkOrderOperation
                 {
-                    MaintenanceEventId = wo.Id,
+                    WorkOrderId = wo.Id,
                     OperationNumber = "OP-001",
                     Sequence = 10,
                     Title = "MECHANICAL INSPECTION",
@@ -275,7 +275,7 @@ namespace Abs.FixedAssets.Data
 
                 var op2 = new WorkOrderOperation
                 {
-                    MaintenanceEventId = wo.Id,
+                    WorkOrderId = wo.Id,
                     OperationNumber = "OP-002",
                     Sequence = 20,
                     Title = "ELECTRICAL SYSTEMS CHECK",
@@ -291,7 +291,7 @@ namespace Abs.FixedAssets.Data
 
                 var op3 = new WorkOrderOperation
                 {
-                    MaintenanceEventId = wo.Id,
+                    WorkOrderId = wo.Id,
                     OperationNumber = "OP-003",
                     Sequence = 30,
                     Title = "FINAL INSPECTION AND TESTING",

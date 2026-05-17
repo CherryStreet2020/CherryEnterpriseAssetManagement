@@ -62,7 +62,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _improvementPosting = improvementPosting;
         }
 
-        public MaintenanceEvent WorkOrder { get; set; } = null!;
+        public WorkOrder WorkOrder { get; set; } = null!;
         public List<WorkOrderOperation> Operations { get; set; } = new();
         public List<WorkOrderPart> LegacyParts { get; set; } = new();
         public List<Technician> Technicians { get; set; } = new();
@@ -113,7 +113,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             if (id == null) return RedirectToPage("/Maintenance/Index");
 
             var companyId = GetCompanyId();
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Include(m => m.Asset)
                 .Include(m => m.Technician)
                 .Include(m => m.Operations!)
@@ -140,7 +140,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             LegacyParts = await _context.WorkOrderParts
                 .Include(p => p.Item)
-                .Where(p => p.MaintenanceEventId == id)
+                .Where(p => p.WorkOrderId == id)
                 .OrderBy(p => p.Id)
                 .ToListAsync();
 
@@ -164,7 +164,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // PR #94: Pull attachments for this WO + the category options for
             // the upload form. Uses the same AttachmentService API the legacy
             // page calls so the underlying storage / metadata is bit-identical.
-            Attachments = await _attachmentService.GetByMaintenanceEventAsync(id.Value);
+            Attachments = await _attachmentService.GetByWorkOrderAsync(id.Value);
             AttachmentCategoryOptions = await _lookupService.GetSelectListAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "AttachmentCategory", null, "");
 
             // PR #97: WO-level lookups for the Edit form (type + priority).
@@ -188,11 +188,11 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         public async Task<IActionResult> OnPostAddOperationAsync(int workOrderId, string title, int typeLookupValueId, int? craftId, decimal plannedHours, string? description)
         {
             var maxSeq = await _context.WorkOrderOperations
-                .Where(o => o.MaintenanceEventId == workOrderId)
+                .Where(o => o.WorkOrderId == workOrderId)
                 .MaxAsync(o => (int?)o.Sequence) ?? 0;
 
             var nextNum = await _context.WorkOrderOperations
-                .Where(o => o.MaintenanceEventId == workOrderId)
+                .Where(o => o.WorkOrderId == workOrderId)
                 .CountAsync() + 1;
 
             var resolvedType = OperationType.Mechanical;
@@ -207,7 +207,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             var operation = new WorkOrderOperation
             {
-                MaintenanceEventId = workOrderId,
+                WorkOrderId = workOrderId,
                 OperationNumber = $"OP-{nextNum:D3}",
                 Sequence = maxSeq + 10,
                 Title = title?.ToUpper() ?? "NEW OPERATION",
@@ -230,13 +230,13 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var companyId = GetCompanyId();
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (operation == null) return NotFound();
 
             var allOps = await _context.WorkOrderOperations
-                .Where(o => o.MaintenanceEventId == operation.MaintenanceEventId)
+                .Where(o => o.WorkOrderId == operation.WorkOrderId)
                 .OrderBy(o => o.Sequence)
                 .ToListAsync();
 
@@ -255,15 +255,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             }
 
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.MaintenanceEventId });
+            return RedirectToPage(new { id = operation.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostUpdateStatusAsync(int operationId, int statusLookupValueId)
         {
             var companyId = GetCompanyId();
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (operation == null) return NotFound();
 
@@ -288,15 +288,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             }
 
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.MaintenanceEventId });
+            return RedirectToPage(new { id = operation.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostAddLaborAsync(int operationId, int? technicianId, decimal hours, decimal hourlyRate, string? notes)
         {
             var companyId = GetCompanyId();
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (operation == null) return NotFound();
 
@@ -326,7 +326,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             await PostLaborJournalEntryAsync(operation, labor);
 
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.MaintenanceEventId });
+            return RedirectToPage(new { id = operation.WorkOrderId });
         }
 
         /// <summary>
@@ -346,20 +346,20 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             var amount = labor.Hours * labor.HourlyRate;
             if (amount <= 0m) return null;
 
-            var resolvedCompanyId = operation.MaintenanceEvent?.Asset?.CompanyId
+            var resolvedCompanyId = operation.WorkOrder?.Asset?.CompanyId
                 ?? _tenantContext.CompanyId
                 ?? 0;
             if (resolvedCompanyId == 0) return null;
 
             var ctx = new GlResolveContext(
-                WorkOrderId: operation.MaintenanceEventId,
-                AssetId: operation.MaintenanceEvent?.AssetId);
+                WorkOrderId: operation.WorkOrderId,
+                AssetId: operation.WorkOrder?.AssetId);
             var laborAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceLabor, ctx);
             var accruedAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.AccruedLabor, ctx);
 
             var ticks = DateTime.UtcNow.Ticks;
-            var jeReference = $"WO-LBR-{operation.MaintenanceEventId}-op{operation.Id}-{ticks}";
-            var woNumber = operation.MaintenanceEvent?.WorkOrderNumber ?? $"WO#{operation.MaintenanceEventId}";
+            var jeReference = $"WO-LBR-{operation.WorkOrderId}-op{operation.Id}-{ticks}";
+            var woNumber = operation.WorkOrder?.WorkOrderNumber ?? $"WO#{operation.WorkOrderId}";
 
             var je = new JournalEntry
             {
@@ -399,8 +399,8 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var companyId = GetCompanyId();
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (operation == null) return NotFound();
 
@@ -415,15 +415,15 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             _context.WorkOrderOperationTools.Add(tool);
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.MaintenanceEventId });
+            return RedirectToPage(new { id = operation.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostAddPartAsync(int operationId, int itemId, decimal quantityPlanned, decimal unitCost, string? notes)
         {
             var companyId = GetCompanyId();
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (operation == null) return NotFound();
 
@@ -439,7 +439,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             _context.WorkOrderOperationParts.Add(part);
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.MaintenanceEventId });
+            return RedirectToPage(new { id = operation.WorkOrderId });
         }
 
         // PR #106 / B-20: Operation-level parts now have a real Issue/Return
@@ -455,16 +455,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var part = await _context.WorkOrderOperationParts
                 .Include(p => p.WorkOrderOperation)
-                    .ThenInclude(op => op!.MaintenanceEvent)
+                    .ThenInclude(op => op!.WorkOrder)
                         .ThenInclude(m => m!.Asset)
                 .Where(p => p.Id == operationPartId
                     && p.WorkOrderOperation != null
-                    && p.WorkOrderOperation.MaintenanceEvent != null
-                    && p.WorkOrderOperation.MaintenanceEvent.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.MaintenanceEvent.Asset.CompanyId ?? 0))
+                    && p.WorkOrderOperation.WorkOrder != null
+                    && p.WorkOrderOperation.WorkOrder.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (part == null) return NotFound();
-            var woId = part.WorkOrderOperation!.MaintenanceEventId;
+            var woId = part.WorkOrderOperation!.WorkOrderId;
 
             if (quantityIssue <= 0) return RedirectToPage(new { id = woId });
 
@@ -499,16 +499,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var part = await _context.WorkOrderOperationParts
                 .Include(p => p.WorkOrderOperation)
-                    .ThenInclude(op => op!.MaintenanceEvent)
+                    .ThenInclude(op => op!.WorkOrder)
                         .ThenInclude(m => m!.Asset)
                 .Where(p => p.Id == operationPartId
                     && p.WorkOrderOperation != null
-                    && p.WorkOrderOperation.MaintenanceEvent != null
-                    && p.WorkOrderOperation.MaintenanceEvent.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.MaintenanceEvent.Asset.CompanyId ?? 0))
+                    && p.WorkOrderOperation.WorkOrder != null
+                    && p.WorkOrderOperation.WorkOrder.Asset != null
+                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (part == null) return NotFound();
-            var woId = part.WorkOrderOperation!.MaintenanceEventId;
+            var woId = part.WorkOrderOperation!.WorkOrderId;
 
             if (quantityReturn <= 0) return RedirectToPage(new { id = woId });
 
@@ -529,13 +529,13 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         /// <summary>
         /// Operation-part variant of <see cref="ApplyItemMovementAsync"/>.
         /// Same inventory + ItemTransaction shape, but keyed off the
-        /// operation-part's IssuedFromLocationId and the MaintenanceEvent
+        /// operation-part's IssuedFromLocationId and the WorkOrder
         /// reached via the parent operation.
         /// </summary>
         private async Task<decimal?> ApplyOperationPartMovementAsync(WorkOrderOperationPart part, decimal qty, bool isIssue)
         {
             var sign = isIssue ? -1m : 1m;
-            var companyId = part.WorkOrderOperation?.MaintenanceEvent?.Asset?.CompanyId ?? _tenantContext.CompanyId;
+            var companyId = part.WorkOrderOperation?.WorkOrder?.Asset?.CompanyId ?? _tenantContext.CompanyId;
             decimal? newOnHand = null;
 
             if (part.IssuedFromLocationId.HasValue)
@@ -567,7 +567,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                 newOnHand = inv.QuantityOnHand;
             }
 
-            var workOrderId = part.WorkOrderOperation?.MaintenanceEventId ?? 0;
+            var workOrderId = part.WorkOrderOperation?.WorkOrderId ?? 0;
             _context.Set<ItemTransaction>().Add(new ItemTransaction
             {
                 TransactionNumber = $"WO{workOrderId}-OP{part.WorkOrderOperationId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
@@ -598,7 +598,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             var amount = qty * part.UnitCost;
             if (amount <= 0m) return null;
 
-            var maintenanceEvent = part.WorkOrderOperation?.MaintenanceEvent;
+            var maintenanceEvent = part.WorkOrderOperation?.WorkOrder;
             var resolvedCompanyId = maintenanceEvent?.Asset?.CompanyId
                 ?? _tenantContext.CompanyId
                 ?? 0;
@@ -676,7 +676,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             var part = new WorkOrderPart
             {
-                MaintenanceEventId = workOrderId,
+                WorkOrderId = workOrderId,
                 ItemId = itemId,
                 QuantityPlanned = quantityPlanned,
                 UnitCost = item.StandardCost,
@@ -693,12 +693,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var companyId = GetCompanyId();
             var part = await _context.WorkOrderParts
-                .Include(p => p.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.MaintenanceEvent != null && p.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (part == null) return NotFound();
 
-            if (quantityIssue <= 0) return RedirectToPage(new { id = part.MaintenanceEventId });
+            if (quantityIssue <= 0) return RedirectToPage(new { id = part.WorkOrderId });
 
             // For planned materials: cannot issue more than (planned - already issued)
             // For unplanned: allow any quantity (auto-extends planned)
@@ -706,7 +706,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             if (part.QuantityPlanned > 0)
             {
                 var maxIssuable = part.QuantityPlanned - part.QuantityIssued;
-                if (maxIssuable <= 0) return RedirectToPage(new { id = part.MaintenanceEventId });
+                if (maxIssuable <= 0) return RedirectToPage(new { id = part.WorkOrderId });
                 actualIssue = Math.Min(quantityIssue, maxIssuable);
             }
             else
@@ -744,16 +744,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             await _context.SaveChangesAsync();
 
             await _outbox.EnqueueAsync(
-                part.MaintenanceEvent?.Asset?.CompanyId ?? companyId,
+                part.WorkOrder?.Asset?.CompanyId ?? companyId,
                 siteId: null,
                 new ItemIssuedV1(
                     ItemId: part.ItemId,
                     LocationId: part.IssuedFromLocationId,
-                    CompanyId: part.MaintenanceEvent?.Asset?.CompanyId,
-                    WorkOrderId: part.MaintenanceEventId,
+                    CompanyId: part.WorkOrder?.Asset?.CompanyId,
+                    WorkOrderId: part.WorkOrderId,
                     WorkOrderPartId: part.Id,
-                    WorkOrderNumber: part.MaintenanceEvent?.WorkOrderNumber ?? string.Empty,
-                    AssetId: part.MaintenanceEvent?.AssetId,
+                    WorkOrderNumber: part.WorkOrder?.WorkOrderNumber ?? string.Empty,
+                    AssetId: part.WorkOrder?.AssetId,
                     Quantity: actualIssue,
                     UnitCost: part.UnitCost,
                     NewQuantityOnHand: newOnHand,
@@ -761,10 +761,10 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                     SerialNumber: part.SerialNumber,
                     IssuedBy: part.IssuedBy,
                     IssuedAt: part.IssuedDate ?? DateTime.UtcNow),
-                correlationId: $"item-issue-wo{part.MaintenanceEventId}-p{part.Id}-{DateTime.UtcNow.Ticks}"
+                correlationId: $"item-issue-wo{part.WorkOrderId}-p{part.Id}-{DateTime.UtcNow.Ticks}"
             );
 
-            return RedirectToPage(new { id = part.MaintenanceEventId });
+            return RedirectToPage(new { id = part.WorkOrderId });
         }
 
         /// <summary>
@@ -781,7 +781,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         private async Task<decimal?> ApplyItemMovementAsync(WorkOrderPart part, decimal qty, bool isIssue)
         {
             var sign = isIssue ? -1m : 1m;
-            var companyId = part.MaintenanceEvent?.Asset?.CompanyId ?? _tenantContext.CompanyId;
+            var companyId = part.WorkOrder?.Asset?.CompanyId ?? _tenantContext.CompanyId;
             decimal? newOnHand = null;
 
             if (part.IssuedFromLocationId.HasValue)
@@ -818,7 +818,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             var txn = new ItemTransaction
             {
-                TransactionNumber = $"WO{part.MaintenanceEventId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
+                TransactionNumber = $"WO{part.WorkOrderId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
                 ItemId = part.ItemId,
                 Type = isIssue ? TransactionType.Issue : TransactionType.Return,
                 Quantity = qty,
@@ -852,14 +852,14 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             if (amount <= 0m) return null; // a zero-standard-cost item issues without GL impact
 
             // Resolve the WO's owning company. ADR-003 keys configs by CompanyId.
-            var resolvedCompanyId = part.MaintenanceEvent?.Asset?.CompanyId
+            var resolvedCompanyId = part.WorkOrder?.Asset?.CompanyId
                 ?? _tenantContext.CompanyId
                 ?? 0;
             if (resolvedCompanyId == 0) return null; // can't resolve GL accounts without a company
 
             var ctx = new GlResolveContext(
-                WorkOrderId: part.MaintenanceEventId,
-                AssetId: part.MaintenanceEvent?.AssetId);
+                WorkOrderId: part.WorkOrderId,
+                AssetId: part.WorkOrder?.AssetId);
             var materialsAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceMaterials, ctx);
             var inventoryAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.Inventory, ctx);
 
@@ -869,8 +869,8 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // from returns ("WO-RTN") for downstream reporting filters.
             var ticks = DateTime.UtcNow.Ticks;
             var src = isIssue ? "WO-ISS" : "WO-RTN";
-            var jeReference = $"{src}-{part.MaintenanceEventId}-p{part.Id}-{ticks}";
-            var woNumber = part.MaintenanceEvent?.WorkOrderNumber ?? $"WO#{part.MaintenanceEventId}";
+            var jeReference = $"{src}-{part.WorkOrderId}-p{part.Id}-{ticks}";
+            var woNumber = part.WorkOrder?.WorkOrderNumber ?? $"WO#{part.WorkOrderId}";
             var verb = isIssue ? "issued to" : "returned from";
 
             // DR/CR signs: issue moves cost INTO the maintenance expense
@@ -922,16 +922,16 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             var companyId = GetCompanyId();
             var part = await _context.WorkOrderParts
-                .Include(p => p.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.MaintenanceEvent != null && p.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (part == null) return NotFound();
 
-            if (quantityReturn <= 0) return RedirectToPage(new { id = part.MaintenanceEventId });
+            if (quantityReturn <= 0) return RedirectToPage(new { id = part.WorkOrderId });
 
             // Guardrail: Cannot return more than net issued (issued - returned)
             var maxReturnable = part.QuantityIssued - part.QuantityReturned;
-            if (maxReturnable <= 0) return RedirectToPage(new { id = part.MaintenanceEventId });
+            if (maxReturnable <= 0) return RedirectToPage(new { id = part.WorkOrderId });
             var actualReturn = Math.Min(quantityReturn, maxReturnable);
 
             part.QuantityReturned += actualReturn;
@@ -949,22 +949,22 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             await PostMaterialMovementJournalEntryAsync(part, actualReturn, isIssue: false);
 
             await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = part.MaintenanceEventId });
+            return RedirectToPage(new { id = part.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostRemovePlannedMaterialAsync(int workOrderPartId)
         {
             var companyId = GetCompanyId();
             var part = await _context.WorkOrderParts
-                .Include(p => p.MaintenanceEvent).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.MaintenanceEvent != null && p.MaintenanceEvent.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0))
+                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
+                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
             if (part == null) return NotFound();
 
             // Guardrail: Cannot remove if already issued
-            if (part.QuantityIssued > 0) return RedirectToPage(new { id = part.MaintenanceEventId });
+            if (part.QuantityIssued > 0) return RedirectToPage(new { id = part.WorkOrderId });
 
-            var woId = part.MaintenanceEventId;
+            var woId = part.WorkOrderId;
             _context.WorkOrderParts.Remove(part);
             await _context.SaveChangesAsync();
             return RedirectToPage(new { id = woId });
@@ -974,7 +974,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         {
             // Find the WO and check for PMTA linkage in CustomField1
             var companyId = GetCompanyId();
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Include(m => m.Asset)
                 .Where(m => m.Id == workOrderId && m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
@@ -1012,7 +1012,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
             // Get existing WO parts to avoid duplicates
             var existingItemIds = await _context.WorkOrderParts
-                .Where(p => p.MaintenanceEventId == workOrderId)
+                .Where(p => p.WorkOrderId == workOrderId)
                 .Select(p => p.ItemId)
                 .ToListAsync();
 
@@ -1023,7 +1023,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
                 var woPart = new WorkOrderPart
                 {
-                    MaintenanceEventId = workOrderId,
+                    WorkOrderId = workOrderId,
                     ItemId = templateItem.ItemId,
                     QuantityPlanned = templateItem.Quantity,
                     UnitCost = templateItem.Item?.StandardCost ?? 0,
@@ -1124,7 +1124,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // future refactor that drops the GetAsync invocation can't open
             // a write-leak vector. Mirrors the pattern used elsewhere on the
             // page (see OnPostIssueMaterialAsync).
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Where(m => m.Id == id
                     && m.Asset != null
                     && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -1138,7 +1138,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
                 file.ContentType,
                 file.Length,
                 wo.AssetId,
-                AttachmentSource.MaintenanceEvent,
+                AttachmentSource.WorkOrder,
                 id,
                 (AttachmentCategory)category,
                 description,
@@ -1167,7 +1167,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             string? notes,
             int? failureCodeId)
         {
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Where(m => m.Id == id
                     && m.Asset != null
                     && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -1244,7 +1244,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             DateTime scheduledDate,
             int? technicianId)
         {
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Where(m => m.Id == id
                     && m.Asset != null
                     && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -1278,7 +1278,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // entry point moves.
         public async Task<IActionResult> OnPostCapitalizeAsync(int id, decimal amount, string description)
         {
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Include(m => m.Asset)
                 .Where(m => m.Id == id
                     && m.Asset != null
@@ -1386,7 +1386,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostDeleteAttachmentAsync(int id, int attachmentId)
         {
-            var wo = await _context.MaintenanceEvents
+            var wo = await _context.WorkOrders
                 .Where(m => m.Id == id
                     && m.Asset != null
                     && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -1397,7 +1397,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             // delete — protects against a forged form posting an attachmentId
             // from a different WO the user can see.
             var attachment = await _context.Attachments
-                .Where(a => a.Id == attachmentId && a.MaintenanceEventId == id)
+                .Where(a => a.Id == attachmentId && a.WorkOrderId == id)
                 .FirstOrDefaultAsync();
             if (attachment == null)
                 return RedirectToPage(new { id });

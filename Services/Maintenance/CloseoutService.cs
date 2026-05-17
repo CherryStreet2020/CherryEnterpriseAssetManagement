@@ -42,7 +42,7 @@ public class RecurringFailure
 
 public interface ICloseoutService
 {
-    string GenerateCloseoutSummary(MaintenanceEvent workOrder, List<WorkOrderOperation>? operations = null);
+    string GenerateCloseoutSummary(WorkOrder workOrder, List<WorkOrderOperation>? operations = null);
     Task<CloseoutResult> CloseWorkOrderAsync(int workOrderId, string? lessonsLearned, string username, bool allowIncompleteOperations = false);
     Task<LessonSaveResult> SaveLessonAsync(int workOrderId, string lessonText, string? tags, string username);
     Task<List<RecurringFailure>> GetRecurringFailuresAsync(int days = 30, int limit = 5);
@@ -67,7 +67,7 @@ public class CloseoutService : ICloseoutService
         _cipAutoCostPosting = cipAutoCostPosting;
     }
 
-    public string GenerateCloseoutSummary(MaintenanceEvent workOrder, List<WorkOrderOperation>? operations = null)
+    public string GenerateCloseoutSummary(WorkOrder workOrder, List<WorkOrderOperation>? operations = null)
     {
         var sb = new StringBuilder();
 
@@ -135,7 +135,7 @@ public class CloseoutService : ICloseoutService
 
         try
         {
-            var workOrder = await _db.MaintenanceEvents
+            var workOrder = await _db.WorkOrders
                 .Include(m => m.Operations)
                 .Include(m => m.Asset)
                 .Where(m => m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -249,7 +249,7 @@ public class CloseoutService : ICloseoutService
 
             var auditEntry = new AuditLog
             {
-                EntityType = "MaintenanceEvent",
+                EntityType = "WorkOrder",
                 EntityId = workOrderId,
                 Action = SmartAssistConstants.CloseoutAuditAction,
                 Username = username,
@@ -339,7 +339,7 @@ public class CloseoutService : ICloseoutService
 
         try
         {
-            var workOrder = await _db.MaintenanceEvents
+            var workOrder = await _db.WorkOrders
                 .Include(m => m.Asset)
                 .ThenInclude(a => a!.LocationRef)
                 .Where(m => m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
@@ -427,7 +427,7 @@ public class CloseoutService : ICloseoutService
         var cutoffDate = DateTime.UtcNow.AddDays(-days);
         var companyId = GetCompanyId();
 
-        var failures = await _db.MaintenanceEvents
+        var failures = await _db.WorkOrders
             .Include(m => m.Asset)
             .Where(m => m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0) &&
                         m.Status == MaintenanceStatus.Completed &&

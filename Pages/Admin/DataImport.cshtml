@@ -93,7 +93,7 @@
                         <span>@pack.SiteCount sites</span>
                         <span>@pack.LocationCount locations</span>
                         <span>@pack.VendorCount vendors</span>
-                        <span>@pack.MaintenanceEventCount maint events</span>
+                        <span>@pack.WorkOrderCount maint events</span>
                     </div>
                     <form method="post" asp-page-handler="RunSeedPack" asp-route-packId="@pack.Id">
                         <button type="submit" class="hero-btn @(pack.Id == "enterprise" ? "hero-btn-primary" : "hero-btn-secondary")" data-csp-style="width: 100%; margin-top: 1rem;"

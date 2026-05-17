@@ -80,7 +80,7 @@ public class OutboxWriterTypedEnqueueTests
 
         var stored = await db.OutboxEvents.SingleAsync();
         Assert.Equal("workorder.closed", stored.EventType);
-        Assert.Equal("MaintenanceEvent", stored.EntityType);
+        Assert.Equal("WorkOrder", stored.EntityType);
         Assert.Equal("789", stored.EntityId);
         Assert.Equal(100, stored.CompanyId);
         Assert.Equal(5, stored.SiteId);

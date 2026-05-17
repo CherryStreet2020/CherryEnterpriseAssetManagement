@@ -87,7 +87,7 @@ public class CreateModel : PageModel
     public bool IsSiteSelected => SelectedSiteId.HasValue;
 
     public SmartAssistResult? AssistResult { get; set; }
-    public MaintenanceEvent? GeneratedWorkOrder { get; set; }
+    public WorkOrder? GeneratedWorkOrder { get; set; }
     public bool ShowAssistPanel { get; set; } = false;
 
     public int ReadinessScore { get; set; }
