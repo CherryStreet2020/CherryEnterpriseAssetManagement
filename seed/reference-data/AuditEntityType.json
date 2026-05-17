@@ -70,12 +70,6 @@
       "isActive": true
     },
     {
-      "code": "WorkOrder",
-      "name": "Work Order",
-      "sortOrder": 12,
-      "isActive": true
-    },
-    {
       "code": "LookupType",
       "name": "Lookup Type",
       "sortOrder": 13,

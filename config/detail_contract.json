@@ -21,7 +21,6 @@
     { "type": "company", "entity": "Company", "pk": "int", "sections_min": 3 },
     { "type": "book", "entity": "Book", "pk": "int", "sections_min": 3 },
     { "type": "item", "entity": "Item", "pk": "int", "sections_min": 3 },
-    { "type": "work_order", "entity": "MaintenanceEvent (alias)", "pk": "int", "sections_min": 3 },
     { "type": "cip_project", "entity": "CipProject", "pk": "int", "sections_min": 3 },
     { "type": "fiscal_year", "entity": "FiscalYear", "pk": "int", "sections_min": 3 },
     { "type": "fiscal_period", "entity": "FiscalPeriod", "pk": "int", "sections_min": 3 },
