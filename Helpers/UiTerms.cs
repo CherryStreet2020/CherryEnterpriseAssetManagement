@@ -10,6 +10,14 @@ public static class UiTerms
     public const string CapitalProjects = "Capital Projects";
     public const string CIPSingular = "Project";
     public const string CIPPlural = "CIP Projects";
+
+    // PR #119.6-prep — canonical long-form name for the project-management
+    // header. Per Dean's call (2026-05-17): operators see this, accountants
+    // see "Construction in Progress" on the GL/balance sheet (the GAAP
+    // ASC 360-10 chart-of-accounts term stays unchanged on the books).
+    // CIP acronym still expands cleanly to Capital Improvement Project.
+    public const string CapitalImprovementProjectFull = "Capital Improvement Project";
+    public const string CapitalImprovementProjectPluralFull = "Capital Improvement Projects";
     public const string AssetManagement = "Asset Register";
     public const string AssetSingular = "Asset";
     public const string AssetPlural = "Assets";

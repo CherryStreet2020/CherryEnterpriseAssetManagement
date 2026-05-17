@@ -54,8 +54,8 @@ const CherryTour = (function() {
             },
             {
                 target: 'a[href="/CIP"]',
-                title: 'Construction in Progress (CIP)',
-                content: 'Track capital projects from initial planning through completion. Monitor budgets vs actual spending across 12 cost categories, then capitalize completed projects into fixed assets.',
+                title: 'Capital Improvement Project (CIP)',
+                content: 'Track capital improvement projects from initial planning through completion. Monitor budgets vs actual spending across 12 cost categories, then capitalize completed projects into fixed assets. Costs accumulate on the balance sheet under the GAAP "Construction in Progress" account until capitalization.',
                 position: 'right'
             },
             {
@@ -254,8 +254,8 @@ const CherryTour = (function() {
         'cip': [
             {
                 target: '.page-header',
-                title: 'Construction in Progress',
-                content: 'Track capital projects from initial concept through completion and capitalization. Manage budgets, monitor spending by cost category, and convert finished projects into depreciable assets.',
+                title: 'Capital Improvement Project',
+                content: 'Track capital improvement projects from initial concept through completion and capitalization. Manage budgets, monitor spending by cost category, and convert finished projects into depreciable assets. (Costs accumulate on the balance sheet under the GAAP "Construction in Progress" account until capitalization.)',
                 position: 'bottom'
             },
             {
