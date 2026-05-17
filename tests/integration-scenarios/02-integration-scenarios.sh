@@ -264,6 +264,90 @@ scenario "Insert a ProductionBatchAllocation row tying batch -> op" "
     THEN 'PASS' ELSE 'FAIL' END;
 "
 
+# --- Scenario 8: Polymorphic MaterialStructure -----------------------
+echo ""
+echo "[8] Polymorphic MaterialStructure: Bom + Recipe + shared Lines"
+
+scenario "Create MaterialStructure (StructureType=Recipe) + Recipe subtype + Lines (Component + CoProduct)" "
+  INSERT INTO \"MaterialStructures\"
+    (\"StructureNumber\", \"Name\", \"StructureType\", \"Status\")
+  VALUES ('TEST-MS-RCP-001', 'Test Recipe', 1, 0);
+
+  INSERT INTO \"Recipes\"
+    (\"MaterialStructureId\", \"ScalingMode\", \"StandardBatchSize\", \"BatchUom\")
+  SELECT \"Id\", 0, 100.0000, 'kg'
+  FROM \"MaterialStructures\" WHERE \"StructureNumber\"='TEST-MS-RCP-001';
+
+  INSERT INTO \"MaterialStructureLines\"
+    (\"MaterialStructureId\", \"ItemId\", \"LineKind\", \"Sequence\", \"Quantity\", \"Uom\")
+  SELECT ms.\"Id\", i.\"Id\", 0, 10, 50.0000, 'kg'
+  FROM \"MaterialStructures\" ms, \"Items\" i
+  WHERE ms.\"StructureNumber\"='TEST-MS-RCP-001'
+  LIMIT 1;
+
+  INSERT INTO \"MaterialStructureLines\"
+    (\"MaterialStructureId\", \"ItemId\", \"LineKind\", \"Sequence\", \"Quantity\", \"Uom\")
+  SELECT ms.\"Id\", i.\"Id\", 1, 20, 95.0000, 'kg'
+  FROM \"MaterialStructures\" ms, \"Items\" i
+  WHERE ms.\"StructureNumber\"='TEST-MS-RCP-001'
+  LIMIT 1;
+
+  SELECT CASE
+    WHEN (SELECT COUNT(*) FROM \"MaterialStructureLines\" l
+          JOIN \"MaterialStructures\" ms ON l.\"MaterialStructureId\"=ms.\"Id\"
+          WHERE ms.\"StructureNumber\"='TEST-MS-RCP-001') = 2
+     AND (SELECT \"StandardBatchSize\" FROM \"Recipes\" r
+          JOIN \"MaterialStructures\" ms ON r.\"MaterialStructureId\"=ms.\"Id\"
+          WHERE ms.\"StructureNumber\"='TEST-MS-RCP-001') = 100.0000
+    THEN 'PASS' ELSE 'FAIL' END;
+"
+
+scenario "CASCADE: delete MaterialStructure removes Recipe + Lines" "
+  INSERT INTO \"MaterialStructures\"
+    (\"StructureNumber\", \"Name\", \"StructureType\", \"Status\")
+  VALUES ('TEST-MS-CASC', 'Test Cascade', 0, 0);
+
+  INSERT INTO \"Boms\" (\"MaterialStructureId\") SELECT \"Id\"
+  FROM \"MaterialStructures\" WHERE \"StructureNumber\"='TEST-MS-CASC';
+
+  INSERT INTO \"MaterialStructureLines\"
+    (\"MaterialStructureId\", \"ItemId\", \"LineKind\", \"Sequence\", \"Quantity\")
+  SELECT ms.\"Id\", i.\"Id\", 0, 10, 1
+  FROM \"MaterialStructures\" ms, \"Items\" i
+  WHERE ms.\"StructureNumber\"='TEST-MS-CASC'
+  LIMIT 1;
+
+  DELETE FROM \"MaterialStructures\" WHERE \"StructureNumber\"='TEST-MS-CASC';
+
+  SELECT CASE
+    WHEN (SELECT COUNT(*) FROM \"Boms\" b
+          LEFT JOIN \"MaterialStructures\" ms ON b.\"MaterialStructureId\"=ms.\"Id\"
+          WHERE ms.\"Id\" IS NULL) = 0
+     AND (SELECT COUNT(*) FROM \"MaterialStructureLines\" l
+          LEFT JOIN \"MaterialStructures\" ms ON l.\"MaterialStructureId\"=ms.\"Id\"
+          WHERE ms.\"Id\" IS NULL) = 0
+    THEN 'PASS' ELSE 'FAIL' END;
+"
+
+scenario "RegulatoryProfile: insert with Gates jsonb and link to MaterialStructure" "
+  INSERT INTO \"RegulatoryProfiles\"
+    (\"Name\", \"Regime\", \"IsExternalRegime\", \"MinimumRetentionYears\", \"Gates\")
+  VALUES ('TEST-NADCAP-HT', 7, true, 40,
+          '{\"requirePyrometryChart\": true, \"requireHeatNumber\": true}'::jsonb);
+
+  INSERT INTO \"MaterialStructures\"
+    (\"StructureNumber\", \"Name\", \"StructureType\", \"Status\", \"RegulatoryProfileId\")
+  SELECT 'TEST-MS-NADCAP', 'NADCAP Heat Treat', 1, 0, \"Id\"
+  FROM \"RegulatoryProfiles\" WHERE \"Name\"='TEST-NADCAP-HT';
+
+  SELECT CASE
+    WHEN (SELECT rp.\"MinimumRetentionYears\"
+          FROM \"MaterialStructures\" ms
+          JOIN \"RegulatoryProfiles\" rp ON ms.\"RegulatoryProfileId\"=rp.\"Id\"
+          WHERE ms.\"StructureNumber\"='TEST-MS-NADCAP') = 40
+    THEN 'PASS' ELSE 'FAIL' END;
+"
+
 # --- Summary --------------------------------------------------------
 echo ""
 echo "================================================================"
