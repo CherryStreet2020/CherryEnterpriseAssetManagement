@@ -1,5 +1,6 @@
 @page
 @model Abs.FixedAssets.Pages.Periods.IndexModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Period Close";
     ViewData["TabTitle"] = "Period Close";
@@ -15,21 +16,71 @@
         ["HeaderSubtitle"] = subtitle
     };
 
-    string StatusBadgeStyle(Abs.FixedAssets.Models.PeriodStatus s) => s switch
+    // PR #116d.14 — fleet-wide period rollup for the top KPI strip.
+    var allPeriods = Model.Years.SelectMany(fy => Model.PeriodsByYear.GetValueOrDefault(fy.Id) ?? new List<Abs.FixedAssets.Models.FiscalPeriod>()).ToList();
+    var totalOpen = allPeriods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Open);
+    var totalClosed = allPeriods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Closed);
+    var totalLocked = allPeriods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Locked);
+    var overdueOpen = allPeriods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Open && p.EndDate <= DateTime.UtcNow.Date);
+
+    // PR #116d.14 — Map PeriodStatus → design system tone.
+    string PeriodTone(Abs.FixedAssets.Models.PeriodStatus s) => s switch
     {
-        Abs.FixedAssets.Models.PeriodStatus.Open => "background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.35); color: #86efac;",
-        Abs.FixedAssets.Models.PeriodStatus.Closed => "background: rgba(59,130,246,0.10); border: 1px solid rgba(59,130,246,0.35); color: #93c5fd;",
-        Abs.FixedAssets.Models.PeriodStatus.Locked => "background: rgba(168,85,247,0.10); border: 1px solid rgba(168,85,247,0.35); color: #d8b4fe;",
-        _ => "background: rgba(120,120,120,0.10); border: 1px solid rgba(120,120,120,0.35); color: #cbd5e1;"
+        Abs.FixedAssets.Models.PeriodStatus.Open => "success",
+        Abs.FixedAssets.Models.PeriodStatus.Closed => "info",
+        Abs.FixedAssets.Models.PeriodStatus.Locked => "brand",
+        _ => "neutral"
     };
 }
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
 
-<form method="get" class="filter-bar" data-csp-style="margin-top: 1rem; padding: 1rem 1.25rem; border-radius: 8px; background: var(--hero-bg, rgba(120,120,200,0.04)); display: flex; gap: 1rem; align-items: end; flex-wrap: wrap;">
-    <div class="form-group" data-csp-style="flex: 1; min-width: 240px;">
-        <label class="form-label" data-csp-style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem;">Company</label>
-        <select name="CompanyId" class="form-control" data-csp-style="width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: inherit;">
+@* PR #116d.14 — Top KPI strip surfacing fleet-wide period status. The
+   "Overdue Open" tile is the operationally critical one — periods that have
+   ended but haven't been closed yet. Tone flips to danger when ≥1. *@
+@if (Model.Years.Any())
+{
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Fiscal Years",
+            Value = Model.Years.Count.ToString("N0"),
+            DeltaText = $"{allPeriods.Count} total period(s)",
+            DeltaDirection = "flat",
+            SparkTone = "info"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Open Periods",
+            Value = totalOpen.ToString("N0"),
+            DeltaText = overdueOpen > 0 ? $"▼ {overdueOpen} overdue (end-date passed)" : "▲ all open periods are current",
+            DeltaDirection = overdueOpen > 0 ? "down" : "up",
+            SparkTone = overdueOpen > 0 ? "danger" : "success"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Closed Periods",
+            Value = totalClosed.ToString("N0"),
+            DeltaText = totalClosed == 0 ? "no closes yet this company" : "books locked through last close",
+            DeltaDirection = "flat",
+            SparkTone = "info"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Locked Periods",
+            Value = totalLocked.ToString("N0"),
+            DeltaText = totalLocked > 0 ? "audited & immutable" : "no audit lock yet",
+            DeltaDirection = "flat",
+            SparkTone = "brand"
+        })
+    </div>
+}
+
+@* PR #116d.14 — Filter as a DataCard with neutral tone, ds-btn primary. *@
+<form method="get" class="ds-card" data-tone="neutral" style="margin-top: 20px; display: flex; gap: 16px; align-items: end; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 240px;">
+        <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Company</label>
+        <select name="CompanyId" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;">
             @foreach (var c in Model.CompanyOptions)
             {
                 if (Model.CompanyId?.ToString() == c.Value)
@@ -43,36 +94,42 @@
             }
         </select>
     </div>
-    <button type="submit" class="btn-p btn-p--primary" data-csp-style="padding: 0.5rem 1.25rem; font-weight: 600;">Apply</button>
+    <button type="submit" class="ds-btn ds-btn--primary ds-btn--md">Apply</button>
 </form>
 
 @if (Model.NextCloseable != null)
 {
-    <div class="section-card" data-csp-style="margin-top: 1.5rem; border: 1px solid rgba(168,85,247,0.4); background: linear-gradient(135deg, rgba(168,85,247,0.08), rgba(99,102,241,0.04));">
-        <div class="section-card-body" data-csp-style="padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap;">
-            <div>
-                <div data-csp-style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em;">Next period eligible to close</div>
-                <h2 data-csp-style="margin: 0.25rem 0; font-size: 1.5rem;">@Model.NextCloseable.Name</h2>
-                <div data-csp-style="color: var(--text-muted); font-size: 0.875rem;">
-                    @Model.NextCloseable.StartDate.ToString("MMM d, yyyy") – @Model.NextCloseable.EndDate.ToString("MMM d, yyyy") · @Model.NextCloseable.DaysInPeriod days
-                </div>
+    @* PR #116d.14 — "Next eligible to close" hero as a DataCard with brand tone.
+       The CTA is the conversion-driving action on this page — make it luxurious. *@
+    <div class="ds-card" data-tone="brand" style="margin-top: 20px; padding: 22px 26px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Next period eligible to close</div>
+            <h2 style="margin: 6px 0 4px; font-size: 24px; font-weight: 700; color: var(--text-primary);">@Model.NextCloseable.Name</h2>
+            <div style="color: var(--text-muted); font-size: 13px;">
+                @Model.NextCloseable.StartDate.ToString("MMM d, yyyy") – @Model.NextCloseable.EndDate.ToString("MMM d, yyyy") · @Model.NextCloseable.DaysInPeriod days
             </div>
-            <a class="btn-p btn-p--primary" data-csp-style="padding: 0.75rem 1.5rem; font-weight: 600; font-size: 1rem;" href="/Periods/Close?fiscalPeriodId=@Model.NextCloseable.Id&companyId=@Model.CompanyId">
-                Run sequenced close →
-            </a>
         </div>
+        <a class="ds-btn ds-btn--primary ds-btn--lg" href="/Periods/Close?fiscalPeriodId=@Model.NextCloseable.Id&companyId=@Model.CompanyId">
+            Run sequenced close →
+        </a>
     </div>
 }
 
 @if (!Model.Years.Any())
 {
-    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
-        <div class="section-card-body" data-csp-style="padding: 2rem; text-align: center;">
-            <h3 data-csp-style="margin-top: 0;">No fiscal years materialized for this company yet.</h3>
-            <p data-csp-style="color: var(--text-muted);">
-                Visit <a href="/Admin/FiscalCalendar">Admin → Fiscal Calendar</a> to generate the calendar for the next fiscal year.
-            </p>
-        </div>
+    @* PR #116d.14 — EmptyState v2 with calendar icon. *@
+    <div style="margin-top: 24px;">
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Icon = "calendar",
+            Tone = "info",
+            Title = "No fiscal years materialized for this company",
+            Body = "Visit Admin → Fiscal Calendar to generate the calendar for the next fiscal year. Period close, depreciation runs, and journal entries all depend on a materialized calendar.",
+            CtaLabel = "Open Fiscal Calendar Admin",
+            CtaHref = "/Admin/FiscalCalendar",
+            SecondaryLabel = "Back to Reports",
+            SecondaryHref = "/Reports"
+        })
     </div>
 }
 
@@ -83,66 +140,75 @@
     var closedCount = periods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Closed);
     var lockedCount = periods.Count(p => p.Status == Abs.FixedAssets.Models.PeriodStatus.Locked);
 
-    <div class="section-card" data-csp-style="margin-top: 1.5rem;">
-        <div class="section-card-header" data-csp-style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);">
-            <h3 data-csp-style="margin: 0;">@fy.Name</h3>
-            <div data-csp-style="display: flex; gap: 0.5rem; font-size: 0.75rem;">
-                <span data-csp-style="padding: 0.25rem 0.5rem; border-radius: 4px; background: rgba(34,197,94,0.12); color: #86efac;">@openCount open</span>
-                <span data-csp-style="padding: 0.25rem 0.5rem; border-radius: 4px; background: rgba(59,130,246,0.10); color: #93c5fd;">@closedCount closed</span>
+    @* PR #116d.14 — Fiscal year section as DataCard with brand tone. Header
+       carries StatusPills for open/closed/locked counts. *@
+    <div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+            <div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Fiscal Year</div>
+                <div style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">@fy.Name</div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Open", MonoNum = openCount.ToString(), Tone = "success", ShowDot = true })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Closed", MonoNum = closedCount.ToString(), Tone = "info", ShowDot = true })
                 @if (lockedCount > 0)
                 {
-                    <span data-csp-style="padding: 0.25rem 0.5rem; border-radius: 4px; background: rgba(168,85,247,0.10); color: #d8b4fe;">@lockedCount locked</span>
+                    @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Locked", MonoNum = lockedCount.ToString(), Tone = "brand", ShowDot = true })
                 }
             </div>
         </div>
-        <div class="section-card-body" data-csp-style="padding: 0;">
-            <table class="ledger-table" data-csp-style="width: 100%; border-collapse: collapse;">
+        <div style="padding: 0;">
+            <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr data-csp-style="background: var(--hero-bg, rgba(120,120,200,0.04));">
-                        <th data-csp-style="text-align: left; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);">Period</th>
-                        <th data-csp-style="text-align: left; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);">Window</th>
-                        <th data-csp-style="text-align: center; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);">Status</th>
-                        <th data-csp-style="text-align: left; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);">Closed</th>
-                        <th data-csp-style="text-align: right; padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);">Actions</th>
+                    <tr style="background: var(--surface-2, rgba(120,120,200,0.04));">
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Period</th>
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Window</th>
+                        <th style="text-align: center; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Status</th>
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Closed</th>
+                        <th style="text-align: right; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                @foreach (var p in periods)
-                {
-                    var badgeStyle = $"padding: 0.25rem 0.625rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; {StatusBadgeStyle(p.Status)}";
-                    <tr>
-                        <td data-csp-style="padding: 0.625rem 1rem; border-bottom: 1px solid var(--border);"><strong>@p.Name</strong></td>
-                        <td data-csp-style="padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-muted);">@p.StartDate.ToString("MMM d") – @p.EndDate.ToString("MMM d")</td>
-                        <td data-csp-style="padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); text-align: center;">
-                            <span data-csp-style="@badgeStyle">@p.Status</span>
-                        </td>
-                        <td data-csp-style="padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 0.875rem;">
-                            @if (p.ClosedAt.HasValue)
-                            {
-                                <span>@p.ClosedAt.Value.ToString("yyyy-MM-dd")</span>
-                                <span data-csp-style="display: block; font-size: 0.75rem;">by @p.ClosedBy</span>
-                            }
-                            else
-                            {
-                                <span>—</span>
-                            }
-                        </td>
-                        <td data-csp-style="padding: 0.625rem 1rem; border-bottom: 1px solid var(--border); text-align: right;">
-                            @if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Open && p.EndDate <= DateTime.UtcNow.Date)
-                            {
-                                <a class="btn-p btn-p--primary" data-csp-style="padding: 0.375rem 0.875rem; font-size: 0.8125rem;" href="/Periods/Close?fiscalPeriodId=@p.Id&companyId=@Model.CompanyId">Close →</a>
-                            }
-                            else if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Closed)
-                            {
-                                <a class="btn-p btn-p--secondary" data-csp-style="padding: 0.375rem 0.875rem; font-size: 0.8125rem;" href="/Periods/Close?fiscalPeriodId=@p.Id&companyId=@Model.CompanyId">View packet</a>
-                            }
-                            else if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Open && p.EndDate > DateTime.UtcNow.Date)
-                            {
-                                <span data-csp-style="font-size: 0.75rem; color: var(--text-muted);">future</span>
-                            }
-                        </td>
-                    </tr>
-                }
+                    @foreach (var p in periods)
+                    {
+                        <tr style="border-top: 1px solid var(--border);">
+                            <td style="padding: 12px 16px;"><strong style="color: var(--text-primary);">@p.Name</strong></td>
+                            <td style="padding: 12px 16px; color: var(--text-muted); font-size: 13px;">@p.StartDate.ToString("MMM d") – @p.EndDate.ToString("MMM d")</td>
+                            <td style="padding: 12px 16px; text-align: center;">
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                                {
+                                    Label = p.Status.ToString(),
+                                    Tone = PeriodTone(p.Status),
+                                    ShowDot = true
+                                })
+                            </td>
+                            <td style="padding: 12px 16px; color: var(--text-muted); font-size: 13px;">
+                                @if (p.ClosedAt.HasValue)
+                                {
+                                    <span style="color: var(--text-primary);">@p.ClosedAt.Value.ToString("yyyy-MM-dd")</span>
+                                    <span style="display: block; font-size: 11px;">by @p.ClosedBy</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--text-muted);">—</span>
+                                }
+                            </td>
+                            <td style="padding: 12px 16px; text-align: right;">
+                                @if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Open && p.EndDate <= DateTime.UtcNow.Date)
+                                {
+                                    <a class="ds-btn ds-btn--primary ds-btn--sm" href="/Periods/Close?fiscalPeriodId=@p.Id&companyId=@Model.CompanyId">Close →</a>
+                                }
+                                else if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Closed)
+                                {
+                                    <a class="ds-btn ds-btn--secondary ds-btn--sm" href="/Periods/Close?fiscalPeriodId=@p.Id&companyId=@Model.CompanyId">View packet</a>
+                                }
+                                else if (p.Status == Abs.FixedAssets.Models.PeriodStatus.Open && p.EndDate > DateTime.UtcNow.Date)
+                                {
+                                    <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em;">future</span>
+                                }
+                            </td>
+                        </tr>
+                    }
                 </tbody>
             </table>
         </div>
