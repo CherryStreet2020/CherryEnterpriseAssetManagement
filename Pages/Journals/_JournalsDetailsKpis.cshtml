@@ -1,27 +1,56 @@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@*
+    PR #116d.13 — Journal Detail KPI strip rebuilt with 4 KPITile primitives.
+
+    The Reference tile is rendered as a smaller string-valued tile (it's a label,
+    not a number). The Debit/Credit/Lines tiles surface the balance-check
+    relationship — same pattern as the list page, but applied to a single entry.
+*@
 @{
     var entry = ViewData["Entry"] as Abs.FixedAssets.Models.JournalEntry;
     var totalDebit = ViewData["TotalDebit"] as decimal? ?? 0;
     var totalCredit = ViewData["TotalCredit"] as decimal? ?? 0;
-    Func<decimal, string> money = v => v.ToString("C2");
+    var lineCount = entry?.Lines?.Count ?? 0;
+    var balanceDiff = totalDebit - totalCredit;
+    var isBalanced = totalDebit > 0m && System.Math.Abs(balanceDiff) < 0.01m;
+    var debitDelta = isBalanced ? "▲ matches credits" : (balanceDiff > 0m ? $"▲ {balanceDiff.ToString("C0")} over credits" : $"▼ {System.Math.Abs(balanceDiff).ToString("C0")} under credits");
+    var debitDirection = isBalanced ? "up" : (balanceDiff > 0m ? "up" : "down");
+    var debitTone = isBalanced ? "success" : "warning";
 }
 @if (entry != null)
 {
-    <div class="screen-header__kpis">
-        <div class="kpi-card">
-            <div class="kpi-label">Ref</div>
-            <div class="kpi-value" data-csp-style="font-size: 14px;">@entry.Reference</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Debit</div>
-            <div class="kpi-value money">@money(totalDebit)</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Credit</div>
-            <div class="kpi-value success">@money(totalCredit)</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Lines</div>
-            <div class="kpi-value">@(entry.Lines?.Count ?? 0)</div>
-        </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Reference",
+            Value = string.IsNullOrEmpty(entry.Reference) ? "—" : entry.Reference,
+            DeltaText = "external GL key",
+            DeltaDirection = "flat",
+            SparkTone = "muted"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Total Debit",
+            Value = totalDebit.ToString("C0"),
+            DeltaText = debitDelta,
+            DeltaDirection = debitDirection,
+            SparkTone = debitTone
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Total Credit",
+            Value = totalCredit.ToString("C0"),
+            DeltaText = isBalanced ? "▲ matches debits" : "balance check left",
+            DeltaDirection = isBalanced ? "up" : "flat",
+            SparkTone = isBalanced ? "success" : "danger"
+        })
+        @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+        {
+            Label = "Lines",
+            Value = lineCount.ToString("N0"),
+            DeltaText = lineCount == 1 ? "single posting" : "GL postings",
+            DeltaDirection = "flat",
+            SparkTone = "info"
+        })
     </div>
 }
