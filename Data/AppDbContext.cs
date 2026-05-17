@@ -91,6 +91,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails> EngineeringWorkOrderDetails
             => Set<Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails>();
 
+        // ADR-012 v0.2 / PR #119.11 — HSE satellite (Classification=HSE only).
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails> HseWorkOrderDetails
+            => Set<Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -775,6 +779,19 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.EcoNumber);
                 e.HasIndex(x => x.EngineeringIssueType);
                 e.HasIndex(x => x.LinkedNcrWorkOrderId);
+            });
+
+            // ADR-012 v0.2 / PR #119.11 — HseWorkOrderDetails satellite.
+            // 1:0..1 with WorkOrder. RiskScore (1..25, computed from
+            // ANSI Z10 5x5 matrix) is indexed so the EHS queue can sort
+            // by risk descending.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails>(e =>
+            {
+                e.HasIndex(x => x.WorkOrderId).IsUnique();
+                e.HasIndex(x => x.OshaCaseNumber);
+                e.HasIndex(x => x.HseIssueType);
+                e.HasIndex(x => x.RecordabilityClass);
+                e.HasIndex(x => x.RiskScore);
             });
 
             // Maintenance Schedules
