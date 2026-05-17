@@ -1,6 +1,7 @@
 @page
 @model Abs.FixedAssets.Pages.Purchasing.IndexModel
 @using System.Text.Json
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Purchase Orders";
     ViewData["TabTitle"] = "Purchasing Cockpit";
@@ -43,33 +44,52 @@
 
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
+@* PR #116d.15 — Flash messages restyled on the design system. *@
 @if (TempData["Success"] is string success)
 {
-    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@success</div>
+    <div class="ds-card" data-tone="success" style="margin-bottom: 14px; padding: 12px 16px; color: var(--text-primary);">@success</div>
 }
 @if (TempData["Error"] is string error)
 {
-    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@error</div>
+    <div class="ds-card" data-tone="danger" style="margin-bottom: 14px; padding: 12px 16px; color: var(--text-primary);">@error</div>
 }
 
-<!-- KPI STRIP -->
-<div data-csp-style="display:grid; grid-template-columns:repeat(4, 1fr); gap:0.75rem; margin-bottom:1rem;">
-    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
-        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open POs</div>
-        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--info); font-variant-numeric:tabular-nums;">@Model.OpenPOCount</div>
-    </div>
-    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
-        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Pending Approval</div>
-        <div data-csp-style="font-size:1.5rem; font-weight:700; color:@(Model.PendingApprovalCount > 0 ? "var(--warning)" : "var(--text-muted)"); font-variant-numeric:tabular-nums;">@Model.PendingApprovalCount</div>
-    </div>
-    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
-        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Open Value</div>
-        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums;">$@Model.OpenPOValue.ToString("N0")</div>
-    </div>
-    <div class="pe-card" data-csp-style="padding:0.75rem 1rem; text-align:center;">
-        <div data-csp-style="font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Received This Month</div>
-        <div data-csp-style="font-size:1.5rem; font-weight:700; color:var(--success); font-variant-numeric:tabular-nums;">@Model.ReceivedThisMonth</div>
-    </div>
+@* PR #116d.15 — Top KPI strip rebuilt with 4 KPITile primitives.
+   Pending Approval flips to warning tone whenever any approval is queued —
+   tells the operator their action is needed before scrolling the list. *@
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Open POs",
+        Value = Model.OpenPOCount.ToString("N0"),
+        DeltaText = "in active procurement flow",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Pending Approval",
+        Value = Model.PendingApprovalCount.ToString("N0"),
+        DeltaText = Model.PendingApprovalCount > 0 ? "▼ awaiting your sign-off" : "▲ nothing blocked on approval",
+        DeltaDirection = Model.PendingApprovalCount > 0 ? "down" : "up",
+        SparkTone = Model.PendingApprovalCount > 0 ? "warning" : "success"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Open Value",
+        Value = "$" + Model.OpenPOValue.ToString("N0"),
+        DeltaText = "committed but not received",
+        DeltaDirection = "flat",
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Received This Month",
+        Value = Model.ReceivedThisMonth.ToString("N0"),
+        DeltaText = Model.ReceivedThisMonth > 0 ? "▲ inventory landing" : "no receipts yet this month",
+        DeltaDirection = Model.ReceivedThisMonth > 0 ? "up" : "flat",
+        SparkTone = "success"
+    })
 </div>
 
 <div class="cockpit">
@@ -77,7 +97,7 @@
     <div class="cockpit__queue">
         <div class="cockpit__queue-header">
             <h3 class="cockpit__queue-title"><i class="fas fa-file-invoice-dollar"></i> Purchase Orders</h3>
-            <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm">
+            <a href="/Purchasing/Create" class="ds-btn ds-btn--primary ds-btn--sm">
                 <i class="fas fa-plus"></i> New PO
             </a>
         </div>
@@ -134,10 +154,19 @@
             }
             @if (!Model.PurchaseOrders.Any())
             {
-                <div class="cockpit__empty">
-                    <i class="fas fa-file-invoice" data-csp-style="font-size:2rem; color:var(--text-muted); margin-bottom:0.5rem; opacity:0.4;"></i>
-                    <div>No purchase orders found.</div>
-                    <a href="/Purchasing/Create" class="btn-p btn-p--primary btn-p--sm" data-csp-style="margin-top:0.75rem;">Create First PO</a>
+                @* PR #116d.15 — EmptyState v2 with document icon for empty PO list. *@
+                <div style="padding: 24px 12px;">
+                    @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+                    {
+                        Icon = "document",
+                        Tone = "info",
+                        Title = "No purchase orders yet",
+                        Body = "Create your first PO to start tracking procurement. POs flow Draft → Pending Approval → Approved → Sent → Received.",
+                        CtaLabel = "Create First PO",
+                        CtaHref = "/Purchasing/Create",
+                        SecondaryLabel = "Back to Dashboard",
+                        SecondaryHref = "/"
+                    })
                 </div>
             }
         </div>
@@ -178,10 +207,10 @@
                     <span class="cockpit__preview-status" id="pvStatus"></span>
                 </div>
                 <div data-csp-style="display:flex; gap:0.5rem;">
-                    <a id="pvEditBtn" href="#" class="btn-p btn-p--secondary btn-p--sm">
+                    <a id="pvEditBtn" href="#" class="ds-btn ds-btn--secondary ds-btn--sm">
                         <i class="fas fa-edit"></i> Edit / Details
                     </a>
-                    <a id="pvReceiveBtn" href="#" class="btn-p btn-p--primary btn-p--sm" data-csp-style="display:none;">
+                    <a id="pvReceiveBtn" href="#" class="ds-btn ds-btn--primary ds-btn--sm" data-csp-style="display:none;">
                         <i class="fas fa-box-open"></i> Receive
                     </a>
                 </div>
@@ -452,23 +481,23 @@ function selectPO(id) {
         notesWrap.style.display = 'none';
     }
 
-    // Context-sensitive actions
+    // PR #116d.15 — Context-sensitive actions rebuilt on ds-btn.
     var actions = document.getElementById('pvActions');
     var html = '';
     if (po.status === 'Draft') {
-        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-edit"></i> Edit PO</a>'
+        html = '<a href="/Purchasing/Details/' + id + '" class="ds-btn ds-btn--primary ds-btn--sm"><i class="fas fa-edit"></i> Edit PO</a>'
              + '<span data-csp-style="font-size:0.8rem; color:var(--text-muted); padding:0.35rem 0;">Add lines and submit for approval</span>';
     } else if (po.status === 'PendingApproval') {
-        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-check"></i> Review & Approve</a>'
-             + '<span data-csp-style="font-size:0.8rem; color:var(--warning); padding:0.35rem 0;"><i class="fas fa-bell"></i> Awaiting approval</span>';
+        html = '<a href="/Purchasing/Details/' + id + '" class="ds-btn ds-btn--primary ds-btn--sm"><i class="fas fa-check"></i> Review & Approve</a>'
+             + '<span data-csp-style="font-size:0.8rem; color:var(--ds-warning, #fbbf24); padding:0.35rem 0;"><i class="fas fa-bell"></i> Awaiting approval</span>';
     } else if (po.status === 'Approved' || po.status === 'Sent') {
-        html = '<a href="/Receiving/Receive/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-box-open"></i> Receive Goods</a>'
-             + '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+        html = '<a href="/Receiving/Receive/' + id + '" class="ds-btn ds-btn--primary ds-btn--sm"><i class="fas fa-box-open"></i> Receive Goods</a>'
+             + '<a href="/Purchasing/Details/' + id + '" class="ds-btn ds-btn--ghost ds-btn--sm"><i class="fas fa-eye"></i> View Details</a>';
     } else if (po.status === 'PartiallyReceived') {
-        html = '<a href="/Receiving/Receive/' + id + '" class="btn-p btn-p--primary btn-p--sm"><i class="fas fa-box-open"></i> Continue Receiving</a>'
-             + '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+        html = '<a href="/Receiving/Receive/' + id + '" class="ds-btn ds-btn--primary ds-btn--sm"><i class="fas fa-box-open"></i> Continue Receiving</a>'
+             + '<a href="/Purchasing/Details/' + id + '" class="ds-btn ds-btn--ghost ds-btn--sm"><i class="fas fa-eye"></i> View Details</a>';
     } else {
-        html = '<a href="/Purchasing/Details/' + id + '" class="btn-p btn-p--ghost btn-p--sm"><i class="fas fa-eye"></i> View Details</a>';
+        html = '<a href="/Purchasing/Details/' + id + '" class="ds-btn ds-btn--ghost ds-btn--sm"><i class="fas fa-eye"></i> View Details</a>';
     }
     actions.innerHTML = html;
 }
