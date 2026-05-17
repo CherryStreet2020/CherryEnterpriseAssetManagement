@@ -13,8 +13,14 @@ namespace Abs.FixedAssets.Models
 
         // ADR-012 / PR #119.1 — Unified Work Orders.
         //
-        // Category is the top-level discriminator across Maintenance,
+        // Classification is the top-level discriminator across Maintenance,
         // Production, Quality, Engineering, HSE, and Project work orders.
+        // (Originally proposed as "Category" in the ADR; renamed to
+        // Classification in PR #119.1.1 to avoid collision with the existing
+        // WorkOrderCategory enum used by the WorkOrderType lookup table —
+        // which is a different concept entirely: it categorizes maintenance
+        // flavors on lookup-master rows.)
+        //
         // Existing rows backfill to Maintenance (lossless). The .NET class
         // name MaintenanceEvent is retained for backward compatibility —
         // it's now a misnomer but a clean rename is deferred to a future
@@ -22,11 +28,11 @@ namespace Abs.FixedAssets.Models
         // WorkOrder header table.
         //
         // The legacy MaintenanceType enum is now the sub-type WITHIN
-        // Category=Maintenance. For non-Maintenance categories the Type
-        // column defaults to Other and is ignored by the UI; per-category
-        // detail lives in the satellite tables shipped in PR #119.2
-        // (Production/Quality/Engineering/HseWorkOrderDetails).
-        public WorkOrderCategory Category { get; set; } = WorkOrderCategory.Maintenance;
+        // Classification=Maintenance. For non-Maintenance classifications
+        // the Type column defaults to Other and is ignored by the UI;
+        // per-classification detail lives in the satellite tables shipped
+        // in PR #119.2 (Production/Quality/Engineering/HseWorkOrderDetails).
+        public WorkOrderClassification Classification { get; set; } = WorkOrderClassification.Maintenance;
 
         public MaintenanceType Type { get; set; } = MaintenanceType.Preventative;
 
@@ -314,7 +320,7 @@ namespace Abs.FixedAssets.Models
     //
     // Sequence is stable; never renumber. Adding a new category appends to
     // the end and ships a follow-up migration adding any satellite table.
-    public enum WorkOrderCategory
+    public enum WorkOrderClassification
     {
         // PM, Corrective, Predictive, Emergency, Inspection, Calibration,
         // Upgrade. Sub-type lives in MaintenanceEvent.Type. This is the

@@ -5,7 +5,11 @@
 **Deciders:** Dean Dunagan, Claude
 **Categories:** Architecture | Data | Integration
 
-**Sign-off (2026-05-17):** Dean accepted the v0.1 recommendation with all 5 open questions resolved in favor of the recommended option:
+**Sign-off (2026-05-17):** Dean accepted the v0.1 recommendation with all 5 open questions resolved in favor of the recommended option.
+
+**Naming note (PR #119.1.1):** The top-level discriminator enum is called `WorkOrderClassification` (not `WorkOrderCategory` as originally proposed) because a legacy `WorkOrderCategory` enum already exists on the `WorkOrderType` lookup table — a different concept entirely (it categorizes maintenance-flavor master-data rows). The semantic meaning of the ADR is unchanged; only the C# identifier moved. References below use "Classification" throughout.
+
+**Sign-off detail:**
 1. 6 categories (Maintenance / Production / Quality / Engineering / HSE / Project) — **accepted**.
 2. Severity (Quality / HSE) is a separate axis from WO priority — **accepted**.
 3. CAPA closed loop uses two named FKs (`CapaWorkOrderId` ↔ `LinkedNcrId`) — **accepted**.
@@ -68,14 +72,14 @@ Lookup-value FKs exist for Type/Status/Priority for the tenant-customizable valu
 
 ## Decision
 
-**Extend `MaintenanceEvent` with a `WorkOrderCategory` enum + per-category satellite tables. Defer the table rename to a future sprint.**
+**Extend `MaintenanceEvent` with a `WorkOrderClassification` enum + per-category satellite tables. Defer the table rename to a future sprint.**
 
 ### What we add
 
-**1. WorkOrderCategory enum**
+**1. WorkOrderClassification enum**
 
 ```csharp
-public enum WorkOrderCategory
+public enum WorkOrderClassification
 {
     Maintenance  = 0, // PM, Corrective, Predictive, Emergency, Inspection, Calibration, Upgrade
     Production   = 1, // Work order from MES/MRP — make N units of part XYZ on this asset
@@ -91,7 +95,7 @@ The existing `MaintenanceType` enum stays — it becomes the **sub-type** within
 **2. Two new always-on fields on MaintenanceEvent**
 
 ```csharp
-public WorkOrderCategory Category { get; set; } = WorkOrderCategory.Maintenance;
+public WorkOrderClassification Category { get; set; } = WorkOrderClassification.Maintenance;
 
 // External-system linkage — set when this WO was created from / synced to
 // an ERP work order, MES production order, QMS NCR, etc. NULL for native
@@ -184,7 +188,7 @@ Each is a 1:0..1 FK to MaintenanceEvent. NULL satellite = category-specific data
 
 ## Alternatives Considered
 
-### Alternative A: WorkOrderCategory + satellites *(CHOSEN)*
+### Alternative A: WorkOrderClassification + satellites *(CHOSEN)*
 
 - **Description:** Add a category discriminator + per-category 1:1 satellite tables. MaintenanceEvent stays as the work-order header for all categories.
 - **Pros:** Zero-risk migration (existing data backfills to Category=Maintenance). Single-table read in the 80% case (no joins for maintenance WOs). EF Core 9 handles the optional 1:1 navs natively.
@@ -246,7 +250,7 @@ This ADR ships across **3 PRs**:
 
 | PR | Scope | Risk |
 |---|---|---|
-| **PR #119.1** | Add `WorkOrderCategory` enum + `Category`/`ExternalWorkOrderId`/`ExternalSource` columns on MaintenanceEvent. Migration backfills all existing rows to Category=Maintenance. No UI changes. | Low — additive only. |
+| **PR #119.1** | Add `WorkOrderClassification` enum + `Category`/`ExternalWorkOrderId`/`ExternalSource` columns on MaintenanceEvent. Migration backfills all existing rows to Category=Maintenance. No UI changes. | Low — additive only. |
 | **PR #119.2** | Add the 4 satellite tables (Production/Quality/Engineering/HSE Details) + EF nav properties + migration. No UI yet. | Low — purely additive. |
 | **PR #119.3** | Plant Floor + Asset Detail filter chips for category. New `/WorkOrders` unified queue page replaces `/Maintenance/Index`. Old route 301-redirects for ~30 days then dies. | Medium — touches hot UI paths. |
 
