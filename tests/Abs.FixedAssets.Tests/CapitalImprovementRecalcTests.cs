@@ -116,6 +116,22 @@ public class CapitalImprovementRecalcTests
     private static Abs.FixedAssets.Services.Webhooks.OutboxWriter MakeOutbox(AppDbContext db, ITenantContext tenant) =>
         new(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
 
+    /// <summary>No-op stub for <see cref="ICapitalImprovementPostingService"/>.
+    /// These tests don't care about JE posting; they care about depreciation
+    /// recalculation. The real posting service hits ledger code we don't
+    /// exercise here.</summary>
+    private sealed class NoopImprovementPosting : ICapitalImprovementPostingService
+    {
+        public Task<int?> PostImprovementJeAsync(
+            int improvementId,
+            int assetId,
+            int companyId,
+            decimal amount,
+            DateTime improvementDate,
+            string? description = null)
+            => Task.FromResult<int?>(null);
+    }
+
     /// <summary>Seeds a vanilla company + asset + GAAP book + AssetBookSettings.
     /// Returns the asset.</summary>
     private static async Task<Asset> SeedAssetWithBookAsync(
@@ -297,7 +313,7 @@ public class CapitalImprovementRecalcTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
-            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant), new NoopImprovementPosting())
         {
             AssetId = asset.Id,
             ImprovementDate = new DateTime(2025, 1, 15),
@@ -345,7 +361,7 @@ public class CapitalImprovementRecalcTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
-            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant), new NoopImprovementPosting())
         {
             AssetId = asset.Id,
             ImprovementDate = new DateTime(2025, 1, 15),
@@ -376,7 +392,7 @@ public class CapitalImprovementRecalcTests
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
         var page = new Abs.FixedAssets.Pages.Assets.ImproveModel(
-            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant))
+            db, tenant, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(), MakeBackfill(db), MakeOutbox(db, tenant), new NoopImprovementPosting())
         {
             AssetId = asset.Id,
             ImprovementDate = new DateTime(2025, 6, 1),
