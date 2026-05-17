@@ -79,6 +79,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.NumberSequence> NumberSequence
             => Set<Abs.FixedAssets.Models.WorkOrders.NumberSequence>();
 
+        // ADR-012 v0.2 / PR #119.8 — CIP satellite (Classification=CIP only).
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails> CipWorkOrderDetails
+            => Set<Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -722,6 +726,20 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => new { x.Classification, x.Year, x.TenantId });
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-012 v0.2 / PR #119.8 — CipWorkOrderDetails satellite.
+            // 1:0..1 with WorkOrder, enforced by UNIQUE on WorkOrderId.
+            // No nav property on the WorkOrder side yet; we read this
+            // table by WorkOrderId from the renderer in Phase F.
+            // Optional FK to Asset (TargetFixedAssetId) — SetNull because
+            // a deleted asset shouldn't destroy CIP audit history.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails>(e =>
+            {
+                e.HasIndex(x => x.WorkOrderId).IsUnique();
+                e.HasIndex(x => x.AfeNumber);
+                e.HasIndex(x => x.Stage);
+                e.HasIndex(x => x.TargetFixedAssetId);
             });
 
             // Maintenance Schedules
