@@ -1,220 +1,206 @@
 # ADR-012: Unified Work Orders (MES Expansion)
 
-**Status:** Accepted (v0.1)
+**Status:** Accepted (v0.2 — supersedes v0.1)
 **Date:** 2026-05-17
 **Deciders:** Dean Dunagan, Claude
-**Categories:** Architecture | Data | Integration
+**Categories:** Architecture | Data | Integration | UX
 
-**Sign-off (2026-05-17):** Dean accepted the v0.1 recommendation with all 5 open questions resolved in favor of the recommended option.
+---
 
-**Naming note (PR #119.1.1):** The top-level discriminator enum is called `WorkOrderClassification` (not `WorkOrderCategory` as originally proposed) because a legacy `WorkOrderCategory` enum already exists on the `WorkOrderType` lookup table — a different concept entirely (it categorizes maintenance-flavor master-data rows). The semantic meaning of the ADR is unchanged; only the C# identifier moved. References below use "Classification" throughout.
+## Status history
 
-**Sign-off detail:**
-1. 6 categories (Maintenance / Production / Quality / Engineering / HSE / Project) — **accepted**.
-2. Severity (Quality / HSE) is a separate axis from WO priority — **accepted**.
-3. CAPA closed loop uses two named FKs (`CapaWorkOrderId` ↔ `LinkedNcrId`) — **accepted**.
-4. `ExternalSource` is free text in PR #119.1; lookup migration deferred to PR #119.4 — **accepted**.
-5. Tenant `RegulatedIndustry` flag deferred to Sprint 5 — **accepted**.
+| Version | Date | Result |
+|---|---|---|
+| v0.1 | 2026-05-17 (morning) | Accepted — "Category enum + satellites" pattern with all six work types unified under one MaintenanceEvent table. Five open questions resolved in favor of recommended option. |
+| **v0.2** | **2026-05-17 (afternoon)** | **Revised after Dean pushed back: "A maintenance WO and a CIP WO are drastically different from a production WO… How can we keep a unified system but have a different WO format for each category?" Four-stream platform research (Maximo / SAP / Infor / Oracle / Dynamics / ISA-95 / B2MML / OPC UA 10031-4) showed the dominant industry pattern is unified-data + per-type-UX, with Production as a federated sibling rather than a subtype. v0.2 adopts that pattern, adds four configuration backbone tables, and renames `MaintenanceEvent` → `WorkOrder` now.** |
+
+**v0.2 sign-off (2026-05-17):** Dean accepted after the research presentation; "stay disciplined, remember Best In Class — this is going to be incredible."
 
 ---
 
 ## Context
 
-### The "single pane of glass for all work" thesis
+### What we're solving
 
-Today CherryAI EAM ships a single `MaintenanceEvent` table that models eight kinds of maintenance work (PM, Corrective, Predictive, Emergency, Inspection, Calibration, Upgrade, Other). It is competitive with Maximo, IBM Maximo Asset Health Insights, and SAP PM at maintenance-only work orders.
+Today CherryAI EAM ships a single `MaintenanceEvent` table tuned for eight maintenance flavors (PM, Corrective, Predictive, Emergency, Inspection, Calibration, Upgrade, Other). It is competitive against Maximo / SAP PM / Infor EAM at maintenance-only work orders.
 
-But every plant operator's day is full of work that touches an asset and ISN'T maintenance:
+But every plant operator's day is full of work that touches an asset and isn't maintenance:
 
-- A **production work order** moving down a CNC line — operators need to know if the machine is on a PM hold before they queue the next part
-- A **quality non-conformance** (NCR) flagged at an inspection station — engineering needs to link it back to the CNC + the corrective WO that fixed the bearing
-- An **engineering change order** (ECO) modifying the spindle assembly — maintenance needs to know the calibration baseline has shifted
-- A **safety inspection** finding a guard interlock failing — HSE needs to open a corrective on the same asset
+- **Production WO** moving down a CNC line — operators need to know if the machine is on a PM hold before queuing the next part.
+- **Quality non-conformance** (NCR) flagged at an inspection station — engineering needs to link it back to the CNC + the corrective WO that fixed the bearing.
+- **Engineering change order** (ECO) modifying the spindle assembly — maintenance needs to know the calibration baseline has shifted.
+- **Capital project** (CIP) replacing the spindle motor as a depreciable asset — accounting needs an AFE-tracked cost rollup that reclassifies to the fixed-asset ledger on substantial completion.
+- **Safety inspection** finding a guard interlock failing — HSE needs to open a corrective on the same asset and record it to the OSHA 300 log.
 
-In every competing platform (Maximo, SAP PM, Infor EAM, AVEVA APM) these live in **different modules with different work queues**. The plant manager has to flip between four screens to see what's happening on a single machine. **This is the disruption opportunity.**
+In every competing platform (Maximo, SAP PM, Infor EAM, AVEVA APM) these live in different modules with different work queues. The plant manager has to flip between four screens to see what's happening on a single machine.
 
-### What Dean asked for (2026-05-16 brainstorm)
+**This is the disruption opportunity.**
 
-> "We'll need to expand on the work order functionality if we are going full blown MES as well. We are currently wired for maintenance and CIP work orders only. Whether we work as a standalone or integrate with work orders from an erp system, we'll need to beef it up right?"
+### v0.1 was right about the goal, wrong about the depth
 
-> "We already have Maintenance Scheduling, we'll need to expand the scheduling as well too. To handle production work orders? ERP scheduling systems suck."
+The v0.1 ADR proposed a `WorkOrderCategory` discriminator + per-category satellites on a single `MaintenanceEvent` table. The instinct was correct: unify the data so the Plant Floor view sees ALL work touching an asset in one timeline.
 
-The goal is **one unified `WorkOrder` shape** that the Plant Floor, Work Queue, Asset Detail, and Schedule views all consume — so a CNC operator, a quality engineer, a maintenance planner, and a plant manager all see the same work touching the same asset, filtered by their lens but living in one table.
+The execution was thin. Specifically v0.1:
+- Hand-waved "satellite tables" without listing the actual fields each non-maintenance category needs. Dean caught it: "I don't see a bunch of fields we'll need in the work order like revision, etc."
+- Glossed over the fact that each work type has a fundamentally different **state machine** (CIP has a *substantial-completion* event that triggers accounting reclassification; MOC has a *PSSR gate* that blocks startup; Production has a *QA-release* gate; Quality has an *effectiveness-verification* gate).
+- Treated approval as a single `ApprovedBy` field when CIP needs threshold-tiered multi-level approval, ECO/MOC needs a Change Control Board + PSSR sign-off, and Maintenance is single-stage.
+- Lumped Production into the same table even though Production's event cadence (every operation confirmation, every lot move, every scrap reason) is 100-1000× higher than Maintenance and its KPI surface (OEE: Availability × Performance × Quality) is alien to Maintenance's KPIs (MTBF, MTTR).
+- Deferred the `MaintenanceEvent` → `WorkOrder` rename, which guaranteed the table name would lie forever.
 
-### Standards we're aligning to
+### What the four-stream research found
 
-| Standard | What it gives us |
-|---|---|
-| **ISA-95 / IEC 62264 Part 4** | "Work Record" object vocabulary — the supertype of Production Performance, Maintenance Performance, Quality Performance, Inventory Performance. Defines shared fields (ID, scope, start/end, personnel, equipment, material, status). |
-| **ISO 22400-2** | KPI catalog (OEE, MTTR, MTBF, scrap %, yield, throughput) — these are computed FROM the unified work record stream, so our schema needs to surface the inputs. |
-| **B2MML / OAGIS BOD** | XML/JSON serialization conventions for cross-system work-record exchange. Useful when we integrate with SAP PP, Oracle MES, Dynamics F&O. |
-| **FDA 21 CFR Part 11** | Electronic records audit trail. Already covered by AuditService + xmin RowVersion — extends cleanly to new categories. |
-| **GAMP 5** | Computerised system validation; relevant only when a customer is GxP (regulated pharma/food). |
+I researched seven platforms + four standards bodies. The pattern is unanimous:
 
-### Current state recap
+| Platform / Standard | Pattern | Per-type UX mechanism |
+|---|---|---|
+| **IBM Maximo** | Single `WORKORDER` table + `WOCLASS` discriminator + `WORKTYPE` for CIP (`CAP`) | 4 Applications + Application Designer + conditional UI rules |
+| **SAP PM/PP/PS** | Single `AUFK` header + module satellites (`AFIH` maintenance, `AFKO` production) | Dedicated transactions (IW31/CO01/CJ20N) + **`OIAN` field-selection table** per order type |
+| **Infor EAM** | Single WO header + UDF columns + custom tabs | Screen Designer renders different layouts per screen context |
+| **Oracle eAM** | Shared `WIP_DISCRETE_JOBS` + `EAM_WORK_ORDER_DETAILS` satellite + `entity_type` discriminator | Per-type Forms / OAF pages, DFFs context-switched |
+| **Dynamics 365** | One `msdyn_workorder` entity for service, separate `ProdTable` for Production, separate Project tasks | Multiple main forms + per-role form assignment + business rules |
+| **ISA-95 Part 4** | One Operations Definition / Schedule / Performance triad reused across Production, Maintenance, Quality, Inventory | `OperationsType` enum + type-specific payload extensions |
+| **OPC UA 10031-4** | Single generic `JobOrder` / `JobResponse` ObjectType | All types share one model |
+| **B2MML V0700** | Generic `Operations*.xsd` with `OperationsType` enum (modernized FROM separate-per-domain) | One schema, one enum, one set of consumers |
 
-`Models/AssetMaintenance.cs` has a robust 100-field MaintenanceEvent with:
+**Seven of eight converged on unified-data + per-type-UX.** The one legitimate split: **Production**. Even the unifiers (Maximo, SAP) keep production operations in their own satellite (`AFKO` for SAP); Microsoft and Infor went further and made Production a separate entity entirely.
 
-- 8-value `MaintenanceType` enum (all maintenance flavors)
-- 6-value `MaintenanceStatus` (Scheduled / InProgress / Completed / Cancelled / Overdue / OnHold)
-- 4-value `MaintenancePriority` (Low / Medium / High / Critical)
-- Cost breakdown (Labor, Parts, Materials, OutsideVendor)
-- Approval flow (WorkOrderApprovalStatus + ApprovedBy / ApprovedAt / RequestedBy / RequestedAt)
-- PM occurrence FK + CIP project FK
-- Failure code (FK + free text)
-- Root cause / corrective action / lessons learned
-- `Operations` collection (multi-step work breakdown)
-- xmin RowVersion (optimistic concurrency)
+### Per-type field deltas the research surfaced
 
-Lookup-value FKs exist for Type/Status/Priority for the tenant-customizable values dropdown (PR series 90s-100s).
+`MaintenanceEvent` is missing at least these polymorphic fields, with regulatory citation:
+
+| Gap | Affects | Source |
+|---|---|---|
+| `Revision` / `BomRevision` / `RoutingRevision` | Production, ECO | ISA-95 Pt 2; ASME Y14.35 |
+| `AfeNumber`, `CipSubAccount`, `CapitalizedInterest`, `InServiceDate`, `UsefulLife`, `DepreciationMethod`, `TargetFixedAssetId` | CIP | ASC 360-10, ASC 835-20 |
+| `LotNumber`, `BatchNumber`, `SerialNumber`, `MaterialGenealogy[]`, `UDI` | Production | ISA-95 Pt 2; 21 CFR 820.184 |
+| `FailureMode`, `FailureMechanism`, `FailureCause`, `DetectionMethod` | Maintenance | ISO 14224 |
+| `DispositionCode` (Use-As-Is / Rework / Scrap / Return / Repair), `8DFields[D0..D8]`, `RootCauseMethod`, `EffectivenessVerification` | Quality | ISO 9001; Ford G8D |
+| `OshaCaseNumber`, `RecordabilityClass`, `BodyPart`, `EventDescription`, `OshaReportableFlag`, `DaysAway`, `DaysRestricted` | HSE | 29 CFR 1904.29 |
+| `JsaSteps[]` (Step / Hazard / Control), `HierarchyOfControls` | HSE | OSHA 3071 |
+| `MocPshUpdated`, `MocOperatingProceduresUpdated`, `MocTrainingRequired`, `PssrCompleted`, `PssrSignoffs[]`, `ReplacementInKindFlag` | ECO/MOC | 29 CFR 1910.119(l) + (i) |
+| `AffectedItems[]` (old-rev → new-rev pairs), `ChangeTypeFFF` (Form / Fit / Function) | ECO | ASME Y14.35; PLM convention |
+| Polymorphic approval chain | All | All standards |
+
+The full field-by-field research is in [docs/SPRINT3_PLAN_v0.2.md](../SPRINT3_PLAN_v0.2.md) Phase D scope.
 
 ---
 
-## Decision
+## Decision (v0.2)
 
-**Extend `MaintenanceEvent` with a `WorkOrderClassification` enum + per-category satellite tables. Defer the table rename to a future sprint.**
+**Adopt the unified-data + per-type-UX pattern, with Production as a federated sibling table.**
 
-### What we add
+### Six structural commitments
 
-**1. WorkOrderClassification enum**
+**1. One unified `WorkOrder` table** for the five classifications whose data shapes meaningfully overlap:
 
 ```csharp
 public enum WorkOrderClassification
 {
-    Maintenance  = 0, // PM, Corrective, Predictive, Emergency, Inspection, Calibration, Upgrade
-    Production   = 1, // Work order from MES/MRP — make N units of part XYZ on this asset
-    Quality      = 2, // NCR, deviation, CAPA, audit finding
-    Engineering  = 3, // ECO, MOC, design change, BOM revision
-    HSE          = 4, // Safety inspection, JSA, hazard report, near-miss investigation
-    Project      = 5, // Project task that touches an asset (currently overloaded into CIP)
+    Maintenance  = 0,   // PM, Corrective, Predictive, Emergency, Inspection, Calibration, Upgrade
+    // (gap, formerly Production — Production is now a sibling table, not a subtype)
+    Quality      = 2,   // NCR, deviation, CAPA, 8D, audit finding, customer complaint
+    Engineering  = 3,   // ECO, MOC, design change, BOM revision, procedure update
+    HSE          = 4,   // Safety inspection, hazard report, near-miss, incident, JSA
+    CIP          = 5,   // Capital project work — AFE-tracked, capitalization-bound
 }
 ```
 
-The existing `MaintenanceType` enum stays — it becomes the **sub-type** within `Category=Maintenance`. For `Category=Production`, `MaintenanceType` is ignored (default to `Other`).
+The enum gap at 1 is intentional: no row was ever written with Classification=1 (`Production` was in the v0.1 enum for 4 hours but no migration ever applied it to data). Keeping the gap avoids analytics churn if anyone ever inspects historical enum values.
 
-**2. Two new always-on fields on MaintenanceEvent**
+**2. One sibling `ProductionOrder` table** for shop-floor production runs. Same Asset FK; entirely separate state machine, event cadence, and KPI surface. The unified `/WorkOrders` queue page UNIONs `WorkOrder` + `ProductionOrder` so users still see one timeline per asset — but the underlying models don't compromise each other.
 
-```csharp
-public WorkOrderClassification Category { get; set; } = WorkOrderClassification.Maintenance;
+**Why Production gets sibling status:**
+- Event cadence: every operation confirmation, every lot move, every scrap reason. 100-1000× higher than maintenance.
+- KPI surface: ISO 22400-2 OEE = Availability × Performance × Quality. Alien to maintenance's MTBF/MTTR.
+- State machine: Plan → Released → Material Staged → Setup → Run → In-Process Inspection → Move/Complete → QA Released → Closed. None of those states map to anything maintenance does.
+- Lot/batch/serial traceability and material consumption are the audit trail (per ISA-95 Pt 2 + 21 CFR 820.184), not the work history.
+- Pattern precedent: Maximo + SAP keep production in a dedicated satellite even on a unified header; Infor + Dynamics keep Production in a separate entity entirely.
 
-// External-system linkage — set when this WO was created from / synced to
-// an ERP work order, MES production order, QMS NCR, etc. NULL for native
-// Cherry-created WOs.
-[StringLength(64)]
-public string? ExternalWorkOrderId { get; set; }
+**3. Four config tables drive per-classification behavior** — no code branching per type in the renderer. This is the architectural payoff.
 
-[StringLength(32)]
-public string? ExternalSource { get; set; }  // "SAP-PP" | "Oracle-EBS" | "Dynamics-365" | "Plex" | "ManualImport" | etc.
-```
+- **`WorkOrderFieldVisibility`** (SAP `OIAN` pattern). One row per `(Classification × FieldName)` with `Visibility ∈ {Hidden, Optional, Required, ReadOnly}`, `DisplayLabel`, `DisplayOrder`, `SectionName`, optional `TenantId` for per-tenant overrides. The Razor renderer reads this config and emits the right form for the right type.
+- **`WorkOrderStatusProfile`** + **`WorkOrderStatusTransition`** (Maximo `WOSTATUS` pattern). One status column on the header, but the allowed transitions are per-classification: CIP can transition to `SubstantialComplete` (triggers accounting reclassification); Engineering MOC has `PssrRequired` (blocks Close until cross-functional signoffs are captured); Quality has `EffectivenessVerification`. A central `IWorkOrderStatusEngine.CanTransition(wo, newStatus)` is the gate.
+- **`WorkOrderApproval`** (polymorphic). 1:N from header. Replaces the single `ApprovedBy/ApprovedAt` columns with `(WorkOrderId, Stage, StageOrder, RoleRequired, ApproverUserId, Decision, DecisionAt, Comments)`. Maintenance gets one row. CIP gets four rows (PM → Engineering Director → CFO → Board, threshold-driven). ECO/MOC gets CCB + PSSR rows. Effectiveness verification for Quality is just another stage.
+- **`NumberSequence`** (SAP `NRIV` pattern). One row per `(Classification, Year, TenantId)` with `Prefix` + `CurrentValue`. The `INumberSequenceService.Next(classification, tenantId)` returns the next number atomically. Drives `PM-2026-1234`, `AFE-2026-005`, `NCR-2026-0042`, `ECO-2026-12-001`, `INC-2026-003`.
 
-Every existing row migrates to `Category=Maintenance` (lossless backfill).
+**4. Per-classification satellite tables** for the non-maintenance work types:
+- `CipWorkOrderDetails` — capital project + accounting fields
+- `QualityWorkOrderDetails` — NCR / CAPA / 8D / disposition
+- `EngineeringWorkOrderDetails` — revision tracking, ECO/MOC, PSSR
+- `HseWorkOrderDetails` — OSHA 300/301, JSA, incident classification
 
-**3. Four satellite detail tables (one per non-maintenance category)**
+Maintenance keeps using the header fields (no satellite needed; the header was originally built for maintenance).
 
-Each is a 1:0..1 FK to MaintenanceEvent. NULL satellite = category-specific data not yet captured. Empty satellite row = explicit "no detail" (rare). The Plant Floor query joins by `LEFT JOIN ... ON wo.Category = X` so the read cost stays bounded.
+**5. `Revision` is a first-class header field.** Re-issued WOs increment revision; original + each revision share a `MasterWorkOrderId` self-FK (NULL = "I am the master"). Critical for CIP, ECO, and any re-issued maintenance WO.
 
-**ProductionWorkOrderDetails**
+**6. Rename `MaintenanceEvent` → `WorkOrder` now.** PR #119.7. Risky but worth doing once instead of forever pretending the table is named "MaintenanceEvent." Done via `ALTER TABLE RENAME` so PostgreSQL keeps the underlying OID and statistics — no index rebuild needed.
 
-| Column | Type | Purpose |
-|---|---|---|
-| `Id` | int PK | |
-| `MaintenanceEventId` | int FK (unique) | 1:1 with the unified WO |
-| `PartNumber` | string(64) | What's being produced (links to Item.Sku in a future PR) |
-| `ItemId` | int? FK | Optional FK to Item catalog (when we have a parts master) |
-| `QuantityOrdered` | decimal(18,4) | How many units in this run |
-| `QuantityCompleted` | decimal(18,4) | Good units produced so far |
-| `QuantityScrap` | decimal(18,4) | Scrap units (drives ISO 22400-2 scrap-ratio KPI) |
-| `QuantityRework` | decimal(18,4) | Rework units |
-| `UnitOfMeasure` | string(16) | "EA", "KG", "L", "M" |
-| `ShiftCode` | string(8)? | "1ST", "2ND", "3RD" — links to ShiftPattern (future PR) |
-| `RoutingStep` | int? | Operation sequence within a multi-step routing |
-| `MaterialMaster` | string(64)? | SAP MATNR or equivalent for ERP linkage |
+### What this delivers
 
-**QualityWorkOrderDetails**
+- **One Plant Floor + one Asset Detail timeline** showing every kind of work touching an asset, color-coded by classification. The disruption pitch versus Maximo/SAP/Infor.
+- **Per-type forms that match the methodology** — a CIP form doesn't pretend to be a maintenance form, a Quality NCR form doesn't pretend to be a CIP form. Each looks like the regulator-blessed form the operator already knows.
+- **Per-type state machines** — accounting events fire on CIP `SubstantialComplete`; OSHA-300 entries fire on HSE `Recordable`; effectiveness-verification gates fire on Quality close; PSSR gates block Engineering close.
+- **Single integration surface for ERP** — `ExternalWorkOrderId` + `ExternalSource` work the same way regardless of classification. SAP PP feeds Production; SAP PM feeds Maintenance; both flow through the same shape.
+- **Config-driven customization** — `WorkOrderFieldVisibility` is the entry point for any customer-specific field hiding/requiring. No code change to onboard a new industry vertical.
 
-| Column | Type | Purpose |
-|---|---|---|
-| `Id` | int PK | |
-| `MaintenanceEventId` | int FK (unique) | |
-| `NcrNumber` | string(32)? | NCR / deviation / audit finding ID |
-| `QualityIssueType` | enum | `Defect`, `Deviation`, `AuditFinding`, `CustomerComplaint`, `SupplierIssue`, `InternalNcr` |
-| `Severity` | enum | `Minor`, `Major`, `Critical` (separate axis from MaintenancePriority — Quality severity ≠ WO priority) |
-| `DispositionCode` | enum | `UseAsIs`, `Rework`, `Scrap`, `Return`, `Pending` |
-| `CapaRequired` | bool | If true → triggers a linked Engineering-category WO for CAPA |
-| `CapaWorkOrderId` | int? FK | Self-FK back to the CAPA WO |
-| `AffectedQuantity` | decimal(18,4)? | Units affected |
-| `RootCauseCategory` | enum | `Machine`, `Material`, `Method`, `Manpower`, `Measurement`, `Environment` (5M+1E fishbone) |
-| `RegulatoryReportable` | bool | FDA / OSHA / EPA notification required |
+---
 
-**EngineeringWorkOrderDetails**
+## What's intentionally NOT in v0.2 scope
 
-| Column | Type | Purpose |
-|---|---|---|
-| `Id` | int PK | |
-| `MaintenanceEventId` | int FK (unique) | |
-| `EcoNumber` | string(32)? | Engineering Change Order ID |
-| `EngineeringIssueType` | enum | `EngineeringChangeOrder`, `ManagementOfChange`, `DesignChange`, `BomRevision`, `ProcedureUpdate`, `Capa` |
-| `ImpactAssessment` | string(2000)? | Free-text impact narrative |
-| `AffectedAssets` | string(500)? | Comma-separated asset numbers — for cross-asset MOC scope (future: junction table) |
-| `RegulatoryReview` | bool | Triggers QA/regulatory sign-off step |
-| `RiskLevel` | enum | `Low`, `Medium`, `High`, `Critical` |
-| `LinkedNcrId` | int? FK | Back-link to the Quality WO that triggered this engineering change |
+Each of these is a separate ADR or a Sprint 4+ topic:
 
-**HseWorkOrderDetails**
-
-| Column | Type | Purpose |
-|---|---|---|
-| `Id` | int PK | |
-| `MaintenanceEventId` | int FK (unique) | |
-| `HseIssueType` | enum | `SafetyInspection`, `HazardReport`, `NearMiss`, `Incident`, `Jsa`, `BehaviorBasedSafety`, `Audit` |
-| `HazardSeverity` | enum | `Negligible`, `Minor`, `Moderate`, `Serious`, `Catastrophic` (ANSI Z10) |
-| `Likelihood` | enum | `Rare`, `Unlikely`, `Possible`, `Likely`, `AlmostCertain` (ANSI Z10) |
-| `RiskScore` | int | Computed: severity × likelihood, 1-25 |
-| `RecordableIncident` | bool | Counts toward OSHA TRIR/DART |
-| `RegulatoryReportable` | bool | OSHA 300 log, EPA, etc. |
-| `JsaReferenceUrl` | string(500)? | Link to Job Safety Analysis doc |
-| `EmployeesAffected` | int? | Count for incident reports |
-| `LostTimeIncident` | bool | LTI flag — separate from RecordableIncident |
-
-### What we explicitly do NOT do in this ADR
-
-- **Don't rename `MaintenanceEvent` to `WorkOrder` yet.** The .NET class + DB table stay named MaintenanceEvent for backward compatibility. A future sprint can do the clean rename migration when we have a full freeze window. The conceptual model is "WorkOrder, currently named MaintenanceEvent."
-- **Don't model shop-floor data collection** (timekeeping, clock-in/out, andon). That's a future ADR (production execution).
-- **Don't model electronic batch records** (eBR) — separate ADR when a GxP customer signs.
-- **Don't build the Inventory/Material module yet.** ProductionWorkOrderDetails.ItemId is a forward reference; we'll wire it when the parts master ships.
-- **Don't replace ERP production scheduling.** We integrate via ExternalWorkOrderId, we don't try to be SAP PP.
+- **Shop-floor data collection** (operator clock-in/out, andon, takt-time tracking). Separate ADR.
+- **Electronic batch records (eBR)** for GxP customers. Separate ADR when a regulated customer signs.
+- **FERC Uniform System of Accounts** mapping. CIP satellite flags `RegulatoryAuthority`; full mapping deferred.
+- **Customer portal for ECO acknowledgments.** Deferred.
+- **Production scheduling math** (sequencing, finite scheduling, capacity planning). That's ADR-013 (Unified Scheduling).
+- **Replacing SAP PP / Oracle MES.** We integrate via `ExternalWorkOrderId`; we don't replace.
+- **Replacement-In-Kind (RIK) workflow.** Flag in schema (`IsReplacementInKind`), full workflow when a real PSM customer needs it.
+- **Tenant `RegulatedIndustry` flag** turning on regulatory-reportable UI hints. Deferred to Sprint 5.
 
 ---
 
 ## Alternatives Considered
 
-### Alternative A: WorkOrderClassification + satellites *(CHOSEN)*
+### Alternative A: WorkOrderClassification + satellites (v0.1 — REJECTED in v0.2 for Production)
 
-- **Description:** Add a category discriminator + per-category 1:1 satellite tables. MaintenanceEvent stays as the work-order header for all categories.
-- **Pros:** Zero-risk migration (existing data backfills to Category=Maintenance). Single-table read in the 80% case (no joins for maintenance WOs). EF Core 9 handles the optional 1:1 navs natively.
-- **Cons:** MaintenanceEvent name becomes a misnomer. Satellite tables proliferate (4 new tables in this ADR, potentially more later).
-- **Why chosen:** Least disruptive path; ships a usable disruptive feature in 2-3 sprints without a heavyweight refactor.
+v0.1's recommendation. Put all six work types on `MaintenanceEvent`. Defer the rename. Reject because:
+- Production's state machine + event cadence don't fit a maintenance-shaped table.
+- Maximo/SAP both keep production in a dedicated satellite even when unified; v0.1 missed that nuance.
+- The field-by-field research showed `MaintenanceEvent` would balloon to ~150 columns if it absorbed all six types' mandatory fields directly.
+- Deferring the rename means the table name lies forever.
 
-### Alternative B: TPH inheritance — rename to WorkOrder with subclass per type
+v0.2 keeps the unified backbone for five of the six types and lifts Production to a sibling.
 
-- **Description:** Use EF Core 9 Table-Per-Hierarchy: `WorkOrder` base, `MaintenanceWorkOrder` / `ProductionWorkOrder` / `QualityWorkOrder` subclasses with a discriminator column.
-- **Pros:** Cleanest type system; LINQ filters by subtype (`db.WorkOrders.OfType<ProductionWorkOrder>()`).
-- **Cons:** Massive refactor — every existing query, every Razor page, every report breaks. The TPH table grows wide (sum of all subtype columns) — eventually hits Postgres's effective row-size budget.
-- **Why rejected:** The refactor cost is 5-10 PRs of churn before any new functionality lands.
+### Alternative B: TPH (Table-Per-Hierarchy) inheritance — REJECTED
 
-### Alternative C: New `WorkOrder` table; MaintenanceEvent FKs into it 1:1
+Use EF Core 9 TPH: `WorkOrder` base, `MaintenanceWorkOrder` / `ProductionWorkOrder` / etc. subclasses with a discriminator column.
+- **Pro:** Cleanest type system; LINQ filters by subtype (`db.WorkOrders.OfType<ProductionWorkOrder>()`).
+- **Con:** Massive refactor; every existing query, every Razor page, every report breaks. The TPH table grows wide (sum of all subtype columns) — eventually hits Postgres's effective row-size budget. Doesn't solve the per-type-state-machine problem.
+- **Why rejected:** 10+ PRs of churn before any new functionality lands.
 
-- **Description:** Create a new top-level WorkOrder table with the shared header fields. MaintenanceEvent gets a FK to WorkOrder. ProductionOrder, QualityOrder, etc. each get their own table with FK to WorkOrder.
-- **Pros:** Cleanest separation; each category owns its own table.
-- **Cons:** Every read of a maintenance WO becomes a two-table join. Five tables to maintain. Cross-category queries (the "single pane of glass" promise) require UNION ALL across five tables.
-- **Why rejected:** The two-table read penalty hits the Plant Floor view (hottest read in the app). Defeats the unification thesis — we'd actually have five fragmented tables, just like Maximo.
+### Alternative C: New `WorkOrder` top-level + 1:1 FK from MaintenanceEvent — REJECTED
 
-### Alternative D: Stay maintenance-only; create separate models for the other types
+Create a top-level `WorkOrder` table with shared header fields. `MaintenanceEvent`, `ProductionOrder`, `QualityNcr`, etc. each get a FK to `WorkOrder`.
+- **Pro:** Cleanest separation; each category owns its own table.
+- **Con:** Every read of any WO becomes a two-table join. Five tables to maintain. Cross-category queries (the "single pane of glass" promise) require UNION ALL across five tables WITH joins to the shared header. Plant Floor hot read path doubles.
+- **Why rejected:** Defeats the unification thesis — we'd actually have six fragmented tables, the same problem Maximo solved 15 years ago.
 
-- **Description:** Build `ProductionOrder`, `QualityNcr`, `EngineeringChangeOrder`, `SafetyInspection` as their own top-level models, unrelated to MaintenanceEvent.
-- **Pros:** Each module evolves independently.
-- **Cons:** Five separate work queues. Five separate views per asset. Same problem Maximo has — no unified work picture per asset.
-- **Why rejected:** Defeats the disruptive thesis. This is what every competing platform already does.
+### Alternative D: Stay maintenance-only; six separate top-level entities — REJECTED
+
+Build `ProductionOrder`, `QualityNcr`, `EngineeringChangeOrder`, `SafetyInspection`, `CapitalProject` as their own top-level models, unrelated.
+- **Pro:** Each module evolves independently.
+- **Con:** Five separate work queues per asset. Same problem Maximo, SAP, Oracle, Infor all spent 15+ years escaping.
+- **Why rejected:** Defeats the disruptive thesis.
+
+### Alternative E: Unified backbone for 5 + sibling Production *(CHOSEN — v0.2)*
+
+What v0.2 adopts. Combines:
+- The unification benefit (one timeline per asset, one Plant Floor, one /WorkOrders queue) for the five classifications whose data shapes overlap meaningfully.
+- The honesty that Production is genuinely different and shouldn't be forced into a maintenance-shaped table.
+- The config-driven per-type UX so we don't end up with thousands of lines of `switch(classification)` code in the renderer.
+
+**Why chosen:** Matches the dominant pattern across Maximo, SAP, Oracle, Infor, Dynamics + ISA-95 standard. Delivers the disruption pitch without compromising data integrity for any single classification. Future-proof against the satellites we'll need to add (timekeeping, eBR, FERC integration).
 
 ---
 
@@ -222,70 +208,98 @@ Each is a 1:0..1 FK to MaintenanceEvent. NULL satellite = category-specific data
 
 ### Positive
 
-- **Single unified work queue** — Plant Floor and Asset Detail show ALL work touching an asset (PM + production run + open NCR + ECO + safety inspection) in one timeline, color-coded by category. This is the marketed differentiator.
-- **ERP/MES integration shape is settled** — ExternalWorkOrderId + ExternalSource gives us a clean two-field linkage that works for SAP PP, Oracle MES, Dynamics, Plex, Epicor, manual CSV imports. Already supports webhook-based bidirectional sync (PR series 80s-90s infrastructure is reusable).
-- **ISA-95 Part 4 alignment** — work-record vocabulary lets us serialize/deserialize against B2MML and OAGIS BODs in a future PR without schema churn.
-- **ISO 22400-2 KPIs become computable** — scrap %, yield, OEE all derive directly from ProductionWorkOrderDetails. Current maintenance schema can't compute these.
-- **CAPA / NCR closed loop** — Quality WO with `CapaRequired=true` links to an Engineering WO that links back via `LinkedNcrId`. Auditors love this for FDA 21 CFR Part 11 / ISO 9001 sign-off.
-- **Zero-risk migration** — every existing row backfills to Category=Maintenance, every existing query keeps working unchanged, every existing Razor page keeps rendering.
-- **Lookup-value FKs work for new categories** — tenant-customizable dropdowns for QualityIssueType, HseIssueType, etc. fall out of the existing LookupValue infrastructure.
+- **Single unified work queue** — Plant Floor + Asset Detail + /WorkOrders queue show ALL work touching an asset (PM + production run + open NCR + ECO + CIP + safety inspection) in one timeline, color-coded by classification. The marketed differentiator vs. Maximo / SAP PM / Infor EAM.
+- **Per-type forms that match real-world methodology** — operators see the form they already know (8D for Quality, JSA for HSE, AFE for CIP, PSSR for Engineering MOC).
+- **Per-type state machines fire the right side effects** — CIP `SubstantialComplete` triggers fixed-asset reclassification + depreciation start; HSE `Recordable` writes the OSHA 300 entry; Quality `EffectivenessVerified` closes the CAPA loop.
+- **Config-driven customization** — onboarding a new industry vertical (pharma, oil & gas, food/bev) means seeding `WorkOrderFieldVisibility` rows, not writing code.
+- **Polymorphic approval matches reality** — maintenance single-stage, CIP multi-tier with thresholds + partner approval, ECO/MOC CCB + PSSR. One audit trail.
+- **ISA-95 Part 4 + OPC UA 10031-4 alignment** — work-record vocabulary lets us serialize/deserialize against B2MML and OAGIS BODs without schema churn.
+- **ISO 22400-2 KPIs computable** — scrap %, yield, OEE all derive from `ProductionOrder` + `ProductionRunCard` + `MaterialConsumption`. Maintenance KPIs (MTBF, MTTR, MTTA) all derive from `WorkOrder`.
+- **CAPA closed loop** — Quality WO with `CapaRequired=true` links via `CapaWorkOrderId`/`LinkedNcrWorkOrderId` to an Engineering WO. Auditors love this for ISO 9001 / FDA 21 CFR 820.100 / IATF 16949 sign-off.
 
 ### Negative
 
-- **MaintenanceEvent is now a misnomer.** Mitigation: heavy comments in the model file; rename in a future sprint when we have a freeze window.
-- **Satellite tables add join overhead** when a UI needs the per-category fields. Mitigation: only join when actually displaying those fields; the 80% Plant Floor read path doesn't join.
-- **Sprint 3 + 4 will ship 4-5 PRs of UI work** — one per category. The schema is the easy part; the UX is where the disruption shows up.
-- **MaintenanceType.Other becomes overloaded** — for non-maintenance categories, Type defaults to Other. This is acceptable; new code reads Category first, Type second.
+- **The rename is the riskiest single PR in the plan.** `MaintenanceEvent` → `WorkOrder` touches ~150 files. Mitigation: pre-flight grep + local build, raw-SQL `ALTER TABLE RENAME` (sub-second on existing data), keep `db.MaintenanceEvents` as a compatibility extension for one PR cycle. Rollback budget: 15 minutes.
+- **Sprint 3 + 4 will ship 12-16 PRs of substantive work.** The schema + config tables ship in Phase B-E (no UI yet); the visible disruption ships in Phase F. Trade-off is deliberate — we build the right foundation once.
+- **Per-classification status engine adds runtime complexity.** Mitigation: feature flag (`UseStatusEngine`) defaulted off until Phase C rename settles.
+- **More tables to maintain.** Four config tables + four satellite tables + two production tables = 10 new tables. Each has its own EF entity, AppDbContext registration, seeder, migration, and (for the satellites) Razor partial. Worth it for the architecture payoff, but it's not free.
 
 ### Neutral
 
-- The `WorkOrderApprovalStatus` flow applies uniformly across categories. Production WOs typically don't need approval (auto-approved when ERP-sourced); engineering WOs always do. This is data, not schema.
-- The `Operations` collection (WorkOrderOperation) becomes useful across all categories — a production WO has routing steps, a quality WO has investigation steps, an HSE WO has corrective actions. Same shape.
+- The `WorkOrderApprovalStatus` enum stays valid (it was always a per-WO status, not the approval chain itself). The new `WorkOrderApproval` polymorphic table is additive.
+- The `Operations` collection (WorkOrderOperation) becomes useful across all classifications — production has routing steps, quality has investigation steps, HSE has corrective actions. Same shape.
+- `MaintenanceType` enum stays valid as the **sub-type within `Classification=Maintenance`**.
 
 ---
 
 ## Implementation Plan
 
-This ADR ships across **3 PRs**:
+**Full plan is in [docs/SPRINT3_PLAN_v0.2.md](../SPRINT3_PLAN_v0.2.md).** The plan is the executable source-of-truth document; this ADR is the architecture justification.
 
-| PR | Scope | Risk |
-|---|---|---|
-| **PR #119.1** | Add `WorkOrderClassification` enum + `Category`/`ExternalWorkOrderId`/`ExternalSource` columns on MaintenanceEvent. Migration backfills all existing rows to Category=Maintenance. No UI changes. | Low — additive only. |
-| **PR #119.2** | Add the 4 satellite tables (Production/Quality/Engineering/HSE Details) + EF nav properties + migration. No UI yet. | Low — purely additive. |
-| **PR #119.3** | Plant Floor + Asset Detail filter chips for category. New `/WorkOrders` unified queue page replaces `/Maintenance/Index`. Old route 301-redirects for ~30 days then dies. | Medium — touches hot UI paths. |
+### Phase summary
 
-**Sprint 4 then ships category-specific creation flows** (one PR per category):
+| Phase | What | PRs | Visible to user? |
+|---|---|---|---|
+| **A** | ADR lock + enum cleanup | A.1 (this rewrite) + #119.1.2 | No |
+| **B** | Configuration backbone — `WorkOrderFieldVisibility`, `WorkOrderStatusProfile`, polymorphic `WorkOrderApproval`, `NumberSequence` | #119.2 → #119.5 | No |
+| **C** | Header `Revision` + rename `MaintenanceEvent` → `WorkOrder` | #119.6 → #119.7 | No (internal) |
+| **D** | Per-classification satellites — CIP / Quality / Engineering / HSE | #119.8 → #119.11 | No |
+| **E** | Sibling `ProductionOrder` + `ProductionRunCard` + `MaterialConsumption` | #119.12 → #119.13 | No |
+| **F** | Unified `/WorkOrders` queue + per-type create/edit screens + Plant Floor timeline merge | #119.14 → #119.20 | **YES — first visible disruption at F.1** |
 
-- PR #120 — Production WO creation + run-card UI
-- PR #121 — Quality NCR intake + disposition workflow
-- PR #122 — Engineering ECO + MOC routing
-- PR #123 — HSE incident + JSA workflow
+### Calendar target
 
-**ADR-013 (Unified Scheduling)** will handle the production-scheduling expansion separately — that's about scheduling math, not work-order shape.
+- **End of Phase A:** today (2026-05-17).
+- **End of Phase F.1 (first visible win):** week of 2026-05-25.
+- **End of Phase F.7 (full demo readiness):** mid-June 2026.
+
+Cadence assumption: 2-3 PRs/day through ship-workflow plugin. ~14-20 working days total.
 
 ---
 
-## Open Questions for Dean's Sign-off
+## Open questions for Dean's sign-off
 
-1. **Are the 6 categories (Maintenance / Production / Quality / Engineering / HSE / Project) the right top-level cut?** I separated Project from Maintenance because today CIP is bolted onto MaintenanceEvent.CipProjectId — making Project a first-class category lets us model capital project workflows cleanly. **Recommend:** Yes — keep all 6.
-2. **Severity vs. Priority — do you want them as separate axes?** Quality and HSE have an industry-standard severity scale (Minor/Major/Critical for quality; ANSI Z10 severity × likelihood for HSE) that is conceptually different from the WO priority (Low/Medium/High/Critical, which is "when do I work on this"). **Recommend:** Yes — keep them separate. Most regulated industries require both.
-3. **CAPA closed-loop FK** — should the link between Quality NCR and Engineering CAPA be a single `LinkedWorkOrderId` field that points both ways, or two named FKs (`CapaWorkOrderId` from NCR side, `LinkedNcrId` from engineering side)? **Recommend:** Two named FKs — the bidirectional semantics is clearer in code, and EF Core handles the inverse navigation cleanly.
-4. **External-source list** — should `ExternalSource` be a free-text string or an enum/lookup? Free text gives us flexibility for one-off integrations; lookup gives us cleaner reports and a dropdown in the UI. **Recommend:** Free text in PR #119.1, migrate to a lookup table in PR #119.4 when we have 3+ live integrations to seed it with.
-5. **GxP / regulated-industry flag at tenant level** — should we add a Tenant.RegulatedIndustry flag that turns on the "regulatory reportable" UI hints in Quality + HSE? **Recommend:** Yes, but punt to Sprint 5. Most demo customers don't need it; the schema fields are ready for when a GxP customer signs.
+**All v0.1 open questions remain resolved (6 categories, severity as separate axis, two named FKs for CAPA, free-text ExternalSource, defer regulated-industry flag).** v0.2 introduces zero new open questions — every decision was either grounded in the research or follows directly from the unified-data + sibling-Production decision.
+
+If anything in v0.2 needs to change, the place to push back is this ADR before Phase B starts.
 
 ---
 
 ## Related Documents
 
-- [ADR-001: PMSchedule Canonical Model](./ADR-001-PMSchedule-Canonical-Model.md) — the original maintenance-only model
-- [ADR-002: DemoPackV2 Canonical Seed](./ADR-002-DemoPackV2-Canonical-Seed.md) — seeded demo data we'll extend for production WOs
-- [ADR-007: Unified Tab System](./ADR-007-Unified-Tab-System.md) — the UI pattern the unified work queue will use
-- [ADR-011: Industrial Sensor Data Architecture](./ADR-011-industrial-sensor-data-architecture.md) — the telemetry substrate that powers cross-category alarms feeding into all work-order types
-- ISA-95 Part 4: Object Models and Attributes for Manufacturing Operations Management Integration (IEC 62264-4:2015)
-- ISO 22400-2:2014 — KPIs for manufacturing operations management
+- [SPRINT3_PLAN_v0.2.md](../SPRINT3_PLAN_v0.2.md) — the executable plan (12 PRs, phase-by-phase, with risk register)
+- [ADR-001: PMSchedule Canonical Model](./ADR-001-PMSchedule-Canonical-Model.md)
+- [ADR-002: DemoPackV2 Canonical Seed](./ADR-002-DemoPackV2-Canonical-Seed.md)
+- [ADR-007: Unified Tab System](./ADR-007-Unified-Tab-System.md)
+- [ADR-011: Industrial Sensor Data Architecture](./ADR-011-industrial-sensor-data-architecture.md)
+- ADR-013: Unified Scheduling (forthcoming — production-vs-maintenance scheduling math)
+
+## Standards Referenced
+
+- **ISA-95 / IEC 62264 Part 4:2015** — Object Models and Attributes for Manufacturing Operations Management Integration. Work-record supertype vocabulary.
+- **ISA-95 Part 2** — Material Lot, Material Definition, Equipment, Personnel object models (production lot genealogy).
+- **ISO 22400-2:2014** — KPIs for manufacturing operations management. OEE definition.
+- **ISO 14224** — Reliability + Maintenance data taxonomy. Failure-mode + failure-mechanism + failure-cause fields.
+- **ISO 9001:2015** — Quality management. NCR + CAPA closed-loop.
+- **ISO 13485 + 21 CFR 820** — Medical device QMS. Device History Record (820.184), CAPA (820.100), nonconforming product (820.90).
+- **IATF 16949** — Automotive QMS. 8D problem-solving required.
+- **Ford G8D** — Eight Disciplines specification (D0-D8).
+- **ISO 45001** — OH&S management system. Incident + corrective action.
+- **OSHA 29 CFR 1904** — Recordkeeping. 300 log + 301 incident report + 300A summary.
+- **OSHA 3071** — Job Hazard Analysis worksheet.
+- **OSHA 29 CFR 1910.119(l) + (i)** — PSM Management of Change + Pre-Startup Safety Review.
+- **ASME Y14.35** — Engineering drawing revision conventions (A, B, C... skip I/O/Q/S/X/Z).
+- **ASC 360-10** — PP&E recognition.
+- **ASC 835-20** — Interest capitalization on capital projects.
+- **IFRS IAS 16** — International equivalent for PP&E.
+- **B2MML V0700** — OAGI XML serialization for ISA-95.
+- **OPC UA 10031-4** — Job Control companion specification.
+- **FDA QMSR (effective 2026-02-02)** — Quality Management System Regulation; supersedes 21 CFR 820 with ISO 13485 incorporation.
 
 ## Revision History
 
 | Date | Author | Description |
 |------|--------|-------------|
-| 2026-05-17 | Claude (proposed) | Initial v0.1 draft — category + satellites path |
+| 2026-05-17 (am) | Claude | Initial v0.1 — category + satellites; all 5 open questions resolved |
+| 2026-05-17 (am) | PR #119.1.1 | Renamed `WorkOrderCategory` → `WorkOrderClassification` (namespace collision) |
+| 2026-05-17 (pm) | Claude | **v0.2 rewrite** — sibling Production model + 4 config tables + Revision field + rename now. Synthesizes 4-stream platform/standards research. Supersedes v0.1. |
