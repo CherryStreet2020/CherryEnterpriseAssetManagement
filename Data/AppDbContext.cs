@@ -133,6 +133,21 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.MrbDisposition> MrbDispositions
             => Set<Abs.FixedAssets.Models.Production.MrbDisposition>();
 
+        // ADR-013 / PR #119.13b — Sheet & material traceability layer.
+        // MaterialMaster reference + StockReceipt physical-lot records +
+        // Remnant offcut child + CutListLine to-cut queue.
+        public DbSet<Abs.FixedAssets.Models.Production.MaterialMaster> MaterialMasters
+            => Set<Abs.FixedAssets.Models.Production.MaterialMaster>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.StockReceipt> StockReceipts
+            => Set<Abs.FixedAssets.Models.Production.StockReceipt>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.Remnant> Remnants
+            => Set<Abs.FixedAssets.Models.Production.Remnant>();
+
+        public DbSet<Abs.FixedAssets.Models.Production.CutListLine> CutListLines
+            => Set<Abs.FixedAssets.Models.Production.CutListLine>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -1034,6 +1049,126 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => x.DispositionNumber).IsUnique();
                 e.HasIndex(x => x.Outcome);
+            });
+
+            // ADR-013 / PR #119.13b — MaterialMaster reference.
+            // ShopCode UNIQUE per shop. AstmDesignation indexed for
+            // cross-shop analytics joins.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MaterialMaster>(e =>
+            {
+                e.HasIndex(x => x.ShopCode).IsUnique();
+                e.HasIndex(x => x.AstmDesignation);
+                e.HasIndex(x => x.Form);
+            });
+
+            // ADR-013 / PR #119.13b — StockReceipt physical-lot record.
+            // ReceiptNumber UNIQUE. HeatNumber indexed for audit queries.
+            // ItemId RESTRICT (can't delete SKU with receipts).
+            // MaterialMasterId / ReceivedByUserId / LocationId SET NULL.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.StockReceipt>(e =>
+            {
+                e.HasIndex(x => x.ReceiptNumber).IsUnique();
+                e.HasIndex(x => x.HeatNumber);
+                e.HasIndex(x => x.LotNumber);
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.ReceivedAt);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.MaterialMaster)
+                    .WithMany()
+                    .HasForeignKey(x => x.MaterialMasterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ReceivedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.ReceivedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Location)
+                    .WithMany()
+                    .HasForeignKey(x => x.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-013 / PR #119.13b — Remnant child of StockReceipt.
+            // RemnantNumber UNIQUE. ParentReceipt RESTRICT (provenance).
+            // ParentNest / ConsumedByNest SET NULL. HeatNumber indexed
+            // for cross-stock audit ("find all stock from heat X" joins
+            // both StockReceipts and Remnants).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Remnant>(e =>
+            {
+                e.HasIndex(x => x.RemnantNumber).IsUnique();
+                e.HasIndex(x => x.HeatNumber);
+                e.HasIndex(x => x.ParentReceiptId);
+                e.HasIndex(x => x.Status);
+                e.HasOne(x => x.ParentReceipt)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentReceiptId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ParentNest)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentNestId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ConsumedByNest)
+                    .WithMany()
+                    .HasForeignKey(x => x.ConsumedByNestId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.MaterialMaster)
+                    .WithMany()
+                    .HasForeignKey(x => x.MaterialMasterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Location)
+                    .WithMany()
+                    .HasForeignKey(x => x.LocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ADR-013 / PR #119.13b — CutListLine to-cut queue.
+            // Item RESTRICT (can't delete SKU with cut-list lines).
+            // Nest / ProductionOrder / MaterialMaster SET NULL.
+            // Composite (NestId, Status) index for "what's left to cut
+            // in this nest" queries. (SourceProductionOrderId, Status)
+            // for "cut list for this order".
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CutListLine>(e =>
+            {
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => new { x.NestId, x.Status });
+                e.HasIndex(x => new { x.SourceProductionOrderId, x.Status });
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.Priority);
+                e.HasIndex(x => x.DueDate);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Nest)
+                    .WithMany()
+                    .HasForeignKey(x => x.NestId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.SourceProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.MaterialMaster)
+                    .WithMany()
+                    .HasForeignKey(x => x.MaterialMasterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ADR-013 / PR #119.13b — Nest extension: StockReceiptId FK.
+            // SET NULL on receipt delete (rare — physical sheets usually
+            // transition to FullyConsumed or Scrapped via Status flag).
+            // Wiring lives in a separate Entity<> call to keep the
+            // per-PR change isolated; EF accumulates config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Nest>(e =>
+            {
+                e.HasIndex(x => x.StockReceiptId);
+                e.HasOne(x => x.StockReceipt)
+                    .WithMany()
+                    .HasForeignKey(x => x.StockReceiptId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
