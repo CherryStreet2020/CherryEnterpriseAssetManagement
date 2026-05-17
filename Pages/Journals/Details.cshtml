@@ -1,5 +1,6 @@
 @page "{id:int}"
 @model Abs.FixedAssets.Pages.Journals.DetailsModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Journal Details";
     ViewData["HasScreenHeader"] = true;
@@ -10,10 +11,19 @@
 
 @if (Model.Entry is null)
 {
-    <div class="section-card">
-        <div class="section-card-body pe-empty">
-            <p class="pe-empty__title">Journal not found.</p>
-        </div>
+    @* PR #116d.13 — EmptyState v2 for missing journal entry. *@
+    <div style="margin-top: 24px;">
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Icon = "document",
+            Tone = "warning",
+            Title = "Journal not found",
+            Body = "The journal entry you're looking for doesn't exist, or you don't have access to it. Try the journal list to find what you need.",
+            CtaLabel = "Back to Journal List",
+            CtaHref = "/Journals",
+            SecondaryLabel = "Back to Dashboard",
+            SecondaryHref = "/"
+        })
     </div>
 }
 else
@@ -39,56 +49,73 @@ else
     ViewData["Entry"] = Model.Entry;
     @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
-<div class="premium-table-card">
-    <div class="premium-table-card__header">
-        <h3 class="premium-table-card__title">
-            <span class="accent-dot accent-dot--blue"></span>
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Journal Lines
-        </h3>
-    </div>
-    <div class="pe-card__body--flush">
-        <table class="premium-table">
-            <thead>
-                <tr>
-                    <th>Line</th>
-                    <th>Account</th>
-                    <th>Description</th>
-                    <th class="td-right">Debit</th>
-                    <th class="td-right">Credit</th>
-                </tr>
-            </thead>
-            <tbody>
-            @{
-                var i = 1;
-                foreach (var l in (Model.Entry.Lines ?? new List<Abs.FixedAssets.Models.JournalLine>()))
-                {
-                    <tr>
-                        <td>@i</td>
-                        <td><strong class="text-primary">@l.Account</strong></td>
-                        <td>@l.Description</td>
-                        <td class="td-right td-bold">@money(l.Debit)</td>
-                        <td class="td-right td-bold">@money(l.Credit)</td>
+    @* PR #116d.13 — Journal Lines table wrapped in a DataCard with brand tone.
+       Tone flips to danger when the entry is out of balance — so the operator
+       sees the problem before reading any debit/credit numbers. *@
+    <div class="ds-card" data-tone="@(Model.IsBalanced ? "brand" : "danger")" style="margin-top: 24px; padding: 0;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">General Ledger</div>
+                <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Journal Lines</div>
+            </div>
+            @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+            {
+                Label = Model.IsBalanced ? "Balanced" : "Out of balance",
+                Tone = Model.IsBalanced ? "success" : "danger",
+                ShowDot = true
+            })
+        </div>
+        <div style="padding: 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: var(--surface-2, rgba(120,120,200,0.04));">
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; width: 60px;">Line</th>
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Account</th>
+                        <th style="text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Description</th>
+                        <th style="text-align: right; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; width: 140px;">Debit</th>
+                        <th style="text-align: right; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600; width: 140px;">Credit</th>
                     </tr>
-                    i++;
-                }
-            }
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="3" class="td-right">Totals</td>
-                    <td class="td-right">@money(Model.TotalDebit)</td>
-                    <td class="td-right">@money(Model.TotalCredit)</td>
-                </tr>
-                <tr>
-                    <td colspan="5" data-csp-style="text-align: right; color: @(Model.IsBalanced ? "var(--text-success)" : "var(--text-danger)"); font-weight: 600;">
-                        @(Model.IsBalanced ? "Balanced" : "Out of balance")
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
+                </thead>
+                <tbody>
+                    @{
+                        var i = 1;
+                        foreach (var l in (Model.Entry.Lines ?? new List<Abs.FixedAssets.Models.JournalLine>()))
+                        {
+                            <tr style="border-top: 1px solid var(--border);">
+                                <td style="padding: 12px 16px; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-muted);">@i</td>
+                                <td style="padding: 12px 16px;">
+                                    <strong style="color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">@l.Account</strong>
+                                </td>
+                                <td style="padding: 12px 16px; color: var(--text-primary);">@l.Description</td>
+                                <td style="padding: 12px 16px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: @(l.Debit > 0m ? "600" : "400"); color: @(l.Debit > 0m ? "var(--ds-success, #34d399)" : "var(--text-muted)");">
+                                    @(l.Debit > 0m ? money(l.Debit) : "—")
+                                </td>
+                                <td style="padding: 12px 16px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: @(l.Credit > 0m ? "600" : "400"); color: @(l.Credit > 0m ? "var(--ds-danger, #f87171)" : "var(--text-muted)");">
+                                    @(l.Credit > 0m ? money(l.Credit) : "—")
+                                </td>
+                            </tr>
+                            i++;
+                        }
+                    }
+                </tbody>
+                <tfoot>
+                    <tr style="border-top: 2px solid var(--border); background: var(--surface-2, rgba(120,120,200,0.06));">
+                        <td colspan="3" style="padding: 14px 16px; text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Totals</td>
+                        <td style="padding: 14px 16px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; color: var(--ds-success, #34d399);">@money(Model.TotalDebit)</td>
+                        <td style="padding: 14px 16px; text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; color: var(--ds-danger, #f87171);">@money(Model.TotalCredit)</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="padding: 14px 22px; text-align: right;">
+                            @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                            {
+                                Label = Model.IsBalanced ? "Books balanced" : $"Out of balance: {(Model.TotalDebit - Model.TotalCredit).ToString("C2")}",
+                                Tone = Model.IsBalanced ? "success" : "danger",
+                                ShowDot = true
+                            })
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
     </div>
-</div>
 }
