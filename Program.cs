@@ -219,6 +219,19 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.IWorkOrderFieldVisibilitySeeder,
     Abs.FixedAssets.Services.Seeding.WorkOrderFieldVisibilitySeeder>();
+
+// Sprint 3 PR #119.3 (ADR-012 v0.2): Per-classification state engine.
+// Same Singleton-cache + Scoped-service split. Guard plugins ship in
+// Phase D satellites and register themselves as keyed IWorkOrderTransitionGuard
+// services (DI key = WorkOrderStatusTransition.GuardServiceName, e.g.
+// "CipCapitalizationGuard", "PssrCompletionGuard", "QaEffectivenessGuard").
+builder.Services.AddSingleton<Abs.FixedAssets.Services.WorkOrders.WorkOrderStatusCache>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.WorkOrders.IWorkOrderStatusEngine,
+    Abs.FixedAssets.Services.WorkOrders.WorkOrderStatusEngine>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Seeding.IWorkOrderStatusSeeder,
+    Abs.FixedAssets.Services.Seeding.WorkOrderStatusSeeder>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
@@ -649,6 +662,22 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"[Startup] WARNING: WorkOrderFieldVisibility seeder failed: {ex.Message}");
+    }
+
+    // PR #119.3 — WorkOrderStatus seeder (state-engine config).
+    // Seeds StatusProfile + StatusLabel + StatusTransition rows for the
+    // five unified-WorkOrder classifications. Idempotent — bails if any
+    // profile row exists. Wrapped in try/catch.
+    try
+    {
+        var statusSeeder = scope.ServiceProvider
+            .GetRequiredService<Abs.FixedAssets.Services.Seeding.IWorkOrderStatusSeeder>();
+        var rows = await statusSeeder.SeedAsync();
+        Console.WriteLine($"[Startup] WorkOrderStatus engine: {rows} config rows seeded");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] WARNING: WorkOrderStatus seeder failed: {ex.Message}");
     }
 
         } // end: if (seedLockAcquired)

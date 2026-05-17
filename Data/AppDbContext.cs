@@ -63,6 +63,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility> WorkOrderFieldVisibility
             => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility>();
 
+        // ADR-012 v0.2 / PR #119.3 — Per-classification state machine.
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusProfile> WorkOrderStatusProfile
+            => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusProfile>();
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusLabel> WorkOrderStatusLabel
+            => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusLabel>();
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition> WorkOrderStatusTransition
+            => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -654,6 +662,24 @@ namespace Abs.FixedAssets.Data
             modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility>(e =>
             {
                 e.HasIndex(x => new { x.Classification, x.TenantId });
+            });
+
+            // ADR-012 v0.2 / PR #119.3 — Status engine config tables.
+            // Migration creates the indexes via raw SQL; here we just
+            // mirror the keys for EF model snapshot integrity.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusProfile>(e =>
+            {
+                e.HasKey(x => x.Classification);
+            });
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusLabel>(e =>
+            {
+                e.HasIndex(x => new { x.Classification, x.StatusCode }).IsUnique();
+                e.HasIndex(x => new { x.Classification, x.StatusKey }).IsUnique();
+            });
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition>(e =>
+            {
+                e.HasIndex(x => new { x.Classification, x.FromStatusCode, x.ToStatusCode }).IsUnique();
+                e.HasIndex(x => new { x.Classification, x.FromStatusCode });
             });
 
             // Maintenance Schedules
