@@ -1,0 +1,71 @@
+@*
+    _EmptyStateV2.cshtml — hero illustration slot + headline + body + CTA.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel {
+          Icon = "wrench",
+          Tone = "info",
+          Title = "No open work orders",
+          Body = "All clear. The next preventative maintenance is in 12 days.",
+          CtaLabel = "Create work order",
+          CtaHref = "/Maintenance/Create"
+      })
+
+    NOTE: legacy /Pages/Shared/_EmptyState.cshtml is preserved unchanged. New code
+    should target this primitive. Phase 3 page-rollout will migrate callers naturally.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model EmptyStateModel
+
+<div class="ds-empty" data-tone="@Model.Tone">
+    <div class="ds-empty__icon-wrap">
+        @switch (Model.Icon)
+        {
+            case "search":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="8"/><path d="M20 20 L26 26"/></svg>
+                break;
+            case "folder":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10 V24 a2 2 0 0 0 2 2 H26 a2 2 0 0 0 2 -2 V12 a2 2 0 0 0 -2 -2 H16 L13 7 H6 a2 2 0 0 0 -2 2 Z"/></svg>
+                break;
+            case "document":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 4 H20 L26 10 V28 a0 0 0 0 1 0 0 H8 a0 0 0 0 1 0 0 Z"/><path d="M20 4 V10 H26"/><path d="M12 16 H22 M12 20 H22 M12 24 H18"/></svg>
+                break;
+            case "calendar":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="8" width="22" height="20" rx="2"/><path d="M5 14 H27 M11 4 V10 M21 4 V10"/></svg>
+                break;
+            case "wrench":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 4 a6 6 0 0 0 -6 6 c0 .8 .15 1.5 .4 2.2 L4 24.5 V28 H7.5 L19.8 15.6 c.7 .25 1.4 .4 2.2 .4 a6 6 0 1 0 0 -12 z"/></svg>
+                break;
+            case "sparkle":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4 L18 13 L27 16 L18 19 L16 28 L14 19 L5 16 L14 13 Z"/></svg>
+                break;
+            case "chart":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 28 H28 M8 28 V18 M14 28 V12 M20 28 V20 M26 28 V8"/></svg>
+                break;
+            case "lock":
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="14" width="18" height="14" rx="2"/><path d="M11 14 V10 a5 5 0 0 1 10 0 V14"/></svg>
+                break;
+            default: /* inbox */
+                <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18 L8 6 H24 L28 18 V26 a0 0 0 0 1 0 0 H4 a0 0 0 0 1 0 0 Z"/><path d="M4 18 H12 a2 2 0 0 1 2 2 a2 2 0 0 0 2 2 h0 a2 2 0 0 0 2 -2 a2 2 0 0 1 2 -2 H28"/></svg>
+                break;
+        }
+    </div>
+    <div class="ds-empty__title">@Model.Title</div>
+    @if (!string.IsNullOrEmpty(Model.Body))
+    {
+        <div class="ds-empty__body">@Model.Body</div>
+    }
+    @if (!string.IsNullOrEmpty(Model.CtaLabel) || !string.IsNullOrEmpty(Model.SecondaryLabel))
+    {
+        <div class="ds-empty__actions">
+            @if (!string.IsNullOrEmpty(Model.CtaLabel))
+            {
+                <a class="ds-btn ds-btn--primary ds-btn--md" href="@(Model.CtaHref ?? "#")">@Model.CtaLabel</a>
+            }
+            @if (!string.IsNullOrEmpty(Model.SecondaryLabel))
+            {
+                <a class="ds-btn ds-btn--ghost ds-btn--md" href="@(Model.SecondaryHref ?? "#")">@Model.SecondaryLabel</a>
+            }
+        </div>
+    }
+</div>

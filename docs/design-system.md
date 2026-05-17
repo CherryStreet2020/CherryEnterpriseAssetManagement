@@ -21,7 +21,7 @@
 
 ---
 
-## Primitives (shipped in #116d.1a)
+## Primitives (10 shipped — #116d.1a + #116d.1b)
 
 ### `<DataCard>` · `Primitives/_DataCard.cshtml`
 
@@ -73,6 +73,63 @@ Inline SVG trend chart. Used standalone in cards or behind tile values. Auto-nor
 - `Tone` — stroke + fill color
 - `ShowArea` — soft gradient fill under the line
 - `Thin` — 1.0 stroke instead of 1.4 for dense placements
+
+### `<DataTable>` · `Primitives/_DataTable.cshtml`
+
+Sortable, sticky-header, density-aware data table. Sort handled client-side by `primitives.js`.
+
+**When to use**: any tabular list — work orders, assets, journal lines. Up to ~500 rows; beyond that, pair with server-side pagination.
+
+**Props (`DataTableModel`)**:
+- `Eyebrow`, `Title`, `CountText` — header chrome
+- `Columns` — list of `DataTableColumn` (`Label`, `Align`, `Width`, `Sortable`, `Mono`)
+- `RowsHtml` — pre-rendered `<td>` HTML per row (gives you control over inline pills, links, icons)
+- `StickyHeader` — defaults to true
+- `EmptyMessage` — shown when `RowsHtml` is empty
+
+### `<EmptyState>` v2 · `Primitives/_EmptyStateV2.cshtml`
+
+Hero illustration slot + headline + body + CTA. Old `_EmptyState.cshtml` kept for backwards compat.
+
+**When to use**: any list, table, or section with zero results. Always pair with a CTA that resolves the empty state (create something, reset filters, view help).
+
+**Props (`EmptyStateModel`)**: `Title`, `Body`, `CtaLabel`/`CtaHref`, `SecondaryLabel`/`SecondaryHref`, `Icon` (one of: search, inbox, folder, document, calendar, wrench, sparkle, chart, lock), `Tone` (drives glow color on the icon halo).
+
+### `<SkeletonLoader>` · `Primitives/_SkeletonLoader.cshtml`
+
+Animated placeholder shapes — line / card / table / kpi. Pulses a soft sheen.
+
+**When to use**: while data is loading. Never spinners — skeletons feel faster.
+
+**Props (`SkeletonLoaderModel`)**: `Shape`, `LineCount`, `RowCount`, `TileCount`.
+
+### `<ContextDrawer>` · `Primitives/_ContextDrawer.cshtml`
+
+Slide-in right drawer for "detail without leaving the list."
+
+**When to use**: clicking a row should open detail in-context, not navigate away. Use it for asset detail from Plant Floor, WO detail from a list, etc.
+
+**Open**: `CherryDS.drawer.open(id)` or `<button data-drawer-open="id">`.
+**Close**: ESC, backdrop click, `<button data-drawer-close="id">`, or `CherryDS.drawer.close(id)`.
+
+**Props (`ContextDrawerModel`)**: `Id`, `Title`, `Subtitle`, `BodyHtml`, `FooterHtml`, `Width` (default 480px).
+
+### `<ButtonGroup>` · `Primitives/_ButtonGroup.cshtml`
+
+A row of related buttons. Use for form actions, table toolbars, drawer footers.
+
+**Variants**: `primary` (brand gradient + glow), `secondary` (subtle bg + border), `ghost` (transparent until hover), `danger` (red).
+**Sizes**: `sm` (28px), `md` (36px), `lg` (42px).
+
+**Props (`ButtonGroupModel`)**: `Buttons` (list of `ButtonModel`), `Align` (start/center/end).
+
+### `<BrandChip>` · `Primitives/_BrandChip.cshtml`
+
+Per-OEM color-accent chip. Pass a manufacturer name; the chip auto-tints with that brand's signature color.
+
+**When to use**: anywhere we surface manufacturer + model. Plant Floor cards, asset register rows, drawer headers.
+
+**Recognized manufacturers** (with brand-tinted dot + soft background): Haas (red), Mazak (gold), Lincoln (red), KUKA (orange), FANUC (yellow), Trumpf (blue), DMG MORI (green), Schuler (navy), ABB (red), Yaskawa/Motoman (blue), Atlas Copco (amber), Fronius (red), Siemens (teal), Doosan (navy). Unknown → neutral.
 
 ---
 

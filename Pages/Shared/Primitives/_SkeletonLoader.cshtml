@@ -1,0 +1,63 @@
+@*
+    _SkeletonLoader.cshtml — animated placeholder shapes for line / card / table / kpi.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_SkeletonLoader", new SkeletonLoaderModel {
+          Shape = "kpi",
+          TileCount = 4
+      })
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model SkeletonLoaderModel
+@{
+    var extra = string.IsNullOrEmpty(Model.ExtraClasses) ? "" : " " + Model.ExtraClasses;
+}
+
+@switch (Model.Shape)
+{
+    case "card":
+        <div class="ds-skel ds-skel--card@extra" aria-busy="true" aria-label="Loading">
+            <div class="ds-skel__shimmer"></div>
+            <div class="ds-skel__line ds-skel__line--w50"></div>
+            <div class="ds-skel__line ds-skel__line--w90 ds-skel__line--lg"></div>
+            <div class="ds-skel__line ds-skel__line--w70"></div>
+        </div>
+        break;
+    case "table":
+        <div class="ds-skel ds-skel--table@extra" aria-busy="true" aria-label="Loading">
+            <div class="ds-skel__shimmer"></div>
+            @for (int i = 0; i < Model.RowCount; i++)
+            {
+                <div class="ds-skel__row">
+                    <div class="ds-skel__line ds-skel__line--w20"></div>
+                    <div class="ds-skel__line ds-skel__line--w40"></div>
+                    <div class="ds-skel__line ds-skel__line--w30"></div>
+                    <div class="ds-skel__line ds-skel__line--w15"></div>
+                </div>
+            }
+        </div>
+        break;
+    case "kpi":
+        <div class="ds-skel-grid@extra">
+            @for (int i = 0; i < Model.TileCount; i++)
+            {
+                <div class="ds-skel ds-skel--kpi" aria-busy="true" aria-label="Loading">
+                    <div class="ds-skel__shimmer"></div>
+                    <div class="ds-skel__line ds-skel__line--w30"></div>
+                    <div class="ds-skel__line ds-skel__line--w60 ds-skel__line--xl"></div>
+                    <div class="ds-skel__line ds-skel__line--w40 ds-skel__line--sm"></div>
+                </div>
+            }
+        </div>
+        break;
+    default: /* line */
+        <div class="ds-skel ds-skel--lines@extra" aria-busy="true" aria-label="Loading">
+            <div class="ds-skel__shimmer"></div>
+            @for (int i = 0; i < Model.LineCount; i++)
+            {
+                var w = (i == Model.LineCount - 1) ? "w50" : (i % 2 == 0 ? "w90" : "w80");
+                <div class="ds-skel__line ds-skel__line--@w"></div>
+            }
+        </div>
+        break;
+}
