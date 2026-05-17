@@ -25,7 +25,7 @@ public class ProfileModel : PageModel
     public Technician Tech { get; set; } = null!;
     public List<TechnicianCertification> Certifications { get; set; } = new();
     public List<TechnicianSkill> Skills { get; set; } = new();
-    public List<MaintenanceEvent> RecentWorkOrders { get; set; } = new();
+    public List<WorkOrder> RecentWorkOrders { get; set; } = new();
 
     public int CompletedWoCount { get; set; }
     public int OpenWoCount { get; set; }
@@ -91,7 +91,7 @@ public class ProfileModel : PageModel
 
         ActiveCertCount = Certifications.Count(c => c.ExpirationDate == null || c.ExpirationDate > DateTime.UtcNow);
 
-        RecentWorkOrders = await _db.MaintenanceEvents
+        RecentWorkOrders = await _db.WorkOrders
             .Include(e => e.Asset)
             .Where(e => e.TechnicianId == id)
             .OrderByDescending(e => e.ScheduledDate)

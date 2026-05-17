@@ -119,13 +119,13 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
             // Scheduled operations for this week
             var scheduledOps = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
                 .Include(o => o.Craft)
                 .Where(o => o.AssignedTechnicianId != null && o.PlannedStartDate != null
                     && o.PlannedStartDate >= CurrentWeekStart && o.PlannedStartDate < weekEnd
                     && o.Status != OperationStatus.Cancelled
-                    && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null
-                    && companyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
+                    && o.WorkOrder != null && o.WorkOrder.Asset != null
+                    && companyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
                 .OrderBy(o => o.PlannedStartDate).ToListAsync();
 
             EventsJson = JsonSerializer.Serialize(scheduledOps.Select(o =>
@@ -136,42 +136,42 @@ namespace Abs.FixedAssets.Pages.Maintenance
                     id = o.Id,
                     techId = o.AssignedTechnicianId,
                     dayIdx = dayIdx >= 0 && dayIdx < 5 ? dayIdx : 0,
-                    wo = o.MaintenanceEvent?.WorkOrderNumber ?? "",
-                    woId = o.MaintenanceEventId,
+                    wo = o.WorkOrder?.WorkOrderNumber ?? "",
+                    woId = o.WorkOrderId,
                     title = o.Title,
-                    asset = o.MaintenanceEvent?.Asset?.Description ?? "",
+                    asset = o.WorkOrder?.Asset?.Description ?? "",
                     craft = o.Craft?.Code ?? "",
                     hours = o.PlannedHours,
-                    priority = o.MaintenanceEvent?.Priority.ToString() ?? "Medium",
-                    overdue = o.MaintenanceEvent?.ScheduledDate < DateTime.UtcNow.Date,
+                    priority = o.WorkOrder?.Priority.ToString() ?? "Medium",
+                    overdue = o.WorkOrder?.ScheduledDate < DateTime.UtcNow.Date,
                     status = o.Status.ToString()
                 };
             }), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
             // Backlog (unscheduled)
             var backlogOps = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent).ThenInclude(m => m!.Asset)
+                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
                 .Include(o => o.Craft)
                 .Where(o => (o.AssignedTechnicianId == null || o.PlannedStartDate == null)
                     && o.Status != OperationStatus.Cancelled && o.Status != OperationStatus.Completed
-                    && o.MaintenanceEvent != null && o.MaintenanceEvent.Asset != null
-                    && companyIds.Contains(o.MaintenanceEvent.Asset.CompanyId ?? 0))
-                .OrderByDescending(o => o.MaintenanceEvent!.Priority)
-                .ThenBy(o => o.MaintenanceEvent!.ScheduledDate).ToListAsync();
+                    && o.WorkOrder != null && o.WorkOrder.Asset != null
+                    && companyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
+                .OrderByDescending(o => o.WorkOrder!.Priority)
+                .ThenBy(o => o.WorkOrder!.ScheduledDate).ToListAsync();
 
             BacklogJson = JsonSerializer.Serialize(backlogOps.Select(o => new
             {
                 id = o.Id,
-                wo = o.MaintenanceEvent?.WorkOrderNumber ?? "",
-                woId = o.MaintenanceEventId,
+                wo = o.WorkOrder?.WorkOrderNumber ?? "",
+                woId = o.WorkOrderId,
                 title = o.Title,
-                asset = o.MaintenanceEvent?.Asset?.Description ?? "",
+                asset = o.WorkOrder?.Asset?.Description ?? "",
                 craft = o.Craft?.Code ?? "",
                 craftName = o.Craft?.Name ?? "",
                 hours = o.PlannedHours,
-                priority = o.MaintenanceEvent?.Priority.ToString() ?? "Medium",
-                priorityLevel = (int)(o.MaintenanceEvent?.Priority ?? MaintenancePriority.Medium),
-                overdue = o.MaintenanceEvent?.ScheduledDate < DateTime.UtcNow.Date
+                priority = o.WorkOrder?.Priority.ToString() ?? "Medium",
+                priorityLevel = (int)(o.WorkOrder?.Priority ?? MaintenancePriority.Medium),
+                overdue = o.WorkOrder?.ScheduledDate < DateTime.UtcNow.Date
             }), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
             // Crafts
@@ -182,7 +182,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
             // KPIs
             TotalBacklog = backlogOps.Count;
             ScheduledThisWeek = scheduledOps.Count;
-            OverdueCount = backlogOps.Count(o => o.MaintenanceEvent?.ScheduledDate < DateTime.UtcNow.Date);
+            OverdueCount = backlogOps.Count(o => o.WorkOrder?.ScheduledDate < DateTime.UtcNow.Date);
             if (technicians.Any())
             {
                 var cap = technicians.Count * 40m;

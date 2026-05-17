@@ -535,7 +535,7 @@ namespace Abs.FixedAssets.Models
         public AssetTaxSettings? TaxSettings { get; set; }
         public UsTaxSettings? UsTaxSettings { get; set; }
         public AssetInventory? Inventory { get; set; }
-        public ICollection<MaintenanceEvent>? MaintenanceEvents { get; set; }
+        public ICollection<WorkOrder>? WorkOrders { get; set; }
         public ICollection<Attachment>? Attachments { get; set; }
         public MachineSpecification? MachineSpecification { get; set; }
     }

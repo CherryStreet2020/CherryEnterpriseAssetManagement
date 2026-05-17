@@ -21,6 +21,6 @@ public sealed record WorkOrderCreatedV1(
 {
     public string EventType => "workorder.created";
     public int Version => 1;
-    public string EntityType => "MaintenanceEvent";
+    public string EntityType => "WorkOrder";
     public string EntityId => WorkOrderId.ToString();
 }

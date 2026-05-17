@@ -149,7 +149,7 @@ namespace Abs.FixedAssets.Models
         public string? SourceDisplayRef { get; set; }
 
         public int? WorkOrderId { get; set; }
-        public MaintenanceEvent? WorkOrder { get; set; }
+        public WorkOrder? WorkOrder { get; set; }
 
         public int? PurchaseOrderId { get; set; }
         public PurchaseOrder? PurchaseOrderRef { get; set; }

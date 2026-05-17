@@ -118,7 +118,7 @@ namespace Abs.FixedAssets.Controllers
                     break;
 
                 case "maintenance_event":
-                    var meQuery = _db.MaintenanceEvents
+                    var meQuery = _db.WorkOrders
                         .AsNoTracking()
                         .AsQueryable();
 
@@ -189,7 +189,7 @@ namespace Abs.FixedAssets.Controllers
             var assetQuery = _db.Assets.AsNoTracking().AsQueryable();
             var poQuery = _db.PurchaseOrders.AsNoTracking().AsQueryable();
             var custInvQuery = _db.CustomerInvoices.AsNoTracking().AsQueryable();
-            var meQuery = _db.MaintenanceEvents.AsNoTracking().AsQueryable();
+            var meQuery = _db.WorkOrders.AsNoTracking().AsQueryable();
 
             if (companyId.HasValue)
             {

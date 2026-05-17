@@ -87,7 +87,7 @@ public class WorkOrderPartIssuanceLedgerTests
             => throw new NotImplementedException();
         public Task<List<RecurringFailure>> GetRecurringFailuresAsync(int days = 30, int limit = 5)
             => throw new NotImplementedException();
-        public string GenerateCloseoutSummary(MaintenanceEvent workOrder, List<WorkOrderOperation>? operations = null)
+        public string GenerateCloseoutSummary(WorkOrder workOrder, List<WorkOrderOperation>? operations = null)
             => throw new NotImplementedException();
     }
 
@@ -156,7 +156,7 @@ public class WorkOrderPartIssuanceLedgerTests
             CreatedAt = DateTime.UtcNow
         });
 
-        var wo = new MaintenanceEvent
+        var wo = new WorkOrder
         {
             WorkOrderNumber = "WO-1",
             AssetId = asset.Id,
@@ -164,12 +164,12 @@ public class WorkOrderPartIssuanceLedgerTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        db.MaintenanceEvents.Add(wo);
+        db.WorkOrders.Add(wo);
         await db.SaveChangesAsync();
 
         var part = new WorkOrderPart
         {
-            MaintenanceEventId = wo.Id,
+            WorkOrderId = wo.Id,
             ItemId = item.Id,
             QuantityPlanned = 10m,
             UnitCost = 12.50m,
@@ -276,7 +276,7 @@ public class WorkOrderPartIssuanceLedgerTests
         using var doc = System.Text.Json.JsonDocument.Parse(evt.PayloadJson);
         var root = doc.RootElement;
         Assert.Equal(part.ItemId, root.GetProperty("itemId").GetInt32());
-        Assert.Equal(part.MaintenanceEventId, root.GetProperty("workOrderId").GetInt32());
+        Assert.Equal(part.WorkOrderId, root.GetProperty("workOrderId").GetInt32());
         Assert.Equal(4m, root.GetProperty("quantity").GetDecimal());
         Assert.Equal(6m, root.GetProperty("newQuantityOnHand").GetDecimal());
     }

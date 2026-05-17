@@ -90,11 +90,11 @@ namespace Abs.FixedAssets.Pages.Assets
 
         // Best-of-Breed Quick Stats
         public int OpenWorkOrderCount { get; set; }
-        public MaintenanceEvent? NextScheduledMaintenance { get; set; }
+        public WorkOrder? NextScheduledMaintenance { get; set; }
         public DateTime? LastMaintenanceDate { get; set; }
         public int SparePartsCount { get; set; }
         public decimal TotalMaintenanceCostYTD { get; set; }
-        public List<MaintenanceEvent> RecentActivity { get; set; } = new();
+        public List<WorkOrder> RecentActivity { get; set; } = new();
         public int DaysUntilNextPM => NextScheduledMaintenance?.ScheduledDate != null 
             ? Math.Max(0, (NextScheduledMaintenance.ScheduledDate - DateTime.Today).Days) 
             : -1;
@@ -187,31 +187,31 @@ namespace Abs.FixedAssets.Pages.Assets
                 var startOfYear = new DateTime(DateTime.UtcNow.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc);
                 
                 // Single query to get all maintenance events for this asset
-                var allMaintenanceEvents = await _context.MaintenanceEvents
+                var allWorkOrders = await _context.WorkOrders
                     .Where(m => m.AssetId == id)
                     .OrderByDescending(m => m.CreatedAt)
                     .ToListAsync();
                 
                 // Derive stats from the loaded data (in-memory operations)
-                OpenWorkOrderCount = allMaintenanceEvents
+                OpenWorkOrderCount = allWorkOrders
                     .Count(m => m.Status == MaintenanceStatus.Scheduled || m.Status == MaintenanceStatus.InProgress);
                 
-                NextScheduledMaintenance = allMaintenanceEvents
+                NextScheduledMaintenance = allWorkOrders
                     .Where(m => m.Status == MaintenanceStatus.Scheduled && m.ScheduledDate >= today)
                     .OrderBy(m => m.ScheduledDate)
                     .FirstOrDefault();
                 
-                LastMaintenanceDate = allMaintenanceEvents
+                LastMaintenanceDate = allWorkOrders
                     .Where(m => m.Status == MaintenanceStatus.Completed && m.CompletedDate != null)
                     .OrderByDescending(m => m.CompletedDate)
                     .Select(m => m.CompletedDate)
                     .FirstOrDefault();
                 
-                TotalMaintenanceCostYTD = allMaintenanceEvents
+                TotalMaintenanceCostYTD = allWorkOrders
                     .Where(m => m.CompletedDate >= startOfYear && m.ActualCost.HasValue)
                     .Sum(m => m.ActualCost ?? 0);
                 
-                RecentActivity = allMaintenanceEvents.Take(5).ToList();
+                RecentActivity = allWorkOrders.Take(5).ToList();
                 
                 // Load Meter Reading History
                 MeterReadings = await _context.MeterReadings

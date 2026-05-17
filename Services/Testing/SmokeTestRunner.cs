@@ -426,7 +426,7 @@ public class SmokeTestRunner : ISmokeTestRunner
         // each completed WO, the sum of its WO-{LBR,ISS,RTN,ISS-OP,RTN-OP}
         // JE debits should equal the WO header's rollup (LaborCost +
         // MaterialsCost). Drift = a closeout that ran before the JE chain
-        // was complete, or a manual MaintenanceEvent.ActualCost override.
+        // was complete, or a manual WorkOrder.ActualCost override.
         var test72 = await Test_MaintenanceSpendReconciliation();
         summary.Results.Add(test72);
 
@@ -434,7 +434,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
         summary.RollbackVerified = 
             summary.BeforeCounts["WorkRequests"] == summary.AfterCounts["WorkRequests"] &&
-            summary.BeforeCounts["MaintenanceEvents"] == summary.AfterCounts["MaintenanceEvents"] &&
+            summary.BeforeCounts["WorkOrders"] == summary.AfterCounts["WorkOrders"] &&
             summary.BeforeCounts["AuditLogs"] == summary.AfterCounts["AuditLogs"] &&
             summary.BeforeCounts["WorkOrderOperations"] == summary.AfterCounts["WorkOrderOperations"] &&
             summary.BeforeCounts["LessonsLearned"] == summary.AfterCounts["LessonsLearned"] &&
@@ -628,7 +628,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
         summary.RollbackVerified = 
             summary.BeforeCounts["WorkRequests"] == summary.AfterCounts["WorkRequests"] &&
-            summary.BeforeCounts["MaintenanceEvents"] == summary.AfterCounts["MaintenanceEvents"] &&
+            summary.BeforeCounts["WorkOrders"] == summary.AfterCounts["WorkOrders"] &&
             summary.BeforeCounts["AuditLogs"] == summary.AfterCounts["AuditLogs"] &&
             summary.BeforeCounts["WorkOrderOperations"] == summary.AfterCounts["WorkOrderOperations"] &&
             summary.BeforeCounts["LessonsLearned"] == summary.AfterCounts["LessonsLearned"] &&
@@ -686,7 +686,7 @@ public class SmokeTestRunner : ISmokeTestRunner
         return new Dictionary<string, int>
         {
             ["WorkRequests"] = await _db.WorkRequests.CountAsync(),
-            ["MaintenanceEvents"] = await _db.MaintenanceEvents.CountAsync(),
+            ["WorkOrders"] = await _db.WorkOrders.CountAsync(),
             ["AuditLogs"] = await _db.AuditLogs.CountAsync(),
             ["WorkOrderOperations"] = await _db.WorkOrderOperations.CountAsync(),
             ["LessonsLearned"] = await _db.LessonsLearned.CountAsync(),
@@ -808,17 +808,17 @@ public class SmokeTestRunner : ISmokeTestRunner
                 failures.Add($"WorkRequest status not updated (Expected: ConvertedToWO, Got: {updatedRequest?.Status})");
             }
 
-            var workOrder = await _db.MaintenanceEvents.FindAsync(conversionResult.WorkOrderId);
+            var workOrder = await _db.WorkOrders.FindAsync(conversionResult.WorkOrderId);
             result.ActualDescription = workOrder?.Description ?? "(null)";
             
             if (workOrder?.Description?.StartsWith(DraftPrefix, StringComparison.OrdinalIgnoreCase) == true)
             {
-                assertions.Add($"MaintenanceEvent.Description starts with '{DraftPrefix.TrimEnd()}' (case-insensitive, DB uppercases)");
-                result.WorkOrderDescriptionField = $"MaintenanceEvent.Description = \"{workOrder.Description.Substring(0, Math.Min(80, workOrder.Description.Length))}...\"";
+                assertions.Add($"WorkOrder.Description starts with '{DraftPrefix.TrimEnd()}' (case-insensitive, DB uppercases)");
+                result.WorkOrderDescriptionField = $"WorkOrder.Description = \"{workOrder.Description.Substring(0, Math.Min(80, workOrder.Description.Length))}...\"";
             }
             else
             {
-                failures.Add($"MaintenanceEvent.Description missing '{DraftPrefix.TrimEnd()}' prefix (Got: '{workOrder?.Description?.Substring(0, Math.Min(50, workOrder?.Description?.Length ?? 0))}')");
+                failures.Add($"WorkOrder.Description missing '{DraftPrefix.TrimEnd()}' prefix (Got: '{workOrder?.Description?.Substring(0, Math.Min(50, workOrder?.Description?.Length ?? 0))}')");
             }
 
             if (conversionResult.OperationCount >= 1)
@@ -909,7 +909,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             var woNumber = $"WO-SMOKE-CLOSE-{DateTime.UtcNow:yyyyMMddHHmmss}";
-            var workOrder = new MaintenanceEvent
+            var workOrder = new WorkOrder
             {
                 AssetId = asset.Id,
                 WorkOrderNumber = woNumber,
@@ -927,14 +927,14 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.MaintenanceEvents.Add(workOrder);
+            _db.WorkOrders.Add(workOrder);
             await _db.SaveChangesAsync();
             result.WorkOrderId = workOrder.Id;
             result.WorkOrderNumber = woNumber;
 
             var operation = new WorkOrderOperation
             {
-                MaintenanceEventId = workOrder.Id,
+                WorkOrderId = workOrder.Id,
                 OperationNumber = "OP001",
                 Title = "Replace bearing",
                 Sequence = 1,
@@ -960,7 +960,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 failures.Add($"CloseWorkOrderAsync failed: {closeoutResult.Error}");
             }
 
-            var updatedWo = await _db.MaintenanceEvents.FindAsync(workOrder.Id);
+            var updatedWo = await _db.WorkOrders.FindAsync(workOrder.Id);
             result.ResolutionSummary = updatedWo?.ResolutionSummary?.Substring(0, Math.Min(100, updatedWo?.ResolutionSummary?.Length ?? 0));
 
             if (!string.IsNullOrEmpty(updatedWo?.ResolutionSummary))
@@ -1056,7 +1056,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             for (int i = 0; i < 3; i++)
             {
-                var wo = new MaintenanceEvent
+                var wo = new WorkOrder
                 {
                     AssetId = asset.Id,
                     WorkOrderNumber = $"WO-RECUR-{i}-{DateTime.UtcNow:yyyyMMddHHmmss}",
@@ -1070,7 +1070,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     CreatedBy = "SmokeTest",
                     CreatedAt = DateTime.UtcNow
                 };
-                _db.MaintenanceEvents.Add(wo);
+                _db.WorkOrders.Add(wo);
             }
             await _db.SaveChangesAsync();
 
@@ -1745,7 +1745,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             var woNumber = $"WO-TENANT-{DateTime.UtcNow:yyyyMMddHHmmss}";
-            var workOrder = new MaintenanceEvent
+            var workOrder = new WorkOrder
             {
                 AssetId = asset.Id,
                 WorkOrderNumber = woNumber,
@@ -1759,7 +1759,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.MaintenanceEvents.Add(workOrder);
+            _db.WorkOrders.Add(workOrder);
             await _db.SaveChangesAsync();
             result.WorkOrderId = workOrder.Id;
 
@@ -2013,7 +2013,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             var maintenanceService = new MaintenanceService(_db, _tenantContext!);
 
-            var evt1 = new MaintenanceEvent
+            var evt1 = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -2061,7 +2061,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             if (generatedCount > 0)
             {
-                var generatedEvent = await _db.MaintenanceEvents
+                var generatedEvent = await _db.WorkOrders
                     .Where(e => e.Description != null && e.Description.Contains("Smoke Test Schedule"))
                     .OrderByDescending(e => e.Id)
                     .FirstOrDefaultAsync();
@@ -2125,19 +2125,19 @@ public class SmokeTestRunner : ISmokeTestRunner
             var assertions = new List<string>();
             var failures = new List<string>();
 
-            var allEvents = await _db.MaintenanceEvents.ToListAsync();
-            assertions.Add($"Total MaintenanceEvents in database: {allEvents.Count}");
+            var allEvents = await _db.WorkOrders.ToListAsync();
+            assertions.Add($"Total WorkOrders in database: {allEvents.Count}");
 
             var nullWoNumbers = allEvents.Where(e => string.IsNullOrEmpty(e.WorkOrderNumber)).ToList();
 
             if (nullWoNumbers.Count > 0)
             {
-                failures.Add($"Found {nullWoNumbers.Count} MaintenanceEvents with NULL/empty WorkOrderNumber (IDs: {string.Join(",", nullWoNumbers.Take(10).Select(e => e.Id))})");
+                failures.Add($"Found {nullWoNumbers.Count} WorkOrders with NULL/empty WorkOrderNumber (IDs: {string.Join(",", nullWoNumbers.Take(10).Select(e => e.Id))})");
                 assertions.Add("NOTE: Run MaintenanceService.BackfillMissingWorkOrderNumbersAsync() to fix existing records");
             }
             else
             {
-                assertions.Add("All MaintenanceEvents have valid WorkOrderNumber (no nulls)");
+                assertions.Add("All WorkOrders have valid WorkOrderNumber (no nulls)");
             }
 
             var duplicateWoNumbers = allEvents
@@ -2205,7 +2205,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var smartAssistEvent = new MaintenanceEvent
+            var smartAssistEvent = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -2215,7 +2215,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 Priority = MaintenancePriority.Medium,
                 WorkOrderNumber = $"WO-SA-TEST-{DateTime.UtcNow.Ticks}"
             };
-            _db.MaintenanceEvents.Add(smartAssistEvent);
+            _db.WorkOrders.Add(smartAssistEvent);
             await _db.SaveChangesAsync();
 
             var workRequest = new WorkRequest
@@ -2242,7 +2242,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 failures.Add($"Smart Assist WO should be SmartAssist but was '{smartAssistOrigin.Label}'");
             }
 
-            var pmEvent = new MaintenanceEvent
+            var pmEvent = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Preventative,
@@ -2253,7 +2253,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 WorkOrderNumber = $"WO-PM-TEST-{DateTime.UtcNow.Ticks}",
                 CustomField1 = "PMTA:999"
             };
-            _db.MaintenanceEvents.Add(pmEvent);
+            _db.WorkOrders.Add(pmEvent);
             await _db.SaveChangesAsync();
 
             var pmOrigin = await _originService.GetOriginAsync(pmEvent);
@@ -2266,7 +2266,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 failures.Add($"PM Schedule WO should be PMSchedule but was '{pmOrigin.Label}'");
             }
 
-            var manualEvent = new MaintenanceEvent
+            var manualEvent = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -2276,7 +2276,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 Priority = MaintenancePriority.High,
                 WorkOrderNumber = $"WO-MAN-TEST-{DateTime.UtcNow.Ticks}"
             };
-            _db.MaintenanceEvents.Add(manualEvent);
+            _db.WorkOrders.Add(manualEvent);
             await _db.SaveChangesAsync();
 
             var manualOrigin = await _originService.GetOriginAsync(manualEvent);
@@ -2353,7 +2353,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var emptyEvent = new MaintenanceEvent
+            var emptyEvent = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -2367,11 +2367,11 @@ public class SmokeTestRunner : ISmokeTestRunner
                 PartsCost = null,
                 MaterialsCost = null
             };
-            _db.MaintenanceEvents.Add(emptyEvent);
+            _db.WorkOrders.Add(emptyEvent);
             await _db.SaveChangesAsync();
             assertions.Add($"Created empty WO (ID:{emptyEvent.Id}, WO#:{emptyEvent.WorkOrderNumber})");
 
-            var loadedEvent = await _db.MaintenanceEvents
+            var loadedEvent = await _db.WorkOrders
                 .Include(e => e.Asset)
                 .Include(e => e.Technician)
                 .Include(e => e.Operations)
@@ -2388,7 +2388,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 var operationsCount = loadedEvent.Operations?.Count ?? 0;
                 assertions.Add($"Operations count: {operationsCount}");
 
-                var partsCount = await _db.WorkOrderParts.CountAsync(p => p.MaintenanceEventId == emptyEvent.Id);
+                var partsCount = await _db.WorkOrderParts.CountAsync(p => p.WorkOrderId == emptyEvent.Id);
                 assertions.Add($"Parts count: {partsCount}");
 
                 var hasLaborData = loadedEvent.LaborHours.HasValue && loadedEvent.LaborHours > 0;
@@ -5996,7 +5996,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             await _db.SaveChangesAsync();
             checks.Add($"Created WorkRequest {requestNumber}");
 
-            var woBefore = await _db.MaintenanceEvents.CountAsync();
+            var woBefore = await _db.WorkOrders.CountAsync();
             var opsBefore = await _db.WorkOrderOperations.CountAsync();
             var outboxBefore = await _db.OutboxEvents.CountAsync();
 
@@ -6011,7 +6011,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 checks.Add($"First conversion succeeded: WO#{result1.WorkOrderNumber}");
             }
 
-            var woAfter1 = await _db.MaintenanceEvents.CountAsync();
+            var woAfter1 = await _db.WorkOrders.CountAsync();
             var opsAfter1 = await _db.WorkOrderOperations.CountAsync();
             var outboxAfter1 = await _db.OutboxEvents.CountAsync();
 
@@ -6026,7 +6026,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 checks.Add("Second conversion succeeded (idempotent return)");
             }
 
-            var woAfter2 = await _db.MaintenanceEvents.CountAsync();
+            var woAfter2 = await _db.WorkOrders.CountAsync();
             var opsAfter2 = await _db.WorkOrderOperations.CountAsync();
             var outboxAfter2 = await _db.OutboxEvents.CountAsync();
 
@@ -6052,11 +6052,11 @@ public class SmokeTestRunner : ISmokeTestRunner
             var woCreated = woAfter1 - woBefore;
             if (woCreated != 1)
             {
-                issues.Add($"MaintenanceEvents increased by {woCreated} (expected 1)");
+                issues.Add($"WorkOrders increased by {woCreated} (expected 1)");
             }
             else
             {
-                checks.Add("MaintenanceEvents count increased by exactly 1");
+                checks.Add("WorkOrders count increased by exactly 1");
             }
 
             if (woAfter2 != woAfter1)
@@ -6294,7 +6294,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     .FirstOrDefaultAsync();
             }
 
-            var woA = new MaintenanceEvent
+            var woA = new WorkOrder
             {
                 WorkOrderNumber = $"WO-SCOPE-A-{DateTime.UtcNow:yyyyMMddHHmmss}",
                 AssetId = asset.Id,
@@ -6306,13 +6306,13 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow
             };
 
-            _db.MaintenanceEvents.Add(woA);
+            _db.WorkOrders.Add(woA);
             await _db.SaveChangesAsync();
 
-            MaintenanceEvent? woB = null;
+            WorkOrder? woB = null;
             if (hasOtherCompany && otherAsset != null)
             {
-                woB = new MaintenanceEvent
+                woB = new WorkOrder
                 {
                     WorkOrderNumber = $"WO-SCOPE-B-{DateTime.UtcNow:yyyyMMddHHmmss}",
                     AssetId = otherAsset.Id,
@@ -6323,7 +6323,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     Description = "Work Order B - belongs to different company",
                     CreatedAt = DateTime.UtcNow
                 };
-                _db.MaintenanceEvents.Add(woB);
+                _db.WorkOrders.Add(woB);
                 await _db.SaveChangesAsync();
                 checks.Add($"Created WorkOrder A (Asset.CompanyId={companyId}) and B (Asset.CompanyId={otherCompanyId})");
             }
@@ -6374,7 +6374,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 checks.Add("Cross-company exclusion check skipped (single-company environment or no other asset)");
             }
 
-            var totalCount = await _db.MaintenanceEvents.CountAsync();
+            var totalCount = await _db.WorkOrders.CountAsync();
             var scopedCount = scopedResults.Count;
             checks.Add($"Total WorkOrders in DB: {totalCount}, Scoped via service to CompanyId={companyId}: {scopedCount}");
 
@@ -6663,7 +6663,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             _db.Technicians.Add(testTech);
             await _db.SaveChangesAsync();
             
-            var woA = new MaintenanceEvent
+            var woA = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -6673,7 +6673,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 ScheduledDate = DateTime.Today,
                 CreatedAt = DateTime.UtcNow
             };
-            _db.MaintenanceEvents.Add(woA);
+            _db.WorkOrders.Add(woA);
             await _db.SaveChangesAsync();
             
             var woAId = woA.Id;
@@ -6706,7 +6706,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
             
             _db.ChangeTracker.Clear();
-            var woAVerify = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
+            var woAVerify = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
             if (woAVerify?.Priority != MaintenancePriority.High)
                 issues.Add("Priority not persisted to database");
             else
@@ -6719,7 +6719,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             
             if (otherCompanyAsset != null)
             {
-                var woB = new MaintenanceEvent
+                var woB = new WorkOrder
                 {
                     AssetId = otherCompanyAsset.Id,
                     Type = MaintenanceType.Corrective,
@@ -6729,7 +6729,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     ScheduledDate = DateTime.Today,
                     CreatedAt = DateTime.UtcNow
                 };
-                _db.MaintenanceEvents.Add(woB);
+                _db.WorkOrders.Add(woB);
                 await _db.SaveChangesAsync();
                 var woBId = woB.Id;
                 _db.ChangeTracker.Clear();
@@ -6744,7 +6744,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 {
                     checks.Add("Cross-company dispatch blocked (null return)");
                     
-                    var woBCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
+                    var woBCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
                     if (woBCheck?.Priority != MaintenancePriority.Low)
                         issues.Add($"Cross-company WO was modified: priority changed to {woBCheck?.Priority}");
                     else
@@ -6769,7 +6769,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             {
                 checks.Add("Non-existent technician rejected");
                 
-                var woAAfterInvalid = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
+                var woAAfterInvalid = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
                 if (woAAfterInvalid?.TechnicianId != testTech.Id)
                     issues.Add($"TechnicianId changed after invalid attempt: expected {testTech.Id}, got {woAAfterInvalid?.TechnicianId}");
                 else
@@ -6857,7 +6857,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var woA = new MaintenanceEvent
+            var woA = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -6868,7 +6868,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow,
                 WorkOrderNumber = $"ST45-{DateTime.UtcNow.Ticks}"
             };
-            _db.MaintenanceEvents.Add(woA);
+            _db.WorkOrders.Add(woA);
             await _db.SaveChangesAsync();
             var woAId = woA.Id;
             _db.ChangeTracker.Clear();
@@ -6882,7 +6882,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
             else
             {
-                var woCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
+                var woCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
                 if (woCheck?.Status != MaintenanceStatus.InProgress)
                     issues.Add($"Status not InProgress after Start: {woCheck?.Status}");
                 else
@@ -6907,7 +6907,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
             else
             {
-                var woCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
+                var woCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
                 if (woCheck?.Status != MaintenanceStatus.OnHold)
                     issues.Add($"Status not OnHold after Pause: {woCheck?.Status}");
                 else
@@ -6927,7 +6927,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
             else
             {
-                var woCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
+                var woCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woAId);
                 if (woCheck?.Status != MaintenanceStatus.InProgress)
                     issues.Add($"Status not InProgress after Resume: {woCheck?.Status}");
                 else
@@ -6935,7 +6935,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             _db.ChangeTracker.Clear();
-            var woToComplete = await _db.MaintenanceEvents.FirstOrDefaultAsync(m => m.Id == woAId);
+            var woToComplete = await _db.WorkOrders.FirstOrDefaultAsync(m => m.Id == woAId);
             if (woToComplete != null)
             {
                 woToComplete.Status = MaintenanceStatus.Completed;
@@ -6961,7 +6961,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             if (otherCompanyAsset != null)
             {
-                var woB = new MaintenanceEvent
+                var woB = new WorkOrder
                 {
                     AssetId = otherCompanyAsset.Id,
                     Type = MaintenanceType.Corrective,
@@ -6972,7 +6972,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     CreatedAt = DateTime.UtcNow,
                     WorkOrderNumber = $"ST45X-{DateTime.UtcNow.Ticks}"
                 };
-                _db.MaintenanceEvents.Add(woB);
+                _db.WorkOrders.Add(woB);
                 await _db.SaveChangesAsync();
                 var woBId = woB.Id;
                 _db.ChangeTracker.Clear();
@@ -6987,7 +6987,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     checks.Add("Cross-company Start blocked");
                 }
 
-                var woBCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
+                var woBCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
                 if (woBCheck?.Status != MaintenanceStatus.Scheduled)
                 {
                     issues.Add($"Cross-company WO status was modified: {woBCheck?.Status}");
@@ -7003,7 +7003,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             var auditCount = await _db.AuditLogs
-                .Where(a => a.EntityType == "MaintenanceEvent" && a.EntityId == woAId)
+                .Where(a => a.EntityType == "WorkOrder" && a.EntityId == woAId)
                 .CountAsync();
             if (auditCount >= 3)
                 checks.Add($"Audit logs created: {auditCount}");
@@ -7067,7 +7067,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var wo = new MaintenanceEvent
+            var wo = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -7078,7 +7078,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow,
                 WorkOrderNumber = $"ST46-{DateTime.UtcNow.Ticks}"
             };
-            _db.MaintenanceEvents.Add(wo);
+            _db.WorkOrders.Add(wo);
             await _db.SaveChangesAsync();
             var woId = wo.Id;
             _db.ChangeTracker.Clear();
@@ -7101,7 +7101,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             _db.ChangeTracker.Clear();
             var ops = await _db.WorkOrderOperations
                 .AsNoTracking()
-                .Where(o => o.MaintenanceEventId == woId)
+                .Where(o => o.WorkOrderId == woId)
                 .OrderBy(o => o.Sequence)
                 .ToListAsync();
 
@@ -7126,7 +7126,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 _db.ChangeTracker.Clear();
                 var reorderedOps = await _db.WorkOrderOperations
                     .AsNoTracking()
-                    .Where(o => o.MaintenanceEventId == woId)
+                    .Where(o => o.WorkOrderId == woId)
                     .OrderBy(o => o.Sequence)
                     .ToListAsync();
 
@@ -7189,7 +7189,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             if (otherCompanyAsset != null)
             {
-                var woB = new MaintenanceEvent
+                var woB = new WorkOrder
                 {
                     AssetId = otherCompanyAsset.Id,
                     Type = MaintenanceType.Corrective,
@@ -7199,12 +7199,12 @@ public class SmokeTestRunner : ISmokeTestRunner
                     CreatedAt = DateTime.UtcNow,
                     WorkOrderNumber = $"ST46X-{DateTime.UtcNow.Ticks}"
                 };
-                _db.MaintenanceEvents.Add(woB);
+                _db.WorkOrders.Add(woB);
                 await _db.SaveChangesAsync();
                 
                 var crossOp = new WorkOrderOperation
                 {
-                    MaintenanceEventId = woB.Id,
+                    WorkOrderId = woB.Id,
                     OperationNumber = "OP-001",
                     Title = "Cross-company op",
                     Sequence = 10,
@@ -7231,7 +7231,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             var auditCount = await _db.AuditLogs
-                .Where(a => a.EntityType == "MaintenanceEvent" && a.EntityId == woId && 
+                .Where(a => a.EntityType == "WorkOrder" && a.EntityId == woId && 
                             (a.Action!.Contains("OPERATION") || a.Action.Contains("REORDER")))
                 .CountAsync();
             if (auditCount >= 4)
@@ -7296,7 +7296,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var wo = new MaintenanceEvent
+            var wo = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -7307,13 +7307,13 @@ public class SmokeTestRunner : ISmokeTestRunner
                 CreatedAt = DateTime.UtcNow,
                 WorkOrderNumber = $"ST47-{DateTime.UtcNow.Ticks}"
             };
-            _db.MaintenanceEvents.Add(wo);
+            _db.WorkOrders.Add(wo);
             await _db.SaveChangesAsync();
             var woId = wo.Id;
 
             var op1 = new WorkOrderOperation
             {
-                MaintenanceEventId = woId,
+                WorkOrderId = woId,
                 OperationNumber = "OP-001",
                 Title = "Step 1",
                 Sequence = 10,
@@ -7323,7 +7323,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             };
             var op2 = new WorkOrderOperation
             {
-                MaintenanceEventId = woId,
+                WorkOrderId = woId,
                 OperationNumber = "OP-002",
                 Title = "Step 2",
                 Sequence = 20,
@@ -7348,7 +7348,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             _db.ChangeTracker.Clear();
-            var woCheckAfterFail = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woId);
+            var woCheckAfterFail = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woId);
             if (woCheckAfterFail?.Status == MaintenanceStatus.Completed)
             {
                 issues.Add("WO status changed to Completed despite closeout failure");
@@ -7372,7 +7372,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 checks.Add("Closeout succeeded after completing all ops");
                 
                 _db.ChangeTracker.Clear();
-                var woCompleted = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woId);
+                var woCompleted = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woId);
                 
                 if (woCompleted?.Status != MaintenanceStatus.Completed)
                     issues.Add($"WO status not Completed: {woCompleted?.Status}");
@@ -7397,7 +7397,7 @@ public class SmokeTestRunner : ISmokeTestRunner
 
             if (otherCompanyAsset != null)
             {
-                var woB = new MaintenanceEvent
+                var woB = new WorkOrder
                 {
                     AssetId = otherCompanyAsset.Id,
                     Type = MaintenanceType.Corrective,
@@ -7407,7 +7407,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     CreatedAt = DateTime.UtcNow,
                     WorkOrderNumber = $"ST47X-{DateTime.UtcNow.Ticks}"
                 };
-                _db.MaintenanceEvents.Add(woB);
+                _db.WorkOrders.Add(woB);
                 await _db.SaveChangesAsync();
                 var woBId = woB.Id;
                 _db.ChangeTracker.Clear();
@@ -7422,7 +7422,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     checks.Add("Cross-company closeout blocked");
                 }
 
-                var woBCheck = await _db.MaintenanceEvents.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
+                var woBCheck = await _db.WorkOrders.AsNoTracking().FirstOrDefaultAsync(m => m.Id == woBId);
                 if (woBCheck?.Status == MaintenanceStatus.Completed)
                     issues.Add("Cross-company WO was closed");
                 else
@@ -7487,7 +7487,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 return result;
             }
 
-            var woA = new MaintenanceEvent
+            var woA = new WorkOrder
             {
                 AssetId = asset.Id,
                 Type = MaintenanceType.Corrective,
@@ -7498,20 +7498,20 @@ public class SmokeTestRunner : ISmokeTestRunner
                 WorkOrderNumber = $"DT-TEST-{Guid.NewGuid():N}".Substring(0, 20),
                 CreatedAt = DateTime.UtcNow
             };
-            _db.MaintenanceEvents.Add(woA);
+            _db.WorkOrders.Add(woA);
             await _db.SaveChangesAsync();
             checks.Add($"Created WorkOrder A (Id={woA.Id}) for CompanyId={companyId}");
 
             var otherCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id != companyId);
             var hasOtherCompany = otherCompany != null;
-            MaintenanceEvent? woB = null;
+            WorkOrder? woB = null;
 
             if (hasOtherCompany)
             {
                 var otherAsset = await _db.Assets.FirstOrDefaultAsync(a => a.CompanyId == otherCompany!.Id);
                 if (otherAsset != null)
                 {
-                    woB = new MaintenanceEvent
+                    woB = new WorkOrder
                     {
                         AssetId = otherAsset.Id,
                         Type = MaintenanceType.Corrective,
@@ -7522,7 +7522,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                         WorkOrderNumber = $"DT-TEST-{Guid.NewGuid():N}".Substring(0, 20),
                         CreatedAt = DateTime.UtcNow
                     };
-                    _db.MaintenanceEvents.Add(woB);
+                    _db.WorkOrders.Add(woB);
                     await _db.SaveChangesAsync();
                     checks.Add($"Created WorkOrder B (Id={woB.Id}) for other CompanyId={otherCompany!.Id}");
                 }
@@ -7557,7 +7557,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     issues.Add("GetEventAsync(woB.Id) returned cross-company WO (SECURITY LEAK - tenant isolation failed)");
                 }
 
-                var directDbFetch = await _db.MaintenanceEvents
+                var directDbFetch = await _db.WorkOrders
                     .Include(e => e.Asset)
                     .Where(e => e.Asset != null && e.Asset.CompanyId == companyId)
                     .FirstOrDefaultAsync(e => e.Id == woB.Id);
@@ -7883,7 +7883,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             }
 
             // Core table counts
-            var woCount = await _db.MaintenanceEvents.CountAsync();
+            var woCount = await _db.WorkOrders.CountAsync();
             var itemCount = await _db.Items.CountAsync();
             var vendorCount = await _db.Vendors.CountAsync();
             var locationCount = await _db.Locations.CountAsync();
@@ -7909,7 +7909,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                 ["Item.Description"] = await _db.Items.AnyAsync(i => i.Description != null),
                 ["Item.Category"] = await _db.Items.AnyAsync(i => i.CategoryId != null),
                 ["Vendor.Email"] = await _db.Vendors.AnyAsync(v => v.Email != null),
-                ["MaintenanceEvent.CompletedDate"] = await _db.MaintenanceEvents.AnyAsync(m => m.CompletedDate != null)
+                ["WorkOrder.CompletedDate"] = await _db.WorkOrders.AnyAsync(m => m.CompletedDate != null)
             };
 
             var coveredCount = nullableFieldsCoverage.Count(kvp => kvp.Value);
@@ -11508,7 +11508,7 @@ public class SmokeTestRunner : ISmokeTestRunner
                     p.WorkOrderOperationId,
                     p.QuantityUsed,
                     p.UnitCost,
-                    WorkOrderId = p.WorkOrderOperation != null ? p.WorkOrderOperation.MaintenanceEventId : 0
+                    WorkOrderId = p.WorkOrderOperation != null ? p.WorkOrderOperation.WorkOrderId : 0
                 })
                 .ToListAsync();
 
@@ -11597,7 +11597,7 @@ public class SmokeTestRunner : ISmokeTestRunner
             // Pull completed WOs that have either a header rollup OR any JE.
             // The set of WOs we check is "WOs the closeout touched" — open
             // WOs are excluded because their rollup is intentionally null.
-            var completedWos = await _db.MaintenanceEvents
+            var completedWos = await _db.WorkOrders
                 .Where(m => m.Status == MaintenanceStatus.Completed)
                 .Select(m => new
                 {

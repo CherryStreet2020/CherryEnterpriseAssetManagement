@@ -61,7 +61,7 @@ namespace Abs.FixedAssets.Services.Reliability
             // 1. Pull all WOs in window across visible companies.
             //    We need: AssetId, CompletedDate, StartedAt, Type, header rollup.
             var wos = await (
-                from m in _db.MaintenanceEvents
+                from m in _db.WorkOrders
                 join a in _db.Assets on m.AssetId equals a.Id
                 where m.Status == MaintenanceStatus.Completed
                   && m.CompletedDate.HasValue

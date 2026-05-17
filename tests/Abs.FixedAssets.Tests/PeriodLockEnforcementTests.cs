@@ -273,7 +273,7 @@ public class PeriodLockEnforcementTests
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var evt = new MaintenanceEvent
+        var evt = new WorkOrder
         {
             WorkOrderNumber = "WO-001",
             AssetId = asset.Id,
@@ -281,7 +281,7 @@ public class PeriodLockEnforcementTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        db.MaintenanceEvents.Add(evt);
+        db.WorkOrders.Add(evt);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
@@ -309,9 +309,9 @@ public class PeriodLockEnforcementTests
         Assert.Equal(1, periodGuard.CallCount);
 
         // CRITICAL: status must NOT have flipped to Completed, costs NOT written.
-        // LaborCost/MaterialsCost are decimal? on MaintenanceEvent — "not written"
+        // LaborCost/MaterialsCost are decimal? on WorkOrder — "not written"
         // means they remain null (the seed event never set them).
-        var fromDb = await db.MaintenanceEvents.AsNoTracking().FirstAsync(e => e.Id == evt.Id);
+        var fromDb = await db.WorkOrders.AsNoTracking().FirstAsync(e => e.Id == evt.Id);
         Assert.Equal(MaintenanceStatus.InProgress, fromDb.Status);
         Assert.Null(fromDb.CompletedDate);
         Assert.Null(fromDb.LaborCost);
@@ -339,7 +339,7 @@ public class PeriodLockEnforcementTests
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
-        var evt = new MaintenanceEvent
+        var evt = new WorkOrder
         {
             WorkOrderNumber = "WO-002",
             AssetId = asset.Id,
@@ -347,7 +347,7 @@ public class PeriodLockEnforcementTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        db.MaintenanceEvents.Add(evt);
+        db.WorkOrders.Add(evt);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
@@ -372,7 +372,7 @@ public class PeriodLockEnforcementTests
         await page.OnPostCompleteAsync(evt.Id, "fixed it", 100m, 50m, 25m, 0m);
 
         Assert.Equal(1, periodGuard.CallCount);
-        var fromDb = await db.MaintenanceEvents.AsNoTracking().FirstAsync(e => e.Id == evt.Id);
+        var fromDb = await db.WorkOrders.AsNoTracking().FirstAsync(e => e.Id == evt.Id);
         Assert.Equal(MaintenanceStatus.Completed, fromDb.Status);
         Assert.NotNull(fromDb.CompletedDate);
         Assert.Equal(100m, fromDb.LaborCost);

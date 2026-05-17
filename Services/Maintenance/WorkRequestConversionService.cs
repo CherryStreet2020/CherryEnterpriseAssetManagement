@@ -115,9 +115,9 @@ public class WorkRequestConversionService : IWorkRequestConversionService
         // === IDEMPOTENCY CHECK ===
         if (workRequest.GeneratedWorkOrderId.HasValue)
         {
-            // Company-safe WO lookup: MaintenanceEvents doesn't have CompanyId,
+            // Company-safe WO lookup: WorkOrders doesn't have CompanyId,
             // so we verify via the linked Asset's company
-            var existingWo = await _db.MaintenanceEvents
+            var existingWo = await _db.WorkOrders
                 .Include(w => w.Asset)
                 .FirstOrDefaultAsync(w => w.Id == workRequest.GeneratedWorkOrderId.Value);
 
@@ -228,7 +228,7 @@ public class WorkRequestConversionService : IWorkRequestConversionService
             {
                 var woNumber = await GenerateWorkOrderNumberAsync();
 
-                var workOrder = new MaintenanceEvent
+                var workOrder = new WorkOrder
                 {
                     AssetId = assistResult.SuggestedAssetId.Value,
                     Type = MaintenanceType.Corrective,
@@ -255,7 +255,7 @@ public class WorkRequestConversionService : IWorkRequestConversionService
                     ApprovalStatus = WorkOrderApprovalStatus.PendingApproval
                 };
 
-                _db.MaintenanceEvents.Add(workOrder);
+                _db.WorkOrders.Add(workOrder);
 
                 var seq = 10;
                 var operations = new List<WorkOrderOperation>();
@@ -263,7 +263,7 @@ public class WorkRequestConversionService : IWorkRequestConversionService
                 {
                     var operation = new WorkOrderOperation
                     {
-                        MaintenanceEvent = workOrder,
+                        WorkOrder = workOrder,
                         OperationNumber = $"OP{seq:D3}",
                         Sequence = seq,
                         Type = OperationType.Inspection,
@@ -375,7 +375,7 @@ public class WorkRequestConversionService : IWorkRequestConversionService
     {
         var today = DateTime.UtcNow;
         var prefix = $"WO-{today:yyyyMM}-";
-        var count = await _db.MaintenanceEvents
+        var count = await _db.WorkOrders
             .CountAsync(e => e.WorkOrderNumber != null && e.WorkOrderNumber.StartsWith(prefix));
         return $"{prefix}{(count + 1):D4}";
     }

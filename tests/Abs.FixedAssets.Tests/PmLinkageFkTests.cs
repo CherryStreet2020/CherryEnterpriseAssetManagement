@@ -15,7 +15,7 @@ using Xunit;
 namespace Abs.FixedAssets.Tests;
 
 /// <summary>
-/// Regression tests for S1-2: explicit PM linkage FKs on MaintenanceEvent
+/// Regression tests for S1-2: explicit PM linkage FKs on WorkOrder
 /// replace the brittle CustomField1 = "PMTA:N" string hack.
 ///
 /// Per the 2026-05-08 structural audit (S1-2), the hack conflated
@@ -68,7 +68,7 @@ public class PmLinkageFkTests
         public void SetError(string error) { }
     }
 
-    private static async Task<(Asset asset, PMTemplate template, PMTemplateAsset assignment, PMSchedule schedule, PMOccurrence occurrence, MaintenanceEvent wo)>
+    private static async Task<(Asset asset, PMTemplate template, PMTemplateAsset assignment, PMSchedule schedule, PMOccurrence occurrence, WorkOrder wo)>
         SeedPmCycleAsync(AppDbContext db, int companyId)
     {
         db.Companies.Add(new Company { Id = companyId, CompanyCode = $"C-{companyId}", Name = "Co", IsActive = true });
@@ -136,7 +136,7 @@ public class PmLinkageFkTests
         db.Set<PMOccurrence>().Add(occurrence);
         await db.SaveChangesAsync();
 
-        var wo = new MaintenanceEvent
+        var wo = new WorkOrder
         {
             WorkOrderNumber = "WO-PM",
             AssetId = asset.Id,
@@ -148,7 +148,7 @@ public class PmLinkageFkTests
             PMOccurrenceId = occurrence.Id,
             PMTemplateAssetId = assignment.Id
         };
-        db.MaintenanceEvents.Add(wo);
+        db.WorkOrders.Add(wo);
         await db.SaveChangesAsync();
 
         return (asset, template, assignment, schedule, occurrence, wo);
@@ -235,7 +235,7 @@ public class PmLinkageFkTests
         };
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
-        var wo = new MaintenanceEvent
+        var wo = new WorkOrder
         {
             WorkOrderNumber = "WO-NOLINK",
             AssetId = asset.Id,
@@ -245,7 +245,7 @@ public class PmLinkageFkTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        db.MaintenanceEvents.Add(wo);
+        db.WorkOrders.Add(wo);
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };

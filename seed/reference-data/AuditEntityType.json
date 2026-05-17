@@ -70,8 +70,8 @@
       "isActive": true
     },
     {
-      "code": "MaintenanceEvent",
-      "name": "Maintenance Event",
+      "code": "WorkOrder",
+      "name": "Work Order",
       "sortOrder": 12,
       "isActive": true
     },

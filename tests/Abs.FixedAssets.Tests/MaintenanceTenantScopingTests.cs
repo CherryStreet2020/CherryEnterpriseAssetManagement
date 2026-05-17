@@ -110,7 +110,7 @@ public class MaintenanceTenantScopingTests
         };
         var svc = new MaintenanceService(db, tenant);
 
-        var result = await svc.CreateEventAsync(new MaintenanceEvent
+        var result = await svc.CreateEventAsync(new WorkOrder
         {
             AssetId = foreignAsset.Id,
             Type = MaintenanceType.Corrective,
@@ -120,7 +120,7 @@ public class MaintenanceTenantScopingTests
         });
 
         Assert.Null(result); // CRITICAL: cross-tenant Create silently returns null
-        Assert.Equal(0, await db.MaintenanceEvents.CountAsync()); // nothing persisted
+        Assert.Equal(0, await db.WorkOrders.CountAsync()); // nothing persisted
     }
 
     /// <summary>
@@ -154,7 +154,7 @@ public class MaintenanceTenantScopingTests
         };
         var svc = new MaintenanceService(db, tenant);
 
-        var result = await svc.CreateEventAsync(new MaintenanceEvent
+        var result = await svc.CreateEventAsync(new WorkOrder
         {
             AssetId = asset.Id,
             Type = MaintenanceType.Corrective,
@@ -164,13 +164,13 @@ public class MaintenanceTenantScopingTests
         });
 
         Assert.NotNull(result);
-        Assert.Equal(1, await db.MaintenanceEvents.CountAsync());
+        Assert.Equal(1, await db.WorkOrders.CountAsync());
     }
 
     /// <summary>
     /// The defensive WorkOrderParts query in Pages/Maintenance/Details.cshtml.cs
     /// must filter by the tenant's VisibleCompanyIds, not just the parent
-    /// event's MaintenanceEventId. This test mirrors the LINQ predicate
+    /// event's WorkOrderId. This test mirrors the LINQ predicate
     /// directly and proves cross-tenant parts cannot leak even if they share
     /// a part-level relationship through an attacker-supplied event id.
     /// </summary>
@@ -205,7 +205,7 @@ public class MaintenanceTenantScopingTests
         db.Assets.AddRange(assetA, assetB);
         await db.SaveChangesAsync();
 
-        var evtA = new MaintenanceEvent
+        var evtA = new WorkOrder
         {
             WorkOrderNumber = "WO-A",
             AssetId = assetA.Id,
@@ -213,7 +213,7 @@ public class MaintenanceTenantScopingTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        var evtB = new MaintenanceEvent
+        var evtB = new WorkOrder
         {
             WorkOrderNumber = "WO-B",
             AssetId = assetB.Id,
@@ -221,15 +221,15 @@ public class MaintenanceTenantScopingTests
             ScheduledDate = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
         };
-        db.MaintenanceEvents.AddRange(evtA, evtB);
+        db.WorkOrders.AddRange(evtA, evtB);
         await db.SaveChangesAsync();
 
         var item = new Item { PartNumber = "ITM-1", Description = "Widget" };
         db.Items.Add(item);
         await db.SaveChangesAsync();
 
-        db.WorkOrderParts.Add(new WorkOrderPart { MaintenanceEventId = evtA.Id, ItemId = item.Id, QuantityPlanned = 1 });
-        db.WorkOrderParts.Add(new WorkOrderPart { MaintenanceEventId = evtB.Id, ItemId = item.Id, QuantityPlanned = 1 });
+        db.WorkOrderParts.Add(new WorkOrderPart { WorkOrderId = evtA.Id, ItemId = item.Id, QuantityPlanned = 1 });
+        db.WorkOrderParts.Add(new WorkOrderPart { WorkOrderId = evtB.Id, ItemId = item.Id, QuantityPlanned = 1 });
         await db.SaveChangesAsync();
 
         // Tenant only sees company 100.
@@ -243,11 +243,11 @@ public class MaintenanceTenantScopingTests
         // If a refactor changes the page query, update this test in lockstep —
         // its purpose is to lock down the WHERE-clause shape.
         async Task<List<WorkOrderPart>> ScopedQuery(int eventId) => await db.WorkOrderParts
-            .Where(p => p.MaintenanceEventId == eventId
-                && p.MaintenanceEvent != null
-                && p.MaintenanceEvent.Asset != null
-                && tenant.VisibleCompanyIds.Contains(p.MaintenanceEvent.Asset.CompanyId ?? 0)
-                && (!tenant.SiteId.HasValue || p.MaintenanceEvent.Asset.SiteId == tenant.SiteId.Value))
+            .Where(p => p.WorkOrderId == eventId
+                && p.WorkOrder != null
+                && p.WorkOrder.Asset != null
+                && tenant.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0)
+                && (!tenant.SiteId.HasValue || p.WorkOrder.Asset.SiteId == tenant.SiteId.Value))
             .ToListAsync();
 
         // Querying tenant A's event returns the one A-scoped part.
@@ -255,7 +255,7 @@ public class MaintenanceTenantScopingTests
         Assert.Single(partsForA);
 
         // CRITICAL: querying tenant B's event ID with tenant A's scope yields ZERO parts —
-        // even though the part exists in the DB and matches MaintenanceEventId, the
+        // even though the part exists in the DB and matches WorkOrderId, the
         // tenant predicate filters it out. This is the leak vector PR-3 closes.
         var partsForBFromTenantA = await ScopedQuery(evtB.Id);
         Assert.Empty(partsForBFromTenantA);

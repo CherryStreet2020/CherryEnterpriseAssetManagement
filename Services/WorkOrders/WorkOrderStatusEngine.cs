@@ -46,7 +46,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
         }
 
         public async Task<IReadOnlyList<TransitionOption>> GetAvailableTransitionsAsync(
-            MaintenanceEvent workOrder,
+            WorkOrder workOrder,
             CancellationToken ct = default)
         {
             var fromStatus = (short)(int)workOrder.Status;
@@ -74,7 +74,7 @@ namespace Abs.FixedAssets.Services.WorkOrders
         }
 
         public async Task<TransitionResult> TryTransitionAsync(
-            MaintenanceEvent workOrder,
+            WorkOrder workOrder,
             short toStatusCode,
             int userId,
             string? comment,

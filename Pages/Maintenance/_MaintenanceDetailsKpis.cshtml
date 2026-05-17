@@ -1,6 +1,6 @@
 @using Abs.FixedAssets.Services.Maintenance
 @{
-    var evt = ViewData["Event"] as Abs.FixedAssets.Models.MaintenanceEvent;
+    var evt = ViewData["Event"] as Abs.FixedAssets.Models.WorkOrder;
     var totalActual = (evt?.LaborCost ?? 0) + (evt?.MaterialsCost ?? 0) + (evt?.PartsCost ?? 0) + (evt?.OutsideVendorCost ?? 0);
 }
 @if (evt != null)

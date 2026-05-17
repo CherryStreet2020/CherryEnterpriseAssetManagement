@@ -727,7 +727,7 @@ namespace Abs.FixedAssets.Services.Finance
             var drift = 0;
             try
             {
-                drift = await _db.MaintenanceEvents
+                drift = await _db.WorkOrders
                     .Where(m => m.CompletedDate != null
                              && m.CompletedDate >= startDate
                              && m.CompletedDate <= endInclusive

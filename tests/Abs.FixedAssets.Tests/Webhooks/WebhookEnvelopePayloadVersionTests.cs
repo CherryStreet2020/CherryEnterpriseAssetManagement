@@ -22,7 +22,7 @@ public class WebhookEnvelopePayloadVersionTests
             CompanyId = 100,
             SiteId = 5,
             EventType = "workorder.closed",
-            EntityType = "MaintenanceEvent",
+            EntityType = "WorkOrder",
             EntityId = "789",
             PayloadJson = """{"workOrderId":789,"status":"Completed"}""",
             PayloadVersion = payloadVersion,

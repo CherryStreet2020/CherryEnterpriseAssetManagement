@@ -259,7 +259,7 @@ public class InboundEventProcessorHostedService : BackgroundService
                 return false;
             }
 
-            var workOrder = await db.MaintenanceEvents.FindAsync(new object[] { workOrderId }, ct);
+            var workOrder = await db.WorkOrders.FindAsync(new object[] { workOrderId }, ct);
             if (workOrder == null)
             {
                 _logger.LogWarning("workorder.status.updated: Work order {Id} not found", workOrderId);

@@ -20,7 +20,7 @@ namespace Abs.FixedAssets.Tests;
 /// time. That's enough to validate the EF-layer wiring; the actual
 /// xmin behavior is a PG-side guarantee verified at runtime.
 ///
-/// Per audit S1-8/S2-8: "PurchaseOrder, MaintenanceEvent, GoodsReceipt,
+/// Per audit S1-8/S2-8: "PurchaseOrder, WorkOrder, GoodsReceipt,
 /// VendorInvoice, CipProject all have no concurrency token. Two parallel
 /// 'Approve' presses can flip Draft→Approved twice."
 /// </summary>
@@ -66,9 +66,9 @@ public class StateMachineConcurrencyTokenTests
     }
 
     [Fact]
-    public void MaintenanceEvent_HasRowVersionProperty()
+    public void WorkOrder_HasRowVersionProperty()
     {
-        var evt = new MaintenanceEvent
+        var evt = new WorkOrder
         {
             WorkOrderNumber = "WO-1",
             AssetId = 1,

@@ -102,7 +102,7 @@ namespace Abs.FixedAssets.Pages.Reports
 
         private async Task<IActionResult> ExportMaintenance(string? format)
         {
-            var eventsQuery = _db.MaintenanceEvents
+            var eventsQuery = _db.WorkOrders
                 .Include(m => m.Asset)
                 .Where(m => m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0));
             if (_tenantContext.SiteId.HasValue)

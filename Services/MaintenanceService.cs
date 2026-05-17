@@ -33,15 +33,15 @@ namespace Abs.FixedAssets.Services
 
         private int GetCompanyId() => _tenantContext.CompanyId ?? 0;
 
-        private IQueryable<MaintenanceEvent> GetScopedEventsQuery()
+        private IQueryable<WorkOrder> GetScopedEventsQuery()
         {
             var companyId = GetCompanyId();
-            return _context.MaintenanceEvents
+            return _context.WorkOrders
                 .Include(x => x.Asset)
                 .Where(x => x.Asset != null && _tenantContext.VisibleCompanyIds.Contains(x.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || x.Asset.SiteId == _tenantContext.SiteId.Value));
         }
 
-        public async Task<List<MaintenanceEvent>> GetAllEventsAsync()
+        public async Task<List<WorkOrder>> GetAllEventsAsync()
         {
             return await GetScopedEventsQuery()
                 .AsNoTracking()
@@ -50,12 +50,12 @@ namespace Abs.FixedAssets.Services
                 .ToListAsync();
         }
 
-        public async Task<List<MaintenanceEvent>> GetEventsForDashboardAsync(string? filter, int limit = 250)
+        public async Task<List<WorkOrder>> GetEventsForDashboardAsync(string? filter, int limit = 250)
         {
             var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
             var thirtyDaysAgo = now.AddDays(-30);
 
-            IQueryable<MaintenanceEvent> query = GetScopedEventsQuery().AsNoTracking();
+            IQueryable<WorkOrder> query = GetScopedEventsQuery().AsNoTracking();
 
             query = filter?.ToLower() switch
             {
@@ -80,7 +80,7 @@ namespace Abs.FixedAssets.Services
             return await query.Take(limit).ToListAsync();
         }
 
-        public async Task<List<MaintenanceEvent>> GetUpcomingEventsAsync(int days = 30)
+        public async Task<List<WorkOrder>> GetUpcomingEventsAsync(int days = 30)
         {
             var cutoffDate = DateTime.SpecifyKind(DateTime.UtcNow.AddDays(days), DateTimeKind.Unspecified);
             return await GetScopedEventsQuery()
@@ -92,7 +92,7 @@ namespace Abs.FixedAssets.Services
                 .ToListAsync();
         }
 
-        public async Task<List<MaintenanceEvent>> GetOverdueEventsAsync()
+        public async Task<List<WorkOrder>> GetOverdueEventsAsync()
         {
             var now = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
             return await GetScopedEventsQuery()
@@ -104,16 +104,16 @@ namespace Abs.FixedAssets.Services
                 .ToListAsync();
         }
 
-        public async Task<MaintenanceEvent?> GetEventAsync(int id)
+        public async Task<WorkOrder?> GetEventAsync(int id)
         {
             var companyId = GetCompanyId();
-            return await _context.MaintenanceEvents
+            return await _context.WorkOrders
                 .Include(x => x.Asset)
                 .Where(x => x.Asset != null && _tenantContext.VisibleCompanyIds.Contains(x.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || x.Asset.SiteId == _tenantContext.SiteId.Value))
                 .FirstOrDefaultAsync(x => x.Id == id);
         }
 
-        public async Task<MaintenanceEvent?> CreateEventAsync(MaintenanceEvent evt)
+        public async Task<WorkOrder?> CreateEventAsync(WorkOrder evt)
         {
             // Tenant scoping is mandatory: the asset must belong to a company
             // visible to the current tenant. No conditional null-guard — the
@@ -134,7 +134,7 @@ namespace Abs.FixedAssets.Services
                 evt.WorkOrderNumber = await GenerateWorkOrderNumberAsync();
             }
             
-            _context.MaintenanceEvents.Add(evt);
+            _context.WorkOrders.Add(evt);
             await _context.SaveChangesAsync();
             return evt;
         }
@@ -144,7 +144,7 @@ namespace Abs.FixedAssets.Services
             var year = DateTime.UtcNow.Year.ToString().Substring(2);
             var prefix = $"WO-{year}-";
             
-            var lastWO = await _context.MaintenanceEvents
+            var lastWO = await _context.WorkOrders
                 .Where(e => e.WorkOrderNumber != null && e.WorkOrderNumber.StartsWith(prefix))
                 .OrderByDescending(e => e.WorkOrderNumber)
                 .FirstOrDefaultAsync();
@@ -162,10 +162,10 @@ namespace Abs.FixedAssets.Services
             return $"{prefix}{nextNum:D5}";
         }
 
-        public async Task<MaintenanceEvent?> UpdateEventAsync(MaintenanceEvent evt)
+        public async Task<WorkOrder?> UpdateEventAsync(WorkOrder evt)
         {
             // Tenant scoping is mandatory — see CreateEventAsync.
-            var exists = await _context.MaintenanceEvents
+            var exists = await _context.WorkOrders
                 .Include(e => e.Asset)
                 .AnyAsync(e => e.Id == evt.Id
                     && e.Asset != null
@@ -176,17 +176,17 @@ namespace Abs.FixedAssets.Services
                 return null;
             }
 
-            _context.MaintenanceEvents.Update(evt);
+            _context.WorkOrders.Update(evt);
             await _context.SaveChangesAsync();
             return evt;
         }
 
-        public async Task<MaintenanceEvent?> CompleteEventAsync(int id, string resolution, decimal actualCost)
+        public async Task<WorkOrder?> CompleteEventAsync(int id, string resolution, decimal actualCost)
         {
             // Tenant scoping is mandatory — no unscoped fallback. The previous
             // version skipped scoping when CompanyId was null; that mirrored
             // the AccountsPayable leak fixed in PR #22 and is closed here.
-            var evt = await _context.MaintenanceEvents
+            var evt = await _context.WorkOrders
                 .Include(e => e.Asset)
                 .Where(e => e.Id == id
                     && e.Asset != null
@@ -208,7 +208,7 @@ namespace Abs.FixedAssets.Services
             return evt;
         }
         
-        private async Task UpdatePMAssignmentOnCompletionAsync(MaintenanceEvent evt)
+        private async Task UpdatePMAssignmentOnCompletionAsync(WorkOrder evt)
         {
             if (evt.Type != MaintenanceType.Preventative) return;
 
@@ -265,7 +265,7 @@ namespace Abs.FixedAssets.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<MaintenanceEvent?> UpdateDispatchAsync(int id, MaintenancePriority priority, DateTime scheduledDate, int? technicianId)
+        public async Task<WorkOrder?> UpdateDispatchAsync(int id, MaintenancePriority priority, DateTime scheduledDate, int? technicianId)
         {
             var evt = await GetEventAsync(id);
             if (evt == null) return null;
@@ -316,7 +316,7 @@ namespace Abs.FixedAssets.Services
         /// Pre-fix this method fetched <c>_context.MaintenanceSchedules</c>
         /// across every tenant — a process-wide call would have picked up
         /// schedules for assets the caller had no visibility into and
-        /// produced MaintenanceEvent rows linked to foreign-tenant assets.
+        /// produced WorkOrder rows linked to foreign-tenant assets.
         /// Patched as belt-and-suspenders by filtering on
         /// <c>Asset.CompanyId IN VisibleCompanyIds</c>; in practice
         /// SmokeTestRunner is the only caller, but tenant-scope leaks must
@@ -343,7 +343,7 @@ namespace Abs.FixedAssets.Services
             foreach (var schedule in schedules)
             {
                 var woNumber = await GenerateWorkOrderNumberAsync();
-                var evt = new MaintenanceEvent
+                var evt = new WorkOrder
                 {
                     AssetId = schedule.AssetId,
                     Type = schedule.Type,
@@ -356,7 +356,7 @@ namespace Abs.FixedAssets.Services
                     WorkOrderNumber = woNumber,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.MaintenanceEvents.Add(evt);
+                _context.WorkOrders.Add(evt);
 
                 schedule.LastGeneratedDate = DateTime.UtcNow;
                 schedule.NextDueDate = CalculateNextDueDate(schedule);
@@ -392,7 +392,7 @@ namespace Abs.FixedAssets.Services
 
         public async Task<int> BackfillMissingWorkOrderNumbersAsync()
         {
-            var eventsWithoutWO = await _context.MaintenanceEvents
+            var eventsWithoutWO = await _context.WorkOrders
                 .Where(e => e.WorkOrderNumber == null || e.WorkOrderNumber == "")
                 .OrderBy(e => e.Id)
                 .ToListAsync();
@@ -416,7 +416,7 @@ namespace Abs.FixedAssets.Services
             var monthStart = DateTime.SpecifyKind(new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1), DateTimeKind.Unspecified);
             var companyId = GetCompanyId();
             
-            var baseQuery = _context.MaintenanceEvents
+            var baseQuery = _context.WorkOrders
                 .Include(x => x.Asset)
                 .Where(x => x.Asset != null && _tenantContext.VisibleCompanyIds.Contains(x.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || x.Asset.SiteId == _tenantContext.SiteId.Value));
             
@@ -452,9 +452,9 @@ namespace Abs.FixedAssets.Services
             };
         }
 
-        private async Task<MaintenanceEvent?> LoadWorkOrderForCompanyAsync(int id, int companyId, bool tracking = true)
+        private async Task<WorkOrder?> LoadWorkOrderForCompanyAsync(int id, int companyId, bool tracking = true)
         {
-            var query = _context.MaintenanceEvents
+            var query = _context.WorkOrders
                 .Include(x => x.Asset)
                 .Include(x => x.Operations)
                 .Where(x => x.Asset != null && _tenantContext.VisibleCompanyIds.Contains(x.Asset.CompanyId ?? 0) && (!_tenantContext.SiteId.HasValue || x.Asset.SiteId == _tenantContext.SiteId.Value) && x.Id == id);
@@ -469,7 +469,7 @@ namespace Abs.FixedAssets.Services
         {
             var audit = new AuditLog
             {
-                EntityType = "MaintenanceEvent",
+                EntityType = "WorkOrder",
                 EntityId = entityId,
                 Action = action,
                 Username = username,
@@ -581,7 +581,7 @@ namespace Abs.FixedAssets.Services
 
             var operation = new WorkOrderOperation
             {
-                MaintenanceEventId = workOrderId,
+                WorkOrderId = workOrderId,
                 OperationNumber = opNumber,
                 Title = dto.Title,
                 Description = dto.Description,
@@ -640,14 +640,14 @@ namespace Abs.FixedAssets.Services
             var companyId = GetCompanyId();
 
             var operation = await _context.WorkOrderOperations
-                .Include(o => o.MaintenanceEvent)
+                .Include(o => o.WorkOrder)
                     .ThenInclude(m => m!.Asset)
                 .FirstOrDefaultAsync(o => o.Id == operationId);
 
             if (operation == null)
                 return OperationResult.Fail("Operation not found");
 
-            if (operation.MaintenanceEvent?.Asset?.CompanyId != companyId)
+            if (operation.WorkOrder?.Asset?.CompanyId != companyId)
                 return OperationResult.Fail("Operation not found");
 
             if (operation.Status == OperationStatus.Completed)
@@ -665,7 +665,7 @@ namespace Abs.FixedAssets.Services
                     : $"{operation.Description}\n\n[Completion Notes]: {dto.Notes}";
             }
 
-            await WriteAuditLogAsync("WORKORDER_OPERATION_COMPLETED", operation.MaintenanceEventId, userName, $"Operation '{operation.Title}' completed");
+            await WriteAuditLogAsync("WORKORDER_OPERATION_COMPLETED", operation.WorkOrderId, userName, $"Operation '{operation.Title}' completed");
             await _context.SaveChangesAsync();
 
             return OperationResult.Success(operation);
@@ -689,9 +689,9 @@ namespace Abs.FixedAssets.Services
         public bool IsSuccess { get; set; }
         public bool IsNoOp { get; set; }
         public string? Error { get; set; }
-        public MaintenanceEvent? WorkOrder { get; set; }
+        public WorkOrder? WorkOrder { get; set; }
 
-        public static ExecutionResult Success(MaintenanceEvent wo) => new() { IsSuccess = true, WorkOrder = wo };
+        public static ExecutionResult Success(WorkOrder wo) => new() { IsSuccess = true, WorkOrder = wo };
         public static ExecutionResult NoOp(string message) => new() { IsSuccess = true, IsNoOp = true, Error = message };
         public static ExecutionResult Fail(string error) => new() { IsSuccess = false, Error = error };
     }

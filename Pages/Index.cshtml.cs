@@ -134,7 +134,7 @@ namespace Abs.FixedAssets.Pages
             TotalFairMarketValue = activeAssets.Where(a => a.FairMarketValue.HasValue).Sum(a => a.FairMarketValue ?? 0);
 
             // Maintenance metrics
-            var meQuery = _db.MaintenanceEvents.Include(m => m.Asset).Where(m => m.Asset != null && visibleIds.Contains(m.Asset.CompanyId ?? 0));
+            var meQuery = _db.WorkOrders.Include(m => m.Asset).Where(m => m.Asset != null && visibleIds.Contains(m.Asset.CompanyId ?? 0));
             if (_tenantContext.SiteId.HasValue)
                 meQuery = meQuery.Where(m => m.Asset != null && m.Asset.SiteId == _tenantContext.SiteId.Value);
             var maintenanceEvents = await meQuery.ToListAsync();
@@ -153,7 +153,7 @@ namespace Abs.FixedAssets.Pages
             OpenMaintenance = ScheduledMaintenance + InProgressMaintenance;
             // PR #108 / B-25: dashboard MaintenanceCostMTD/YTD now sources from the
             // same JE table the PR #93 Maintenance Spend report and PR #103 closeout
-            // rollup read. Pre-PR these tiles summed `MaintenanceEvent.ActualCost` —
+            // rollup read. Pre-PR these tiles summed `WorkOrder.ActualCost` —
             // a legacy header field that drifted because (a) it was a manual entry
             // for years before PR #89 introduced JE-driven cost flows, and (b) PR
             // #103 only writes to it on close. After PRs #89, #92, #103, and #106

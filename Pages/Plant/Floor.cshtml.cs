@@ -85,7 +85,7 @@ namespace Abs.FixedAssets.Pages.Plant
             var assetIds = assets.Select(a => a.Id).ToList();
 
             // Open WO count per asset.
-            var openWoCounts = await _db.MaintenanceEvents
+            var openWoCounts = await _db.WorkOrders
                 .Where(m => assetIds.Contains(m.AssetId)
                          && (m.Status == MaintenanceStatus.Scheduled
                           || m.Status == MaintenanceStatus.InProgress

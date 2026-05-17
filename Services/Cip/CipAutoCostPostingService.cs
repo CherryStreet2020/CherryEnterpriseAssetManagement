@@ -26,7 +26,7 @@ namespace Abs.FixedAssets.Services.Cip
         public async Task<CipCost?> PostFromWorkOrderAsync(int workOrderId)
         {
             var companyId = GetCompanyId();
-            var wo = await _db.MaintenanceEvents
+            var wo = await _db.WorkOrders
                 .Include(e => e.Asset)
                 .Where(e => e.Id == workOrderId && e.Asset != null && _tenantContext.VisibleCompanyIds.Contains(e.Asset.CompanyId ?? 0))
                 .FirstOrDefaultAsync();

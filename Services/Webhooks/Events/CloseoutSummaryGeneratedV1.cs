@@ -16,6 +16,6 @@ public sealed record CloseoutSummaryGeneratedV1(
 {
     public string EventType => "closeout.summary.generated";
     public int Version => 1;
-    public string EntityType => "MaintenanceEvent";
+    public string EntityType => "WorkOrder";
     public string EntityId => WorkOrderId.ToString();
 }

@@ -43,7 +43,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
         private int GetCompanyId() => _tenantContext.CompanyId ?? 1;
 
         public MaintenanceStats Stats { get; set; } = new();
-        public List<MaintenanceEvent> Events { get; set; } = new();
+        public List<WorkOrder> Events { get; set; } = new();
         public Dictionary<int, WorkOrderOriginInfo> EventOrigins { get; set; } = new();
         public List<Asset> Assets { get; set; } = new();
         public List<Technician> Technicians { get; set; } = new();
@@ -187,7 +187,7 @@ namespace Abs.FixedAssets.Pages.Maintenance
 
             var scheduledLv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "MaintenanceStatus", "Scheduled");
 
-            var evt = new MaintenanceEvent
+            var evt = new WorkOrder
             {
                 AssetId = assetId,
                 Type = resolvedType,

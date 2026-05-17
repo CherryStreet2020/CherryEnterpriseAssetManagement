@@ -85,14 +85,14 @@ namespace Abs.FixedAssets.Services.Reliability
                          && e.ReadingAt >= sevenDays)
                 .CountAsync();
 
-            var correctiveCount = await _db.MaintenanceEvents
+            var correctiveCount = await _db.WorkOrders
                 .Where(m => m.AssetId == assetId
                          && m.Type == MaintenanceType.Corrective
                          && m.CompletedDate != null
                          && m.CompletedDate >= ninetyDays)
                 .CountAsync();
 
-            var overdueCount = await _db.MaintenanceEvents
+            var overdueCount = await _db.WorkOrders
                 .Where(m => m.AssetId == assetId
                          && (m.Status == MaintenanceStatus.Overdue
                           || (m.ScheduledDate < now
@@ -171,7 +171,7 @@ namespace Abs.FixedAssets.Services.Reliability
                 .ToDictionaryAsync(x => x.AssetId, x => x.Count);
 
             // 3) Completed corrective WO counts (last 90 days) per asset.
-            var correctiveCounts = await _db.MaintenanceEvents
+            var correctiveCounts = await _db.WorkOrders
                 .Where(m => assetIds.Contains(m.AssetId)
                          && m.Type == MaintenanceType.Corrective
                          && m.CompletedDate != null
@@ -181,7 +181,7 @@ namespace Abs.FixedAssets.Services.Reliability
                 .ToDictionaryAsync(x => x.AssetId, x => x.Count);
 
             // 4) Overdue WO counts per asset.
-            var overdueCounts = await _db.MaintenanceEvents
+            var overdueCounts = await _db.WorkOrders
                 .Where(m => assetIds.Contains(m.AssetId)
                          && (m.Status == MaintenanceStatus.Overdue
                           || (m.ScheduledDate < now

@@ -29,11 +29,11 @@ namespace Abs.FixedAssets.Services.Cip
                 .AnyAsync(p => p.Id == cipProjectId && _tenantContext.VisibleCompanyIds.Contains(p.CompanyId ?? 0));
         }
 
-        public async Task<List<MaintenanceEvent>> GetRelatedWorkOrdersAsync(int cipProjectId)
+        public async Task<List<WorkOrder>> GetRelatedWorkOrdersAsync(int cipProjectId)
         {
-            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<MaintenanceEvent>();
+            if (!await IsProjectVisibleAsync(cipProjectId)) return new List<WorkOrder>();
 
-            return await _db.MaintenanceEvents
+            return await _db.WorkOrders
                 .Where(w => w.CipProjectId == cipProjectId)
                 .OrderByDescending(w => w.ScheduledDate)
                 .ToListAsync();

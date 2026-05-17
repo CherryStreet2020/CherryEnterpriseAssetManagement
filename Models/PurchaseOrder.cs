@@ -106,7 +106,7 @@ namespace Abs.FixedAssets.Models
 
         public int? WorkOrderId { get; set; }
         [Display(Name = "Work Order")]
-        public MaintenanceEvent? WorkOrder { get; set; }
+        public WorkOrder? WorkOrder { get; set; }
 
         public int? CipProjectId { get; set; }
         [Display(Name = "CIP Project")]

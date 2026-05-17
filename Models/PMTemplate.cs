@@ -331,8 +331,8 @@ namespace Abs.FixedAssets.Models
     {
         public int Id { get; set; }
 
-        public int MaintenanceEventId { get; set; }
-        public MaintenanceEvent? MaintenanceEvent { get; set; }
+        public int WorkOrderId { get; set; }
+        public WorkOrder? WorkOrder { get; set; }
 
         public int ItemId { get; set; }
         public Item? Item { get; set; }

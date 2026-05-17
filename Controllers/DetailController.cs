@@ -26,7 +26,7 @@ namespace Abs.FixedAssets.Controllers
                 "asset" => await GetAssetDetail(int.Parse(id)),
                 "purchase_order" => await GetPurchaseOrderDetail(int.Parse(id)),
                 "vendor_invoice" => await GetVendorInvoiceDetail(int.Parse(id)),
-                "maintenance_event" or "work_order" => await GetMaintenanceEventDetail(int.Parse(id)),
+                "maintenance_event" or "work_order" => await GetWorkOrderDetail(int.Parse(id)),
                 "vendor" => await GetVendorDetail(int.Parse(id)),
                 "site" => await GetSiteDetail(int.Parse(id)),
                 "location" => await GetLocationDetail(int.Parse(id)),
@@ -56,7 +56,7 @@ namespace Abs.FixedAssets.Controllers
 
             var books = await _db.AssetBookSettings.Where(abs => abs.AssetId == id).Include(abs => abs.Book).AsNoTracking()
                 .Select(abs => new { abs.BookId, bookCode = abs.Book != null ? abs.Book.Code : "", bookName = abs.Book != null ? abs.Book.Name : "", method = abs.Book != null ? abs.Book.Method.ToString() : "", bookType = abs.Book != null ? abs.Book.BookType.ToString() : "" }).ToListAsync();
-            var wos = await _db.MaintenanceEvents.Where(m => m.AssetId == id).AsNoTracking()
+            var wos = await _db.WorkOrders.Where(m => m.AssetId == id).AsNoTracking()
                 .OrderByDescending(m => m.ScheduledDate).Take(10)
                 .Select(m => new { m.Id, m.WorkOrderNumber, m.Description, m.Status, m.ScheduledDate }).ToListAsync();
 
@@ -169,13 +169,13 @@ namespace Abs.FixedAssets.Controllers
             });
         }
 
-        private async Task<IActionResult> GetMaintenanceEventDetail(int id)
+        private async Task<IActionResult> GetWorkOrderDetail(int id)
         {
-            var m = await _db.MaintenanceEvents.Include(x => x.Asset).Include(x => x.Technician)
+            var m = await _db.WorkOrders.Include(x => x.Asset).Include(x => x.Technician)
                 .AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
-            if (m == null) return NotFound(new { error = "MaintenanceEvent not found" });
+            if (m == null) return NotFound(new { error = "WorkOrder not found" });
 
-            var ops = await _db.WorkOrderOperations.Where(o => o.MaintenanceEventId == id).AsNoTracking()
+            var ops = await _db.WorkOrderOperations.Where(o => o.WorkOrderId == id).AsNoTracking()
                 .Select(o => new { o.Id, o.OperationNumber, o.Description, o.Status }).ToListAsync();
 
             return Ok(new
@@ -413,7 +413,7 @@ namespace Abs.FixedAssets.Controllers
             var costs = await _db.CipCosts.Where(c => c.CipProjectId == id).AsNoTracking()
                 .Select(c => new { c.Id, c.CostType, c.Description, c.Amount, c.TransactionDate, c.SourceType, c.SourceDisplayRef, c.IsCapitalizable, c.Vendor, c.CostTypeLookupValueId }).ToListAsync();
 
-            var workOrders = await _db.MaintenanceEvents.Where(w => w.CipProjectId == id).AsNoTracking()
+            var workOrders = await _db.WorkOrders.Where(w => w.CipProjectId == id).AsNoTracking()
                 .OrderByDescending(w => w.ScheduledDate).Take(25)
                 .Select(w => new { w.Id, w.WorkOrderNumber, w.Description, w.Status, w.ActualCost, w.ScheduledDate }).ToListAsync();
 
