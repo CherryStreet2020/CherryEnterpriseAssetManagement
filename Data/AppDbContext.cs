@@ -59,6 +59,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<WorkRequest> WorkRequests => Set<WorkRequest>();
         public DbSet<LessonLearned> LessonsLearned => Set<LessonLearned>();
 
+        // ADR-012 v0.2 / PR #119.2 — Unified WorkOrder configuration backbone.
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility> WorkOrderFieldVisibility
+            => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -642,6 +646,14 @@ namespace Abs.FixedAssets.Data
                     .OnDelete(DeleteBehavior.SetNull);
 
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ADR-012 v0.2 / PR #119.2 — WorkOrderFieldVisibility config table.
+            // Indexes are created in raw SQL by the migration to use the
+            // COALESCE(TenantId, 0) trick for NULL-safe uniqueness.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility>(e =>
+            {
+                e.HasIndex(x => new { x.Classification, x.TenantId });
             });
 
             // Maintenance Schedules
