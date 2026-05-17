@@ -115,6 +115,47 @@ namespace Abs.FixedAssets.Models
 
         public DateTime? CompletedAt { get; set; }
 
+        // ADR-013 / PR #119.12 — SAP PP02 outside-processing extension.
+        //
+        // IsExternal:        Marks this operation as outside-processed
+        //                    (heat treat, plating, laser cut, third-party
+        //                    test lab). Best-in-class systems treat
+        //                    outside-processing as a flag on the Operation,
+        //                    not as a different order type or table.
+        //                    See ADR-013 §"Recommendation" item 5.
+        //
+        // VendorId:          Optional FK to Vendor. ON DELETE SET NULL
+        //                    so deleting a vendor doesn't destroy the
+        //                    historical record of who did the work.
+        //
+        // AutoGeneratePR:    Flag-only in this PR. When the order
+        //                    transitions to Released, a future PR will
+        //                    auto-fire a purchase requisition for any
+        //                    operation where IsExternal=true and
+        //                    AutoGeneratePR=true. Mirrors SAP PP02.
+        //
+        // VendorPoLineId:    External PO line reference once the
+        //                    requisition is converted to a PO.
+        //
+        // VendorExpectedReturnDate: When the outside op is expected back.
+        //                    Drives the schedule push-out engine.
+
+        [Display(Name = "External (Outside Operation)")]
+        public bool IsExternal { get; set; } = false;
+
+        public int? VendorId { get; set; }
+        public Vendor? Vendor { get; set; }
+
+        [Display(Name = "Auto-Generate PR on Release")]
+        public bool AutoGeneratePR { get; set; } = false;
+
+        [StringLength(32)]
+        [Display(Name = "Vendor PO Line")]
+        public string? VendorPoLineId { get; set; }
+
+        [Display(Name = "Vendor Expected Return")]
+        public DateTime? VendorExpectedReturnDate { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [StringLength(100)]
