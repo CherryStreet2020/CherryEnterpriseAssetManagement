@@ -28,17 +28,20 @@ namespace Abs.FixedAssets.Services.WorkOrders
         private readonly AppDbContext _db;
         private readonly WorkOrderStatusCache _cache;
         private readonly IServiceProvider _services;
+        private readonly IWorkOrderApprovalService _approvals;
         private readonly ILogger<WorkOrderStatusEngine> _logger;
 
         public WorkOrderStatusEngine(
             AppDbContext db,
             WorkOrderStatusCache cache,
             IServiceProvider services,
+            IWorkOrderApprovalService approvals,
             ILogger<WorkOrderStatusEngine> logger)
         {
             _db = db;
             _cache = cache;
             _services = services;
+            _approvals = approvals;
             _logger = logger;
         }
 
@@ -92,24 +95,24 @@ namespace Abs.FixedAssets.Services.WorkOrders
                     BlockedReason: "Transition not configured.");
             }
 
-            // 2. Approval gate.
+            // 2. Approval gate (PR #119.4 wired up — real lookup).
             //
-            // PR #119.4 ships the polymorphic WorkOrderApproval table that
-            // this check queries. Until then: if a transition has
-            // RequiredApprovalStage set, we LOG + ALLOW (developer-friendly
-            // default; same posture as the missing-guard branch below).
-            // PR #119.4 will replace this stub with the real lookup.
-            //
-            // Note: the seeder in this PR does NOT yet wire any transition
-            // to RequiredApprovalStage, so this branch is dead code in
-            // production until PR #119.4 lands. The structure stays here
-            // so PR #119.4 is a single targeted edit.
+            // If the transition requires a named approval stage, the WO
+            // must have an Approved row in WorkOrderApproval with that
+            // exact Stage. Skipped does NOT satisfy the gate (skipping
+            // moves the workflow but doesn't approve).
             if (!string.IsNullOrEmpty(match.RequiredApprovalStage))
             {
-                _logger.LogWarning(
-                    "WorkOrderStatusEngine: transition for WO {WoId} requires approval stage '{Stage}'. " +
-                    "WorkOrderApproval table doesn't exist yet (ships in PR #119.4); allowing transition.",
-                    workOrder.Id, match.RequiredApprovalStage);
+                var approved = await _approvals.IsStageApprovedAsync(
+                    workOrder.Id, match.RequiredApprovalStage, ct);
+                if (!approved)
+                {
+                    return new TransitionResult(
+                        TransitionOutcome.ApprovalMissing,
+                        null, null,
+                        $"Required approval stage '{match.RequiredApprovalStage}' is not approved.",
+                        BlockedReason: $"Capture the {match.RequiredApprovalStage} approval first.");
+                }
             }
 
             // 3. Optional guard.

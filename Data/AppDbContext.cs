@@ -71,6 +71,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition> WorkOrderStatusTransition
             => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition>();
 
+        // ADR-012 v0.2 / PR #119.4 — Polymorphic approval chain.
+        public DbSet<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval> WorkOrderApproval
+            => Set<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval>();
+
         // Webhooks & Outbox
         public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
         public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
@@ -680,6 +684,21 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => new { x.Classification, x.FromStatusCode, x.ToStatusCode }).IsUnique();
                 e.HasIndex(x => new { x.Classification, x.FromStatusCode });
+            });
+
+            // ADR-012 v0.2 / PR #119.4 — WorkOrderApproval table.
+            // FK to User registered here; FK to MaintenanceEvent + the
+            // hot-path index are added by the migration directly.
+            modelBuilder.Entity<Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval>(e =>
+            {
+                e.HasIndex(x => x.WorkOrderId);
+                e.HasIndex(x => new { x.WorkOrderId, x.Stage, x.Decision });
+                e.HasOne(x => x.ApproverUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.ApproverUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
             });
 
             // Maintenance Schedules
