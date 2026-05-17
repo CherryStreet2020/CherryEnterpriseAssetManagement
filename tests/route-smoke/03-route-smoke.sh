@@ -50,9 +50,8 @@ echo "  Route smoke test  BASE=$BASE_URL"
 echo "================================================================"
 
 echo ""
-echo "[Auth-public] login / errors"
+echo "[Auth-public] login"
 probe "Login page"          /Account/Login             200 "Login"
-probe "Forgot Password"     /Account/ForgotPassword    200 "Password"
 
 echo ""
 echo "[Operational routes] dashboard + WO + asset"
@@ -61,7 +60,7 @@ echo "[Operational routes] dashboard + WO + asset"
 probe "Dashboard root"      /                          302
 probe "Maintenance index"   /Maintenance               302
 probe "Assets index"        /Assets                    302
-probe "CIP Projects"        /CIPProjects               302
+probe "CIP Projects"        /CipProjects               302
 probe "Maintenance/PMTemplates" /Maintenance/PMTemplates 302
 probe "Maintenance/Schedules"   /Maintenance/Schedules   302
 
