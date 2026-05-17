@@ -134,12 +134,31 @@
     const target = parseNumeric(originalText);
     if (target === null) { el.dataset.countUpDone = 'true'; return; }
 
+    // PR #116d.10b — When the tab is hidden, browsers throttle requestAnimationFrame
+    // to ~1 fps which stretches a 1.2-second count-up into many seconds and leaves
+    // the visible text frozen at an intermediate value. The user does not see the
+    // animation anyway, so snap straight to the final value and mark done. On
+    // visibilitychange we re-run observeCountUp to catch elements that came into
+    // view while hidden.
+    if (document.hidden) {
+      textNode.textContent = originalText;
+      el.dataset.countUpDone = 'true';
+      return;
+    }
+
     const duration = 1200; // var(--dur-count-up) in ms
     const startTime = performance.now();
     const ease = t => 1 - Math.pow(1 - t, 3); // ease-out-cubic
     const startValue = 0;
 
     function frame(now) {
+      // If the tab became hidden mid-animation, snap to the final value and bail
+      // instead of crawling through the throttled rAF queue.
+      if (document.hidden) {
+        textNode.textContent = originalText;
+        el.dataset.countUpDone = 'true';
+        return;
+      }
       const elapsed = now - startTime;
       const t = Math.min(1, elapsed / duration);
       const v = startValue + (target - startValue) * ease(t);
@@ -300,6 +319,21 @@
     startNoise();
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') drawerCloseAll();
+    });
+
+    // PR #116d.10b — When the tab becomes visible, snap any pending count-ups
+    // (elements that may have been observed while hidden, or that were
+    // throttled by rAF) to their final value so the user never sees an
+    // intermediate frozen number.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      document.querySelectorAll('[data-count-up="true"]').forEach(el => {
+        if (el.dataset.countUpDone === 'true') return;
+        // Just snap. The element's textContent still holds the final target
+        // (or an intermediate value); calling animateCountUp will read it,
+        // see we're now visible, and run the animation cleanly.
+        animateCountUp(el);
+      });
     });
   }
 
