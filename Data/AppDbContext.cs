@@ -644,6 +644,16 @@ namespace Abs.FixedAssets.Data
                 // index on (ExternalSource, ExternalWorkOrderId) is created
                 // by the migration directly (EF can't express partial unique).
                 e.HasIndex(x => x.Classification);
+
+                // ADR-012 v0.2 / PR #119.6 — revision-chain self-FK.
+                // (MasterWorkOrderId, Revision DESC) drives the "find all
+                // revisions of WO X" lookup. SET NULL on master delete so
+                // revisions become orphan masters rather than cascade-deleted.
+                e.HasIndex(x => new { x.MasterWorkOrderId, x.Revision });
+                e.HasOne(x => x.MasterWorkOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.MasterWorkOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Asset)
                     .WithMany(a => a.MaintenanceEvents)
                     .HasForeignKey(x => x.AssetId)
