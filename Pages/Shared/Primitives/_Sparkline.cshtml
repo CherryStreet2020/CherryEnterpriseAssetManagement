@@ -1,0 +1,58 @@
+@*
+    _Sparkline.cshtml — inline SVG sparkline. Standalone use (KPITile embeds its own).
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_Sparkline", new SparklineModel {
+          Points = new[] { 32, 28, 30, 26, 22, 20, 18.0 },
+          Tone = "danger",
+          ShowArea = true
+      })
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model SparklineModel
+@{
+    var arr = System.Linq.Enumerable.ToArray(Model.Points ?? System.Array.Empty<double>());
+    var W = Model.ViewBoxWidth;
+    var H = Model.ViewBoxHeight;
+    var extraCls = string.IsNullOrEmpty(Model.ExtraClasses) ? "" : " " + Model.ExtraClasses;
+    var thinAttr = Model.Thin ? "style=\"stroke-width: 1.0;\"" : "";
+    string linePath = "";
+    string areaPath = "";
+
+    if (arr.Length >= 2)
+    {
+        double min = double.MaxValue, max = double.MinValue;
+        foreach (var v in arr) { if (v < min) min = v; if (v > max) max = v; }
+        var range = max - min;
+        if (range < 1e-9) range = 1;
+        var dx = (double)W / (arr.Length - 1);
+
+        var pathSb = new System.Text.StringBuilder();
+        var areaSb = new System.Text.StringBuilder();
+        for (int i = 0; i < arr.Length; i++)
+        {
+            var x = (i * dx).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            var y = (6 + (1 - (arr[i] - min) / range) * (H - 10)).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            pathSb.Append(i == 0 ? "M" : "L"); pathSb.Append(x); pathSb.Append(","); pathSb.Append(y); pathSb.Append(" ");
+            areaSb.Append(areaSb.Length == 0 ? "M" : "L"); areaSb.Append(x); areaSb.Append(","); areaSb.Append(y); areaSb.Append(" ");
+        }
+        areaSb.Append($"L {W},{H} L 0,{H} Z");
+        linePath = pathSb.ToString().TrimEnd();
+        areaPath = areaSb.ToString().Trim();
+    }
+}
+
+@if (arr.Length < 2)
+{
+    <svg class="ds-spark@extraCls" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true"></svg>
+}
+else
+{
+    <svg class="ds-spark@extraCls" data-tone="@Model.Tone" viewBox="0 0 @W @H" preserveAspectRatio="none" aria-hidden="true">
+        @if (Model.ShowArea)
+        {
+            <path class="ds-spark__area" d="@areaPath"></path>
+        }
+        <path class="ds-spark__line" d="@linePath" @Html.Raw(thinAttr)></path>
+    </svg>
+}

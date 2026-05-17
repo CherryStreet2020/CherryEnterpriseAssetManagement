@@ -1,0 +1,24 @@
+@*
+    _StatusPill.cshtml — semantic tone pill with optional dot + mono numeric.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel {
+          Label = "Critical",
+          Tone = "critical",
+          MonoNum = "30"
+      })
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model StatusPillModel
+
+<span class="ds-pill" data-tone="@Model.Tone">
+    @if (Model.ShowDot)
+    {
+        <span class="ds-pill__dot" aria-hidden="true"></span>
+    }
+    @if (!string.IsNullOrEmpty(Model.MonoNum))
+    {
+        <span class="ds-pill__num">@Model.MonoNum</span>
+    }
+    <span>@Model.Label</span>
+</span>

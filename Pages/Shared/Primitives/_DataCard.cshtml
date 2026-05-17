@@ -1,0 +1,128 @@
+@*
+    _DataCard.cshtml — universal luxury card primitive.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel {
+          Title = "Haas VF-2SS",
+          Subtitle = "CNC Machining Center · Stamping Cell A",
+          Tone = "critical",
+          Interactive = true,
+          Href = "/Assets/Asset/1",
+          ImageBrandClass = "asset-photo asset-photo--haas",
+          Storyline = "Spindle bearing temp trending toward failure.",
+          FloatingBadges = new() {
+              new FloatingBadgeModel { Position = "top-left", Tone = "critical", MonoNum = "30", Label = "Critical" }
+          }
+      })
+
+    Body slot is rendered from Eyebrow/Title/Subtitle/Storyline/Footer.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model DataCardModel
+@{
+    var hasImage = !string.IsNullOrEmpty(Model.ImageUrl) || !string.IsNullOrEmpty(Model.ImageBrandClass);
+    var rootClasses = new List<string> { "ds-card" };
+    if (hasImage) rootClasses.Add("ds-card--image-left");
+    if (Model.Interactive || !string.IsNullOrEmpty(Model.Href)) rootClasses.Add("is-interactive");
+    if (!string.IsNullOrEmpty(Model.ExtraClasses)) rootClasses.Add(Model.ExtraClasses);
+    var rootClass = string.Join(' ', rootClasses);
+    string? imageStyle = string.IsNullOrEmpty(Model.ImageUrl)
+        ? null
+        : $"background-image: url('{Model.ImageUrl}'); background-size: cover; background-position: center;";
+    string? dataInteractive = Model.Interactive ? "true" : null;
+}
+
+@if (!string.IsNullOrEmpty(Model.Href))
+{
+    <a class="@rootClass" data-tone="@Model.Tone" href="@Model.Href" data-interactive="@dataInteractive">
+        @if (hasImage)
+        {
+            <div class="ds-card__inner">
+                <div class="ds-card__image @Model.ImageBrandClass" style="@imageStyle">
+                    <div class="ds-card__image-overlay"></div>
+                    @await RenderBadgesAsync(Model.FloatingBadges)
+                </div>
+                <div class="ds-card__body">
+                    @await RenderCardBodyAsync(Model)
+                </div>
+            </div>
+        }
+        else
+        {
+            @await RenderCardBodyAsync(Model)
+        }
+    </a>
+}
+else
+{
+    <div class="@rootClass" data-tone="@Model.Tone" data-interactive="@dataInteractive">
+        @if (hasImage)
+        {
+            <div class="ds-card__inner">
+                <div class="ds-card__image @Model.ImageBrandClass" style="@imageStyle">
+                    <div class="ds-card__image-overlay"></div>
+                    @await RenderBadgesAsync(Model.FloatingBadges)
+                </div>
+                <div class="ds-card__body">
+                    @await RenderCardBodyAsync(Model)
+                </div>
+            </div>
+        }
+        else
+        {
+            @await RenderCardBodyAsync(Model)
+        }
+    </div>
+}
+
+@functions {
+    System.Threading.Tasks.Task<Microsoft.AspNetCore.Html.IHtmlContent> RenderBadgesAsync(List<FloatingBadgeModel> badges)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var b in badges)
+        {
+            sb.Append($"<span class=\"ds-card__floating-badge ds-card__floating-badge--{System.Net.WebUtility.HtmlEncode(b.Position)}\" data-tone=\"{System.Net.WebUtility.HtmlEncode(b.Tone)}\">");
+            if (b.Tone != "neutral")
+            {
+                var dotVar = (b.Tone == "critical" || b.Tone == "danger") ? "danger" : b.Tone;
+                sb.Append($"<span class=\"ds-pill__dot\" style=\"background: var(--{System.Net.WebUtility.HtmlEncode(dotVar)});\"></span>");
+            }
+            if (!string.IsNullOrEmpty(b.MonoNum))
+            {
+                sb.Append($"<span style=\"font-family: var(--font-mono); font-feature-settings: 'tnum' 1;\">{System.Net.WebUtility.HtmlEncode(b.MonoNum)}</span>");
+            }
+            if (!string.IsNullOrEmpty(b.Label))
+            {
+                sb.Append($"<span>{System.Net.WebUtility.HtmlEncode(b.Label)}</span>");
+            }
+            sb.Append("</span>");
+        }
+        return System.Threading.Tasks.Task.FromResult<Microsoft.AspNetCore.Html.IHtmlContent>(new Microsoft.AspNetCore.Html.HtmlString(sb.ToString()));
+    }
+
+    System.Threading.Tasks.Task<Microsoft.AspNetCore.Html.IHtmlContent> RenderCardBodyAsync(DataCardModel m)
+    {
+        var sb = new System.Text.StringBuilder();
+        if (!string.IsNullOrEmpty(m.Eyebrow))
+        {
+            sb.Append($"<div class=\"ds-card__eyebrow\"><span class=\"ds-card__eyebrow-label\">{System.Net.WebUtility.HtmlEncode(m.Eyebrow)}</span></div>");
+        }
+        if (!string.IsNullOrEmpty(m.Title))
+        {
+            sb.Append($"<div class=\"ds-card__title\">{System.Net.WebUtility.HtmlEncode(m.Title)}</div>");
+        }
+        if (!string.IsNullOrEmpty(m.Subtitle))
+        {
+            sb.Append($"<div class=\"ds-card__subtitle\">{System.Net.WebUtility.HtmlEncode(m.Subtitle)}</div>");
+        }
+        if (!string.IsNullOrEmpty(m.Storyline))
+        {
+            sb.Append($"<div class=\"ds-card__storyline\" style=\"margin-top: 10px;\">{System.Net.WebUtility.HtmlEncode(m.Storyline)}</div>");
+        }
+        if (!string.IsNullOrEmpty(m.Footer))
+        {
+            sb.Append($"<div class=\"ds-card__footer\">{System.Net.WebUtility.HtmlEncode(m.Footer)}</div>");
+        }
+        return System.Threading.Tasks.Task.FromResult<Microsoft.AspNetCore.Html.IHtmlContent>(new Microsoft.AspNetCore.Html.HtmlString(sb.ToString()));
+    }
+}

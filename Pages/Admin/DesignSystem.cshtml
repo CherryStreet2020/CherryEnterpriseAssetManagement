@@ -1,0 +1,287 @@
+@page
+@model DesignSystemModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@{
+    ViewData["Title"] = "Design system";
+    Layout = "_ModernLayout";
+}
+
+<div class="ds-showcase">
+
+    <header class="ds-showcase__header">
+        <div>
+            <h1 class="ds-showcase__title">Design system</h1>
+            <p class="ds-showcase__subtitle">
+                The locked visual language for CherryAI EAM. Every page on the product is built from these primitives.
+                Switch density to test compact / comfortable / spacious. Toggle dark mode in your OS to test contrast.
+            </p>
+        </div>
+        <div class="ds-density-toggle" role="group" aria-label="Density">
+            <button class="ds-density-toggle__btn" data-density="compact" aria-pressed="false" type="button">Compact</button>
+            <button class="ds-density-toggle__btn" data-density="comfortable" aria-pressed="true" type="button">Comfortable</button>
+            <button class="ds-density-toggle__btn" data-density="spacious" aria-pressed="false" type="button">Spacious</button>
+        </div>
+    </header>
+
+    @* ====================================================================
+       KPI tiles
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">KPI tile · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;KPITile&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_KPITile.cshtml</span>
+        </div>
+        <div class="ds-showcase__grid ds-showcase__grid--4">
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Plant health",
+                Value = "94",
+                Unit = "%",
+                DeltaText = "▼ 2.1% vs last week",
+                DeltaDirection = "down",
+                SparkPoints = new[] { 96, 95, 97, 95, 94, 93, 94.0 },
+                SparkTone = "success",
+                Href = "/Plant"
+            })
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Critical assets",
+                Value = "5",
+                DeltaText = "▲ 2 since yesterday",
+                DeltaDirection = "down",
+                SparkPoints = new[] { 1, 1, 2, 2, 3, 4, 5.0 },
+                SparkTone = "danger"
+            })
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Open work orders",
+                Value = "173",
+                DeltaText = "— stable",
+                DeltaDirection = "flat",
+                SparkPoints = new[] { 170, 172, 171, 174, 172, 173, 173.0 },
+                SparkTone = "info"
+            })
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "MTBF (30d)",
+                Value = "412",
+                Unit = "hrs",
+                DeltaText = "▲ 6.4% vs last month",
+                DeltaDirection = "up",
+                SparkPoints = new[] { 380, 390, 395, 400, 405, 410, 412.0 },
+                SparkTone = "success"
+            })
+        </div>
+    </section>
+
+    @* ====================================================================
+       Data cards — image-left variant + tone matrix
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Data card · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;DataCard&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_DataCard.cshtml</span>
+        </div>
+        <div class="ds-showcase__grid ds-showcase__grid--2">
+            @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel
+            {
+                Title = "Haas VF-2SS",
+                Subtitle = "CNC Machining Center · Stamping Cell A",
+                Tone = "critical",
+                Interactive = true,
+                Href = "#",
+                ImageBrandClass = "asset-photo asset-photo--haas",
+                Storyline = "Spindle bearing temperature trending toward failure. AI predicts ~4-7 day window before breakdown.",
+                FloatingBadges = new()
+                {
+                    new FloatingBadgeModel { Position = "top-left", Tone = "critical", MonoNum = "30", Label = "Critical" },
+                    new FloatingBadgeModel { Position = "top-right", Tone = "neutral", MonoNum = "AST-00001" }
+                }
+            })
+            @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel
+            {
+                Title = "Mazak VARIAXIS i-700",
+                Subtitle = "CNC 5-Axis · CNC Toolroom",
+                Tone = "success",
+                Interactive = true,
+                Href = "#",
+                ImageBrandClass = "asset-photo asset-photo--mazak",
+                Storyline = "Operating within spec across all sensors. Next PM scheduled in 12 days.",
+                FloatingBadges = new()
+                {
+                    new FloatingBadgeModel { Position = "top-left", Tone = "success", MonoNum = "96", Label = "Healthy" },
+                    new FloatingBadgeModel { Position = "top-right", Tone = "neutral", MonoNum = "AST-00007" }
+                }
+            })
+        </div>
+        <div class="ds-showcase__grid ds-showcase__grid--3" style="margin-top: 20px;">
+            @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel
+            {
+                Eyebrow = "Neutral tone",
+                Title = "Plain data card",
+                Subtitle = "No image, no storyline — just the content slot.",
+                Tone = "neutral"
+            })
+            @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel
+            {
+                Eyebrow = "Brand tone",
+                Title = "Featured card",
+                Subtitle = "Used for hero callouts and primary surfaces.",
+                Tone = "brand",
+                Interactive = true,
+                Href = "#"
+            })
+            @await Html.PartialAsync("Primitives/_DataCard", new DataCardModel
+            {
+                Eyebrow = "Warning tone",
+                Title = "Warning card",
+                Subtitle = "Use when something needs attention but isn't critical.",
+                Tone = "warning",
+                Interactive = true,
+                Href = "#",
+                Footer = "Updated 2 hours ago"
+            })
+        </div>
+    </section>
+
+    @* ====================================================================
+       Status pills
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Status pill · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;StatusPill&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_StatusPill.cshtml</span>
+        </div>
+        <div class="ds-card">
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Neutral", Tone = "neutral" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Active", Tone = "active" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Success", Tone = "success" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Warning", Tone = "warning" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Critical", Tone = "critical", MonoNum = "30" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Info", Tone = "info" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Brand", Tone = "brand" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Muted", Tone = "muted" })
+            </div>
+            <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Critical · 5", Tone = "critical" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Warning · 28", Tone = "warning" })
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Healthy · 287", Tone = "success" })
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       Sparklines
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Sparkline · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;Sparkline&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/Primitives/_Sparkline.cshtml</span>
+        </div>
+        <div class="ds-showcase__grid ds-showcase__grid--4">
+            <div class="ds-card" style="height: 110px; padding: 16px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Success trend</div>
+                <div style="height: 50px;">
+                    @await Html.PartialAsync("Primitives/_Sparkline", new SparklineModel
+                    {
+                        Points = new[] { 32, 36, 35, 40, 44, 48, 52, 56.0 },
+                        Tone = "success"
+                    })
+                </div>
+            </div>
+            <div class="ds-card" style="height: 110px; padding: 16px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Warning trend</div>
+                <div style="height: 50px;">
+                    @await Html.PartialAsync("Primitives/_Sparkline", new SparklineModel
+                    {
+                        Points = new[] { 60, 58, 55, 52, 50, 48, 46, 44.0 },
+                        Tone = "warning"
+                    })
+                </div>
+            </div>
+            <div class="ds-card" style="height: 110px; padding: 16px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Critical trend</div>
+                <div style="height: 50px;">
+                    @await Html.PartialAsync("Primitives/_Sparkline", new SparklineModel
+                    {
+                        Points = new[] { 80, 75, 70, 60, 50, 40, 30, 20.0 },
+                        Tone = "danger"
+                    })
+                </div>
+            </div>
+            <div class="ds-card" style="height: 110px; padding: 16px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px;">Brand trend</div>
+                <div style="height: 50px;">
+                    @await Html.PartialAsync("Primitives/_Sparkline", new SparklineModel
+                    {
+                        Points = new[] { 40, 45, 42, 50, 55, 60, 58, 65.0 },
+                        Tone = "brand"
+                    })
+                </div>
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       Color tokens preview
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Color tokens · semantic</h2>
+            <span class="ds-showcase__section-meta">wwwroot/css/tokens.css</span>
+        </div>
+        <div class="ds-card">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
+                <div><div style="height: 48px; border-radius: 12px; background: var(--color-accent);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--color-accent</div></div>
+                <div><div style="height: 48px; border-radius: 12px; background: var(--success); box-shadow: 0 0 12px var(--glow-success);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--success</div></div>
+                <div><div style="height: 48px; border-radius: 12px; background: var(--warning); box-shadow: 0 0 12px var(--glow-warning);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--warning</div></div>
+                <div><div style="height: 48px; border-radius: 12px; background: var(--danger); box-shadow: 0 0 12px var(--glow-critical);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--danger</div></div>
+                <div><div style="height: 48px; border-radius: 12px; background: var(--info);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--info</div></div>
+                <div><div style="height: 48px; border-radius: 12px; background: var(--surface-secondary); border: 1px solid var(--border-secondary);"></div><div style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 6px;">--surface-secondary</div></div>
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       Typography hierarchy
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Typography</h2>
+            <span class="ds-showcase__section-meta">Inter · JetBrains Mono</span>
+        </div>
+        <div class="ds-card">
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px 24px; align-items: baseline;">
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Display 32 · 700</span>
+                <span style="font-family: var(--font-sans); font-weight: 700; font-size: 32px; letter-spacing: -0.025em;">Critical assets need attention</span>
+
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Heading 18 · 600</span>
+                <span style="font-family: var(--font-sans); font-weight: 600; font-size: 18px; letter-spacing: -0.015em;">Storyline trio · Critical band</span>
+
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Body 14 · 400</span>
+                <span style="font-family: var(--font-sans); font-weight: 400; font-size: 14px; line-height: 1.5; color: var(--text-secondary);">5 of 320 assets across Main Manufacturing Plant are in the Critical health band.</span>
+
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Mono 13 · 500</span>
+                <span style="font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--success);">43.9 °C · AST-00001</span>
+
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Caps 11 · 500</span>
+                <span style="font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);">Plant Health</span>
+            </div>
+        </div>
+    </section>
+
+    @* ====================================================================
+       Footer notes
+       ==================================================================== *@
+    <section class="ds-showcase__section" style="margin-top: 56px;">
+        <div class="ds-card" style="text-align: center; padding: 24px;">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
+                PR #116d.1a · Foundation tokens + 4 hero primitives. Next: <code style="font-family: var(--font-mono);">&lt;DataTable&gt;</code>, <code style="font-family: var(--font-mono);">&lt;EmptyState&gt;</code>, <code style="font-family: var(--font-mono);">&lt;SkeletonLoader&gt;</code>, <code style="font-family: var(--font-mono);">&lt;ContextDrawer&gt;</code>, <code style="font-family: var(--font-mono);">&lt;ButtonGroup&gt;</code>, <code style="font-family: var(--font-mono);">&lt;BrandChip&gt;</code>, Cmd-K palette hardening.
+            </p>
+        </div>
+    </section>
+
+</div>
+
+<canvas class="ds-noise-canvas" aria-hidden="true"></canvas>

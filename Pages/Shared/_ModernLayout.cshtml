@@ -91,8 +91,13 @@
     <script>
         (function(){var u=new URLSearchParams(window.location.search);var t=u.get('theme')||localStorage.getItem('cherryai_theme');if(t==='dark'||(!t&&!window.matchMedia)){document.documentElement.classList.add('dark')}else if(t!=='light'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches){document.documentElement.classList.add('dark')}})();
     </script>
+    <script>
+        /* Density mode init — read localStorage before paint to avoid flash. */
+        (function(){try{var d=localStorage.getItem('cherryai.density');if(d==='compact'||d==='spacious'){document.documentElement.classList.add('density-'+d);}}catch(e){}})();
+    </script>
     
     <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/primitives.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/base.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/modern.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/premium-components.css" asp-append-version="true" />
@@ -664,6 +669,7 @@
     <script src="~/js/recent-nav.js" asp-append-version="true"></script>
     <script src="~/js/return-path.js" asp-append-version="true"></script>
     <script src="~/js/theme-toggle.js" asp-append-version="true"></script>
+    <script src="~/js/primitives.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js" integrity="sha384-cnROoUgVILyibe3J0zhzWoJ9p2WmdnK7j/BOTSWqVDbC1pVw2d+i6Q/1ESKJKCYf" crossorigin="anonymous"></script>
     <script src="~/js/cherry-typeahead.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

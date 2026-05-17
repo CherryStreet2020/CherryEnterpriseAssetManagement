@@ -1,0 +1,115 @@
+@*
+    _KPITile.cshtml — premium KPI tile: number + label + delta + sparkline.
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel {
+          Label = "Plant health",
+          Value = "94",
+          Unit = "%",
+          DeltaText = "▼ 2.1% vs last week",
+          DeltaDirection = "down",
+          SparkPoints = new[] { 32, 28, 30, 26, 22, 20, 18.0 },
+          SparkTone = "success",
+          Href = "/Plant"
+      })
+
+    The value auto-animates on viewport-enter via primitives.js when it parses as a number.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model KpiTileModel
+@{
+    var rootTag = string.IsNullOrEmpty(Model.Href) ? "div" : "a";
+    var deltaClass = Model.DeltaDirection switch
+    {
+        "up" => "ds-kpi__delta--up",
+        "down" => "ds-kpi__delta--down",
+        _ => "ds-kpi__delta--flat"
+    };
+}
+
+@if (!string.IsNullOrEmpty(Model.Href))
+{
+    <a class="ds-kpi" href="@Model.Href" style="text-decoration: none;">
+        @RenderInner()
+    </a>
+}
+else
+{
+    <div class="ds-kpi">
+        @RenderInner()
+    </div>
+}
+
+@functions {
+    Microsoft.AspNetCore.Html.IHtmlContent RenderInner()
+    {
+        // Build the inner HTML in code so the markup stays compact.
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"<div class=\"ds-kpi__label\">{System.Net.WebUtility.HtmlEncode(Model.Label)}</div>");
+
+        sb.Append("<div class=\"ds-kpi__value\" data-count-up=\"true\">");
+        sb.Append(System.Net.WebUtility.HtmlEncode(Model.Value));
+        if (!string.IsNullOrEmpty(Model.Unit))
+        {
+            sb.Append($"<span class=\"ds-kpi__value-unit\">{System.Net.WebUtility.HtmlEncode(Model.Unit)}</span>");
+        }
+        sb.Append("</div>");
+
+        if (!string.IsNullOrEmpty(Model.DeltaText))
+        {
+            var deltaClassLocal = Model.DeltaDirection switch
+            {
+                "up" => "ds-kpi__delta--up",
+                "down" => "ds-kpi__delta--down",
+                _ => "ds-kpi__delta--flat"
+            };
+            sb.Append($"<div class=\"ds-kpi__delta {deltaClassLocal}\">{System.Net.WebUtility.HtmlEncode(Model.DeltaText)}</div>");
+        }
+
+        if (Model.SparkPoints != null && System.Linq.Enumerable.Any(Model.SparkPoints))
+        {
+            sb.Append(BuildSparklineSvg(Model.SparkPoints, Model.SparkTone));
+        }
+
+        return new Microsoft.AspNetCore.Html.HtmlString(sb.ToString());
+    }
+
+    string BuildSparklineSvg(System.Collections.Generic.IEnumerable<double> points, string tone)
+    {
+        var arr = System.Linq.Enumerable.ToArray(points);
+        if (arr.Length < 2) return string.Empty;
+
+        const int W = 200, H = 60;
+        double min = double.MaxValue, max = double.MinValue;
+        foreach (var v in arr) { if (v < min) min = v; if (v > max) max = v; }
+        var range = (max - min);
+        if (range < 1e-9) range = 1;
+
+        var dx = (double)W / (arr.Length - 1);
+        var path = new System.Text.StringBuilder();
+        var area = new System.Text.StringBuilder();
+        for (int i = 0; i < arr.Length; i++)
+        {
+            var x = i * dx;
+            // invert y because SVG 0 is top — leave 6px padding top, 4px bottom
+            var y = 6 + (1 - (arr[i] - min) / range) * (H - 10);
+            path.Append(i == 0 ? "M" : "L");
+            path.Append(x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            path.Append(",");
+            path.Append(y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            path.Append(" ");
+
+            area.Append(area.Length == 0 ? "M" : "L");
+            area.Append(x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            area.Append(",");
+            area.Append(y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            area.Append(" ");
+        }
+        area.Append($"L {W},{H} L 0,{H} Z");
+
+        return $@"<svg class=""ds-kpi__spark ds-spark"" data-tone=""{tone}"" viewBox=""0 0 {W} {H}"" preserveAspectRatio=""none"" aria-hidden=""true"">
+  <path class=""ds-spark__area"" d=""{area}""/>
+  <path class=""ds-spark__line"" d=""{path.ToString().TrimEnd()}""/>
+</svg>";
+    }
+}
