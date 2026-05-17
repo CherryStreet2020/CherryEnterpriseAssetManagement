@@ -95,6 +95,17 @@ namespace Abs.FixedAssets.Pages
         public string ScopeCompanyLabel { get; private set; } = "All Companies";
         public string ScopeSiteLabel { get; private set; } = "All Sites";
 
+        // PR #116d.2 — Dashboard exemplar. Real-data sparklines for each
+        // KPITile. Each series is a 7-element rolling window. The series
+        // values are normalized inside _KPITile.cshtml so the absolute
+        // magnitude doesn't matter — what matters is the *shape*.
+        public IEnumerable<double> SparkOpenWorkOrders { get; private set; } = Array.Empty<double>();
+        public IEnumerable<double> SparkOverdue { get; private set; } = Array.Empty<double>();
+        public IEnumerable<double> SparkBacklog { get; private set; } = Array.Empty<double>();
+        public IEnumerable<double> SparkMaintenanceSpend { get; private set; } = Array.Empty<double>();
+        public IEnumerable<double> SparkMttr { get; private set; } = Array.Empty<double>();
+        public IEnumerable<double> SparkMtbf { get; private set; } = Array.Empty<double>();
+
         public async Task OnGetAsync()
         {
             // Check if database is empty (no companies = not initialized)
@@ -188,10 +199,99 @@ namespace Abs.FixedAssets.Pages
                 .SumAsync(x => (decimal?)x.Debit) ?? 0m;
             
             // KPI Metrics
-            WorkOrderBacklog = maintenanceEvents.Count(m => 
-                m.Status == MaintenanceStatus.Scheduled || 
+            WorkOrderBacklog = maintenanceEvents.Count(m =>
+                m.Status == MaintenanceStatus.Scheduled ||
                 m.Status == MaintenanceStatus.InProgress ||
                 m.Status == MaintenanceStatus.OnHold);
+
+            // PR #116d.2: real-data 7-day sparkline series for KPITiles.
+            // We bucket maintenanceEvents by day-of-creation for the last
+            // 7 days. The Open WO / Overdue / Backlog series share the same
+            // bucketing — for each prior day we count the events that were
+            // in the relevant state as of that day-end. We approximate state
+            // history using CreatedAt + status snapshot — a real time-machine
+            // would replay the audit trail, but that's overkill for a 7-pixel
+            // trend visualization.
+            var spanDays = 7;
+            var dayStart = DateTime.UtcNow.Date.AddDays(-(spanDays - 1));
+            var sparkOpen = new double[spanDays];
+            var sparkOverdue = new double[spanDays];
+            var sparkBacklog = new double[spanDays];
+            var sparkMttr = new double[spanDays];
+            var sparkMtbf = new double[spanDays];
+            for (int i = 0; i < spanDays; i++)
+            {
+                var asOf = dayStart.AddDays(i).AddDays(1).AddTicks(-1); // end of day i
+                var asOfEvents = maintenanceEvents.Where(m => m.CreatedAt <= asOf).ToList();
+                sparkOpen[i] = asOfEvents.Count(m => m.Status == MaintenanceStatus.Scheduled || m.Status == MaintenanceStatus.InProgress);
+                sparkOverdue[i] = asOfEvents.Count(m => m.Status != MaintenanceStatus.Completed && m.Status != MaintenanceStatus.Cancelled && m.ScheduledDate < asOf);
+                sparkBacklog[i] = asOfEvents.Count(m => m.Status == MaintenanceStatus.Scheduled || m.Status == MaintenanceStatus.InProgress || m.Status == MaintenanceStatus.OnHold);
+
+                // MTTR / MTBF — re-compute against the snapshot. Same algorithm
+                // as the canonical computation just below, scoped to events
+                // completed-by-asOf. Slight redundancy is OK; the dashboard
+                // OnGet only runs at page load.
+                var closedByThen = asOfEvents
+                    .Where(m => m.Status == MaintenanceStatus.Completed
+                                && m.CompletedDate.HasValue
+                                && m.CompletedDate.Value <= asOf
+                                && m.StartedAt.HasValue
+                                && m.Type == MaintenanceType.Corrective)
+                    .ToList();
+                sparkMttr[i] = closedByThen.Count > 0
+                    ? closedByThen.Average(m => (m.CompletedDate!.Value - m.StartedAt!.Value).TotalHours)
+                    : 0;
+
+                var groupedCloses = closedByThen
+                    .GroupBy(m => m.AssetId)
+                    .Select(g => g.Select(m => m.CompletedDate!.Value).OrderBy(d => d).ToList())
+                    .Where(closes => closes.Count >= 2)
+                    .ToList();
+                if (groupedCloses.Count > 0)
+                {
+                    double sumPerAsset = 0;
+                    int counted = 0;
+                    foreach (var closes in groupedCloses)
+                    {
+                        double gap = 0;
+                        for (int j = 1; j < closes.Count; j++) gap += (closes[j] - closes[j - 1]).TotalHours;
+                        sumPerAsset += gap / (closes.Count - 1);
+                        counted++;
+                    }
+                    sparkMtbf[i] = sumPerAsset / counted;
+                }
+            }
+            SparkOpenWorkOrders = sparkOpen;
+            SparkOverdue = sparkOverdue;
+            SparkBacklog = sparkBacklog;
+            SparkMttr = sparkMttr;
+            SparkMtbf = sparkMtbf;
+
+            // Maintenance spend sparkline: daily WO-ISS/LBR/ISS-OP debits net
+            // of WO-RTN/RTN-OP for the last 7 days. Cheap aggregation; one
+            // round-trip via GroupBy.
+            var spendDailyRaw = await _db.JournalLines
+                .Where(l => l.JournalEntry != null
+                    && maintenanceJeSources.Contains(l.JournalEntry.Source)
+                    && l.JournalEntry.PostingDate >= dayStart)
+                .Select(l => new { l.JournalEntry.Source, l.JournalEntry.PostingDate, l.Debit })
+                .ToListAsync();
+            var sparkSpend = new double[spanDays];
+            for (int i = 0; i < spanDays; i++)
+            {
+                var dayLo = dayStart.AddDays(i);
+                var dayHi = dayLo.AddDays(1);
+                var debits = spendDailyRaw
+                    .Where(x => x.PostingDate >= dayLo && x.PostingDate < dayHi)
+                    .Where(x => x.Source != "WO-RTN" && x.Source != "WO-RTN-OP")
+                    .Sum(x => (double)x.Debit);
+                var returns = spendDailyRaw
+                    .Where(x => x.PostingDate >= dayLo && x.PostingDate < dayHi)
+                    .Where(x => x.Source == "WO-RTN" || x.Source == "WO-RTN-OP")
+                    .Sum(x => (double)x.Debit);
+                sparkSpend[i] = debits - returns;
+            }
+            SparkMaintenanceSpend = sparkSpend;
             
             // PM Compliance: % of PM events completed on time (within 7 days of scheduled)
             var pmEvents = maintenanceEvents.Where(m => m.Type == MaintenanceType.Preventative).ToList();
