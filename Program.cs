@@ -232,6 +232,15 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Seeding.IWorkOrderStatusSeeder,
     Abs.FixedAssets.Services.Seeding.WorkOrderStatusSeeder>();
+
+// Sprint 3 PR #119.4 (ADR-012 v0.2): Polymorphic approval chain.
+// Registered BEFORE the status engine in DI order doesn't matter (the
+// status engine's constructor dependency on IWorkOrderApprovalService
+// is resolved lazily by DI). No cache — approvals change on user
+// action and we don't want stale gate decisions.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.WorkOrders.IWorkOrderApprovalService,
+    Abs.FixedAssets.Services.WorkOrders.WorkOrderApprovalService>();
 builder.Services.AddScoped<DepreciationBackfillService>();
 // PR #102 (B-10): Capital Improvement → JE service. Wired into
 // Pages/Assets/Improve and Pages/WorkOrders/Details::Capitalize.
