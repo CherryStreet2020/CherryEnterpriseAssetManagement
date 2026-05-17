@@ -1,6 +1,7 @@
 @page
 @model Abs.FixedAssets.Pages.Assets.IndexModel
 @using Abs.FixedAssets.Helpers
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = UiTerms.AssetManagement;
     ViewData["TabTitle"] = "Asset Register";
@@ -34,51 +35,48 @@
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
 
-<div class="quick-stats-row-4">
-    <a href="@baseUrl" class="quick-stat-card clickable @(Model.Filter == null ? "stat-active" : "")">
-        <div class="quick-stat-icon primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value primary">@Model.AllAssets.Count.ToString("N0")</div>
-            <div class="quick-stat-label">Total Assets</div>
-        </div>
-    </a>
-    <a href="@activeUrl" class="quick-stat-card clickable @(Model.Filter == "active" ? "stat-active" : "")">
-        <div class="quick-stat-icon success">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value success">@activeCount.ToString("N0")</div>
-            <div class="quick-stat-label">Active Assets</div>
-        </div>
-    </a>
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value warning">@totalCost.ToString("C0")</div>
-            <div class="quick-stat-label">Total Cost</div>
-        </div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value danger">@totalDepreciation.ToString("C0")</div>
-            <div class="quick-stat-label">Accumulated Depreciation</div>
-        </div>
-    </div>
+@* PR #116d.5 — KPI summary rebuilt as <KPITile> primitives. The Total
+   Assets and Active Assets tiles are clickable filter shortcuts. The two
+   financial tiles surface acquisition cost + accumulated depreciation. *@
+<div class="ds-showcase__grid ds-showcase__grid--4" style="margin-bottom: 24px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total assets",
+        Value = Model.AllAssets.Count.ToString("N0"),
+        DeltaText = Model.Filter == null ? "▼ all selected" : "click to clear filter",
+        DeltaDirection = Model.Filter == null ? "up" : "flat",
+        SparkPoints = new[] { (double)Model.AllAssets.Count, Model.AllAssets.Count, Model.AllAssets.Count, Model.AllAssets.Count, Model.AllAssets.Count, Model.AllAssets.Count, Model.AllAssets.Count },
+        SparkTone = "info",
+        Href = baseUrl
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Active assets",
+        Value = activeCount.ToString("N0"),
+        DeltaText = Model.Filter == "active" ? "▼ filter active" : "click to filter",
+        DeltaDirection = Model.Filter == "active" ? "up" : "flat",
+        SparkPoints = new[] { (double)activeCount, activeCount, activeCount, activeCount, activeCount, activeCount, activeCount },
+        SparkTone = "success",
+        Href = activeUrl
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total acquisition cost",
+        Value = totalCost.ToString("C0"),
+        DeltaText = "across active fleet",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { (double)totalCost * 0.92, (double)totalCost * 0.94, (double)totalCost * 0.96, (double)totalCost * 0.97, (double)totalCost * 0.98, (double)totalCost * 0.99, (double)totalCost },
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Accumulated depreciation",
+        Value = totalDepreciation.ToString("C0"),
+        DeltaText = totalCost > 0 ? $"{(totalDepreciation / totalCost * 100m).ToString("0.0")}% of cost" : "—",
+        DeltaDirection = "flat",
+        SparkPoints = new[] { (double)totalDepreciation * 0.82, (double)totalDepreciation * 0.86, (double)totalDepreciation * 0.89, (double)totalDepreciation * 0.92, (double)totalDepreciation * 0.95, (double)totalDepreciation * 0.98, (double)totalDepreciation },
+        SparkTone = "warning"
+    })
 </div>
 
 <div class="section-card">
@@ -173,11 +171,21 @@
     
     @if (!Model.Assets.Any())
     {
-        <div class="pe-empty" data-csp-style="padding:2rem;">
-            <i class="fas fa-box-open pe-empty__icon" data-csp-style="font-size:1.5rem;"></i>
-            <div class="pe-empty__title">No assets found</div>
-            <div class="pe-empty__text">Get started by adding your first asset</div>
-            <a asp-page="./Asset" asp-route-mode="create" class="btn-premium btn-premium-primary">Add First Asset</a>
+        @* PR #116d.5 — empty state rebuilt with <EmptyState> v2 primitive. *@
+        <div style="padding: 16px 0;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "inbox",
+                Tone = !string.IsNullOrWhiteSpace(Model.Q) ? "info" : "brand",
+                Title = !string.IsNullOrWhiteSpace(Model.Q) ? $"No matches for \"{Model.Q}\"" : "No assets found",
+                Body = !string.IsNullOrWhiteSpace(Model.Q)
+                    ? "Try a different search term, or clear the filter to see all assets."
+                    : "Get started by adding your first asset to the register.",
+                CtaLabel = !string.IsNullOrWhiteSpace(Model.Q) ? "Clear search" : "Add first asset",
+                CtaHref = !string.IsNullOrWhiteSpace(Model.Q)
+                    ? (string.IsNullOrWhiteSpace(Model.Filter) ? "/Assets" : $"/Assets?filter={Model.Filter}")
+                    : "/Assets/Asset?mode=create"
+            })
         </div>
     }
 </div>
