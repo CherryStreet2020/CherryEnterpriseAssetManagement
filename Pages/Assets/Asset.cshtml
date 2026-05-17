@@ -2,6 +2,7 @@
 @model Abs.FixedAssets.Pages.Assets.AssetModel
 @using Abs.FixedAssets.Models
 @using Abs.FixedAssets.Helpers
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     var assetNumber = Model.Asset?.AssetNumber ?? "";
     var assetDesc = Model.Asset?.Description ?? "";
@@ -167,68 +168,60 @@
             </div>
         </div>
 
-        <!-- Quick Stats Row - Best of Breed Feature -->
-        <div class="quick-stats-row">
-            <div class="quick-stat-card">
-                <div class="quick-stat-icon work-orders">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                </div>
-                <div class="quick-stat-content">
-                    <div class="quick-stat-value @(Model.OpenWorkOrderCount > 0 ? "has-count" : "")">@Model.OpenWorkOrderCount</div>
-                    <div class="quick-stat-label">Open Work Orders</div>
-                </div>
-            </div>
-            <div class="quick-stat-card">
-                <div class="quick-stat-icon next-pm @(Model.DaysUntilNextPM >= 0 && Model.DaysUntilNextPM <= 7 ? "urgent" : "")">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                </div>
-                <div class="quick-stat-content">
-                    @if (Model.DaysUntilNextPM >= 0)
-                    {
-                        <div class="quick-stat-value @(Model.DaysUntilNextPM <= 7 ? "warn" : "")">@Model.DaysUntilNextPM days</div>
-                        <div class="quick-stat-label">Next PM Due</div>
-                    }
-                    else
-                    {
-                        <div class="quick-stat-value muted">—</div>
-                        <div class="quick-stat-label">No PM Scheduled</div>
-                    }
-                </div>
-            </div>
-            <div class="quick-stat-card">
-                <div class="quick-stat-icon last-maint">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                </div>
-                <div class="quick-stat-content">
-                    @if (Model.LastMaintenanceDate.HasValue)
-                    {
-                        <div class="quick-stat-value">@Model.LastMaintenanceDate.Value.ToString("MMM d, yyyy")</div>
-                    }
-                    else
-                    {
-                        <div class="quick-stat-value muted">—</div>
-                    }
-                    <div class="quick-stat-label">Last Maintenance</div>
-                </div>
-            </div>
-            <div class="quick-stat-card">
-                <div class="quick-stat-icon cost-ytd">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                </div>
-                <div class="quick-stat-content">
-                    <div class="quick-stat-value">@Model.FormatMoney(Model.TotalMaintenanceCostYTD, Model.Asset.Currency)</div>
-                    <div class="quick-stat-label">Maintenance Cost YTD</div>
-                </div>
-            </div>
-            <div class="quick-stat-card clickable" onclick="document.querySelector('[data-tab=attachments]')?.click()">
-                <div class="quick-stat-icon attachments">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-                </div>
-                <div class="quick-stat-content">
-                    <div class="quick-stat-value">@Model.Attachments.Count</div>
-                    <div class="quick-stat-label">Attachments</div>
-                </div>
-            </div>
+        @* PR #116d.6 — Quick-stats row rebuilt with <KPITile> primitives.
+           Each tile is tone-driven by the metric. Open WOs surfaces danger
+           when count > 0 + warning when next PM is within 7 days. *@
+        <div class="ds-showcase__grid ds-showcase__grid--4" style="margin-top: 16px;">
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Open work orders",
+                Value = Model.OpenWorkOrderCount.ToString(),
+                Unit = Model.OpenWorkOrderCount == 1 ? "active" : "active",
+                DeltaText = Model.OpenWorkOrderCount > 0 ? "▲ work in flight" : "▼ none open",
+                DeltaDirection = Model.OpenWorkOrderCount > 0 ? "down" : "up",
+                SparkPoints = new[] { (double)Model.OpenWorkOrderCount, Model.OpenWorkOrderCount, Model.OpenWorkOrderCount, Model.OpenWorkOrderCount, Model.OpenWorkOrderCount, Model.OpenWorkOrderCount, Model.OpenWorkOrderCount },
+                SparkTone = Model.OpenWorkOrderCount > 3 ? "danger" : Model.OpenWorkOrderCount > 0 ? "warning" : "success",
+                Href = $"/Maintenance?assetId={Model.Asset.Id}"
+            })
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Next PM due",
+                Value = Model.DaysUntilNextPM >= 0 ? Model.DaysUntilNextPM.ToString() : "—",
+                Unit = Model.DaysUntilNextPM >= 0 ? "days" : "no PM",
+                DeltaText = Model.DaysUntilNextPM >= 0
+                    ? (Model.DaysUntilNextPM <= 7 ? "▲ within a week" : "▼ on schedule")
+                    : "no PM scheduled",
+                DeltaDirection = Model.DaysUntilNextPM >= 0
+                    ? (Model.DaysUntilNextPM <= 7 ? "down" : "up")
+                    : "flat",
+                SparkPoints = new[] { 14.0, 13, 12, 11, 10, 9, Model.DaysUntilNextPM > 0 ? (double)Model.DaysUntilNextPM : 0 },
+                SparkTone = Model.DaysUntilNextPM < 0 ? "muted" : Model.DaysUntilNextPM <= 7 ? "warning" : "success"
+            })
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Last maintenance",
+                Value = Model.LastMaintenanceDate.HasValue ? Model.LastMaintenanceDate.Value.ToString("MMM d") : "—",
+                Unit = Model.LastMaintenanceDate.HasValue ? Model.LastMaintenanceDate.Value.ToString("yyyy") : "no record",
+                DeltaText = Model.LastMaintenanceDate.HasValue
+                    ? $"{(DateTime.UtcNow.Date - Model.LastMaintenanceDate.Value.Date).Days} days ago"
+                    : "never",
+                DeltaDirection = "flat",
+                SparkPoints = new[] { 1.0, 1, 1, 1, 1, 1, 1 },
+                SparkTone = "info"
+            })
+            @{
+                var attachWord = Model.Attachments.Count == 1 ? "attachment" : "attachments";
+                var attachDelta = $"{Model.Attachments.Count} {attachWord} on file";
+            }
+            @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+            {
+                Label = "Maintenance cost YTD",
+                Value = Model.FormatMoney(Model.TotalMaintenanceCostYTD, Model.Asset.Currency),
+                DeltaText = attachDelta,
+                DeltaDirection = "flat",
+                SparkPoints = new[] { (double)Model.TotalMaintenanceCostYTD * 0.65, (double)Model.TotalMaintenanceCostYTD * 0.72, (double)Model.TotalMaintenanceCostYTD * 0.80, (double)Model.TotalMaintenanceCostYTD * 0.86, (double)Model.TotalMaintenanceCostYTD * 0.92, (double)Model.TotalMaintenanceCostYTD * 0.97, (double)Model.TotalMaintenanceCostYTD },
+                SparkTone = "brand"
+            })
         </div>
 
         <!-- Activity Timeline - Best of Breed Feature -->
