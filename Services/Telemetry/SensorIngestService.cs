@@ -153,19 +153,29 @@ namespace Abs.FixedAssets.Services.Telemetry
                     .Where(p => readingTypes.Contains(p.ReadingType))
                     .Where(p => p.EquipmentClass != null
                              && distinctClassNames.Contains(p.EquipmentClass.Name.ToLower()))
+                    .OrderBy(p => p.DisplayOrder)
                     .Select(p => new RawProfile
                     {
                         ClassNameLower = p.EquipmentClass!.Name.ToLower(),
                         ReadingType = p.ReadingType,
+                        DisplayOrder = p.DisplayOrder,
                         WarningThreshold = p.WarningThreshold,
                         CriticalThreshold = p.CriticalThreshold,
                         BreachOnHighSide = p.BreachOnHighSide,
                     })
                     .ToListAsync(ct);
 
-            var profileMap = rawProfiles.ToDictionary(
-                p => (p.ClassNameLower, p.ReadingType),
-                p => p);
+            // PR #118.3.1 — a single EquipmentClass can have multiple
+            // SensorProfile rows sharing a ReadingType (e.g., a CNC has
+            // Spindle Temp, Coolant Temp, and Motor Temp, all
+            // ReadingType=Temperature). Take the first by DisplayOrder
+            // — this matches the read-side pattern in Plant/Floor where
+            // the primary tile is the ordered-first profile. The proper
+            // long-term fix is per-channel disambiguation via
+            // SensorEvent.AssetSensorChannelId FK (PR #128 gateway work).
+            var profileMap = rawProfiles
+                .GroupBy(p => (p.ClassNameLower, p.ReadingType))
+                .ToDictionary(g => g.Key, g => g.First());
 
             // --- Step 4: Classify IsOutOfSpec on every event in memory ---
             foreach (var e in list)
@@ -259,6 +269,7 @@ namespace Abs.FixedAssets.Services.Telemetry
         {
             public string ClassNameLower { get; set; } = "";
             public SensorReadingType ReadingType { get; set; }
+            public int DisplayOrder { get; set; }
             public decimal? WarningThreshold { get; set; }
             public decimal? CriticalThreshold { get; set; }
             public bool BreachOnHighSide { get; set; }
@@ -324,6 +335,7 @@ namespace Abs.FixedAssets.Services.Telemetry
                 .Where(p => p.ReadingType == readingType)
                 .Where(p => p.EquipmentClass != null
                          && p.EquipmentClass.Name.ToLower() == asset.AssetType.ToLower())
+                .OrderBy(p => p.DisplayOrder)
                 .Select(p => new
                 {
                     p.WarningThreshold,
