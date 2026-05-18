@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
@@ -213,7 +215,7 @@ public sealed class StockReceiptService : IStockReceiptService
                     Notes = request.Notes?.Trim(),
                     // ADR-015 PR #3 — Attributes is the only payload now.
                     // The 8 legacy columns are gone with the same-PR migration.
-                    Attributes = JsonSerializer.Serialize(request.Attributes),
+                    Attributes = SerializeAttributesForJsonb(request.Attributes),
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = actorUserId.ToString(),
                 };
@@ -299,7 +301,7 @@ public sealed class StockReceiptService : IStockReceiptService
                 entity.QuantityRemaining = request.QuantityRemaining;
                 entity.Uom = request.Uom?.Trim();
                 entity.Notes = request.Notes?.Trim();
-                entity.Attributes = JsonSerializer.Serialize(request.Attributes);
+                entity.Attributes = SerializeAttributesForJsonb(request.Attributes);
                 entity.ModifiedAt = DateTime.UtcNow;
                 entity.ModifiedBy = actorUserId.ToString();
 
@@ -374,6 +376,53 @@ public sealed class StockReceiptService : IStockReceiptService
     }
 
     // ---- helpers ----
+
+    // ADR-015 PR #3.1 hotfix — Serialize Dictionary<string, object?> to a
+    // jsonb-safe string. Default JsonSerializer.Serialize on a Dictionary
+    // with object? values does NOT introspect runtime types reliably for
+    // jsonb consumers — e.g. when EF/Npgsql writes the resulting string
+    // to a jsonb column, Postgres can reject it with 22P02 ("invalid
+    // input syntax for type json"). Building the payload through JsonNode
+    // guarantees each runtime-typed value gets emitted as the right JSON
+    // primitive (string / number / bool / array / null).
+    //
+    // Surface bug caught by E2E test 2026-05-18: a Create POST that filled
+    // text-typed STEEL fields (heatNumber, mill, astmDesignation,
+    // countryOfMelt) produced a 22P02 on SaveChangesAsync.
+    private static string SerializeAttributesForJsonb(IReadOnlyDictionary<string, object?>? attrs)
+    {
+        if (attrs is null) return "{}";
+        var node = new JsonObject();
+        foreach (var (key, value) in attrs)
+        {
+            node[key] = ToJsonNode(value);
+        }
+        return node.ToJsonString();
+    }
+
+    private static JsonNode? ToJsonNode(object? value) => value switch
+    {
+        null              => null,
+        string s          => JsonValue.Create(s),
+        bool b            => JsonValue.Create(b),
+        int i             => JsonValue.Create(i),
+        long l            => JsonValue.Create(l),
+        short sh          => JsonValue.Create((int)sh),
+        byte by           => JsonValue.Create((int)by),
+        decimal d         => JsonValue.Create(d),
+        double dbl        => JsonValue.Create(dbl),
+        float f           => JsonValue.Create((double)f),
+        DateTime dt       => JsonValue.Create(dt.ToString("o", CultureInfo.InvariantCulture)),
+        DateTimeOffset dto => JsonValue.Create(dto.ToString("o", CultureInfo.InvariantCulture)),
+        Guid g            => JsonValue.Create(g.ToString()),
+        // string[] / multi-select payload from the form reader
+        string[] sa       => new JsonArray(sa.Select(x => (JsonNode?)JsonValue.Create(x)).ToArray()),
+        // Generic IEnumerable fallback — handles List<string> etc
+        System.Collections.IEnumerable seq => new JsonArray(
+            seq.Cast<object?>().Select(x => ToJsonNode(x)).ToArray()),
+        // Last-resort: ToString()
+        _ => JsonValue.Create(value.ToString())
+    };
 
     private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
     {
