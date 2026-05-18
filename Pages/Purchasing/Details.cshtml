@@ -2,6 +2,7 @@
 @model Abs.FixedAssets.Pages.Purchasing.DetailsModel
 @using System.Text.Json
 @using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     var po = Model.PurchaseOrder!;
     ViewData["Title"] = po.PONumber;
@@ -52,11 +53,12 @@
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
 
+@* PR #116d.16 — Flash messages restyled on the design system. *@
 @if (TempData["Success"] != null) {
-    <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@TempData["Success"]</div>
+    <div class="ds-card" data-tone="success" style="margin-bottom: 14px; padding: 12px 16px; color: var(--text-primary);">@TempData["Success"]</div>
 }
 @if (TempData["Error"] != null || TempData["ErrorMessage"] != null) {
-    <div class="alert alert-danger" data-csp-style="margin-bottom:1rem;">@(TempData["Error"] ?? TempData["ErrorMessage"])</div>
+    <div class="ds-card" data-tone="danger" style="margin-bottom: 14px; padding: 12px 16px; color: var(--text-primary);">@(TempData["Error"] ?? TempData["ErrorMessage"])</div>
 }
 
 <!-- LINE ITEMS SECTION — Unified Pattern -->
@@ -169,7 +171,7 @@
                         </select>
                     </div>
                     <div class="line-add-form__field line-add-form__field--action">
-                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">
                             <i class="fas fa-plus"></i> Add Line
                         </button>
                     </div>
@@ -256,13 +258,16 @@
                                             </thead>
                                             <tbody>
                                                 @foreach (var rel in ln.Releases.OrderBy(r => r.ReleaseNumber)) {
-                                                    var relBadge = rel.Status == ReleaseStatus.Open ? "badge-neutral" : rel.Status == ReleaseStatus.PartiallyReceived ? "badge-warning" : "badge-success";
+                                                    @* PR #116d.16 — Release status badge as StatusPill primitive. *@
+                                                    var relTone = rel.Status == ReleaseStatus.Open ? "neutral"
+                                                        : rel.Status == ReleaseStatus.PartiallyReceived ? "warning"
+                                                        : "success";
                                                     <tr class="line-table__row">
                                                         <td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">R@rel.ReleaseNumber</td>
                                                         <td class="line-table__td">@(rel.ShipToLocation?.Name ?? "—")</td>
                                                         <td class="line-table__td line-table__td--muted">@(rel.DueDate?.ToString("MMM dd, yyyy") ?? "—")</td>
                                                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@rel.Quantity.ToString("N0")</td>
-                                                        <td class="line-table__td"><span class="badge @relBadge">@rel.Status</span></td>
+                                                        <td class="line-table__td">@await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = rel.Status.ToString(), Tone = relTone, ShowDot = true })</td>
                                                         @if (canEdit) {
                                                             <td class="line-table__td line-table__td--actions">
                                                                 <form method="post" asp-page-handler="DeleteRelease" data-csp-style="display:inline"
@@ -306,7 +311,7 @@
                                                         <input type="date" name="dueDate" class="line-add-form__input" />
                                                     </div>
                                                     <div class="line-add-form__field line-add-form__field--action">
-                                                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">Add</button>
+                                                        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">Add</button>
                                                     </div>
                                                 </div>
                                             </form>
@@ -327,20 +332,32 @@
                 </tfoot>
             </table>
         } else {
-            <div class="line-section__empty">
-                No line items yet. Click <strong>+ Add Line Item</strong> above to start adding parts and materials.
+            @* PR #116d.16 — EmptyState v2 for "no line items yet" — document icon, info tone. *@
+            <div style="padding: 24px;">
+                @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+                {
+                    Icon = "document",
+                    Tone = "info",
+                    Title = "No line items yet",
+                    Body = "Click + Add Line Item above to start adding parts and materials. You can search the catalog or enter freetext lines.",
+                    CtaLabel = canEdit ? "Add First Line" : null,
+                    CtaHref = canEdit ? "#addLineToggle" : null,
+                    SecondaryLabel = "Back to Purchasing",
+                    SecondaryHref = "/Purchasing"
+                })
             </div>
         }
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(po.Notes)) {
-    <div class="pe-card">
-        <div class="pe-card__header">
-            <span class="pe-card__title"><span class="accent-dot accent-dot--amber"></span> Notes</span>
+    @* PR #116d.16 — Notes restyled as DataCard with warning tone (amber). *@
+    <div class="ds-card" data-tone="warning" style="margin-top: 18px; padding: 0;">
+        <div style="padding: 14px 20px; border-bottom: 1px solid var(--border);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Notes</div>
         </div>
-        <div class="pe-card__body">
-            <p data-csp-style="margin:0; white-space:pre-wrap;">@po.Notes</p>
+        <div style="padding: 14px 20px;">
+            <p style="margin: 0; white-space: pre-wrap; color: var(--text-primary); line-height: 1.6;">@po.Notes</p>
         </div>
     </div>
 }

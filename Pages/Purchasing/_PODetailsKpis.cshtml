@@ -1,20 +1,60 @@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@*
+    PR #116d.16 — PO Detail KPI strip rebuilt with 4 KPITile primitives.
+
+    The receive-progress tile is the operationally critical one — surfaces how
+    much of the PO has actually landed in inventory vs ordered, with tone
+    flipping success once 100% received, warning when partial, info when none.
+*@
 @{
     var po = ViewData["PurchaseOrder"] as Abs.FixedAssets.Models.PurchaseOrder;
     if (po == null) return;
+    var lineCount = po.Lines?.Count ?? 0;
+    var releaseCount = po.Lines?.Sum(l => l.Releases?.Count ?? 0) ?? 0;
+    var totalOrdered = po.Lines?.Sum(l => l.QuantityOrdered) ?? 0m;
+    var totalReceived = po.Lines?.Sum(l => l.QuantityReceived) ?? 0m;
+    var receivePct = totalOrdered > 0m ? (double)(totalReceived / totalOrdered) * 100.0 : 0.0;
+    var receivedFully = totalOrdered > 0m && totalReceived >= totalOrdered;
+    var receiveTone = receivedFully ? "success" : (totalReceived > 0m ? "warning" : "info");
+    var receiveDelta = receivedFully ? "▲ fully received"
+        : totalReceived > 0m ? $"▲ {receivePct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% received"
+        : "nothing received yet";
+    var receiveDir = receivedFully ? "up" : (totalReceived > 0m ? "up" : "flat");
+
+    var valuePerLine = lineCount > 0 ? po.Total / lineCount : 0m;
+    var releasesPerLine = lineCount > 0 ? (double)releaseCount / lineCount : 0.0;
 }
-<div class="kpi-card">
-    <div class="kpi-label">PO Type</div>
-    <div class="kpi-value" data-csp-style="font-size: 14px;">@po.POType</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Total Value</div>
-    <div class="kpi-value money">@po.Total.ToString("C0")</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Line Items</div>
-    <div class="kpi-value">@po.Lines.Count</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Releases</div>
-    <div class="kpi-value">@po.Lines.Sum(l => l.Releases.Count)</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "PO Type",
+        Value = po.POType.ToString(),
+        DeltaText = "procurement classification",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total Value",
+        Value = po.Total.ToString("C0"),
+        DeltaText = lineCount > 0 ? $"~ {valuePerLine.ToString("C0")} per line" : "no lines yet",
+        DeltaDirection = "flat",
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Line Items",
+        Value = lineCount.ToString("N0"),
+        DeltaText = receiveDelta,
+        DeltaDirection = receiveDir,
+        SparkTone = receiveTone
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Releases",
+        Value = releaseCount.ToString("N0"),
+        DeltaText = lineCount > 0 ? $"~ {releasesPerLine.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} per line" : "no releases scheduled",
+        DeltaDirection = "flat",
+        SparkTone = releaseCount > 0 ? "info" : "muted"
+    })
 </div>
