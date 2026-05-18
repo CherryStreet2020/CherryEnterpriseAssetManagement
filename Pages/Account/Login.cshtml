@@ -1,5 +1,6 @@
 @page
 @model Abs.FixedAssets.Pages.Account.LoginModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     Layout = "_ModernLayout";
     ViewData["Title"] = "Login";
@@ -11,9 +12,22 @@
     <link rel="stylesheet" href="~/css/modules/auth.css" asp-append-version="true" />
 }
 
-<div class="login-page-wrapper">
-    <div class="login-hero">
+@* PR #116d.22 — Phase 3 finale: /Account/Login rebuilt on the design system.
+   Luxury treatment: radial glow ambient, brand-line top accent, StatusPill env badge,
+   ds-card error tone, ds-btn primary signin, ds-card demo accounts with StatusPill role badges. *@
+<div class="login-page-wrapper login-page--luxury">
+    <div class="login-ambient-glow" aria-hidden="true"></div>
+    <div class="login-hero login-hero--luxury">
+        <div class="login-brand-line" aria-hidden="true"></div>
         <div class="login-hero-header">
+            <div class="login-env-pill">
+                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                {
+                    Label = Model.ShowDemoAccounts ? "Demo Environment" : "Secure · Production",
+                    Tone = Model.ShowDemoAccounts ? "warning" : "success",
+                    ShowDot = true
+                })
+            </div>
             <div class="login-hero-logo">
                 <img src="/images/abs-logo-full.png" alt="ABS Machining" data-csp-style="height: 55px; max-width: 90%; object-fit: contain;">
             </div>
@@ -23,8 +37,8 @@
         <div class="login-hero-form">
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
             {
-                <div class="login-error">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="ds-card login-error-card" data-tone="danger" style="margin-bottom: 20px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary);">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="flex-shrink: 0; color: var(--ds-danger, #f87171);">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                     @Model.ErrorMessage
@@ -40,8 +54,8 @@
                     <label class="login-form-label">Password</label>
                     <input asp-for="Password" type="password" class="login-form-control" placeholder="Enter your password" />
                 </div>
-                <button type="submit" class="login-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button type="submit" class="ds-btn login-signin-btn" data-variant="primary" style="width: 100%; justify-content: center; gap: 8px; padding: 14px 16px; font-size: 14px; font-weight: 600; margin-top: 8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
                     Sign In
@@ -55,42 +69,47 @@
             @if (Model.ShowDemoAccounts)
             {
                 <div class="login-divider">
-                    <span>Demo Accounts</span>
+                    <span>Click a role to autofill</span>
                 </div>
 
-                <div class="demo-accounts-grid">
-                    <button type="button" class="demo-account-btn" onclick="fillCredentials('admin', 'admin123')">
-                        <span class="demo-badge admin">Admin</span>
-                        <div class="demo-info">
-                            <strong>admin</strong>
-                            <span>Full access to all features</span>
+                <div class="login-demo-grid">
+                    <button type="button" class="ds-card login-demo-card" data-tone="brand" onclick="fillCredentials('admin', 'admin123')" style="padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; width: 100%; border: none; background: var(--ds-card-bg);">
+                        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Admin", Tone = "brand", ShowDot = false })
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                            <strong style="font-size: 13px; color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">admin</strong>
+                            <span style="font-size: 11.5px; color: var(--text-muted);">Full access to every module</span>
                         </div>
-                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--text-muted);">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
-                    <button type="button" class="demo-account-btn" onclick="fillCredentials('accountant', 'acc123')">
-                        <span class="demo-badge accountant">Accountant</span>
-                        <div class="demo-info">
-                            <strong>accountant</strong>
-                            <span>Create, edit, run depreciation</span>
+                    <button type="button" class="ds-card login-demo-card" data-tone="success" onclick="fillCredentials('accountant', 'acc123')" style="padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; width: 100%; border: none; background: var(--ds-card-bg);">
+                        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Accountant", Tone = "success", ShowDot = false })
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                            <strong style="font-size: 13px; color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">accountant</strong>
+                            <span style="font-size: 11.5px; color: var(--text-muted);">Create, edit, run depreciation</span>
                         </div>
-                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--text-muted);">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
-                    <button type="button" class="demo-account-btn" onclick="fillCredentials('viewer', 'view123')">
-                        <span class="demo-badge viewer">Viewer</span>
-                        <div class="demo-info">
-                            <strong>viewer</strong>
-                            <span>Read-only access</span>
+                    <button type="button" class="ds-card login-demo-card" data-tone="neutral" onclick="fillCredentials('viewer', 'view123')" style="padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left; width: 100%; border: none; background: var(--ds-card-bg);">
+                        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = "Viewer", Tone = "neutral", ShowDot = false })
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                            <strong style="font-size: 13px; color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">viewer</strong>
+                            <span style="font-size: 11.5px; color: var(--text-muted);">Read-only across the platform</span>
                         </div>
-                        <svg class="demo-arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--text-muted);">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                         </svg>
                     </button>
                 </div>
             }
+            <div class="login-footer-note">
+                Enterprise Asset Management · ABS Machining
+                <span style="margin: 0 6px; opacity: 0.5;">·</span>
+                <span style="font-family: var(--font-mono, ui-monospace, monospace); font-size: 11px;">v3.0</span>
+            </div>
         </div>
     </div>
 </div>
