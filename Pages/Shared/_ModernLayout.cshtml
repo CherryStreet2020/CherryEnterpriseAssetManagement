@@ -194,7 +194,7 @@
                 <div class="nav-section-label">OPERATIONS</div>
                 
                 <div class="menu-group @(IsPage("/Assets") || IsPage("/BulkOperations") || IsPage("/Admin/Locations") || IsPage("/Assets/Locations") || IsPage("/Admin/AssetCategories") || IsPage("/Admin/Barcodes") || IsPage("/Plant") ? "expanded" : "")" data-section="assets">
-                    <div class="menu-group-header" data-tooltip="Assets" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Assets" role="button" tabindex="0" aria-expanded="false" aria-label="Assets navigation group">
                         <span class="menu-group-icon"><i class="fas fa-boxes-stacked"></i></span>
                         <span class="menu-group-title">Assets</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -228,7 +228,7 @@
                 </div>
 
                 <div class="menu-group @(IsAny("/Books", "/Journals", "/UsTax", "/CCA", "/Reports", "/AccountsPayable", "/Periods", "/Approvals") || IsPage("/Admin/GlAccounts") ? "expanded" : "")" data-section="finance">
-                    <div class="menu-group-header" data-tooltip="Finance" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Finance" role="button" tabindex="0" aria-expanded="false" aria-label="Finance navigation group">
                         <span class="menu-group-icon"><i class="fas fa-calculator"></i></span>
                         <span class="menu-group-title">Finance</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -279,7 +279,7 @@
                 @if (enableInventory || enablePurchasing || enableVendors)
                 {
                 <div class="menu-group @(IsAny("/Materials", "/Inventory", "/Purchasing", "/Receiving") || IsPage("/Admin/Vendors") || IsPage("/Admin/Requisitions") || IsPage("/Admin/Kits") || IsPage("/Admin/StockLevels") || IsPage("/Admin/ItemCategories") ? "expanded" : "")" data-section="materials">
-                    <div class="menu-group-header" data-tooltip="Materials & Purchasing" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Materials & Purchasing" role="button" tabindex="0" aria-expanded="false" aria-label="Materials and Purchasing navigation group">
                         <span class="menu-group-icon"><i class="fas fa-cubes"></i></span>
                         <span class="menu-group-title">Materials & Purchasing</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -340,7 +340,7 @@
                 @if (enableWorkOrders)
                 {
                 <div class="menu-group @(IsAny("/Maintenance", "/WorkOrders") || IsPage("/Admin/Technicians") || IsPage("/Admin/PMTemplate") || IsPage("/Admin/PMSchedule") ? "expanded" : "")" data-section="work">
-                    <div class="menu-group-header" data-tooltip="Work Management" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Work Management" role="button" tabindex="0" aria-expanded="false" aria-label="Work Management navigation group">
                         <span class="menu-group-icon"><i class="fas fa-wrench"></i></span>
                         <span class="menu-group-title">Work Management</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -379,7 +379,7 @@
                 }
                 
                 <div class="menu-group @(IsAny("/CIP") ? "expanded" : "")" data-section="projects">
-                    <div class="menu-group-header" data-tooltip="Projects" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Projects" role="button" tabindex="0" aria-expanded="false" aria-label="Projects navigation group">
                         <span class="menu-group-icon"><i class="fas fa-diagram-project"></i></span>
                         <span class="menu-group-title">Projects</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -401,7 +401,7 @@
                 </div>
 
                 <div class="menu-group @(IsAny("/AI", "/API") || IsPage("/Admin/Webhooks") || IsPage("/Admin/Integrations") ? "expanded" : "")" data-section="ai-integrations">
-                    <div class="menu-group-header" data-tooltip="AI & Integrations" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="AI & Integrations" role="button" tabindex="0" aria-expanded="false" aria-label="AI and Integrations navigation group">
                         <span class="menu-group-icon"><i class="fas fa-robot"></i></span>
                         <span class="menu-group-title">AI & Integrations</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
@@ -443,7 +443,7 @@
                 @if (isAdmin)
                 {
                 <div class="menu-group @(IsPage("/Admin") && !IsPage("/Admin/Locations") && !IsPage("/Admin/Vendors") && !IsPage("/Admin/PMTemplate") && !IsPage("/Admin/Technicians") && !IsPage("/Admin/Requisitions") && !IsPage("/Admin/Kits") && !IsPage("/Admin/StockLevels") && !IsPage("/Admin/ItemCategories") && !IsPage("/Admin/AssetCategories") && !IsPage("/Admin/Barcodes") && !IsPage("/Admin/Webhooks") && !IsPage("/Admin/Integrations") ? "expanded" : "")" data-section="admin">
-                    <div class="menu-group-header" data-tooltip="Administration" role="button" tabindex="0" aria-expanded="false">
+                    <div class="menu-group-header" data-tooltip="Administration" role="button" tabindex="0" aria-expanded="false" aria-label="Administration navigation group">
                         <span class="menu-group-icon"><i class="fas fa-gear"></i></span>
                         <span class="menu-group-title">Administration</span>
                         <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
