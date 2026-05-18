@@ -187,7 +187,9 @@ Voice query translation examples (full table in §4.4 of the research doc):
 
 ### D10 — Voice-AI spike before Migration PR #1 lands
 
-Validation #3 from the research doc is a hard prerequisite. Before PR #1 ships, we run a one-day spike: feed Steel + Pharma + Food profile JSON Schemas + 5 example voice utterances to Claude in API context and verify it generates correct queries against the hybrid schema. If it consistently misses, capture what extra metadata the profile needs (synonyms, type hints, example queries) and add it to `UiFormSpec` before we ship.
+Validation #3 from the research doc is a hard prerequisite. Before PR #1 ships, we run a one-day spike: feed Steel + Pharma + Food profile JSON Schemas + example voice utterances to Claude in API context and verify it generates correct queries against the hybrid schema. If it consistently misses, capture what extra metadata the profile needs (synonyms, type hints, example queries) and add it to `UiFormSpec` before we ship.
+
+**Spike result (2026-05-18):** **Conditional GO.** Full report at [`docs/research/voice-ai-spike-adr015-d10.md`](research/voice-ai-spike-adr015-d10.md). Summary: 5/9 ✅ correct, 1 ⚠️ partial, 2 ❌ wrong, 1 ❓ unsafe-mutation. All four failure modes are prompt-engineering / metadata gaps — **not schema problems.** The hybrid schema is validated. Migration PR #1 scope expands by ~1 hour to seed four new optional `UiFormSpec` field-spec keys (`scope`, `exampleQueries`, `disambiguation`, `semanticAction`), and the v1 voice-AI prompt template ships with five non-negotiable stanzas (MUTATION POLICY, AMBIGUITY HANDLING, SEMANTIC ACTIONS, DEFAULTS, TENANT GLOSSARY). Migration PR #1 also stubs four service tools (`traceChainOfCustody`, `listExpectedReceipts`, `quarantineByFilter`, `lookupReceipt`) to lock the tool catalog shape.
 
 ---
 
