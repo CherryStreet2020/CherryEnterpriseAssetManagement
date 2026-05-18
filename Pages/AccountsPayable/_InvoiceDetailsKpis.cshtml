@@ -1,21 +1,56 @@
 @using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@*
+    PR #116d.18 — Invoice Detail KPI strip rebuilt with 4 KPITiles.
+
+    Balance Due tile flips tone: success (paid), warning (partial paid), danger (overdue past due-date).
+    Tax/Subtotal/Total provide context. The actionable signal lives on Balance Due.
+*@
 @{
     var inv = ViewData["Invoice"] as VendorInvoice;
     if (inv == null) return;
+
+    var isOverdue = inv.DueDate < DateTime.Today && inv.BalanceDue > 0;
+    var isPaid = inv.BalanceDue <= 0.01m;
+    var balanceTone = isPaid ? "success" : isOverdue ? "danger" : "warning";
+    var balanceDirection = isPaid ? "up" : isOverdue ? "down" : "flat";
+    var balanceDelta = isPaid ? "▲ paid in full"
+        : isOverdue ? $"▼ overdue since {inv.DueDate:MMM d}"
+        : $"due {inv.DueDate:MMM d, yyyy}";
+
+    var paidPct = inv.Total > 0m ? (double)(inv.AmountPaid / inv.Total) * 100.0 : 0.0;
 }
-<div class="kpi-card">
-    <div class="kpi-label">Subtotal</div>
-    <div class="kpi-value money">@inv.Subtotal.ToString("C2")</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Tax</div>
-    <div class="kpi-value money">@inv.TaxAmount.ToString("C2")</div>
-</div>
-<div class="kpi-card">
-    <div class="kpi-label">Total</div>
-    <div class="kpi-value money">@inv.Total.ToString("C2")</div>
-</div>
-<div class="kpi-card @(inv.BalanceDue > 0 ? "warning" : "success")">
-    <div class="kpi-label">Balance Due</div>
-    <div class="kpi-value money">@inv.BalanceDue.ToString("C2")</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Subtotal",
+        Value = inv.Subtotal.ToString("C0"),
+        DeltaText = $"{inv.Lines.Count} line item(s)",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Tax & Shipping",
+        Value = (inv.TaxAmount + inv.ShippingAmount).ToString("C0"),
+        DeltaText = $"{inv.TaxAmount.ToString("C0")} tax + {inv.ShippingAmount.ToString("C0")} ship",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Invoice Total",
+        Value = inv.Total.ToString("C0"),
+        DeltaText = inv.AmountPaid > 0m ? $"{paidPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% paid" : "no payments yet",
+        DeltaDirection = "flat",
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Balance Due",
+        Value = inv.BalanceDue.ToString("C0"),
+        DeltaText = balanceDelta,
+        DeltaDirection = balanceDirection,
+        SparkTone = balanceTone
+    })
 </div>
