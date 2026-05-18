@@ -86,6 +86,14 @@ public sealed class StockReceiptService : IStockReceiptService
         if (!itemExists)
             return Result.Failure<StockReceipt>($"Item {request.ItemId} not found");
 
+        // ADR-015 Migration PR #2 — resolve the default ReceiptProfile id
+        // outside the idempotency callback so the lookup itself is cached
+        // for the lifetime of the request. The existing PR #219 admin form
+        // only emits steel-specific fields, so we resolve to STEEL by
+        // default. When Item.DefaultReceiptProfileId is populated (Sprint
+        // 7+), the profile flows in from the Item master.
+        var profileId = await ResolveProfileIdForCreateAsync(request.ItemId, ct);
+
         return await _idempotency.ExecuteAsync(
             actorUserId,
             idempotencyKey ?? Guid.Empty,
@@ -94,6 +102,7 @@ public sealed class StockReceiptService : IStockReceiptService
             {
                 var entity = new StockReceipt
                 {
+                    ProfileId = profileId,    // ADR-015 D1 — every receipt has a profile
                     ReceiptNumber = request.ReceiptNumber.Trim(),
                     ItemId = request.ItemId,
                     MaterialMasterId = request.MaterialMasterId,
@@ -116,6 +125,11 @@ public sealed class StockReceiptService : IStockReceiptService
                     Uom = request.Uom?.Trim(),
                     Status = request.Status,
                     Notes = request.Notes?.Trim(),
+                    // ADR-015 Migration PR #2 — dual-write Attributes from
+                    // the steel-specific legacy fields. Once Migration PR
+                    // #3 ships, the form emits Attributes directly and the
+                    // legacy columns are dropped.
+                    Attributes = BuildSteelAttributesJson(request),
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = actorUserId.ToString(),
                 };
@@ -195,6 +209,10 @@ public sealed class StockReceiptService : IStockReceiptService
                 entity.QuantityRemaining = request.QuantityRemaining;
                 entity.Uom = request.Uom?.Trim();
                 entity.Notes = request.Notes?.Trim();
+                // ADR-015 Migration PR #2 — dual-write Attributes alongside
+                // the legacy columns on every Update. Profile is sticky;
+                // we never overwrite ProfileId on update.
+                entity.Attributes = BuildSteelAttributesJsonFromUpdate(request);
                 entity.ModifiedAt = DateTime.UtcNow;
                 entity.ModifiedBy = actorUserId.ToString();
 
@@ -269,6 +287,76 @@ public sealed class StockReceiptService : IStockReceiptService
     }
 
     // ---- helpers ----
+
+    // ADR-015 Migration PR #2 — Resolve which ReceiptProfile.Id this new
+    // receipt belongs to. Resolution order:
+    //   1. Item.DefaultReceiptProfileId (Sprint 7+, when Item master is
+    //      industry-tagged)
+    //   2. Fallback to STEEL profile (the only one the current PR #219
+    //      form populates real fields for)
+    //
+    // The result is cached on the service for the request lifetime to
+    // avoid repeated lookups.
+    private int? _cachedSteelProfileId;
+    private async Task<int> ResolveProfileIdForCreateAsync(int itemId, CancellationToken ct)
+    {
+        var item = await _db.Items
+            .Where(i => i.Id == itemId)
+            .Select(i => new { i.DefaultReceiptProfileId })
+            .FirstOrDefaultAsync(ct);
+        if (item?.DefaultReceiptProfileId is int defaulted) return defaulted;
+
+        if (_cachedSteelProfileId is int cached) return cached;
+        var steelId = await _db.ReceiptProfiles
+            .Where(p => p.Code == "STEEL")
+            .Select(p => (int?)p.Id)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException(
+                "ReceiptProfile 'STEEL' not found. Migration PR #1 must run before any " +
+                "receipt is created. See ADR-015 §D9 and migration " +
+                "20260518_AddReceiptProfileCatalog.");
+        _cachedSteelProfileId = steelId;
+        return steelId;
+    }
+
+    // ADR-015 Migration PR #2 — Build the STEEL-profile Attributes JSON
+    // from the legacy steel-specific fields on a CreateStockReceiptRequest.
+    // Migration PR #3 will replace the form with a profile-driven renderer
+    // that emits Attributes directly; this dual-write is the transition.
+    private static string BuildSteelAttributesJson(CreateStockReceiptRequest r)
+    {
+        var attrs = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(r.HeatNumber)) attrs["heatNumber"] = r.HeatNumber.Trim();
+        if (!string.IsNullOrWhiteSpace(r.Mill)) attrs["mill"] = r.Mill.Trim();
+        if (!string.IsNullOrWhiteSpace(r.MillCertUrl)) attrs["millCertUrl"] = r.MillCertUrl.Trim();
+        if (r.LengthMm.HasValue) attrs["lengthMm"] = r.LengthMm.Value;
+        if (r.WidthMm.HasValue) attrs["widthMm"] = r.WidthMm.Value;
+        if (r.ThicknessMm.HasValue) attrs["thicknessMm"] = r.ThicknessMm.Value;
+        // UsableLength/Width default to the full dims on first create (matches
+        // the entity initialization above). Migration PR #3 will pull these
+        // from the form directly.
+        if (r.LengthMm.HasValue) attrs["usableLengthMm"] = r.LengthMm.Value;
+        if (r.WidthMm.HasValue) attrs["usableWidthMm"] = r.WidthMm.Value;
+        return JsonSerializer.Serialize(attrs);
+    }
+
+    // ADR-015 Migration PR #2 — Same shape as BuildSteelAttributesJson,
+    // but reads from an UpdateStockReceiptRequest. The Update DTO carries
+    // both LengthMm AND UsableLengthMm because users can adjust the
+    // usable-dims as cuts consume the sheet.
+    private static string BuildSteelAttributesJsonFromUpdate(UpdateStockReceiptRequest r)
+    {
+        var attrs = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(r.HeatNumber)) attrs["heatNumber"] = r.HeatNumber.Trim();
+        if (!string.IsNullOrWhiteSpace(r.Mill)) attrs["mill"] = r.Mill.Trim();
+        if (!string.IsNullOrWhiteSpace(r.MillCertUrl)) attrs["millCertUrl"] = r.MillCertUrl.Trim();
+        if (r.LengthMm.HasValue) attrs["lengthMm"] = r.LengthMm.Value;
+        if (r.WidthMm.HasValue) attrs["widthMm"] = r.WidthMm.Value;
+        if (r.ThicknessMm.HasValue) attrs["thicknessMm"] = r.ThicknessMm.Value;
+        if (r.UsableLengthMm.HasValue) attrs["usableLengthMm"] = r.UsableLengthMm.Value;
+        if (r.UsableWidthMm.HasValue) attrs["usableWidthMm"] = r.UsableWidthMm.Value;
+        return JsonSerializer.Serialize(attrs);
+    }
 
     private static string? ValidateCreate(CreateStockReceiptRequest r)
     {
