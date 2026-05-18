@@ -494,6 +494,11 @@ builder.Services.AddScoped<
     Abs.FixedAssets.Services.Infrastructure.IIdempotencyMediator,
     Abs.FixedAssets.Services.Infrastructure.IdempotencyMediator>();
 
+// Sprint 4 Phase F Wave 1 — Admin services.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Admin.IRegulatoryProfileService,
+    Abs.FixedAssets.Services.Admin.RegulatoryProfileService>();
+
 var app = builder.Build();
 
 // Ensure database is created with current model and seed default data

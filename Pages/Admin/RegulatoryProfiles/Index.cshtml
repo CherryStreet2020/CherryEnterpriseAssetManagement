@@ -1,0 +1,155 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.RegulatoryProfiles.IndexModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Regulatory Profiles";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var total = Model.Profiles.Count;
+    var active = Model.Profiles.Count(p => p.IsActive);
+    var inactive = total - active;
+    var external = Model.Profiles.Count(p => p.IsExternalRegime);
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Regulatory Profiles",
+        ["Subtitle"] = "Per-regime gates governing material structures, lot/serial controls, retention, and audit policy",
+        ["TypeLabel"] = "Compliance",
+        ["StatusText"] = $"{active} Active",
+        ["StatusTone"] = active > 0 ? "active" : "neutral",
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
+}
+
+@* PR #116d.25 — Sprint 4 Phase F Wave 1. Four KPITiles top-of-page. *@
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total Profiles",
+        Value = total.ToString("N0"),
+        DeltaText = total > 0 ? "configured regimes" : "no profiles yet",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Active",
+        Value = active.ToString("N0"),
+        DeltaText = inactive > 0 ? $"▼ {inactive} inactive" : "▲ all profiles active",
+        DeltaDirection = inactive > 0 ? "down" : "up",
+        SparkTone = inactive > 0 ? "warning" : "success"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "External Regimes",
+        Value = external.ToString("N0"),
+        DeltaText = total > 0 ? $"{(total > 0 ? (external * 100.0 / total) : 0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% regulator-issued" : "no regimes",
+        DeltaDirection = "flat",
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Internal Policies",
+        Value = (total - external).ToString("N0"),
+        DeltaText = total > 0 ? "corporate-defined" : "—",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+</div>
+
+<div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Compliance</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Profile Library</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">FDA · AS9100 · NADCAP · ISO · IATF · REACH · RoHS · internal policy</div>
+        </div>
+        <a href="/Admin/RegulatoryProfiles/Edit" class="ds-btn" data-variant="primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            New Profile
+        </a>
+    </div>
+
+    @if (Model.Profiles.Any())
+    {
+        <div data-csp-style="overflow-x: auto;">
+            <table class="data-table premium-table">
+                <thead>
+                    <tr>
+                        <th data-csp-style="width: 80px;">Regime</th>
+                        <th data-csp-style="min-width: 180px;">Name</th>
+                        <th data-csp-style="min-width: 260px;">Description</th>
+                        <th data-csp-style="width: 110px; text-align: right;">Retention</th>
+                        <th data-csp-style="width: 110px;">Source</th>
+                        <th data-csp-style="width: 90px;">Status</th>
+                        <th data-csp-style="width: 100px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Profiles)
+                    {
+                        <tr>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = p.Regime.ToString().Replace("_", " "), Tone = "brand", ShowDot = false })
+                            </td>
+                            <td><strong style="color: var(--text-primary);">@p.Name</strong></td>
+                            <td style="color: var(--text-secondary); max-width: 320px;">
+                                <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@p.Description">@(p.Description ?? "—")</div>
+                            </td>
+                            <td data-csp-style="text-align: right; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-secondary);">
+                                @(p.MinimumRetentionYears.HasValue ? $"{p.MinimumRetentionYears} yr" : "—")
+                            </td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                                {
+                                    Label = p.IsExternalRegime ? "External" : "Internal",
+                                    Tone = p.IsExternalRegime ? "info" : "neutral",
+                                    ShowDot = false
+                                })
+                            </td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                                {
+                                    Label = p.IsActive ? "Active" : "Inactive",
+                                    Tone = p.IsActive ? "success" : "neutral",
+                                    ShowDot = true
+                                })
+                            </td>
+                            <td>
+                                <a href="/Admin/RegulatoryProfiles/Edit?id=@p.Id" class="ds-btn" data-variant="ghost" style="padding: 4px 10px; font-size: 12px;">Edit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div style="padding: 24px;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "folder",
+                Tone = "info",
+                Title = "No regulatory profiles yet",
+                Body = "Create your first profile to gate field-visibility, lot/serial control, retention, and audit policy per regime (FDA, AS9100, NADCAP, REACH, etc.).",
+                CtaLabel = "Create First Profile",
+                CtaHref = "/Admin/RegulatoryProfiles/Edit",
+                SecondaryLabel = "Back to Admin",
+                SecondaryHref = "/Admin"
+            })
+        </div>
+    }
+</div>
+
+@* Voice context payload (per ADR-014). The future voice-AI layer reads this. *@
+<script type="application/json" id="voice-context-payload">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BuildContextPayload()))
+</script>
