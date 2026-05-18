@@ -1,5 +1,7 @@
 @page "{id:int}"
 @model Abs.FixedAssets.Pages.AccountsPayable.DetailsModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     var inv = Model.Invoice;
     ViewData["Title"] = "Accounts Payable";
@@ -14,15 +16,20 @@
 
 @if (inv == null)
 {
-    var notFoundVd = new ViewDataDictionary(ViewData)
-    {
-        ["HeaderTitle"] = "Invoice Not Found",
-        ["Subtitle"] = "The requested invoice does not exist or you do not have access to view it.",
-        ["TypeLabel"] = "Vendor Invoice",
-        ["ActionsPartial"] = "AccountsPayable/_InvoiceNotFoundActions",
-        ["ActionsViewData"] = new ViewDataDictionary(ViewData) { ["BackUrl"] = backUrl }
-    };
-    @await Html.PartialAsync("Shared/_ScreenHeader", notFoundVd)
+    @* PR #116d.18 — EmptyState v2 for invoice-not-found path. *@
+    <div style="margin-top: 24px;">
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Icon = "document",
+            Tone = "warning",
+            Title = "Invoice not found",
+            Body = "The requested invoice does not exist or you don't have access to view it. Try the AP list to find what you need.",
+            CtaLabel = "Back to AP List",
+            CtaHref = string.IsNullOrEmpty(backUrl) ? "/AccountsPayable" : backUrl,
+            SecondaryLabel = "Back to Dashboard",
+            SecondaryHref = "/"
+        })
+    </div>
     return;
 }
 
@@ -49,22 +56,23 @@
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
+@* PR #116d.18 — Flash messages restyled on the design system. *@
 @if (TempData["Success"] != null)
 {
-    <div class="pe-alert pe-alert--success">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="ds-card" data-tone="success" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--ds-success, #34d399); flex-shrink: 0;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        @TempData["Success"]
+        <span>@TempData["Success"]</span>
     </div>
 }
 @if (TempData["Error"] != null)
 {
-    <div class="pe-alert pe-alert--danger">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--ds-danger, #f87171); flex-shrink: 0;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        @TempData["Error"]
+        <span>@TempData["Error"]</span>
     </div>
 }
 
@@ -107,20 +115,31 @@
 
 @if (!string.IsNullOrEmpty(inv.Notes))
 {
-    <div class="pe-card">
-        <div class="pe-card__header">
-            <span class="pe-card__title">Notes</span>
+    @* PR #116d.18 — Notes as DataCard with warning tone (amber). *@
+    <div class="ds-card" data-tone="warning" style="margin-top: 18px; padding: 0;">
+        <div style="padding: 14px 20px; border-bottom: 1px solid var(--border);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Notes</div>
         </div>
-        <div class="pe-card__body">
-            <p>@inv.Notes</p>
+        <div style="padding: 14px 20px;">
+            <p style="margin: 0; white-space: pre-wrap; color: var(--text-primary); line-height: 1.6;">@inv.Notes</p>
         </div>
     </div>
 }
 
-<div class="premium-table-card">
-    <div class="premium-table-card__header">
-        <span class="premium-table-card__title"><span class="accent-dot accent-dot--blue"></span> Line Items</span>
-        <span class="premium-table-card__badge">@inv.Lines.Count LINES</span>
+@* PR #116d.18 — Line Items wrapped in DataCard with brand tone. *@
+<div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Vendor Invoice</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Line Items</div>
+        </div>
+        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+        {
+            Label = inv.Lines.Count == 1 ? "Line" : "Lines",
+            MonoNum = inv.Lines.Count.ToString(),
+            Tone = "info",
+            ShowDot = true
+        })
     </div>
     @if (inv.Lines.Any())
     {
@@ -144,53 +163,67 @@
                         <td>@line.Description</td>
                         <td>@(line.PurchaseOrderLine?.PurchaseOrder?.PONumber ?? "—")</td>
                         <td>@(line.GlAccount != null ? $"{line.GlAccount.AccountNumber} - {line.GlAccount.Name}" : "—")</td>
-                        <td class="text-right">@line.Quantity.ToString("N2")</td>
-                        <td class="text-right">@line.UnitPrice.ToString("C2")</td>
-                        <td class="text-right">@line.LineTotal.ToString("C2")</td>
+                        <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace);">@line.Quantity.ToString("N2")</td>
+                        <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace);">@line.UnitPrice.ToString("C2")</td>
+                        <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600;">@line.LineTotal.ToString("C2")</td>
                     </tr>
                 }
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="6" class="text-right"><strong>Subtotal</strong></td>
-                    <td class="text-right"><strong>@inv.Subtotal.ToString("C2")</strong></td>
+                    <td colspan="6" class="text-right" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 600;">Subtotal</td>
+                    <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600;">@inv.Subtotal.ToString("C2")</td>
                 </tr>
                 <tr>
-                    <td colspan="6" class="text-right">Tax</td>
-                    <td class="text-right">@inv.TaxAmount.ToString("C2")</td>
+                    <td colspan="6" class="text-right" style="color: var(--text-muted);">Tax</td>
+                    <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace);">@inv.TaxAmount.ToString("C2")</td>
                 </tr>
                 <tr>
-                    <td colspan="6" class="text-right">Shipping</td>
-                    <td class="text-right">@inv.ShippingAmount.ToString("C2")</td>
+                    <td colspan="6" class="text-right" style="color: var(--text-muted);">Shipping</td>
+                    <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace);">@inv.ShippingAmount.ToString("C2")</td>
                 </tr>
-                <tr>
-                    <td colspan="6" class="text-right"><strong>Total</strong></td>
-                    <td class="text-right"><strong>@inv.Total.ToString("C2")</strong></td>
+                <tr style="border-top: 2px solid var(--border);">
+                    <td colspan="6" class="text-right" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; padding-top: 12px;">Total</td>
+                    <td class="text-right" style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: 15px; padding-top: 12px;">@inv.Total.ToString("C2")</td>
                 </tr>
             </tfoot>
         </table>
     }
     else
     {
-        <div class="premium-table-card__empty">
-            <p>No line items on this invoice.</p>
+        @* PR #116d.18 — EmptyState v2 for empty-lines path. *@
+        <div style="padding: 24px;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "document",
+                Tone = "info",
+                Title = "No line items on this invoice",
+                Body = "Add line items to enable three-way PO matching and payment recording.",
+                SecondaryLabel = "Back to AP",
+                SecondaryHref = "/AccountsPayable"
+            })
         </div>
     }
 </div>
 
-<div class="premium-table-card">
-    <div class="premium-table-card__header">
-        <span class="premium-table-card__title"><span class="accent-dot accent-dot--green"></span> 3-Way PO Matching</span>
-        @{
-            var matchBadgeClass = inv.MatchStatus switch
-            {
-                InvoiceMatchStatus.FullyMatched => "badge-success",
-                InvoiceMatchStatus.PartialMatch => "badge-warning",
-                InvoiceMatchStatus.Exception => "badge-danger",
-                _ => "badge-neutral"
-            };
-        }
-        <span class="badge @matchBadgeClass">@inv.MatchStatus</span>
+@* PR #116d.18 — 3-Way Matching section wrapped in DataCard with tone-flip based
+   on match status: success=fully matched, warning=partial, danger=exception. *@
+@{
+    var matchCardTone = inv.MatchStatus switch
+    {
+        InvoiceMatchStatus.FullyMatched => "success",
+        InvoiceMatchStatus.PartialMatch => "warning",
+        InvoiceMatchStatus.Exception => "danger",
+        _ => "neutral"
+    };
+}
+<div class="ds-card" data-tone="@matchCardTone" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Three-Way Verification</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">3-Way PO Matching</div>
+        </div>
+        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = inv.MatchStatus.ToString(), Tone = matchCardTone, ShowDot = true })
     </div>
     <div class="pe-card__body">
         @if (inv.Status != InvoiceStatus.Voided)
@@ -199,7 +232,7 @@
                 <form method="post" asp-page-handler="AutoMatch">
                     <input type="hidden" name="id" value="@inv.Id" />
                     <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
-                    <button type="submit" class="btn-p btn-p--secondary btn-p--sm">
+                    <button type="submit" class="ds-btn ds-btn--secondary ds-btn--sm">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-csp-style="vertical-align: text-bottom;">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
@@ -318,12 +351,12 @@
                                             <input type="hidden" name="id" value="@inv.Id" />
                                             <input type="hidden" name="invoiceLineId" value="@line.Id" />
                                             <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
-                                            <button type="submit" class="btn-p btn-p--secondary btn-p--sm">Unlink</button>
+                                            <button type="submit" class="ds-btn ds-btn--secondary ds-btn--sm">Unlink</button>
                                         </form>
                                     }
                                     else
                                     {
-                                        <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="toggleLinkForm(@line.Id, '@line.Description.Replace("'", "\\'")')">Link</button>
+                                        <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" onclick="toggleLinkForm(@line.Id, '@line.Description.Replace("'", "\\'")')">Link</button>
                                     }
                                 }
                             </td>
@@ -335,7 +368,7 @@
                                     <div class="pe-card" data-csp-style="margin: 0.5rem 0; border: 1px solid var(--info); border-radius: 8px;">
                                         <div class="pe-card__header" data-csp-style="padding: 0.75rem 1rem;">
                                             <span class="pe-card__title" data-csp-style="font-size: 0.8rem;">Link "@line.Description" to PO</span>
-                                            <button type="button" class="btn-p btn-p--ghost btn-p--xs" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">✕</button>
+                                            <button type="button" class="ds-btn ds-btn--ghost ds-btn--sm" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">✕</button>
                                         </div>
                                         <div class="pe-card__body" data-csp-style="padding: 1rem;">
                                             <form method="post" asp-page-handler="LinkLine">
@@ -365,8 +398,8 @@
                                                     </div>
                                                 </div>
                                                 <div class="pe-action-bar" data-csp-style="padding-top: 0.75rem;">
-                                                    <button type="button" class="btn-p btn-p--secondary btn-p--sm" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">Cancel</button>
-                                                    <button type="submit" class="btn-p btn-p--primary btn-p--sm">Link Line</button>
+                                                    <button type="button" class="ds-btn ds-btn--secondary ds-btn--sm" onclick="document.getElementById('linkForm-@line.Id').style.display='none'">Cancel</button>
+                                                    <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">Link Line</button>
                                                 </div>
                                             </form>
                                         </div>
@@ -395,33 +428,31 @@
             var grTotal = linkedGRLines.Sum(l => l.GoodsReceiptLine!.QuantityReceived * (l.PurchaseOrderLine?.UnitPrice ?? 0));
             var variance = invoiceTotal - poTotal;
 
-            <div class="pe-card" data-csp-style="margin-top: 1rem;">
-                <div class="pe-card__header">
-                    <span class="pe-card__title">Match Summary</span>
-                </div>
-                <div class="pe-card__body">
-                    <div class="pe-fields pe-fields--4">
-                        <div class="pe-field">
-                            <span class="pe-field__label">Invoice Total</span>
-                            <span class="pe-field__value">@invoiceTotal.ToString("C2")</span>
-                        </div>
-                        <div class="pe-field">
-                            <span class="pe-field__label">PO Total (linked)</span>
-                            <span class="pe-field__value">@poTotal.ToString("C2")</span>
-                        </div>
-                        <div class="pe-field">
-                            <span class="pe-field__label">GR Value (linked)</span>
-                            <span class="pe-field__value">@grTotal.ToString("C2")</span>
-                        </div>
-                        <div class="pe-field">
-                            <span class="pe-field__label">Variance</span>
-                            <span class="pe-field__value @(Math.Abs(variance) > 0.01m ? "text-danger" : "text-success")">
-                                @variance.ToString("C2")
-                                @if (Math.Abs(variance) <= 0.01m && linkedPOLines.Any())
-                                {
-                                    <span data-csp-style="margin-left: 0.25rem;">✓</span>
-                                }
-                            </span>
+            @* PR #116d.18 — Match Summary as nested DataCard with tone based on variance. *@
+            var varianceTone = Math.Abs(variance) <= 0.01m ? "success" : "danger";
+            <div class="ds-card" data-tone="@varianceTone" style="margin-top: 14px; padding: 14px 18px;">
+                <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 10px;">Match Summary</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;">
+                    <div>
+                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Invoice Total</div>
+                        <div style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: 17px; color: var(--text-primary); margin-top: 4px;">@invoiceTotal.ToString("C2")</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">PO Total (linked)</div>
+                        <div style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: 17px; color: var(--text-primary); margin-top: 4px;">@poTotal.ToString("C2")</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">GR Value (linked)</div>
+                        <div style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: 17px; color: var(--text-primary); margin-top: 4px;">@grTotal.ToString("C2")</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">Variance</div>
+                        <div style="font-family: var(--font-mono, ui-monospace, monospace); font-weight: 700; font-size: 17px; margin-top: 4px; color: @(Math.Abs(variance) > 0.01m ? "var(--ds-danger, #f87171)" : "var(--ds-success, #34d399)");">
+                            @variance.ToString("C2")
+                            @if (Math.Abs(variance) <= 0.01m && linkedPOLines.Any())
+                            {
+                                <span data-csp-style="margin-left: 0.25rem;">✓</span>
+                            }
                         </div>
                     </div>
                 </div>
@@ -467,7 +498,7 @@
                         <input type="text" name="notes" class="line-add-form__input" placeholder="Optional notes..." />
                     </div>
                     <div class="line-add-form__field line-add-form__field--action">
-                        <button type="submit" class="btn-p btn-p--primary btn-p--sm">
+                        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">
                             <i class="fas fa-plus"></i> Record Payment
                         </button>
                     </div>
@@ -517,8 +548,17 @@
         }
         else
         {
-            <div class="line-section__empty">
-                No payments recorded yet. Use the form above to record one.
+            @* PR #116d.18 — EmptyState v2 for no-payments path. *@
+            <div style="padding: 18px;">
+                @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+                {
+                    Icon = "document",
+                    Tone = "info",
+                    Title = "No payments recorded yet",
+                    Body = inv.Status == InvoiceStatus.Approved && inv.BalanceDue > 0
+                        ? "Use the Record Payment form above to log the first payment against this invoice."
+                        : "Payments can be recorded once the invoice is approved and has an outstanding balance."
+                })
             </div>
         }
     </div>
