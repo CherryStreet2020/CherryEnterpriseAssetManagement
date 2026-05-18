@@ -1,105 +1,176 @@
 @page
 @model Abs.FixedAssets.Pages.Admin.VendorsModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Vendors";
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
+
     var totalVendors = Model.Vendors.Count;
     var activeVendors = Model.Vendors.Count(v => v.IsActive);
-    
+    var inactiveVendors = totalVendors - activeVendors;
+    var withEmail = Model.Vendors.Count(v => !string.IsNullOrEmpty(v.Email));
+    var withPhone = Model.Vendors.Count(v => !string.IsNullOrEmpty(v.Phone));
+
     var headerVd = new ViewDataDictionary(ViewData) {
         ["HeaderTitle"] = "Vendors",
         ["Subtitle"] = "Manage vendor directory for purchasing and maintenance",
         ["TypeLabel"] = "Materials & Purchasing",
         ["StatusText"] = $"{activeVendors} Active",
         ["StatusTone"] = "active",
+        // PR #116d.19 — Drop KpisPartial; render KPIs horizontally in body for better layout.
         ["ContextPartial"] = "/Pages/Admin/_AdminVendorsContext.cshtml",
-        ["KpisPartial"] = "/Pages/Admin/_AdminVendorsKpis.cshtml",
         ["ActionsPartial"] = "/Pages/Admin/_AdminVendorsActions.cshtml"
     };
 }
 
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
+@* PR #116d.19 — Flash messages restyled on the design system. *@
 @if (!string.IsNullOrEmpty(Model.SuccessMessage))
 {
-    <div class="alert alert-success">@Model.SuccessMessage</div>
+    <div class="ds-card" data-tone="success" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.SuccessMessage</div>
 }
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
-    <div class="alert alert-danger">@Model.ErrorMessage</div>
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
 }
 
-<div class="section-card pe-card">
-    <div class="section-card-header pe-card__header">
-        <h3 class="section-card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Vendor Directory
-        </h3>
-        <span class="status-badge info">@totalVendors VENDORS</span>
+@* PR #116d.19 — 4 KPITiles. Active tile flips tone — info when all active, warning when any inactive. *@
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total Vendors",
+        Value = totalVendors.ToString("N0"),
+        DeltaText = totalVendors > 0 ? "in vendor directory" : "no vendors yet",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Active",
+        Value = activeVendors.ToString("N0"),
+        DeltaText = inactiveVendors > 0 ? $"▼ {inactiveVendors} inactive" : "▲ all vendors active",
+        DeltaDirection = inactiveVendors > 0 ? "down" : "up",
+        SparkTone = inactiveVendors > 0 ? "warning" : "success"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "With Email",
+        Value = withEmail.ToString("N0"),
+        DeltaText = totalVendors > 0 ? $"{(totalVendors > 0 ? (withEmail * 100.0 / totalVendors) : 0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% of directory" : "no contact data",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "With Phone",
+        Value = withPhone.ToString("N0"),
+        DeltaText = totalVendors > 0 ? $"{(totalVendors > 0 ? (withPhone * 100.0 / totalVendors) : 0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% of directory" : "no contact data",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+</div>
+
+@* PR #116d.19 — Vendor Directory wrapped in DataCard with brand tone. *@
+<div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Materials & Purchasing</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Vendor Directory</div>
+        </div>
+        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+        {
+            Label = totalVendors == 1 ? "Vendor" : "Vendors",
+            MonoNum = totalVendors.ToString(),
+            Tone = "info",
+            ShowDot = true
+        })
     </div>
-    <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
-        <table class="data-table premium-table" id="vendorGrid" data-enhanced-grid="true">
-            <thead>
-                <tr>
-                    <th data-csp-style="width: 100px;" data-col="Code" data-filter="text">Code</th>
-                    <th data-csp-style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
-                    <th data-csp-style="width: 120px;" data-col="Type" data-filter="select" data-filter-options="Supplier|Contractor|Manufacturer|ServiceProvider">Type</th>
-                    <th data-csp-style="min-width: 140px;" data-col="Contact" data-filter="text">Contact</th>
-                    <th data-csp-style="width: 130px; white-space: nowrap;" data-col="Phone" data-filter="text">Phone</th>
-                    <th data-csp-style="min-width: 180px;" data-col="Email" data-filter="text">Email</th>
-                    <th data-csp-style="width: 100px;" data-col="Terms" data-filter="select" data-filter-options="Net30|Net45|Net60|Net90|DueOnReceipt">Terms</th>
-                    <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var vendor in Model.Vendors)
-                {
-                    <tr class="clickable-row" onclick="window.location='/Materials/Vendors/Edit/@vendor.Id'">
-                        <td><strong class="text-primary">@vendor.Code</strong></td>
-                        <td data-csp-style="font-weight: 500;">@vendor.Name</td>
-                        <td><span class="badge badge-outline">@vendor.VendorType</span></td>
-                        <td>@(vendor.ContactName ?? "—")</td>
-                        <td data-csp-style="white-space: nowrap;">@(vendor.Phone ?? "—")</td>
-                        <td>
-                            @if (!string.IsNullOrEmpty(vendor.Email))
-                            {
-                                <span class="text-primary">@vendor.Email</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">—</span>
-                            }
-                        </td>
-                        <td><span class="badge badge-secondary">@vendor.PaymentTerms</span></td>
-                        <td>
-                            @if (vendor.IsActive)
-                            {
-                                <span class="badge badge-success">Active</span>
-                            }
-                            else
-                            {
-                                <span class="badge badge-secondary">Inactive</span>
-                            }
-                        </td>
+    @if (Model.Vendors.Any())
+    {
+        <div style="padding: 0;">
+            <table class="data-table premium-table" id="vendorGrid" data-enhanced-grid="true">
+                <thead>
+                    <tr>
+                        <th data-csp-style="width: 100px;" data-col="Code" data-filter="text">Code</th>
+                        <th data-csp-style="min-width: 180px;" data-col="Name" data-filter="text">Name</th>
+                        <th data-csp-style="width: 120px;" data-col="Type" data-filter="select" data-filter-options="Supplier|Contractor|Manufacturer|ServiceProvider">Type</th>
+                        <th data-csp-style="min-width: 140px;" data-col="Contact" data-filter="text">Contact</th>
+                        <th data-csp-style="width: 130px; white-space: nowrap;" data-col="Phone" data-filter="text">Phone</th>
+                        <th data-csp-style="min-width: 180px;" data-col="Email" data-filter="text">Email</th>
+                        <th data-csp-style="width: 100px;" data-col="Terms" data-filter="select" data-filter-options="Net30|Net45|Net60|Net90|DueOnReceipt">Terms</th>
+                        <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach (var vendor in Model.Vendors)
+                    {
+                        <tr class="clickable-row" onclick="window.location='/Materials/Vendors/Edit/@vendor.Id'">
+                            <td><strong style="color: var(--text-primary);">@vendor.Code</strong></td>
+                            <td style="font-weight: 500; color: var(--text-primary);">@vendor.Name</td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = vendor.VendorType.ToString(), Tone = "brand", ShowDot = false })
+                            </td>
+                            <td style="color: var(--text-secondary);">@(vendor.ContactName ?? "—")</td>
+                            <td style="white-space: nowrap; color: var(--text-secondary); font-family: var(--font-mono, ui-monospace, monospace);">@(vendor.Phone ?? "—")</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(vendor.Email))
+                                {
+                                    <span style="color: var(--ds-brand, #60a5fa);">@vendor.Email</span>
+                                }
+                                else
+                                {
+                                    <span style="color: var(--text-muted);">—</span>
+                                }
+                            </td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = vendor.PaymentTerms.ToString(), Tone = "neutral", ShowDot = false })
+                            </td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                                {
+                                    Label = vendor.IsActive ? "Active" : "Inactive",
+                                    Tone = vendor.IsActive ? "success" : "neutral",
+                                    ShowDot = true
+                                })
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        @* PR #116d.19 — EmptyState v2 for no-vendors path. *@
+        <div style="padding: 24px;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "folder",
+                Tone = "info",
+                Title = "No vendors yet",
+                Body = "Add your first vendor to start tracking suppliers, contractors, manufacturers, and service providers.",
+                CtaLabel = "Add First Vendor",
+                CtaHref = "/Materials/Vendors/Create",
+                SecondaryLabel = "Back to Dashboard",
+                SecondaryHref = "/"
+            })
+        </div>
+    }
 </div>
 
 @section Scripts {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    initEnhancedGrid('vendorGrid', {
-        searchable: true,
-        sortable: true,
-        exportable: true,
-        clickableRows: false
-    });
+    if (typeof initEnhancedGrid === 'function') {
+        initEnhancedGrid('vendorGrid', {
+            searchable: true,
+            sortable: true,
+            exportable: true,
+            clickableRows: false
+        });
+    }
 });
 </script>
 }
