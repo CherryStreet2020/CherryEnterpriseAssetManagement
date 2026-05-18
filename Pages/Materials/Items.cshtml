@@ -88,36 +88,36 @@
         </div>
     </div>
     
-    @* PR #116d.20.1 — Single-row toolbar: server-side search + 3 selects + Filter button on ONE clean row.
-       Kills the duplicate EnhancedGrid "Search all columns..." bar via `searchable: false` in the init script below. *@
-    <form method="get" class="grid-filter-toolbar grid-filter-toolbar--solo">
+    @* PR #116d.20.3 — Single-row inline toolbar. Search left, then Status/Types/Vendors selects,
+       Filter + Clear buttons right. EnhancedGrid's action strip (Filters/Columns/Export/Reset/N records)
+       is hoisted via JS to sit IN this row (right side) so we get ONE strip total — no second action bar. *@
+    <form method="get" class="grid-filter-toolbar grid-filter-toolbar--solo" data-items-toolbar>
         <div class="grid-filter-search">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input type="text" name="search" value="@Model.SearchQuery" placeholder="Search Part #, Description, MPN, VPN..." />
         </div>
-        <div class="grid-filter-chips">
-            <select name="statusFilter" class="grid-filter-select" asp-items="Model.StatusFilterOptions"></select>
-            <select name="typeFilter" class="grid-filter-select" asp-items="Model.TypeFilterOptions"></select>
-            <select name="vendorId" class="grid-filter-select" data-cherry-select data-placeholder="Search vendors...">
-                <option value="">All Vendors</option>
-                @foreach (var vendor in Model.Vendors)
-                {
-                    <option value="@vendor.Id" selected="@(Model.VendorIdFilter == vendor.Id)">@vendor.Name</option>
-                }
-            </select>
-            <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                Filter
-            </button>
-            @if (Model.HasFilters)
+        <select name="statusFilter" class="grid-filter-select" asp-items="Model.StatusFilterOptions"></select>
+        <select name="typeFilter" class="grid-filter-select" asp-items="Model.TypeFilterOptions"></select>
+        <select name="vendorId" class="grid-filter-select" data-placeholder="Search vendors...">
+            <option value="">All Vendors</option>
+            @foreach (var vendor in Model.Vendors)
             {
-                <a href="/Materials/Items" class="ds-btn ds-btn--ghost ds-btn--sm">Clear</a>
+                <option value="@vendor.Id" selected="@(Model.VendorIdFilter == vendor.Id)">@vendor.Name</option>
             }
-        </div>
+        </select>
+        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            Filter
+        </button>
+        @if (Model.HasFilters)
+        {
+            <a href="/Materials/Items" class="ds-btn ds-btn--ghost ds-btn--sm">Clear</a>
+        }
+        <span data-items-grid-actions-slot></span>
     </form>
     
     <div data-csp-style="overflow-x: auto;">
@@ -136,12 +136,10 @@
                     <th data-csp-style="width: 80px;" data-col="Current Rev" data-filter="text">Current Rev</th>
                     <th data-csp-style="width: 70px; text-align: right;" data-col="Lead Time" data-filter="number">Lead Time</th>
                     <th data-csp-style="width: 90px; text-align: right;" data-col="Last Price" data-filter="number">Last Price</th>
+                    @* PR #116d.20.3 — Buyability / MPNs / VPNs / Catalog removed from list view
+                       so the table fits without horizontal scroll. All four are still on the item detail page. *@
                     <th data-csp-style="width: 100px;" data-col="Stock Policy" data-filter="select" data-filter-options="Stock|Nonstock|Critical">Stock Policy</th>
-                    <th data-csp-style="width: 80px; text-align: center;" data-col="Buyability" data-filter="none">Buyability</th>
-                    <th data-csp-style="width: 60px; text-align: center;" data-col="MPNs" data-filter="none">MPNs</th>
-                    <th data-csp-style="width: 60px; text-align: center;" data-col="VPNs" data-filter="none">VPNs</th>
                     <th data-csp-style="min-width: 140px;" data-col="Preferred Vendor" data-filter="text">Preferred Vendor</th>
-                    <th data-csp-style="width: 60px; text-align: center;" data-col="Catalog" data-filter="none" data-export="false">Catalog</th>
                     <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                 </tr>
             </thead>
@@ -238,20 +236,9 @@
                             }
                             @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = policyLabel, Tone = policyTone, ShowDot = true })
                         </td>
-                        <td data-csp-style="text-align: center;">
-                            @if (buyability != null)
-                            {
-                                <span class="badge @buyability.TierBadgeClass" data-csp-style="font-size: 9px; padding: 3px 6px;" title="@buyability.Score pts - @string.Join(", ", buyability.MissingFactors.Take(3).Select(f => f.Name))">
-                                    @buyability.Tier.Substring(0, 1)@buyability.Score
-                                </span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                        <td data-csp-style="text-align: center;">@Model.GetMpnCount(item.Id)</td>
-                        <td data-csp-style="text-align: center;">@Model.GetVpnCount(item.Id)</td>
+                        @* PR #116d.20.3 — Buyability / MPN / VPN / Catalog cells removed
+                           from list view so the table fits without horizontal scroll.
+                           Still rendered on the item detail page. *@
                         <td data-csp-style="color: var(--text-secondary);">
                             @if (!string.IsNullOrEmpty(Model.GetPreferredVendorName(item.Id)))
                             {
@@ -260,20 +247,6 @@
                             else if (item.PrimaryVendor != null)
                             {
                                 <span>@item.PrimaryVendor.Name</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                        <td data-csp-style="text-align: center;" onclick="event.stopPropagation();">
-                            @if (!string.IsNullOrEmpty(catalogUrl))
-                            {
-                                <a href="@catalogUrl" target="_blank" rel="noopener noreferrer" class="ds-btn ds-btn--ghost ds-btn--sm" data-csp-style="padding: 4px 8px;" title="Open vendor catalog">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                </a>
                             }
                             else
                             {
@@ -369,6 +342,21 @@ document.addEventListener('DOMContentLoaded', function() {
         exportable: true,
         columnVisibility: true,
         clickableRows: true
+    });
+
+    // PR #116d.20.3 — Hoist EnhancedGrid's right-side action chip group
+    // (Filters/Columns/Export/Reset/N records) INTO our server-side toolbar form,
+    // so the page shows ONE filter strip total — not two.
+    requestAnimationFrame(() => {
+        const slot = document.querySelector('[data-items-grid-actions-slot]');
+        const gridActions = document.querySelector('#itemsGrid')?.closest('.grid-container')?.querySelector('.grid-toolbar-right')
+            || document.querySelector('.grid-toolbar .grid-toolbar-right');
+        if (slot && gridActions) {
+            slot.appendChild(gridActions);
+            // Hide the now-empty grid-toolbar wrapper so we don't leave a vertical gap.
+            const oldToolbar = document.querySelector('.grid-toolbar');
+            if (oldToolbar) oldToolbar.style.display = 'none';
+        }
     });
 });
 </script>
