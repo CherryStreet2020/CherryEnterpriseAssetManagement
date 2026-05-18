@@ -2941,6 +2941,36 @@ div.form-value,
   box-shadow: 0 0 0 3px rgb(59 130 246 / 0.15);
 }
 
+/* PR #116d.20.1 — Single-row toolbar variant: search + filter chips on ONE row.
+   Kills the "All Vendors" orphan-wrap by giving the search a flexible width and
+   keeping all filter chips together; wraps as a clean group only when truly narrow. */
+.grid-filter-toolbar--solo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
+
+.grid-filter-toolbar--solo .grid-filter-search {
+  flex: 1 1 280px;
+  max-width: none;
+  min-width: 240px;
+}
+
+.grid-filter-toolbar--solo .grid-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+}
+
+.grid-filter-toolbar--solo .grid-filter-select {
+  min-width: 130px;
+  max-width: 200px;
+}
+
 /* ========== GRID PAGINATION ========== */
 .grid-pagination {
   display: flex;
