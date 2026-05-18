@@ -1,14 +1,14 @@
 @page
 @model Abs.FixedAssets.Pages.AccountsPayable.IndexModel
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Pages.Shared.Primitives
 @{
     ViewData["Title"] = "Accounts Payable";
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
     var statusText = Model.PastDueCount > 0 ? $"{Model.PastDueCount} Past Due" : "Current";
     var statusTone = Model.PastDueCount > 0 ? "danger" : "active";
-}
 
-@{
     var headerVd = new ViewDataDictionary(ViewData)
     {
         { "HeaderTitle", "Accounts Payable" },
@@ -16,92 +16,100 @@
         { "TypeLabel", "Financial" },
         { "StatusText", statusText },
         { "StatusTone", statusTone },
-        { "KpisPartial", "AccountsPayable/_AccountsPayableIndexKpis" },
+        // PR #116d.17 — Header KPIs removed; render horizontal strip in body.
+        // KpisPartial intentionally not set so header stays compact.
         { "ActionsPartial", "AccountsPayable/_AccountsPayableIndexActions" }
     };
+
+    // PR #116d.17 — Pre-compute KPI delta logic per .cowork-gotchas pattern.
+    var pastDueTone = Model.PastDueCount > 0 ? "danger" : "success";
+    var pastDueDirection = Model.PastDueCount > 0 ? "down" : "up";
+    var pastDueDelta = Model.PastDueCount > 0 ? $"▼ {Model.PastDueCount} need attention" : "▲ all current";
+
+    var payableTone = Model.TotalPayable >= 100000m ? "warning" : "brand";
+    var avgInvoice = Model.OpenInvoiceCount > 0 ? Model.TotalPayable / Model.OpenInvoiceCount : 0m;
 }
 @await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
+@* PR #116d.17 — Flash messages restyled on the design system. *@
 @if (TempData["ErrorMessage"] != null)
 {
-    <div class="alert alert-danger pe-alert pe-alert--danger">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="alert-icon">
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--ds-danger, #f87171); flex-shrink: 0;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
-        @TempData["ErrorMessage"]
+        <span>@TempData["ErrorMessage"]</span>
     </div>
 }
 
 @if (TempData["SuccessMessage"] != null)
 {
-    <div class="alert alert-success pe-alert pe-alert--success">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="alert-icon">
+    <div class="ds-card" data-tone="success" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary); display: flex; align-items: center; gap: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: var(--ds-success, #34d399); flex-shrink: 0;">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        @TempData["SuccessMessage"]
+        <span>@TempData["SuccessMessage"]</span>
     </div>
 }
 
-<div class="quick-stats-row-4">
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value primary">@Model.OpenInvoiceCount</div>
-            <div class="quick-stat-label">Open Invoices</div>
-        </div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon danger">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value danger">@Model.PastDueCount</div>
-            <div class="quick-stat-label">Past Due</div>
-        </div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value warning">@Model.TotalPayable.ToString("C0")</div>
-            <div class="quick-stat-label">Total Payable</div>
-        </div>
-    </div>
-    <div class="quick-stat-card">
-        <div class="quick-stat-icon success">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-        <div class="quick-stat-content">
-            <div class="quick-stat-value success">@Model.PaidThisMonth.ToString("C0")</div>
-            <div class="quick-stat-label">Paid (MTD)</div>
-        </div>
-    </div>
+@* PR #116d.17 — 4 KPITiles horizontal at top. Past Due tile flips to DANGER tone
+   with downward delta whenever there's even one overdue invoice — operationally
+   critical alert visible at-a-glance. *@
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Open Invoices",
+        Value = Model.OpenInvoiceCount.ToString("N0"),
+        DeltaText = Model.OpenInvoiceCount > 0 ? "awaiting payment" : "all invoices closed",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Past Due",
+        Value = Model.PastDueCount.ToString("N0"),
+        DeltaText = pastDueDelta,
+        DeltaDirection = pastDueDirection,
+        SparkTone = pastDueTone
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total Payable",
+        Value = Model.TotalPayable.ToString("C0"),
+        DeltaText = Model.OpenInvoiceCount > 0 ? $"~ {avgInvoice.ToString("C0")} per invoice" : "no open invoices",
+        DeltaDirection = "flat",
+        SparkTone = payableTone
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Paid (MTD)",
+        Value = Model.PaidThisMonth.ToString("C0"),
+        DeltaText = Model.PaidThisMonth > 0 ? "▲ cash out this month" : "no payments yet this month",
+        DeltaDirection = Model.PaidThisMonth > 0 ? "up" : "flat",
+        SparkTone = "success"
+    })
 </div>
 
-<div class="section-card pe-card">
-    <div class="section-card-header pe-card__header">
-        <h3 class="section-card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-            </svg>
-            Recent Invoices
-        </h3>
-        <span class="status-badge info">@Model.Invoices.Count INVOICES</span>
+@* PR #116d.17 — Recent Invoices table wrapped in a DataCard with brand tone.
+   Tone flips to DANGER on the card itself if any invoices are past due, so the
+   operator sees the urgency before reading any rows. *@
+<div class="ds-card" data-tone="@(Model.PastDueCount > 0 ? "danger" : "brand")" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Accounts Payable</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Recent Invoices</div>
+        </div>
+        @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+        {
+            Label = Model.Invoices.Count == 1 ? "Invoice" : "Invoices",
+            MonoNum = Model.Invoices.Count.ToString(),
+            Tone = "info",
+            ShowDot = true
+        })
     </div>
     @if (Model.Invoices.Any())
     {
-        <div class="section-card-body pe-card__body" data-csp-style="padding: 0;">
+        <div style="padding: 0;">
             @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
             <table class="data-table premium-table" id="invoiceGrid" data-enhanced-grid="true" data-row-click="true">
                 <thead>
@@ -120,23 +128,31 @@
                     @foreach (var inv in Model.Invoices)
                     {
                         var isOverdue = inv.DueDate < DateTime.Today && inv.BalanceDue > 0;
+                        @* PR #116d.17 — Tone mapping for status and match badges. *@
+                        var statusBadgeTone = inv.Status == InvoiceStatus.Paid ? "success"
+                            : inv.Status == InvoiceStatus.Approved ? "brand"
+                            : isOverdue ? "danger"
+                            : "neutral";
+                        var statusBadgeLabel = isOverdue && inv.Status != InvoiceStatus.Paid ? "Past Due" : inv.Status.ToString();
+                        var matchBadgeTone = inv.MatchStatus == InvoiceMatchStatus.FullyMatched ? "success"
+                            : inv.MatchStatus == InvoiceMatchStatus.PartialMatch ? "warning"
+                            : inv.MatchStatus == InvoiceMatchStatus.Exception ? "danger"
+                            : "neutral";
                         <tr data-row-id="@inv.Id" data-row-href="@Url.Page("/AccountsPayable/Details", new { id = inv.Id, returnUrl = returnUrl })">
-                            <td><strong class="text-primary">@inv.InvoiceNumber</strong></td>
-                            <td data-csp-style="font-weight: 500;">@inv.Vendor?.Name</td>
-                            <td data-csp-style="white-space: nowrap;">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
-                            <td class="@(isOverdue ? "text-danger" : "")" data-csp-style="white-space: nowrap;">@inv.DueDate.ToString("MM/dd/yyyy")</td>
+                            <td><strong style="color: var(--text-primary);">@inv.InvoiceNumber</strong></td>
+                            <td style="font-weight: 500; color: var(--text-primary);">@inv.Vendor?.Name</td>
+                            <td style="white-space: nowrap; color: var(--text-secondary);">@inv.InvoiceDate.ToString("MM/dd/yyyy")</td>
+                            <td style="white-space: nowrap; color: @(isOverdue ? "var(--ds-danger, #f87171)" : "var(--text-secondary)"); font-weight: @(isOverdue ? "600" : "400");">@inv.DueDate.ToString("MM/dd/yyyy")</td>
                             <td>
-                                <span class="badge @(inv.Status == InvoiceStatus.Paid ? "badge-success" : inv.Status == InvoiceStatus.Approved ? "badge-primary" : isOverdue ? "badge-danger" : "badge-neutral")">
-                                    @(isOverdue && inv.Status != InvoiceStatus.Paid ? "Past Due" : inv.Status.ToString())
-                                </span>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = statusBadgeLabel, Tone = statusBadgeTone, ShowDot = true })
                             </td>
                             <td>
-                                <span class="badge @(inv.MatchStatus == InvoiceMatchStatus.FullyMatched ? "badge-success" : inv.MatchStatus == InvoiceMatchStatus.PartialMatch ? "badge-warning" : inv.MatchStatus == InvoiceMatchStatus.Exception ? "badge-danger" : "badge-neutral")">
-                                    @inv.MatchStatus
-                                </span>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = inv.MatchStatus.ToString(), Tone = matchBadgeTone, ShowDot = true })
                             </td>
-                            <td data-csp-style="text-align: right; font-weight: 600;">@inv.Total.ToString("C2")</td>
-                            <td class="@(inv.BalanceDue > 0 ? "font-bold" : "")" data-csp-style="text-align: right; font-weight: 500;">@inv.BalanceDue.ToString("C2")</td>
+                            <td style="text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: 600; color: var(--text-primary);">@inv.Total.ToString("C2")</td>
+                            <td style="text-align: right; font-family: var(--font-mono, ui-monospace, monospace); font-weight: @(inv.BalanceDue > 0 ? "700" : "400"); color: @(inv.BalanceDue > 0 ? (isOverdue ? "var(--ds-danger, #f87171)" : "var(--text-primary)") : "var(--text-muted)");">
+                                @(inv.BalanceDue > 0 ? inv.BalanceDue.ToString("C2") : "—")
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -145,12 +161,19 @@
     }
     else
     {
-        <div class="pe-empty" data-csp-style="padding:1.5rem;">
-            <i class="fas fa-receipt pe-empty__icon" data-csp-style="font-size:1.2rem;"></i>
-            <div class="pe-empty__text">
-                <h3>No Invoices</h3>
-                <p>Enter your first vendor invoice to start tracking accounts payable.</p>
-            </div>
+        @* PR #116d.17 — EmptyState v2 for the no-invoices path. *@
+        <div style="padding: 24px;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "document",
+                Tone = "info",
+                Title = "No invoices yet",
+                Body = "Enter your first vendor invoice to start tracking accounts payable. Invoices link to POs for three-way matching against receipts.",
+                CtaLabel = "Create First Invoice",
+                CtaHref = "/AccountsPayable/Create",
+                SecondaryLabel = "Back to Dashboard",
+                SecondaryHref = "/"
+            })
         </div>
     }
 </div>
@@ -158,13 +181,15 @@
 @section Scripts {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    initEnhancedGrid('invoiceGrid', {
-        searchable: true,
-        sortable: true,
-        exportable: true,
-        clickableRows: true,
-        rowClickUrl: '/AccountsPayable/Details/{id}'
-    });
+    if (typeof initEnhancedGrid === 'function') {
+        initEnhancedGrid('invoiceGrid', {
+            searchable: true,
+            sortable: true,
+            exportable: true,
+            clickableRows: true,
+            rowClickUrl: '/AccountsPayable/Details/{id}'
+        });
+    }
 });
 </script>
 }
