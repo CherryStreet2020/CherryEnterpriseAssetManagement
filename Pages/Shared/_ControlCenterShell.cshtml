@@ -1,0 +1,94 @@
+@*
+    _ControlCenterShell.cshtml — Control Center four-quadrant scaffold (Sprint 11 PR #2).
+
+    Layout (≥1280px):
+      +-----------------------------------------------------+
+      |                  Header (eyebrow + headline)        |
+      +-----------------------------------------------------+
+      |                       KPI Strip                     |
+      +-------------------------------+---------------------+
+      |                               |                     |
+      |      Exception Lane           |   Detail Drawer     |
+      |      (sortable list)          |   (right rail)      |
+      |                               |                     |
+      +-------------------------------+---------------------+
+      |              Activity Feed (collapsible)            |
+      +-----------------------------------------------------+
+      |                          Voice button (FAB) ●       |
+      +-----------------------------------------------------+
+
+    Tablet (768-1279px): drawer overlays the lane; feed collapses to header strip;
+    KPI strip becomes horizontally scrollable.
+
+    Mobile (<768px) is OUT OF SCOPE for the desktop Control Center.
+    Sprint 11 PR #6 will ship /Receiving/Scan as a Zebra TC52/TC57 companion.
+
+    Usage:
+      @await Html.PartialAsync("_ControlCenterShell", Model.Shell)
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model ControlCenterShellModel
+
+<div class="ds-cc"
+     data-cc-shell="true"
+     data-cc-voice-posture="@Model.VoicePosture">
+
+    @if (!string.IsNullOrEmpty(Model.Eyebrow) || !string.IsNullOrEmpty(Model.Headline) || !string.IsNullOrEmpty(Model.Subtitle))
+    {
+        <header class="ds-cc__header">
+            @if (!string.IsNullOrEmpty(Model.Eyebrow))
+            {
+                <div class="ds-cc__eyebrow">@Model.Eyebrow</div>
+            }
+            @if (!string.IsNullOrEmpty(Model.Headline))
+            {
+                <h1 class="ds-cc__headline">@Model.Headline</h1>
+            }
+            @if (!string.IsNullOrEmpty(Model.Subtitle))
+            {
+                <div class="ds-cc__subtitle">@Model.Subtitle</div>
+            }
+        </header>
+    }
+
+    <div class="ds-cc__kpis">
+        @await Html.PartialAsync("Primitives/_KpiStrip", Model.KpiStrip)
+    </div>
+
+    <div class="ds-cc__body">
+        <div class="ds-cc__lane">
+            @await Html.PartialAsync("Primitives/_ExceptionLane", Model.ExceptionLane)
+        </div>
+        @* Right-rail spacer — the drawer slides in from off-canvas.
+           When closed, the lane spans full width via the .ds-cc__body--no-drawer
+           modifier set by control-center.js. *@
+    </div>
+
+    @if (Model.ActivityFeed != null)
+    {
+        <div class="ds-cc__feed">
+            @await Html.PartialAsync("Primitives/_ActivityFeed", Model.ActivityFeed)
+        </div>
+    }
+
+    @* Drawer is rendered at root level so it can slide in over the page chrome. *@
+    @if (Model.Drawer != null)
+    {
+        @await Html.PartialAsync("Primitives/_ContextDrawer", Model.Drawer)
+    }
+
+    @if (Model.ShowVoiceButton)
+    {
+        <button type="button"
+                class="ds-cc-voice-fab"
+                data-cc-voice="true"
+                data-cc-voice-posture="@Model.VoicePosture"
+                aria-label="Voice assistant (push to talk — hold spacebar)">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3z" fill="currentColor"/>
+                <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 0 0-2 0 7 7 0 0 0 6 6.93V20H8a1 1 0 0 0 0 2h8a1 1 0 0 0 0-2h-3v-2.07A7 7 0 0 0 19 11z" fill="currentColor"/>
+            </svg>
+            <span class="ds-cc-voice-fab__label">Voice</span>
+        </button>
+    }
+</div>
