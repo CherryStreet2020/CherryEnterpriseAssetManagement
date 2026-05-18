@@ -501,6 +501,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Admin.IMaterialMasterService,
     Abs.FixedAssets.Services.Admin.MaterialMasterService>();
+// Sprint 4 Phase F Wave 1 PR #4 — Vendor edit voice-ready service.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Admin.IVendorService,
+    Abs.FixedAssets.Services.Admin.VendorService>();
 
 var app = builder.Build();
 
