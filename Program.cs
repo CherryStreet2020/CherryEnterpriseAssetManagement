@@ -509,6 +509,11 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Admin.IStockReceiptService,
     Abs.FixedAssets.Services.Admin.StockReceiptService>();
+// ADR-015 Migration PR #3 — JSON Schema validator for receipt Attributes.
+// Scoped so it picks up the request-scoped IMemoryCache (singleton under
+// the hood). Used by StockReceiptService for service-layer validation
+// and by the Edit page directly for per-field ModelState placement.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Admin.ReceiptAttributesValidator>();
 // ADR-015 / Migration PR #1 — Voice-AI tool stubs (Sprint 5 surface, contract only).
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Voice.IReceiptVoiceTools,

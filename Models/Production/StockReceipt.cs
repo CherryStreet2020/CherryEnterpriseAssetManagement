@@ -7,50 +7,33 @@ namespace Abs.FixedAssets.Models.Production
     // ADR-013 / PR #119.13b — StockReceipt physical-lot record.
     //
     // ONE ROW PER PHYSICAL SHEET (or per receipt lot) that arrives
-    // from the supplier. This is where heat number / mill cert / source
-    // PO data lives — NOT on the Item master.
+    // from the supplier. The industry-specific traceability payload
+    // (heat number / mill cert / NDC / GTIN / harvest date / etc.)
+    // lives in the Attributes jsonb column, shape-validated against
+    // the receipt's ProfileId via JsonSchema.Net.
+    //
+    // ADR-015 Migration PR #3 (2026-05-19) DROPPED the 8 legacy
+    // steel-specific columns (HeatNumber, MillCertUrl, Mill,
+    // Length/Width/Thickness, UsableLength/Width). They live in
+    // Attributes now under the STEEL profile.
     //
     // Why a separate table from Items:
     //   - Item is the SKU master ("1/4-inch A36 plate, 48x96 sheet").
     //     Same Item row for every sheet of that spec.
     //   - StockReceipt is the physical lot — each receipt has its own
-    //     heat number, mill cert, source PO, received date.
+    //     traceability payload.
     //   - Two sheets of the same SKU do NOT share heat number.
     //
-    // Where the data comes from (per Dean's correction):
-    //   - HeatNumber, LotNumber: read off the mill cert PDF at receiving.
-    //     Can be operator-typed or scanned/OCR'd.
-    //   - MillCertUrl: PDF uploaded to Box/SharePoint at receiving;
-    //     URL stored here.
-    //   - Mill: copied from the PO line at receipt.
-    //   - SourcePoNumber + SourcePoLineId: PO/ERP-driven. Either pushed
-    //     in via integration event or filled at the receiving screen.
-    //
-    // Regulatory drivers:
-    //   - ASME Section IX: heat number traceability per weld.
-    //   - AWS D1.1: certified mill test report per structural steel.
-    //   - AS9100 8.5.2: 20-40 year retention of heat-number genealogy.
-    //   - NADCAP AC7102: heat-treat input lot traceability.
-    //
-    // Consumption flow:
-    //   1. Receipt arrives -> StockReceipt row created (Status=Available).
-    //   2. Nest is built consuming this sheet -> Nest.StockReceiptId
-    //      links the cut to the specific physical sheet.
-    //   3. As parts are cut, QuantityRemaining decrements.
-    //   4. If a usable offcut remains, a Remnant row is created with
-    //      ParentReceiptId pointing here (heat number inherits).
-    //   5. When QuantityRemaining = 0, Status -> FullyConsumed.
-    //
-    // Reference: PR #119.13a research report Q2 (remnant tracking) +
-    // Q10 (heat number genealogy is the #1 audit lookup).
+    // Reference: ADR-015 industry-agnostic-receipt-schema +
+    // dynamic-razor-form-spec.md §8.
     [Table("StockReceipts")]
     public class StockReceipt
     {
         public int Id { get; set; }
 
         // ADR-015 — Industry profile that defines the shape of Attributes.
-        // Nullable initially during Migration PR #1 dual-write window.
-        // Becomes NOT NULL in Migration PR #2 after Steel rows backfill.
+        // Nullable on the model for the dual-write window; NOT NULL in the
+        // DB after Migration PR #2 added the constraint.
         public int? ProfileId { get; set; }
         public ReceiptProfile? Profile { get; set; }
 
@@ -71,34 +54,19 @@ namespace Abs.FixedAssets.Models.Production
         public int? MaterialMasterId { get; set; }
         public MaterialMaster? MaterialMaster { get; set; }
 
-        // ---- Traceability fields (the whole point of this table) ----
+        // ---- Universal traceability fields (every profile) ----
 
-        // Heat number from the mill. ASME / AWS / aerospace traceability
-        // join key. Indexed for "find all parts cut from heat X" audits.
-        [StringLength(64)]
-        [Display(Name = "Heat #")]
-        public string? HeatNumber { get; set; }
-
-        // Supplier-side lot identifier (often distinct from heat number).
+        // Supplier-side lot identifier. Universal across verticals.
         [StringLength(64)]
         public string? LotNumber { get; set; }
 
-        // ADR-015 — Universal tracking dimension. Used by pharma
-        // (DSCSA), electronics (date code), automotive (PPAP), medical
-        // device (UDI-PI), oil & gas (downhole serial). Nullable
-        // because not every receipt is serial-tracked.
+        // Universal tracking dimension. Used by pharma (DSCSA), electronics
+        // (date code), automotive (PPAP), medical device (UDI-PI), oil & gas
+        // (downhole serial). Nullable because not every receipt is serial-
+        // tracked.
         [StringLength(128)]
         [Display(Name = "Serial #")]
         public string? SerialNumber { get; set; }
-
-        // Pointer to the mill test report PDF in external storage.
-        [StringLength(500)]
-        [Display(Name = "Mill Cert URL")]
-        public string? MillCertUrl { get; set; }
-
-        // Mill that produced the stock.
-        [StringLength(128)]
-        public string? Mill { get; set; }
 
         // Source PO traceability — ties back to ERP / purchasing.
         [StringLength(64)]
@@ -121,30 +89,6 @@ namespace Abs.FixedAssets.Models.Production
         // Storage location.
         public int? LocationId { get; set; }
         public Location? Location { get; set; }
-
-        // ---- Physical dimensions ----
-
-        [Display(Name = "Length (mm)")]
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal? LengthMm { get; set; }
-
-        [Display(Name = "Width (mm)")]
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal? WidthMm { get; set; }
-
-        [Display(Name = "Thickness (mm)")]
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal? ThicknessMm { get; set; }
-
-        // Usable dimensions decrement as the sheet is cut. When a nest
-        // partially consumes a sheet, these reflect what's left.
-        [Display(Name = "Usable Length (mm)")]
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal? UsableLengthMm { get; set; }
-
-        [Display(Name = "Usable Width (mm)")]
-        [Column(TypeName = "decimal(10,2)")]
-        public decimal? UsableWidthMm { get; set; }
 
         // ---- Quantity tracking ----
 
@@ -186,11 +130,14 @@ namespace Abs.FixedAssets.Models.Production
         public string? ModifiedBy { get; set; }
 
         // ADR-015 — Industry-specific payload, validated at service layer
-        // against the ProfileId's JsonSchema. The eight legacy
-        // sheet-metal columns above (HeatNumber, MillCertUrl, Mill,
-        // Length/Width/Thickness, UsableLength/Width) move into this
-        // JSONB column under the STEEL profile in Migration PR #3.
-        // Nullable during the dual-write transition window.
+        // against the ProfileId's JsonSchema via ReceiptAttributesValidator
+        // (JsonSchema.Net Draft 2020-12).
+        //
+        // Migration PR #3 (2026-05-19) made this the only home for the 8
+        // formerly-typed steel fields: heatNumber, mill, millCertUrl,
+        // lengthMm, widthMm, thicknessMm, usableLengthMm, usableWidthMm.
+        // Other profiles encode their fields here too (PHARMA: ndc,
+        // expirationDate, gtin; FOOD: traceabilityLotCode, harvestDate; etc.).
         [Column(TypeName = "jsonb")]
         public string? Attributes { get; set; }
 

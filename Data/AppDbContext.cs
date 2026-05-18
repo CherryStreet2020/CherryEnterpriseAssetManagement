@@ -1099,13 +1099,19 @@ namespace Abs.FixedAssets.Data
             });
 
             // ADR-013 / PR #119.13b — StockReceipt physical-lot record.
-            // ReceiptNumber UNIQUE. HeatNumber indexed for audit queries.
-            // ItemId RESTRICT (can't delete SKU with receipts).
-            // MaterialMasterId / ReceivedByUserId / LocationId SET NULL.
+            // ReceiptNumber UNIQUE. ItemId RESTRICT (can't delete SKU with
+            // receipts). MaterialMasterId / ReceivedByUserId / LocationId
+            // SET NULL.
+            //
+            // ADR-015 Migration PR #3 (2026-05-19) DROPPED the HeatNumber
+            // column. Heat # lookups now go through the GIN index on
+            // Attributes (added by Migration PR #1) + the expression index
+            // ((Attributes ->> 'heatNumber')) which Migration PR #1 added
+            // for the STEEL promoted facet. Audit queries get equivalent
+            // or better performance.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.StockReceipt>(e =>
             {
                 e.HasIndex(x => x.ReceiptNumber).IsUnique();
-                e.HasIndex(x => x.HeatNumber);
                 e.HasIndex(x => x.LotNumber);
                 e.HasIndex(x => x.ItemId);
                 e.HasIndex(x => x.Status);

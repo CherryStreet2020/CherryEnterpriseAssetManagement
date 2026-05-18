@@ -1,0 +1,140 @@
+@*
+    ADR-015 Migration PR #3 — Dynamic field partial.
+
+    The single switch over UiFormSpec.type. Every per-input markup the
+    project understands lives here; adding a new field type means one
+    edit in this file.
+
+    Voice integration: every input gets data-voice-key + data-field-type
+    so the Sprint 5 voice client can target by key.
+
+    See: docs/research/dynamic-razor-form-spec.md §1.6 + §4 (type table)
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model DynamicFieldModel
+@{
+    var name  = $"attrs[{Model.Key}]";
+    var id    = $"attr-{Model.Key}";
+    var value = Model.Value;
+    var lbl   = "display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;";
+    var inp   = "width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);";
+    var requiredAttr = Model.Required ? "required" : null;
+}
+
+<div data-csp-style="@(Model.FullWidth ? "grid-column: 1 / -1;" : null)">
+    <label for="@id" data-csp-style="@lbl">
+        @Model.Label@(Model.Required ? Html.Raw(" <span data-csp-style=\"color: var(--ds-danger, #f87171);\">*</span>") : (object?)null)
+    </label>
+    @switch (Model.Type)
+    {
+        case "text":
+        case "url":
+        case "iso2":
+            <input id="@id" name="@name" type="@(Model.Type == "url" ? "url" : "text")"
+                   value="@value" maxlength="@(Model.MaxLength ?? 256)"
+                   pattern="@Model.Pattern"
+                   data-voice-key="@Model.Key" data-field-type="@Model.Type"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp"
+                   required="@(Model.Required ? "required" : null)" />
+            break;
+
+        case "textarea":
+            <textarea id="@id" name="@name" rows="@(Model.Rows ?? 4)" maxlength="@(Model.MaxLength ?? 2000)"
+                      data-voice-key="@Model.Key" data-field-type="textarea"
+                      aria-label="@Model.Label"
+                      data-csp-style="@inp; font-family: inherit;">@value</textarea>
+            break;
+
+        case "number":
+        case "decimal":
+            <input id="@id" name="@name" type="number"
+                   step="@(Model.Step ?? "any")" min="@Model.Min" max="@Model.Max"
+                   value="@value"
+                   data-voice-key="@Model.Key" data-field-type="number"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp"
+                   required="@(Model.Required ? "required" : null)" />
+            break;
+
+        case "integer":
+            <input id="@id" name="@name" type="number" step="1" min="@Model.Min" max="@Model.Max"
+                   value="@value"
+                   data-voice-key="@Model.Key" data-field-type="integer"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp"
+                   required="@(Model.Required ? "required" : null)" />
+            break;
+
+        case "date":
+            <input id="@id" name="@name" type="date" value="@value"
+                   data-voice-key="@Model.Key" data-field-type="date"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp"
+                   required="@(Model.Required ? "required" : null)" />
+            break;
+
+        case "datetime":
+        case "datetime-local":
+            <input id="@id" name="@name" type="datetime-local" value="@value"
+                   data-voice-key="@Model.Key" data-field-type="datetime"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp"
+                   required="@(Model.Required ? "required" : null)" />
+            break;
+
+        case "enum":
+        case "select":
+            <select id="@id" name="@name"
+                    data-voice-key="@Model.Key" data-field-type="enum"
+                    aria-label="@Model.Label"
+                    data-csp-style="@inp"
+                    required="@(Model.Required ? "required" : null)">
+                <option value="">@(Model.Required ? "-- Select --" : "(none)")</option>
+                @foreach (var opt in Model.Options)
+                {
+                    <option value="@opt.Value" selected="@(string.Equals(opt.Value, value, System.StringComparison.Ordinal))">@opt.Label</option>
+                }
+            </select>
+            break;
+
+        case "checkbox":
+        case "boolean":
+            <label data-csp-style="display: flex; gap: 10px; align-items: center; padding: 14px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18));">
+                @* hidden default so unchecked still POSTs false *@
+                <input type="hidden" name="@name" value="false" />
+                <input id="@id" name="@name" type="checkbox" value="true"
+                       data-voice-key="@Model.Key" data-field-type="boolean"
+                       aria-label="@Model.Label"
+                       checked="@(string.Equals(value, "true", System.StringComparison.OrdinalIgnoreCase) ? "checked" : null)" />
+                <span data-csp-style="font-size: 13px; color: var(--text-primary);">@Model.Description</span>
+            </label>
+            break;
+
+        case "stringArray":
+        case "multi-select":
+            <input id="@id" name="@name" type="text"
+                   value="@value"
+                   data-voice-key="@Model.Key" data-field-type="stringArray"
+                   placeholder="Comma-separated values"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp" />
+            break;
+
+        default:
+            @* Forward-compat: unknown type renders as text + a console warning. *@
+            <input id="@id" name="@name" type="text" value="@value"
+                   data-voice-key="@Model.Key" data-field-type="unknown"
+                   aria-label="@Model.Label"
+                   data-csp-style="@inp" />
+            <script>console.warn("Unknown UiFormSpec field type: @Model.Type for key @Model.Key");</script>
+            break;
+    }
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <span class="field-error" data-csp-style="display: block; font-size: 12px; color: var(--ds-danger, #f87171); margin-top: 6px;">
+            @Model.ErrorMessage
+        </span>
+    }
+</div>

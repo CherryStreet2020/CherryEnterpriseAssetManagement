@@ -1,0 +1,142 @@
+@*
+    ADR-015 Migration PR #3 — typed-core inputs for StockReceipt Edit.
+
+    Identity, quantity, status, notes — the fields that exist on EVERY
+    profile regardless of vertical. Profile-specific fields live in the
+    DynamicForm ViewComponent invoked below this partial.
+*@
+@model Abs.FixedAssets.Pages.Admin.StockReceipts.EditModel
+@using Abs.FixedAssets.Models.Production
+@{
+    var inputStyle = "width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);";
+    var labelStyle = "display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;";
+    var sectionHeaderStyle = "padding: 18px 22px; border-bottom: 1px solid var(--border);";
+    var sectionBodyStyle = "padding: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;";
+}
+
+@* ── Identity ─────────────────────────────────────────── *@
+<div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+    <div data-csp-style="@sectionHeaderStyle">
+        <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Identity</div>
+        <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receipt &amp; Item</div>
+    </div>
+    <div data-csp-style="@sectionBodyStyle">
+        <div>
+            <label for="sr-receipt-number" data-csp-style="@labelStyle">Receipt # <span data-csp-style="color: var(--ds-danger, #f87171);">*</span></label>
+            <input id="sr-receipt-number" type="text" asp-for="ReceiptNumber" required maxlength="32"
+                   placeholder="e.g., RCPT-2026-00042" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-item-id" data-csp-style="@labelStyle">Item ID <span data-csp-style="color: var(--ds-danger, #f87171);">*</span></label>
+            <input id="sr-item-id" type="number" asp-for="ItemId" required min="1"
+                   placeholder="SKU master id" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-mm-id" data-csp-style="@labelStyle">Material Master ID</label>
+            <input id="sr-mm-id" type="number" asp-for="MaterialMasterId" min="0"
+                   placeholder="Substance class (optional)" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-uom" data-csp-style="@labelStyle">UoM</label>
+            <input id="sr-uom" type="text" asp-for="Uom" maxlength="16"
+                   placeholder="ea, kg, L" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-status" data-csp-style="@labelStyle">Status</label>
+            <select id="sr-status" asp-for="Status"
+                    asp-items="@(Html.GetEnumSelectList<StockReceiptStatus>())"
+                    data-csp-style="@inputStyle"></select>
+        </div>
+    </div>
+</div>
+
+@* ── Traceability (universal: lot/serial/source-PO) ── *@
+<div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+    <div data-csp-style="@sectionHeaderStyle">
+        <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Traceability</div>
+        <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Lot · Serial · Source PO</div>
+        <div data-csp-style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Universal tracking dimensions present on every profile. Vertical-specific traceability (heat #, NDC, GTIN, etc.) lives in the profile section below.</div>
+    </div>
+    <div data-csp-style="@sectionBodyStyle">
+        <div>
+            <label for="sr-lot" data-csp-style="@labelStyle">Lot #</label>
+            <input id="sr-lot" type="text" asp-for="LotNumber" maxlength="64"
+                   placeholder="Supplier-side lot id" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-serial" data-csp-style="@labelStyle">Serial #</label>
+            <input id="sr-serial" type="text" asp-for="SerialNumber" maxlength="128"
+                   placeholder="DSCSA / UDI / VIN / etc." data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-po" data-csp-style="@labelStyle">Source PO #</label>
+            <input id="sr-po" type="text" asp-for="SourcePoNumber" maxlength="64"
+                   placeholder="e.g., PO-2026-0123" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-po-line" data-csp-style="@labelStyle">Source PO Line</label>
+            <input id="sr-po-line" type="text" asp-for="SourcePoLineId" maxlength="64"
+                   placeholder="Line id from ERP" data-csp-style="@inputStyle" />
+        </div>
+    </div>
+</div>
+
+@* ── Receipt event ────────────────────────────────────── *@
+<div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+    <div data-csp-style="@sectionHeaderStyle">
+        <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Receipt Event</div>
+        <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">When · Who · Where</div>
+    </div>
+    <div data-csp-style="@sectionBodyStyle">
+        <div>
+            <label for="sr-received-at" data-csp-style="@labelStyle">Received At</label>
+            <input id="sr-received-at" type="datetime-local" asp-for="ReceivedAt"
+                   data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-received-by" data-csp-style="@labelStyle">Received By (User ID)</label>
+            <input id="sr-received-by" type="number" asp-for="ReceivedByUserId" min="0"
+                   placeholder="Receiver user id" data-csp-style="@inputStyle" />
+        </div>
+        <div>
+            <label for="sr-location" data-csp-style="@labelStyle">Location ID</label>
+            <input id="sr-location" type="number" asp-for="LocationId" min="0"
+                   placeholder="Storage location id" data-csp-style="@inputStyle" />
+        </div>
+    </div>
+</div>
+
+@* ── Quantity ─────────────────────────────────────────── *@
+<div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+    <div data-csp-style="@sectionHeaderStyle">
+        <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Quantity</div>
+        <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Received &amp; Remaining</div>
+    </div>
+    <div data-csp-style="@sectionBodyStyle">
+        <div>
+            <label for="sr-qty-received" data-csp-style="@labelStyle">Quantity Received <span data-csp-style="color: var(--ds-danger, #f87171);">*</span></label>
+            <input id="sr-qty-received" type="number" asp-for="QuantityReceived" step="0.0001" min="0" required data-csp-style="@inputStyle" />
+        </div>
+        @if (!Model.IsNew)
+        {
+            <div>
+                <label for="sr-qty-remaining" data-csp-style="@labelStyle">Quantity Remaining</label>
+                <input id="sr-qty-remaining" type="number" asp-for="QuantityRemaining" step="0.0001" min="0" data-csp-style="@inputStyle" />
+            </div>
+        }
+    </div>
+</div>
+
+@* ── Notes ────────────────────────────────────────────── *@
+<div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+    <div data-csp-style="@sectionHeaderStyle">
+        <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Notes</div>
+        <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receiving Inspection Memo</div>
+    </div>
+    <div data-csp-style="padding: 22px;">
+        <label for="sr-notes" data-csp-style="@labelStyle">Notes</label>
+        <textarea id="sr-notes" asp-for="Notes" rows="4" maxlength="2000"
+                  placeholder="Receiving inspector comments, surface defects, packing notes, etc."
+                  data-csp-style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: inherit;"></textarea>
+    </div>
+</div>
