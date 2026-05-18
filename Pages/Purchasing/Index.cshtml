@@ -115,7 +115,9 @@
             <button class="cockpit__tab" onclick="filterByStatus(this, 'draft')">Drafts (@drafts.Count)</button>
         </div>
 
-        <div class="cockpit__queue-list" id="queueList">
+        @* PR #116d.23b — scrollable region needs tabindex + aria-label so keyboard users
+           can focus and scroll it (WCAG 2.1 AA scrollable-region-focusable). *@
+        <div class="cockpit__queue-list" id="queueList" tabindex="0" role="region" aria-label="Purchase order queue">
             @if (needsAction.Any())
             {
                 <div class="cockpit__group" data-group="action">

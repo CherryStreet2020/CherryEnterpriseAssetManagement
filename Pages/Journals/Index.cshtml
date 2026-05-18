@@ -66,17 +66,19 @@
 <div class="ds-card" data-tone="neutral" style="margin-top: 20px; padding: 18px 22px;">
     <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 14px;">Filters</div>
     <form method="get" style="display: flex; gap: 16px; align-items: end; flex-wrap: wrap;">
+        @* PR #116d.23b — date-range + source filter inputs need explicit label/for association
+           AND aria-label fallback for screen readers. *@
         <div style="flex: 0 0 160px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">From</label>
-            <input type="date" name="From" value="@(Model.From?.ToString("yyyy-MM-dd"))" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
+            <label for="filter-from" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">From</label>
+            <input id="filter-from" type="date" name="From" aria-label="Filter from date" value="@(Model.From?.ToString("yyyy-MM-dd"))" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
         </div>
         <div style="flex: 0 0 160px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">To</label>
-            <input type="date" name="To" value="@(Model.To?.ToString("yyyy-MM-dd"))" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
+            <label for="filter-to" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">To</label>
+            <input id="filter-to" type="date" name="To" aria-label="Filter to date" value="@(Model.To?.ToString("yyyy-MM-dd"))" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
         </div>
         <div style="flex: 0 0 140px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Source</label>
-            <input type="text" name="Source" value="@Model.Source" placeholder="e.g., FA" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
+            <label for="filter-source" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Source</label>
+            <input id="filter-source" type="text" name="Source" aria-label="Filter by source (e.g. FA)" value="@Model.Source" placeholder="e.g., FA" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;" />
         </div>
         <div style="flex: 1; min-width: 200px;">
             <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Search</label>
