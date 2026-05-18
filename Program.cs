@@ -498,6 +498,9 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Admin.IRegulatoryProfileService,
     Abs.FixedAssets.Services.Admin.RegulatoryProfileService>();
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Admin.IMaterialMasterService,
+    Abs.FixedAssets.Services.Admin.MaterialMasterService>();
 
 var app = builder.Build();
 
