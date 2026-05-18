@@ -1,0 +1,59 @@
+@*
+    _KpiStrip.cshtml — Control Center horizontal KPI strip (Sprint 11 PR #2).
+
+    Composes 6-10 existing _KPITile primitives in a horizontal layout suited
+    to the top of a Control Center page. ADR-016 §D9 ships Receiving with 8
+    tiles (dock-to-stock, accuracy, exceptions, doc-completeness, supplier-
+    on-time, quarantine-cycle, ASN-penetration, voice-adoption).
+
+    Usage:
+      @await Html.PartialAsync("Primitives/_KpiStrip", Model.Shell.KpiStrip)
+
+    On viewports <1280px the strip becomes horizontally scrollable; the
+    individual _KPITile partials keep their full visual treatment.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model KpiStripModel
+@{
+    var rootCls = "ds-cc-kpis";
+    if (!string.IsNullOrEmpty(Model.ExtraClasses)) rootCls += " " + Model.ExtraClasses;
+    var tileCount = Model.Tiles?.Count ?? 0;
+    var gridCls = tileCount switch
+    {
+        <= 4 => "ds-cc-kpis__grid--4",
+        <= 6 => "ds-cc-kpis__grid--6",
+        _    => "ds-cc-kpis__grid--8"
+    };
+}
+
+<section class="@rootCls" aria-label="Key performance indicators">
+    @if (!string.IsNullOrEmpty(Model.Eyebrow) || !string.IsNullOrEmpty(Model.RangeText) || !string.IsNullOrEmpty(Model.AllKpisHref))
+    {
+        <header class="ds-cc-kpis__head">
+            @if (!string.IsNullOrEmpty(Model.Eyebrow))
+            {
+                <div class="ds-cc-kpis__eyebrow">@Model.Eyebrow</div>
+            }
+            <div class="ds-cc-kpis__head-right">
+                @if (!string.IsNullOrEmpty(Model.RangeText))
+                {
+                    <span class="ds-cc-kpis__range">@Model.RangeText</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.AllKpisHref))
+                {
+                    <a class="ds-cc-kpis__see-all" href="@Model.AllKpisHref">All KPIs →</a>
+                }
+            </div>
+        </header>
+    }
+
+    <div class="ds-cc-kpis__grid @gridCls">
+        @if (Model.Tiles != null)
+        {
+            foreach (var tile in Model.Tiles)
+            {
+                @await Html.PartialAsync("Primitives/_KPITile", tile)
+            }
+        }
+    </div>
+</section>

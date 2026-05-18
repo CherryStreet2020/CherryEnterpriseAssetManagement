@@ -463,12 +463,195 @@
     })
 
     @* ====================================================================
+       Control Center scaffold (Sprint 11 PR #2 — ADR-016)
+       The four-quadrant template every Control Center inherits ~70% from.
+       Receiving is the pilot in Sprint 11; Sprints 12-20 follow.
+       ==================================================================== *@
+    <section class="ds-showcase__section">
+        <div class="ds-showcase__section-head">
+            <h2 class="ds-showcase__section-title">Control Center scaffold · <code style="font-family: var(--font-mono); font-size: 0.85em; color: var(--text-muted);">&lt;ControlCenterShell&gt;</code></h2>
+            <span class="ds-showcase__section-meta">Pages/Shared/_ControlCenterShell.cshtml · ADR-016 §D1</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 16px;">
+            The reusable four-quadrant scaffold: KPI strip · exception lane · detail drawer · activity feed. Receiving (Sprint 11) is the pilot Control Center. Every subsequent Control Center (Purchasing, Maintenance, Planning, Scheduling, Inventory, Quality, Shipping, AP/AR, HR/Crew) inherits this scaffold and supplies role-specific KPI definitions, exception ranking, drawer content, voice tools, and activity-feed filter.
+            Keyboard: <kbd>J</kbd>/<kbd>K</kbd> navigate · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close · hold <kbd>Space</kbd> for push-to-talk voice.
+        </p>
+
+        @await Html.PartialAsync("_ControlCenterShell", new ControlCenterShellModel
+        {
+            Eyebrow = "RECEIVING CONTROL CENTER · SHOWCASE",
+            Headline = "Today's dock",
+            Subtitle = "Eastside plant · day shift · push-to-talk voice (hold Space)",
+            VoicePosture = "push-to-talk",
+            ShowVoiceButton = true,
+            KpiStrip = new KpiStripModel
+            {
+                Eyebrow = "Today's receiving",
+                RangeText = "Last 14 days",
+                AllKpisHref = "#",
+                Tiles = new System.Collections.Generic.List<KpiTileModel>
+                {
+                    new() { Label = "Dock-to-stock", Value = "82", Unit = "min", DeltaText = "▼ 6 vs target 90", DeltaDirection = "up", SparkPoints = new[] { 110, 102, 95, 88, 85, 84, 82.0 }, SparkTone = "success" },
+                    new() { Label = "Accuracy",      Value = "98.2", Unit = "%", DeltaText = "▲ 0.3 vs week", DeltaDirection = "up",   SparkPoints = new[] { 97.5, 97.6, 97.8, 98.0, 98.0, 98.1, 98.2 }, SparkTone = "success" },
+                    new() { Label = "Open exceptions", Value = "7", DeltaText = "▲ 2 since 8 AM", DeltaDirection = "down", SparkPoints = new[] { 4, 5, 5, 6, 5, 6, 7.0 }, SparkTone = "warning" },
+                    new() { Label = "Doc completeness", Value = "94", Unit = "%", DeltaText = "▼ 1.2 vs week", DeltaDirection = "down", SparkPoints = new[] { 95, 96, 95, 94, 94, 93, 94.0 }, SparkTone = "warning" },
+                    new() { Label = "Supplier on-time", Value = "91", Unit = "%", DeltaText = "— stable", DeltaDirection = "flat", SparkPoints = new[] { 91, 92, 91, 90, 91, 91, 91.0 }, SparkTone = "info" },
+                    new() { Label = "QC cycle", Value = "18", Unit = "h", DeltaText = "▼ 3 vs target 24", DeltaDirection = "up", SparkPoints = new[] { 28, 26, 24, 22, 20, 19, 18.0 }, SparkTone = "success" },
+                    new() { Label = "ASN penetration", Value = "68", Unit = "%", DeltaText = "▲ 4 vs week", DeltaDirection = "up", SparkPoints = new[] { 62, 64, 65, 66, 66, 67, 68.0 }, SparkTone = "info" },
+                    new() { Label = "Voice / scan", Value = "54", Unit = "%", DeltaText = "▲ 8 vs week", DeltaDirection = "up", SparkPoints = new[] { 42, 45, 48, 50, 52, 53, 54.0 }, SparkTone = "brand" },
+                }
+            },
+            ExceptionLane = new ExceptionLaneModel
+            {
+                Title = "Exceptions",
+                CountText = "7 open · ranked by AI",
+                Filters = new System.Collections.Generic.List<ExceptionLaneFilter>
+                {
+                    new() { Label = "All",        Count = 7, Active = true },
+                    new() { Label = "Quantity",   Count = 3 },
+                    new() { Label = "Doc",        Count = 2 },
+                    new() { Label = "Supplier",   Count = 1 },
+                    new() { Label = "QC hold",    Count = 1 },
+                },
+                Rows = new System.Collections.Generic.List<ExceptionRowModel>
+                {
+                    new()
+                    {
+                        Id = "demo-r1",
+                        Eyebrow = "RCV-26-04891 · PO-19821",
+                        Headline = "Heat H-12345 — 2 short on PO-19821",
+                        Subtext  = "ACME Steel · expected 25, received 23 · 12 min ago",
+                        Severity = "warning",
+                        SlaText = "1h 48m",
+                        SlaTone = "warning",
+                        StatusPill = new StatusPillModel { Label = "QTY", Tone = "warning", ShowDot = true, MonoNum = "-2" },
+                        AiPriority = 92,
+                        HasAiSuggestion = true,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r2",
+                        Eyebrow = "RCV-26-04892 · No PO",
+                        Headline = "Orphan receipt — AI matched 2 candidate POs",
+                        Subtext  = "BORDIN MANUFACTURING · 8 cartons · 4 min ago",
+                        Severity = "info",
+                        SlaText = "blind",
+                        SlaTone = "neutral",
+                        StatusPill = new StatusPillModel { Label = "ORPHAN", Tone = "info", ShowDot = true },
+                        AiPriority = 88,
+                        HasAiSuggestion = true,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r3",
+                        Eyebrow = "RCV-26-04890 · PO-19815",
+                        Headline = "Mill cert PDF — heat number not extracted",
+                        Subtext  = "GERDAU LONG STEEL · OCR confidence 0.42 · 28 min ago",
+                        Severity = "warning",
+                        SlaText = "30m",
+                        SlaTone = "warning",
+                        StatusPill = new StatusPillModel { Label = "DOC", Tone = "warning", ShowDot = true },
+                        AiPriority = 81,
+                        HasAiSuggestion = true,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r4",
+                        Eyebrow = "RCV-26-04887 · PO-19809",
+                        Headline = "Damaged on arrival — 1 of 6 pallets",
+                        Subtext  = "FASTENAL · forklift puncture · 41 min ago",
+                        Severity = "critical",
+                        SlaText = "claim window 24h",
+                        SlaTone = "danger",
+                        StatusPill = new StatusPillModel { Label = "DAMAGE", Tone = "danger", ShowDot = true },
+                        AiPriority = 78,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r5",
+                        Eyebrow = "RCV-26-04886 · QC hold",
+                        Headline = "MTR mismatch — chemistry outside spec",
+                        Subtext  = "CARPENTER TECHNOLOGY · 4140 bar · QC inspector assigned · 1h 12m ago",
+                        Severity = "critical",
+                        SlaText = "2h",
+                        SlaTone = "danger",
+                        StatusPill = new StatusPillModel { Label = "QC HOLD", Tone = "danger", ShowDot = true },
+                        AiPriority = 76,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r6",
+                        Eyebrow = "RCV-26-04880 · PO-19798",
+                        Headline = "Supplier 3-receipt anomaly — 22% over on each",
+                        Subtext  = "PRECISION CASTPARTS · last 3 receipts averaging +22% vs ordered",
+                        Severity = "info",
+                        StatusPill = new StatusPillModel { Label = "SUPPLIER", Tone = "info", ShowDot = true },
+                        AiPriority = 64,
+                        HasAiSuggestion = true,
+                        OpenDrawerId = "demo-drawer"
+                    },
+                    new()
+                    {
+                        Id = "demo-r7",
+                        Eyebrow = "RCV-26-04875 · Partial",
+                        Headline = "PO line 50% open after 14 days",
+                        Subtext  = "MISUMI · expected 40 plates, received 20, balance held · 14d open",
+                        Severity = "info",
+                        SlaText = "exp",
+                        SlaTone = "neutral",
+                        StatusPill = new StatusPillModel { Label = "PARTIAL", Tone = "info", ShowDot = true },
+                        AiPriority = 52,
+                        OpenDrawerId = "demo-drawer"
+                    }
+                }
+            },
+            Drawer = new ContextDrawerModel
+            {
+                Id = "demo-drawer",
+                Title = "RCV-26-04891",
+                Subtitle = "Heat H-12345 — 2 short on PO-19821",
+                Width = 480,
+                BodyHtml =
+                    "<div style='display:grid;gap:14px;font-size:13px;'>" +
+                    "<div><div class='ds-card__eyebrow-label' style='margin-bottom:4px;'>Status</div><span class='ds-pill' data-tone='warning'><span class='ds-pill__dot'></span><span>QTY exception</span></span></div>" +
+                    "<div><div class='ds-card__eyebrow-label' style='margin-bottom:4px;'>Vendor</div><div>ACME Steel · vendor scorecard 91</div></div>" +
+                    "<div><div class='ds-card__eyebrow-label' style='margin-bottom:4px;'>Quantity</div><div>Expected 25 · Received 23 · Short 2</div></div>" +
+                    "<div><div class='ds-card__eyebrow-label' style='margin-bottom:4px;'>Heat number</div><div style='font-family:var(--font-mono);'>H-12345</div></div>" +
+                    "<div><div class='ds-card__eyebrow-label' style='margin-bottom:4px;'>AI suggestion</div><div style='color:var(--text-secondary);line-height:1.5;'>Two plates short — supplier-on-time 91% but last 3 receipts within tolerance. Suggest: confirm short, open RMA on missing two, release received 23 to stock.</div></div>" +
+                    "</div>",
+                FooterHtml =
+                    "<button type='button' class='ds-btn ds-btn--ghost ds-btn--md' data-drawer-close='demo-drawer'>Cancel</button>" +
+                    "<button type='button' class='ds-btn ds-btn--primary ds-btn--md'>Confirm short · release 23</button>"
+            },
+            ActivityFeed = new ActivityFeedModel
+            {
+                Title = "Activity",
+                CollapsedByDefault = false,
+                Entries = new System.Collections.Generic.List<ActivityEntryModel>
+                {
+                    new() { Id = "a1", Timestamp = "2:14 PM", ActorKind = "human",  ActorName = "Maria H.",   Verb = "received", TargetRef = "RCV-26-04893", Snippet = "25 plates · ACME · heat H-12347" },
+                    new() { Id = "a2", Timestamp = "2:11 PM", ActorKind = "ai",     ActorName = "Cherry AI",  Verb = "flagged",  TargetRef = "RCV-26-04891", Snippet = "qty short — 2 of 25" },
+                    new() { Id = "a3", Timestamp = "2:08 PM", ActorKind = "human",  ActorName = "Maria H.",   Verb = "scanned",  TargetRef = "PO-19821",     Snippet = "voice receive — heat H-12345" },
+                    new() { Id = "a4", Timestamp = "2:02 PM", ActorKind = "ai",     ActorName = "Cherry AI",  Verb = "matched",  TargetRef = "RCV-26-04892", Snippet = "orphan → PO-19818 (0.94 confidence)" },
+                    new() { Id = "a5", Timestamp = "1:58 PM", ActorKind = "system", ActorName = "System",     Verb = "received", TargetRef = "ASN-558901",   Snippet = "EDI 856 from PRECISION CASTPARTS" },
+                    new() { Id = "a6", Timestamp = "1:42 PM", ActorKind = "human",  ActorName = "Dave R.",    Verb = "quarantined", TargetRef = "RCV-26-04886", Snippet = "MTR chemistry mismatch — QC hold" },
+                }
+            }
+        })
+    </section>
+
+    @* ====================================================================
        Footer notes
        ==================================================================== *@
     <section class="ds-showcase__section" style="margin-top: 56px;">
         <div class="ds-card" style="text-align: center; padding: 24px;">
             <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
-                PR #116d.1a + #116d.1b · 10 primitives locked. Next: <code style="font-family: var(--font-mono);">Cmd-K</code> palette hardening (PR #116d.1c), then Dashboard exemplar (PR #116d.2), then page-by-page rollout (PR #116d.3-22).
+                PR #116d.1a + #116d.1b + Sprint 11 PR #2 · 10 primitives + Control Center scaffold locked. Next: Sprint 11 PR #3 receiving service layer, PR #4 voice tools, PR #5 <code style="font-family: var(--font-mono);">/Receiving</code> landing page.
             </p>
         </div>
     </section>

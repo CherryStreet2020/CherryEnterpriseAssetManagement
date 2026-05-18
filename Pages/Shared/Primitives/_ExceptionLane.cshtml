@@ -1,0 +1,132 @@
+@*
+    _ExceptionLane.cshtml — Control Center exception lane (Sprint 11 PR #2).
+
+    A keyboard-navigable, sortable list of exception rows ranked by AI
+    priority. Click opens the Detail Drawer (or navigates to Href).
+
+    Keyboard:
+      J / ↓   next row
+      K / ↑   previous row
+      Enter   open drawer / follow href for focused row
+      Esc     close drawer
+
+    Wired in control-center.js. Each row carries data attributes the script
+    binds at page load.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model ExceptionLaneModel
+@{
+    var rootCls = "ds-cc-lane";
+    if (!string.IsNullOrEmpty(Model.ExtraClasses)) rootCls += " " + Model.ExtraClasses;
+}
+
+<section class="@rootCls" aria-label="@Model.Title" data-cc-lane="true">
+    <header class="ds-cc-lane__head">
+        <div class="ds-cc-lane__head-left">
+            <h2 class="ds-cc-lane__title">@Model.Title</h2>
+            @if (!string.IsNullOrEmpty(Model.CountText))
+            {
+                <span class="ds-cc-lane__count">@Model.CountText</span>
+            }
+        </div>
+        <div class="ds-cc-lane__head-right">
+            <span class="ds-cc-lane__hint" aria-hidden="true">
+                <kbd>J</kbd>/<kbd>K</kbd> navigate · <kbd>Enter</kbd> open · <kbd>Esc</kbd> close
+            </span>
+        </div>
+    </header>
+
+    @if (Model.Filters != null && Model.Filters.Count > 0)
+    {
+        <nav class="ds-cc-lane__filters" aria-label="Lane filters">
+            @foreach (var f in Model.Filters)
+            {
+                var fCls = "ds-cc-lane__filter" + (f.Active ? " ds-cc-lane__filter--active" : "");
+                if (!string.IsNullOrEmpty(f.Href))
+                {
+                    <a class="@fCls" href="@f.Href" aria-pressed="@(f.Active ? "true" : "false")">
+                        <span>@f.Label</span>
+                        @if (f.Count.HasValue)
+                        {
+                            <span class="ds-cc-lane__filter-count">@f.Count</span>
+                        }
+                    </a>
+                }
+                else
+                {
+                    <button class="@fCls" type="button" aria-pressed="@(f.Active ? "true" : "false")">
+                        <span>@f.Label</span>
+                        @if (f.Count.HasValue)
+                        {
+                            <span class="ds-cc-lane__filter-count">@f.Count</span>
+                        }
+                    </button>
+                }
+            }
+        </nav>
+    }
+
+    @if (Model.Rows == null || Model.Rows.Count == 0)
+    {
+        @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+        {
+            Title = Model.EmptyMessage,
+            Icon = Model.EmptyIcon,
+            Tone = "success",
+            Body = "Anything actionable will land here automatically."
+        })
+    }
+    else
+    {
+        <ol class="ds-cc-lane__rows" role="listbox" tabindex="0" aria-activedescendant="">
+            @{ var rowIndex = 0; }
+            @foreach (var row in Model.Rows)
+            {
+                var severityCls = "ds-cc-lane__row--" + row.Severity;
+                var rowId = string.IsNullOrEmpty(row.Id) ? $"ccrow-{rowIndex}" : $"ccrow-{row.Id}";
+                <li class="ds-cc-lane__row @severityCls"
+                    id="@rowId"
+                    role="option"
+                    data-cc-row="true"
+                    data-cc-row-index="@rowIndex"
+                    data-cc-drawer-id="@(row.OpenDrawerId ?? "")"
+                    data-cc-href="@(row.Href ?? "")"
+                    aria-selected="false">
+                    <span class="ds-cc-lane__sev-dot" aria-hidden="true"></span>
+
+                    <div class="ds-cc-lane__row-body">
+                        @if (!string.IsNullOrEmpty(row.Eyebrow))
+                        {
+                            <div class="ds-cc-lane__row-eyebrow">@row.Eyebrow</div>
+                        }
+                        <div class="ds-cc-lane__row-headline">
+                            @if (row.HasAiSuggestion)
+                            {
+                                <svg class="ds-cc-lane__ai-icon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M8 1 L9.5 6.5 L15 8 L9.5 9.5 L8 15 L6.5 9.5 L1 8 L6.5 6.5 Z" fill="currentColor"/>
+                                </svg>
+                            }
+                            <span>@row.Headline</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(row.Subtext))
+                        {
+                            <div class="ds-cc-lane__row-subtext">@row.Subtext</div>
+                        }
+                    </div>
+
+                    <div class="ds-cc-lane__row-right">
+                        @if (!string.IsNullOrEmpty(row.SlaText))
+                        {
+                            <span class="ds-cc-lane__sla ds-cc-lane__sla--@row.SlaTone">@row.SlaText</span>
+                        }
+                        @if (row.StatusPill != null)
+                        {
+                            @await Html.PartialAsync("Primitives/_StatusPill", row.StatusPill)
+                        }
+                    </div>
+                </li>
+                rowIndex++;
+            }
+        </ol>
+    }
+</section>

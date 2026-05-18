@@ -1,0 +1,74 @@
+@*
+    _ActivityFeed.cshtml — Control Center bottom activity feed (Sprint 11 PR #2).
+
+    Collapsible by default to a 32px header strip. Click the header to expand
+    to ~120px. Bloomberg-density styling — small mono timestamps, compact rows,
+    actor-kind icons (human / ai / system) mirroring AuditLog.ActorKind.
+
+    Real-time hook: data-cc-feed-live="<url>" instructs control-center.js to
+    poll or attach a SignalR subscription. Server may also push new entries
+    by re-rendering this partial via HTMX/Turbo — caller's choice.
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model ActivityFeedModel
+@{
+    var rootCls = "ds-cc-feed" + (Model.CollapsedByDefault ? " ds-cc-feed--collapsed" : "");
+    if (!string.IsNullOrEmpty(Model.ExtraClasses)) rootCls += " " + Model.ExtraClasses;
+}
+
+<section class="@rootCls" data-cc-feed="true" data-cc-feed-live="@(Model.LiveSource ?? "")">
+    <button type="button" class="ds-cc-feed__head" data-cc-feed-toggle="true" aria-expanded="@(Model.CollapsedByDefault ? "false" : "true")">
+        <span class="ds-cc-feed__title">@Model.Title</span>
+        <span class="ds-cc-feed__count">@(Model.Entries?.Count ?? 0)</span>
+        <svg class="ds-cc-feed__chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+            <path d="M3 5 L6 8 L9 5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </button>
+
+    <div class="ds-cc-feed__body" role="log" aria-live="polite">
+        @if (Model.Entries == null || Model.Entries.Count == 0)
+        {
+            <div class="ds-cc-feed__empty">@Model.EmptyMessage</div>
+        }
+        else
+        {
+            <ul class="ds-cc-feed__entries">
+                @foreach (var e in Model.Entries)
+                {
+                    var actorCls = "ds-cc-feed__actor ds-cc-feed__actor--" + e.ActorKind;
+                    var entryAttrs = "";
+                    if (!string.IsNullOrEmpty(e.OpenDrawerId)) entryAttrs += $" data-cc-drawer-id=\"{e.OpenDrawerId}\"";
+                    if (!string.IsNullOrEmpty(e.Href)) entryAttrs += $" data-cc-href=\"{e.Href}\"";
+                    var clickable = !string.IsNullOrEmpty(e.OpenDrawerId) || !string.IsNullOrEmpty(e.Href);
+                    <li class="ds-cc-feed__entry@(clickable ? " ds-cc-feed__entry--clickable" : "")" data-cc-feed-entry="true"@Html.Raw(entryAttrs)>
+                        <span class="ds-cc-feed__ts">@e.Timestamp</span>
+                        <span class="@actorCls" title="@e.ActorKind">
+                            @switch (e.ActorKind)
+                            {
+                                case "ai":
+                                    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 L9.5 6.5 L15 8 L9.5 9.5 L8 15 L6.5 9.5 L1 8 L6.5 6.5 Z" fill="currentColor"/></svg>
+                                    break;
+                                case "system":
+                                    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+                                    break;
+                                default:
+                                    <svg width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5" r="2.5" fill="currentColor"/><path d="M3 14 C3 10 13 10 13 14" fill="currentColor"/></svg>
+                                    break;
+                            }
+                        </span>
+                        <span class="ds-cc-feed__actor-name">@e.ActorName</span>
+                        <span class="ds-cc-feed__verb">@e.Verb</span>
+                        @if (!string.IsNullOrEmpty(e.TargetRef))
+                        {
+                            <span class="ds-cc-feed__target">@e.TargetRef</span>
+                        }
+                        @if (!string.IsNullOrEmpty(e.Snippet))
+                        {
+                            <span class="ds-cc-feed__snippet">— @e.Snippet</span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
