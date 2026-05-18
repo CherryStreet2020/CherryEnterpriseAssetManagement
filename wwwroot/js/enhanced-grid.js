@@ -879,7 +879,8 @@ class EnhancedGrid {
         
         let html = `<div class="pe-pagination__info">Showing <strong>${startRecord.toLocaleString()}–${endRecord.toLocaleString()}</strong> of <strong>${totalFiltered.toLocaleString()}</strong> records</div>`;
         html += '<div class="pe-pagination__controls">';
-        html += '<div class="pe-pagination__size"><label>Rows:</label><select class="pe-pagination__select">';
+        // PR #116d.23a — aria-label for WCAG 2.1 AA select-name compliance.
+        html += '<div class="pe-pagination__size"><label>Rows:</label><select class="pe-pagination__select" aria-label="Rows per page">';
         
         for (const size of this.pageSizeOptions) {
             const selected = this.pageSize === size ? ' selected' : '';
