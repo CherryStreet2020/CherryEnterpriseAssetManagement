@@ -23,6 +23,15 @@
         _ => "info"
     };
 
+    // PR #116d.16.1 — Pre-compute KPI values BEFORE the partial renders, so we
+    // don't depend on lazy-loaded po.Lines being populated when _PODetailsKpis
+    // executes. Force the navigation collections by counting them here, then pass
+    // explicit values via KpisViewData.
+    var preLineCount = po.Lines?.Count ?? 0;
+    var preReleaseCount = po.Lines?.Sum(l => l.Releases?.Count ?? 0) ?? 0;
+    var preTotalOrdered = po.Lines?.Sum(l => l.QuantityOrdered) ?? 0m;
+    var preTotalReceived = po.Lines?.Sum(l => l.QuantityReceived) ?? 0m;
+
     var headerVd = new ViewDataDictionary(ViewData) {
         ["HeaderTitle"] = po.PONumber,
         ["Subtitle"] = po.Vendor?.Name ?? "No vendor assigned",
@@ -31,6 +40,13 @@
         ["StatusTone"] = statusTone,
         ["ContextPartial"] = "/Pages/Purchasing/_PODetailsContext.cshtml",
         ["KpisPartial"] = "/Pages/Purchasing/_PODetailsKpis.cshtml",
+        ["KpisViewData"] = new ViewDataDictionary(ViewData) {
+            ["PurchaseOrder"] = po,
+            ["LineCount"] = preLineCount,
+            ["ReleaseCount"] = preReleaseCount,
+            ["TotalOrdered"] = preTotalOrdered,
+            ["TotalReceived"] = preTotalReceived
+        },
         ["ActionsPartial"] = "/Pages/Purchasing/_PODetailsActions.cshtml",
         ["PurchaseOrder"] = po,
         ["CanEdit"] = canEdit
