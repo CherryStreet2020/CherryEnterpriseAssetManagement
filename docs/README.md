@@ -67,6 +67,14 @@ Last updated: 2026-01-24
 | [ADR-004](adr/ADR-004-UI-Hygiene-No-Inline-Styles.md) | UI Hygiene prohibits inline style blocks |
 | [ADR-005](adr/ADR-005-DataGrid-Premium-Contract.md) | DataGrid contract + premium controls + data-row-href |
 | [ADR-006](adr/ADR-006-ReturnUrl-Security-Hardening.md) | ReturnUrl helper hardened against open redirect |
+| [ADR-007](adr/ADR-007-Unified-Tab-System.md) | Unified tab system across edit/detail pages |
+| [ADR-008](adr/ADR-008-Unified-Screen-Header-System.md) | Unified Screen Header system |
+| [ADR-010](adr/ADR-010-Design-Tokens.md) | Design tokens canonical source |
+| [ADR-011](adr/ADR-011-industrial-sensor-data-architecture.md) | Industrial sensor data architecture |
+| [ADR-012](adr/ADR-012-unified-work-orders.md) | Unified WorkOrder + classification satellites |
+| [ADR-013](ADR-013-production-order-architecture.md) | Polymorphic ProductionBatch + ProductionOrder + MaterialStructure |
+| [ADR-014](ADR-014-phase-f-ui-and-voice-readiness.md) | Phase F voice-ready foundation (VoiceReadyPageModel + Result<T> + IdempotencyMediator) |
+| [ADR-015](ADR-015-industry-agnostic-receipt-schema.md) | Industry-agnostic receipt schema (profile-driven typed-core + JSONB hybrid) + PO-driven receiving workflow |
 
 ### Templates
 
