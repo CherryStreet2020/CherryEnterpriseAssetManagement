@@ -125,10 +125,20 @@ namespace Abs.FixedAssets.Migrations
                 WHERE ""Attributes"" IS NOT NULL;
             ");
 
-            // PHARMA hot facets — expirationDate as DATE for range queries:
+            // PHARMA hot facets — expirationDate. NOTE: We index the TEXT
+            // value, NOT a date-cast. The text::date cast is STABLE (not
+            // IMMUTABLE) in PostgreSQL because date parsing depends on the
+            // session DateStyle/locale — Postgres rejects STABLE expressions
+            // in index DDL. Because the JSON Schema requires ISO-8601
+            // (YYYY-MM-DD) date strings, lexicographic ordering on the text
+            // matches calendar ordering exactly, so range queries like
+            // `WHERE Attributes ->> 'expirationDate' <= '2026-06-17'` still
+            // hit the index and return the right rows. If we ever need true
+            // date semantics at query time, use to_date(value, 'YYYY-MM-DD')
+            // — to_date is IMMUTABLE with an explicit format.
             migrationBuilder.Sql(@"
                 CREATE INDEX IF NOT EXISTS ""IX_StockReceipts_Attr_ExpirationDate""
-                ON ""StockReceipts"" (((""Attributes"" ->> 'expirationDate')::date))
+                ON ""StockReceipts"" ((""Attributes"" ->> 'expirationDate'))
                 WHERE ""Attributes"" IS NOT NULL
                   AND (""Attributes"" ->> 'expirationDate') IS NOT NULL;
             ");
