@@ -117,7 +117,14 @@
   }
 
   function animateCountUp(el) {
-    if (!el || el.dataset.countUpDone === 'true') return;
+    if (!el) return;
+    // PR #116d.10c — Three-state guard: 'animating' state blocks re-entry while
+    // the rAF loop is in flight. Previously the visibilitychange handler could
+    // re-call animateCountUp during an in-progress animation, capturing the
+    // mid-flight textContent as the new originalText and "finishing" instantly
+    // at the wrong value. The 'animating' marker is set BEFORE we read
+    // textNode.textContent so a re-entry bails out.
+    if (el.dataset.countUpDone === 'true' || el.dataset.countUpDone === 'animating') return;
     if (prefersReducedMotion) { el.dataset.countUpDone = 'true'; return; }
 
     // Find the text node containing the numeric value.
@@ -129,6 +136,10 @@
       }
     }
     if (!textNode) return;
+
+    // Mark animating BEFORE reading textContent — protects originalText capture
+    // against any concurrent re-entry from visibilitychange.
+    el.dataset.countUpDone = 'animating';
 
     const originalText = textNode.textContent;
     const target = parseNumeric(originalText);
