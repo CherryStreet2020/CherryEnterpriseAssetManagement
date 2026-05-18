@@ -11,6 +11,13 @@
     </None>
   </ItemGroup>
 
+  <!-- ADR-015 Migration PR #1 — Embed the ReceiptProfile seed SQL so the
+       migration can load it via Assembly.GetManifestResourceStream at
+       runtime without depending on filesystem paths. -->
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\Seeds\ReceiptProfilesSeed.sql" />
+  </ItemGroup>
+
   <!-- Exclude the unit test project so it doesn't get pulled into the main web app. -->
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />

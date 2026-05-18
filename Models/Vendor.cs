@@ -127,6 +127,25 @@ namespace Abs.FixedAssets.Models
 
         public int SortOrder { get; set; }
 
+        // ADR-015 — Per-supplier default Attributes JSON merged into
+        // every receipt against this supplier at PO-receipt time. E.g.
+        // a steel mill's default `{"mill":"Nucor Steel — Decatur, AL"}`,
+        // a pharma distributor's GFSI cert #, an electronics supplier's
+        // default MSL level. Profile-shape; validated downstream against
+        // the receipt's ReceiptProfile.JsonSchema at create time.
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "jsonb")]
+        public string? DefaultReceiptAttributes { get; set; }
+
+        // ADR-015 — Does this supplier send Advance Ship Notices?
+        // Drives the receiving inbox (PO Inbox shows ASN-expected line
+        // items differently from no-ASN PO lines).
+        public bool SendsAsn { get; set; } = false;
+
+        // ASN format: "EDI856", "EPCIS", "CSV", "NONE". Drives the ASN
+        // ingestion pipeline (downstream sprint).
+        [System.ComponentModel.DataAnnotations.StringLength(32)]
+        public string? AsnFormat { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 

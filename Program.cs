@@ -509,6 +509,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Admin.IStockReceiptService,
     Abs.FixedAssets.Services.Admin.StockReceiptService>();
+// ADR-015 / Migration PR #1 — Voice-AI tool stubs (Sprint 5 surface, contract only).
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Voice.IReceiptVoiceTools,
+    Abs.FixedAssets.Services.Voice.ReceiptVoiceToolsStub>();
 
 var app = builder.Build();
 

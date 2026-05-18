@@ -169,6 +169,13 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.RegulatoryProfile> RegulatoryProfiles
             => Set<Abs.FixedAssets.Models.Production.RegulatoryProfile>();
 
+        // ADR-015 / Migration PR #1 — Industry-agnostic receipt profile catalog.
+        // One row per industry vertical defining the JSON Schema, UiFormSpec,
+        // promoted facets, default attributes, and regulatory gates that
+        // apply to receipts of that profile. See ADR-015 D2.
+        public DbSet<Abs.FixedAssets.Models.Production.ReceiptProfile> ReceiptProfiles
+            => Set<Abs.FixedAssets.Models.Production.ReceiptProfile>();
+
         // ADR-014 / Sprint 4 PR #1 — Voice-ready infrastructure DbSets.
         // VoiceSessions: Sprint 5 multi-turn conversation state.
         // IdempotencyKeys: Stripe-pattern (UserId, Key) dedup.
