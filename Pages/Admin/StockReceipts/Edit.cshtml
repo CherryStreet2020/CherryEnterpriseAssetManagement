@@ -1,0 +1,222 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.StockReceipts.EditModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = Model.PageTitle;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var inputStyle = "width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);";
+    var labelStyle = "display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;";
+    var sectionHeaderStyle = "padding: 18px 22px; border-bottom: 1px solid var(--border);";
+    var sectionBodyStyle = "padding: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = Model.PageTitle,
+        ["Subtitle"] = Model.IsNew
+            ? "Record a physical-lot arrival so its heat number / mill cert flows downstream to every part cut from it."
+            : Model.ReceiptNumber,
+        ["TypeLabel"] = "Production · Traceability",
+        ["StatusText"] = Model.Status.ToString(),
+        ["StatusTone"] = Model.Status switch
+        {
+            StockReceiptStatus.Available => "active",
+            StockReceiptStatus.Quarantined => "danger",
+            _ => "neutral"
+        },
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
+}
+
+<form method="post" style="margin-top: 20px; display: grid; gap: 20px;">
+    <input type="hidden" asp-for="Id" />
+
+    @* ── Identity ─────────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Identity</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receipt &amp; Item</div>
+        </div>
+        <div style="@sectionBodyStyle">
+            <div>
+                <label for="sr-receipt-number" style="@labelStyle">Receipt # <span style="color: var(--ds-danger, #f87171);">*</span></label>
+                <input id="sr-receipt-number" type="text" asp-for="ReceiptNumber" required maxlength="32"
+                       placeholder="e.g., RCPT-2026-00042" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-item-id" style="@labelStyle">Item ID <span style="color: var(--ds-danger, #f87171);">*</span></label>
+                <input id="sr-item-id" type="number" asp-for="ItemId" required min="1"
+                       placeholder="SKU master id" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-mm-id" style="@labelStyle">Material Master ID</label>
+                <input id="sr-mm-id" type="number" asp-for="MaterialMasterId" min="0"
+                       placeholder="Substance class (optional)" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-uom" style="@labelStyle">UoM</label>
+                <input id="sr-uom" type="text" asp-for="Uom" maxlength="16"
+                       placeholder="ea, kg, L" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-status" style="@labelStyle">Status</label>
+                <select id="sr-status" asp-for="Status"
+                        asp-items="@(Html.GetEnumSelectList<StockReceiptStatus>())"
+                        style="@inputStyle"></select>
+            </div>
+        </div>
+    </div>
+
+    @* ── Traceability ─────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Traceability</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Heat / Mill Cert / Source PO</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">The audit join key — every part cut from this receipt inherits these fields. ASME / AWS / AS9100 hinges on them.</div>
+        </div>
+        <div style="@sectionBodyStyle">
+            <div>
+                <label for="sr-heat" style="@labelStyle">Heat #</label>
+                <input id="sr-heat" type="text" asp-for="HeatNumber" maxlength="64"
+                       placeholder="e.g., H-A1234567" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-lot" style="@labelStyle">Lot #</label>
+                <input id="sr-lot" type="text" asp-for="LotNumber" maxlength="64"
+                       placeholder="Supplier-side lot id" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-mill" style="@labelStyle">Mill</label>
+                <input id="sr-mill" type="text" asp-for="Mill" maxlength="128"
+                       placeholder="e.g., Nucor Steel — Decatur, AL" style="@inputStyle" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <label for="sr-mill-cert" style="@labelStyle">Mill Cert URL</label>
+                <input id="sr-mill-cert" type="url" asp-for="MillCertUrl" maxlength="500"
+                       placeholder="https://box.com/... or https://sharepoint.com/..." style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-po" style="@labelStyle">Source PO #</label>
+                <input id="sr-po" type="text" asp-for="SourcePoNumber" maxlength="64"
+                       placeholder="e.g., PO-2026-0123" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-po-line" style="@labelStyle">Source PO Line</label>
+                <input id="sr-po-line" type="text" asp-for="SourcePoLineId" maxlength="64"
+                       placeholder="Line id from ERP" style="@inputStyle" />
+            </div>
+        </div>
+    </div>
+
+    @* ── Receipt event ────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Receipt Event</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">When · Who · Where</div>
+        </div>
+        <div style="@sectionBodyStyle">
+            <div>
+                <label for="sr-received-at" style="@labelStyle">Received At</label>
+                <input id="sr-received-at" type="datetime-local" asp-for="ReceivedAt"
+                       style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-received-by" style="@labelStyle">Received By (User ID)</label>
+                <input id="sr-received-by" type="number" asp-for="ReceivedByUserId" min="0"
+                       placeholder="Receiver user id" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-location" style="@labelStyle">Location ID</label>
+                <input id="sr-location" type="number" asp-for="LocationId" min="0"
+                       placeholder="Storage location id" style="@inputStyle" />
+            </div>
+        </div>
+    </div>
+
+    @* ── Dimensions ───────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Dimensions</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Physical Geometry (mm)</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Usable dims decrement as the sheet is cut. Leave blank for bulk / non-sheet stock.</div>
+        </div>
+        <div style="@sectionBodyStyle">
+            <div>
+                <label for="sr-length" style="@labelStyle">Length (mm)</label>
+                <input id="sr-length" type="number" asp-for="LengthMm" step="0.01" min="0" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-width" style="@labelStyle">Width (mm)</label>
+                <input id="sr-width" type="number" asp-for="WidthMm" step="0.01" min="0" style="@inputStyle" />
+            </div>
+            <div>
+                <label for="sr-thickness" style="@labelStyle">Thickness (mm)</label>
+                <input id="sr-thickness" type="number" asp-for="ThicknessMm" step="0.01" min="0" style="@inputStyle" />
+            </div>
+            @if (!Model.IsNew)
+            {
+                <div>
+                    <label for="sr-usable-length" style="@labelStyle">Usable Length (mm)</label>
+                    <input id="sr-usable-length" type="number" asp-for="UsableLengthMm" step="0.01" min="0" style="@inputStyle" />
+                </div>
+                <div>
+                    <label for="sr-usable-width" style="@labelStyle">Usable Width (mm)</label>
+                    <input id="sr-usable-width" type="number" asp-for="UsableWidthMm" step="0.01" min="0" style="@inputStyle" />
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── Quantity ─────────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Quantity</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Received &amp; Remaining</div>
+        </div>
+        <div style="@sectionBodyStyle">
+            <div>
+                <label for="sr-qty-received" style="@labelStyle">Quantity Received <span style="color: var(--ds-danger, #f87171);">*</span></label>
+                <input id="sr-qty-received" type="number" asp-for="QuantityReceived" step="0.0001" min="0" required style="@inputStyle" />
+            </div>
+            @if (!Model.IsNew)
+            {
+                <div>
+                    <label for="sr-qty-remaining" style="@labelStyle">Quantity Remaining</label>
+                    <input id="sr-qty-remaining" type="number" asp-for="QuantityRemaining" step="0.0001" min="0" style="@inputStyle" />
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── Notes ────────────────────────────────────────────── *@
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="@sectionHeaderStyle">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Notes</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receiving Inspection Memo</div>
+        </div>
+        <div style="padding: 22px;">
+            <label for="sr-notes" style="@labelStyle">Notes</label>
+            <textarea id="sr-notes" asp-for="Notes" rows="4" maxlength="2000"
+                      placeholder="Receiving inspector comments, surface defects, packing notes, etc."
+                      style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: inherit;"></textarea>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+        <a href="/Admin/StockReceipts" class="ds-btn" data-variant="ghost">Cancel</a>
+        <button type="submit" class="ds-btn" data-variant="primary">
+            @(Model.IsNew ? "Create Receipt" : "Save Changes")
+        </button>
+    </div>
+</form>
+
+<script type="application/json" id="voice-context-payload">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BuildContextPayload()))
+</script>
