@@ -88,16 +88,16 @@
         </div>
     </div>
     
-    <form method="get" class="grid-filter-toolbar">
-        <div class="grid-filter-left">
-            <div class="grid-filter-search">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input type="text" name="search" value="@Model.SearchQuery" placeholder="Search Part #, Description, MPN, VPN..." />
-            </div>
+    @* PR #116d.20.1 — Single-row toolbar: server-side search + 3 selects + Filter button on ONE clean row.
+       Kills the duplicate EnhancedGrid "Search all columns..." bar via `searchable: false` in the init script below. *@
+    <form method="get" class="grid-filter-toolbar grid-filter-toolbar--solo">
+        <div class="grid-filter-search">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" name="search" value="@Model.SearchQuery" placeholder="Search Part #, Description, MPN, VPN..." />
         </div>
-        <div class="grid-filter-right">
+        <div class="grid-filter-chips">
             <select name="statusFilter" class="grid-filter-select" asp-items="Model.StatusFilterOptions"></select>
             <select name="typeFilter" class="grid-filter-select" asp-items="Model.TypeFilterOptions"></select>
             <select name="vendorId" class="grid-filter-select" data-cherry-select data-placeholder="Search vendors...">
@@ -358,8 +358,10 @@
 @section Scripts {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // PR #116d.20.1 — searchable:false kills the duplicate "Search all columns..." bar.
+    // The server-side form toolbar above already owns search + Status/Type/Vendor filters.
     initEnhancedGrid('itemsGrid', {
-        searchable: true,
+        searchable: false,
         sortable: true,
         exportable: true,
         columnVisibility: true,
