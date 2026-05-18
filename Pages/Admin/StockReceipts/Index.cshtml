@@ -7,15 +7,15 @@
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
 
-    var total = Model.Receipts.Count;
-    var available = Model.Receipts.Count(r => r.Status == StockReceiptStatus.Available);
-    var quarantined = Model.Receipts.Count(r => r.Status == StockReceiptStatus.Quarantined);
-    var withHeat = Model.Receipts.Count(r => !string.IsNullOrEmpty(r.HeatNumber));
-    var heatPct = total > 0 ? (withHeat * 100.0 / total) : 0;
+    var total = Model.TotalCount;
+    var available = Model.AvailableCount;
+    var quarantined = Model.QuarantinedCount;
+    var fullyFaceted = Model.FullyFacetedCount;
+    var facetPct = total > 0 ? (fullyFaceted * 100.0 / total) : 0;
 
     var headerVd = new ViewDataDictionary(ViewData) {
         ["HeaderTitle"] = "Stock Receipts",
-        ["Subtitle"] = "Physical-lot ledger — heat number / mill cert / source PO trail on every sheet of stock",
+        ["Subtitle"] = "Physical-lot ledger — profile-driven traceability across every vertical (steel heat, pharma NDC, food TLC, etc.)",
         ["TypeLabel"] = "Production · Traceability",
         ["StatusText"] = $"{total} Receipts",
         ["StatusTone"] = total > 0 ? "active" : "neutral",
@@ -26,10 +26,10 @@
 
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
-    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
+    <div class="ds-card" data-tone="danger" data-csp-style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
 }
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+<div data-csp-style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
     @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
     {
         Label = "Total Receipts",
@@ -48,11 +48,11 @@
     })
     @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
     {
-        Label = "With Heat #",
-        Value = withHeat.ToString("N0"),
-        DeltaText = total > 0 ? $"{heatPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% ASME-traceable" : "—",
-        DeltaDirection = heatPct >= 80 ? "up" : heatPct >= 40 ? "flat" : "down",
-        SparkTone = heatPct >= 80 ? "success" : heatPct >= 40 ? "info" : "warning"
+        Label = "With Required Facets",
+        Value = fullyFaceted.ToString("N0"),
+        DeltaText = total > 0 ? $"{facetPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% fully traceable" : "—",
+        DeltaDirection = facetPct >= 80 ? "up" : facetPct >= 40 ? "flat" : "down",
+        SparkTone = facetPct >= 80 ? "success" : facetPct >= 40 ? "info" : "warning"
     })
     @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
     {
@@ -64,12 +64,12 @@
     })
 </div>
 
-<div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
-    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+<div class="ds-card" data-tone="brand" data-csp-style="margin-top: 24px; padding: 0;">
+    <div data-csp-style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
         <div>
-            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Production · Traceability</div>
-            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receiving Ledger</div>
-            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Heat # / mill cert / source PO — the audit join key for every nest cut downstream</div>
+            <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Production · Traceability</div>
+            <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receiving Ledger</div>
+            <div data-csp-style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Profile-driven facets — each receipt's columns are sourced from its industry profile's PromotedFacets</div>
         </div>
         <a href="/Admin/StockReceipts/Edit" class="ds-btn" data-variant="primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -77,24 +77,25 @@
         </a>
     </div>
 
-    @if (Model.Receipts.Any())
+    @if (Model.Rows.Any())
     {
         <div data-csp-style="overflow-x: auto;">
             <table class="data-table premium-table">
                 <thead>
                     <tr>
                         <th data-csp-style="width: 140px;">Receipt #</th>
-                        <th data-csp-style="width: 120px;">Status</th>
+                        <th data-csp-style="width: 110px;">Status</th>
+                        <th data-csp-style="width: 100px;">Profile</th>
                         <th data-csp-style="min-width: 180px;">Item / Material</th>
-                        <th data-csp-style="width: 130px;">Heat #</th>
-                        <th data-csp-style="min-width: 140px;">Mill / Source PO</th>
+                        <th data-csp-style="width: 140px;">Facet A</th>
+                        <th data-csp-style="width: 140px;">Facet B</th>
                         <th data-csp-style="width: 130px; text-align: right;">Qty Remaining</th>
                         <th data-csp-style="width: 140px;">Received</th>
                         <th data-csp-style="width: 90px;"></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var r in Model.Receipts)
+                    @foreach (var r in Model.Rows)
                     {
                         var statusTone = r.Status switch
                         {
@@ -111,32 +112,39 @@
                             ? (double)(r.QuantityRemaining / r.QuantityReceived) * 100
                             : 0;
                         <tr>
-                            <td><strong style="color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">@r.ReceiptNumber</strong></td>
+                            <td><strong data-csp-style="color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">@r.ReceiptNumber</strong></td>
                             <td>
                                 @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = r.Status.ToString(), Tone = statusTone, ShowDot = true })
                             </td>
-                            <td style="color: var(--text-secondary);">
-                                <div style="color: var(--text-primary); font-weight: 500;">@(r.Item?.PartNumber ?? r.Item?.Description ?? $"Item #{r.ItemId}")</div>
-                                @if (r.MaterialMaster != null)
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = r.ProfileCode, Tone = "info", ShowDot = false })
+                            </td>
+                            <td data-csp-style="color: var(--text-secondary);">
+                                <div data-csp-style="color: var(--text-primary); font-weight: 500;">@(r.ItemDescription ?? $"Item #{r.ItemId}")</div>
+                                @if (!string.IsNullOrEmpty(r.MaterialMasterShopCode))
                                 {
-                                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">@r.MaterialMaster.ShopCode @(r.MaterialMaster.AstmDesignation != null ? "· " + r.MaterialMaster.AstmDesignation : "")</div>
+                                    <div data-csp-style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">@r.MaterialMasterShopCode @(r.MaterialMasterAstm != null ? "· " + r.MaterialMasterAstm : "")</div>
                                 }
                             </td>
-                            <td style="color: var(--text-secondary); font-family: var(--font-mono, ui-monospace, monospace);">@(r.HeatNumber ?? "—")</td>
-                            <td style="color: var(--text-secondary); font-size: 13px;">
-                                <div>@(r.Mill ?? "—")</div>
+                            <td data-csp-style="color: var(--text-secondary); font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px;">
+                                <div data-csp-style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">@r.FacetALabel</div>
+                                <div data-csp-style="color: var(--text-primary); margin-top: 2px;">@(r.FacetA ?? "—")</div>
+                            </td>
+                            <td data-csp-style="color: var(--text-secondary); font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px;">
+                                <div data-csp-style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted);">@r.FacetBLabel</div>
+                                <div data-csp-style="color: var(--text-primary); margin-top: 2px;">@(r.FacetB ?? "—")</div>
                                 @if (!string.IsNullOrEmpty(r.SourcePoNumber))
                                 {
-                                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono, ui-monospace, monospace);">PO @r.SourcePoNumber</div>
+                                    <div data-csp-style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">PO @r.SourcePoNumber</div>
                                 }
                             </td>
                             <td data-csp-style="text-align: right; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-secondary);">
-                                <div style="color: var(--text-primary);">@r.QuantityRemaining.ToString("N2") @(r.Uom ?? "")</div>
-                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">@pctRemaining.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)% of @r.QuantityReceived.ToString("N2")</div>
+                                <div data-csp-style="color: var(--text-primary);">@r.QuantityRemaining.ToString("N2") @(r.Uom ?? "")</div>
+                                <div data-csp-style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">@pctRemaining.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)% of @r.QuantityReceived.ToString("N2")</div>
                             </td>
-                            <td style="color: var(--text-secondary); font-size: 13px;">@r.ReceivedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td data-csp-style="color: var(--text-secondary); font-size: 13px;">@r.ReceivedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
                             <td>
-                                <a href="/Admin/StockReceipts/Edit?id=@r.Id" class="ds-btn" data-variant="ghost" style="padding: 4px 10px; font-size: 12px;">Edit</a>
+                                <a href="/Admin/StockReceipts/Edit?id=@r.Id" class="ds-btn" data-variant="ghost" data-csp-style="padding: 4px 10px; font-size: 12px;">Edit</a>
                             </td>
                         </tr>
                     }
@@ -146,13 +154,13 @@
     }
     else
     {
-        <div style="padding: 24px;">
+        <div data-csp-style="padding: 24px;">
             @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
             {
                 Icon = "folder",
                 Tone = "info",
                 Title = "No stock receipts yet",
-                Body = "Receipts capture the heat number, mill cert, and source PO for each physical sheet that arrives. They’re the audit join key for every nest cut downstream and the foundation for ASME / AWS / AS9100 traceability.",
+                Body = "Receipts capture the industry-specific facets (heat #, NDC, GTIN, TLC, harvest date, etc.) for each physical lot that arrives. They’re the audit join key for every nest cut downstream and the foundation for ASME / FDA / DSCSA / AS9100 traceability.",
                 CtaLabel = "Create First Receipt",
                 CtaHref = "/Admin/StockReceipts/Edit",
                 SecondaryLabel = "Back to Admin",

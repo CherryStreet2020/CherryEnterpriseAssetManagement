@@ -8,29 +8,39 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Services.Admin;
 
-// Sprint 4 Phase F Wave 1 PR #5 — StockReceipt admin service implementation.
+// Sprint 4 Phase F Wave 1 PR #5 + ADR-015 Migration PR #3 —
+// StockReceipt admin service.
 //
-// All mutations flow through IdempotencyMediator (Stripe pattern, ADR-014
-// D3) so the voice-AI MCP layer and the UI dedup on the same key. Audit
-// log writes are cycle-safe (DTO snapshots, no live EF entities).
+// PR #3 deltas:
+//   - DTOs collapse 8 steel-specific fields into a single Attributes dict
+//   - JsonSchema.Net validation runs server-side before persist
+//   - Audit snapshot reads Attributes only (no legacy property references)
+//   - Profile is sticky on Update; never overwrite ProfileId on update
 public sealed class StockReceiptService : IStockReceiptService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<StockReceiptService> _logger;
     private readonly Abs.FixedAssets.Services.Infrastructure.IIdempotencyMediator _idempotency;
+    private readonly ReceiptAttributesValidator _validator;
+    private readonly IMemoryCache _cache;
 
     public StockReceiptService(
         AppDbContext db,
         ILogger<StockReceiptService> logger,
-        Abs.FixedAssets.Services.Infrastructure.IIdempotencyMediator idempotency)
+        Abs.FixedAssets.Services.Infrastructure.IIdempotencyMediator idempotency,
+        ReceiptAttributesValidator validator,
+        IMemoryCache cache)
     {
         _db = db;
         _logger = logger;
         _idempotency = idempotency;
+        _validator = validator;
+        _cache = cache;
     }
 
     public async Task<Result<IReadOnlyList<StockReceipt>>> ListAsync(
@@ -40,6 +50,7 @@ public sealed class StockReceiptService : IStockReceiptService
         var query = _db.StockReceipts
             .Include(r => r.Item)
             .Include(r => r.MaterialMaster)
+            .Include(r => r.Profile)
             .AsQueryable();
 
         if (status.HasValue)
@@ -61,11 +72,87 @@ public sealed class StockReceiptService : IStockReceiptService
             .Include(r => r.MaterialMaster)
             .Include(r => r.Location)
             .Include(r => r.ReceivedByUser)
+            .Include(r => r.Profile)
             .FirstOrDefaultAsync(r => r.Id == id, ct);
 
         return row is null
             ? Result.Failure<StockReceipt>($"StockReceipt {id} not found")
             : Result.Success(row);
+    }
+
+    public async Task<Result<ReceiptProfile>> GetDefaultProfileForCreateAsync(CancellationToken ct)
+    {
+        var steel = await _db.ReceiptProfiles
+            .Where(p => p.Code == "STEEL" && p.IsActive)
+            .FirstOrDefaultAsync(ct);
+        return steel is null
+            ? Result.Failure<ReceiptProfile>("Default ReceiptProfile 'STEEL' not found")
+            : Result.Success(steel);
+    }
+
+    public async Task<Result<(StockReceipt entity, ReceiptProfile profile)>> GetWithProfileAsync(
+        int id, CancellationToken ct)
+    {
+        var entity = await _db.StockReceipts
+            .Include(r => r.Item)
+            .Include(r => r.MaterialMaster)
+            .Include(r => r.Location)
+            .Include(r => r.ReceivedByUser)
+            .Include(r => r.Profile)
+            .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+        if (entity is null)
+            return Result.Failure<(StockReceipt, ReceiptProfile)>($"StockReceipt {id} not found");
+
+        if (entity.Profile is null)
+            return Result.Failure<(StockReceipt, ReceiptProfile)>(
+                $"StockReceipt {id} has no ProfileId — Migration PR #2 backfill should have set it");
+
+        return Result.Success<(StockReceipt, ReceiptProfile)>((entity, entity.Profile));
+    }
+
+    public async Task<Result<ReceiptProfile>> GetProfileForSubmitAsync(
+        int? id, string profileCode, int itemId, CancellationToken ct)
+    {
+        // Update: profile is sticky. Re-resolve from the existing receipt
+        // regardless of what the client sent. Defense against tampering.
+        if (id is int existingId && existingId > 0)
+        {
+            var sticky = await _db.StockReceipts
+                .Where(r => r.Id == existingId)
+                .Include(r => r.Profile)
+                .Select(r => r.Profile)
+                .FirstOrDefaultAsync(ct);
+            return sticky is null
+                ? Result.Failure<ReceiptProfile>($"StockReceipt {existingId} not found")
+                : Result.Success(sticky);
+        }
+
+        // Create: prefer Item.DefaultReceiptProfileId, fall back to client-
+        // supplied profileCode (when valid), then fall back to STEEL.
+        int? defaultedFromItem = null;
+        if (itemId > 0)
+        {
+            defaultedFromItem = await _db.Items
+                .Where(i => i.Id == itemId)
+                .Select(i => i.DefaultReceiptProfileId)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (defaultedFromItem is int pid)
+        {
+            var byId = await _db.ReceiptProfiles.FirstOrDefaultAsync(p => p.Id == pid, ct);
+            if (byId is not null) return Result.Success(byId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(profileCode))
+        {
+            var byCode = await _db.ReceiptProfiles
+                .FirstOrDefaultAsync(p => p.Code == profileCode && p.IsActive, ct);
+            if (byCode is not null) return Result.Success(byCode);
+        }
+
+        return await GetDefaultProfileForCreateAsync(ct);
     }
 
     public async Task<Result<StockReceipt>> CreateAsync(
@@ -86,13 +173,19 @@ public sealed class StockReceiptService : IStockReceiptService
         if (!itemExists)
             return Result.Failure<StockReceipt>($"Item {request.ItemId} not found");
 
-        // ADR-015 Migration PR #2 — resolve the default ReceiptProfile id
-        // outside the idempotency callback so the lookup itself is cached
-        // for the lifetime of the request. The existing PR #219 admin form
-        // only emits steel-specific fields, so we resolve to STEEL by
-        // default. When Item.DefaultReceiptProfileId is populated (Sprint
-        // 7+), the profile flows in from the Item master.
-        var profileId = await ResolveProfileIdForCreateAsync(request.ItemId, ct);
+        // ADR-015 PR #3 — server-side profile resolution. Ignores any
+        // client-side tampering with the ProfileCode hidden input.
+        var profileRes = await GetProfileForSubmitAsync(
+            id: null, profileCode: request.ProfileCode, itemId: request.ItemId, ct);
+        if (profileRes.IsFailure) return Result.Failure<StockReceipt>(profileRes.Error!);
+        var profile = profileRes.Value!;
+
+        // ADR-015 PR #3 — JSON Schema validation against profile.JsonSchema.
+        var schemaErrors = _validator.Validate(profile, request.Attributes);
+        if (schemaErrors.Count > 0)
+        {
+            return Result.Failure<StockReceipt>(FormatValidationErrors(schemaErrors));
+        }
 
         return await _idempotency.ExecuteAsync(
             actorUserId,
@@ -102,34 +195,25 @@ public sealed class StockReceiptService : IStockReceiptService
             {
                 var entity = new StockReceipt
                 {
-                    ProfileId = profileId,    // ADR-015 D1 — every receipt has a profile
+                    ProfileId = profile.Id,
                     ReceiptNumber = request.ReceiptNumber.Trim(),
                     ItemId = request.ItemId,
                     MaterialMasterId = request.MaterialMasterId,
-                    HeatNumber = request.HeatNumber?.Trim(),
                     LotNumber = request.LotNumber?.Trim(),
-                    MillCertUrl = request.MillCertUrl?.Trim(),
-                    Mill = request.Mill?.Trim(),
+                    SerialNumber = request.SerialNumber?.Trim(),
                     SourcePoNumber = request.SourcePoNumber?.Trim(),
                     SourcePoLineId = request.SourcePoLineId?.Trim(),
                     ReceivedAt = request.ReceivedAt == default ? DateTime.UtcNow : request.ReceivedAt,
                     ReceivedByUserId = request.ReceivedByUserId,
                     LocationId = request.LocationId,
-                    LengthMm = request.LengthMm,
-                    WidthMm = request.WidthMm,
-                    ThicknessMm = request.ThicknessMm,
-                    UsableLengthMm = request.LengthMm,    // start equal to full dims
-                    UsableWidthMm = request.WidthMm,
                     QuantityReceived = request.QuantityReceived,
-                    QuantityRemaining = request.QuantityReceived,  // nothing consumed yet
+                    QuantityRemaining = request.QuantityReceived,
                     Uom = request.Uom?.Trim(),
                     Status = request.Status,
                     Notes = request.Notes?.Trim(),
-                    // ADR-015 Migration PR #2 — dual-write Attributes from
-                    // the steel-specific legacy fields. Once Migration PR
-                    // #3 ships, the form emits Attributes directly and the
-                    // legacy columns are dropped.
-                    Attributes = BuildSteelAttributesJson(request),
+                    // ADR-015 PR #3 — Attributes is the only payload now.
+                    // The 8 legacy columns are gone with the same-PR migration.
+                    Attributes = JsonSerializer.Serialize(request.Attributes),
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = actorUserId.ToString(),
                 };
@@ -143,7 +227,7 @@ public sealed class StockReceiptService : IStockReceiptService
                     beforeJson: null,
                     afterJson: JsonSerializer.Serialize(SnapshotForAudit(entity)),
                     actorUserId,
-                    description: $"Created StockReceipt '{entity.ReceiptNumber}' (Item {entity.ItemId}, Heat {entity.HeatNumber ?? "—"})",
+                    description: $"Created StockReceipt '{entity.ReceiptNumber}' (Item {entity.ItemId}, Profile {profile.Code})",
                     innerCt);
 
                 return Result.Success(entity);
@@ -167,7 +251,9 @@ public sealed class StockReceiptService : IStockReceiptService
             request,
             async innerCt =>
             {
-                var entity = await _db.StockReceipts.FirstOrDefaultAsync(r => r.Id == id, innerCt);
+                var entity = await _db.StockReceipts
+                    .Include(r => r.Profile)
+                    .FirstOrDefaultAsync(r => r.Id == id, innerCt);
                 if (entity is null) return Result.Failure<StockReceipt>($"StockReceipt {id} not found");
 
                 // ReceiptNumber uniqueness if renamed.
@@ -186,33 +272,34 @@ public sealed class StockReceiptService : IStockReceiptService
                         return Result.Failure<StockReceipt>($"Item {request.ItemId} not found");
                 }
 
+                if (entity.Profile is null)
+                    return Result.Failure<StockReceipt>(
+                        $"StockReceipt {id} has no ProfileId — Migration PR #2 backfill should have set it");
+
+                // ADR-015 PR #3 — JSON Schema validation against the sticky profile.
+                var schemaErrors = _validator.Validate(entity.Profile, request.Attributes);
+                if (schemaErrors.Count > 0)
+                {
+                    return Result.Failure<StockReceipt>(FormatValidationErrors(schemaErrors));
+                }
+
                 var before = SnapshotForAudit(entity);
 
                 entity.ReceiptNumber = request.ReceiptNumber.Trim();
                 entity.ItemId = request.ItemId;
                 entity.MaterialMasterId = request.MaterialMasterId;
-                entity.HeatNumber = request.HeatNumber?.Trim();
                 entity.LotNumber = request.LotNumber?.Trim();
-                entity.MillCertUrl = request.MillCertUrl?.Trim();
-                entity.Mill = request.Mill?.Trim();
+                entity.SerialNumber = request.SerialNumber?.Trim();
                 entity.SourcePoNumber = request.SourcePoNumber?.Trim();
                 entity.SourcePoLineId = request.SourcePoLineId?.Trim();
                 entity.ReceivedAt = request.ReceivedAt;
                 entity.ReceivedByUserId = request.ReceivedByUserId;
                 entity.LocationId = request.LocationId;
-                entity.LengthMm = request.LengthMm;
-                entity.WidthMm = request.WidthMm;
-                entity.ThicknessMm = request.ThicknessMm;
-                entity.UsableLengthMm = request.UsableLengthMm;
-                entity.UsableWidthMm = request.UsableWidthMm;
                 entity.QuantityReceived = request.QuantityReceived;
                 entity.QuantityRemaining = request.QuantityRemaining;
                 entity.Uom = request.Uom?.Trim();
                 entity.Notes = request.Notes?.Trim();
-                // ADR-015 Migration PR #2 — dual-write Attributes alongside
-                // the legacy columns on every Update. Profile is sticky;
-                // we never overwrite ProfileId on update.
-                entity.Attributes = BuildSteelAttributesJsonFromUpdate(request);
+                entity.Attributes = JsonSerializer.Serialize(request.Attributes);
                 entity.ModifiedAt = DateTime.UtcNow;
                 entity.ModifiedBy = actorUserId.ToString();
 
@@ -288,74 +375,14 @@ public sealed class StockReceiptService : IStockReceiptService
 
     // ---- helpers ----
 
-    // ADR-015 Migration PR #2 — Resolve which ReceiptProfile.Id this new
-    // receipt belongs to. Resolution order:
-    //   1. Item.DefaultReceiptProfileId (Sprint 7+, when Item master is
-    //      industry-tagged)
-    //   2. Fallback to STEEL profile (the only one the current PR #219
-    //      form populates real fields for)
-    //
-    // The result is cached on the service for the request lifetime to
-    // avoid repeated lookups.
-    private int? _cachedSteelProfileId;
-    private async Task<int> ResolveProfileIdForCreateAsync(int itemId, CancellationToken ct)
+    private static string FormatValidationErrors(IReadOnlyList<ValidationError> errors)
     {
-        var item = await _db.Items
-            .Where(i => i.Id == itemId)
-            .Select(i => new { i.DefaultReceiptProfileId })
-            .FirstOrDefaultAsync(ct);
-        if (item?.DefaultReceiptProfileId is int defaulted) return defaulted;
-
-        if (_cachedSteelProfileId is int cached) return cached;
-        var steelId = await _db.ReceiptProfiles
-            .Where(p => p.Code == "STEEL")
-            .Select(p => (int?)p.Id)
-            .FirstOrDefaultAsync(ct)
-            ?? throw new InvalidOperationException(
-                "ReceiptProfile 'STEEL' not found. Migration PR #1 must run before any " +
-                "receipt is created. See ADR-015 §D9 and migration " +
-                "20260518_AddReceiptProfileCatalog.");
-        _cachedSteelProfileId = steelId;
-        return steelId;
-    }
-
-    // ADR-015 Migration PR #2 — Build the STEEL-profile Attributes JSON
-    // from the legacy steel-specific fields on a CreateStockReceiptRequest.
-    // Migration PR #3 will replace the form with a profile-driven renderer
-    // that emits Attributes directly; this dual-write is the transition.
-    private static string BuildSteelAttributesJson(CreateStockReceiptRequest r)
-    {
-        var attrs = new Dictionary<string, object?>();
-        if (!string.IsNullOrWhiteSpace(r.HeatNumber)) attrs["heatNumber"] = r.HeatNumber.Trim();
-        if (!string.IsNullOrWhiteSpace(r.Mill)) attrs["mill"] = r.Mill.Trim();
-        if (!string.IsNullOrWhiteSpace(r.MillCertUrl)) attrs["millCertUrl"] = r.MillCertUrl.Trim();
-        if (r.LengthMm.HasValue) attrs["lengthMm"] = r.LengthMm.Value;
-        if (r.WidthMm.HasValue) attrs["widthMm"] = r.WidthMm.Value;
-        if (r.ThicknessMm.HasValue) attrs["thicknessMm"] = r.ThicknessMm.Value;
-        // UsableLength/Width default to the full dims on first create (matches
-        // the entity initialization above). Migration PR #3 will pull these
-        // from the form directly.
-        if (r.LengthMm.HasValue) attrs["usableLengthMm"] = r.LengthMm.Value;
-        if (r.WidthMm.HasValue) attrs["usableWidthMm"] = r.WidthMm.Value;
-        return JsonSerializer.Serialize(attrs);
-    }
-
-    // ADR-015 Migration PR #2 — Same shape as BuildSteelAttributesJson,
-    // but reads from an UpdateStockReceiptRequest. The Update DTO carries
-    // both LengthMm AND UsableLengthMm because users can adjust the
-    // usable-dims as cuts consume the sheet.
-    private static string BuildSteelAttributesJsonFromUpdate(UpdateStockReceiptRequest r)
-    {
-        var attrs = new Dictionary<string, object?>();
-        if (!string.IsNullOrWhiteSpace(r.HeatNumber)) attrs["heatNumber"] = r.HeatNumber.Trim();
-        if (!string.IsNullOrWhiteSpace(r.Mill)) attrs["mill"] = r.Mill.Trim();
-        if (!string.IsNullOrWhiteSpace(r.MillCertUrl)) attrs["millCertUrl"] = r.MillCertUrl.Trim();
-        if (r.LengthMm.HasValue) attrs["lengthMm"] = r.LengthMm.Value;
-        if (r.WidthMm.HasValue) attrs["widthMm"] = r.WidthMm.Value;
-        if (r.ThicknessMm.HasValue) attrs["thicknessMm"] = r.ThicknessMm.Value;
-        if (r.UsableLengthMm.HasValue) attrs["usableLengthMm"] = r.UsableLengthMm.Value;
-        if (r.UsableWidthMm.HasValue) attrs["usableWidthMm"] = r.UsableWidthMm.Value;
-        return JsonSerializer.Serialize(attrs);
+        // The Result<T> Error string carries a single composite message.
+        // PageModel-side validation (which has access to ModelState) calls
+        // the validator directly for per-field error placement.
+        return "Attributes failed JSON Schema validation: " +
+               string.Join("; ", errors.Select(e =>
+                   $"{(string.IsNullOrEmpty(e.Pointer) ? "(root)" : e.Pointer)} [{e.Keyword}]: {e.Message}"));
     }
 
     private static string? ValidateCreate(CreateStockReceiptRequest r)
@@ -377,31 +404,28 @@ public sealed class StockReceiptService : IStockReceiptService
         return null;
     }
 
+    // ADR-015 PR #3 — audit snapshot reads Attributes only. The 8 legacy
+    // properties were dropped from the entity in this PR's migration.
     private static object SnapshotForAudit(StockReceipt r) => new
     {
         r.ReceiptNumber,
         r.ItemId,
         r.MaterialMasterId,
-        r.HeatNumber,
         r.LotNumber,
-        r.MillCertUrl,
-        r.Mill,
+        r.SerialNumber,
         r.SourcePoNumber,
         r.SourcePoLineId,
         r.ReceivedAt,
         r.ReceivedByUserId,
         r.LocationId,
-        r.LengthMm,
-        r.WidthMm,
-        r.ThicknessMm,
-        r.UsableLengthMm,
-        r.UsableWidthMm,
         r.QuantityReceived,
         r.QuantityRemaining,
         r.Uom,
         Status = r.Status.ToString(),
         r.QuarantineReason,
         r.Notes,
+        r.ProfileId,
+        Attributes = r.Attributes,
     };
 
     private async Task WriteAuditAsync(

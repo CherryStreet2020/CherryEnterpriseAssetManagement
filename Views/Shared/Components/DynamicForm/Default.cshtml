@@ -1,0 +1,35 @@
+@*
+    ADR-015 Migration PR #3 — DynamicForm component default view.
+
+    Renders one ds-card per UiFormGroup; per-group, delegates each field
+    to Pages/Shared/Primitives/_DynamicField.cshtml.
+
+    Also emits the voice-form-spec <script> blob next to the page's
+    existing voice-context-payload blob — Sprint 5 voice client reads it
+    to ground the LLM in the active profile's field grammar.
+
+    See: docs/research/dynamic-razor-form-spec.md §1.6
+*@
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@model Abs.FixedAssets.Pages.Shared.Primitives.DynamicFormVm
+
+@foreach (var group in Model.Groups)
+{
+    <div class="ds-card" data-tone="brand" data-csp-style="padding: 0;">
+        <div data-csp-style="padding: 18px 22px; border-bottom: 1px solid var(--border);">
+            <div data-csp-style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">@Model.ProfileCode · Section</div>
+            <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">@group.Title</div>
+        </div>
+        <div data-csp-style="padding: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            @foreach (var field in group.Fields)
+            {
+                @await Html.PartialAsync("Primitives/_DynamicField",
+                    DynamicFieldModel.From(field, Model))
+            }
+        </div>
+    </div>
+}
+
+<script type="application/json" id="voice-form-spec">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VoiceSpec))
+</script>
