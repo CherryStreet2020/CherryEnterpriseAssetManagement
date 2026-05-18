@@ -1,6 +1,7 @@
 @page "{id:int}"
 @model Abs.FixedAssets.Pages.Materials.Vendors.EditModel
 @using Abs.FixedAssets.Models
+@using System.Text.Json
 @{
     var v = Model.Vendor;
     ViewData["Title"] = v.Name;
@@ -25,6 +26,11 @@
 }
 
 @await Html.PartialAsync("_ScreenHeader", headerVd)
+
+@* ── ADR-014 D1 — voice-AI page context payload ── *@
+<script type="application/json" id="voice-context-payload">
+    @Html.Raw(JsonSerializer.Serialize(Model.BuildContextPayload()))
+</script>
 
 @if (TempData["Success"] != null) {
     <div class="alert alert-success" data-csp-style="margin-bottom:1rem;">@TempData["Success"]</div>
