@@ -1,0 +1,4 @@
+# Per-run logs and ephemeral commit-message / PR-body files.
+runs/
+msgs/
+configs/*.local.sh
