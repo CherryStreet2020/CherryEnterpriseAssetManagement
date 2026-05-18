@@ -20,7 +20,11 @@ html.dark {
   --dc-focus-ring:     rgba(207,51,57,0.5);
   --dc-tab-bg:         transparent;
   --dc-tab-text:       #94a3b8;
-  --dc-tab-active:     #cf3339;
+  /* PR #116d.23b — WCAG 2.1 AA color-contrast fix on tab-active state.
+     Previous #cf3339 on dark-navy (#111827) measured ~3.4:1 (FAILS 4.5:1 AA threshold).
+     New #f87171 (warm red-400) measures ~6.2:1 — preserves brand-red warmth
+     while clearing the bar. Verified via axe-core 4.10.2 against /Materials/ItemEdit. */
+  --dc-tab-active:     #f87171;
   --dc-badge-bg:       rgba(255,255,255,0.08);
   --dc-badge-text:     #e2e8f0;
 }

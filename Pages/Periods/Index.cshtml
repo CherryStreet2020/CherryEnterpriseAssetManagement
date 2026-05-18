@@ -79,8 +79,9 @@
 @* PR #116d.14 — Filter as a DataCard with neutral tone, ds-btn primary. *@
 <form method="get" class="ds-card" data-tone="neutral" style="margin-top: 20px; display: flex; gap: 16px; align-items: end; flex-wrap: wrap;">
     <div style="flex: 1; min-width: 240px;">
-        <label style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Company</label>
-        <select name="CompanyId" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;">
+        @* PR #116d.23b — Company select needs id + for association + aria-label for screen readers. *@
+        <label for="filter-company" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Company</label>
+        <select id="filter-company" name="CompanyId" aria-label="Filter by company" style="width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 13px;">
             @foreach (var c in Model.CompanyOptions)
             {
                 if (Model.CompanyId?.ToString() == c.Value)
