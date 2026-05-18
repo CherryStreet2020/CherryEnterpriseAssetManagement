@@ -122,7 +122,10 @@
     
     <div data-csp-style="overflow-x: auto;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
-        <table class="data-table premium-table" id="itemsGrid" data-enhanced-grid="true" data-row-click="true">
+        @* PR #116d.20.1 — Drop data-enhanced-grid="true" so enhanced-grid.js's auto-init doesn't
+           fire first with defaults (forces searchable: true). The explicit initEnhancedGrid call
+           in @section Scripts below is the source of truth. *@
+        <table class="data-table premium-table" id="itemsGrid" data-row-click="true">
             <thead>
                 <tr>
                     <th data-csp-style="width: 50px;" data-col="Image" data-filter="none" data-export="false"></th>
