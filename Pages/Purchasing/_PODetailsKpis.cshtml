@@ -9,10 +9,14 @@
 @{
     var po = ViewData["PurchaseOrder"] as Abs.FixedAssets.Models.PurchaseOrder;
     if (po == null) return;
-    var lineCount = po.Lines?.Count ?? 0;
-    var releaseCount = po.Lines?.Sum(l => l.Releases?.Count ?? 0) ?? 0;
-    var totalOrdered = po.Lines?.Sum(l => l.QuantityOrdered) ?? 0m;
-    var totalReceived = po.Lines?.Sum(l => l.QuantityReceived) ?? 0m;
+    // PR #116d.16.1 — Prefer pre-computed values from KpisViewData when supplied
+    // (the page-level cshtml seeds these before headerVd is constructed). Falling
+    // back to po.Lines lookups is brittle because navigation collections may not
+    // be populated when the partial renders.
+    var lineCount = ViewData["LineCount"] as int? ?? po.Lines?.Count ?? 0;
+    var releaseCount = ViewData["ReleaseCount"] as int? ?? po.Lines?.Sum(l => l.Releases?.Count ?? 0) ?? 0;
+    var totalOrdered = ViewData["TotalOrdered"] as decimal? ?? po.Lines?.Sum(l => l.QuantityOrdered) ?? 0m;
+    var totalReceived = ViewData["TotalReceived"] as decimal? ?? po.Lines?.Sum(l => l.QuantityReceived) ?? 0m;
     var receivePct = totalOrdered > 0m ? (double)(totalReceived / totalOrdered) * 100.0 : 0.0;
     var receivedFully = totalOrdered > 0m && totalReceived >= totalOrdered;
     var receiveTone = receivedFully ? "success" : (totalReceived > 0m ? "warning" : "info");
