@@ -512,6 +512,21 @@ namespace Abs.FixedAssets.Models
 
         public bool IsActive { get; set; } = true;
 
+        // ADR-015 — Default ReceiptProfile for receipts of this SKU.
+        // Drives auto-selection of the receipt profile at receiving
+        // time. Steel parts get the STEEL profile, drug SKUs get
+        // PHARMA, etc. Null falls back to a tenant-default or DISCRETE.
+        public int? DefaultReceiptProfileId { get; set; }
+        public Abs.FixedAssets.Models.Production.ReceiptProfile? DefaultReceiptProfile { get; set; }
+
+        // ADR-015 — Per-item default Attributes JSON merged into every
+        // receipt against this SKU at PO-receipt time. E.g. a controlled
+        // substance SKU's `{"deaSchedule":"II"}`, a moisture-sensitive
+        // electronic component's `{"mslLevel":3}`. Profile-shape;
+        // validated against DefaultReceiptProfile.JsonSchema at create.
+        [System.ComponentModel.DataAnnotations.Schema.Column(TypeName = "jsonb")]
+        public string? DefaultReceiptAttributes { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 

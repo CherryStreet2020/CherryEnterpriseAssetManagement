@@ -48,6 +48,12 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
+        // ADR-015 — Industry profile that defines the shape of Attributes.
+        // Nullable initially during Migration PR #1 dual-write window.
+        // Becomes NOT NULL in Migration PR #2 after Steel rows backfill.
+        public int? ProfileId { get; set; }
+        public ReceiptProfile? Profile { get; set; }
+
         // Human-facing identifier — "RCPT-2026-00042".
         [Required]
         [StringLength(32)]
@@ -76,6 +82,14 @@ namespace Abs.FixedAssets.Models.Production
         // Supplier-side lot identifier (often distinct from heat number).
         [StringLength(64)]
         public string? LotNumber { get; set; }
+
+        // ADR-015 — Universal tracking dimension. Used by pharma
+        // (DSCSA), electronics (date code), automotive (PPAP), medical
+        // device (UDI-PI), oil & gas (downhole serial). Nullable
+        // because not every receipt is serial-tracked.
+        [StringLength(128)]
+        [Display(Name = "Serial #")]
+        public string? SerialNumber { get; set; }
 
         // Pointer to the mill test report PDF in external storage.
         [StringLength(500)]
@@ -170,6 +184,15 @@ namespace Abs.FixedAssets.Models.Production
 
         [StringLength(100)]
         public string? ModifiedBy { get; set; }
+
+        // ADR-015 — Industry-specific payload, validated at service layer
+        // against the ProfileId's JsonSchema. The eight legacy
+        // sheet-metal columns above (HeatNumber, MillCertUrl, Mill,
+        // Length/Width/Thickness, UsableLength/Width) move into this
+        // JSONB column under the STEEL profile in Migration PR #3.
+        // Nullable during the dual-write transition window.
+        [Column(TypeName = "jsonb")]
+        public string? Attributes { get; set; }
 
         // Optimistic concurrency via PG xmin.
         [Timestamp]
