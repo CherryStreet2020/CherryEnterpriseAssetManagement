@@ -1,0 +1,94 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.MaterialMasters.EditModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = Model.PageTitle;
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = Model.PageTitle,
+        ["Subtitle"] = Model.IsNew
+            ? "Define a substance class so receipts can anchor heat-number / mill-cert traceability."
+            : Model.ShopCode,
+        ["TypeLabel"] = "Production · Traceability",
+        ["StatusText"] = Model.Form.ToString(),
+        ["StatusTone"] = "active",
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
+}
+
+<form method="post" style="margin-top: 20px;">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="ds-card" data-tone="brand" style="padding: 0;">
+        <div style="padding: 18px 22px; border-bottom: 1px solid var(--border);">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Identification</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Material Basics</div>
+        </div>
+        <div style="padding: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+            <div>
+                <label for="mm-shop" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Shop Code <span style="color: var(--ds-danger, #f87171);">*</span></label>
+                <input id="mm-shop" type="text" asp-for="ShopCode" required maxlength="64"
+                       aria-label="Shop code (unique identifier)"
+                       placeholder="e.g., A36-0.250"
+                       style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);" />
+            </div>
+            <div>
+                <label for="mm-astm" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">ASTM / Standard Designation</label>
+                <input id="mm-astm" type="text" asp-for="AstmDesignation" maxlength="64"
+                       aria-label="ASTM or equivalent standard designation"
+                       placeholder="e.g., ASTM A36 or ASTM B221 6061-T6"
+                       style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);" />
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <label for="mm-description" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Description</label>
+                <textarea id="mm-description" asp-for="Description" rows="2" maxlength="200"
+                          aria-label="Material description"
+                          placeholder="e.g., 1/4-inch hot-rolled mild steel plate"
+                          style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: inherit;"></textarea>
+            </div>
+            <div>
+                <label for="mm-form" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Form Factor</label>
+                <select id="mm-form" asp-for="Form"
+                        aria-label="Material form factor"
+                        asp-items="@(Html.GetEnumSelectList<MaterialForm>())"
+                        style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px;"></select>
+            </div>
+            <div>
+                <label for="mm-density" style="display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500; margin-bottom: 6px;">Density (kg/m³)</label>
+                <input id="mm-density" type="number" asp-for="DensityKgPerM3" step="0.0001" min="0"
+                       aria-label="Density in kilograms per cubic meter"
+                       placeholder="e.g., 7850 for steel"
+                       style="width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); color: var(--text-primary); font-size: 14px; font-family: var(--font-mono, ui-monospace, monospace);" />
+            </div>
+            <div>
+                <label style="display: flex; align-items: center; gap: 10px; padding: 14px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2, rgba(0,0,0,0.18)); cursor: pointer;">
+                    <input type="checkbox" asp-for="IsAnisotropic" style="width: 18px; height: 18px; accent-color: var(--ds-brand, #60a5fa);" />
+                    <div>
+                        <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Anisotropic</div>
+                        <div style="font-size: 11.5px; color: var(--text-muted);">Grain direction matters. Wood, composites, rolled steel for bending — drives the GrainDirection column on CutListLine. Uncheck for isotropic (cast / generic).</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+        <a href="/Admin/MaterialMasters" class="ds-btn" data-variant="ghost">Cancel</a>
+        <button type="submit" class="ds-btn" data-variant="primary">
+            @(Model.IsNew ? "Create Material" : "Save Changes")
+        </button>
+    </div>
+</form>
+
+<script type="application/json" id="voice-context-payload">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BuildContextPayload()))
+</script>

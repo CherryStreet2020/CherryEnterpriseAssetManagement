@@ -1,0 +1,147 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.MaterialMasters.IndexModel
+@using Abs.FixedAssets.Pages.Shared.Primitives
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Material Masters";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var total = Model.Materials.Count;
+    var withAstm = Model.Materials.Count(m => !string.IsNullOrEmpty(m.AstmDesignation));
+    var anisotropic = Model.Materials.Count(m => m.IsAnisotropic);
+    var withDensity = Model.Materials.Count(m => m.DensityKgPerM3.HasValue);
+    var astmPct = total > 0 ? (withAstm * 100.0 / total) : 0;
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        ["HeaderTitle"] = "Material Masters",
+        ["Subtitle"] = "Substance-class catalog — heat number / mill cert anchor for material traceability",
+        ["TypeLabel"] = "Production · Traceability",
+        ["StatusText"] = $"{total} Materials",
+        ["StatusTone"] = total > 0 ? "active" : "neutral",
+    };
+}
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="ds-card" data-tone="danger" style="margin-top: 14px; padding: 12px 16px; color: var(--text-primary);">@Model.ErrorMessage</div>
+}
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px;">
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Total Materials",
+        Value = total.ToString("N0"),
+        DeltaText = total > 0 ? "substance classes" : "no materials yet",
+        DeltaDirection = "flat",
+        SparkTone = "info"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "ASTM-Classified",
+        Value = withAstm.ToString("N0"),
+        DeltaText = total > 0 ? $"{astmPct.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% standardized" : "—",
+        DeltaDirection = astmPct >= 80 ? "up" : astmPct >= 40 ? "flat" : "down",
+        SparkTone = astmPct >= 80 ? "success" : astmPct >= 40 ? "info" : "warning"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "With Density",
+        Value = withDensity.ToString("N0"),
+        DeltaText = total > 0 ? $"{(total > 0 ? (withDensity * 100.0 / total) : 0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)}% mass-aware" : "—",
+        DeltaDirection = "flat",
+        SparkTone = "brand"
+    })
+    @await Html.PartialAsync("Primitives/_KPITile", new KpiTileModel
+    {
+        Label = "Anisotropic",
+        Value = anisotropic.ToString("N0"),
+        DeltaText = anisotropic > 0 ? "grain-direction matters" : "all isotropic",
+        DeltaDirection = "flat",
+        SparkTone = "muted"
+    })
+</div>
+
+<div class="ds-card" data-tone="brand" style="margin-top: 24px; padding: 0;">
+    <div style="padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 500;">Production · Traceability</div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Substance Catalog</div>
+            <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">A36 · A572 · 6061-T6 · 316L · 4140 · plus shop-coined non-metals</div>
+        </div>
+        <a href="/Admin/MaterialMasters/Edit" class="ds-btn" data-variant="primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            New Material
+        </a>
+    </div>
+
+    @if (Model.Materials.Any())
+    {
+        <div data-csp-style="overflow-x: auto;">
+            <table class="data-table premium-table">
+                <thead>
+                    <tr>
+                        <th data-csp-style="width: 80px;">Form</th>
+                        <th data-csp-style="width: 140px;">Shop Code</th>
+                        <th data-csp-style="width: 150px;">ASTM / Std</th>
+                        <th data-csp-style="min-width: 240px;">Description</th>
+                        <th data-csp-style="width: 130px; text-align: right;">Density</th>
+                        <th data-csp-style="width: 110px;">Grain</th>
+                        <th data-csp-style="width: 100px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in Model.Materials)
+                    {
+                        <tr>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel { Label = m.Form.ToString(), Tone = "brand", ShowDot = false })
+                            </td>
+                            <td><strong style="color: var(--text-primary); font-family: var(--font-mono, ui-monospace, monospace);">@m.ShopCode</strong></td>
+                            <td style="color: var(--text-secondary); font-family: var(--font-mono, ui-monospace, monospace);">@(m.AstmDesignation ?? "—")</td>
+                            <td style="color: var(--text-secondary); max-width: 320px;">
+                                <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="@m.Description">@(m.Description ?? "—")</div>
+                            </td>
+                            <td data-csp-style="text-align: right; font-family: var(--font-mono, ui-monospace, monospace); color: var(--text-secondary);">
+                                @(m.DensityKgPerM3.HasValue ? $"{m.DensityKgPerM3.Value.ToString("N1")} kg/m³" : "—")
+                            </td>
+                            <td>
+                                @await Html.PartialAsync("Primitives/_StatusPill", new StatusPillModel
+                                {
+                                    Label = m.IsAnisotropic ? "Anisotropic" : "Isotropic",
+                                    Tone = m.IsAnisotropic ? "warning" : "neutral",
+                                    ShowDot = false
+                                })
+                            </td>
+                            <td>
+                                <a href="/Admin/MaterialMasters/Edit?id=@m.Id" class="ds-btn" data-variant="ghost" style="padding: 4px 10px; font-size: 12px;">Edit</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <div style="padding: 24px;">
+            @await Html.PartialAsync("Primitives/_EmptyStateV2", new EmptyStateModel
+            {
+                Icon = "folder",
+                Tone = "info",
+                Title = "No material masters yet",
+                Body = "Create your first material to anchor heat-number / mill-cert traceability on incoming stock receipts. A36 hot-rolled plate, 6061-T6 aluminum, 316L stainless — anything your shop fabricates with.",
+                CtaLabel = "Create First Material",
+                CtaHref = "/Admin/MaterialMasters/Edit",
+                SecondaryLabel = "Back to Admin",
+                SecondaryHref = "/Admin"
+            })
+        </div>
+    }
+</div>
+
+<script type="application/json" id="voice-context-payload">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.BuildContextPayload()))
+</script>
