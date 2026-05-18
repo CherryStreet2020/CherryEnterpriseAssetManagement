@@ -98,9 +98,9 @@
             </svg>
             <input type="text" name="search" value="@Model.SearchQuery" placeholder="Search Part #, Description, MPN, VPN..." />
         </div>
-        <select name="statusFilter" class="grid-filter-select" asp-items="Model.StatusFilterOptions"></select>
-        <select name="typeFilter" class="grid-filter-select" asp-items="Model.TypeFilterOptions"></select>
-        <select name="vendorId" class="grid-filter-select" data-placeholder="Search vendors...">
+        <select name="statusFilter" class="grid-filter-select" aria-label="Filter by status" asp-items="Model.StatusFilterOptions"></select>
+        <select name="typeFilter" class="grid-filter-select" aria-label="Filter by item type" asp-items="Model.TypeFilterOptions"></select>
+        <select name="vendorId" class="grid-filter-select" aria-label="Filter by preferred vendor" data-placeholder="Search vendors...">
             <option value="">All Vendors</option>
             @foreach (var vendor in Model.Vendors)
             {
