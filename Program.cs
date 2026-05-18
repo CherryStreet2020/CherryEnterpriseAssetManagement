@@ -505,6 +505,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Admin.IVendorService,
     Abs.FixedAssets.Services.Admin.VendorService>();
+// Sprint 4 Phase F Wave 1 PR #5 — StockReceipt admin service.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Admin.IStockReceiptService,
+    Abs.FixedAssets.Services.Admin.StockReceiptService>();
 
 var app = builder.Build();
 
