@@ -122,15 +122,22 @@ public sealed class MatchOrphanModel : VoiceReadyPageModel
             .Include(r => r.Item)
             .FirstOrDefaultAsync(r => r.Id == ReceiptId, ct);
 
-        // Resolve preferred vendor via ItemCompanyStockings — separate query
-        // to dodge EF shadow-FK bug on the chained Include (i0.ItemId1).
+        // Resolve preferred vendor — two flat .Select queries (no .Include) —
+        // EF emits a shadow FK column (i.ItemId1) on Include that doesn't exist.
         if (Receipt?.ItemId > 0)
         {
-            var stocking = await _db.ItemCompanyStockings
+            var stockingVendorId = await _db.ItemCompanyStockings
                 .AsNoTracking()
-                .Include(s => s.PreferredVendor)
-                .FirstOrDefaultAsync(s => s.ItemId == Receipt.ItemId && s.PreferredVendorId != null, ct);
-            PreferredVendor = stocking?.PreferredVendor;
+                .Where(s => s.ItemId == Receipt.ItemId && s.PreferredVendorId != null)
+                .Select(s => s.PreferredVendorId!.Value)
+                .FirstOrDefaultAsync(ct);
+
+            if (stockingVendorId > 0)
+            {
+                PreferredVendor = await _db.Vendors
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(v => v.Id == stockingVendorId, ct);
+            }
         }
 
         if (!string.IsNullOrEmpty(PoNumber))

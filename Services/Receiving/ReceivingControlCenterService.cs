@@ -603,21 +603,33 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             .ToList();
 
         // Resolve preferred vendor per ItemId (per-company stocking record).
-        // Single round-trip; not chained off Item to dodge EF shadow-FK bug.
+        // Two flat .Select queries (no .Include) — EF's Include keeps emitting
+        // a shadow FK i.ItemId1 column that doesn't exist on the table. Safer
+        // to project explicit columns and stitch them up in memory.
         var itemIds = orphans.Where(r => r.ItemId > 0).Select(r => r.ItemId).Distinct().ToList();
         Dictionary<int, Vendor> preferredVendorByItem = new();
         if (itemIds.Count > 0)
         {
-            var stockings = await _db.ItemCompanyStockings
+            var stockingRows = await _db.ItemCompanyStockings
                 .AsNoTracking()
-                .Include(s => s.PreferredVendor)
                 .Where(s => itemIds.Contains(s.ItemId) && s.PreferredVendorId != null)
+                .Select(s => new { s.ItemId, VendorId = s.PreferredVendorId!.Value })
                 .ToListAsync(ct);
 
-            preferredVendorByItem = stockings
-                .GroupBy(s => s.ItemId)
-                .Where(g => g.First().PreferredVendor != null)
-                .ToDictionary(g => g.Key, g => g.First().PreferredVendor!);
+            if (stockingRows.Count > 0)
+            {
+                var vendorIds = stockingRows.Select(x => x.VendorId).Distinct().ToList();
+                var vendorRows = await _db.Vendors
+                    .AsNoTracking()
+                    .Where(v => vendorIds.Contains(v.Id))
+                    .ToListAsync(ct);
+                var vendorsById = vendorRows.ToDictionary(v => v.Id, v => v);
+
+                preferredVendorByItem = stockingRows
+                    .Where(x => vendorsById.ContainsKey(x.VendorId))
+                    .GroupBy(x => x.ItemId)
+                    .ToDictionary(g => g.Key, g => vendorsById[g.First().VendorId]);
+            }
         }
 
         // Pull candidate PO pool ONCE for the page. Score per-orphan in memory.
