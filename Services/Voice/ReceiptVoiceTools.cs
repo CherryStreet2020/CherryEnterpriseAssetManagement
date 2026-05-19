@@ -240,14 +240,25 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
 
         // Second pass — JSONB Attributes (for heatNumber, ndc, gtin, etc.).
         // Only run if first pass turned up too few matches (avoid full scans).
+        //
+        // Voice MVP hotfix #1 (2026-05-19): Attributes is mapped as jsonb in
+        // Postgres (ADR-015 PR #1). EF.Functions.ILike(jsonb_col, ...) emits
+        // `col ILIKE pattern` which Postgres rejects with error 42883
+        // ("operator does not exist: jsonb ~~* unknown"). The fix is to cast
+        // to text via raw SQL — `("Attributes")::text ILIKE pattern`. EF
+        // doesn't surface a typed-cast helper, so we use FromSqlInterpolated
+        // with the same Include shape.
         if (matches.Count < 5)
         {
             var jsonMatches = await _db.StockReceipts
+                .FromSqlInterpolated(
+                    $@"SELECT * FROM ""StockReceipts""
+                       WHERE ""Attributes"" IS NOT NULL
+                         AND (""Attributes"")::text ILIKE {likePattern}
+                       LIMIT 20")
                 .Include(r => r.Item)
                 .Include(r => r.Profile)
                 .AsNoTracking()
-                .Where(r => r.Attributes != null && EF.Functions.ILike(r.Attributes, likePattern))
-                .Take(20)
                 .ToListAsync(ct);
 
             foreach (var jm in jsonMatches)
