@@ -568,11 +568,14 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         // Anything older is a data-quality issue, not an operator task.
         var since = DateTime.UtcNow.AddDays(-60);
 
+        // Note: we DON'T chain Item -> CompanyStockingSettings -> PreferredVendor
+        // here because EF generates a shadow FK column (i0.ItemId1) that fails
+        // at SQL time (the table has ItemId not ItemId1). Instead we load
+        // orphans first, then resolve preferred vendors via a second query
+        // keyed by ItemId (built below).
         var orphanQuery = _db.StockReceipts
             .AsNoTracking()
             .Include(r => r.Item)
-                .ThenInclude(i => i!.CompanyStockingSettings!)
-                    .ThenInclude(s => s.PreferredVendor)
             .Include(r => r.Location)
                 .ThenInclude(l => l!.Site)
             .Where(r =>
@@ -598,6 +601,24 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         var orphans = orphansLoaded
             .OrderBy(r => r.ReceivedAt)  // oldest first = most urgent
             .ToList();
+
+        // Resolve preferred vendor per ItemId (per-company stocking record).
+        // Single round-trip; not chained off Item to dodge EF shadow-FK bug.
+        var itemIds = orphans.Where(r => r.ItemId > 0).Select(r => r.ItemId).Distinct().ToList();
+        Dictionary<int, Vendor> preferredVendorByItem = new();
+        if (itemIds.Count > 0)
+        {
+            var stockings = await _db.ItemCompanyStockings
+                .AsNoTracking()
+                .Include(s => s.PreferredVendor)
+                .Where(s => itemIds.Contains(s.ItemId) && s.PreferredVendorId != null)
+                .ToListAsync(ct);
+
+            preferredVendorByItem = stockings
+                .GroupBy(s => s.ItemId)
+                .Where(g => g.First().PreferredVendor != null)
+                .ToDictionary(g => g.Key, g => g.First().PreferredVendor!);
+        }
 
         // Pull candidate PO pool ONCE for the page. Score per-orphan in memory.
         // Filter to receivable POs ordered within last 60 days — that's the
@@ -639,7 +660,8 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             };
 
             var qtyStr = $"{r.QuantityReceived:0.##} {r.Uom ?? "EA"}";
-            var preferredVendor = ResolvePreferredVendor(r.Item)?.Name;
+            var preferredVendorObj = preferredVendorByItem.TryGetValue(r.ItemId, out var pv) ? pv : null;
+            var preferredVendor = preferredVendorObj?.Name;
 
             var meta = new List<MetaTriple>
             {
@@ -659,7 +681,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
                 StatusTone:  daysAged >= 10 ? "danger" : "warning",
                 DaysAged:    daysAged));
 
-            previews.Add(BuildOrphanQueuePreview(r, candidatePosLoaded, recencyCutoff, daysAged));
+            previews.Add(BuildOrphanQueuePreview(r, candidatePosLoaded, recencyCutoff, daysAged, preferredVendorObj));
         }
 
         return Result.Success(new OrphanQueueData
@@ -669,29 +691,15 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         });
     }
 
-    // Preferred-vendor lookup helper — Item itself has no PreferredVendor.
-    // The per-company stocking record (ItemCompanyStocking) carries it. For
-    // scoring we accept ANY company's stocking setting (in v1 the seeded
-    // tenant has a single company per site).
-    private static Vendor? ResolvePreferredVendor(Item? item)
-    {
-        var stocking = item?.CompanyStockingSettings?.FirstOrDefault(s => s.PreferredVendorId.HasValue);
-        return stocking?.PreferredVendor;
-    }
-
-    private static int? ResolvePreferredVendorId(Item? item)
-    {
-        return item?.CompanyStockingSettings?.FirstOrDefault(s => s.PreferredVendorId.HasValue)?.PreferredVendorId;
-    }
-
     private static OrphanQueuePreview BuildOrphanQueuePreview(
         StockReceipt r,
         List<PurchaseOrder> candidatePoPool,
         DateTime recencyCutoff,
-        int daysAged)
+        int daysAged,
+        Vendor? preferredVendor)
     {
         var itemId = r.ItemId;
-        var preferredVendorId = ResolvePreferredVendorId(r.Item);
+        var preferredVendorId = preferredVendor?.Id;
 
         // Score every candidate PO. ItemMatch(40) + VendorMatch(40) + Recency(20).
         var scored = candidatePoPool
@@ -749,7 +757,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             ReceiptNumber   = r.ReceiptNumber,
             ItemPartNumber  = r.Item?.PartNumber ?? "—",
             ItemDescription = r.Item?.Description ?? "—",
-            PreferredVendor = ResolvePreferredVendor(r.Item)?.Name,
+            PreferredVendor = preferredVendor?.Name,
             LotNumber       = r.LotNumber,
             Quantity        = $"{r.QuantityReceived:0.##} {r.Uom ?? "EA"}",
             ReceivedAt      = r.ReceivedAt.ToString("MMM dd, yyyy"),
