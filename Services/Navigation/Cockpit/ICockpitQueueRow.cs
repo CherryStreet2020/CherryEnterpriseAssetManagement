@@ -27,6 +27,18 @@ public interface ICockpitQueueRow
     DateTime? RequiredAt { get; }                       // drives the default ByTimeLens grouping
     string Tone { get; }                                // "danger" | "warning" | "info" | "neutral"
     IReadOnlyList<MetaTriple> Meta { get; }
+
+    // Optional status pill rendered on the queue card (top-right). Both
+    // properties must be non-null/non-empty for the pill to render. Default to
+    // null so existing implementations stay source-compatible (additive via
+    // C# 8+ default interface methods).
+    //
+    // StatusLabel is the short uppercase pill text (e.g. "SENT", "PARTIAL").
+    // StatusTone drives the pill color, using the same palette as Tone:
+    //   "approved"|"info"|"pending"|"warning"|"danger"|"neutral"
+    //   (the partial maps these to .status-badge-p--* CSS classes).
+    string? StatusLabel => null;
+    string? StatusTone => null;
 }
 
 // A single label/value pair shown in a Cockpit queue card's meta row.

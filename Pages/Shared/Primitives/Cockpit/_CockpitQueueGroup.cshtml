@@ -1,0 +1,36 @@
+@*
+    _CockpitQueueGroup.cshtml — Sprint 12A PR #5 / ADR-018 §D3.
+
+    One time-bucket (or lens-bucket) of queue cards. Receives the group's
+    label + tone + icon + rows; the per-card render hops to _CockpitQueueCard.
+
+    Tone palette matches the rest of the Cockpit pattern (mapped to legacy
+    CSS classes cockpit__group-label--danger / --warning / --info; "neutral"
+    falls back to the default text-muted style).
+
+    ViewData["SelectFunctionName"] threads through from _CockpitQueue so the
+    card knows which window-fn to call on click without us inventing a new
+    typed view-model for one string.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitQueueGroupViewModel
+
+@if (Model is { Rows.Count: > 0 })
+{
+    var toneClass = Model.Tone switch
+    {
+        "danger" => "cockpit__group-label--danger",
+        "warning" => "cockpit__group-label--warning",
+        "info" => "cockpit__group-label--info",
+        _ => "",
+    };
+
+    <div class="cockpit__group" data-group="@Model.Code">
+        <div class="cockpit__group-label @toneClass">
+            <i class="fas @Model.IconClass"></i> @Model.Label
+        </div>
+        @foreach (var row in Model.Rows)
+        {
+            @await Html.PartialAsync("Primitives/Cockpit/_CockpitQueueCard", row)
+        }
+    </div>
+}

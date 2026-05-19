@@ -7,6 +7,7 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Pages.Shared.ControlCenter;
 using Abs.FixedAssets.Pages.Shared.Primitives;
 using Abs.FixedAssets.Pages.Shared.Primitives.Cockpit;
+using Abs.FixedAssets.Services.Navigation.Cockpit;
 using Abs.FixedAssets.Services.Receiving;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -70,6 +71,11 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     // Tab shell model. Hydrated in OnGetAsync; consumed by ControlCenter.cshtml.
     public CockpitTabShellModel TabShell { get; private set; } = new();
 
+    // PO Queue tab payload. Hydrated only when ActiveTab == TabPoQueue —
+    // preserves the PR #4 perf win where non-active tabs make zero service
+    // calls. Consumed by ControlCenter.cshtml's po-queue switch arm.
+    public CockpitShellViewModel? PoQueueShell { get; private set; }
+
     public const string TabPoQueue = "po-queue";
     public const string TabAsnQueue = "asn-queue";
     public const string TabOrphans = "orphans";
@@ -114,16 +120,121 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             },
         };
 
-        // Only the Exceptions tab needs the heavyweight Shell hydration (KPI
-        // strip + exception lane + activity feed). Other tabs render
-        // placeholders so the page-load cost stays minimal until the cockpit
-        // consumers wire in PRs #5–#7.
+        // Only the active tab pulls data — preserves the PR #4 perf win
+        // where /Receiving's default landing is near-instant. Each branch is
+        // a self-contained hydrate-the-data-it-needs call.
         if (string.Equals(ActiveTab, TabExceptions, StringComparison.OrdinalIgnoreCase))
         {
             await HydrateExceptionsTabAsync(ct);
         }
+        else if (string.Equals(ActiveTab, TabPoQueue, StringComparison.OrdinalIgnoreCase))
+        {
+            await HydratePoQueueTabAsync(ct);
+        }
 
         return Page();
+    }
+
+    // Pulls the PO Queue rows + preview blob via
+    // IReceivingControlCenterService.GetPoQueueAsync, runs them through the
+    // default ByTimeLens, and assembles the CockpitShellViewModel the
+    // ControlCenter.cshtml po-queue branch composes from the shared
+    // Pages/Shared/Primitives/Cockpit/* partials.
+    //
+    // The legacy /Receiving/Cockpit-Legacy page hydrated the same data inline.
+    // Pixel-identical render is the ADR-018 §D3 promise — the lens, partials,
+    // welcome stats, and preview JSON shape are all extracted byte-for-byte
+    // from Pages/Receiving/Index.cshtml.
+    private async Task HydratePoQueueTabAsync(CancellationToken ct)
+    {
+        var filter = new PoQueueFilter { SiteCode = SiteCode };
+        var queueResult = await _receiving.GetPoQueueAsync(filter, ct);
+
+        if (queueResult.IsFailure || queueResult.Value is null)
+        {
+            _logger.LogWarning("GetPoQueueAsync failed for site {SiteCode}: {Error}", SiteCode, queueResult.Error);
+            PoQueueShell = new CockpitShellViewModel
+            {
+                Queue = new CockpitQueueViewModel
+                {
+                    TitleHtml = "PO Queue",
+                    TitleIconClass = "fas fa-inbox",
+                    SearchPlaceholder = "Search PO#, vendor...",
+                    Empty = new CockpitEmptyViewModel
+                    {
+                        IconClass = "fas fa-triangle-exclamation",
+                        IconTone = "warning",
+                        Message = queueResult.Error ?? "Queue unavailable.",
+                    },
+                },
+                Welcome = new CockpitWelcomeViewModel
+                {
+                    IconClass = "fas fa-box-open",
+                    Title = "Select a PO to preview",
+                    Subtitle = "Click a purchase order from the queue to see line details and begin receiving.",
+                },
+                PreviewBlobJson = "[]",
+            };
+            return;
+        }
+
+        var data = queueResult.Value;
+        var lens = new ByTimeLens<PoQueueRow>();
+        var groups = lens.Group(data.Rows);
+
+        // ByTimeLens groups → view-model groups. Rows widen to ICockpitQueueRow
+        // since the partials are domain-agnostic.
+        var groupVms = groups.Select(g => new CockpitQueueGroupViewModel
+        {
+            Code = g.Code,
+            Label = g.Label,
+            Tone = g.Tone,
+            IconClass = g.Icon,
+            Rows = g.Rows.Cast<ICockpitQueueRow>().ToList(),
+        }).ToList();
+
+        // 4-stat welcome strip matches the legacy /Receiving/Cockpit-Legacy
+        // counts. ByTimeLens groups are keyed by code so we read each bucket
+        // by code; missing buckets read as 0.
+        int CountFor(string code) =>
+            groups.FirstOrDefault(g => string.Equals(g.Code, code, StringComparison.OrdinalIgnoreCase))?.Rows.Count ?? 0;
+
+        var welcome = new CockpitWelcomeViewModel
+        {
+            IconClass = "fas fa-box-open",
+            Title = "Select a PO to preview",
+            Subtitle = "Click a purchase order from the queue to see line details and begin receiving.",
+            Stats = new[]
+            {
+                new CockpitWelcomeStat("Overdue",  CountFor("overdue").ToString(),   "danger"),
+                new CockpitWelcomeStat("Due Today", CountFor("today").ToString(),    "warning"),
+                new CockpitWelcomeStat("This Week", CountFor("this-week").ToString()),
+                new CockpitWelcomeStat("Upcoming", CountFor("later").ToString(),     "muted"),
+            },
+        };
+
+        PoQueueShell = new CockpitShellViewModel
+        {
+            Queue = new CockpitQueueViewModel
+            {
+                TitleHtml = "PO Queue",
+                TitleIconClass = "fas fa-inbox",
+                CountBadge = data.Rows.Count,
+                SearchPlaceholder = "Search PO#, vendor...",
+                SearchElementId = "poSearch",
+                FilterFunctionName = "filterQueue",
+                SelectFunctionName = "selectPO",
+                Groups = groupVms,
+                Empty = data.Rows.Count == 0
+                    ? new CockpitEmptyViewModel { IconClass = "fas fa-check-circle", IconTone = "success", Message = "All caught up!" }
+                    : null,
+            },
+            Welcome = welcome,
+            PreviewPartialName = "_CockpitPoQueuePreview",
+            PreviewPartialModel = null,
+            PreviewBlobJson = CockpitPreviewSerializer.SerializeMany(data.Previews),
+            PreviewBlobElementId = "__poDetails",
+        };
     }
 
     // Pulls KPI strip + exception lane + activity feed + drawer placeholder

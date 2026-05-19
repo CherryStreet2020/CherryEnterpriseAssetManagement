@@ -55,19 +55,25 @@
         break;
 
     default:
-        @* TabPoQueue is the default. Real wiring lands PR #5
-           (IReceivingControlCenterService.GetPoQueueAsync +
-           PoQueueRow : ICockpitQueueRow). Legacy /Receiving/Cockpit-Legacy
-           remains the operator's daily driver until then. *@
-        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-po-queue">
-            <i class="fas fa-file-invoice cockpit-tab-placeholder__icon" aria-hidden="true"></i>
-            <h2 class="cockpit-tab-placeholder__title">PO Queue &mdash; coming Sprint 12A PR #5</h2>
-            <p class="cockpit-tab-placeholder__sub">
-                Time-bucketed PO queue (Overdue / Today / This Week / Later) with a
-                click-to-preview pane on the right &mdash; the daily-driver canvas.
-                Will render pixel-identical to <a href="/Receiving/Cockpit-Legacy">/Receiving/Cockpit-Legacy</a>.
-            </p>
-            <a class="cockpit-tab-placeholder__chip" href="/Receiving/Cockpit-Legacy" style="text-decoration: none;">USE COCKPIT (LEGACY)</a>
+        @* TabPoQueue — first real Cockpit canvas inside the new /Receiving
+           shell. Sprint 12A PR #5 / ADR-018 §D3. Composed from the shared
+           Pages/Shared/Primitives/Cockpit/* partials + the Receiving-specific
+           _CockpitPoQueuePreview right-pane body. Pixel-identical to the
+           legacy /Receiving/Cockpit-Legacy by extraction (not redesign). *@
+        <div role="tabpanel" aria-labelledby="tab-po-queue">
+            @if (Model.PoQueueShell is not null)
+            {
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.PoQueueShell)
+            }
         </div>
         break;
+}
+
+@section Scripts {
+    @* wwwroot/js/cockpit.js exposes window.filterQueue + window.selectPO,
+       which the cockpit shell partials' inline onclick / oninput handlers
+       call. Loaded for the PO Queue tab (default) so the cockpit is fully
+       interactive on first paint. Already idempotent and safe to load even
+       when the active tab is not PO Queue. *@
+    <script src="~/js/cockpit.js" asp-append-version="true"></script>
 }

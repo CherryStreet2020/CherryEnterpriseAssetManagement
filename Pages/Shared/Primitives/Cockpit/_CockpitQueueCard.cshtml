@@ -1,0 +1,55 @@
+@*
+    _CockpitQueueCard.cshtml — Sprint 12A PR #5 / ADR-018 §D3 / §D5.
+
+    One queue card. Generic — accepts any ICockpitQueueRow. Markup extracted
+    verbatim from the legacy Pages/Receiving/_QueueCard.cshtml so the visual
+    is byte-for-byte the same as /Receiving/Cockpit-Legacy.
+
+    Optional status pill uses StatusLabel + StatusTone from ICockpitQueueRow.
+    StatusTone maps to .status-badge-p--* classes ("approved", "info",
+    "pending", "warning", "danger"; falls back to "approved").
+
+    onclick = "{selectFn}({id})" — selectFn defaults to selectPO (the legacy
+    cockpit.js global). The page can override via the SelectFunctionName field
+    on CockpitQueueViewModel and we thread it through ViewData here.
+*@
+@model Abs.FixedAssets.Services.Navigation.Cockpit.ICockpitQueueRow
+
+@{
+    var selectFn = (ViewData["SelectFunctionName"] as string) ?? "selectPO";
+    var isOverdue = string.Equals(Model.Tone, "danger", System.StringComparison.OrdinalIgnoreCase);
+
+    var statusClass = Model.StatusTone switch
+    {
+        "approved" => "status-badge-p--approved",
+        "info" => "status-badge-p--info",
+        "pending" => "status-badge-p--pending",
+        "warning" => "status-badge-p--warning",
+        "danger" => "status-badge-p--danger",
+        _ => "status-badge-p--approved",
+    };
+}
+
+<div class="cockpit__card @(isOverdue ? "cockpit__card--overdue" : "")"
+     data-id="@Model.Id"
+     data-po="@Model.Primary"
+     data-vendor="@Model.Secondary"
+     onclick="@(selectFn)(@Model.Id)">
+    <div class="cockpit__card-row">
+        <span class="cockpit__card-po">@Model.Primary</span>
+        @if (!string.IsNullOrEmpty(Model.StatusLabel))
+        {
+            <span class="status-badge-p @statusClass" data-csp-style="font-size:0.55rem;">@Model.StatusLabel</span>
+        }
+    </div>
+    <div class="cockpit__card-vendor">@Model.Secondary</div>
+    @if (Model.Meta is { Count: > 0 })
+    {
+        <div class="cockpit__card-meta">
+            @foreach (var m in Model.Meta)
+            {
+                <span>@m.Label: <strong>@m.Value</strong></span>
+            }
+        </div>
+    }
+</div>

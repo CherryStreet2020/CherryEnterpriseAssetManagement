@@ -31,6 +31,7 @@ using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Infrastructure;
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Services.Infrastructure;
+using Abs.FixedAssets.Services.Navigation.Cockpit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -261,6 +262,125 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             HighestSequence = entries.FirstOrDefault()?.Sequence ?? filter.SinceSequence,
             AsOfUtc = DateTime.UtcNow,
         });
+    }
+
+    public async Task<Result<PoQueueData>> GetPoQueueAsync(
+        PoQueueFilter filter,
+        CancellationToken ct)
+    {
+        // Mirror the legacy /Receiving/Cockpit-Legacy query (Pages/Receiving/Index.cshtml.cs).
+        // Pixel-identical extraction is the ADR-018 §D3 promise for PR #5; the only
+        // intentional difference is dropping the tenant-context VisibleCompanyIds
+        // filter. The legacy page wired it in the page model; site-scoped Control
+        // Centers ship in Sprint 12B (DEPTH) where tenant scope flows uniformly
+        // through every Control Center via a shared filter wrapper.
+        var receivableStatuses = new[]
+        {
+            POStatus.Approved,
+            POStatus.Sent,
+            POStatus.PartiallyReceived,
+        };
+
+        var query = _db.PurchaseOrders
+            .AsNoTracking()
+            .Include(p => p.Vendor)
+            .Include(p => p.Lines).ThenInclude(l => l.Item)
+            .Include(p => p.ShipToSite)
+            .Where(p => receivableStatuses.Contains(p.Status));
+
+        // SiteCode filter — when provided, scope to POs ship-to that site.
+        // Site.Code is the natural key; the existing service surface already
+        // takes a SiteCode string on KpiStripFilter so we mirror the same shape.
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            query = query.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
+        }
+
+        var pos = await query
+            .OrderBy(p => p.RequiredDate ?? p.OrderDate)
+            .ToListAsync(ct);
+
+        var todayLocal = DateTime.Today;
+        var weekEndLocal = todayLocal.AddDays(7);
+
+        var rows = pos.Select(p => BuildPoQueueRow(p, todayLocal, weekEndLocal)).ToList();
+        var previews = pos.Select(BuildPoQueuePreview).ToList();
+
+        return Result.Success(new PoQueueData
+        {
+            Rows = rows,
+            Previews = previews,
+        });
+    }
+
+    private static PoQueueRow BuildPoQueueRow(PurchaseOrder p, DateTime todayLocal, DateTime weekEndLocal)
+    {
+        string tone;
+        if (p.RequiredDate.HasValue && p.RequiredDate.Value < todayLocal)        tone = "danger";
+        else if (p.RequiredDate.HasValue && p.RequiredDate.Value == todayLocal)  tone = "warning";
+        else if (p.RequiredDate.HasValue && p.RequiredDate.Value <= weekEndLocal) tone = "info";
+        else                                                                       tone = "neutral";
+
+        var meta = new List<MetaTriple>
+        {
+            new("Required", p.RequiredDate?.ToString("MM/dd") ?? "—"),
+            new("Lines",    (p.Lines?.Count ?? 0).ToString()),
+            new("Value",    $"${p.Total:N0}"),
+        };
+
+        // Match the legacy _QueueCard.cshtml status-pill mapping byte-for-byte
+        // so the pixel-identical promise holds.
+        var statusTone = p.Status switch
+        {
+            POStatus.PartiallyReceived => "pending",
+            POStatus.Sent              => "info",
+            _                          => "approved",
+        };
+
+        return new PoQueueRow(
+            Id:          p.Id.ToString(),
+            Primary:     p.PONumber,
+            Secondary:   p.Vendor?.Name ?? "—",
+            RequiredAt:  p.RequiredDate,
+            Tone:        tone,
+            Meta:        meta,
+            StatusLabel: p.Status.ToString(),
+            StatusTone:  statusTone);
+    }
+
+    private static PoQueuePreview BuildPoQueuePreview(PurchaseOrder p)
+    {
+        var lines = (p.Lines ?? new List<PurchaseOrderLine>())
+            .Select(l => new PoQueueLine
+            {
+                PartNum    = l.PartNumber ?? l.Item?.PartNumber ?? "—",
+                Desc       = l.Description ?? l.Item?.Description ?? "—",
+                Uom        = string.IsNullOrEmpty(l.UOM) ? "EA" : l.UOM,
+                Ordered    = l.QuantityOrdered,
+                Received   = l.QuantityReceived,
+                Remaining  = l.QuantityOrdered - l.QuantityReceived,
+                UnitPrice  = l.UnitPrice,
+                LineTotal  = l.QuantityOrdered * l.UnitPrice,
+                Putaway    = new[] { l.Item?.Warehouse, l.Item?.DefaultLocation, l.Item?.Bin }
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Select(s => s!)
+                    .ToList(),
+            })
+            .ToList();
+
+        return new PoQueuePreview
+        {
+            Id           = p.Id,
+            Num          = p.PONumber,
+            Vendor       = p.Vendor?.Name ?? "—",
+            OrderDate    = p.OrderDate.ToString("MMM dd, yyyy"),
+            RequiredDate = p.RequiredDate?.ToString("MMM dd, yyyy") ?? "—",
+            Status       = p.Status.ToString(),
+            Total        = p.Total.ToString("N2"),
+            ShipTo       = p.ShipToSite?.Name ?? "—",
+            Lines        = lines,
+        };
     }
 
     // =====================================================================
