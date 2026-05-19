@@ -1,0 +1,143 @@
+@*
+    _CockpitNextUp.cshtml — Sprint 12A PR #5.2.
+
+    Receiving-specific "Next Up" priority preview pane. Replaces the empty
+    "Select a PO to preview" welcome state with the highest-priority overdue
+    PO already loaded, action chips visible, and an "Up next" teaser at the
+    bottom. The page lands with the operator's most urgent action already in
+    front of them.
+
+    Lives under Pages/Receiving/ because its field set (Vendor / Order Date /
+    Required Date / Ship To / Line items + Receive button to /Receiving/Receive)
+    is PO-specific. Sprints 13-18 will ship per-domain Next-Up partials with
+    the same structural pattern.
+*@
+@model Abs.FixedAssets.Services.Receiving.ReceivingNextUpData
+
+@{
+    var p = Model?.Priority;
+    var teaser = Model?.UpNext;
+}
+
+<section class="cockpit-next-up @(p is null ? "cockpit-next-up--empty" : "")" aria-label="Next priority PO">
+    @if (p is null)
+    {
+        <div class="cockpit-next-up__empty">
+            <i class="fas fa-circle-check cockpit-next-up__empty-icon" aria-hidden="true"></i>
+            <h2 class="cockpit-next-up__empty-title">Dock is clear</h2>
+            <p class="cockpit-next-up__empty-sub">No open POs awaiting receipt. Voice "next PO" when something arrives.</p>
+        </div>
+    }
+    else
+    {
+        var priorityClass = p.DaysOverdue.HasValue ? "cockpit-next-up--danger" :
+                            string.Equals(p.Status, "Sent", StringComparison.OrdinalIgnoreCase) ? "cockpit-next-up--warning" :
+                            "cockpit-next-up--neutral";
+
+        var statusBadgeClass = p.StatusTone switch
+        {
+            "approved" => "status-badge-p--approved",
+            "info"     => "status-badge-p--info",
+            "pending"  => "status-badge-p--pending",
+            "warning"  => "status-badge-p--warning",
+            "danger"   => "status-badge-p--danger",
+            _          => "status-badge-p--neutral",
+        };
+
+        <header class="cockpit-next-up__header @priorityClass">
+            <div class="cockpit-next-up__priority-row">
+                <span class="cockpit-next-up__priority-chip">PRIORITY</span>
+                @if (p.DaysOverdue.HasValue)
+                {
+                    <span class="cockpit-next-up__urgency">@p.DaysOverdue DAYS OVERDUE</span>
+                }
+                else
+                {
+                    <span class="cockpit-next-up__urgency cockpit-next-up__urgency--neutral">UP NEXT IN QUEUE</span>
+                }
+            </div>
+            <div class="cockpit-next-up__title-row">
+                <div class="cockpit-next-up__title-block">
+                    <div class="cockpit-next-up__po-row">
+                        <h2 class="cockpit-next-up__po">@p.PoNumber</h2>
+                        <span class="status-badge-p @statusBadgeClass cockpit-next-up__status">@p.StatusLabel</span>
+                    </div>
+                    <div class="cockpit-next-up__vendor-row">
+                        <span class="cockpit-next-up__vendor">@p.Vendor</span>
+                        <span class="cockpit-next-up__dot" aria-hidden="true">·</span>
+                        <span class="cockpit-next-up__meta">@p.LineCount line@(p.LineCount == 1 ? "" : "s")</span>
+                        <span class="cockpit-next-up__dot" aria-hidden="true">·</span>
+                        <span class="cockpit-next-up__meta cockpit-next-up__meta--value">@p.TotalText</span>
+                    </div>
+                </div>
+                <div class="cockpit-next-up__actions">
+                    <a class="cockpit-next-up__action cockpit-next-up__action--primary"
+                       href="/Receiving/Receive/@p.Id">
+                        <i class="fas fa-box-open" aria-hidden="true"></i>
+                        Receive now
+                    </a>
+                    <button type="button" class="cockpit-next-up__action cockpit-next-up__action--secondary">Quarantine</button>
+                    <button type="button" class="cockpit-next-up__action cockpit-next-up__action--ghost">Skip</button>
+                </div>
+            </div>
+            <div class="cockpit-next-up__meta-row">
+                <span><span class="cockpit-next-up__meta-label">Order</span> @p.OrderDateText</span>
+                <span><span class="cockpit-next-up__meta-label">Required</span> @p.RequiredDateText</span>
+                <span><span class="cockpit-next-up__meta-label">Ship to</span> @p.ShipTo</span>
+            </div>
+        </header>
+
+        <div class="cockpit-next-up__lines">
+            <div class="cockpit-next-up__lines-header">
+                <span>LINE ITEMS</span>
+                <span class="cockpit-next-up__lines-count">@p.LineCount total</span>
+            </div>
+            <table class="cockpit-next-up__lines-table">
+                <thead>
+                    <tr>
+                        <th class="cockpit-next-up__th cockpit-next-up__th--part">Part #</th>
+                        <th class="cockpit-next-up__th">Description</th>
+                        <th class="cockpit-next-up__th cockpit-next-up__th--right">Ordered</th>
+                        <th class="cockpit-next-up__th cockpit-next-up__th--right">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var l in p.Lines)
+                    {
+                        <tr class="cockpit-next-up__row">
+                            <td class="cockpit-next-up__td cockpit-next-up__td--part">@l.PartNumber</td>
+                            <td class="cockpit-next-up__td cockpit-next-up__td--desc">@l.Description</td>
+                            <td class="cockpit-next-up__td cockpit-next-up__td--right">@($"{l.Ordered:0} {l.Uom}")</td>
+                            <td class="cockpit-next-up__td cockpit-next-up__td--right cockpit-next-up__td--mono">@l.LineTotalText</td>
+                        </tr>
+                    }
+                    @if (p.LineCount > p.Lines.Count)
+                    {
+                        <tr class="cockpit-next-up__row cockpit-next-up__row--more">
+                            <td class="cockpit-next-up__td cockpit-next-up__td--more" colspan="4">
+                                + @(p.LineCount - p.Lines.Count) more line@((p.LineCount - p.Lines.Count) == 1 ? "" : "s") — open Receive to see all
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="cockpit-next-up__footer">
+            @if (teaser is not null)
+            {
+                <span class="cockpit-next-up__up-next">
+                    <span class="cockpit-next-up__up-next-label">Up next:</span>
+                    <a href="/Receiving/Receive/@teaser.Id" class="cockpit-next-up__up-next-link">@teaser.PoNumber · @teaser.Vendor · @teaser.LineCount line@(teaser.LineCount == 1 ? "" : "s") · @teaser.TotalText</a>
+                </span>
+            }
+            else
+            {
+                <span class="cockpit-next-up__up-next-empty">No follow-up — the queue is empty after this.</span>
+            }
+            <span class="cockpit-next-up__keys">
+                <kbd>J</kbd> <kbd>K</kbd> navigate · <kbd>Enter</kbd> receive
+            </span>
+        </footer>
+    }
+</section>

@@ -81,6 +81,13 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     // ADR-018 §D3.
     public CockpitKpiBandViewModel? KpiBand { get; private set; }
 
+    // Sprint 12A PR #5.2 — anchored page header (replaces in-band eyebrow),
+    // Next Up priority preview (replaces empty welcome state), and AI
+    // Suggestions strip (Sprint 5 voice-AI stub).
+    public CockpitPageHeaderViewModel? PageHeader { get; private set; }
+    public ReceivingNextUpData? NextUp { get; private set; }
+    public ReceivingAiSuggestionsData? AiSuggestions { get; private set; }
+
     public const string TabPoQueue = "po-queue";
     public const string TabAsnQueue = "asn-queue";
     public const string TabOrphans = "orphans";
@@ -125,14 +132,14 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             },
         };
 
-        // Sprint 12A PR #5.1 — KPI band is the third leg of the Cockpit canvas
-        // (ADR-018 §D3) and lives ABOVE the tab bar. Always hydrated regardless
-        // of active tab so the operator's at-a-glance status is persistent.
+        // Sprint 12A PR #5.2 — page header (anchored title bar) + KPI band
+        // (4-tile hero) + AI suggestions strip are always hydrated. Next Up
+        // priority preview only hydrates on the PO Queue tab (the only tab
+        // that consumes it). Each is failure-safe.
+        HydratePageHeader();
         await HydrateKpiBandAsync(ct);
+        await HydrateAiSuggestionsAsync(ct);
 
-        // Only the active tab pulls data — preserves the PR #4 perf win
-        // where /Receiving's default landing is near-instant. Each branch is
-        // a self-contained hydrate-the-data-it-needs call.
         if (string.Equals(ActiveTab, TabExceptions, StringComparison.OrdinalIgnoreCase))
         {
             await HydrateExceptionsTabAsync(ct);
@@ -140,9 +147,55 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         else if (string.Equals(ActiveTab, TabPoQueue, StringComparison.OrdinalIgnoreCase))
         {
             await HydratePoQueueTabAsync(ct);
+            await HydrateNextUpAsync(ct);
         }
 
         return Page();
+    }
+
+    private void HydratePageHeader()
+    {
+        PageHeader = new CockpitPageHeaderViewModel
+        {
+            Title           = "Receiving",
+            Scope           = string.IsNullOrEmpty(SiteCode) ? "All sites" : SiteCode,
+            Subtitle        = "Push-to-talk voice (hold Space)",
+            ShowLive        = true,
+            RefreshedAtText = "updated just now",
+            ShowVoiceButton = true,
+            VoiceButtonLabel = "Voice",
+        };
+    }
+
+    private async Task HydrateNextUpAsync(CancellationToken ct)
+    {
+        var filter = new ReceivingNextUpFilter { SiteCode = SiteCode };
+        var result = await _receiving.GetReceivingNextUpAsync(filter, ct);
+        NextUp = result.IsSuccess ? result.Value : new ReceivingNextUpData();
+
+        // Wire NextUp into PoQueueShell as the preroll partial so the right
+        // pane lands with the priority preview instead of an empty welcome.
+        if (PoQueueShell is not null)
+        {
+            PoQueueShell = new CockpitShellViewModel
+            {
+                Queue = PoQueueShell.Queue,
+                Welcome = PoQueueShell.Welcome,
+                PreviewPartialName = PoQueueShell.PreviewPartialName,
+                PreviewPartialModel = PoQueueShell.PreviewPartialModel,
+                PreviewBlobJson = PoQueueShell.PreviewBlobJson,
+                PreviewBlobElementId = PoQueueShell.PreviewBlobElementId,
+                PrerollPartialName = "_CockpitNextUp",
+                PrerollPartialModel = NextUp,
+            };
+        }
+    }
+
+    private async Task HydrateAiSuggestionsAsync(CancellationToken ct)
+    {
+        var filter = new ReceivingAiSuggestionsFilter { SiteCode = SiteCode };
+        var result = await _receiving.GetReceivingAiSuggestionsAsync(filter, ct);
+        AiSuggestions = result.IsSuccess ? result.Value : new ReceivingAiSuggestionsData();
     }
 
     // Pulls the 8-tile KPI band data and shapes it into the view-model the
@@ -167,22 +220,19 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         }
 
         var d = bandResult.Value;
+        // PR #5.2 — Hero mode = 4 tiles, no in-band eyebrow (page header owns it).
+        // Order: Overdue (the urgent number) · Due Today · Open POs (the headline)
+        // · Exceptions Open. Dropped: This Week · Receipts Today · Dock-to-Stock
+        // · Doc Completeness — those move to a future Trends dashboard.
         KpiBand = new CockpitKpiBandViewModel
         {
-            Eyebrow = string.IsNullOrEmpty(SiteCode)
-                ? "TODAY'S DOCK · ALL SITES"
-                : $"TODAY'S DOCK · {SiteCode.ToUpperInvariant()}",
-            RefreshedAtText = $"updated {FormatRelative(d.ComputedAtUtc)}",
-            ShowLiveIndicator = true,
+            HeroMode = true,
+            ShowLiveIndicator = false,  // page header owns the LIVE chip now
             Tiles = new[]
             {
-                BandTile(d.OpenPos),
                 BandTile(d.Overdue),
                 BandTile(d.DueToday),
-                BandTile(d.ThisWeek),
-                BandTile(d.ReceiptsToday),
-                BandTile(d.DockToStock),
-                BandTile(d.DocCompleteness),
+                BandTile(d.OpenPos),
                 BandTile(d.ExceptionsOpen),
             },
         };
@@ -194,6 +244,7 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         Value = t.Value,
         Unit = t.Unit,
         TargetText = t.TargetText,
+        SubText = t.SubText,
         Tone = t.Tone,
         SparkPoints = t.SparkPoints,
         DrillHref = t.DrillHref,
@@ -284,7 +335,7 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             {
                 TitleHtml = "PO Queue",
                 TitleIconClass = "fas fa-inbox",
-                CountBadge = data.Rows.Count,
+                CountBadge = 0,    // PR #5.2 — KPI band owns the count now (Open POs tile)
                 SearchPlaceholder = "Search PO#, vendor...",
                 SearchElementId = "poSearch",
                 FilterFunctionName = "filterQueue",
@@ -299,6 +350,9 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             PreviewPartialModel = null,
             PreviewBlobJson = CockpitPreviewSerializer.SerializeMany(data.Previews),
             PreviewBlobElementId = "__poDetails",
+            // PR #5.2 — preroll renders the "Next Up" priority pane on first
+            // paint instead of an empty welcome state. NextUp is hydrated
+            // in HydrateNextUpAsync (called after HydratePoQueueTabAsync).
         };
     }
 

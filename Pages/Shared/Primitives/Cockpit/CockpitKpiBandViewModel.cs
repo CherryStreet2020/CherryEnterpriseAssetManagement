@@ -27,6 +27,12 @@ public sealed class CockpitKpiBandViewModel
     public string? RefreshedAtText { get; init; }
     public bool ShowLiveIndicator { get; init; } = true;
     public IReadOnlyList<CockpitKpiTileViewModel> Tiles { get; init; } = Array.Empty<CockpitKpiTileViewModel>();
+
+    // PR #5.2 — hero mode: 4 wide tiles, bigger value, sub-text. Replaces the
+    // original 8-tile band where eyebrow + status live inside the band.
+    // When true, the page header partial owns the eyebrow + LIVE chip and
+    // the band doesn't render its own header row.
+    public bool HeroMode { get; init; }
 }
 
 // One tile in the band.
@@ -46,6 +52,7 @@ public sealed class CockpitKpiTileViewModel
     public string Value { get; init; } = "—";
     public string? Unit { get; init; }
     public string? TargetText { get; init; }
+    public string? SubText { get; init; }   // PR #5.2 — context line under the value
     public string Tone { get; init; } = "neutral";
     public IReadOnlyList<double> SparkPoints { get; init; } = Array.Empty<double>();
     public string? DrillHref { get; init; }

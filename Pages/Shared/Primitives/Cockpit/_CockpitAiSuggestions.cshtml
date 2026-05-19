@@ -1,0 +1,33 @@
+@*
+    _CockpitAiSuggestions.cshtml — Sprint 12A PR #5.2.
+
+    AI Suggestions strip rendered at the bottom of any Control Center
+    workspace. Three smart hints with optional action chips. Domain-agnostic.
+
+    Sprint 5 swaps the producer service for real voice-AI calls — this
+    partial doesn't need to change.
+*@
+@model Abs.FixedAssets.Services.Receiving.ReceivingAiSuggestionsData
+
+@if (Model is { Suggestions.Count: > 0 })
+{
+    <section class="cockpit-ai-strip" aria-label="AI suggestions">
+        <header class="cockpit-ai-strip__header">
+            <i class="fas fa-sparkles cockpit-ai-strip__sparkle" aria-hidden="true"></i>
+            <span class="cockpit-ai-strip__label">AI Suggests</span>
+        </header>
+        <div class="cockpit-ai-strip__items">
+            @foreach (var s in Model.Suggestions)
+            {
+                <div class="cockpit-ai-strip__item" data-suggestion-code="@s.Code">
+                    <i class="@s.IconClass cockpit-ai-strip__item-icon" aria-hidden="true"></i>
+                    <span class="cockpit-ai-strip__item-text">@s.Text</span>
+                    @if (!string.IsNullOrEmpty(s.ActionText) && !string.IsNullOrEmpty(s.ActionHref))
+                    {
+                        <a class="cockpit-ai-strip__item-action" href="@s.ActionHref">@s.ActionText</a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
