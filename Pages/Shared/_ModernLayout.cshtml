@@ -100,6 +100,7 @@
     <link rel="stylesheet" href="~/css/primitives.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/control-center.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/receiving.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/nav-rebuild.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/base.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/modern.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/premium-components.css" asp-append-version="true" />
@@ -192,7 +193,16 @@
                     <span class="nav-item-icon"><i class="fas fa-gauge-high"></i></span>
                     <span class="nav-item-label">Dashboard</span>
                 </a>
-                
+
+                @* Sprint 11.5 PR #2 / Nav-1 — ADR-017 §D1 + §D5.
+                   Control Centers (the spine of the new IA) + Quick Actions
+                   verb tray, inserted above the legacy Operations groups.
+                   Driven by Services.Navigation.ControlCenterRegistry — each
+                   future sprint that ships a Control Center edits one line
+                   in the registry (IsLive: false → true). *@
+                @await Html.PartialAsync("_NavControlCenters")
+                @await Html.PartialAsync("_NavQuickActions")
+
                 <div class="nav-section-label">OPERATIONS</div>
                 
                 <div class="menu-group @(IsPage("/Assets") || IsPage("/BulkOperations") || IsPage("/Admin/Locations") || IsPage("/Assets/Locations") || IsPage("/Admin/AssetCategories") || IsPage("/Admin/Barcodes") || IsPage("/Plant") ? "expanded" : "")" data-section="assets">
@@ -543,8 +553,19 @@
                         };
                         var helpHref = string.IsNullOrEmpty(helpTopic) ? "/Help" : $"/Help/Topic?id={helpTopic}";
                     }
+                    @* Sprint 11.5 PR #2 / Nav-1 — ADR-017 §D8 + §D9.
+                       Approvals bell + Settings link in the footer utility row.
+                       Approvals is an inbox flow — the bell pattern (Linear/Stripe/GitHub)
+                       beats a sidebar entry. Settings opens the drawer landing that holds
+                       the 30 admin items previously cluttering the operational sidebar. *@
+                    <a href="/Approvals/Pending" class="sidebar-utility-btn icon-only sidebar-utility-btn--approvals @(IsPage("/Approvals") ? "active" : "")" title="Pending approvals inbox" data-tooltip="Approvals">
+                        <i class="fas fa-bell"></i>
+                    </a>
                     <a href="@helpHref" class="sidebar-utility-btn icon-only" title="Help for this page" data-tooltip="Help">
                         <i class="fas fa-circle-question"></i>
+                    </a>
+                    <a href="/Settings" class="sidebar-utility-btn icon-only @(IsPage("/Settings") ? "active" : "")" title="Settings & administration" data-tooltip="Settings">
+                        <i class="fas fa-gear"></i>
                     </a>
                 </div>
 
