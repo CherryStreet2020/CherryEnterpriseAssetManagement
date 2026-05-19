@@ -383,6 +383,166 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         };
     }
 
+    public async Task<Result<ReceivingKpiBandData>> GetReceivingKpiBandAsync(
+        ReceivingKpiBandFilter filter,
+        CancellationToken ct)
+    {
+        // Workload counts come from PurchaseOrders (Approved / Sent /
+        // PartiallyReceived) — the same set GetPoQueueAsync returns.
+        var receivable = new[]
+        {
+            POStatus.Approved,
+            POStatus.Sent,
+            POStatus.PartiallyReceived,
+        };
+
+        var poQuery = _db.PurchaseOrders
+            .AsNoTracking()
+            .Where(p => receivable.Contains(p.Status));
+
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            poQuery = poQuery.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
+        }
+
+        var poStubs = await poQuery
+            .Select(p => new { p.Id, p.RequiredDate, p.OrderDate, p.Status })
+            .ToListAsync(ct);
+
+        var todayLocal = DateTime.Today;
+        var weekEndLocal = todayLocal.AddDays(7);
+        int openTotal = poStubs.Count;
+        int overdueCount = poStubs.Count(p => p.RequiredDate.HasValue && p.RequiredDate.Value <  todayLocal);
+        int todayCount   = poStubs.Count(p => p.RequiredDate.HasValue && p.RequiredDate.Value == todayLocal);
+        int weekCount    = poStubs.Count(p => p.RequiredDate.HasValue && p.RequiredDate.Value > todayLocal && p.RequiredDate.Value <= weekEndLocal);
+
+        // 7-day workload backlog sparkline — count of POs whose RequiredDate
+        // fell in each of the last 7 days. Gives an "incoming pressure" trend.
+        double[] BacklogSpark()
+        {
+            var buckets = new double[7];
+            foreach (var p in poStubs)
+            {
+                if (!p.RequiredDate.HasValue) continue;
+                var dayIdx = (todayLocal - p.RequiredDate.Value).Days;
+                if (dayIdx >= 0 && dayIdx < 7) buckets[6 - dayIdx]++;
+            }
+            return buckets;
+        }
+        var backlogSpark = BacklogSpark();
+
+        // Quality metrics — receipts table.
+        var since14d = DateTime.UtcNow.AddDays(-14);
+        var todayUtc = DateTime.UtcNow.Date;
+        var receiptStubs = await _db.StockReceipts
+            .AsNoTracking()
+            .Where(r => r.ReceivedAt >= since14d)
+            .Select(r => new { r.ReceivedAt, r.Status, r.Attributes })
+            .ToListAsync(ct);
+
+        int receiptsToday = receiptStubs.Count(r => r.ReceivedAt.Date == todayUtc);
+        int exceptionsOpen = receiptStubs.Count(r => r.Status == StockReceiptStatus.Quarantined);
+
+        double[] BucketReceiptsByDay()
+        {
+            var buckets = new double[7];
+            foreach (var r in receiptStubs)
+            {
+                var dayIdx = (todayUtc - r.ReceivedAt.Date).Days;
+                if (dayIdx >= 0 && dayIdx < 7) buckets[6 - dayIdx]++;
+            }
+            return buckets;
+        }
+        var receiptsSpark = BucketReceiptsByDay();
+
+        double[] BucketQuarantineByDay()
+        {
+            var buckets = new double[7];
+            foreach (var r in receiptStubs.Where(r => r.Status == StockReceiptStatus.Quarantined))
+            {
+                var dayIdx = (todayUtc - r.ReceivedAt.Date).Days;
+                if (dayIdx >= 0 && dayIdx < 7) buckets[6 - dayIdx]++;
+            }
+            return buckets;
+        }
+
+        double docCompletenessPct = receiptStubs.Count == 0 ? 0
+            : ComputeDocCompletenessPct(receiptStubs.Select(r => r.Attributes));
+
+        var data = new ReceivingKpiBandData
+        {
+            // Row 1 — workload (clickable filters)
+            OpenPos = new ReceivingKpiTile
+            {
+                Label = "Open POs",
+                Value = openTotal.ToString(),
+                Tone = openTotal == 0 ? "success" : "brand",
+                SparkPoints = backlogSpark,
+                DrillScroll = null, // informational
+            },
+            Overdue = new ReceivingKpiTile
+            {
+                Label = "Overdue",
+                Value = overdueCount.ToString(),
+                Tone = overdueCount > 0 ? "danger" : "success",
+                SparkPoints = backlogSpark,
+                DrillScroll = overdueCount > 0 ? "overdue" : null,
+            },
+            DueToday = new ReceivingKpiTile
+            {
+                Label = "Due today",
+                Value = todayCount.ToString(),
+                Tone = todayCount > 0 ? "warning" : "neutral",
+                DrillScroll = todayCount > 0 ? "today" : null,
+            },
+            ThisWeek = new ReceivingKpiTile
+            {
+                Label = "This week",
+                Value = weekCount.ToString(),
+                Tone = weekCount > 0 ? "info" : "neutral",
+                DrillScroll = weekCount > 0 ? "this-week" : null,
+            },
+
+            // Row 2 — quality (clickable drills)
+            ReceiptsToday = new ReceivingKpiTile
+            {
+                Label = "Receipts today",
+                Value = receiptsToday.ToString(),
+                Tone = "info",
+                SparkPoints = receiptsSpark,
+            },
+            DockToStock = new ReceivingKpiTile
+            {
+                Label = "Dock-to-stock",
+                Value = "—",
+                Unit = "min",
+                TargetText = "target 90",
+                Tone = "neutral",
+            },
+            DocCompleteness = new ReceivingKpiTile
+            {
+                Label = "Doc completeness",
+                Value = receiptStubs.Count == 0 ? "—" : docCompletenessPct.ToString("0.#"),
+                Unit = "%",
+                TargetText = "target 95",
+                Tone = docCompletenessPct >= 95 ? "success" : docCompletenessPct >= 80 ? "warning" : "danger",
+            },
+            ExceptionsOpen = new ReceivingKpiTile
+            {
+                Label = "Exceptions open",
+                Value = exceptionsOpen.ToString(),
+                Tone = exceptionsOpen == 0 ? "success" : "warning",
+                SparkPoints = BucketQuarantineByDay(),
+                DrillHref = "/Receiving?tab=exceptions",
+            },
+
+            ComputedAtUtc = DateTime.UtcNow,
+        };
+
+        return Result.Success(data);
+    }
+
     // =====================================================================
     // COMMANDS
     // =====================================================================

@@ -71,6 +71,17 @@ public interface IReceivingControlCenterService
         PoQueueFilter filter,
         CancellationToken ct);
 
+    /// <summary>
+    /// 8-tile KPI band for the page header — the third leg of the Cockpit
+    /// canvas per ADR-018 §D3. Mixed workload (Open POs / Overdue / Due
+    /// Today / This Week) + quality (Receipts Today / Dock-to-Stock / Doc
+    /// Completeness / Exceptions Open). Always rendered above the tab bar
+    /// on /Receiving regardless of active tab.
+    /// </summary>
+    Task<Result<ReceivingKpiBandData>> GetReceivingKpiBandAsync(
+        ReceivingKpiBandFilter filter,
+        CancellationToken ct);
+
     // ----- Commands (all flow through IdempotencyMediator) -----------
 
     /// <summary>

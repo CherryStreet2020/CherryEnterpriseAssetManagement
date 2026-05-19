@@ -138,4 +138,69 @@
     } else {
         bindTabKeyboardNav();
     }
+
+    // -------------------------------------------------------------------------
+    // Sprint 12A PR #5.1 — KPI band drill-through.
+    //
+    // Workload tiles (Overdue / Due Today / This Week) carry data-drill-scroll
+    // with a group key ("overdue" / "today" / "this-week" / "later"). Clicking
+    // such a tile scrolls .cockpit__group[data-group="{key}"] into view and
+    // briefly pulses it (CSS keyframe drives the visual). The page never
+    // navigates — the drill is a focus shift within the same canvas.
+    //
+    // Quality tiles use a hard href (e.g. "/Receiving?tab=exceptions") and
+    // are rendered as <a> — the browser handles the navigation natively, no
+    // JS needed here.
+    // -------------------------------------------------------------------------
+    function bindKpiBandDrill() {
+        var band = document.querySelector('.cockpit-kpi-band');
+        if (!band) return;
+
+        band.addEventListener('click', function (e) {
+            var tile = e.target.closest('[data-drill-target="scroll"]');
+            if (!tile) return;
+            var key = tile.getAttribute('data-drill-scroll');
+            if (!key) return;
+            var group = document.querySelector('.cockpit__group[data-group="' + key + '"]');
+            if (!group) return;
+            try { group.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { group.scrollIntoView(); }
+            group.classList.remove('cockpit__group--drill-pulse');
+            // re-trigger the keyframe by forcing reflow
+            // eslint-disable-next-line no-unused-expressions
+            void group.offsetWidth;
+            group.classList.add('cockpit__group--drill-pulse');
+            setTimeout(function () { group.classList.remove('cockpit__group--drill-pulse'); }, 800);
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindKpiBandDrill);
+    } else {
+        bindKpiBandDrill();
+    }
+
+    // -------------------------------------------------------------------------
+    // Sprint 12A PR #5.1 — auto-collapse sidebar on Control Center pages.
+    //
+    // The workspace canvas is the focus on a Control Center; the IA sidebar
+    // doesn't need to take 230px on first paint. We force the sidebar's
+    // existing .collapsed state on entry to ANY page whose body carries the
+    // .is-control-center class. The user can click the collapse button to
+    // expand temporarily (existing sidebar-nav.js handles localStorage).
+    //
+    // Idempotent — safe to run multiple times.
+    // -------------------------------------------------------------------------
+    function applyControlCenterRailMode() {
+        if (!document.body.classList.contains('is-control-center')) return;
+        var sidebar = document.getElementById('mainSidebar');
+        if (!sidebar) return;
+        if (!sidebar.classList.contains('collapsed')) {
+            sidebar.classList.add('collapsed');
+            document.body.classList.add('sidebar-is-collapsed');
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyControlCenterRailMode);
+    } else {
+        applyControlCenterRailMode();
+    }
 })();

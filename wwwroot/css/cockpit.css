@@ -283,3 +283,198 @@ html:not(.dark) .cockpit-tab-placeholder {
     background: #fff;
     border-color: #e2e8f0;
 }
+
+/* =============================================================================
+   Sprint 12A PR #5.1 — Cockpit KPI band (ADR-018 §D3, third leg).
+   The persistent KPI strip above the tab bar. Always visible across every tab.
+   Luxury treatment: dark gradient tiles, tone top-accent, large tabular value,
+   tracked uppercase label, inline 7-day sparkline, hover lift+glow.
+   ============================================================================= */
+
+.cockpit-kpi-band {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+
+.cockpit-kpi-band__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 0.25rem 0.6rem 0.25rem;
+}
+.cockpit-kpi-band__eyebrow {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.14em;
+    color: var(--text-muted); text-transform: uppercase;
+}
+.cockpit-kpi-band__status {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.cockpit-kpi-band__live {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    color: var(--success, #10b981); font-weight: 700;
+}
+.cockpit-kpi-band__live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success, #10b981);
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.6);
+    animation: cockpit-pulse-live 2.4s ease-out infinite;
+}
+@keyframes cockpit-pulse-live {
+    0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0);   }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0);     }
+}
+.cockpit-kpi-band__refresh {
+    color: var(--text-muted); font-weight: 600;
+}
+
+.cockpit-kpi-band__tiles {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+/* responsive — collapse to 4 columns on narrow viewports, then 2 */
+@media (max-width: 1280px) {
+    .cockpit-kpi-band__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+    .cockpit-kpi-band__tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.cockpit-kpi-tile {
+    position: relative;
+    display: flex; flex-direction: column;
+    padding: 0.85rem 0.95rem 0.7rem 0.95rem;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%),
+        var(--surface-card, rgba(255,255,255,0.025));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: 10px;
+    overflow: hidden;
+    color: inherit; text-decoration: none;
+    text-align: left;
+    font-family: inherit;
+    cursor: default;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+button.cockpit-kpi-tile {
+    appearance: none; -webkit-appearance: none;
+    background-color: transparent;
+}
+
+/* tone top-accent (3px stripe along the top edge) */
+.cockpit-kpi-tile::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--cockpit-kpi-tone, transparent);
+    opacity: 0.85;
+}
+
+.cockpit-kpi-tile--danger   { --cockpit-kpi-tone: var(--status-danger, #ef4444); --cockpit-kpi-value: var(--status-danger, #ef4444); }
+.cockpit-kpi-tile--warning  { --cockpit-kpi-tone: var(--warning, #f59e0b); --cockpit-kpi-value: var(--warning, #f59e0b); }
+.cockpit-kpi-tile--info     { --cockpit-kpi-tone: var(--info, #3b82f6); --cockpit-kpi-value: var(--info, #3b82f6); }
+.cockpit-kpi-tile--success  { --cockpit-kpi-tone: var(--success, #10b981); --cockpit-kpi-value: var(--success, #10b981); }
+.cockpit-kpi-tile--brand    { --cockpit-kpi-tone: var(--cherry-red, #cf3339); --cockpit-kpi-value: var(--cherry-red, #cf3339); }
+.cockpit-kpi-tile--neutral  { --cockpit-kpi-tone: rgba(255,255,255,0.15); --cockpit-kpi-value: var(--text-primary); }
+
+.cockpit-kpi-tile--clickable { cursor: pointer; }
+.cockpit-kpi-tile--clickable:hover {
+    transform: translateY(-1px);
+    border-color: var(--cockpit-kpi-tone, var(--border-default, rgba(255,255,255,0.18)));
+    box-shadow: 0 6px 18px -10px rgba(0,0,0,0.7), 0 0 0 1px var(--cockpit-kpi-tone, transparent) inset;
+}
+.cockpit-kpi-tile--clickable:focus-visible {
+    outline: 2px solid var(--cockpit-kpi-tone, var(--cherry-red, #cf3339));
+    outline-offset: 2px;
+}
+
+.cockpit-kpi-tile__label {
+    font-size: 0.62rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    line-height: 1;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cockpit-kpi-tile__value-row {
+    display: flex; align-items: baseline; gap: 0.25rem;
+    line-height: 1;
+}
+.cockpit-kpi-tile__value {
+    font-size: 1.85rem; font-weight: 700;
+    color: var(--cockpit-kpi-value, var(--text-primary));
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+.cockpit-kpi-tile__unit {
+    font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+}
+.cockpit-kpi-tile__target {
+    margin-top: 0.2rem;
+    font-size: 0.6rem; color: var(--text-muted);
+    letter-spacing: 0.04em;
+}
+.cockpit-kpi-tile__spark {
+    width: 100%; height: 22px; margin-top: 0.4rem;
+    color: var(--cockpit-kpi-tone, var(--text-muted));
+    opacity: 0.78;
+}
+
+/* The drill-scroll pulse applied to .cockpit__group on workload-tile click. */
+.cockpit__group--drill-pulse {
+    animation: cockpit-drill-pulse 700ms ease-out 1;
+}
+@keyframes cockpit-drill-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(207,51,57,0.55); border-radius: 8px; }
+    100% { box-shadow: 0 0 0 14px rgba(207,51,57,0); border-radius: 8px; }
+}
+
+/* =============================================================================
+   Sprint 12A PR #5.1 — Tab bar polish.
+   Heavier weight, more vertical padding, cherry-red 2px underline on active.
+   Only applies to the cockpit-tabs primitive (not nav tabs elsewhere).
+   ============================================================================= */
+
+.cockpit-tabs {
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    padding: 0 0.25rem;
+    gap: 0.25rem;
+}
+.cockpit-tab {
+    padding: 0.7rem 1.1rem !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.cockpit-tab:hover {
+    color: var(--text-primary);
+}
+.cockpit-tab--active {
+    color: var(--text-primary) !important;
+    border-bottom-color: var(--cherry-red, #cf3339);
+    font-weight: 700 !important;
+}
+.cockpit-tab__icon {
+    font-size: 0.85rem;
+    margin-right: 0.45rem;
+}
+
+/* =============================================================================
+   Sprint 12A PR #5.1 — Sidebar auto-collapse on Control Center pages.
+   When body has .is-control-center, the sidebar defaults to its collapsed
+   icon-rail state (cockpit.js applies sidebar.classList.add('collapsed') on
+   init unless the user has explicitly expanded). This reclaims ~170px of
+   horizontal real estate for the workspace canvas.
+   ============================================================================= */
+
+body.is-control-center .app-container {
+    /* No structural change — sidebar-nav.js handles collapsing the sidebar
+       element. This rule exists so future Control Center surfaces have a
+       stable hook for any layout tweaks specific to CC pages. */
+}
+

@@ -1,0 +1,156 @@
+@*
+    _CockpitKpiBand.cshtml — Sprint 12A PR #5.1 / ADR-018 §D3.
+
+    Persistent KPI tile strip ABOVE the tab bar on every v1 Control Center.
+    Third leg of the Cockpit canvas (queue + preview + band) — fixes the
+    "this is a list, not a control center" gap Dean called out after PR #5.
+
+    Generic — every Control Center in Sprints 13-18 will build its own
+    CockpitKpiBandViewModel and pass it in. Tiles drill via either a hard
+    href (Quality side — jump to ?tab=exceptions) or a scroll-to-bucket
+    attribute consumed by cockpit.js (Workload side — scroll the matching
+    .cockpit__group[data-group="..."] into view + pulse).
+
+    Sparkline is an inline SVG generated server-side from a 7-point series
+    normalized to 0..1 then drawn into a 80x22 viewBox. Keeps the band
+    self-contained — no Chart.js, no client-side rendering on first paint.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitKpiBandViewModel
+
+@functions {
+    static string ToneClass(string tone) => tone switch
+    {
+        "danger" => "cockpit-kpi-tile--danger",
+        "warning" => "cockpit-kpi-tile--warning",
+        "info" => "cockpit-kpi-tile--info",
+        "success" => "cockpit-kpi-tile--success",
+        "brand" => "cockpit-kpi-tile--brand",
+        _ => "cockpit-kpi-tile--neutral",
+    };
+
+    // Render a sparkline as an inline SVG. Returns "" if fewer than 2 points.
+    static string Sparkline(System.Collections.Generic.IReadOnlyList<double> pts)
+    {
+        if (pts is null || pts.Count < 2) return "";
+        double min = double.MaxValue, max = double.MinValue;
+        foreach (var v in pts) { if (v < min) min = v; if (v > max) max = v; }
+        if (max - min < 1e-9) max = min + 1; // flat → don't divide by zero
+        var w = 80; var h = 22;
+        var stepX = (double)w / (pts.Count - 1);
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var x = i * stepX;
+            var norm = (pts[i] - min) / (max - min);
+            var y = h - 2 - (norm * (h - 4));
+            sb.Append(i == 0 ? "M" : "L");
+            sb.Append(x.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            sb.Append(' ');
+            sb.Append(y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+            sb.Append(' ');
+        }
+        return sb.ToString();
+    }
+}
+
+@if (Model is { Tiles.Count: > 0 })
+{
+    <section class="cockpit-kpi-band" aria-label="Receiving KPIs">
+        <header class="cockpit-kpi-band__header">
+            <div class="cockpit-kpi-band__eyebrow">@Model.Eyebrow</div>
+            <div class="cockpit-kpi-band__status">
+                @if (Model.ShowLiveIndicator)
+                {
+                    <span class="cockpit-kpi-band__live"><span class="cockpit-kpi-band__live-dot"></span> LIVE</span>
+                }
+                @if (!string.IsNullOrEmpty(Model.RefreshedAtText))
+                {
+                    <span class="cockpit-kpi-band__refresh">@Model.RefreshedAtText</span>
+                }
+            </div>
+        </header>
+        <div class="cockpit-kpi-band__tiles">
+            @foreach (var tile in Model.Tiles)
+            {
+                var toneCls = ToneClass(tile.Tone);
+                var clickable = !string.IsNullOrEmpty(tile.DrillHref) || !string.IsNullOrEmpty(tile.DrillScroll);
+                var clickableCls = clickable ? "cockpit-kpi-tile--clickable" : "";
+                var sparkPath = Sparkline(tile.SparkPoints);
+                if (!string.IsNullOrEmpty(tile.DrillHref))
+                {
+                    <a class="cockpit-kpi-tile @toneCls @clickableCls"
+                       href="@tile.DrillHref"
+                       data-drill-target="href">
+                        <div class="cockpit-kpi-tile__label">@tile.Label</div>
+                        <div class="cockpit-kpi-tile__value-row">
+                            <span class="cockpit-kpi-tile__value">@tile.Value</span>
+                            @if (!string.IsNullOrEmpty(tile.Unit))
+                            {
+                                <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        {
+                            <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
+                        }
+                        @if (!string.IsNullOrEmpty(sparkPath))
+                        {
+                            <svg class="cockpit-kpi-tile__spark" viewBox="0 0 80 22" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="@sparkPath" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        }
+                    </a>
+                }
+                else if (!string.IsNullOrEmpty(tile.DrillScroll))
+                {
+                    <button type="button"
+                       class="cockpit-kpi-tile @toneCls @clickableCls"
+                       data-drill-target="scroll"
+                       data-drill-scroll="@tile.DrillScroll">
+                        <div class="cockpit-kpi-tile__label">@tile.Label</div>
+                        <div class="cockpit-kpi-tile__value-row">
+                            <span class="cockpit-kpi-tile__value">@tile.Value</span>
+                            @if (!string.IsNullOrEmpty(tile.Unit))
+                            {
+                                <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        {
+                            <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
+                        }
+                        @if (!string.IsNullOrEmpty(sparkPath))
+                        {
+                            <svg class="cockpit-kpi-tile__spark" viewBox="0 0 80 22" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="@sparkPath" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <div class="cockpit-kpi-tile @toneCls">
+                        <div class="cockpit-kpi-tile__label">@tile.Label</div>
+                        <div class="cockpit-kpi-tile__value-row">
+                            <span class="cockpit-kpi-tile__value">@tile.Value</span>
+                            @if (!string.IsNullOrEmpty(tile.Unit))
+                            {
+                                <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        {
+                            <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
+                        }
+                        @if (!string.IsNullOrEmpty(sparkPath))
+                        {
+                            <svg class="cockpit-kpi-tile__spark" viewBox="0 0 80 22" preserveAspectRatio="none" aria-hidden="true">
+                                <path d="@sparkPath" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    </section>
+}
