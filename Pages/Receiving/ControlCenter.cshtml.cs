@@ -76,6 +76,11 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     // calls. Consumed by ControlCenter.cshtml's po-queue switch arm.
     public CockpitShellViewModel? PoQueueShell { get; private set; }
 
+    // Sprint 12A PR #6 — ASN Queue tab payload. Hydrated only when
+    // ActiveTab == TabAsnQueue. Same shell pattern as PO Queue but consumes
+    // the AdvancedShippingNotice domain entity via GetAsnQueueAsync.
+    public CockpitShellViewModel? AsnQueueShell { get; private set; }
+
     // Sprint 12A PR #5.1 — KPI band model. Always hydrated on every tab,
     // rendered above the tab bar. Third leg of the Cockpit canvas per
     // ADR-018 §D3.
@@ -148,6 +153,10 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         {
             await HydratePoQueueTabAsync(ct);
             await HydrateNextUpAsync(ct);
+        }
+        else if (string.Equals(ActiveTab, TabAsnQueue, StringComparison.OrdinalIgnoreCase))
+        {
+            await HydrateAsnQueueTabAsync(ct);
         }
 
         return Page();
@@ -353,6 +362,101 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             // PR #5.2 — preroll renders the "Next Up" priority pane on first
             // paint instead of an empty welcome state. NextUp is hydrated
             // in HydrateNextUpAsync (called after HydratePoQueueTabAsync).
+        };
+    }
+
+    // Sprint 12A PR #6 — hydrates the ASN Queue tab.
+    //
+    // Pulls the AdvancedShippingNotice queue via GetAsnQueueAsync, runs it
+    // through the default ByTimeLens, and assembles a CockpitShellViewModel
+    // that the /Receiving ASN Queue tab consumes. Mirrors the PO Queue tab
+    // structure with ASN-specific naming + SelectFunctionName = "selectAsn"
+    // so cockpit.js routes to the ASN preview hydrator.
+    private async Task HydrateAsnQueueTabAsync(CancellationToken ct)
+    {
+        var filter = new AsnQueueFilter { SiteCode = SiteCode };
+        var queueResult = await _receiving.GetAsnQueueAsync(filter, ct);
+
+        if (queueResult.IsFailure || queueResult.Value is null)
+        {
+            _logger.LogWarning("GetAsnQueueAsync failed for site {SiteCode}: {Error}", SiteCode, queueResult.Error);
+            AsnQueueShell = new CockpitShellViewModel
+            {
+                Queue = new CockpitQueueViewModel
+                {
+                    TitleHtml = "ASN Queue",
+                    TitleIconClass = "fas fa-truck-fast",
+                    SearchPlaceholder = "Search ASN#, vendor...",
+                    Empty = new CockpitEmptyViewModel
+                    {
+                        IconClass = "fas fa-triangle-exclamation",
+                        IconTone = "warning",
+                        Message = queueResult.Error ?? "ASN queue unavailable.",
+                    },
+                },
+                Welcome = new CockpitWelcomeViewModel
+                {
+                    IconClass = "fas fa-truck-fast",
+                    Title = "Select an ASN to preview",
+                    Subtitle = "Click an ASN from the queue to see the manifest and start receiving.",
+                },
+                PreviewBlobJson = "[]",
+                PreviewBlobElementId = "__asnDetails",
+            };
+            return;
+        }
+
+        var data = queueResult.Value;
+        var lens = new ByTimeLens<AsnQueueRow>();
+        var groups = lens.Group(data.Rows);
+
+        var groupVms = groups.Select(g => new CockpitQueueGroupViewModel
+        {
+            Code = g.Code,
+            Label = g.Label,
+            Tone = g.Tone,
+            IconClass = g.Icon,
+            Rows = g.Rows.Cast<ICockpitQueueRow>().ToList(),
+        }).ToList();
+
+        int CountFor(string code) =>
+            groups.FirstOrDefault(g => string.Equals(g.Code, code, StringComparison.OrdinalIgnoreCase))?.Rows.Count ?? 0;
+
+        var welcome = new CockpitWelcomeViewModel
+        {
+            IconClass = "fas fa-truck-fast",
+            Title = "Select an ASN to preview",
+            Subtitle = "Click an ASN from the queue to see the manifest and start receiving by scanning the ASN barcode.",
+            Stats = new[]
+            {
+                new CockpitWelcomeStat("Late",       CountFor("overdue").ToString(),   "danger"),
+                new CockpitWelcomeStat("Today",      CountFor("today").ToString(),     "warning"),
+                new CockpitWelcomeStat("This Week",  CountFor("this-week").ToString()),
+                new CockpitWelcomeStat("Upcoming",   CountFor("later").ToString(),     "muted"),
+            },
+        };
+
+        AsnQueueShell = new CockpitShellViewModel
+        {
+            Queue = new CockpitQueueViewModel
+            {
+                TitleHtml = "ASN Queue",
+                TitleIconClass = "fas fa-truck-fast",
+                CountBadge = 0,
+                SearchPlaceholder = "Search ASN#, vendor...",
+                SearchElementId = "asnSearch",
+                FilterFunctionName = "filterQueue",
+                SelectFunctionName = "selectAsn",
+                Groups = groupVms,
+                Empty = data.Rows.Count == 0
+                    ? new CockpitEmptyViewModel { IconClass = "fas fa-check-circle", IconTone = "success", Message = "No inbound shipments — dock is clear." }
+                    : null,
+            },
+            Welcome = welcome,
+            PreviewPartialName = "_CockpitAsnQueuePreview",
+            PreviewPartialModel = null,
+            PreviewBlobJson = CockpitPreviewSerializer.SerializeMany(data.Previews),
+            PreviewBlobElementId = "__asnDetails",
         };
     }
 

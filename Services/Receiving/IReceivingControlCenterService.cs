@@ -72,6 +72,16 @@ public interface IReceivingControlCenterService
         CancellationToken ct);
 
     /// <summary>
+    /// ASN queue + preview blob for the Sprint 12A /Receiving ASN Queue tab.
+    /// Returns active AdvancedShippingNotices (Expected / InTransit / Arrived /
+    /// Receiving) bucketed by ExpectedArrivalDate via ByTimeLens. ASN ingestion
+    /// from real EDI 856 lands in Sprint 21; for now consumes seeded data.
+    /// </summary>
+    Task<Result<AsnQueueData>> GetAsnQueueAsync(
+        AsnQueueFilter filter,
+        CancellationToken ct);
+
+    /// <summary>
     /// 8-tile KPI band for the page header — the third leg of the Cockpit
     /// canvas per ADR-018 §D3. Mixed workload (Open POs / Overdue / Due
     /// Today / This Week) + quality (Receipts Today / Dock-to-Stock / Doc

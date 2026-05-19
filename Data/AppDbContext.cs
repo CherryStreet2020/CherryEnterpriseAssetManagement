@@ -255,6 +255,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<PurchaseOrderRelease> PurchaseOrderReleases => Set<PurchaseOrderRelease>();
         public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
         public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+        // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
+        // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
+        // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
+        // Sprint 21 (MCP + Agentic AI Launch Package); for now seed data.
+        public DbSet<AdvancedShippingNotice> AdvancedShippingNotices => Set<AdvancedShippingNotice>();
+        public DbSet<AsnLine> AsnLines => Set<AsnLine>();
         public DbSet<VendorInvoice> VendorInvoices => Set<VendorInvoice>();
         public DbSet<VendorInvoiceLine> VendorInvoiceLines => Set<VendorInvoiceLine>();
         public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
@@ -1514,6 +1520,47 @@ namespace Abs.FixedAssets.Data
                     .OnDelete(DeleteBehavior.SetNull);
 
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // Sprint 12A PR #6 — Advanced Shipping Notice (ASN) header + lines.
+            // First-class domain entity replacing the Sprint 11 stop-gap
+            // "ASN:" prefix on StockReceipt.SourcePoNumber. The cockpit ASN
+            // Queue tab consumes these via GetAsnQueueAsync.
+            modelBuilder.Entity<AdvancedShippingNotice>(e =>
+            {
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ShipToSite)
+                    .WithMany()
+                    .HasForeignKey(x => x.ShipToSiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Unique (VendorId, AsnNumber) — vendor can't send dup ASNs.
+                e.HasIndex(x => new { x.VendorId, x.AsnNumber }).IsUnique();
+
+                // Cockpit query hot-path: ExpectedArrivalDate drives the
+                // ByTimeLens bucketing (Overdue / Today / This Week / Later).
+                e.HasIndex(x => x.ExpectedArrivalDate);
+                e.HasIndex(x => x.Status);
+
+                e.HasMany(x => x.Lines)
+                    .WithOne(l => l.Asn)
+                    .HasForeignKey(l => l.AsnId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<AsnLine>(e =>
+            {
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasIndex(x => x.AsnId);
+                // Index for line-level PO reference lookups (multi-PO ASN case).
+                e.HasIndex(x => x.RefPoNumber);
             });
 
             // Attachments

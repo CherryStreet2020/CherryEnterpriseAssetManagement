@@ -396,6 +396,159 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         };
     }
 
+    // -------------------------------------------------------------------
+    // Sprint 12A PR #6 — ASN Queue tab data source.
+    // -------------------------------------------------------------------
+    public async Task<Result<AsnQueueData>> GetAsnQueueAsync(
+        AsnQueueFilter filter,
+        CancellationToken ct)
+    {
+        // Active ASNs only — exclude terminal states (Received / Cancelled).
+        var active = new[]
+        {
+            AsnStatus.Expected,
+            AsnStatus.InTransit,
+            AsnStatus.Arrived,
+            AsnStatus.Receiving,
+        };
+
+        var query = _db.AdvancedShippingNotices
+            .AsNoTracking()
+            .Include(a => a.Vendor)
+            .Include(a => a.ShipToSite)
+            .Include(a => a.Lines)
+                .ThenInclude(l => l.Item)
+            .Where(a => active.Contains(a.Status));
+
+        // Optional site scope (mirrors PoQueueFilter pattern).
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            query = query.Where(a => a.ShipToSite != null && a.ShipToSite.SiteCode == code);
+        }
+
+        // Materialize then sort client-side to avoid Postgres tz mismatch
+        // (mirrors feedback_postgres_tz_mismatch_in_ef_queries pattern).
+        var loaded = await query.ToListAsync(ct);
+        var asns = loaded
+            .OrderBy(a => a.ExpectedArrivalDate ?? a.CreatedAt)
+            .ToList();
+
+        var todayLocal = DateTime.Today;
+        var weekEndLocal = todayLocal.AddDays(7);
+
+        var rows = asns.Select(a => BuildAsnQueueRow(a, todayLocal, weekEndLocal)).ToList();
+        var previews = asns.Select(BuildAsnQueuePreview).ToList();
+
+        return Result.Success(new AsnQueueData
+        {
+            Rows = rows,
+            Previews = previews,
+        });
+    }
+
+    private static AsnQueueRow BuildAsnQueueRow(
+        AdvancedShippingNotice a,
+        DateTime todayLocal,
+        DateTime weekEndLocal)
+    {
+        // Tone driven by ETA window. "Arrived" is independent — if the truck is
+        // here regardless of ETA, surface as warning (needs receiving action).
+        string tone;
+        int? daysLate = null;
+
+        if (a.Status == AsnStatus.Arrived)
+        {
+            tone = "warning"; // truck on dock, receive now
+        }
+        else if (a.ExpectedArrivalDate.HasValue && a.ExpectedArrivalDate.Value.Date < todayLocal)
+        {
+            tone = "danger";
+            daysLate = (int)Math.Max(1, (todayLocal - a.ExpectedArrivalDate.Value.Date).TotalDays);
+        }
+        else if (a.ExpectedArrivalDate.HasValue && a.ExpectedArrivalDate.Value.Date == todayLocal)
+        {
+            tone = "warning";
+        }
+        else if (a.ExpectedArrivalDate.HasValue && a.ExpectedArrivalDate.Value.Date <= weekEndLocal)
+        {
+            tone = "info";
+        }
+        else
+        {
+            tone = "neutral";
+        }
+
+        // Pretty status label + tone for the card pill.
+        var (statusLabel, statusTone) = a.Status switch
+        {
+            AsnStatus.Expected  => ("Expected",  "info"),
+            AsnStatus.InTransit => ("In transit", "info"),
+            AsnStatus.Arrived   => ("Arrived",   "warning"),
+            AsnStatus.Receiving => ("Receiving", "pending"),
+            AsnStatus.Received  => ("Received",  "approved"),
+            AsnStatus.Cancelled => ("Cancelled", "neutral"),
+            _                   => (a.Status.ToString(), "neutral"),
+        };
+
+        var lineCount = a.Lines?.Count ?? 0;
+        var totalQty = (a.Lines ?? new List<AsnLine>()).Sum(l => l.ExpectedQuantity);
+
+        var meta = new List<MetaTriple>
+        {
+            new("ETA", a.ExpectedArrivalDate?.ToString("MM/dd") ?? "—"),
+            new("Lines", lineCount.ToString()),
+            new("Qty", $"{totalQty:0}"),
+        };
+
+        return new AsnQueueRow(
+            Id:          a.Id.ToString(),
+            Primary:     a.AsnNumber,
+            Secondary:   a.Vendor?.Name ?? "—",
+            RequiredAt:  a.ExpectedArrivalDate,
+            Tone:        tone,
+            Meta:        meta,
+            StatusLabel: statusLabel,
+            StatusTone:  statusTone,
+            DaysLate:    daysLate);
+    }
+
+    private static AsnQueuePreview BuildAsnQueuePreview(AdvancedShippingNotice a)
+    {
+        var lines = (a.Lines ?? new List<AsnLine>())
+            .OrderBy(l => l.LineNumber)
+            .Select(l => new AsnQueueLine
+            {
+                PartNum   = l.PartNumber ?? l.Item?.PartNumber ?? "—",
+                Desc      = string.IsNullOrEmpty(l.Description) ? (l.Item?.Description ?? "—") : l.Description,
+                Uom       = string.IsNullOrEmpty(l.Uom) ? "EA" : l.Uom,
+                Expected  = l.ExpectedQuantity,
+                Received  = l.ReceivedQuantity,
+                Remaining = Math.Max(0, l.ExpectedQuantity - l.ReceivedQuantity),
+                Lot       = l.LotNumber,
+                Heat      = l.HeatNumber,
+            })
+            .ToList();
+
+        var totalQty = lines.Sum(l => l.Expected);
+
+        return new AsnQueuePreview
+        {
+            Id           = a.Id,
+            Num          = a.AsnNumber,
+            Vendor       = a.Vendor?.Name ?? "—",
+            OrderDate    = a.ShipDate?.ToString("MMM dd, yyyy") ?? "—",
+            RequiredDate = a.ExpectedArrivalDate?.ToString("MMM dd, yyyy") ?? "—",
+            Status       = a.Status.ToString(),
+            Total        = $"{totalQty:0} units",
+            ShipTo       = a.ShipToSite?.Name ?? "—",
+            Carrier      = a.Carrier,
+            Tracking     = a.TrackingNumber,
+            SourcePo     = a.SourcePoNumber,
+            Lines        = lines,
+        };
+    }
+
     public async Task<Result<ReceivingKpiBandData>> GetReceivingKpiBandAsync(
         ReceivingKpiBandFilter filter,
         CancellationToken ct)
