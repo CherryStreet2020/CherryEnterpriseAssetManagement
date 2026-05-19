@@ -514,10 +514,15 @@ builder.Services.AddScoped<
 // the hood). Used by StockReceiptService for service-layer validation
 // and by the Edit page directly for per-field ModelState placement.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Admin.ReceiptAttributesValidator>();
-// ADR-015 / Migration PR #1 — Voice-AI tool stubs (Sprint 5 surface, contract only).
+// ADR-015 D10 + ADR-016 D8 — Receipt voice-tool catalog.
+// Sprint 11 PR #4 promotes the stub to the production implementation
+// (ReceiptVoiceTools) backed by AppDbContext + IReceivingControlCenterService.
+// Three of the ten tools (MatchOrphanReceipt, ExplainException,
+// OcrParseMillCert) ship with deterministic bodies; Sprint 5 swaps with LLM/OCR.
+// ReceiptVoiceToolsStub stays in the codebase as a test fixture.
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Voice.IReceiptVoiceTools,
-    Abs.FixedAssets.Services.Voice.ReceiptVoiceToolsStub>();
+    Abs.FixedAssets.Services.Voice.ReceiptVoiceTools>();
 
 var app = builder.Build();
 
