@@ -136,3 +136,150 @@ html:not(.dark) .cockpit__queue,
 html:not(.dark) .cockpit__main { background: #fff; border-color: #e2e8f0; }
 html:not(.dark) .cockpit__card:hover { background: #f8fafc; }
 html:not(.dark) .cockpit__search-input { background: #fff; border-color: #e2e8f0; }
+
+/* =============================================================================
+   Cockpit Tab Shell — Sprint 12A PR #4 / ADR-018 §D2.
+   Tab bar that sits between the page _ScreenHeader and the per-tab canvas.
+   Subtle, Linear-grade — the underline + tone-colored badge does the work.
+   ============================================================================= */
+
+.cockpit-tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    margin: 0 0 1rem;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+}
+
+.cockpit-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted, #71717a);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.cockpit-tab:hover {
+    color: var(--text-primary, #f1f5f9);
+    background: var(--surface-hover, rgba(255,255,255,0.03));
+}
+
+.cockpit-tab:focus-visible {
+    outline: 2px solid var(--brand-fg, #0ea5e9);
+    outline-offset: -2px;
+    background: var(--brand-soft, rgba(14,165,233,0.08));
+}
+
+.cockpit-tab--active {
+    color: var(--text-primary, #f1f5f9);
+    border-bottom-color: var(--cherry-red, #cf3339);
+    font-weight: 600;
+}
+.cockpit-tab--active:hover {
+    background: transparent;
+}
+
+.cockpit-tab__icon {
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+.cockpit-tab--active .cockpit-tab__icon {
+    color: var(--cherry-red, #cf3339);
+    opacity: 1;
+}
+
+.cockpit-tab__label {
+    line-height: 1;
+}
+
+.cockpit-tab__badge {
+    display: inline-block;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    background: var(--surface-card, rgba(255,255,255,0.06));
+    color: var(--text-muted, #a1a1aa);
+}
+.cockpit-tab__badge--danger {
+    background: rgba(239,68,68,0.18);
+    color: var(--status-danger, #ef4444);
+}
+.cockpit-tab__badge--warning {
+    background: rgba(245,158,11,0.18);
+    color: var(--warning, #f59e0b);
+}
+.cockpit-tab__badge--info {
+    background: rgba(59,130,246,0.18);
+    color: var(--info, #3b82f6);
+}
+
+/* Per-tab placeholder body shown by tabs that haven't shipped real content yet.
+   Lands in PR #5/#6/#7 — these styles wrap the "Coming in PR #N" stubs. */
+.cockpit-tab-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--text-muted, #71717a);
+    background: var(--surface-card, rgba(255,255,255,0.03));
+    border: 1px dashed var(--border-subtle, rgba(255,255,255,0.08));
+    border-radius: 10px;
+    min-height: 360px;
+}
+.cockpit-tab-placeholder__icon {
+    font-size: 2.5rem;
+    opacity: 0.35;
+    margin-bottom: 1rem;
+    color: var(--cherry-red, #cf3339);
+}
+.cockpit-tab-placeholder__title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    margin: 0 0 0.4rem;
+}
+.cockpit-tab-placeholder__sub {
+    font-size: 0.875rem;
+    max-width: 460px;
+    line-height: 1.5;
+}
+.cockpit-tab-placeholder__chip {
+    display: inline-block;
+    margin-top: 1.2rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: var(--brand-soft, rgba(207,51,57,0.12));
+    color: var(--cherry-red, #cf3339);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+html:not(.dark) .cockpit-tab__badge {
+    background: #f1f5f9;
+    color: #64748b;
+}
+html:not(.dark) .cockpit-tab-placeholder {
+    background: #fff;
+    border-color: #e2e8f0;
+}
