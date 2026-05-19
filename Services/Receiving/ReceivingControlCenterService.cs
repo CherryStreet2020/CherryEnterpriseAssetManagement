@@ -549,6 +549,216 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         };
     }
 
+    // -------------------------------------------------------------------
+    // Sprint 12A PR #7 — Orphans tab data source.
+    //
+    // Returns StockReceipts with NULL SourcePoNumber, bucketed by ReceivedAt
+    // (the longer the orphan sits, the worse it is — inverted tone gradient
+    // vs. PO/ASN queues). Each preview surfaces 0-3 AI-ranked candidate POs
+    // with per-signal scoring: ItemMatch(40) + VendorMatch(40) + Recency(20).
+    //
+    // Match action handoff: /Receiving/Match-Orphan/{receiptId}/{poNumber}
+    // GET shows confirmation, POST calls MatchOrphanReceiptAsync.
+    // -------------------------------------------------------------------
+    public async Task<Result<OrphanQueueData>> GetOrphanQueueAsync(
+        OrphanQueueFilter filter,
+        CancellationToken ct)
+    {
+        // Bound to "active" orphans — last 60 days of dock dwell.
+        // Anything older is a data-quality issue, not an operator task.
+        var since = DateTime.UtcNow.AddDays(-60);
+
+        var orphanQuery = _db.StockReceipts
+            .AsNoTracking()
+            .Include(r => r.Item)
+                .ThenInclude(i => i!.CompanyStockingSettings!)
+                    .ThenInclude(s => s.PreferredVendor)
+            .Include(r => r.Location)
+                .ThenInclude(l => l!.Site)
+            .Where(r =>
+                r.SourcePoNumber == null &&
+                r.ReceivedAt >= since &&
+                (r.Status == StockReceiptStatus.Available ||
+                 r.Status == StockReceiptStatus.Reserved ||
+                 r.Status == StockReceiptStatus.PartiallyConsumed));
+
+        // Optional site scope via Location.SiteId chain.
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            orphanQuery = orphanQuery.Where(r =>
+                r.Location != null &&
+                r.Location.Site != null &&
+                r.Location.Site.SiteCode == code);
+        }
+
+        // Materialize then sort client-side to avoid Postgres tz mismatch
+        // (mirrors feedback_postgres_tz_mismatch_in_ef_queries pattern).
+        var orphansLoaded = await orphanQuery.ToListAsync(ct);
+        var orphans = orphansLoaded
+            .OrderBy(r => r.ReceivedAt)  // oldest first = most urgent
+            .ToList();
+
+        // Pull candidate PO pool ONCE for the page. Score per-orphan in memory.
+        // Filter to receivable POs ordered within last 60 days — that's the
+        // realistic pool of POs the orphan could match to.
+        var poSince = DateTime.UtcNow.AddDays(-60);
+        var receivable = new[]
+        {
+            POStatus.Approved,
+            POStatus.Sent,
+            POStatus.PartiallyReceived,
+        };
+
+        var candidatePosLoaded = await _db.PurchaseOrders
+            .AsNoTracking()
+            .Include(p => p.Vendor)
+            .Include(p => p.Lines)
+            .Where(p =>
+                receivable.Contains(p.Status) &&
+                p.OrderDate >= poSince)
+            .ToListAsync(ct);
+
+        var todayLocal = DateTime.Today;
+        var recencyCutoff = todayLocal.AddDays(-14);
+
+        var rows = new List<OrphanQueueRow>(orphans.Count);
+        var previews = new List<OrphanQueuePreview>(orphans.Count);
+
+        foreach (var r in orphans)
+        {
+            var daysAged = (int)Math.Max(0, (todayLocal - r.ReceivedAt.Date).TotalDays);
+
+            // Tone inverted vs PO/ASN: OLDER orphans are MORE urgent.
+            string tone = daysAged switch
+            {
+                >= 10 => "danger",
+                >= 4  => "warning",
+                >= 1  => "info",
+                _     => "neutral",
+            };
+
+            var qtyStr = $"{r.QuantityReceived:0.##} {r.Uom ?? "EA"}";
+            var preferredVendor = ResolvePreferredVendor(r.Item)?.Name;
+
+            var meta = new List<MetaTriple>
+            {
+                new("Received", r.ReceivedAt.ToString("MM/dd")),
+                new("Aged", $"{daysAged}d"),
+                new("Qty", qtyStr),
+            };
+
+            rows.Add(new OrphanQueueRow(
+                Id:          r.Id.ToString(),
+                Primary:     r.ReceiptNumber,
+                Secondary:   r.Item?.PartNumber ?? "(no item)",
+                RequiredAt:  r.ReceivedAt,
+                Tone:        tone,
+                Meta:        meta,
+                StatusLabel: "Orphan",
+                StatusTone:  daysAged >= 10 ? "danger" : "warning",
+                DaysAged:    daysAged));
+
+            previews.Add(BuildOrphanQueuePreview(r, candidatePosLoaded, recencyCutoff, daysAged));
+        }
+
+        return Result.Success(new OrphanQueueData
+        {
+            Rows = rows,
+            Previews = previews,
+        });
+    }
+
+    // Preferred-vendor lookup helper — Item itself has no PreferredVendor.
+    // The per-company stocking record (ItemCompanyStocking) carries it. For
+    // scoring we accept ANY company's stocking setting (in v1 the seeded
+    // tenant has a single company per site).
+    private static Vendor? ResolvePreferredVendor(Item? item)
+    {
+        var stocking = item?.CompanyStockingSettings?.FirstOrDefault(s => s.PreferredVendorId.HasValue);
+        return stocking?.PreferredVendor;
+    }
+
+    private static int? ResolvePreferredVendorId(Item? item)
+    {
+        return item?.CompanyStockingSettings?.FirstOrDefault(s => s.PreferredVendorId.HasValue)?.PreferredVendorId;
+    }
+
+    private static OrphanQueuePreview BuildOrphanQueuePreview(
+        StockReceipt r,
+        List<PurchaseOrder> candidatePoPool,
+        DateTime recencyCutoff,
+        int daysAged)
+    {
+        var itemId = r.ItemId;
+        var preferredVendorId = ResolvePreferredVendorId(r.Item);
+
+        // Score every candidate PO. ItemMatch(40) + VendorMatch(40) + Recency(20).
+        var scored = candidatePoPool
+            .Select(po =>
+            {
+                var itemMatch = po.Lines != null && po.Lines.Any(l => l.ItemId.HasValue && l.ItemId.Value == itemId);
+                var vendorMatch = preferredVendorId.HasValue && po.VendorId == preferredVendorId.Value;
+                var recencyMatch = po.OrderDate.Date >= recencyCutoff;
+
+                int score = 0;
+                var reasons = new List<string>();
+                if (itemMatch)    { score += 40; reasons.Add("Same Item"); }
+                if (vendorMatch)  { score += 40; reasons.Add("Preferred Vendor"); }
+                if (recencyMatch)
+                {
+                    score += 20;
+                    var ageDays = (int)Math.Max(0, (DateTime.Today - po.OrderDate.Date).TotalDays);
+                    reasons.Add(ageDays == 0 ? "Opened today" : $"Opened {ageDays}d ago");
+                }
+
+                return new
+                {
+                    Po = po,
+                    Score = score,
+                    ItemMatch = itemMatch,
+                    VendorMatch = vendorMatch,
+                    RecencyMatch = recencyMatch,
+                    Reasons = reasons,
+                };
+            })
+            .Where(x => x.Score > 0)
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Po.OrderDate)
+            .Take(3)
+            .ToList();
+
+        var candidates = scored.Select(s => new OrphanCandidatePo
+        {
+            PoNumber     = s.Po.PONumber,
+            Vendor       = s.Po.Vendor?.Name ?? "—",
+            OrderDate    = s.Po.OrderDate.ToString("MMM dd, yyyy"),
+            RequiredDate = s.Po.RequiredDate?.ToString("MMM dd, yyyy"),
+            Status       = s.Po.Status.ToString(),
+            Score        = s.Score,
+            ItemMatch    = s.ItemMatch,
+            VendorMatch  = s.VendorMatch,
+            RecencyMatch = s.RecencyMatch,
+            MatchUrl     = $"/Receiving/Match-Orphan/{r.Id}/{Uri.EscapeDataString(s.Po.PONumber)}",
+            Reasons      = s.Reasons,
+        }).ToList();
+
+        return new OrphanQueuePreview
+        {
+            Id              = r.Id,
+            ReceiptNumber   = r.ReceiptNumber,
+            ItemPartNumber  = r.Item?.PartNumber ?? "—",
+            ItemDescription = r.Item?.Description ?? "—",
+            PreferredVendor = ResolvePreferredVendor(r.Item)?.Name,
+            LotNumber       = r.LotNumber,
+            Quantity        = $"{r.QuantityReceived:0.##} {r.Uom ?? "EA"}",
+            ReceivedAt      = r.ReceivedAt.ToString("MMM dd, yyyy"),
+            DaysAged        = daysAged,
+            Notes           = r.Notes,
+            Candidates      = candidates,
+        };
+    }
+
     public async Task<Result<ReceivingKpiBandData>> GetReceivingKpiBandAsync(
         ReceivingKpiBandFilter filter,
         CancellationToken ct)

@@ -1,0 +1,257 @@
+@page "/Receiving/Match-Orphan/{ReceiptId:int}/{PoNumber}"
+@model Abs.FixedAssets.Pages.Receiving.MatchOrphanModel
+@{
+    ViewData["Title"] = $"Match {Model.Receipt?.ReceiptNumber} to {Model.PoNumber}";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 12A PR #7 — Match-Orphan confirmation page.
+
+    Two-pane side-by-side: receipt on the left, candidate PO on the right.
+    The receiver reviews both, picks the matching PO line, optionally adds an
+    operator note, and confirms. POST writes through MatchOrphanReceiptAsync
+    (Sprint 11 plumb) and redirects back to /Receiving?tab=orphans.
+
+    Route is hyphenated + route-segment per the codebase convention
+    (mirrors /Receiving/By-Asn/{AsnId?} from PR #6 hotfix).
+*@
+
+<style>
+    .match-orphan {
+        max-width: 1100px;
+        margin: 1.5rem auto;
+        padding: 0 1.5rem;
+    }
+    .match-orphan__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .match-orphan__title h1 {
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--text-primary, #fff);
+    }
+    .match-orphan__title .sub {
+        color: rgba(255,255,255,0.55);
+        font-size: 0.875rem;
+        margin-top: 0.2rem;
+    }
+    .match-orphan__panes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+    .match-orphan__pane {
+        background: var(--surface-card, rgba(255,255,255,0.03));
+        border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+        border-radius: 10px;
+        padding: 1.25rem 1.4rem;
+    }
+    .match-orphan__pane h2 {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255,255,255,0.5);
+        margin: 0 0 0.875rem;
+    }
+    .match-orphan__pane .num {
+        font-family: var(--font-mono, ui-monospace, "SF Mono", monospace);
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: var(--text-primary, #fff);
+    }
+    .match-orphan__pane .vendor {
+        color: rgba(255,255,255,0.7);
+        font-size: 1rem;
+        margin-top: 0.15rem;
+    }
+    .match-orphan__field-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: 0.875rem;
+    }
+    .match-orphan__field-row:last-child { border-bottom: 0; }
+    .match-orphan__field-label { color: rgba(255,255,255,0.55); }
+    .match-orphan__field-value { color: var(--text-primary, #fff); font-weight: 600; }
+    .match-orphan__form {
+        background: var(--surface-card, rgba(255,255,255,0.03));
+        border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+        border-radius: 10px;
+        padding: 1.25rem 1.4rem;
+        margin-top: 1.25rem;
+    }
+    .match-orphan__form label {
+        display: block;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255,255,255,0.6);
+        margin-bottom: 0.3rem;
+    }
+    .match-orphan__form select,
+    .match-orphan__form textarea {
+        width: 100%;
+        background: rgba(0,0,0,0.25);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: var(--text-primary, #fff);
+        border-radius: 6px;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    .match-orphan__form textarea { min-height: 70px; resize: vertical; }
+    .match-orphan__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.625rem;
+        margin-top: 0.5rem;
+    }
+    .match-orphan__error {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #fca5a5;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    @@media (max-width: 800px) {
+        .match-orphan__panes { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="match-orphan">
+
+    <div class="match-orphan__header">
+        <div class="match-orphan__title">
+            <h1>Match orphan receipt to PO</h1>
+            <div class="sub">Confirm the AI-suggested match below — or change the PO line if you know better.</div>
+        </div>
+        <a class="btn-p btn-p--ghost" href="/Receiving?tab=orphans">
+            <i class="fas fa-arrow-left"></i> Back to Orphans
+        </a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.FlashError))
+    {
+        <div class="match-orphan__error" role="alert">
+            <i class="fas fa-circle-exclamation"></i> @Model.FlashError
+        </div>
+    }
+
+    <div class="match-orphan__panes">
+
+        @* LEFT — orphan receipt facts *@
+        <div class="match-orphan__pane">
+            <h2><i class="fas fa-question-circle"></i> Orphan receipt</h2>
+            <div class="num">@(Model.Receipt?.ReceiptNumber ?? "—")</div>
+            <div class="vendor">@(Model.PreferredVendor?.Name ?? "Vendor unknown")</div>
+
+            <div data-csp-style="margin-top:1rem;">
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Part #</span>
+                    <span class="match-orphan__field-value">@(Model.Receipt?.Item?.PartNumber ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Description</span>
+                    <span class="match-orphan__field-value">@(Model.Receipt?.Item?.Description ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Quantity</span>
+                    <span class="match-orphan__field-value">@($"{Model.Receipt?.QuantityReceived:0.##} {Model.Receipt?.Uom ?? "EA"}")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Lot #</span>
+                    <span class="match-orphan__field-value">@(Model.Receipt?.LotNumber ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Received</span>
+                    <span class="match-orphan__field-value">@(Model.Receipt?.ReceivedAt.ToString("MMM dd, yyyy") ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Notes</span>
+                    <span class="match-orphan__field-value">@(string.IsNullOrEmpty(Model.Receipt?.Notes) ? "—" : Model.Receipt.Notes)</span>
+                </div>
+            </div>
+        </div>
+
+        @* RIGHT — candidate PO facts *@
+        <div class="match-orphan__pane">
+            <h2><i class="fas fa-file-invoice"></i> Candidate PO</h2>
+            <div class="num">@(Model.Po?.PONumber ?? "—")</div>
+            <div class="vendor">@(Model.Po?.Vendor?.Name ?? "—")</div>
+
+            <div data-csp-style="margin-top:1rem;">
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Status</span>
+                    <span class="match-orphan__field-value">@(Model.Po?.Status.ToString() ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Order Date</span>
+                    <span class="match-orphan__field-value">@(Model.Po?.OrderDate.ToString("MMM dd, yyyy") ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Required By</span>
+                    <span class="match-orphan__field-value">@(Model.Po?.RequiredDate?.ToString("MMM dd, yyyy") ?? "—")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Total</span>
+                    <span class="match-orphan__field-value">@($"${Model.Po?.Total:N2}")</span>
+                </div>
+                <div class="match-orphan__field-row">
+                    <span class="match-orphan__field-label">Lines</span>
+                    <span class="match-orphan__field-value">@(Model.Po?.Lines?.Count ?? 0)</span>
+                </div>
+                @if (Model.SuggestedLine != null)
+                {
+                    <div class="match-orphan__field-row">
+                        <span class="match-orphan__field-label">Suggested line</span>
+                        <span class="match-orphan__field-value">
+                            <i class="fas fa-wand-magic-sparkles" data-csp-style="color:#fbbf24;"></i>
+                            #@Model.SuggestedLine.LineNumber · @(Model.SuggestedLine.PartNumber ?? Model.SuggestedLine.Item?.PartNumber ?? "—")
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* FORM — line picker + optional note + confirm/cancel *@
+    <form method="post" class="match-orphan__form">
+        @Html.AntiForgeryToken()
+        <input type="hidden" asp-for="ReceiptId" />
+        <input type="hidden" asp-for="PoNumber" />
+
+        <label for="PoLineId">PO line to match against (optional — leave default if unsure)</label>
+        <select id="PoLineId" name="PoLineId">
+            <option value="">— No specific line (attach to PO header) —</option>
+            @if (Model.Po?.Lines != null)
+            {
+                foreach (var line in Model.Po.Lines.OrderBy(l => l.LineNumber))
+                {
+                    var label = $"#{line.LineNumber} · {line.PartNumber ?? line.Item?.PartNumber ?? "—"} · {line.Description} · {line.QuantityOrdered} {line.UOM}";
+                    var selected = Model.PoLineId == line.Id.ToString();
+                    <option value="@line.Id" selected="@selected">@label</option>
+                }
+            }
+        </select>
+
+        <label for="OperatorNote">Operator note (optional)</label>
+        <textarea id="OperatorNote" name="OperatorNote" placeholder="Why this match? Anything the auditor should know about the linkage."></textarea>
+
+        <div class="match-orphan__actions">
+            <a href="/Receiving?tab=orphans" class="btn-p btn-p--ghost">Cancel</a>
+            <button type="submit" class="btn-p btn-p--primary">
+                <i class="fas fa-link"></i> Confirm match
+            </button>
+        </div>
+    </form>
+
+</div>

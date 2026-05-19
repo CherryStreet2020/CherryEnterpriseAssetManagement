@@ -1,0 +1,74 @@
+@*
+    _CockpitOrphanPreview.cshtml — Sprint 12A PR #7 / ADR-018 §D2.
+
+    Receiving-specific Orphan preview pane. Structure is intentionally different
+    from PO/ASN previews:
+
+      - No manifest table (an orphan is a single physical receipt, not multi-line)
+      - Receipt facts up top (number · item · qty · received · aged)
+      - "Why this is an orphan" notes line (operator context)
+      - AI candidate-PO panel: 0-3 ranked POs with per-signal score chips
+        + a 1-click "Match" CTA per candidate
+
+    Cockpit.js hook: selectOrphan(receiptId) reads __orphanDetails and hydrates
+    the pv* DOM ids defined here.
+*@
+
+<div class="cockpit__preview-header">
+    <div data-csp-style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <span class="cockpit__preview-po" id="pvReceiptNumber"></span>
+        <span class="cockpit__preview-status" id="pvOrphanStatus">Orphan</span>
+        <span id="pvDaysAgedPill" class="cockpit__preview-status cockpit__preview-status--warning"></span>
+    </div>
+    <div data-csp-style="display:flex; gap:0.5rem;">
+        <a id="pvBlindReceiveBtn" href="#" class="btn-p btn-p--ghost">
+            <i class="fas fa-clipboard-list"></i> Open Receipt
+        </a>
+    </div>
+</div>
+
+<div class="cockpit__preview-info">
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Part #</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvItemPart">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Description</span>
+        <span class="cockpit__preview-value" id="pvItemDesc">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Preferred Vendor</span>
+        <span class="cockpit__preview-value" id="pvPreferredVendor">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Quantity</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvQuantity">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Lot #</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvLot">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Received</span>
+        <span class="cockpit__preview-value" id="pvReceivedAt">—</span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Aged</span>
+        <span class="cockpit__preview-value" id="pvDaysAged">—</span>
+    </div>
+</div>
+
+<div class="cockpit__preview-notes">
+    <div class="cockpit__preview-notes-label">
+        <i class="fas fa-circle-info"></i> Receiving notes
+    </div>
+    <div id="pvOrphanNotes" class="cockpit__preview-notes-body">—</div>
+</div>
+
+<div class="cockpit__candidates">
+    <div class="cockpit__candidates-header">
+        <span><i class="fas fa-wand-magic-sparkles"></i> AI-suggested matches</span>
+        <span id="pvCandidateCount" class="cockpit__queue-count"></span>
+    </div>
+    <div id="pvCandidateList" class="cockpit__candidates-list"></div>
+</div>
