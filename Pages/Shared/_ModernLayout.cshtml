@@ -142,6 +142,9 @@
     
     <link rel="stylesheet" href="~/css/modules/premium-polish.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
+
+    @* Sprint 11 Voice MVP — per-page VoiceContextPayload as meta tags. *@
+    @await Html.PartialAsync("_VoiceContextMeta")
 </head>
 <body class="@(ViewData["BodyClass"] as string ?? "")">
     
@@ -696,6 +699,8 @@
     <script src="~/js/theme-toggle.js" asp-append-version="true"></script>
     <script src="~/js/primitives.js" asp-append-version="true"></script>
     <script src="~/js/control-center.js" asp-append-version="true"></script>
+    @* Sprint 11 Voice MVP — voice client (webkitSpeechRecognition + /_voice/invoke). *@
+    <script src="~/js/voice-client.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js" integrity="sha384-cnROoUgVILyibe3J0zhzWoJ9p2WmdnK7j/BOTSWqVDbC1pVw2d+i6Q/1ESKJKCYf" crossorigin="anonymous"></script>
     <script src="~/js/cherry-typeahead.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
