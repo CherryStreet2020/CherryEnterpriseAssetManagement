@@ -700,7 +700,6 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             POStatus.Sent,
             POStatus.PartiallyReceived,
         };
-        var soon = DateTime.Today.AddDays(1);
 
         var query = _db.PurchaseOrders
             .AsNoTracking()
@@ -711,13 +710,26 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             query = query.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
         }
 
-        var arrivingSoon = await query
-            .Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value <= soon)
-            .Select(p => new { p.Id, p.VendorId, p.Vendor!.Name, p.RequiredDate })
+        // Pull stubs to memory then filter client-side. The Postgres column
+        // for RequiredDate is timestamptz; comparing it server-side against a
+        // DateTime.Today (DateTimeKind.Unspecified) throws
+        // "Cannot apply binary operation on types 'timestamp with time zone'
+        // and 'timestamp without time zone'". This mirrors the same client-
+        // side filter pattern used in GetReceivingKpiBandAsync.
+        var stubs = await query
+            .Select(p => new { p.Id, p.VendorId, VendorName = p.Vendor!.Name, p.RequiredDate })
             .ToListAsync(ct);
 
+        var today = DateTime.Today;
+        var soonCutoff = today.AddDays(1);
+        var weekAgoCutoff = today.AddDays(-7);
+
+        var arrivingSoon = stubs
+            .Where(x => x.RequiredDate.HasValue && x.RequiredDate.Value <= soonCutoff)
+            .ToList();
+
         var byVendor = arrivingSoon
-            .GroupBy(x => new { x.VendorId, x.Name })
+            .GroupBy(x => new { x.VendorId, Name = x.VendorName })
             .Where(g => g.Count() >= 2)
             .OrderByDescending(g => g.Count())
             .ToList();
@@ -726,9 +738,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             .AsNoTracking()
             .CountAsync(r => string.IsNullOrEmpty(r.SourcePoNumber), ct);
 
-        var weekOverdueCount = await query
-            .Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value <= DateTime.Today.AddDays(-7))
-            .CountAsync(ct);
+        var weekOverdueCount = stubs.Count(x => x.RequiredDate.HasValue && x.RequiredDate.Value <= weekAgoCutoff);
 
         var suggestions = new List<AiSuggestion>(3);
 
