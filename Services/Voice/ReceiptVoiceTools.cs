@@ -226,9 +226,15 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
         var likePattern = $"%{trimmed}%";
 
         // First pass — typed columns. Cheapest.
+        //
+        // Voice MVP hotfix #2 (2026-05-19): dropped .Include(r => r.Item) and
+        // .Include(r => r.Profile) — both emit shadow-FK SQL on this DbContext
+        // that errors at runtime. Same class of failure as
+        // [[feedback_ef_shadow_fk_itemcompanystockings]]. The voice endpoint
+        // doesn't read .Item or .Profile, so the Includes are pure cost. Real
+        // fix is to audit AppDbContext.OnModelCreating for the StockReceipt
+        // navs; until then, projection-only is the safe pattern.
         var query = _db.StockReceipts
-            .Include(r => r.Item)
-            .Include(r => r.Profile)
             .AsNoTracking()
             .Where(r =>
                 EF.Functions.ILike(r.ReceiptNumber, likePattern) ||
@@ -250,14 +256,15 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
         // with the same Include shape.
         if (matches.Count < 5)
         {
+            // Voice MVP hotfix #2: dropped .Include here too. The voice client
+            // never reads .Item / .Profile so the Includes are dead weight.
+            // Cast to ::text is still required because Attributes is jsonb.
             var jsonMatches = await _db.StockReceipts
                 .FromSqlInterpolated(
                     $@"SELECT * FROM ""StockReceipts""
                        WHERE ""Attributes"" IS NOT NULL
                          AND (""Attributes"")::text ILIKE {likePattern}
                        LIMIT 20")
-                .Include(r => r.Item)
-                .Include(r => r.Profile)
                 .AsNoTracking()
                 .ToListAsync(ct);
 
@@ -395,12 +402,25 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
     public async Task<Result<ExceptionExplanation>> ExplainExceptionAsync(
         int receiptId, CancellationToken ct)
     {
+        // Voice MVP hotfix #2: dropped .Include(r => r.Profile) for the same
+        // shadow-FK reason as LookupReceiptAsync. The narrative uses the
+        // profile code as a label — fetch it via a separate flat query when
+        // a profile is attached.
         var receipt = await _db.StockReceipts
-            .Include(r => r.Profile)
             .AsNoTracking()
             .FirstOrDefaultAsync(r => r.Id == receiptId, ct);
         if (receipt is null)
             return Result.Failure<ExceptionExplanation>($"Receipt #{receiptId} not found.");
+
+        string? profileCode = null;
+        if (receipt.ProfileId.HasValue)
+        {
+            profileCode = await _db.Set<ReceiptProfile>()
+                .AsNoTracking()
+                .Where(p => p.Id == receipt.ProfileId.Value)
+                .Select(p => p.Code)
+                .FirstOrDefaultAsync(ct);
+        }
 
         // Deterministic templates per kind. Sprint 5 swaps with LLM-generated prose.
         string kind, severity, headline, narrative;
@@ -432,7 +452,7 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
             kind = "doc";
             severity = "warning";
             headline = $"{receipt.ReceiptNumber} is missing required profile attributes.";
-            narrative = $"The {receipt.Profile?.Code ?? "active"} profile requires attribute data " +
+            narrative = $"The {profileCode ?? "active"} profile requires attribute data " +
                         $"(heat number / lot / serial / etc) that hasn't been filled in. " +
                         $"Subsequent traceability lookups will not find this receipt by natural key.";
             actions.Add("Open the receipt and fill in the profile-required fields");
