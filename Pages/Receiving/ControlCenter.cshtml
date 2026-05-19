@@ -45,15 +45,14 @@
         break;
 
     case Abs.FixedAssets.Pages.Receiving.ControlCenterModel.TabAsnQueue:
-        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-asn-queue">
-            <i class="fas fa-truck-fast cockpit-tab-placeholder__icon" aria-hidden="true"></i>
-            <h2 class="cockpit-tab-placeholder__title">ASN Queue &mdash; coming Sprint 12A PR #6</h2>
-            <p class="cockpit-tab-placeholder__sub">
-                ASNs grouped by ETA window with a click-to-preview pane on the right.
-                Same Cockpit primitives the PO Queue tab uses, keyed on ASN ETAs and
-                expected items. Receive by ASN scan from the preview pane.
-            </p>
-            <span class="cockpit-tab-placeholder__chip">SOON &middot; SPRINT 12A</span>
+        @* Sprint 12A PR #6 — ASN Queue cockpit canvas on AdvancedShippingNotice
+           domain entity. Same cockpit primitives as PO Queue, ETA-bucketed via
+           ByTimeLens, Receive-by-ASN CTA links to existing /Receiving/ByAsn. *@
+        <div role="tabpanel" aria-labelledby="tab-asn-queue">
+            @if (Model.AsnQueueShell is not null)
+            {
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.AsnQueueShell)
+            }
         </div>
         break;
 

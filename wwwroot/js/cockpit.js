@@ -105,6 +105,85 @@
     window.selectPO = selectPO;
 
     // -------------------------------------------------------------------------
+    // Sprint 12A PR #6 — selectAsn (ASN Queue cockpit).
+    //
+    // Mirrors selectPO but reads __asnDetails (ASN-specific shape) and maps
+    // ASN-specific fields: Carrier, Tracking, Source PO. Manifest lines use
+    // expected/received/remaining/lot/heat instead of ordered/received/
+    // remaining/unitPrice/lineTotal/putaway. Same #pvXxx DOM ids as the PO
+    // preview so the same #mainPreview container hosts both.
+    //
+    // The Receive CTA links to the existing /Receiving/ByAsn page with
+    // ?asn={id} query — Sprint 11 plumbed that handler already.
+    // -------------------------------------------------------------------------
+    var ASN_DATA = [];
+    try {
+        var asnBlob = document.getElementById('__asnDetails');
+        if (asnBlob) { ASN_DATA = JSON.parse(asnBlob.textContent); }
+    } catch (e) { /* swallow — preview pane stays on welcome state */ }
+
+    function selectAsn(id) {
+        document.querySelectorAll('.cockpit__card').forEach(function (c) { c.classList.remove('cockpit__card--active'); });
+        var card = document.querySelector('.cockpit__card[data-id="' + id + '"]');
+        if (card) card.classList.add('cockpit__card--active');
+
+        var asn = ASN_DATA.find(function (a) { return a.id === id; });
+        if (!asn) return;
+
+        var welcome = document.getElementById('mainWelcome');
+        var pv = document.getElementById('mainPreview');
+        if (welcome) welcome.style.display = 'none';
+        if (pv) pv.style.display = 'flex';
+
+        document.getElementById('pvPoNum').textContent = asn.num;
+        document.getElementById('pvReceiveBtn').href = '/Receiving/ByAsn?asn=' + encodeURIComponent(asn.num);
+
+        var statusEl = document.getElementById('pvStatus');
+        statusEl.textContent = asn.status;
+        statusEl.className = 'cockpit__preview-status status-badge-p ' + (
+            asn.status === 'Arrived'   ? 'status-badge-p--warning' :
+            asn.status === 'Receiving' ? 'status-badge-p--pending' :
+            asn.status === 'InTransit' ? 'status-badge-p--info' :
+            'status-badge-p--approved'
+        );
+
+        document.getElementById('pvVendor').textContent = asn.vendor;
+        document.getElementById('pvOrderDate').textContent = asn.orderDate;
+        document.getElementById('pvReqDate').textContent = asn.requiredDate;
+        document.getElementById('pvShipTo').textContent = asn.shipTo;
+        document.getElementById('pvTotal').textContent = asn.total;
+
+        var carrierEl = document.getElementById('pvCarrier');
+        if (carrierEl) carrierEl.textContent = asn.carrier || '—';
+        var trackingEl = document.getElementById('pvTracking');
+        if (trackingEl) trackingEl.textContent = asn.tracking || '—';
+        var sourcePoEl = document.getElementById('pvSourcePo');
+        if (sourcePoEl) sourcePoEl.textContent = asn.sourcePo || '—';
+
+        document.getElementById('pvLineCount').textContent = asn.lines.length + ' lines';
+
+        var tbody = document.getElementById('pvLinesBody');
+        tbody.innerHTML = asn.lines.map(function (l) {
+            var done = l.remaining <= 0;
+            var remHtml = done
+                ? '<span class="status-badge-p status-badge-p--approved" data-csp-style="font-size:0.55rem;">DONE</span>'
+                : '<strong>' + l.remaining.toFixed(0) + '</strong>';
+            var lotOrHeat = l.heat ? ('HT ' + l.heat) : (l.lot || '—');
+
+            return '<tr class="line-table__row" data-csp-style="' + (done ? 'opacity:0.4;' : '') + '">'
+                + '<td class="line-table__td line-table__td--mono" data-csp-style="font-weight:600;">' + l.partNum + '</td>'
+                + '<td class="line-table__td line-table__td--primary">' + l.desc + '</td>'
+                + '<td class="line-table__td line-table__td--muted">' + l.uom + '</td>'
+                + '<td class="line-table__td line-table__td--right line-table__td--mono">' + l.expected.toFixed(0) + '</td>'
+                + '<td class="line-table__td line-table__td--right line-table__td--mono line-table__td--muted">' + l.received.toFixed(0) + '</td>'
+                + '<td class="line-table__td line-table__td--right line-table__td--mono">' + remHtml + '</td>'
+                + '<td class="line-table__td line-table__td--muted" data-csp-style="font-size:0.75rem;">' + lotOrHeat + '</td>'
+                + '</tr>';
+        }).join('');
+    }
+    window.selectAsn = selectAsn;
+
+    // -------------------------------------------------------------------------
     // Cockpit tab keyboard nav (Sprint 12A PR #4 / ADR-018 §D2).
     // Left/Right arrows cycle through tabs when focus is on the tab bar.
     // Home/End jump to first/last. The clicked tab navigates via its href so
