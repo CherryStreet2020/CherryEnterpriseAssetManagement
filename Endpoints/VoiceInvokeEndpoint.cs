@@ -117,8 +117,24 @@ public static class VoiceInvokeEndpoint
             logger.LogError(ex,
                 "Voice invoke failed for intent {Intent} (session {SessionId})",
                 intent.Kind, aiSessionId);
+            // Voice MVP hotfix #3 (2026-05-19): surface exception type + first
+            // 200 chars of message into the AuditLog row's Description so we
+            // can diagnose post-hoc without TTY access. Spoken text stays
+            // user-safe. Followup PR will revert this once the cause is found.
             response = VoiceInvokeResponse.Error(
                 "Something went wrong on my end. Try again in a moment.");
+            response = response with
+            {
+                Displayed = new VoiceDisplayed
+                {
+                    Title = "Voice — internal error (diagnostic)",
+                    Lines = new[]
+                    {
+                        ex.GetType().Name + ": " + (ex.Message ?? "(no message)").Substring(0, Math.Min(ex.Message?.Length ?? 0, 280)),
+                        (ex.InnerException?.GetType().Name + ": " + (ex.InnerException?.Message ?? "")).Substring(0, Math.Min(220, (ex.InnerException?.GetType().Name + ": " + (ex.InnerException?.Message ?? "")).Length))
+                    }
+                }
+            };
         }
 
         response = response with
