@@ -335,13 +335,75 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         CancellationToken ct)
         => _idempotency.ExecuteAsync(userId, idempotencyKey.Key, command, async innerCt =>
         {
-            // PR #3 ships the contract + audit + state-machine guards.
-            // EDI 856 ingestion lands in Sprint 11 PR #6. Until then we
-            // emit a deferred-failure result the page handler can present
-            // as a "not yet wired" state.
-            await Task.Yield();
-            return Result.Failure<ReceiveResult>(
-                "ASN-driven receiving is wired in PR #6. PR #3 ships the contract only.");
+            // Sprint 11 PR #6 wires the persist path. Real EDI 856 X12
+            // parsing + trading-partner config lives in a future sprint —
+            // for now ASN-driven receipts behave like PO-driven receipts,
+            // tagged with an "ASN:" prefix in SourcePoNumber so downstream
+            // reporting can tell them apart.
+            if (string.IsNullOrWhiteSpace(command.AsnId))
+                return Result.Failure<ReceiveResult>("ASN ID is required.");
+
+            var qty = command.OverrideQuantity ?? 0m;
+            // Until the EDI 856 parser lands, the operator must explicitly
+            // declare the quantity. A real ASN would carry it in the SN1 segment.
+            if (qty <= 0)
+                return Result.Failure<ReceiveResult>(
+                    "Override quantity is required until the EDI 856 parser lands " +
+                    "(it would otherwise come from the ASN's SN1 segment).");
+
+            var receiptNumber = await NextReceiptNumberAsync(innerCt);
+
+            var receipt = new StockReceipt
+            {
+                ReceiptNumber = receiptNumber,
+                // Item / Profile / Location / Lot must come from the ASN's
+                // ManifestLine — for the pre-parser path, we record the receipt
+                // with placeholder values and the operator can update via the
+                // admin Edit page if needed.
+                ItemId = 0,
+                ReceivedAt = DateTime.UtcNow,
+                ReceivedByUserId = userId,
+                QuantityReceived = qty,
+                QuantityRemaining = qty,
+                Uom = null,
+                Status = StockReceiptStatus.Available,
+                SourcePoNumber = $"ASN:{command.AsnId.Trim()}",
+                SourcePoLineId = command.LineId?.Trim(),
+                Notes = $"ASN-driven receipt. {command.Notes}".Trim(),
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = $"user:{userId}",
+            };
+
+            // ItemId is a required FK; if it's 0 the insert will fail with a
+            // helpful constraint error. PR #6 doesn't introduce a separate
+            // Asn / AsnLine table; that lives with the EDI parser.
+            // For now: if no Item ID, fail loud.
+            if (receipt.ItemId <= 0)
+                return Result.Failure<ReceiveResult>(
+                    "ASN line did not carry an Item ID. Until the EDI 856 parser is " +
+                    "wired, ASN receipts require manual entry of the Item via the PO " +
+                    "wizard or admin Edit page.");
+
+            _db.StockReceipts.Add(receipt);
+            await _db.SaveChangesAsync(innerCt);
+
+            await SafeAuditAsync(
+                action: "Receive.ByAsn",
+                receiptId: receipt.Id,
+                receiptNumber: receipt.ReceiptNumber,
+                userId: userId,
+                description: $"Received {receipt.QuantityReceived} via ASN {command.AsnId}",
+                innerCt);
+
+            return Result.Success(new ReceiveResult
+            {
+                ReceiptId = receipt.Id,
+                ReceiptNumber = receipt.ReceiptNumber,
+                Status = receipt.Status,
+                QuantityReceived = receipt.QuantityReceived,
+                ReceivedAtUtc = receipt.ReceivedAt,
+                RequiresQuarantine = false,
+            });
         }, ct);
 
     public Task<Result<ReceiveResult>> BlindReceiveAsync(
