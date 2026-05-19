@@ -136,7 +136,9 @@
         if (pv) pv.style.display = 'flex';
 
         document.getElementById('pvPoNum').textContent = asn.num;
-        document.getElementById('pvReceiveBtn').href = '/Receiving/ByAsn?asn=' + encodeURIComponent(asn.num);
+        // Real ByAsn route is /Receiving/By-Asn/{AsnId?} (hyphenated, route-segment).
+        // PR #6 hotfix 2026-05-19 — caught by Dean during live-verify.
+        document.getElementById('pvReceiveBtn').href = '/Receiving/By-Asn/' + encodeURIComponent(asn.num);
 
         var statusEl = document.getElementById('pvStatus');
         statusEl.textContent = asn.status;
