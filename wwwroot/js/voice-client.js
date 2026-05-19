@@ -33,11 +33,35 @@
     var inflightController = null;   // AbortController for inflight POST
 
     function init() {
-        // Wait for the FAB to exist (it's only on Control Center pages).
-        if (!document.querySelector('[data-cc-voice]')) return;
+        // Voice MVP hotfix #1 — Sprint 12A PR #5.2 (Flagship IA) introduced
+        // a new header voice button at `[data-cherry-voice-trigger]` and
+        // dropped the bottom-right shell FAB `[data-cc-voice]` on the cockpit
+        // canvas. We support BOTH so the client lights up whichever surface
+        // the page chose to render.
+        var legacyFab = document.querySelector('[data-cc-voice]');
+        var headerBtn = document.querySelector('[data-cherry-voice-trigger]');
+        if (!legacyFab && !headerBtn) return;
 
-        // Subscribe to the FAB state event control-center.js dispatches.
-        window.addEventListener('cherry:voice:state', onFabStateChange);
+        // Legacy FAB: control-center.js already toggles data-cc-voice-active
+        // and dispatches cherry:voice:state. We subscribe.
+        if (legacyFab) {
+            window.addEventListener('cherry:voice:state', onFabStateChange);
+        }
+
+        // Header voice trigger: no existing event plumbing — wire it
+        // directly. Click toggles listening, push-to-talk via Space-hold is
+        // still owned by control-center.js for the legacy FAB; the header
+        // button is click-only for now.
+        if (headerBtn) {
+            headerBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (listening) {
+                    stopListening(/*fireInvoke*/ true);
+                } else {
+                    startListening();
+                }
+            });
+        }
 
         // Ensure we have a stable session id (one per browser session).
         ensureSessionId();
@@ -81,13 +105,17 @@
     /* ---------- FAB state plumbing -------------------------------------- */
 
     function setFabMode(mode) {
-        var fab = document.querySelector('[data-cc-voice]');
-        if (!fab) return;
-        if (mode === 'idle') {
-            fab.removeAttribute('data-cc-voice-mode');
-        } else {
-            fab.setAttribute('data-cc-voice-mode', mode);
-        }
+        // Apply the visual-state attribute to whichever voice trigger surface
+        // exists. Both legacy FAB and the new header button use the same
+        // `data-cc-voice-mode` attribute for CSS state matching.
+        var targets = document.querySelectorAll('[data-cc-voice], [data-cherry-voice-trigger]');
+        targets.forEach(function (el) {
+            if (mode === 'idle') {
+                el.removeAttribute('data-cc-voice-mode');
+            } else {
+                el.setAttribute('data-cc-voice-mode', mode);
+            }
+        });
     }
 
     function onFabStateChange(e) {
