@@ -103,4 +103,39 @@
     // event listeners attached after the partial renders.
     window.filterQueue = filterQueue;
     window.selectPO = selectPO;
+
+    // -------------------------------------------------------------------------
+    // Cockpit tab keyboard nav (Sprint 12A PR #4 / ADR-018 §D2).
+    // Left/Right arrows cycle through tabs when focus is on the tab bar.
+    // Home/End jump to first/last. The clicked tab navigates via its href so
+    // browser back/forward preserves tab state automatically.
+    // -------------------------------------------------------------------------
+    function bindTabKeyboardNav() {
+        var bar = document.querySelector('[data-cockpit-tabs]');
+        if (!bar) return;
+        bar.addEventListener('keydown', function (e) {
+            var tabs = Array.prototype.slice.call(bar.querySelectorAll('.cockpit-tab'));
+            if (!tabs.length) return;
+            var idx = tabs.indexOf(document.activeElement);
+            if (idx < 0) idx = tabs.findIndex(function (t) { return t.classList.contains('cockpit-tab--active'); });
+            var next = null;
+            switch (e.key) {
+                case 'ArrowRight': next = tabs[(idx + 1) % tabs.length]; break;
+                case 'ArrowLeft':  next = tabs[(idx - 1 + tabs.length) % tabs.length]; break;
+                case 'Home':       next = tabs[0]; break;
+                case 'End':        next = tabs[tabs.length - 1]; break;
+                default: return;
+            }
+            if (next) {
+                e.preventDefault();
+                next.focus();
+                next.click();
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindTabKeyboardNav);
+    } else {
+        bindTabKeyboardNav();
+    }
 })();

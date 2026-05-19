@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Pages.Shared.ControlCenter;
 using Abs.FixedAssets.Pages.Shared.Primitives;
+using Abs.FixedAssets.Pages.Shared.Primitives.Cockpit;
 using Abs.FixedAssets.Services.Receiving;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -60,8 +61,31 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     [BindProperty(SupportsGet = true)]
     public string? SiteCode { get; set; }
 
+    // Sprint 12A PR #4 — `?tab=` query string drives which tab renders.
+    // Valid keys: po-queue (default) | asn-queue | orphans | exceptions.
+    // Unknown values fall back to the default.
+    [BindProperty(SupportsGet = true, Name = "tab")]
+    public string? TabKey { get; set; }
+
+    // Tab shell model. Hydrated in OnGetAsync; consumed by ControlCenter.cshtml.
+    public CockpitTabShellModel TabShell { get; private set; } = new();
+
+    public const string TabPoQueue = "po-queue";
+    public const string TabAsnQueue = "asn-queue";
+    public const string TabOrphans = "orphans";
+    public const string TabExceptions = "exceptions";
+
+    private static readonly string[] KnownTabs = { TabPoQueue, TabAsnQueue, TabOrphans, TabExceptions };
+
+    // Resolve the active tab key honoring the `?tab=` param with a default.
+    public string ActiveTab =>
+        !string.IsNullOrEmpty(TabKey) && KnownTabs.Contains(TabKey, StringComparer.OrdinalIgnoreCase)
+            ? TabKey.ToLowerInvariant()
+            : TabPoQueue;
+
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
+        // Common shell header — used by every tab.
         Shell.Eyebrow = "RECEIVING CONTROL CENTER";
         Shell.Headline = "Today's dock";
         Shell.Subtitle = string.IsNullOrEmpty(SiteCode)
@@ -70,9 +94,43 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         Shell.VoicePosture = "push-to-talk";
         Shell.ShowVoiceButton = true;
 
-        // KPI strip — real EF-backed snapshot for the period. The service
-        // method is forgiving: if no receipts are in range it returns dashes
-        // rather than zeros, so the page never looks broken on a fresh tenant.
+        // -------------------------------------------------------------------
+        // Sprint 12A PR #4 — tab shell wiring.
+        // The four-tab Cockpit shell per ADR-018 §D2. PO Queue is the default;
+        // ASN Queue and Orphans render placeholders until PRs #6 and #7 ship
+        // their real cockpit consumers. Exceptions hosts the Sprint 11
+        // four-quadrant scaffold via the existing _ControlCenterShell partial.
+        // -------------------------------------------------------------------
+        TabShell = new CockpitTabShellModel
+        {
+            ActiveTabKey = ActiveTab,
+            BaseRoute = "/Receiving",
+            Tabs = new List<CockpitTab>
+            {
+                new(TabPoQueue,    "PO Queue",    "fas fa-file-invoice",      IsDefault: true),
+                new(TabAsnQueue,   "ASN Queue",   "fas fa-truck-fast"),
+                new(TabOrphans,    "Orphans",     "fas fa-question-circle"),
+                new(TabExceptions, "Exceptions",  "fas fa-triangle-exclamation"),
+            },
+        };
+
+        // Only the Exceptions tab needs the heavyweight Shell hydration (KPI
+        // strip + exception lane + activity feed). Other tabs render
+        // placeholders so the page-load cost stays minimal until the cockpit
+        // consumers wire in PRs #5–#7.
+        if (string.Equals(ActiveTab, TabExceptions, StringComparison.OrdinalIgnoreCase))
+        {
+            await HydrateExceptionsTabAsync(ct);
+        }
+
+        return Page();
+    }
+
+    // Pulls KPI strip + exception lane + activity feed + drawer placeholder
+    // into Shell. This is the Sprint 11 four-quadrant scaffold's data, now
+    // scoped to the Exceptions sub-tab per ADR-018 §D8.
+    private async Task HydrateExceptionsTabAsync(CancellationToken ct)
+    {
         var kpiFilter = new KpiStripFilter
         {
             SiteCode = SiteCode,
@@ -82,9 +140,6 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         var kpiResult = await _receiving.GetKpiStripAsync(kpiFilter, ct);
         Shell.KpiStrip = BuildKpiStrip(kpiResult);
 
-        // Exception lane — AI-priority-ranked. ListExpectedArrivals is wired
-        // by PR #5 too via the voice-tools layer but the page consumes the
-        // lane direct from the service for now.
         var laneFilter = new SvcLaneFilter
         {
             SiteCode = SiteCode,
@@ -94,8 +149,6 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         var laneResult = await _receiving.GetExceptionLaneAsync(laneFilter, ct);
         Shell.ExceptionLane = BuildExceptionLane(laneResult);
 
-        // Activity feed — recent AuditLog rows. Sprint 5 voice-AI rows will
-        // appear here automatically (ActorKind=AiOnBehalfOf).
         var feedFilter = new ActivityFeedFilter
         {
             SiteCode = SiteCode,
@@ -105,8 +158,6 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         var feedResult = await _receiving.GetActivityFeedAsync(feedFilter, ct);
         Shell.ActivityFeed = BuildActivityFeed(feedResult);
 
-        // Drawer placeholder. PR #6 wires the profile-aware body via
-        // DynamicFormViewComponent for the row currently in focus.
         Shell.Drawer = new ContextDrawerModel
         {
             Id = "receiving-cc-drawer",
@@ -119,8 +170,6 @@ public sealed class ControlCenterModel : ControlCenterPageModel
                        "DynamicFormViewComponent. PR #6 wires the live row-to-drawer flow." +
                        "</div>",
         };
-
-        return Page();
     }
 
     public override VoiceContextPayload BuildContextPayload()
@@ -136,7 +185,9 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             EntityId = SiteCode ?? "ALL",
             RelatedIds = Shell.ExceptionLane?.Rows?.Select(r => r.Id).Where(id => !string.IsNullOrEmpty(id)).ToArray() ?? Array.Empty<string>(),
             FocusedField = baseCtx.FocusedField,
-            Tab = baseCtx.Tab,
+            // Per ADR-014 D7 / ADR-018 §D7 — voice scope tracks the active tab
+            // so commands like "show me overdue receipts" target the right canvas.
+            Tab = ActiveTab,
             BuiltAt = baseCtx.BuiltAt,
         };
     }

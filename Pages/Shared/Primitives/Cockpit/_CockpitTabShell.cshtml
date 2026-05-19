@@ -1,0 +1,49 @@
+@*
+    _CockpitTabShell.cshtml — Sprint 12A PR #4 / ADR-018 §D2.
+
+    Generic four-tab shell for Cockpit-first Control Centers. Renders ONLY the
+    tab bar; the page composes the per-tab content below this partial.
+
+    Tab state lives in the URL (`?tab=<key>`) so the back button + refresh +
+    deep-links all preserve the active tab.
+
+    Keyboard nav (wired in cockpit.js):
+      - Left / Right arrows cycle tabs when focus is on the tab bar.
+
+    Pages compose this partial like:
+        @await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+        @switch (Model.TabShell.ActiveTabKey) { case "po-queue": ... }
+
+    Empty CountBadge values (null or 0) hide the badge; non-zero values render
+    a small pill colored by BadgeTone. Tone palette matches the rest of the
+    Cockpit pattern: danger / warning / info / neutral.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitTabShellModel
+
+@if (Model is { Tabs.Count: > 0 })
+{
+    <nav class="cockpit-tabs" role="tablist" aria-label="Workspace tabs" data-cockpit-tabs>
+        @foreach (var tab in Model.Tabs)
+        {
+            var isActive = string.Equals(tab.Key, Model.ActiveTabKey, System.StringComparison.OrdinalIgnoreCase);
+            var href = string.IsNullOrEmpty(Model.BaseRoute) ? $"?tab={tab.Key}" : $"{Model.BaseRoute}?tab={tab.Key}";
+            var classes = "cockpit-tab" + (isActive ? " cockpit-tab--active" : "");
+
+            <a href="@href"
+               class="@classes"
+               role="tab"
+               aria-selected="@(isActive ? "true" : "false")"
+               data-tab-key="@tab.Key">
+                @if (!string.IsNullOrEmpty(tab.IconClass))
+                {
+                    <i class="@tab.IconClass cockpit-tab__icon" aria-hidden="true"></i>
+                }
+                <span class="cockpit-tab__label">@tab.Label</span>
+                @if (tab.CountBadge.HasValue && tab.CountBadge.Value > 0)
+                {
+                    <span class="cockpit-tab__badge cockpit-tab__badge--@tab.BadgeTone">@tab.CountBadge</span>
+                }
+            </a>
+        }
+    </nav>
+}

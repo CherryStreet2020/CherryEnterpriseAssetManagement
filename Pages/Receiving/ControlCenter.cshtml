@@ -7,18 +7,67 @@
 }
 
 @*
-    Sprint 11 PR #5 — first live Control Center surface.
+    Sprint 12A PR #4 — /Receiving is now the four-tab Cockpit shell per ADR-018 §D2.
 
-    The four-quadrant scaffold (KPI strip + exception lane + drawer + activity feed)
-    is rendered by _ControlCenterShell. All data comes from
-    IReceivingControlCenterService (PR #3); the voice-tool surface (PR #4) is
-    wired through the Voice FAB inside the shell.
+    Tabs (in order, default = PO Queue):
+      - po-queue   : Cockpit canvas (real wiring lands PR #5 — placeholder for now)
+      - asn-queue  : Cockpit canvas (real wiring lands PR #6 — placeholder)
+      - orphans    : Cockpit canvas (real wiring lands PR #7 — placeholder)
+      - exceptions : Sprint 11 four-quadrant scaffold via _ControlCenterShell
 
-    Route note: this lives at /Receiving/ControlCenter for the duration of
-    Sprint 11. PR #7 (kill list) will swap /Receiving → this page and redirect
-    the old Cockpit to /Receiving/Cockpit-Legacy. Doing the swap then keeps
-    the destructive change at the end of the sprint, when every Control Center
-    primitive + service + voice tool has shipped and shipped clean.
+    Tab state is in the URL via ?tab=<key>. Tab keyboard nav lives in cockpit.js.
+    Voice context (BuildContextPayload) emits the active tab so commands like
+    "show me overdue receipts" target the right canvas.
 *@
 
-@await Html.PartialAsync("_ControlCenterShell", Model.Shell)
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+@switch (Model.ActiveTab)
+{
+    case Abs.FixedAssets.Pages.Receiving.ControlCenterModel.TabExceptions:
+        @await Html.PartialAsync("_ControlCenterShell", Model.Shell)
+        break;
+
+    case Abs.FixedAssets.Pages.Receiving.ControlCenterModel.TabAsnQueue:
+        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-asn-queue">
+            <i class="fas fa-truck-fast cockpit-tab-placeholder__icon" aria-hidden="true"></i>
+            <h2 class="cockpit-tab-placeholder__title">ASN Queue &mdash; coming Sprint 12A PR #6</h2>
+            <p class="cockpit-tab-placeholder__sub">
+                ASNs grouped by ETA window with a click-to-preview pane on the right.
+                Same Cockpit primitives the PO Queue tab uses, keyed on ASN ETAs and
+                expected items. Receive by ASN scan from the preview pane.
+            </p>
+            <span class="cockpit-tab-placeholder__chip">SOON &middot; SPRINT 12A</span>
+        </div>
+        break;
+
+    case Abs.FixedAssets.Pages.Receiving.ControlCenterModel.TabOrphans:
+        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-orphans">
+            <i class="fas fa-question-circle cockpit-tab-placeholder__icon" aria-hidden="true"></i>
+            <h2 class="cockpit-tab-placeholder__title">Orphans &mdash; coming Sprint 12A PR #7</h2>
+            <p class="cockpit-tab-placeholder__sub">
+                Unmatched receipts with AI-suggested PO matches in a dedicated column.
+                One-click resolve via the preview pane &mdash; MatchOrphanReceipt is
+                already wired up server-side (Sprint 11 PR #4).
+            </p>
+            <span class="cockpit-tab-placeholder__chip">SOON &middot; SPRINT 12A</span>
+        </div>
+        break;
+
+    default:
+        @* TabPoQueue is the default. Real wiring lands PR #5
+           (IReceivingControlCenterService.GetPoQueueAsync +
+           PoQueueRow : ICockpitQueueRow). Legacy /Receiving/Cockpit-Legacy
+           remains the operator's daily driver until then. *@
+        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-po-queue">
+            <i class="fas fa-file-invoice cockpit-tab-placeholder__icon" aria-hidden="true"></i>
+            <h2 class="cockpit-tab-placeholder__title">PO Queue &mdash; coming Sprint 12A PR #5</h2>
+            <p class="cockpit-tab-placeholder__sub">
+                Time-bucketed PO queue (Overdue / Today / This Week / Later) with a
+                click-to-preview pane on the right &mdash; the daily-driver canvas.
+                Will render pixel-identical to <a href="/Receiving/Cockpit-Legacy">/Receiving/Cockpit-Legacy</a>.
+            </p>
+            <a class="cockpit-tab-placeholder__chip" href="/Receiving/Cockpit-Legacy" style="text-decoration: none;">USE COCKPIT (LEGACY)</a>
+        </div>
+        break;
+}
