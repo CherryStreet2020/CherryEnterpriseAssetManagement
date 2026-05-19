@@ -297,9 +297,9 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             query = query.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
         }
 
-        var pos = await query
-            .OrderBy(p => p.RequiredDate ?? p.OrderDate)
-            .ToListAsync(ct);
+        // Coalesce server-side trips a Postgres tz mismatch; sort in memory.
+        var loaded = await query.ToListAsync(ct);
+        var pos = loaded.OrderBy(p => p.RequiredDate ?? p.OrderDate).ToList();
 
         var todayLocal = DateTime.Today;
         var weekEndLocal = todayLocal.AddDays(7);
@@ -602,10 +602,18 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         // Earliest required date first — that surfaces overdue (most negative
         // delta) before anything else. POs with no required date sort last
         // by OrderDate fallback.
-        var top = await query
+        //
+        // Coalesce moved client-side: comparing `RequiredDate ?? OrderDate`
+        // server-side trips the same Postgres "timestamp with time zone" vs
+        // "timestamp without time zone" mismatch that the AI Suggestions
+        // query hit. Pulling stubs first keeps the queue small (limit 50)
+        // and dodges the issue entirely.
+        var loadedPos = await query
+            .ToListAsync(ct);
+        var top = loadedPos
             .OrderBy(p => p.RequiredDate ?? p.OrderDate)
             .Take(2)
-            .ToListAsync(ct);
+            .ToList();
 
         if (top.Count == 0)
         {
