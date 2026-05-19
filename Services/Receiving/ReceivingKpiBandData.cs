@@ -61,6 +61,11 @@ public sealed class ReceivingKpiTile
     // Optional target text shown faded under the value ("target 90").
     public string? TargetText { get; init; }
 
+    // Sprint 12A PR #5.2 — sub-text line under the value/target giving the
+    // number context: "$248K backlog · 12 vendors", "Nothing landing today",
+    // "All clear today". One short sentence, max ~40 chars.
+    public string? SubText { get; init; }
+
     // Tone drives the top-accent stripe + value color:
     //   "danger" | "warning" | "info" | "success" | "neutral" | "brand"
     public string Tone { get; init; } = "neutral";

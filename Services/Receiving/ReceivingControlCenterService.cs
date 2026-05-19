@@ -317,7 +317,12 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
     private static PoQueueRow BuildPoQueueRow(PurchaseOrder p, DateTime todayLocal, DateTime weekEndLocal)
     {
         string tone;
-        if (p.RequiredDate.HasValue && p.RequiredDate.Value < todayLocal)        tone = "danger";
+        int? daysOverdue = null;
+        if (p.RequiredDate.HasValue && p.RequiredDate.Value < todayLocal)
+        {
+            tone = "danger";
+            daysOverdue = (int)Math.Max(1, (todayLocal - p.RequiredDate.Value).TotalDays);
+        }
         else if (p.RequiredDate.HasValue && p.RequiredDate.Value == todayLocal)  tone = "warning";
         else if (p.RequiredDate.HasValue && p.RequiredDate.Value <= weekEndLocal) tone = "info";
         else                                                                       tone = "neutral";
@@ -329,13 +334,19 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             new("Value",    $"${p.Total:N0}"),
         };
 
-        // Match the legacy _QueueCard.cshtml status-pill mapping byte-for-byte
-        // so the pixel-identical promise holds.
-        var statusTone = p.Status switch
+        // Sprint 12A PR #5.2 — pretty status pill labels (no more
+        // PARTIALLYRECEIVED running together as one word). Title-case.
+        var (statusLabel, statusTone) = p.Status switch
         {
-            POStatus.PartiallyReceived => "pending",
-            POStatus.Sent              => "info",
-            _                          => "approved",
+            POStatus.PartiallyReceived => ("Partial",   "pending"),
+            POStatus.Sent              => ("Sent",      "info"),
+            POStatus.Approved          => ("Approved",  "approved"),
+            POStatus.PendingApproval   => ("Pending",   "warning"),
+            POStatus.Received          => ("Received",  "approved"),
+            POStatus.Invoiced          => ("Invoiced",  "info"),
+            POStatus.Closed            => ("Closed",    "neutral"),
+            POStatus.Cancelled         => ("Cancelled", "neutral"),
+            _                          => (p.Status.ToString(), "neutral"),
         };
 
         return new PoQueueRow(
@@ -345,8 +356,10 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             RequiredAt:  p.RequiredDate,
             Tone:        tone,
             Meta:        meta,
-            StatusLabel: p.Status.ToString(),
-            StatusTone:  statusTone);
+            StatusLabel: statusLabel,
+            StatusTone:  statusTone,
+            DaysOverdue: daysOverdue,
+            TotalValue:  p.Total);
     }
 
     private static PoQueuePreview BuildPoQueuePreview(PurchaseOrder p)
@@ -407,8 +420,22 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         }
 
         var poStubs = await poQuery
-            .Select(p => new { p.Id, p.RequiredDate, p.OrderDate, p.Status })
+            .Select(p => new { p.Id, p.RequiredDate, p.OrderDate, p.Status, p.Total, p.VendorId })
             .ToListAsync(ct);
+
+        // Sub-text enrichments for the KPI band hero tiles.
+        var openBacklogTotal = poStubs.Sum(p => p.Total);
+        var openVendorCount = poStubs.Select(p => p.VendorId).Distinct().Count();
+        var overdueBacklogTotal = poStubs.Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value < DateTime.Today).Sum(p => p.Total);
+        var overdueVendorCount = poStubs.Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value < DateTime.Today).Select(p => p.VendorId).Distinct().Count();
+
+        static string ShortDollars(decimal v) => v switch
+        {
+            >= 1_000_000m => $"${v / 1_000_000m:0.#}M",
+            >= 10_000m    => $"${v / 1_000m:0}K",
+            >= 1_000m     => $"${v / 1_000m:0.#}K",
+            _             => $"${v:0}",
+        };
 
         var todayLocal = DateTime.Today;
         var weekEndLocal = todayLocal.AddDays(7);
@@ -472,13 +499,14 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
 
         var data = new ReceivingKpiBandData
         {
-            // Row 1 — workload (clickable filters)
+            // Row 1 — hero workload (clickable filters) with sub-text context
             OpenPos = new ReceivingKpiTile
             {
                 Label = "Open POs",
                 Value = openTotal.ToString(),
                 Tone = openTotal == 0 ? "success" : "brand",
                 SparkPoints = backlogSpark,
+                SubText = openTotal == 0 ? "Dock is clear" : $"Across {openVendorCount} vendor{(openVendorCount == 1 ? "" : "s")}",
                 DrillScroll = null, // informational
             },
             Overdue = new ReceivingKpiTile
@@ -487,6 +515,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
                 Value = overdueCount.ToString(),
                 Tone = overdueCount > 0 ? "danger" : "success",
                 SparkPoints = backlogSpark,
+                SubText = overdueCount == 0 ? "Caught up" : $"{ShortDollars(overdueBacklogTotal)} backlog · {overdueVendorCount} vendor{(overdueVendorCount == 1 ? "" : "s")}",
                 DrillScroll = overdueCount > 0 ? "overdue" : null,
             },
             DueToday = new ReceivingKpiTile
@@ -494,6 +523,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
                 Label = "Due today",
                 Value = todayCount.ToString(),
                 Tone = todayCount > 0 ? "warning" : "neutral",
+                SubText = todayCount == 0 ? "Nothing landing today" : "Operators staged",
                 DrillScroll = todayCount > 0 ? "today" : null,
             },
             ThisWeek = new ReceivingKpiTile
@@ -501,6 +531,7 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
                 Label = "This week",
                 Value = weekCount.ToString(),
                 Tone = weekCount > 0 ? "info" : "neutral",
+                SubText = weekCount == 0 ? "Clear week" : "Within 7-day window",
                 DrillScroll = weekCount > 0 ? "this-week" : null,
             },
 
@@ -530,10 +561,11 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
             },
             ExceptionsOpen = new ReceivingKpiTile
             {
-                Label = "Exceptions open",
+                Label = "Exceptions",
                 Value = exceptionsOpen.ToString(),
                 Tone = exceptionsOpen == 0 ? "success" : "warning",
                 SparkPoints = BucketQuarantineByDay(),
+                SubText = exceptionsOpen == 0 ? "All clear today" : "Needs review",
                 DrillHref = "/Receiving?tab=exceptions",
             },
 
@@ -541,6 +573,215 @@ public sealed class ReceivingControlCenterService : IReceivingControlCenterServi
         };
 
         return Result.Success(data);
+    }
+
+    public async Task<Result<ReceivingNextUpData>> GetReceivingNextUpAsync(
+        ReceivingNextUpFilter filter,
+        CancellationToken ct)
+    {
+        var receivable = new[]
+        {
+            POStatus.Approved,
+            POStatus.Sent,
+            POStatus.PartiallyReceived,
+        };
+
+        var query = _db.PurchaseOrders
+            .AsNoTracking()
+            .Include(p => p.Vendor)
+            .Include(p => p.Lines).ThenInclude(l => l.Item)
+            .Include(p => p.ShipToSite)
+            .Where(p => receivable.Contains(p.Status));
+
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            query = query.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
+        }
+
+        // Earliest required date first — that surfaces overdue (most negative
+        // delta) before anything else. POs with no required date sort last
+        // by OrderDate fallback.
+        var top = await query
+            .OrderBy(p => p.RequiredDate ?? p.OrderDate)
+            .Take(2)
+            .ToListAsync(ct);
+
+        if (top.Count == 0)
+        {
+            return Result.Success(new ReceivingNextUpData());
+        }
+
+        var today = DateTime.Today;
+        var primary = BuildNextUpPo(top[0], today);
+        NextUpTeaser? teaser = null;
+        if (top.Count > 1)
+        {
+            var t = top[1];
+            teaser = new NextUpTeaser
+            {
+                Id        = t.Id,
+                PoNumber  = t.PONumber,
+                Vendor    = t.Vendor?.Name ?? "—",
+                LineCount = t.Lines?.Count ?? 0,
+                TotalText = $"${t.Total:N0}",
+            };
+        }
+
+        return Result.Success(new ReceivingNextUpData
+        {
+            Priority = primary,
+            UpNext   = teaser,
+        });
+    }
+
+    private static NextUpPo BuildNextUpPo(PurchaseOrder p, DateTime today)
+    {
+        var (statusLabel, statusTone) = p.Status switch
+        {
+            POStatus.PartiallyReceived => ("Partial",  "pending"),
+            POStatus.Sent              => ("Sent",     "info"),
+            POStatus.Approved          => ("Approved", "approved"),
+            _                          => (p.Status.ToString(), "neutral"),
+        };
+
+        int? daysOverdue = null;
+        if (p.RequiredDate.HasValue && p.RequiredDate.Value < today)
+        {
+            daysOverdue = (int)Math.Max(1, (today - p.RequiredDate.Value).TotalDays);
+        }
+
+        var allLines = p.Lines ?? new List<PurchaseOrderLine>();
+        var lines = allLines.Take(4).Select(l => new NextUpLine
+        {
+            PartNumber     = l.PartNumber ?? l.Item?.PartNumber ?? "—",
+            Description    = l.Description ?? l.Item?.Description ?? "—",
+            Uom            = string.IsNullOrEmpty(l.UOM) ? "EA" : l.UOM,
+            Ordered        = l.QuantityOrdered,
+            Received       = l.QuantityReceived,
+            Remaining      = l.QuantityOrdered - l.QuantityReceived,
+            LineTotalText  = $"${(l.QuantityOrdered * l.UnitPrice):N2}",
+        }).ToList();
+
+        return new NextUpPo
+        {
+            Id                = p.Id,
+            PoNumber          = p.PONumber,
+            Vendor            = p.Vendor?.Name ?? "—",
+            OrderDateText     = p.OrderDate.ToString("MMM dd, yyyy"),
+            RequiredDateText  = p.RequiredDate?.ToString("MMM dd, yyyy") ?? "—",
+            Status            = p.Status.ToString(),
+            StatusLabel       = statusLabel,
+            StatusTone        = statusTone,
+            TotalText         = $"${p.Total:N0}",
+            ShipTo            = p.ShipToSite?.Name ?? "—",
+            LineCount         = allLines.Count,
+            DaysOverdue       = daysOverdue,
+            Lines             = lines,
+        };
+    }
+
+    public async Task<Result<ReceivingAiSuggestionsData>> GetReceivingAiSuggestionsAsync(
+        ReceivingAiSuggestionsFilter filter,
+        CancellationToken ct)
+    {
+        // Sprint 12A PR #5.2 — Sprint 5 will swap this stub for real voice-AI
+        // model calls. The hints below are computed from the same SQL the
+        // queue uses, so they're directionally truthful even pre-AI:
+        //   1. Batch-by-vendor — count POs grouped by vendor that have
+        //      RequiredDate ≤ today + 1 day. If any vendor has ≥ 2, suggest
+        //      batching.
+        //   2. Orphan match — count StockReceipts with empty SourcePoNumber.
+        //   3. Overdue tracking — count POs Required ≤ today - 7 days.
+
+        var receivable = new[]
+        {
+            POStatus.Approved,
+            POStatus.Sent,
+            POStatus.PartiallyReceived,
+        };
+        var soon = DateTime.Today.AddDays(1);
+
+        var query = _db.PurchaseOrders
+            .AsNoTracking()
+            .Where(p => receivable.Contains(p.Status));
+        if (!string.IsNullOrWhiteSpace(filter?.SiteCode))
+        {
+            var code = filter.SiteCode.Trim();
+            query = query.Where(p => p.ShipToSite != null && p.ShipToSite.SiteCode == code);
+        }
+
+        var arrivingSoon = await query
+            .Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value <= soon)
+            .Select(p => new { p.Id, p.VendorId, p.Vendor!.Name, p.RequiredDate })
+            .ToListAsync(ct);
+
+        var byVendor = arrivingSoon
+            .GroupBy(x => new { x.VendorId, x.Name })
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .ToList();
+
+        var orphanCount = await _db.StockReceipts
+            .AsNoTracking()
+            .CountAsync(r => string.IsNullOrEmpty(r.SourcePoNumber), ct);
+
+        var weekOverdueCount = await query
+            .Where(p => p.RequiredDate.HasValue && p.RequiredDate.Value <= DateTime.Today.AddDays(-7))
+            .CountAsync(ct);
+
+        var suggestions = new List<AiSuggestion>(3);
+
+        if (byVendor.Count > 0)
+        {
+            var top = byVendor[0];
+            suggestions.Add(new AiSuggestion
+            {
+                Code = "batch-by-vendor",
+                Text = $"{top.Count()} {top.Key.Name} POs arriving today — batch receive saves ~{top.Count() * 8} min",
+                ActionText = "Batch",
+                ActionHref = "/Receiving?bucket=overdue&vendor=" + Uri.EscapeDataString(top.Key.Name),
+                IconClass = "fas fa-layer-group",
+            });
+        }
+
+        if (orphanCount > 0)
+        {
+            suggestions.Add(new AiSuggestion
+            {
+                Code = "match-orphans",
+                Text = $"{orphanCount} orphan receipt{(orphanCount == 1 ? "" : "s")} can be auto-matched to open POs",
+                ActionText = "Review",
+                ActionHref = "/Receiving?tab=orphans",
+                IconClass = "fas fa-link",
+            });
+        }
+
+        if (weekOverdueCount > 0)
+        {
+            suggestions.Add(new AiSuggestion
+            {
+                Code = "overdue-tracking",
+                Text = $"{weekOverdueCount} POs overdue 7+ days — confirm tracking with vendors?",
+                ActionText = "Notify",
+                ActionHref = "/Receiving?bucket=overdue",
+                IconClass = "fas fa-truck-clock",
+            });
+        }
+
+        // Fallback — when the dock is genuinely calm, surface something useful
+        // instead of an empty strip.
+        if (suggestions.Count == 0)
+        {
+            suggestions.Add(new AiSuggestion
+            {
+                Code = "all-clear",
+                Text = "All clear — no urgent receiving actions right now.",
+                IconClass = "fas fa-circle-check",
+            });
+        }
+
+        return Result.Success(new ReceivingAiSuggestionsData { Suggestions = suggestions });
     }
 
     // =====================================================================

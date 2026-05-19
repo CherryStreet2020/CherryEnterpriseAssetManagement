@@ -30,6 +30,10 @@
     };
 }
 
+@{
+    var poRow = Model as Abs.FixedAssets.Services.Receiving.PoQueueRow;
+    var daysOverdue = poRow?.DaysOverdue;
+}
 <div class="cockpit__card @(isOverdue ? "cockpit__card--overdue" : "")"
      data-id="@Model.Id"
      data-po="@Model.Primary"
@@ -39,16 +43,25 @@
         <span class="cockpit__card-po">@Model.Primary</span>
         @if (!string.IsNullOrEmpty(Model.StatusLabel))
         {
-            <span class="status-badge-p @statusClass" data-csp-style="font-size:0.55rem;">@Model.StatusLabel</span>
+            <span class="status-badge-p @statusClass cockpit__card-pill">@Model.StatusLabel</span>
         }
     </div>
     <div class="cockpit__card-vendor">@Model.Secondary</div>
-    @if (Model.Meta is { Count: > 0 })
+    @if (Model.Meta is { Count: > 0 } || daysOverdue.HasValue)
     {
         <div class="cockpit__card-meta">
+            @if (daysOverdue.HasValue)
+            {
+                <span class="cockpit__card-meta--urgency">@daysOverdue d late</span>
+            }
             @foreach (var m in Model.Meta)
             {
-                <span>@m.Label: <strong>@m.Value</strong></span>
+                if (string.Equals(m.Label, "Required", System.StringComparison.OrdinalIgnoreCase) && daysOverdue.HasValue)
+                {
+                    // skip the "Required: 01/24" cell when we're already showing "113d late"
+                    continue;
+                }
+                <span><strong>@m.Value</strong></span>
             }
         </div>
     }

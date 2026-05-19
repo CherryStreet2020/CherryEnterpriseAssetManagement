@@ -478,3 +478,341 @@ body.is-control-center .app-container {
        stable hook for any layout tweaks specific to CC pages. */
 }
 
+/* =============================================================================
+   Sprint 12A PR #5.2 — Cockpit page header (anchored title bar).
+   Replaces the in-band eyebrow text. Renders ABOVE the KPI band.
+   ============================================================================= */
+
+.cockpit-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 0 0.25rem 1rem 0.25rem;
+    margin-bottom: 0.85rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.cockpit-page-header__title-block { flex: 1; min-width: 0; }
+.cockpit-page-header__title-row { display: flex; align-items: baseline; gap: 0.6rem; }
+.cockpit-page-header__title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+.cockpit-page-header__divider { color: var(--text-muted); font-size: 1rem; opacity: 0.5; }
+.cockpit-page-header__scope { font-size: 0.95rem; color: var(--text-secondary); font-weight: 500; }
+.cockpit-page-header__subtitle {
+    margin: 0.2rem 0 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+.cockpit-page-header__actions {
+    display: flex; align-items: center; gap: 1rem;
+    font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.cockpit-page-header__live {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    color: var(--success, #10b981); font-weight: 700;
+}
+.cockpit-page-header__live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--success, #10b981);
+    box-shadow: 0 0 0 0 rgba(16,185,129,0.55);
+    animation: cockpit-pulse-live 2.4s ease-out infinite;
+}
+.cockpit-page-header__refresh { color: var(--text-muted); font-weight: 600; }
+.cockpit-page-header__voice {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    background: var(--cherry-red, #cf3339);
+    color: #fff;
+    border: 0;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.15s;
+}
+.cockpit-page-header__voice i { font-size: 0.85rem; }
+.cockpit-page-header__voice:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.cockpit-page-header__voice:active { transform: translateY(0); }
+
+/* =============================================================================
+   Sprint 12A PR #5.2 — KPI band hero refinement.
+   With page header above, the band itself becomes a stripe of hero tiles.
+   Bigger values (2.05rem), more breathing room, sub-text under each value.
+   Used in HERO mode (4 tiles, configured by the page).
+   ============================================================================= */
+
+.cockpit-kpi-band--hero .cockpit-kpi-band__header { padding-bottom: 0.4rem; }
+.cockpit-kpi-band--hero .cockpit-kpi-band__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.85rem; }
+.cockpit-kpi-band--hero .cockpit-kpi-tile { padding: 1rem 1.1rem 0.9rem 1.1rem; }
+.cockpit-kpi-band--hero .cockpit-kpi-tile__label { font-size: 0.6rem; letter-spacing: 0.12em; margin-bottom: 0.55rem; }
+.cockpit-kpi-band--hero .cockpit-kpi-tile__value { font-size: 2.05rem; }
+.cockpit-kpi-band--hero .cockpit-kpi-tile__spark { height: 26px; margin-top: 0.55rem; }
+
+@media (max-width: 980px) {
+    .cockpit-kpi-band--hero .cockpit-kpi-band__tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.cockpit-kpi-tile__subtext {
+    margin-top: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+    min-height: 0.95rem;
+}
+
+/* =============================================================================
+   Sprint 12A PR #5.2 — Next Up priority preview pane.
+   ============================================================================= */
+
+.cockpit-next-up {
+    background: var(--surface-card, rgba(255,255,255,0.025));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    border-radius: 10px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+}
+
+.cockpit-next-up__header {
+    padding: 1rem 1.15rem 0.9rem 1.15rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    background: linear-gradient(180deg, rgba(207,51,57,0.04), transparent 80%);
+    position: relative;
+}
+.cockpit-next-up__header::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--cockpit-next-tone, rgba(255,255,255,0.1));
+}
+.cockpit-next-up--danger  .cockpit-next-up__header { --cockpit-next-tone: var(--status-danger, #ef4444); background: linear-gradient(180deg, rgba(239,68,68,0.06), transparent 80%); }
+.cockpit-next-up--warning .cockpit-next-up__header { --cockpit-next-tone: var(--warning, #f59e0b); background: linear-gradient(180deg, rgba(245,158,11,0.04), transparent 80%); }
+.cockpit-next-up--neutral .cockpit-next-up__header { --cockpit-next-tone: var(--cherry-red, #cf3339); }
+
+.cockpit-next-up__priority-row {
+    display: flex; align-items: center; gap: 0.65rem;
+    margin-bottom: 0.55rem;
+}
+.cockpit-next-up__priority-chip {
+    padding: 2px 8px;
+    background: var(--cherry-red, #cf3339);
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    border-radius: 3px;
+}
+.cockpit-next-up__urgency {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--status-danger, #ef4444);
+}
+.cockpit-next-up__urgency--neutral { color: var(--text-muted); }
+
+.cockpit-next-up__title-row {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+    margin-bottom: 0.7rem;
+}
+.cockpit-next-up__title-block { min-width: 0; flex: 1; }
+.cockpit-next-up__po-row { display: flex; align-items: center; gap: 0.5rem; }
+.cockpit-next-up__po {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}
+.cockpit-next-up__status { font-size: 0.55rem; }
+
+.cockpit-next-up__vendor-row {
+    margin-top: 0.25rem;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+}
+.cockpit-next-up__vendor { font-weight: 600; text-transform: uppercase; color: var(--text-primary); }
+.cockpit-next-up__dot { color: var(--text-muted); }
+.cockpit-next-up__meta { color: var(--text-muted); }
+.cockpit-next-up__meta--value { color: var(--text-primary); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.cockpit-next-up__actions {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+}
+.cockpit-next-up__action {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: filter 0.15s, transform 0.15s, border-color 0.15s, background 0.15s;
+    border: 0;
+}
+.cockpit-next-up__action i { font-size: 0.85rem; }
+.cockpit-next-up__action--primary {
+    background: var(--cherry-red, #cf3339);
+    color: #fff;
+}
+.cockpit-next-up__action--primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.cockpit-next-up__action--secondary {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default, rgba(255,255,255,0.15));
+}
+.cockpit-next-up__action--secondary:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+.cockpit-next-up__action--ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+}
+.cockpit-next-up__action--ghost:hover { color: var(--text-secondary); }
+
+.cockpit-next-up__meta-row {
+    display: flex; flex-wrap: wrap; gap: 1.25rem;
+    margin-top: 0.5rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed var(--border-subtle, rgba(255,255,255,0.05));
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+.cockpit-next-up__meta-label { color: var(--text-muted); margin-right: 0.35rem; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.6rem; }
+
+.cockpit-next-up__lines { padding: 0.95rem 1.15rem 0.6rem 1.15rem; flex: 1; min-height: 0; overflow: auto; }
+.cockpit-next-up__lines-header {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.6rem; letter-spacing: 0.12em; color: var(--text-muted);
+    margin-bottom: 0.45rem;
+}
+.cockpit-next-up__lines-count { font-weight: 700; color: var(--text-secondary); letter-spacing: 0.04em; text-transform: none; font-size: 0.7rem; }
+.cockpit-next-up__lines-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.cockpit-next-up__th {
+    text-align: left;
+    padding: 0.4rem 0.5rem 0.4rem 0;
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+}
+.cockpit-next-up__th--right { text-align: right; }
+.cockpit-next-up__th--part { width: 110px; }
+.cockpit-next-up__row { border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.04)); }
+.cockpit-next-up__row:last-child { border-bottom: 0; }
+.cockpit-next-up__td { padding: 0.5rem 0.5rem 0.5rem 0; color: var(--text-secondary); }
+.cockpit-next-up__td--part { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); color: var(--text-primary); font-weight: 500; }
+.cockpit-next-up__td--desc { color: var(--text-primary); }
+.cockpit-next-up__td--right { text-align: right; font-variant-numeric: tabular-nums; }
+.cockpit-next-up__td--mono { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+.cockpit-next-up__td--more { color: var(--text-muted); font-style: italic; padding: 0.5rem 0; }
+
+.cockpit-next-up__footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.55rem 1.15rem;
+    border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    font-size: 0.7rem;
+    background: rgba(255,255,255,0.012);
+}
+.cockpit-next-up__up-next-label { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.58rem; margin-right: 0.35rem; }
+.cockpit-next-up__up-next-link { color: var(--text-secondary); text-decoration: none; }
+.cockpit-next-up__up-next-link:hover { color: var(--text-primary); }
+.cockpit-next-up__up-next-empty { color: var(--text-muted); }
+.cockpit-next-up__keys { color: var(--text-muted); font-size: 0.6rem; letter-spacing: 0.05em; }
+.cockpit-next-up__keys kbd {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 3px;
+    padding: 0px 4px;
+    font-size: 0.58rem;
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+    color: var(--text-secondary);
+    margin: 0 1px;
+}
+
+.cockpit-next-up--empty .cockpit-next-up__empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 3.5rem 1.5rem; text-align: center;
+}
+.cockpit-next-up__empty-icon { font-size: 2.4rem; color: var(--success, #10b981); margin-bottom: 0.8rem; opacity: 0.7; }
+.cockpit-next-up__empty-title { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 600; color: var(--text-primary); }
+.cockpit-next-up__empty-sub { margin: 0; font-size: 0.78rem; color: var(--text-muted); max-width: 320px; line-height: 1.5; }
+
+/* =============================================================================
+   Sprint 12A PR #5.2 — AI Suggestions strip.
+   ============================================================================= */
+
+.cockpit-ai-strip {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(180deg, rgba(124,77,255,0.07), rgba(124,77,255,0.02));
+    border: 1px solid rgba(124,77,255,0.22);
+    border-radius: 10px;
+}
+.cockpit-ai-strip__header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.55rem; }
+.cockpit-ai-strip__sparkle { color: #b39dff; font-size: 0.85rem; }
+.cockpit-ai-strip__label { font-size: 0.62rem; letter-spacing: 0.14em; color: #b39dff; font-weight: 700; text-transform: uppercase; }
+.cockpit-ai-strip__items { display: grid; gap: 0.35rem; }
+.cockpit-ai-strip__item {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+}
+.cockpit-ai-strip__item-icon { color: #b39dff; font-size: 0.85rem; width: 1rem; text-align: center; opacity: 0.85; }
+.cockpit-ai-strip__item-text { flex: 1; }
+.cockpit-ai-strip__item-action {
+    display: inline-flex; align-items: center;
+    padding: 0.2rem 0.7rem;
+    background: transparent;
+    color: #b39dff;
+    border: 1px solid rgba(124,77,255,0.45);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cockpit-ai-strip__item-action:hover { background: rgba(124,77,255,0.12); border-color: #b39dff; color: #fff; }
+
+/* =============================================================================
+   Sprint 12A PR #5.2 — Queue card polish (pill + days-overdue urgency line).
+   ============================================================================= */
+
+.cockpit__card-pill {
+    font-size: 0.55rem;
+    text-transform: none !important;
+    letter-spacing: 0.04em !important;
+    padding: 2px 7px !important;
+    border-radius: 4px !important;
+}
+.cockpit__card-meta--urgency {
+    color: var(--status-danger, #ef4444) !important;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+.cockpit__card-meta--urgency strong { color: var(--status-danger, #ef4444); }
+
+/* Active card gets a thicker cherry left-border so it pops as "selected". */
+.cockpit__card.cockpit__card--active {
+    background: var(--cherry-red, #cf3339) !important;
+    border-color: var(--cherry-red, #cf3339) !important;
+}
+.cockpit__card.cockpit__card--active.cockpit__card--overdue {
+    border-left: 4px solid #fff !important;
+}
+
+/* The legacy welcome 4-stat strip is removed in PR #5.2 (data lives in the
+   KPI band now). Hide the wrapper so any stragglers from older renders don't
+   show through during a stale-cache moment. */
+.cockpit__main #mainWelcome .cockpit__welcome-stats { display: none; }
+

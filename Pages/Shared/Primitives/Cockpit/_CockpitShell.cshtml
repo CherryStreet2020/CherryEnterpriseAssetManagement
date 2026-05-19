@@ -26,9 +26,22 @@
         @await Html.PartialAsync("Primitives/Cockpit/_CockpitQueue", Model.Queue)
 
         <div class="cockpit__main">
-            <div id="mainWelcome" class="cockpit__welcome-wrap">
-                @await Html.PartialAsync("Primitives/Cockpit/_CockpitWelcome", Model.Welcome)
-            </div>
+            @if (!string.IsNullOrEmpty(Model.PrerollPartialName))
+            {
+                @* PR #5.2 — main-pane preroll: render a domain-specific
+                   "first-paint" partial (Receiving's "Next Up" priority preview)
+                   INSTEAD of the welcome hero. cockpit.js#selectPO swaps to
+                   the per-row preview partial when the user clicks a card. *@
+                <div id="mainWelcome" class="cockpit__welcome-wrap cockpit__welcome-wrap--preroll">
+                    @await Html.PartialAsync(Model.PrerollPartialName, Model.PrerollPartialModel)
+                </div>
+            }
+            else
+            {
+                <div id="mainWelcome" class="cockpit__welcome-wrap">
+                    @await Html.PartialAsync("Primitives/Cockpit/_CockpitWelcome", Model.Welcome)
+                </div>
+            }
 
             @if (!string.IsNullOrEmpty(Model.PreviewPartialName))
             {

@@ -55,20 +55,24 @@
 
 @if (Model is { Tiles.Count: > 0 })
 {
-    <section class="cockpit-kpi-band" aria-label="Receiving KPIs">
-        <header class="cockpit-kpi-band__header">
-            <div class="cockpit-kpi-band__eyebrow">@Model.Eyebrow</div>
-            <div class="cockpit-kpi-band__status">
-                @if (Model.ShowLiveIndicator)
-                {
-                    <span class="cockpit-kpi-band__live"><span class="cockpit-kpi-band__live-dot"></span> LIVE</span>
-                }
-                @if (!string.IsNullOrEmpty(Model.RefreshedAtText))
-                {
-                    <span class="cockpit-kpi-band__refresh">@Model.RefreshedAtText</span>
-                }
-            </div>
-        </header>
+    var bandClass = "cockpit-kpi-band" + (Model.HeroMode ? " cockpit-kpi-band--hero" : "");
+    <section class="@bandClass" aria-label="Receiving KPIs">
+        @if (!Model.HeroMode)
+        {
+            <header class="cockpit-kpi-band__header">
+                <div class="cockpit-kpi-band__eyebrow">@Model.Eyebrow</div>
+                <div class="cockpit-kpi-band__status">
+                    @if (Model.ShowLiveIndicator)
+                    {
+                        <span class="cockpit-kpi-band__live"><span class="cockpit-kpi-band__live-dot"></span> LIVE</span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.RefreshedAtText))
+                    {
+                        <span class="cockpit-kpi-band__refresh">@Model.RefreshedAtText</span>
+                    }
+                </div>
+            </header>
+        }
         <div class="cockpit-kpi-band__tiles">
             @foreach (var tile in Model.Tiles)
             {
@@ -89,7 +93,11 @@
                                 <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        @if (!string.IsNullOrEmpty(tile.SubText))
+                        {
+                            <div class="cockpit-kpi-tile__subtext">@tile.SubText</div>
+                        }
+                        else if (!string.IsNullOrEmpty(tile.TargetText))
                         {
                             <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
                         }
@@ -115,7 +123,11 @@
                                 <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        @if (!string.IsNullOrEmpty(tile.SubText))
+                        {
+                            <div class="cockpit-kpi-tile__subtext">@tile.SubText</div>
+                        }
+                        else if (!string.IsNullOrEmpty(tile.TargetText))
                         {
                             <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
                         }
@@ -138,7 +150,11 @@
                                 <span class="cockpit-kpi-tile__unit">@tile.Unit</span>
                             }
                         </div>
-                        @if (!string.IsNullOrEmpty(tile.TargetText))
+                        @if (!string.IsNullOrEmpty(tile.SubText))
+                        {
+                            <div class="cockpit-kpi-tile__subtext">@tile.SubText</div>
+                        }
+                        else if (!string.IsNullOrEmpty(tile.TargetText))
                         {
                             <div class="cockpit-kpi-tile__target">@tile.TargetText</div>
                         }

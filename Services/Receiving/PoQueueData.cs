@@ -62,7 +62,13 @@ public sealed record PoQueueRow(
     string Tone,
     IReadOnlyList<MetaTriple> Meta,
     string? StatusLabel = null,
-    string? StatusTone = null) : ICockpitQueueRow;
+    string? StatusTone = null,
+    // Sprint 12A PR #5.2 — days overdue sub-line on overdue queue cards
+    // ("113d late"). Null on non-overdue cards.
+    int? DaysOverdue = null,
+    // Numeric total value used by the Open POs KPI tile to summarize
+    // backlog ($248K backlog, ...). Optional — pure presentation.
+    decimal? TotalValue = null) : ICockpitQueueRow;
 
 // Right-pane preview entry — serialized into the page's __poDetails JSON blob.
 // Only properties marked [CockpitPreviewVisible] are emitted. Every property

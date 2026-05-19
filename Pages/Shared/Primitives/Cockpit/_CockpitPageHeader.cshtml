@@ -1,0 +1,45 @@
+@*
+    _CockpitPageHeader.cshtml — Sprint 12A PR #5.2.
+
+    Anchored title bar at the top of every v1 Control Center. Domain-agnostic.
+    Renders ABOVE _CockpitKpiBand so the eyebrow text doesn't collide with the
+    collapsed sidebar's brand logo (the bug Dean called out on PR #5.1).
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitPageHeaderViewModel
+
+@if (Model is not null)
+{
+    <header class="cockpit-page-header">
+        <div class="cockpit-page-header__title-block">
+            <div class="cockpit-page-header__title-row">
+                <h1 class="cockpit-page-header__title">@Model.Title</h1>
+                @if (!string.IsNullOrEmpty(Model.Scope))
+                {
+                    <span class="cockpit-page-header__divider" aria-hidden="true">·</span>
+                    <span class="cockpit-page-header__scope">@Model.Scope</span>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(Model.Subtitle))
+            {
+                <p class="cockpit-page-header__subtitle">@Model.Subtitle</p>
+            }
+        </div>
+        <div class="cockpit-page-header__actions">
+            @if (Model.ShowLive)
+            {
+                <span class="cockpit-page-header__live"><span class="cockpit-page-header__live-dot"></span> LIVE</span>
+            }
+            @if (!string.IsNullOrEmpty(Model.RefreshedAtText))
+            {
+                <span class="cockpit-page-header__refresh">@Model.RefreshedAtText</span>
+            }
+            @if (Model.ShowVoiceButton)
+            {
+                <button type="button" class="cockpit-page-header__voice" data-cherry-voice-trigger>
+                    <i class="fas fa-microphone" aria-hidden="true"></i>
+                    <span>@Model.VoiceButtonLabel</span>
+                </button>
+            }
+        </div>
+    </header>
+}

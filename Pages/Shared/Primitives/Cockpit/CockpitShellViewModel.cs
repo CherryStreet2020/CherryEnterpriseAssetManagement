@@ -45,6 +45,13 @@ public sealed class CockpitShellViewModel
     // <script type="application/json" id="__poDetails"> tag.
     public string PreviewBlobJson { get; init; } = "[]";
     public string PreviewBlobElementId { get; init; } = "__poDetails";
+
+    // Sprint 12A PR #5.2 — main-pane preroll. When set, the right pane renders
+    // this partial INSTEAD of the welcome hero on first paint. Used by the
+    // Receiving CC to land with "Next Up" priority preview already showing.
+    // cockpit.js#selectPO swaps to the per-row preview partial on row click.
+    public string? PrerollPartialName { get; init; }
+    public object? PrerollPartialModel { get; init; }
 }
 
 // Left-rail queue. Title + search + grouped cards.

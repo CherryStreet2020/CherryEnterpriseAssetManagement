@@ -7,11 +7,16 @@
     Layout = "_ModernLayout";
 }
 
-@* Sprint 12A PR #5.1 — KPI band is the third leg of the Cockpit canvas
-   (ADR-018 §D3). Always rendered ABOVE the tab bar so the operator's
-   at-a-glance status is persistent across every tab. Workload tiles drill
-   into PO Queue buckets (cockpit.js scrolls + pulses); Quality tiles drill
-   to the Exceptions tab (hard href). *@
+@* Sprint 12A PR #5.2 — anchored page header (title + scope + LIVE + Voice). *@
+@if (Model.PageHeader is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", Model.PageHeader)
+}
+
+@* Sprint 12A PR #5.2 — 4-tile hero KPI band (Overdue · Due Today · Open POs ·
+   Exceptions). Persistent across every tab. Workload tiles drill into PO
+   Queue buckets via cockpit.js scroll+pulse; Quality tiles use a hard href
+   to the Exceptions tab. *@
 @if (Model.KpiBand is not null)
 {
     @await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
@@ -67,10 +72,9 @@
 
     default:
         @* TabPoQueue — first real Cockpit canvas inside the new /Receiving
-           shell. Sprint 12A PR #5 / ADR-018 §D3. Composed from the shared
-           Pages/Shared/Primitives/Cockpit/* partials + the Receiving-specific
-           _CockpitPoQueuePreview right-pane body. Pixel-identical to the
-           legacy /Receiving/Cockpit-Legacy by extraction (not redesign). *@
+           shell. Sprint 12A PR #5 / ADR-018 §D3. PR #5.2 — NextUp preroll
+           replaces the empty welcome state with the highest-priority overdue
+           PO already loaded. *@
         <div role="tabpanel" aria-labelledby="tab-po-queue">
             @if (Model.PoQueueShell is not null)
             {
@@ -78,6 +82,13 @@
             }
         </div>
         break;
+}
+
+@* Sprint 12A PR #5.2 — AI Suggestions strip below the workspace. Always
+   rendered. Sprint 5 will swap the producer service for real voice-AI calls. *@
+@if (Model.AiSuggestions is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitAiSuggestions", Model.AiSuggestions)
 }
 
 @section Scripts {

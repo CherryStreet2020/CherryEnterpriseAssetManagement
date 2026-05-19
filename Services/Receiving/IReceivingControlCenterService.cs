@@ -82,7 +82,25 @@ public interface IReceivingControlCenterService
         ReceivingKpiBandFilter filter,
         CancellationToken ct);
 
-    // ----- Commands (all flow through IdempotencyMediator) -----------
+    /// <summary>
+    /// "Next Up" priority preview for the right pane on first paint.
+    /// Returns the single highest-priority overdue PO (or earliest-required
+    /// when no overdue) plus a teaser for the second-priority PO. Sprint
+    /// 12A PR #5.2 — replaces the empty welcome state.
+    /// </summary>
+    Task<Result<ReceivingNextUpData>> GetReceivingNextUpAsync(
+        ReceivingNextUpFilter filter,
+        CancellationToken ct);
+
+    /// <summary>
+    /// AI Suggestions strip — three smart hints below the workspace. Hardcoded
+    /// SQL heuristics for now (batch-by-vendor, orphan-match candidates,
+    /// overdue tracking). Sprint 5's voice-AI runtime swaps the producer for
+    /// real model calls without changing the contract.
+    /// </summary>
+    Task<Result<ReceivingAiSuggestionsData>> GetReceivingAiSuggestionsAsync(
+        ReceivingAiSuggestionsFilter filter,
+        CancellationToken ct);
 
     /// <summary>
     /// PO-driven receipt — the 80% workflow. Operator confirms the PO line,
