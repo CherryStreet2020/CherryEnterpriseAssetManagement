@@ -1,0 +1,53 @@
+@*
+    _CockpitQueue.cshtml — Sprint 12A PR #5 / ADR-018 §D3.
+
+    Left-rail queue: title + count + search input + grouped cards (or empty
+    state). Markup extracted verbatim from the legacy Pages/Receiving/Index.cshtml
+    so the visual is byte-for-byte the same as /Receiving/Cockpit-Legacy.
+
+    Domain-agnostic — every group is one CockpitGroup<TRow> after the page's
+    chosen ICockpitLens, and each card implements ICockpitQueueRow.
+
+    Search hooks oninput to a window function (Model.FilterFunctionName) which
+    filters cards by data-po + data-vendor attributes. Defaults wired to the
+    legacy cockpit.js globals.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitQueueViewModel
+
+<div class="cockpit__queue">
+    <div class="cockpit__queue-header">
+        <h3 class="cockpit__queue-title"><i class="@Model.TitleIconClass"></i> @Model.TitleHtml</h3>
+        <span class="cockpit__queue-count">@Model.CountBadge</span>
+    </div>
+
+    <div class="cockpit__search">
+        <i class="fas fa-search cockpit__search-icon"></i>
+        <input type="text"
+               id="@Model.SearchElementId"
+               class="cockpit__search-input"
+               placeholder="@Model.SearchPlaceholder"
+               oninput="@(Model.FilterFunctionName)(this.value)"
+               autocomplete="off" />
+    </div>
+
+    <div class="cockpit__queue-list" id="queueList">
+        @if (Model.Groups is { Count: > 0 })
+        {
+            foreach (var group in Model.Groups)
+            {
+                var groupVm = new {
+                    Group = group,
+                    SelectFunctionName = Model.SelectFunctionName,
+                };
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitQueueGroup", group, new ViewDataDictionary(ViewData)
+                {
+                    ["SelectFunctionName"] = Model.SelectFunctionName
+                })
+            }
+        }
+        else if (Model.Empty is not null)
+        {
+            @await Html.PartialAsync("Primitives/Cockpit/_CockpitEmpty", Model.Empty)
+        }
+    </div>
+</div>

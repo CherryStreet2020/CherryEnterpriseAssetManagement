@@ -60,6 +60,17 @@ public interface IReceivingControlCenterService
         ActivityFeedFilter filter,
         CancellationToken ct);
 
+    /// <summary>
+    /// PO queue + preview blob for the Sprint 12A /Receiving PO Queue tab.
+    /// Returns receivable POs (Approved / Sent / PartiallyReceived) mapped to
+    /// the generic ICockpitQueueRow contract (queue cards) plus the parallel
+    /// preview-record list serialized into the page's __poDetails JSON blob.
+    /// Per ADR-018 §D3 the canvas is the daily-driver Receiving view.
+    /// </summary>
+    Task<Result<PoQueueData>> GetPoQueueAsync(
+        PoQueueFilter filter,
+        CancellationToken ct);
+
     // ----- Commands (all flow through IdempotencyMediator) -----------
 
     /// <summary>

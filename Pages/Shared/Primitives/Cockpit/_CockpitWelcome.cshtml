@@ -1,0 +1,51 @@
+@*
+    _CockpitWelcome.cshtml — Sprint 12A PR #5 / ADR-018 §D3.
+
+    Welcome hero shown in the right pane until a row is selected. 4-stat strip
+    mirrors the legacy Pages/Receiving/Index.cshtml block: Overdue / Today /
+    This Week / Upcoming. Tone drives the value color: danger | warning |
+    neutral default; "muted" hides into the secondary palette.
+
+    cockpit.js (selectPO) hides #mainWelcome by setting style.display = 'none'
+    and reveals #mainPreview. This partial is rendered inside the
+    #mainWelcome container by _CockpitShell.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitWelcomeViewModel
+
+@{
+    static string StatStyle(string tone) => tone switch
+    {
+        "danger" => "color:var(--status-danger);",
+        "warning" => "color:var(--warning);",
+        "muted" => "color:var(--text-muted);",
+        "info" => "color:var(--info);",
+        "success" => "color:var(--success);",
+        _ => "",
+    };
+}
+
+<div class="cockpit__welcome">
+    <div class="cockpit__welcome-icon"><i class="@Model.IconClass"></i></div>
+    <h2 class="cockpit__welcome-title">@Model.Title</h2>
+    <p class="cockpit__welcome-sub">@Model.Subtitle</p>
+    @if (Model.Stats is { Count: > 0 })
+    {
+        <div class="cockpit__welcome-stats">
+            @foreach (var stat in Model.Stats)
+            {
+                var style = StatStyle(stat.Tone);
+                <div class="cockpit__stat">
+                    @if (!string.IsNullOrEmpty(style))
+                    {
+                        <span class="cockpit__stat-value" data-csp-style="@style">@stat.Value</span>
+                    }
+                    else
+                    {
+                        <span class="cockpit__stat-value">@stat.Value</span>
+                    }
+                    <span class="cockpit__stat-label">@stat.Label</span>
+                </div>
+            }
+        </div>
+    }
+</div>

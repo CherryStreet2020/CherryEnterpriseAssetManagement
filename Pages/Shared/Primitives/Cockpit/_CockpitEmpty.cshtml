@@ -1,0 +1,24 @@
+@*
+    _CockpitEmpty.cshtml — Sprint 12A PR #5 / ADR-018 §D3.
+
+    Empty-queue state. Markup extracted verbatim from the legacy
+    Pages/Receiving/Index.cshtml ("All caught up!" block). Tone drives the
+    icon color, defaults to success-green.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitEmptyViewModel
+
+@{
+    var iconStyle = Model.IconTone switch
+    {
+        "success" => "font-size:2rem; color:var(--success); margin-bottom:0.5rem;",
+        "info" => "font-size:2rem; color:var(--info); margin-bottom:0.5rem;",
+        "warning" => "font-size:2rem; color:var(--warning); margin-bottom:0.5rem;",
+        "danger" => "font-size:2rem; color:var(--status-danger); margin-bottom:0.5rem;",
+        _ => "font-size:2rem; margin-bottom:0.5rem;",
+    };
+}
+
+<div class="cockpit__empty">
+    <i class="@Model.IconClass" data-csp-style="@iconStyle"></i>
+    <div>@Model.Message</div>
+</div>

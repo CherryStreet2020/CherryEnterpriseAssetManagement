@@ -1,0 +1,41 @@
+@*
+    _CockpitShell.cshtml — Sprint 12A PR #5 / ADR-018 §D3.
+
+    Outer grid container for the Cockpit canvas: queue on the left, main
+    (welcome + preview pane) on the right. Domain-agnostic — the preview
+    pane is rendered by a partial name + model the page provides
+    (PreviewPartialName / PreviewPartialModel on the shell view-model).
+
+    The page emits the __poDetails JSON blob via this shell so cockpit.js
+    can hydrate the preview pane when a queue card is clicked.
+
+    Compose like:
+        @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.CockpitShell)
+
+    The page provides Section Scripts to load wwwroot/js/cockpit.js exactly
+    once per page. _ModernLayout.cshtml already loads wwwroot/css/cockpit.css
+    globally, so styling needs no additional plumbing.
+*@
+@model Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitShellViewModel
+
+@if (Model is not null)
+{
+    <script id="@Model.PreviewBlobElementId" type="application/json">@Html.Raw(Model.PreviewBlobJson)</script>
+
+    <div class="cockpit">
+        @await Html.PartialAsync("Primitives/Cockpit/_CockpitQueue", Model.Queue)
+
+        <div class="cockpit__main">
+            <div id="mainWelcome" class="cockpit__welcome-wrap">
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitWelcome", Model.Welcome)
+            </div>
+
+            @if (!string.IsNullOrEmpty(Model.PreviewPartialName))
+            {
+                <div id="mainPreview" data-csp-style="display:none; flex:1; flex-direction:column;">
+                    @await Html.PartialAsync(Model.PreviewPartialName, Model.PreviewPartialModel)
+                </div>
+            }
+        </div>
+    </div>
+}
