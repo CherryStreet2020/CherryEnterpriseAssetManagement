@@ -57,15 +57,15 @@
         break;
 
     case Abs.FixedAssets.Pages.Receiving.ControlCenterModel.TabOrphans:
-        <div class="cockpit-tab-placeholder" role="tabpanel" aria-labelledby="tab-orphans">
-            <i class="fas fa-question-circle cockpit-tab-placeholder__icon" aria-hidden="true"></i>
-            <h2 class="cockpit-tab-placeholder__title">Orphans &mdash; coming Sprint 12A PR #7</h2>
-            <p class="cockpit-tab-placeholder__sub">
-                Unmatched receipts with AI-suggested PO matches in a dedicated column.
-                One-click resolve via the preview pane &mdash; MatchOrphanReceipt is
-                already wired up server-side (Sprint 11 PR #4).
-            </p>
-            <span class="cockpit-tab-placeholder__chip">SOON &middot; SPRINT 12A</span>
+        @* Sprint 12A PR #7 — Orphan Queue cockpit canvas on StockReceipts
+           with NULL SourcePoNumber. Same cockpit primitives as PO/ASN, ReceivedAt-
+           bucketed via ByTimeLens, AI-suggested candidate POs in the preview pane
+           with 1-click Match CTAs hitting /Receiving/Match-Orphan/{id}/{po}. *@
+        <div role="tabpanel" aria-labelledby="tab-orphans">
+            @if (Model.OrphanQueueShell is not null)
+            {
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.OrphanQueueShell)
+            }
         </div>
         break;
 

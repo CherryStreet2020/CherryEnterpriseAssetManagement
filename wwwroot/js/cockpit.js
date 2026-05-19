@@ -186,6 +186,137 @@
     window.selectAsn = selectAsn;
 
     // -------------------------------------------------------------------------
+    // Sprint 12A PR #7 — selectOrphan (Orphan Queue cockpit).
+    //
+    // Mirrors selectAsn but reads __orphanDetails and renders a candidate-PO
+    // panel instead of a manifest table. Each candidate shows its score,
+    // per-signal reason chips, and a 1-click "Match" CTA that links to the
+    // GET-side confirmation page /Receiving/Match-Orphan/{receiptId}/{poNumber}.
+    //
+    // Different DOM ids vs PO/ASN (pvReceiptNumber / pvItemPart / pvCandidateList)
+    // — the orphan preview partial has no header/lines table.
+    // -------------------------------------------------------------------------
+    var ORPHAN_DATA = [];
+    try {
+        var orphanBlob = document.getElementById('__orphanDetails');
+        if (orphanBlob) { ORPHAN_DATA = JSON.parse(orphanBlob.textContent); }
+    } catch (e) { /* swallow — preview pane stays on welcome state */ }
+
+    function escapeHtml(s) {
+        if (s === null || s === undefined) return '';
+        return String(s)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function selectOrphan(id) {
+        document.querySelectorAll('.cockpit__card').forEach(function (c) { c.classList.remove('cockpit__card--active'); });
+        var card = document.querySelector('.cockpit__card[data-id="' + id + '"]');
+        if (card) card.classList.add('cockpit__card--active');
+
+        var o = ORPHAN_DATA.find(function (x) { return x.id === id; });
+        if (!o) return;
+
+        var welcome = document.getElementById('mainWelcome');
+        var pv = document.getElementById('mainPreview');
+        if (welcome) welcome.style.display = 'none';
+        if (pv) pv.style.display = 'flex';
+
+        var receiptNumEl = document.getElementById('pvReceiptNumber');
+        if (receiptNumEl) receiptNumEl.textContent = o.receiptNumber;
+
+        // Days-aged pill — escalates tone as the orphan dwells longer.
+        var pill = document.getElementById('pvDaysAgedPill');
+        if (pill) {
+            pill.textContent = (o.daysAged || 0) + 'd on dock';
+            var pillClass = 'cockpit__preview-status status-badge-p ';
+            pillClass += (o.daysAged >= 10) ? 'status-badge-p--danger'
+                       : (o.daysAged >= 4)  ? 'status-badge-p--warning'
+                       :                      'status-badge-p--info';
+            pill.className = pillClass;
+        }
+
+        // Open-receipt CTA points at the existing edit page (Sprint 11 plumb).
+        var blindBtn = document.getElementById('pvBlindReceiveBtn');
+        if (blindBtn) blindBtn.href = '/Admin/StockReceipts/Edit?id=' + encodeURIComponent(o.id);
+
+        var setText = function (elId, val) {
+            var el = document.getElementById(elId);
+            if (el) el.textContent = (val === null || val === undefined || val === '') ? '—' : val;
+        };
+        setText('pvItemPart',        o.itemPartNumber);
+        setText('pvItemDesc',        o.itemDescription);
+        setText('pvPreferredVendor', o.preferredVendor);
+        setText('pvQuantity',        o.quantity);
+        setText('pvLot',             o.lotNumber);
+        setText('pvReceivedAt',      o.receivedAt);
+        setText('pvDaysAged',        (o.daysAged === undefined) ? '' : (o.daysAged + ' days'));
+        setText('pvOrphanNotes',     o.notes);
+
+        var countEl = document.getElementById('pvCandidateCount');
+        var candidates = o.candidates || [];
+        if (countEl) countEl.textContent = candidates.length + ' candidate' + (candidates.length === 1 ? '' : 's');
+
+        var listEl = document.getElementById('pvCandidateList');
+        if (!listEl) return;
+
+        if (candidates.length === 0) {
+            listEl.innerHTML = ''
+                + '<div class="cockpit__candidates-empty">'
+                + '  <i class="fas fa-circle-question"></i>'
+                + '  <div>'
+                + '    <strong>No matches found.</strong> '
+                + '    <span class="cockpit__candidates-empty-sub">Match manually from the Open Receipt page above.</span>'
+                + '  </div>'
+                + '</div>';
+            return;
+        }
+
+        listEl.innerHTML = candidates.map(function (c, idx) {
+            var scoreToneClass = c.score >= 80 ? 'cockpit__candidate-score--strong'
+                               : c.score >= 40 ? 'cockpit__candidate-score--medium'
+                               :                 'cockpit__candidate-score--weak';
+            var topBadge = idx === 0
+                ? '<span class="cockpit__candidate-best"><i class="fas fa-trophy"></i> Top match</span>'
+                : '';
+
+            var reasonChips = (c.reasons || []).map(function (r) {
+                return '<span class="cockpit__candidate-reason">' + escapeHtml(r) + '</span>';
+            }).join('');
+
+            return ''
+                + '<div class="cockpit__candidate">'
+                + '  <div class="cockpit__candidate-head">'
+                + '    <div class="cockpit__candidate-titleblock">'
+                + '      ' + topBadge
+                + '      <div class="cockpit__candidate-po">' + escapeHtml(c.poNumber) + '</div>'
+                + '      <div class="cockpit__candidate-vendor">' + escapeHtml(c.vendor) + '</div>'
+                + '    </div>'
+                + '    <div class="cockpit__candidate-score ' + scoreToneClass + '">'
+                + '      <span class="cockpit__candidate-score-value">' + c.score + '</span>'
+                + '      <span class="cockpit__candidate-score-label">/ 100</span>'
+                + '    </div>'
+                + '  </div>'
+                + '  <div class="cockpit__candidate-meta">'
+                + '    <span><i class="fas fa-calendar"></i> Ordered ' + escapeHtml(c.orderDate) + '</span>'
+                + (c.requiredDate ? '    <span><i class="fas fa-flag"></i> Need by ' + escapeHtml(c.requiredDate) + '</span>' : '')
+                + '    <span class="cockpit__candidate-status">' + escapeHtml(c.status) + '</span>'
+                + '  </div>'
+                + '  <div class="cockpit__candidate-reasons">' + reasonChips + '</div>'
+                + '  <div class="cockpit__candidate-actions">'
+                + '    <a class="btn-p btn-p--primary btn-p--sm" href="' + escapeHtml(c.matchUrl) + '">'
+                + '      <i class="fas fa-link"></i> Match to this PO'
+                + '    </a>'
+                + '  </div>'
+                + '</div>';
+        }).join('');
+    }
+    window.selectOrphan = selectOrphan;
+
+    // -------------------------------------------------------------------------
     // Cockpit tab keyboard nav (Sprint 12A PR #4 / ADR-018 §D2).
     // Left/Right arrows cycle through tabs when focus is on the tab bar.
     // Home/End jump to first/last. The clicked tab navigates via its href so

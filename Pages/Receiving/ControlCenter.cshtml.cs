@@ -81,6 +81,12 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     // the AdvancedShippingNotice domain entity via GetAsnQueueAsync.
     public CockpitShellViewModel? AsnQueueShell { get; private set; }
 
+    // Sprint 12A PR #7 — Orphan Queue tab payload. Hydrated only when
+    // ActiveTab == TabOrphans. Consumes orphan StockReceipts (NULL
+    // SourcePoNumber) via GetOrphanQueueAsync. Preview surfaces 0-3
+    // AI-ranked candidate POs with per-signal score breakdown.
+    public CockpitShellViewModel? OrphanQueueShell { get; private set; }
+
     // Sprint 12A PR #5.1 — KPI band model. Always hydrated on every tab,
     // rendered above the tab bar. Third leg of the Cockpit canvas per
     // ADR-018 §D3.
@@ -157,6 +163,10 @@ public sealed class ControlCenterModel : ControlCenterPageModel
         else if (string.Equals(ActiveTab, TabAsnQueue, StringComparison.OrdinalIgnoreCase))
         {
             await HydrateAsnQueueTabAsync(ct);
+        }
+        else if (string.Equals(ActiveTab, TabOrphans, StringComparison.OrdinalIgnoreCase))
+        {
+            await HydrateOrphanQueueTabAsync(ct);
         }
 
         return Page();
@@ -457,6 +467,104 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             PreviewPartialModel = null,
             PreviewBlobJson = CockpitPreviewSerializer.SerializeMany(data.Previews),
             PreviewBlobElementId = "__asnDetails",
+        };
+    }
+
+    // Sprint 12A PR #7 — Orphan Queue tab.
+    //
+    // Pulls orphan StockReceipts (NULL SourcePoNumber) via GetOrphanQueueAsync,
+    // groups them through ByTimeLens (bucketing by ReceivedAt — older = more
+    // urgent), and assembles a CockpitShellViewModel. Preview blob carries the
+    // 0-3 AI-suggested candidate POs per orphan; cockpit.js#selectOrphan renders
+    // the candidate panel with per-signal score chips + per-candidate Match CTAs.
+    private async Task HydrateOrphanQueueTabAsync(CancellationToken ct)
+    {
+        var filter = new OrphanQueueFilter { SiteCode = SiteCode };
+        var queueResult = await _receiving.GetOrphanQueueAsync(filter, ct);
+
+        if (queueResult.IsFailure || queueResult.Value is null)
+        {
+            _logger.LogWarning("GetOrphanQueueAsync failed for site {SiteCode}: {Error}", SiteCode, queueResult.Error);
+            OrphanQueueShell = new CockpitShellViewModel
+            {
+                Queue = new CockpitQueueViewModel
+                {
+                    TitleHtml = "Orphans",
+                    TitleIconClass = "fas fa-question-circle",
+                    SearchPlaceholder = "Search receipt#, part#...",
+                    Empty = new CockpitEmptyViewModel
+                    {
+                        IconClass = "fas fa-triangle-exclamation",
+                        IconTone = "warning",
+                        Message = queueResult.Error ?? "Orphan queue unavailable.",
+                    },
+                },
+                Welcome = new CockpitWelcomeViewModel
+                {
+                    IconClass = "fas fa-question-circle",
+                    Title = "Select an orphan to match",
+                    Subtitle = "Click a receipt to see AI-suggested matching POs.",
+                },
+                PreviewBlobJson = "[]",
+                PreviewBlobElementId = "__orphanDetails",
+            };
+            return;
+        }
+
+        var data = queueResult.Value;
+        var lens = new ByTimeLens<OrphanQueueRow>();
+        var groups = lens.Group(data.Rows);
+
+        var groupVms = groups.Select(g => new CockpitQueueGroupViewModel
+        {
+            Code = g.Code,
+            Label = g.Label,
+            Tone = g.Tone,
+            IconClass = g.Icon,
+            Rows = g.Rows.Cast<ICockpitQueueRow>().ToList(),
+        }).ToList();
+
+        int CountFor(string code) =>
+            groups.FirstOrDefault(g => string.Equals(g.Code, code, StringComparison.OrdinalIgnoreCase))?.Rows.Count ?? 0;
+
+        // Count orphans with at least one candidate suggested by the AI.
+        var withCandidates = data.Previews.Count(p => p.Candidates.Count > 0);
+
+        var welcome = new CockpitWelcomeViewModel
+        {
+            IconClass = "fas fa-question-circle",
+            Title = "Select an orphan to match",
+            Subtitle = "Click a receipt to see AI-suggested matching POs ranked by item, vendor, and recency.",
+            Stats = new[]
+            {
+                new CockpitWelcomeStat("Orphans",        data.Rows.Count.ToString(), "warning"),
+                new CockpitWelcomeStat("AI-matchable",   withCandidates.ToString(),  "success"),
+                new CockpitWelcomeStat("Aged 10d+",      CountFor("overdue").ToString(), "danger"),
+                new CockpitWelcomeStat("This Week",      CountFor("this-week").ToString()),
+            },
+        };
+
+        OrphanQueueShell = new CockpitShellViewModel
+        {
+            Queue = new CockpitQueueViewModel
+            {
+                TitleHtml = "Orphans",
+                TitleIconClass = "fas fa-question-circle",
+                CountBadge = 0,
+                SearchPlaceholder = "Search receipt#, part#...",
+                SearchElementId = "orphanSearch",
+                FilterFunctionName = "filterQueue",
+                SelectFunctionName = "selectOrphan",
+                Groups = groupVms,
+                Empty = data.Rows.Count == 0
+                    ? new CockpitEmptyViewModel { IconClass = "fas fa-check-circle", IconTone = "success", Message = "No orphan receipts — every arrival is tied to a PO." }
+                    : null,
+            },
+            Welcome = welcome,
+            PreviewPartialName = "_CockpitOrphanPreview",
+            PreviewPartialModel = null,
+            PreviewBlobJson = CockpitPreviewSerializer.SerializeMany(data.Previews),
+            PreviewBlobElementId = "__orphanDetails",
         };
     }
 

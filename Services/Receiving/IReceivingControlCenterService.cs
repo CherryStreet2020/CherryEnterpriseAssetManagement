@@ -82,6 +82,18 @@ public interface IReceivingControlCenterService
         CancellationToken ct);
 
     /// <summary>
+    /// Orphan queue + preview blob for the Sprint 12A /Receiving Orphans tab.
+    /// Returns StockReceipts with NULL SourcePoNumber bucketed by ReceivedAt
+    /// (the LONGER it sits, the worse it is — opposite tone gradient from PO
+    /// and ASN queues). Each preview surfaces 0-3 AI-ranked candidate POs with
+    /// per-signal score breakdown: ItemMatch 40 + VendorMatch 40 + Recency 20.
+    /// Match action handed off to MatchOrphanReceiptAsync. Per ADR-018 §D2.
+    /// </summary>
+    Task<Result<OrphanQueueData>> GetOrphanQueueAsync(
+        OrphanQueueFilter filter,
+        CancellationToken ct);
+
+    /// <summary>
     /// 8-tile KPI band for the page header — the third leg of the Cockpit
     /// canvas per ADR-018 §D3. Mixed workload (Open POs / Overdue / Due
     /// Today / This Week) + quality (Receipts Today / Dock-to-Stock / Doc
