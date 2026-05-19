@@ -1,0 +1,40 @@
+@*
+    _NavQuickActions.cshtml — Sprint 11.5 PR #2 / Nav-1.
+    ADR-017 §D5 — Quick Actions verb tray.
+
+    Five highest-frequency cross-cutting verbs. Each opens a focused
+    create-flow page (not a table). Membership is intentionally cross-
+    role: any user can hit any of these without first navigating to a
+    role-specific Control Center.
+
+    The slot will house future verbs (Reconcile, Reopen, Reassign) as
+    sprints add them — "Quick Actions" is the label rather than "Create"
+    because not every future verb is a creation.
+*@
+
+<div class="nav-section-label">QUICK ACTIONS</div>
+
+<div class="menu-group nav-quick-group" data-section="quick-actions">
+    <div class="menu-items">
+        <a href="/WorkOrders/Create" class="menu-item nav-quick-item" data-nav-route="/WorkOrders/Create">
+            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
+            <span>Create work order</span>
+        </a>
+        <a href="/Purchasing/Requisitions/Create" class="menu-item nav-quick-item" data-nav-route="/Purchasing/Requisitions/Create">
+            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
+            <span>Create requisition</span>
+        </a>
+        <a href="/Receiving/Blind" class="menu-item nav-quick-item" data-nav-route="/Receiving/Blind">
+            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
+            <span>Create blind receipt</span>
+        </a>
+        <a href="/Assets/Create" class="menu-item nav-quick-item" data-nav-route="/Assets/Create">
+            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
+            <span>Add asset</span>
+        </a>
+        <a href="/Maintenance/WorkRequests/Create" class="menu-item nav-quick-item" data-nav-route="/Maintenance/WorkRequests/Create">
+            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
+            <span>Log inspection</span>
+        </a>
+    </div>
+</div>

@@ -1,0 +1,88 @@
+@*
+    _NavControlCenters.cshtml — Sprint 11.5 PR #2 / Nav-1.
+    ADR-017 §D1 — Control Centers as the sidebar spine.
+
+    Renders the v1 launch-scope Control Centers from
+    Services.Navigation.ControlCenterRegistry.All. The currently-shipped
+    Receiving Control Center is an active link; the six placeholders for
+    Sprints 12-18 render as visible-but-disabled rows with a sprint chip.
+
+    Each subsequent sprint that ships a Control Center flips its registry
+    entry's IsLive flag (one-line edit) — no Razor changes needed.
+
+    Inputs:
+      - bool ShowSubItems — when true, the active CC expands to show its
+        workflow shortcuts. Today only Receiving has shortcuts defined
+        (Receive by PO / By ASN / Blind / History). Future Control Centers
+        can supply their own list via a per-CC partial.
+
+    Active-state detection: uses the existing IsPage / IsAny helpers
+    defined in _ModernLayout.cshtml's @code block.
+*@
+@using Abs.FixedAssets.Services.Navigation
+@{
+    Func<string, bool> IsPageHelper = (string p) =>
+        (ViewContext.RouteData.Values["page"]?.ToString() ?? "")
+            .StartsWith(p, System.StringComparison.OrdinalIgnoreCase);
+    bool receivingActive = IsPageHelper("/Receiving");
+}
+
+<div class="nav-section-label">CONTROL CENTERS</div>
+
+<div class="menu-group nav-cc-group @(receivingActive ? "expanded" : "")" data-section="control-centers">
+    <div class="menu-items">
+        @foreach (var cc in ControlCenterRegistry.All)
+        {
+            var ccActive = cc.IsLive && IsPageHelper(cc.Route);
+            var rowCls = "menu-item nav-cc-item" +
+                         (cc.IsLive ? "" : " nav-cc-item--disabled") +
+                         (ccActive ? " active" : "");
+
+            if (cc.IsLive)
+            {
+                <a href="@cc.Route" class="@rowCls" data-nav-route="@cc.Route" title="@cc.Title Control Center">
+                    <i class="@cc.IconClass menu-item-icon"></i>
+                    <span class="nav-cc-title">@cc.Title</span>
+                    @if (ccActive)
+                    {
+                        <span class="nav-cc-chip nav-cc-chip--live" aria-label="live">live</span>
+                    }
+                </a>
+            }
+            else
+            {
+                <span class="@rowCls" role="link" aria-disabled="true"
+                      title="@cc.Title Control Center ships in Sprint @cc.SprintNumber. Not yet available.">
+                    <i class="@cc.IconClass menu-item-icon"></i>
+                    <span class="nav-cc-title">@cc.Title</span>
+                    <span class="nav-cc-chip nav-cc-chip--soon">@cc.StatusChip</span>
+                </span>
+            }
+        }
+    </div>
+</div>
+
+@if (receivingActive)
+{
+    @* When the user is inside the Receiving Control Center, surface its
+       workflow shortcuts inline below the Control Centers section.
+       Subsequent CCs will hook the same way (PR Nav-3 per ADR-017). *@
+    <div class="nav-cc-shortcuts">
+        <a href="/Receiving/By-Po" class="menu-item nav-cc-shortcut @(IsPageHelper("/Receiving/ByPo") ? "active" : "")">
+            <i class="fas fa-file-invoice menu-item-icon"></i>
+            <span>Receive by PO</span>
+        </a>
+        <a href="/Receiving/By-Asn" class="menu-item nav-cc-shortcut @(IsPageHelper("/Receiving/ByAsn") ? "active" : "")">
+            <i class="fas fa-truck-fast menu-item-icon"></i>
+            <span>Receive by ASN</span>
+        </a>
+        <a href="/Receiving/Blind" class="menu-item nav-cc-shortcut @(IsPageHelper("/Receiving/Blind") ? "active" : "")">
+            <i class="fas fa-question-circle menu-item-icon"></i>
+            <span>Blind receive</span>
+        </a>
+        <a href="/Receiving/Cockpit-Legacy" class="menu-item nav-cc-shortcut @(IsPageHelper("/Receiving/Index") ? "active" : "")">
+            <i class="fas fa-clock-rotate-left menu-item-icon"></i>
+            <span>Cockpit (legacy)</span>
+        </a>
+    </div>
+}

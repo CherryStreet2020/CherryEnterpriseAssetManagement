@@ -1,0 +1,113 @@
+/* =============================================================================
+   Sidebar rebuild — Sprint 11.5 PR #2 / Nav-1.
+   ADR-017 §D1 (Control Centers spine), §D4 (visible-but-disabled placeholders),
+   §D5 (Quick Actions tray).
+
+   Layered on top of sidebar-nav.css; styles only the new sections.
+   ============================================================================= */
+
+/* ---- Control Centers group --------------------------------------------- */
+
+.nav-cc-group .menu-items {
+    /* Always visible — no collapse for the Control Centers list. */
+    display: block !important;
+    max-height: none !important;
+}
+
+.nav-cc-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.nav-cc-title { flex: 1 1 auto; }
+
+.nav-cc-item--disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    color: var(--text-muted, #71717a);
+}
+.nav-cc-item--disabled:hover {
+    background: transparent;
+    color: var(--text-muted, #71717a);
+}
+
+.nav-cc-chip {
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+.nav-cc-chip--live {
+    background: rgba(16,185,129,0.18);
+    color: var(--tone-success, #059669);
+    border: 1px solid rgba(16,185,129,0.35);
+}
+.nav-cc-chip--soon {
+    background: rgba(113,113,122,0.12);
+    color: var(--text-muted, #71717a);
+    border: 1px solid rgba(113,113,122,0.22);
+}
+
+/* Workflow shortcuts under the active CC */
+.nav-cc-shortcuts {
+    margin: 4px 0 8px 28px;
+    padding: 4px 0 6px;
+    border-left: 1px solid var(--border-subtle, rgba(0,0,0,0.10));
+}
+.nav-cc-shortcut {
+    padding: 6px 10px 6px 12px !important;
+    font-size: 12px !important;
+    color: var(--text-muted, #71717a);
+}
+.nav-cc-shortcut.active {
+    color: var(--brand-fg, #0ea5e9);
+    background: var(--brand-soft, rgba(14,165,233,0.08));
+}
+
+/* ---- Quick Actions group ----------------------------------------------- */
+
+.nav-quick-group .menu-items {
+    display: block !important;
+    max-height: none !important;
+}
+.nav-quick-item .nav-quick-icon {
+    color: var(--brand-fg, #0ea5e9);
+    opacity: 0.85;
+}
+.nav-quick-item:hover .nav-quick-icon {
+    opacity: 1;
+}
+
+/* ---- Sidebar utility row — Settings + Approvals additions -------------- */
+
+.sidebar-utility-btn--approvals { position: relative; }
+.sidebar-utility-btn--approvals .util-badge {
+    position: absolute;
+    top: 4px; right: 4px;
+    background: var(--tone-critical, #dc2626);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 0 4px;
+    border-radius: 999px;
+    min-width: 14px;
+    height: 14px;
+    line-height: 14px;
+    text-align: center;
+}
+
+/* ---- Dark mode tweaks -------------------------------------------------- */
+
+:root.dark .nav-cc-chip--soon {
+    background: rgba(255,255,255,0.06);
+    color: var(--text-muted, #a1a1aa);
+    border-color: rgba(255,255,255,0.10);
+}
+:root.dark .nav-cc-shortcuts {
+    border-left-color: rgba(255,255,255,0.10);
+}

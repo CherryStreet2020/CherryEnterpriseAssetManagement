@@ -1,0 +1,113 @@
+@page "/Settings"
+@model Abs.FixedAssets.Pages.Settings.IndexModel
+@{
+    ViewData["Title"] = "Settings";
+    ViewData["TabTitle"] = "Settings";
+    Layout = "_ModernLayout";
+}
+
+<section style="max-width: 1100px; padding: var(--space-4, 16px);">
+    <header style="margin-bottom: 24px;">
+        <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px;">SETTINGS</div>
+        <h1 style="font-family: var(--font-display, var(--font-sans)); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 4px; color: var(--text-strong);">Settings &amp; Administration</h1>
+        <p style="color: var(--text-muted); font-size: 14px; margin: 0;">
+            Organization, users, master data, integrations, and system configuration.
+            Per ADR-017 §D9, these surfaces moved off the operational sidebar to keep the daily-driver nav lean.
+            Everything is still one keystroke away via <kbd style="font-family: var(--font-mono); font-size: 11px; background: var(--surface-soft); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 2px 6px;">⌘K</kbd>.
+        </p>
+    </header>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">ORGANIZATION</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">Sites, companies, structure</h2>
+            <div style="display: grid; gap: 6px;">
+                <a href="/Admin/Sites" class="settings-link"><i class="fas fa-sitemap"></i> Organization &amp; Sites</a>
+                <a href="/Admin/Companies" class="settings-link"><i class="fas fa-building"></i> Companies</a>
+                <a href="/Admin/Departments" class="settings-link"><i class="fas fa-people-group"></i> Departments</a>
+                <a href="/Admin/CostCenters" class="settings-link"><i class="fas fa-bullseye"></i> Cost Centers</a>
+                <a href="/Admin/Manufacturers" class="settings-link"><i class="fas fa-industry"></i> Manufacturers</a>
+                <a href="/Admin/ProjectManagers" class="settings-link"><i class="fas fa-user-tie"></i> Project Managers</a>
+            </div>
+        </div>
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">USERS &amp; ACCESS</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">People + permissions</h2>
+            <div style="display: grid; gap: 6px;">
+                <a href="/Admin/Users" class="settings-link"><i class="fas fa-users"></i> Users &amp; Roles</a>
+            </div>
+        </div>
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">MASTER DATA</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">Catalogs &amp; reference data</h2>
+            <div style="display: grid; gap: 6px;">
+                <a href="/Admin/ItemCategories" class="settings-link"><i class="fas fa-folder-tree"></i> Item Categories</a>
+                <a href="/Admin/AssetCategories" class="settings-link"><i class="fas fa-tags"></i> Asset Categories</a>
+                <a href="/Materials/Kits" class="settings-link"><i class="fas fa-toolbox"></i> Kits</a>
+                <a href="/Admin/Lookups" class="settings-link"><i class="fas fa-table-list"></i> Lookups</a>
+                <a href="/Books/GlAccounts" class="settings-link"><i class="fas fa-file-lines"></i> GL Accounts</a>
+                <a href="/Admin/FiscalCalendar" class="settings-link"><i class="fas fa-calendar-days"></i> Fiscal Calendar</a>
+                <a href="/Admin/RegulatoryProfiles" class="settings-link"><i class="fas fa-shield-halved"></i> Regulatory Profiles</a>
+                <a href="/Admin/MaterialMasters" class="settings-link"><i class="fas fa-flask"></i> Material Masters</a>
+                <a href="/Admin/StockReceipts" class="settings-link"><i class="fas fa-list-check"></i> Stock Receipts (admin)</a>
+            </div>
+        </div>
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">DATA &amp; INTEGRATION</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">Webhooks, events, integrations</h2>
+            <div style="display: grid; gap: 6px;">
+                <a href="/Admin/DataManagement" class="settings-link"><i class="fas fa-database"></i> Data Management</a>
+                <a href="/Admin/Webhooks" class="settings-link"><i class="fas fa-satellite-dish"></i> Webhooks</a>
+                <a href="/Admin/Webhooks/Deliveries" class="settings-link"><i class="fas fa-paper-plane"></i> Webhook Deliveries</a>
+                <a href="/Admin/Webhooks/Catalog" class="settings-link"><i class="fas fa-book-open"></i> Event Catalog</a>
+                <a href="/Admin/Outbox" class="settings-link"><i class="fas fa-inbox"></i> Outbox</a>
+                <a href="/Admin/Integrations" class="settings-link"><i class="fas fa-plug"></i> Integration Hub</a>
+                <a href="/Admin/AuditLog" class="settings-link"><i class="fas fa-clipboard-check"></i> Audit Log</a>
+            </div>
+        </div>
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">SYSTEM</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">System configuration</h2>
+            <div style="display: grid; gap: 6px;">
+                <a href="/Admin/SystemSettings" class="settings-link"><i class="fas fa-cogs"></i> System Settings</a>
+                <a href="/Admin/DesignSystem" class="settings-link"><i class="fas fa-palette"></i> Design System (admin)</a>
+            </div>
+        </div>
+
+        <div class="ds-card" style="padding: 18px;">
+            <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">RELATED</div>
+            <h2 style="font-size: 16px; font-weight: 600; margin: 0 0 12px; color: var(--text-strong);">Where the operational work happens</h2>
+            <div style="display: grid; gap: 6px; font-size: 13px; color: var(--text-muted);">
+                Daily plant operations live in the <strong><a href="/Receiving" style="color: var(--brand-fg);">Receiving Control Center</a></strong> and its sibling Control Centers shipping in Sprints 12-18.
+                Settings is the configuration surface for the data those Control Centers consume.
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<style>
+    .settings-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        color: var(--text-strong, #18181b);
+        font-size: 13px;
+        border: 1px solid transparent;
+        transition: background 120ms ease, border-color 120ms ease;
+    }
+    .settings-link:hover {
+        background: var(--surface-soft, #f4f4f5);
+        border-color: var(--border-subtle, rgba(0,0,0,0.08));
+        text-decoration: none;
+    }
+    .settings-link i { width: 18px; text-align: center; color: var(--text-muted); }
+</style>
