@@ -1,0 +1,24 @@
+@page "/Receiving/ControlCenter"
+@model Abs.FixedAssets.Pages.Receiving.ControlCenterModel
+@{
+    ViewData["Title"] = "Receiving Control Center";
+    ViewData["TabTitle"] = "Receiving";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 11 PR #5 — first live Control Center surface.
+
+    The four-quadrant scaffold (KPI strip + exception lane + drawer + activity feed)
+    is rendered by _ControlCenterShell. All data comes from
+    IReceivingControlCenterService (PR #3); the voice-tool surface (PR #4) is
+    wired through the Voice FAB inside the shell.
+
+    Route note: this lives at /Receiving/ControlCenter for the duration of
+    Sprint 11. PR #7 (kill list) will swap /Receiving → this page and redirect
+    the old Cockpit to /Receiving/Cockpit-Legacy. Doing the swap then keeps
+    the destructive change at the end of the sprint, when every Control Center
+    primitive + service + voice tool has shipped and shipped clean.
+*@
+
+@await Html.PartialAsync("_ControlCenterShell", Model.Shell)
