@@ -85,9 +85,29 @@ sync_origin_main() {
   log_ok "origin/main HEAD: $(git log origin/main --oneline -1)"
 }
 
-# Hard reset local main to origin/main. Destructive — only call after sync.
+# Hard reset local main to origin/main. Destructive — fail-fast guarded.
 reset_local_main() {
   cd "$SHIP_REPO_DIR" || die "cannot cd"
+
+  # Fail-fast guard against losing uncommitted tracked work.
+  # Pre-guard: this used to call reset --hard blindly, which silently wiped
+  # uncommitted edits on main. Cost a real round of work before the guard
+  # landed. Untracked files are fine (the reset doesn't touch them).
+  local dirty
+  dirty=$(git status --porcelain --untracked-files=no 2>/dev/null)
+  if [ -n "$dirty" ]; then
+    log_err "Local main has uncommitted tracked changes — refusing to reset."
+    log_err "These files would be wiped:"
+    echo "$dirty" | sed 's/^/    /' >&2
+    log_err ""
+    log_err "Resolution:"
+    log_err "  1. Stash your work:    git stash"
+    log_err "  2. Commit your work:   git add ... && git commit -m '...'"
+    log_err "  3. Discard your work:  git checkout -- . && git clean -fd"
+    log_err "Then re-run the harness."
+    exit 1
+  fi
+
   git checkout main >/dev/null 2>&1 || die "cannot checkout main"
   git reset --hard origin/main > "$SHIP_LOG_DIR/reset.log" 2>&1 \
     || die "git reset failed — see $SHIP_LOG_DIR/reset.log"

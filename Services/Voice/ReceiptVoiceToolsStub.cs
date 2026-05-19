@@ -3,36 +3,36 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.Infrastructure;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.Receiving;
 
 namespace Abs.FixedAssets.Services.Voice;
 
-// ADR-015 D10 — Stub implementation of IReceiptVoiceTools.
+// ReceiptVoiceToolsStub — kept as a test fixture only.
 //
-// All four methods return Result.Failure with a clear "not yet implemented"
-// message. Real bodies land in Sprint 5 voice-AI runtime work. Shipping
-// the stub now means:
-//   - The DI container resolves the interface today.
-//   - The voice-AI integration tests can target stable interfaces.
-//   - The tool catalog shape is locked at PR time and won't drift.
+// Sprint 11 PR #4 introduced ReceiptVoiceTools (the real production
+// implementation backed by AppDbContext + IReceivingControlCenterService).
+// Program.cs DI now resolves IReceiptVoiceTools to ReceiptVoiceTools.
 //
-// DO NOT call these from production code paths in Sprint 4. The receipt
-// UI continues to use IStockReceiptService for everything. These tools
-// are for the voice-AI runtime only.
+// This stub stays in the codebase so unit tests and mocking scenarios have
+// an interface-complete null object to wire when they don't need the full
+// AppDbContext + downstream service graph. Every method returns
+// Result.Failure with a stub message — useful as a "did you forget to wire
+// the real impl?" detector.
 public sealed class ReceiptVoiceToolsStub : IReceiptVoiceTools
 {
-    private const string NotImplementedMessage =
-        "IReceiptVoiceTools is a Sprint 5 surface. Migration PR #1 ships " +
-        "the contract only; the real implementation lands with the voice-AI " +
-        "runtime. Use IStockReceiptService for receipt operations in Sprint 4.";
+    private const string StubMessage =
+        "ReceiptVoiceToolsStub is a test fixture only. Inject ReceiptVoiceTools " +
+        "(or a Moq) for production code paths.";
 
     public Task<Result<ChainOfCustodyGraph>> TraceChainOfCustodyAsync(
         string naturalKey, string direction, CancellationToken ct)
-        => Task.FromResult(Result.Failure<ChainOfCustodyGraph>(NotImplementedMessage));
+        => Task.FromResult(Result.Failure<ChainOfCustodyGraph>(StubMessage));
 
     public Task<Result<IReadOnlyList<ExpectedReceiptItem>>> ListExpectedReceiptsAsync(
         DateTime fromUtc, DateTime toUtc, int? forUserId, CancellationToken ct)
-        => Task.FromResult(Result.Failure<IReadOnlyList<ExpectedReceiptItem>>(NotImplementedMessage));
+        => Task.FromResult(Result.Failure<IReadOnlyList<ExpectedReceiptItem>>(StubMessage));
 
     public Task<Result<int>> QuarantineByFilterAsync(
         string profileCode,
@@ -41,9 +41,35 @@ public sealed class ReceiptVoiceToolsStub : IReceiptVoiceTools
         int actorUserId,
         Guid idempotencyKey,
         CancellationToken ct)
-        => Task.FromResult(Result.Failure<int>(NotImplementedMessage));
+        => Task.FromResult(Result.Failure<int>(StubMessage));
 
     public Task<Result<IReadOnlyList<StockReceipt>>> LookupReceiptAsync(
         string naturalKey, string? profileHint, CancellationToken ct)
-        => Task.FromResult(Result.Failure<IReadOnlyList<StockReceipt>>(NotImplementedMessage));
+        => Task.FromResult(Result.Failure<IReadOnlyList<StockReceipt>>(StubMessage));
+
+    public Task<Result<IReadOnlyList<ExpectedArrival>>> ListExpectedArrivalsAsync(
+        string? siteCode, DateTime windowStartUtc, DateTime windowEndUtc, CancellationToken ct)
+        => Task.FromResult(Result.Failure<IReadOnlyList<ExpectedArrival>>(StubMessage));
+
+    public Task<Result<IReadOnlyList<OrphanMatchCandidate>>> MatchOrphanReceiptAsync(
+        int receiptId, int actorUserId, CancellationToken ct)
+        => Task.FromResult(Result.Failure<IReadOnlyList<OrphanMatchCandidate>>(StubMessage));
+
+    public Task<Result<ExceptionExplanation>> ExplainExceptionAsync(
+        int receiptId, CancellationToken ct)
+        => Task.FromResult(Result.Failure<ExceptionExplanation>(StubMessage));
+
+    public Task<Result<ReceiveResult>> ReceiveByVoiceAsync(
+        int actorUserId, IdempotencyKey idempotencyKey, ReceiveByPoCommand command,
+        VoiceContext voiceContext, CancellationToken ct)
+        => Task.FromResult(Result.Failure<ReceiveResult>(StubMessage));
+
+    public Task<Result<QuarantineResult>> QuarantineByVoiceAsync(
+        int actorUserId, IdempotencyKey idempotencyKey, QuarantineCommand command,
+        VoiceContext voiceContext, CancellationToken ct)
+        => Task.FromResult(Result.Failure<QuarantineResult>(StubMessage));
+
+    public Task<Result<MillCertExtraction>> OcrParseMillCertAsync(
+        byte[] pdfBytes, string profileCode, CancellationToken ct)
+        => Task.FromResult(Result.Failure<MillCertExtraction>(StubMessage));
 }
