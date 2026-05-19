@@ -3,7 +3,18 @@
 @{
     ViewData["Title"] = "Receiving Control Center";
     ViewData["TabTitle"] = "Receiving";
+    ViewData["BodyClass"] = "is-control-center";
     Layout = "_ModernLayout";
+}
+
+@* Sprint 12A PR #5.1 — KPI band is the third leg of the Cockpit canvas
+   (ADR-018 §D3). Always rendered ABOVE the tab bar so the operator's
+   at-a-glance status is persistent across every tab. Workload tiles drill
+   into PO Queue buckets (cockpit.js scrolls + pulses); Quality tiles drill
+   to the Exceptions tab (hard href). *@
+@if (Model.KpiBand is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
 }
 
 @*

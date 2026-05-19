@@ -143,7 +143,7 @@
     <link rel="stylesheet" href="~/css/modules/premium-polish.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
+<body class="@(ViewData["BodyClass"] as string ?? "")">
     
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     

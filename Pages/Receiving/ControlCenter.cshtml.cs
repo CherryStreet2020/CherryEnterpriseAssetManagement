@@ -76,6 +76,11 @@ public sealed class ControlCenterModel : ControlCenterPageModel
     // calls. Consumed by ControlCenter.cshtml's po-queue switch arm.
     public CockpitShellViewModel? PoQueueShell { get; private set; }
 
+    // Sprint 12A PR #5.1 — KPI band model. Always hydrated on every tab,
+    // rendered above the tab bar. Third leg of the Cockpit canvas per
+    // ADR-018 §D3.
+    public CockpitKpiBandViewModel? KpiBand { get; private set; }
+
     public const string TabPoQueue = "po-queue";
     public const string TabAsnQueue = "asn-queue";
     public const string TabOrphans = "orphans";
@@ -120,6 +125,11 @@ public sealed class ControlCenterModel : ControlCenterPageModel
             },
         };
 
+        // Sprint 12A PR #5.1 — KPI band is the third leg of the Cockpit canvas
+        // (ADR-018 §D3) and lives ABOVE the tab bar. Always hydrated regardless
+        // of active tab so the operator's at-a-glance status is persistent.
+        await HydrateKpiBandAsync(ct);
+
         // Only the active tab pulls data — preserves the PR #4 perf win
         // where /Receiving's default landing is near-instant. Each branch is
         // a self-contained hydrate-the-data-it-needs call.
@@ -134,6 +144,61 @@ public sealed class ControlCenterModel : ControlCenterPageModel
 
         return Page();
     }
+
+    // Pulls the 8-tile KPI band data and shapes it into the view-model the
+    // _CockpitKpiBand partial consumes. ADR-018 §D3 — third leg of the
+    // Cockpit canvas. Failure path returns a minimal informational band so
+    // the page header stays present (never NRE in Razor).
+    private async Task HydrateKpiBandAsync(CancellationToken ct)
+    {
+        var bandFilter = new ReceivingKpiBandFilter { SiteCode = SiteCode };
+        var bandResult = await _receiving.GetReceivingKpiBandAsync(bandFilter, ct);
+
+        if (bandResult.IsFailure || bandResult.Value is null)
+        {
+            _logger.LogWarning("GetReceivingKpiBandAsync failed: {Error}", bandResult.Error);
+            KpiBand = new CockpitKpiBandViewModel
+            {
+                Eyebrow = "TODAY'S DOCK",
+                RefreshedAtText = "data unavailable",
+                ShowLiveIndicator = false,
+            };
+            return;
+        }
+
+        var d = bandResult.Value;
+        KpiBand = new CockpitKpiBandViewModel
+        {
+            Eyebrow = string.IsNullOrEmpty(SiteCode)
+                ? "TODAY'S DOCK · ALL SITES"
+                : $"TODAY'S DOCK · {SiteCode.ToUpperInvariant()}",
+            RefreshedAtText = $"updated {FormatRelative(d.ComputedAtUtc)}",
+            ShowLiveIndicator = true,
+            Tiles = new[]
+            {
+                BandTile(d.OpenPos),
+                BandTile(d.Overdue),
+                BandTile(d.DueToday),
+                BandTile(d.ThisWeek),
+                BandTile(d.ReceiptsToday),
+                BandTile(d.DockToStock),
+                BandTile(d.DocCompleteness),
+                BandTile(d.ExceptionsOpen),
+            },
+        };
+    }
+
+    private static CockpitKpiTileViewModel BandTile(ReceivingKpiTile t) => new()
+    {
+        Label = t.Label,
+        Value = t.Value,
+        Unit = t.Unit,
+        TargetText = t.TargetText,
+        Tone = t.Tone,
+        SparkPoints = t.SparkPoints,
+        DrillHref = t.DrillHref,
+        DrillScroll = t.DrillScroll,
+    };
 
     // Pulls the PO Queue rows + preview blob via
     // IReceivingControlCenterService.GetPoQueueAsync, runs them through the
