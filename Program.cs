@@ -1,4 +1,5 @@
 using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Endpoints;
 using Abs.FixedAssets.Middleware;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
@@ -984,6 +985,12 @@ app.MapGet("/_otel/diag", (IServiceProvider sp) =>
         otlpExporter = string.IsNullOrWhiteSpace(otlp) ? "disabled" : "enabled",
     });
 }).AllowAnonymous();
+
+// Sprint 11 Voice MVP — POST /_voice/invoke for the in-page voice client.
+// Lights up the dormant IReceiptVoiceTools (ADR-015 D10 + ADR-016 D8).
+// First production voice surface. Read-only intents only in this PR;
+// mutating intents (ReceiveByVoice, QuarantineByVoice) land in Sprint 5.
+app.MapVoiceEndpoints().RequireAuthorization();
 
 app.MapRazorPages().RequireAuthorization();
 app.MapControllers();

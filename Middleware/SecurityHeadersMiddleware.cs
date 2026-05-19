@@ -27,8 +27,13 @@ public sealed class SecurityHeadersMiddleware
 
     private readonly RequestDelegate _next;
 
+    // Sprint 11 Voice MVP — microphone is allowed on same-origin only so the
+    // in-page voice client (push-to-talk Voice FAB) can use webkitSpeechRecognition.
+    // Mic capture still requires an explicit user gesture (click / Space-hold);
+    // the policy just unblocks the API at the HTTP layer. Everything else
+    // remains locked.
     private const string PermissionsPolicy =
-        "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()";
+        "camera=(), microphone=(self), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()";
 
     public SecurityHeadersMiddleware(RequestDelegate next)
     {

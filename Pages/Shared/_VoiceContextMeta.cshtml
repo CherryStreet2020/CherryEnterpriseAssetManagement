@@ -1,0 +1,40 @@
+@*
+    _VoiceContextMeta.cshtml — Emits the current page's VoiceContextPayload
+    as <meta> tags the voice-client.js can read on POST /_voice/invoke.
+
+    The VoiceContextEmitter page filter writes HttpContext.Items["voice.ctx"]
+    after the page handler runs. By the time the layout renders, that
+    payload is available. Pages that don't inherit from VoiceReadyPageModel
+    skip cleanly — no meta tags emitted.
+
+    Include from _ModernLayout.cshtml's <head>.
+
+    Reference: ADR-014 D1.
+*@
+@using Abs.FixedAssets.Models
+@using Abs.FixedAssets.Services.Infrastructure
+
+@{
+    var ctx = Context.Items[VoiceContextEmitter.HttpContextKey] as VoiceContextPayload;
+}
+
+@if (ctx != null)
+{
+    <meta name="cherry:voice:route" content="@ctx.Route" />
+    @if (!string.IsNullOrEmpty(ctx.EntityType))
+    {
+        <meta name="cherry:voice:entity-type" content="@ctx.EntityType" />
+    }
+    @if (!string.IsNullOrEmpty(ctx.EntityId))
+    {
+        <meta name="cherry:voice:entity-id" content="@ctx.EntityId" />
+    }
+    @if (!string.IsNullOrEmpty(ctx.Tab))
+    {
+        <meta name="cherry:voice:tab" content="@ctx.Tab" />
+    }
+    @if (!string.IsNullOrEmpty(ctx.FocusedField))
+    {
+        <meta name="cherry:voice:focused-field" content="@ctx.FocusedField" />
+    }
+}
