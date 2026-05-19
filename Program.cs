@@ -514,6 +514,16 @@ builder.Services.AddScoped<
 // the hood). Used by StockReceiptService for service-layer validation
 // and by the Edit page directly for per-field ModelState placement.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Admin.ReceiptAttributesValidator>();
+// Sprint 11 PR #3 (ADR-016 D7) — Receiving Control Center service.
+// IReceivingControlCenterService is consumed by both the /Receiving/ControlCenter
+// page model (PR #5) AND ReceiptVoiceTools (PR #4 — depends on this registration).
+// PR #5.1 hotfix: this line was dropped during the PR #4 git-reset recovery
+// and the app's runtime DI validator caught the missing registration at
+// Build() time, blocking cold start.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Receiving.IReceivingControlCenterService,
+    Abs.FixedAssets.Services.Receiving.ReceivingControlCenterService>();
+
 // ADR-015 D10 + ADR-016 D8 — Receipt voice-tool catalog.
 // Sprint 11 PR #4 promotes the stub to the production implementation
 // (ReceiptVoiceTools) backed by AppDbContext + IReceivingControlCenterService.
