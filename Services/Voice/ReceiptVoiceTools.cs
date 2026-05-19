@@ -256,22 +256,34 @@ public sealed class ReceiptVoiceTools : IReceiptVoiceTools
         // with the same Include shape.
         if (matches.Count < 5)
         {
-            // Voice MVP hotfix #2: dropped .Include here too. The voice client
-            // never reads .Item / .Profile so the Includes are dead weight.
-            // Cast to ::text is still required because Attributes is jsonb.
-            var jsonMatches = await _db.StockReceipts
-                .FromSqlInterpolated(
-                    $@"SELECT * FROM ""StockReceipts""
-                       WHERE ""Attributes"" IS NOT NULL
-                         AND (""Attributes"")::text ILIKE {likePattern}
-                       LIMIT 20")
-                .AsNoTracking()
+            // Voice MVP hotfix #4 (2026-05-19): the original FromSql approach
+            // failed with InvalidOperationException because StockReceipt has
+            // a [Timestamp] RowVersion mapped to Postgres' `xmin` system
+            // column. SELECT * does not include system columns, so EF
+            // couldn't materialize. Two-stage approach: raw SQL to get
+            // matching ids, then re-query through the DbSet which handles
+            // xmin correctly. Still uses the ::text cast for jsonb ILike.
+            var idsRaw = await _db.Database
+                .SqlQueryRaw<int>(
+                    @"SELECT ""Id"" FROM ""StockReceipts""
+                      WHERE ""Attributes"" IS NOT NULL
+                        AND (""Attributes"")::text ILIKE {0}
+                      LIMIT 20",
+                    likePattern)
                 .ToListAsync(ct);
 
-            foreach (var jm in jsonMatches)
+            if (idsRaw.Count > 0)
             {
-                if (!matches.Any(m => m.Id == jm.Id))
-                    matches.Add(jm);
+                var jsonMatches = await _db.StockReceipts
+                    .AsNoTracking()
+                    .Where(r => idsRaw.Contains(r.Id))
+                    .ToListAsync(ct);
+
+                foreach (var jm in jsonMatches)
+                {
+                    if (!matches.Any(m => m.Id == jm.Id))
+                        matches.Add(jm);
+                }
             }
         }
 
