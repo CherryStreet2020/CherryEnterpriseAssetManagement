@@ -1,4 +1,13 @@
-@page
+@page "/Receiving/Cockpit-Legacy"
+@*
+    Sprint 11 PR #7 — kill-list cutover.
+    This page used to claim "/Receiving" via Razor Pages file-name routing.
+    PR #7 demotes it to /Receiving/Cockpit-Legacy so the Receiving Control
+    Center (Pages/Receiving/ControlCenter.cshtml) becomes the primary
+    /Receiving surface per ADR-016 §D2 + §D6.
+    The Cockpit stays reachable at the new route for any tooling that
+    deep-links to it; a future PR may delete it once those callers move.
+*@
 @model Abs.FixedAssets.Pages.Receiving.IndexModel
 @using System.Text.Json
 @{

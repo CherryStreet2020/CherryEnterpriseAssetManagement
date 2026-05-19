@@ -71,16 +71,12 @@ public class EditModel : VoiceReadyPageModel
     {
         if (IsNew)
         {
-            var profileRes = await _svc.GetDefaultProfileForCreateAsync(HttpContext.RequestAborted);
-            if (profileRes.IsFailure)
-            {
-                ErrorMessage = profileRes.Error;
-                return Page();
-            }
-            Profile = profileRes.Value!;
-            ProfileCode = Profile.Code;
-            Attributes = DeserializeAttributes(Profile.DefaultAttributes);
-            return Page();
+            // Sprint 11 PR #7 — kill list. Receipt creation now flows through
+            // the Receiving Control Center's PO wizard (ADR-016 §D6). The
+            // blank-form Create entry is gone; anyone deep-linking the old
+            // URL gets a 302 to the canonical path. Edit-an-existing-receipt
+            // (Id > 0) still works as an admin override.
+            return RedirectToPage("/Receiving/ByPo");
         }
 
         var r = await _svc.GetWithProfileAsync(Id!.Value, HttpContext.RequestAborted);

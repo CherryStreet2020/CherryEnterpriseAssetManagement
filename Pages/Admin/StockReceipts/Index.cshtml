@@ -71,7 +71,14 @@
             <div data-csp-style="font-size: 17px; font-weight: 700; color: var(--text-primary); margin-top: 4px;">Receiving Ledger</div>
             <div data-csp-style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Profile-driven facets — each receipt's columns are sourced from its industry profile's PromotedFacets</div>
         </div>
-        <a href="/Admin/StockReceipts/Edit" class="ds-btn" data-variant="primary">
+        @*
+            Sprint 11 PR #7 — kill-list cutover.
+            The "+ New Receipt" entry that used to open /Admin/StockReceipts/Edit
+            now points to the Receiving Control Center's PO-driven wizard.
+            All receipt creation flows through /Receiving/By-Po (80% workflow)
+            or /Receiving/Blind (5% workflow) per ADR-016 §D6.
+        *@
+        <a href="/Receiving/By-Po" class="ds-btn" data-variant="primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             New Receipt
         </a>
@@ -162,7 +169,7 @@
                 Title = "No stock receipts yet",
                 Body = "Receipts capture the industry-specific facets (heat #, NDC, GTIN, TLC, harvest date, etc.) for each physical lot that arrives. They’re the audit join key for every nest cut downstream and the foundation for ASME / FDA / DSCSA / AS9100 traceability.",
                 CtaLabel = "Create First Receipt",
-                CtaHref = "/Admin/StockReceipts/Edit",
+                CtaHref = "/Receiving/By-Po",
                 SecondaryLabel = "Back to Admin",
                 SecondaryHref = "/Admin"
             })
