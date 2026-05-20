@@ -39,10 +39,15 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
-        // Human-facing identifier (e.g., "PO-2026-00042"). Generated via
+        // Human-facing identifier (e.g., "PRO-2026-00042"). Generated via
         // NumberSequence (SAP NRIV pattern, PR #119.5) once a number-
         // sequence row for ProductionOrder is seeded — current MVP allows
-        // the controller to assign on create.
+        // the controller to assign on create. Default prefix "PRO-" is
+        // locked per ADR-025 sibling rename (2026-05-20) — avoids the
+        // PurchaseOrder "PO-" collision. Per-tenant overrides expected:
+        // EVS/ABS metal-fab will likely use "JO-" (Job Order), FSC food
+        // will likely use "BO-" (Batch Order). The override is a single
+        // row in NumberSequence with the tenant-scoped Prefix value.
         [Required]
         [StringLength(32)]
         [Display(Name = "Production Order #")]
