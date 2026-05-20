@@ -31,8 +31,36 @@ public static class AdminEmbedEndpoint
 
         grp.MapPost("/backfill", BackfillAsync).WithName("AdminEmbedBackfill");
         grp.MapGet("/status", StatusAsync).WithName("AdminEmbedStatus");
+        // Sprint 12C PR #1.5 — reset failed rows so the worker re-tries.
+        // Used when a rate-limit or transient outage pushed rows past
+        // the Attempts=5 cap. Saves manual psql.
+        grp.MapPost("/retry", RetryFailedAsync).WithName("AdminEmbedRetry");
 
         return grp;
+    }
+
+    /// <summary>
+    /// Reset Attempts=0 + LastError=NULL on all rows where Attempts ≥ 5.
+    /// Worker will re-attempt on next 5s poll. Use after the underlying
+    /// cause has been fixed (rate-limit recovered, API key updated, etc.).
+    /// </summary>
+    private static async Task<IResult> RetryFailedAsync(
+        AppDbContext db,
+        CancellationToken ct)
+    {
+        var reset = await db.PendingEmbeddings
+            .Where(p => p.Attempts >= 5)
+            .ExecuteUpdateAsync(setter => setter
+                .SetProperty(p => p.Attempts, 0)
+                .SetProperty(p => p.LastError, (string?)null),
+                ct);
+
+        return Results.Ok(new
+        {
+            ok = true,
+            resetRows = reset,
+            note = "Failed rows reset. Worker will re-attempt within the next 5s poll."
+        });
     }
 
     private static async Task<IResult> BackfillAsync(

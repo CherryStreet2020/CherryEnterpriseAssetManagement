@@ -26,14 +26,24 @@ public sealed class VoyageClient : IVoyageClient
     private const string ModelId = "voyage-3-large";
     private const int MaxAttempts = 5;
 
+    // Sprint 12C PR #1.5 — backoff hardened against Voyage free-tier
+    // rate limits (empirically ~3 req burst then 429 for 30+ seconds).
+    // Initial 10s gives the bucket time to refill even on free tier;
+    // paid tier (2K req/min) makes this overkill but harmless.
+    // Cap at 60s per ADR-021 §D4 spirit: never starve the worker for
+    // longer than the poll interval would naturally take.
     private static readonly TimeSpan[] BackoffSchedule =
     {
-        TimeSpan.FromSeconds(1),
-        TimeSpan.FromSeconds(2),
-        TimeSpan.FromSeconds(4),
-        TimeSpan.FromSeconds(8),
-        TimeSpan.FromSeconds(16),
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(20),
+        TimeSpan.FromSeconds(40),
+        TimeSpan.FromSeconds(60),
+        TimeSpan.FromSeconds(60),
     };
+
+    // Cap for a server-supplied Retry-After header (in case Voyage ever
+    // sends an absurd value). Same 60s ceiling as the backoff schedule.
+    private static readonly TimeSpan RetryAfterCap = TimeSpan.FromSeconds(60);
 
     private readonly HttpClient _http;
     private readonly ILogger<VoyageClient> _logger;
@@ -86,6 +96,7 @@ public sealed class VoyageClient : IVoyageClient
         };
 
         Exception? lastException = null;
+        TimeSpan? lastRetryAfter = null;
         for (int attempt = 0; attempt < MaxAttempts; attempt++)
         {
             try
@@ -125,12 +136,30 @@ public sealed class VoyageClient : IVoyageClient
                         $"Voyage rejected request: {(int)response.StatusCode} {response.ReasonPhrase}: {Truncate(errBody, 200)}");
                 }
 
-                _logger.LogWarning(
-                    "Voyage transient failure (attempt {Attempt}/{Max}): {Status} — backing off {Delay}s",
-                    attempt + 1, MaxAttempts, (int)response.StatusCode,
-                    BackoffSchedule[attempt].TotalSeconds);
+                // Sprint 12C PR #1.5 — honor server-supplied Retry-After
+                // (RFC 7231 §7.1.3 — either a delta-seconds integer or a
+                // HTTP-date). Falls back to the per-attempt schedule if
+                // the server didn't send one. We override the next sleep
+                // by stashing in `serverRetryAfter`.
+                var serverRetryAfter = ReadRetryAfter(response);
+                if (serverRetryAfter.HasValue)
+                {
+                    _logger.LogWarning(
+                        "Voyage transient failure (attempt {Attempt}/{Max}): {Status} — server Retry-After {Delay}s",
+                        attempt + 1, MaxAttempts, (int)response.StatusCode,
+                        serverRetryAfter.Value.TotalSeconds);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Voyage transient failure (attempt {Attempt}/{Max}): {Status} — backing off {Delay}s",
+                        attempt + 1, MaxAttempts, (int)response.StatusCode,
+                        BackoffSchedule[attempt].TotalSeconds);
+                }
+
                 lastException = new VoyageException((int)response.StatusCode,
                     $"Transient failure: {(int)response.StatusCode}");
+                lastRetryAfter = serverRetryAfter;
             }
             catch (TaskCanceledException) when (!ct.IsCancellationRequested)
             {
@@ -150,11 +179,33 @@ public sealed class VoyageClient : IVoyageClient
 
             if (attempt + 1 < MaxAttempts)
             {
-                await Task.Delay(BackoffSchedule[attempt], ct);
+                // Prefer server-supplied Retry-After if present; otherwise
+                // fall back to the per-attempt schedule. Always capped.
+                var delay = lastRetryAfter ?? BackoffSchedule[attempt];
+                if (delay > RetryAfterCap) delay = RetryAfterCap;
+                await Task.Delay(delay, ct);
+                lastRetryAfter = null;  // only honor once
             }
         }
 
         throw lastException ?? new VoyageException(0, "Voyage embed gave up after retries.");
+    }
+
+    /// <summary>
+    /// Read RFC 7231 §7.1.3 Retry-After header. Either delta-seconds or
+    /// an HTTP-date. Returns null if absent / unparseable.
+    /// </summary>
+    private static TimeSpan? ReadRetryAfter(HttpResponseMessage response)
+    {
+        var ra = response.Headers.RetryAfter;
+        if (ra is null) return null;
+        if (ra.Delta.HasValue) return ra.Delta.Value;
+        if (ra.Date.HasValue)
+        {
+            var delta = ra.Date.Value - DateTimeOffset.UtcNow;
+            if (delta > TimeSpan.Zero) return delta;
+        }
+        return null;
     }
 
     private static string Truncate(string? s, int max)
