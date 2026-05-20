@@ -1,0 +1,38 @@
+name: control-plane
+
+# ADR-025 — Service Layer Standard control-plane gate.
+#
+# Runs on every PR. Fails the build if a NEW PageModel injects
+# AppDbContext directly without the explicit allow-comment.
+# Modified pages are NOT flagged (legacy pattern grandfathered).
+#
+# The job calls scripts/check-control-plane.sh which encapsulates
+# the grep logic so it can be run locally too:
+#
+#   bash scripts/check-control-plane.sh origin/main
+#
+# Remediation: see docs/ADR-025-service-layer-standard.md.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Pages/**/*.cshtml.cs'
+      - '.github/workflows/control-plane.yml'
+      - 'scripts/check-control-plane.sh'
+  workflow_dispatch:
+
+jobs:
+  control-plane-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Fetch full history so we can diff against main.
+          fetch-depth: 0
+
+      - name: Run control-plane gate
+        run: |
+          chmod +x scripts/check-control-plane.sh
+          bash scripts/check-control-plane.sh origin/main
