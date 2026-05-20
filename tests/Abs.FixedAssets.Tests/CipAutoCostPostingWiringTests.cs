@@ -385,23 +385,11 @@ public class CipAutoCostPostingWiringTests
     [Fact]
     public async Task ClosingCipWorkOrder_PostsLaborAndOutsideServicesAsTwoCipCostRows()
     {
-        using var db = NewInMemoryDb();
-        var companyId = 1;
-        var lookup = await SeedLookupsAsync(db);
-        await SeedGlAccountsAsync(db, companyId);
-        await SeedFiscalPeriodAsync(db, companyId);
+        const int companyId = 268;
+        await using var db = NewDb();
 
-        var asset = new Asset
-        {
-            Name = "Capital Press Outside-Vendor Build",
-            AssetNumber = "AST-CIP-OUT",
-            CategoryId = 1,
-            CompanyId = companyId,
-            AcquisitionCost = 5000m,
-            AcquisitionDate = DateTime.UtcNow.AddDays(-30),
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Assets.Add(asset);
+        db.Companies.Add(new Company { Id = companyId, CompanyCode = "C-268", Name = "Co 268", IsActive = true });
+
         var project = new CipProject
         {
             ProjectNumber = "CIP-OUT-001",
@@ -411,6 +399,18 @@ public class CipAutoCostPostingWiringTests
             CreatedAt = DateTime.UtcNow
         };
         db.CipProjects.Add(project);
+
+        var asset = new Asset
+        {
+            AssetNumber = "AST-CIP-OUT",
+            Description = "Capital Press Outside-Vendor Build",
+            CompanyId = companyId,
+            AcquisitionCost = 5000m,
+            UsefulLifeMonths = 60,
+            DepreciationMethod = DepreciationMethod.StraightLine,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
         var evt = new WorkOrder
@@ -426,16 +426,16 @@ public class CipAutoCostPostingWiringTests
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
-        var (lookup2, _, cipAutoCost) = BuildCipServices(db, tenant);
+        var (lookup, _, cipAutoCost) = BuildCipServices(db, tenant);
 
-        var maintenanceService = new MaintenanceService(db, tenant, lookup2);
+        var maintenanceService = new MaintenanceService(db, tenant, lookup);
         var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
         var originService = new WorkOrderOriginService(db);
         var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
             NullLogger<DepreciationBackfillService>.Instance);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
-            tenant, lookup2, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
+            tenant, lookup, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
             cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
@@ -477,23 +477,11 @@ public class CipAutoCostPostingWiringTests
     [Fact]
     public async Task ClosingCipWorkOrder_DoesNotAutoPostMaterialsFromWoHeader()
     {
-        using var db = NewInMemoryDb();
-        var companyId = 1;
-        var lookup = await SeedLookupsAsync(db);
-        await SeedGlAccountsAsync(db, companyId);
-        await SeedFiscalPeriodAsync(db, companyId);
+        const int companyId = 269;
+        await using var db = NewDb();
 
-        var asset = new Asset
-        {
-            Name = "Capital Press Materials-Gap Test",
-            AssetNumber = "AST-CIP-MAT",
-            CategoryId = 1,
-            CompanyId = companyId,
-            AcquisitionCost = 5000m,
-            AcquisitionDate = DateTime.UtcNow.AddDays(-30),
-            CreatedAt = DateTime.UtcNow
-        };
-        db.Assets.Add(asset);
+        db.Companies.Add(new Company { Id = companyId, CompanyCode = "C-269", Name = "Co 269", IsActive = true });
+
         var project = new CipProject
         {
             ProjectNumber = "CIP-MAT-001",
@@ -503,6 +491,18 @@ public class CipAutoCostPostingWiringTests
             CreatedAt = DateTime.UtcNow
         };
         db.CipProjects.Add(project);
+
+        var asset = new Asset
+        {
+            AssetNumber = "AST-CIP-MAT",
+            Description = "Capital Press Materials-Gap Test",
+            CompanyId = companyId,
+            AcquisitionCost = 5000m,
+            UsefulLifeMonths = 60,
+            DepreciationMethod = DepreciationMethod.StraightLine,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Assets.Add(asset);
         await db.SaveChangesAsync();
 
         var evt = new WorkOrder
@@ -518,16 +518,16 @@ public class CipAutoCostPostingWiringTests
         await db.SaveChangesAsync();
 
         var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
-        var (lookup2, _, cipAutoCost) = BuildCipServices(db, tenant);
+        var (lookup, _, cipAutoCost) = BuildCipServices(db, tenant);
 
-        var maintenanceService = new MaintenanceService(db, tenant, lookup2);
+        var maintenanceService = new MaintenanceService(db, tenant, lookup);
         var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
         var originService = new WorkOrderOriginService(db);
         var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
             NullLogger<DepreciationBackfillService>.Instance);
         var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
             maintenanceService, attachmentService, db, originService,
-            tenant, lookup2, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
+            tenant, lookup, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
             cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
