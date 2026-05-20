@@ -376,9 +376,44 @@ namespace Abs.FixedAssets.Data
 
         public DbSet<MachineSpecification> MachineSpecifications { get; set; } = null!;
 
+        // Sprint 12C / ADR-020 §D2 + ADR-021 — embedding storage + queue.
+        public DbSet<Abs.FixedAssets.Models.Embeddings.Embedding> Embeddings => Set<Abs.FixedAssets.Models.Embeddings.Embedding>();
+        public DbSet<Abs.FixedAssets.Models.Embeddings.PendingEmbedding> PendingEmbeddings => Set<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Sprint 12C / ADR-020 §D2 — pgvector extension. Required for
+            // the Embeddings.Embedding_ halfvec column. Verified available
+            // on Replit's managed Postgres (vector 0.8.0) per
+            // reference_replit_postgres_extensions memory.
+            modelBuilder.HasPostgresExtension("vector");
+
+            // Sprint 12C / ADR-021 §D2 — Embeddings + PendingEmbeddings config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Embeddings.Embedding>(b =>
+            {
+                b.ToTable("Embeddings");
+                b.HasKey(e => e.Id);
+                // One embedding per (entity, model). Lookup-by-entity is hot;
+                // index it. Composite uniqueness enforced via migration UNIQUE.
+                b.HasIndex(e => new { e.EntityType, e.EntityId, e.ModelVersion })
+                 .IsUnique()
+                 .HasDatabaseName("ix_embeddings_entity_model");
+                b.HasIndex(e => e.TenantId).HasDatabaseName("ix_embeddings_tenant");
+                // The HNSW index for halfvec_cosine_ops is in the migration
+                // (raw SQL) since EF doesn't model halfvec_cosine_ops natively.
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>(b =>
+            {
+                b.ToTable("PendingEmbeddings");
+                b.HasKey(p => p.Id);
+                b.HasIndex(p => new { p.EntityType, p.EntityId, p.ContentHash })
+                 .HasDatabaseName("ix_pending_embeddings_dedup");
+                b.HasIndex(p => p.EnqueuedAt).HasDatabaseName("ix_pending_embeddings_enqueued");
+                b.HasIndex(p => p.Attempts).HasDatabaseName("ix_pending_embeddings_attempts");
+            });
 
             // Configure all DateTime properties to use UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())

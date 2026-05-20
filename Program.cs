@@ -115,7 +115,13 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
     // SplitQuery globally to avoid Cartesian-product joins from multi-Include
     // detail queries; opt back into SingleQuery per-query via .AsSingleQuery().
-    options.UseNpgsql(connectionString, npg => npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
+    options.UseNpgsql(connectionString, npg =>
+    {
+        npg.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+        // Sprint 12C / ADR-020 §D2 + ADR-021 — register pgvector type mappings.
+        // Enables halfvec(1024) column on the Embeddings table.
+        npg.UseVector();
+    });
     options.AddInterceptors(sp.GetRequiredService<Abs.FixedAssets.Services.Diagnostics.SlowQueryInterceptor>());
     
     // Development-only: Configure warning behavior for First/FirstOrDefault without OrderBy
@@ -534,6 +540,30 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     Abs.FixedAssets.Services.Voice.IReceiptVoiceTools,
     Abs.FixedAssets.Services.Voice.ReceiptVoiceTools>();
+
+// Sprint 12C / ADR-020 §D2 + ADR-021 — Voyage AI embedding client +
+// embedding queue + hosted worker.
+//
+// Pipeline shape (ADR-021 §D3 — Mode B / external worker):
+//   - Producer (admin endpoint today; entity services in PR #2): call
+//     IEmbeddingBackfillService.EnqueueAsync after a save.
+//   - Consumer (EmbeddingWorker BackgroundService): polls every 5s,
+//     batches 32 rows, calls Voyage, upserts Embeddings, deletes queue.
+//
+// VOYAGE_API_KEY env var must be set in Replit Secrets for the worker
+// to make API calls. Until it's set, the worker logs warnings + leaves
+// rows in the queue with Attempts++ (recoverable as soon as the key
+// is configured).
+builder.Services.AddHttpClient<
+    Abs.FixedAssets.Services.Voice.IVoyageClient,
+    Abs.FixedAssets.Services.Voice.VoyageClient>(c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Voice.IEmbeddingBackfillService,
+    Abs.FixedAssets.Services.Voice.EmbeddingBackfillService>();
+builder.Services.AddHostedService<Abs.FixedAssets.Services.Voice.EmbeddingWorker>();
 
 var app = builder.Build();
 
@@ -991,6 +1021,11 @@ app.MapGet("/_otel/diag", (IServiceProvider sp) =>
 // First production voice surface. Read-only intents only in this PR;
 // mutating intents (ReceiveByVoice, QuarantineByVoice) land in Sprint 5.
 app.MapVoiceEndpoints().RequireAuthorization();
+
+// Sprint 12C / ADR-021 — POST /_admin/embed/backfill + GET /_admin/embed/status.
+// Triggers bulk embedding of existing entities; reports worker queue
+// health for live verification.
+app.MapAdminEmbedEndpoints().RequireAuthorization();
 
 app.MapRazorPages().RequireAuthorization();
 app.MapControllers();
