@@ -376,9 +376,62 @@ namespace Abs.FixedAssets.Data
 
         public DbSet<MachineSpecification> MachineSpecifications { get; set; } = null!;
 
+        // Sprint 12C / ADR-020 §D2 + ADR-021 — embedding storage + queue.
+        public DbSet<Abs.FixedAssets.Models.Embeddings.Embedding> Embeddings => Set<Abs.FixedAssets.Models.Embeddings.Embedding>();
+        public DbSet<Abs.FixedAssets.Models.Embeddings.PendingEmbedding> PendingEmbeddings => Set<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Sprint 12C / ADR-020 §D2 — pgvector extension + Embeddings table.
+            //
+            // Provider-guarded: Embedding has a Pgvector.HalfVector property
+            // that requires the Npgsql `UseVector()` extension to be mapped.
+            // Tests (and any other consumer) using Sqlite / InMemory don't
+            // load that mapping, so EF Core sees HalfVector as an undiscoverable
+            // entity type and crashes model finalization.
+            //
+            // Solution: only register the Embedding model + extension when
+            // the runtime provider is Npgsql. Non-Postgres contexts get
+            // .Ignore<T>() instead — the tables simply don't exist for them,
+            // which is fine because no test currently exercises Embeddings.
+            if (Database.IsNpgsql())
+            {
+                modelBuilder.HasPostgresExtension("vector");
+
+                modelBuilder.Entity<Abs.FixedAssets.Models.Embeddings.Embedding>(b =>
+                {
+                    b.ToTable("Embeddings");
+                    b.HasKey(e => e.Id);
+                    // One embedding per (entity, model). Lookup-by-entity is hot;
+                    // index it. Composite uniqueness enforced via migration UNIQUE.
+                    b.HasIndex(e => new { e.EntityType, e.EntityId, e.ModelVersion })
+                     .IsUnique()
+                     .HasDatabaseName("ix_embeddings_entity_model");
+                    b.HasIndex(e => e.TenantId).HasDatabaseName("ix_embeddings_tenant");
+                    // The HNSW index for halfvec_cosine_ops is in the migration
+                    // (raw SQL) since EF doesn't model halfvec_cosine_ops natively.
+                });
+
+                modelBuilder.Entity<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>(b =>
+                {
+                    b.ToTable("PendingEmbeddings");
+                    b.HasKey(p => p.Id);
+                    b.HasIndex(p => new { p.EntityType, p.EntityId, p.ContentHash })
+                     .HasDatabaseName("ix_pending_embeddings_dedup");
+                    b.HasIndex(p => p.EnqueuedAt).HasDatabaseName("ix_pending_embeddings_enqueued");
+                    b.HasIndex(p => p.Attempts).HasDatabaseName("ix_pending_embeddings_attempts");
+                });
+            }
+            else
+            {
+                // Non-Postgres provider (test contexts): skip the Embedding
+                // entities entirely so EF doesn't try to materialize HalfVector
+                // without the Pgvector plugin.
+                modelBuilder.Ignore<Abs.FixedAssets.Models.Embeddings.Embedding>();
+                modelBuilder.Ignore<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>();
+            }
 
             // Configure all DateTime properties to use UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
