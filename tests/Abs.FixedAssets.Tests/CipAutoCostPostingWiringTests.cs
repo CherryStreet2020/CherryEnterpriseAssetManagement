@@ -363,14 +363,189 @@ public class CipAutoCostPostingWiringTests
             cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
         WirePageContext(page);
 
-        // Close the WO with $250 in labor (which is what CipAutoCostPostingService
-        // writes — the others are not used by PostFromWorkOrderAsync's labor-only
-        // posting today).
+        // Close the WO with $250 in labor only. PR #268 (2026-05-20) refactored
+        // PostFromWorkOrderAsync to also post OutsideServices when present —
+        // but with materialsCost/outsideVendorCost = 0, only the Labor row
+        // should land. Validates the existing labor-only path still works.
         await page.OnPostCompleteAsync(evt.Id, "fixed", laborCost: 250m, materialsCost: 0m, partsCost: 0m, outsideVendorCost: 0m);
 
         var cipCosts = await db.CipCosts.Where(c => c.CipProjectId == project.Id).ToListAsync();
         Assert.Single(cipCosts);
         Assert.Equal("WORKORDER", cipCosts[0].SourceType);
         Assert.Equal(250m, cipCosts[0].Amount);
+        Assert.Equal(CipCostType.Labor, cipCosts[0].CostType);
+    }
+
+    /// <summary>
+    /// PR #268 — verify the OutsideServices posting path. Capital project work
+    /// order with $250 labor + $500 outside-vendor cost should produce TWO
+    /// CipCost rows (Labor + OutsideServices), not one. Before this PR the
+    /// outside-vendor portion was silently dropped (CIP under-capitalized).
+    /// </summary>
+    [Fact]
+    public async Task ClosingCipWorkOrder_PostsLaborAndOutsideServicesAsTwoCipCostRows()
+    {
+        using var db = NewInMemoryDb();
+        var companyId = 1;
+        var lookup = await SeedLookupsAsync(db);
+        await SeedGlAccountsAsync(db, companyId);
+        await SeedFiscalPeriodAsync(db, companyId);
+
+        var asset = new Asset
+        {
+            Name = "Capital Press Outside-Vendor Build",
+            AssetNumber = "AST-CIP-OUT",
+            CategoryId = 1,
+            CompanyId = companyId,
+            AcquisitionCost = 5000m,
+            AcquisitionDate = DateTime.UtcNow.AddDays(-30),
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Assets.Add(asset);
+        var project = new CipProject
+        {
+            ProjectNumber = "CIP-OUT-001",
+            Name = "Outside-Vendor Capital Build",
+            CompanyId = companyId,
+            Status = CipProjectStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.CipProjects.Add(project);
+        await db.SaveChangesAsync();
+
+        var evt = new WorkOrder
+        {
+            WorkOrderNumber = "WO-CIP-OUT",
+            AssetId = asset.Id,
+            Status = MaintenanceStatus.InProgress,
+            ScheduledDate = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            CipProjectId = project.Id
+        };
+        db.WorkOrders.Add(evt);
+        await db.SaveChangesAsync();
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var (lookup2, _, cipAutoCost) = BuildCipServices(db, tenant);
+
+        var maintenanceService = new MaintenanceService(db, tenant, lookup2);
+        var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
+        var originService = new WorkOrderOriginService(db);
+        var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
+            NullLogger<DepreciationBackfillService>.Instance);
+        var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
+            maintenanceService, attachmentService, db, originService,
+            tenant, lookup2, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
+            cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
+        WirePageContext(page);
+
+        await page.OnPostCompleteAsync(evt.Id, "fixed",
+            laborCost: 250m,
+            materialsCost: 0m,
+            partsCost: 0m,
+            outsideVendorCost: 500m);
+
+        var cipCosts = await db.CipCosts
+            .Where(c => c.CipProjectId == project.Id)
+            .OrderBy(c => c.CostType)
+            .ToListAsync();
+
+        Assert.Equal(2, cipCosts.Count);
+
+        var laborRow = cipCosts.Single(c => c.CostType == CipCostType.Labor);
+        Assert.Equal(250m, laborRow.Amount);
+        Assert.Equal("WORKORDER", laborRow.SourceType);
+        Assert.Contains("Labor from WO", laborRow.Description);
+
+        var outsideRow = cipCosts.Single(c => c.CostType == CipCostType.OutsideServices);
+        Assert.Equal(500m, outsideRow.Amount);
+        Assert.Equal("WORKORDER", outsideRow.SourceType);
+        Assert.Contains("Outside services from WO", outsideRow.Description);
+
+        // Capitalized total should reflect both rows — the bug PR #268 fixed.
+        Assert.Equal(750m, cipCosts.Sum(c => c.Amount));
+    }
+
+    /// <summary>
+    /// PR #268 documents that stock-issued materials are NOT auto-posted from
+    /// the WO to CIP — they require an accountant manual journal entry until
+    /// the Sprint 14+ Controller Cockpit / CIP Capitalization Wizard ships
+    /// dedupe-aware material posting. This test locks that deliberate gap
+    /// so a future change either updates the test (with dedupe logic) or
+    /// fails fast (catches regression).
+    /// </summary>
+    [Fact]
+    public async Task ClosingCipWorkOrder_DoesNotAutoPostMaterialsFromWoHeader()
+    {
+        using var db = NewInMemoryDb();
+        var companyId = 1;
+        var lookup = await SeedLookupsAsync(db);
+        await SeedGlAccountsAsync(db, companyId);
+        await SeedFiscalPeriodAsync(db, companyId);
+
+        var asset = new Asset
+        {
+            Name = "Capital Press Materials-Gap Test",
+            AssetNumber = "AST-CIP-MAT",
+            CategoryId = 1,
+            CompanyId = companyId,
+            AcquisitionCost = 5000m,
+            AcquisitionDate = DateTime.UtcNow.AddDays(-30),
+            CreatedAt = DateTime.UtcNow
+        };
+        db.Assets.Add(asset);
+        var project = new CipProject
+        {
+            ProjectNumber = "CIP-MAT-001",
+            Name = "Materials Gap Documentation",
+            CompanyId = companyId,
+            Status = CipProjectStatus.Active,
+            CreatedAt = DateTime.UtcNow
+        };
+        db.CipProjects.Add(project);
+        await db.SaveChangesAsync();
+
+        var evt = new WorkOrder
+        {
+            WorkOrderNumber = "WO-CIP-MAT",
+            AssetId = asset.Id,
+            Status = MaintenanceStatus.InProgress,
+            ScheduledDate = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            CipProjectId = project.Id
+        };
+        db.WorkOrders.Add(evt);
+        await db.SaveChangesAsync();
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var (lookup2, _, cipAutoCost) = BuildCipServices(db, tenant);
+
+        var maintenanceService = new MaintenanceService(db, tenant, lookup2);
+        var attachmentService = new AttachmentService(db, new StubWebHostEnv(), tenant);
+        var originService = new WorkOrderOriginService(db);
+        var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
+            NullLogger<DepreciationBackfillService>.Instance);
+        var page = new Abs.FixedAssets.Pages.Maintenance.DetailsModel(
+            maintenanceService, attachmentService, db, originService,
+            tenant, lookup2, new AlwaysEnabledModuleGuard(), new AllowAllPeriodGuard(),
+            cipAutoCost, depBackfill, NullLogger<Abs.FixedAssets.Pages.Maintenance.DetailsModel>.Instance);
+        WirePageContext(page);
+
+        // WO has $100 labor + $300 materials (issued from stock). Per PR #268
+        // materials must NOT auto-post — only the Labor row should land. The
+        // accountant captures stock-issued materials via manual JE in the
+        // meantime.
+        await page.OnPostCompleteAsync(evt.Id, "fixed",
+            laborCost: 100m,
+            materialsCost: 300m,
+            partsCost: 300m,
+            outsideVendorCost: 0m);
+
+        var cipCosts = await db.CipCosts.Where(c => c.CipProjectId == project.Id).ToListAsync();
+        Assert.Single(cipCosts);
+        Assert.Equal(CipCostType.Labor, cipCosts[0].CostType);
+        Assert.Equal(100m, cipCosts[0].Amount);
+        // Materials NOT in CIP table from this path:
+        Assert.DoesNotContain(cipCosts, c => c.CostType == CipCostType.Materials);
     }
 }

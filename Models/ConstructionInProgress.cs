@@ -253,6 +253,12 @@ namespace Abs.FixedAssets.Models
         Permits = 8,
         Professional = 9,
         InterestCapitalized = 10,
-        Other = 11
+        Other = 11,
+        // PR #268 (2026-05-20): outside-vendor field labor / subcontractor
+        // costs captured on the work-order header via WorkOrder.OutsideVendorCost.
+        // Distinct from Equipment (capital purchases via PO/AP) and from
+        // Professional (architect/legal/consulting). Drives the
+        // CipAutoCostPostingService.PostFromWorkOrderAsync second posting row.
+        OutsideServices = 12
     }
 }
