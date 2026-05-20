@@ -35,4 +35,31 @@ public interface IEmbeddingBackfillService
     /// Used by the Sprint 12C PR #1 admin backfill endpoint.
     /// </summary>
     Task<int> EnqueueAllReceiptProfilesAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Admin one-shot to enqueue every existing Item. Sprint 12C PR #2.
+    /// Source-text shape per ADR-021 Appendix A.
+    /// </summary>
+    Task<int> EnqueueAllItemsAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Admin one-shot to enqueue every existing Vendor. Sprint 12C PR #2.
+    /// Source-text shape per ADR-021 Appendix A.
+    /// </summary>
+    Task<int> EnqueueAllVendorsAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Admin one-shot to enqueue every existing WorkOrder. Sprint 12C PR #2.
+    /// Source-text shape per ADR-021 Appendix A. Note: the .NET class is
+    /// `WorkOrder` (table renamed from MaintenanceEvents in PR #119.7).
+    /// </summary>
+    Task<int> EnqueueAllWorkOrdersAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Admin one-shot to enqueue every existing AuditLog row whose
+    /// AiCommandText is non-null + non-empty. Sprint 12C PR #2.
+    /// Used to retrieve historical voice utterances for the hybrid
+    /// intent router (Sprint 12C PR #3).
+    /// </summary>
+    Task<int> EnqueueAllAuditAiCommandsAsync(CancellationToken ct);
 }

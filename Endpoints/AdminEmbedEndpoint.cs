@@ -77,12 +77,28 @@ public static class AdminEmbedEndpoint
             case EmbeddingSourceText.EntityTypeReceiptProfile:
                 count = await backfill.EnqueueAllReceiptProfilesAsync(ct);
                 break;
-            // PR #2 will add Item / Vendor / WorkOrder / AuditLog.AiCommandText cases.
+            case EmbeddingSourceText.EntityTypeItem:
+                count = await backfill.EnqueueAllItemsAsync(ct);
+                break;
+            case EmbeddingSourceText.EntityTypeVendor:
+                count = await backfill.EnqueueAllVendorsAsync(ct);
+                break;
+            case EmbeddingSourceText.EntityTypeWorkOrder:
+                count = await backfill.EnqueueAllWorkOrdersAsync(ct);
+                break;
+            case EmbeddingSourceText.EntityTypeAiCommand:
+                count = await backfill.EnqueueAllAuditAiCommandsAsync(ct);
+                break;
             default:
                 return Results.BadRequest(new
                 {
                     ok = false,
-                    error = $"Unknown entity '{entity}'. Sprint 12C PR #1 only supports '{EmbeddingSourceText.EntityTypeReceiptProfile}'. PR #2 adds the others."
+                    error = $"Unknown entity '{entity}'. Supported: " +
+                            $"'{EmbeddingSourceText.EntityTypeReceiptProfile}', " +
+                            $"'{EmbeddingSourceText.EntityTypeItem}', " +
+                            $"'{EmbeddingSourceText.EntityTypeVendor}', " +
+                            $"'{EmbeddingSourceText.EntityTypeWorkOrder}', " +
+                            $"'{EmbeddingSourceText.EntityTypeAiCommand}'."
                 });
         }
 

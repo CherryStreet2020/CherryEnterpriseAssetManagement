@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
+using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Embeddings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -184,6 +185,154 @@ public sealed class EmbeddingBackfillService : IEmbeddingBackfillService
 
         _logger.LogInformation(
             "Enqueued {Count} ReceiptProfiles for embedding (model: {Model})",
+            enqueued, ModelVersion);
+        return enqueued;
+    }
+
+    public async Task<int> EnqueueAllItemsAsync(CancellationToken ct)
+    {
+        // Stream pages to avoid loading the full Item table into memory.
+        // CompanyId becomes TenantId when present; falls back to 0
+        // (shared/global) for unattributed rows.
+        int enqueued = 0;
+        const int PageSize = 500;
+        int skip = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var page = await _db.Items
+                .AsNoTracking()
+                .OrderBy(i => i.Id)
+                .Skip(skip).Take(PageSize)
+                .ToListAsync(ct);
+            if (page.Count == 0) break;
+
+            foreach (var item in page)
+            {
+                var srcText = EmbeddingSourceText.ForItem(item);
+                int tenantId = 0; // Item has no CompanyId on the model today.
+                await EnqueueAsync(
+                    EmbeddingSourceText.EntityTypeItem,
+                    item.Id, tenantId, srcText, ct);
+                enqueued++;
+            }
+            skip += page.Count;
+        }
+
+        _logger.LogInformation(
+            "Enqueued {Count} Items for embedding (model: {Model})",
+            enqueued, ModelVersion);
+        return enqueued;
+    }
+
+    public async Task<int> EnqueueAllVendorsAsync(CancellationToken ct)
+    {
+        // Vendor.CompanyId IS the tenant when set (multi-tenant scoped
+        // vendors), 0 otherwise (shared / pre-multi-tenant rows).
+        int enqueued = 0;
+        const int PageSize = 500;
+        int skip = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var page = await _db.Vendors
+                .AsNoTracking()
+                .OrderBy(v => v.Id)
+                .Skip(skip).Take(PageSize)
+                .ToListAsync(ct);
+            if (page.Count == 0) break;
+
+            foreach (var vendor in page)
+            {
+                var srcText = EmbeddingSourceText.ForVendor(vendor);
+                int tenantId = vendor.CompanyId ?? 0;
+                await EnqueueAsync(
+                    EmbeddingSourceText.EntityTypeVendor,
+                    vendor.Id, tenantId, srcText, ct);
+                enqueued++;
+            }
+            skip += page.Count;
+        }
+
+        _logger.LogInformation(
+            "Enqueued {Count} Vendors for embedding (model: {Model})",
+            enqueued, ModelVersion);
+        return enqueued;
+    }
+
+    public async Task<int> EnqueueAllWorkOrdersAsync(CancellationToken ct)
+    {
+        // WorkOrder tenancy flows through Asset.CompanyId per the model
+        // comments. For Sprint 12C PR #2 we use 0 (shared/global) — the
+        // backfill is single-tenant on the current Replit deploy. Full
+        // multi-tenant scoping belongs to Sprint 12.5 (RLS + tenant_id).
+        int enqueued = 0;
+        const int PageSize = 500;
+        int skip = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var page = await _db.WorkOrders
+                .AsNoTracking()
+                .OrderBy(w => w.Id)
+                .Skip(skip).Take(PageSize)
+                .ToListAsync(ct);
+            if (page.Count == 0) break;
+
+            foreach (var wo in page)
+            {
+                var srcText = EmbeddingSourceText.ForWorkOrder(wo);
+                int tenantId = 0;
+                await EnqueueAsync(
+                    EmbeddingSourceText.EntityTypeWorkOrder,
+                    wo.Id, tenantId, srcText, ct);
+                enqueued++;
+            }
+            skip += page.Count;
+        }
+
+        _logger.LogInformation(
+            "Enqueued {Count} WorkOrders for embedding (model: {Model})",
+            enqueued, ModelVersion);
+        return enqueued;
+    }
+
+    public async Task<int> EnqueueAllAuditAiCommandsAsync(CancellationToken ct)
+    {
+        // Only AuditLog rows whose AiCommandText is non-null + non-empty
+        // are embeddable. Pre-filter at SQL level so we don't ship empty
+        // rows over the wire. Use a projection to avoid loading the heavy
+        // BeforeJson / AfterJson payloads we don't need.
+        int enqueued = 0;
+        const int PageSize = 500;
+        int skip = 0;
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var page = await _db.AuditLogs
+                .AsNoTracking()
+                .Where(a => a.AiCommandText != null && a.AiCommandText != "")
+                .OrderBy(a => a.Id)
+                .Skip(skip).Take(PageSize)
+                .Select(a => new { a.Id, a.AiCommandText })
+                .ToListAsync(ct);
+            if (page.Count == 0) break;
+
+            foreach (var row in page)
+            {
+                var srcText = EmbeddingSourceText.ForAiCommand(row.AiCommandText);
+                if (string.IsNullOrWhiteSpace(srcText)) continue;
+                int tenantId = 0; // AuditLog is not tenant-scoped in v1.
+                await EnqueueAsync(
+                    EmbeddingSourceText.EntityTypeAiCommand,
+                    row.Id, tenantId, srcText, ct);
+                enqueued++;
+            }
+            skip += page.Count;
+        }
+
+        _logger.LogInformation(
+            "Enqueued {Count} AuditLog AI command utterances for embedding (model: {Model})",
             enqueued, ModelVersion);
         return enqueued;
     }
