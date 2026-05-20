@@ -272,8 +272,8 @@
             </svg>
             @if (Model.Filter != null)
             {
-                <h3 class="empty-state-title">No Work Orders Match These Filters</h3>
-                <p class="empty-state-text">Try adjusting your filters or view all work orders.</p>
+                <h3 class="empty-state-title">No Maintenance Orders Match These Filters</h3>
+                <p class="empty-state-text">Try adjusting your filters or view all maintenance orders.</p>
                 <a href="/Maintenance" class="btn btn-primary empty-state-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="empty-state-icon">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -283,13 +283,13 @@
             }
             else
             {
-                <h3 class="empty-state-title">No Work Orders</h3>
-                <p class="empty-state-text">No work orders have been created yet. Add your first work order to start tracking maintenance.</p>
+                <h3 class="empty-state-title">No Maintenance Orders</h3>
+                <p class="empty-state-text">No maintenance orders have been created yet. Add your first maintenance order to start tracking maintenance.</p>
                 <a href="/Maintenance/Create" class="btn btn-primary empty-state-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="empty-state-icon">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    New Work Order
+                    New Maintenance Order
                 </a>
             }
         </div>
