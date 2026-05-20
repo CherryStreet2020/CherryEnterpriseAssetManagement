@@ -1,9 +1,11 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Abs.FixedAssets.Migrations
 {
+    [Migration("20260520_AddEmbeddingsAndPgvector")]
     // Sprint 12C / ADR-020 §D2 + ADR-021 — pgvector extension + Embeddings
     // table + PendingEmbeddings queue + indexes + RLS policy.
     //
