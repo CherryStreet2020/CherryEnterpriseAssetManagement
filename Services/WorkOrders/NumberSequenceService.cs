@@ -114,15 +114,36 @@ namespace Abs.FixedAssets.Services.WorkOrders
             return formatted;
         }
 
-        // Default prefixes per classification — matches industry convention.
-        // Override per-tenant via seeded NumberSequence rows with custom Prefix.
+        // Default prefixes per classification — matches the OrderTypeLabels
+        // ShortCode (Services/Naming/OrderTypeLabels.cs) so the human-facing
+        // record number lines up with the displayed label:
+        //   Classification=Maintenance → "MO-2026-NNNN" + "Maintenance Order"
+        //   Classification=Quality     → "QO-2026-NNNN" + "Quality Order"
+        //   Classification=Engineering → "EO-2026-NNNN" + "Engineering Order"
+        //   Classification=HSE         → "HSE-2026-NNNN" + "HSE Order"
+        //   Classification=CIP         → "CIP-2026-NNNN" + "CIP Order"
+        //
+        // Override per-tenant via seeded NumberSequence rows with custom Prefix
+        // (Joe/EVS can override Maintenance→"JO" for the metal-fab "Job Order"
+        // convention; FSC/food can override CIP→"AFE" for Authorization For
+        // Expenditure; etc.). The per-tenant lookup beats the global default.
+        //
+        // Production Orders live in the sibling ProductionOrder entity (not
+        // routed through this service today). When the Production Control
+        // Center sprint wires its numbering, the agreed default is "PRO-"
+        // (avoids the PurchaseOrder "PO-" collision; per-tenant override
+        // supports "JO"/"MFG"/"BO"/etc. for vertical-specific terms).
+        //
+        // ADR-025 sibling rename, 2026-05-20 (Dean's call).
+        public const string ProductionOrderDefaultPrefix = "PRO";
+
         private static string DefaultPrefix(WorkOrderClassification cls) => cls switch
         {
-            WorkOrderClassification.Maintenance  => "PM",
-            WorkOrderClassification.Quality      => "NCR",
-            WorkOrderClassification.Engineering  => "ECO",
-            WorkOrderClassification.HSE          => "INC",
-            WorkOrderClassification.CIP          => "AFE",
+            WorkOrderClassification.Maintenance  => "MO",
+            WorkOrderClassification.Quality      => "QO",
+            WorkOrderClassification.Engineering  => "EO",
+            WorkOrderClassification.HSE          => "HSE",
+            WorkOrderClassification.CIP          => "CIP",
             _ => "WO",
         };
     }
