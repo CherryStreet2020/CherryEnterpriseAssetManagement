@@ -2,13 +2,20 @@
 @model Abs.FixedAssets.Pages.WorkOrders.DetailsModel
 @using Abs.FixedAssets.Helpers
 @using Abs.FixedAssets.Pages.Shared.Primitives
+@using Abs.FixedAssets.Services.Naming
 @{
+    // ADR-025 sibling rename (2026-05-20): dynamic labels keyed off
+    // WorkOrderClassification so non-Maintenance classifications (CIP,
+    // Quality, Engineering, HSE) render with the right user-facing name.
+    var classification = Model.WorkOrder!.Classification;
+    var orderSingular = OrderTypeLabels.Singular(classification);
+    var orderPlural = OrderTypeLabels.Plural(classification);
     var woNumber = Model.WorkOrder?.WorkOrderNumber ?? "";
-    ViewData["Title"] = UiTerms.ModuleName;
-    ViewData["TabTitle"] = UiTerms.GetWorkOrderTabTitle(woNumber);
+    ViewData["Title"] = orderPlural;
+    ViewData["TabTitle"] = !string.IsNullOrEmpty(woNumber) ? $"{woNumber} — {orderSingular}" : orderSingular;
     ViewData["ReturnUrl"] = Model.ReturnUrl;
     ViewData["FallbackPage"] = "/Maintenance";
-    ViewData["FallbackLabel"] = "Work Orders";
+    ViewData["FallbackLabel"] = orderPlural;
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
     var statusTone = Model.WorkOrder!.Status switch {
@@ -20,7 +27,7 @@
         MaintenanceStatus.OnHold => "muted",
         _ => "info"
     };
-    var woDisplayName = !string.IsNullOrEmpty(woNumber) ? woNumber : "Work Order Details";
+    var woDisplayName = !string.IsNullOrEmpty(woNumber) ? woNumber : $"{orderSingular} Details";
 }
 
 @{
@@ -28,10 +35,10 @@
     {
         ["HeaderTitle"] = woDisplayName,
         ["Subtitle"] = $"Operations Cockpit for {woDisplayName}",
-        ["TypeLabel"] = UiTerms.WorkOrderPlural,
+        ["TypeLabel"] = orderPlural,
         ["StatusText"] = Model.WorkOrder.Status.ToString(),
         ["StatusTone"] = statusTone,
-        ["Breadcrumbs"] = new (string, string)[] { ("Asset Maintenance", "/Maintenance"), ("Work Orders", "/Maintenance"), (woDisplayName, "") },
+        ["Breadcrumbs"] = new (string, string)[] { ("Asset Maintenance", "/Maintenance"), (orderPlural, "/Maintenance"), (woDisplayName, "") },
         ["ShowBackLink"] = true,
         ["BackLinkFallback"] = "/Maintenance",
         ["BackLinkLabel"] = "Back to results",
@@ -112,7 +119,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
-            Edit Work Order
+            Edit @orderSingular
             <span data-csp-style="font-size:0.8rem; font-weight:400; opacity:0.65; margin-left:0.5rem;">(click to expand)</span>
         </summary>
         <form method="post" asp-page-handler="EditWorkOrder" data-csp-style="margin-top: 1rem;">
@@ -606,7 +613,7 @@
             </div>
             <div data-csp-style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button type="button" class="btn-p btn-p--secondary" onclick="toggleInlineForm('addMaterialInline')">Cancel</button>
-                <button type="submit" class="btn-p btn-p--primary">Add to Work Order</button>
+                <button type="submit" class="btn-p btn-p--primary">Add to @orderSingular</button>
             </div>
         </form>
     </div>
@@ -944,7 +951,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Close Work Order with Summary
+                Close @orderSingular with Summary
             </button>
         </form>
     }

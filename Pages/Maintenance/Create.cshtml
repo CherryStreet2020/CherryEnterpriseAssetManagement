@@ -2,13 +2,13 @@
 @model Abs.FixedAssets.Pages.Maintenance.CreateModel
 @using Abs.FixedAssets.Helpers
 @{
-    ViewData["Title"] = "Create Work Order";
-    ViewData["TabTitle"] = "New Work Order";
+    ViewData["Title"] = "Create Maintenance Order";
+    ViewData["TabTitle"] = "New Maintenance Order";
     ViewData["HasScreenHeader"] = true;
     Layout = "_ModernLayout";
 
     var headerVd = new ViewDataDictionary(ViewData) {
-        ["HeaderTitle"] = "Create Work Order",
+        ["HeaderTitle"] = "Create Maintenance Order",
         ["Subtitle"] = "Fill in the details below to create a new maintenance work order",
         ["TypeLabel"] = "Maintenance",
         ["ShowBackLink"] = true,
@@ -100,7 +100,7 @@
     <div class="form-actions-sticky">
         <a href="/Maintenance" class="btn-p btn-p--secondary">Cancel</a>
         <button type="submit" class="btn-p btn-p--primary">
-            <i class="fas fa-plus"></i> Create Work Order
+            <i class="fas fa-plus"></i> Create Maintenance Order
         </button>
     </div>
 </form>
