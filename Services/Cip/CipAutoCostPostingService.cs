@@ -78,6 +78,11 @@ namespace Abs.FixedAssets.Services.Cip
                 .ToDictionaryAsync(c => c.CostType, c => c);
 
             var result = new List<CipCost>();
+            // EF Core InMemory provider auto-assigns Id on Add() (eager identity
+            // generation); Postgres assigns on SaveChanges. So we can't use
+            // c.Id == 0 to detect new rows — InMemory tests would skip SaveChanges
+            // and return rows that never actually persisted. Track explicitly.
+            var addedAny = false;
 
             // ---- Labor row ----
             var laborAmount = wo.LaborCost ?? 0m;
@@ -109,6 +114,7 @@ namespace Abs.FixedAssets.Services.Cip
                     };
                     _db.CipCosts.Add(laborCost);
                     result.Add(laborCost);
+                    addedAny = true;
                 }
             }
 
@@ -147,15 +153,16 @@ namespace Abs.FixedAssets.Services.Cip
                     };
                     _db.CipCosts.Add(outsideCost);
                     result.Add(outsideCost);
+                    addedAny = true;
                 }
             }
 
             if (result.Count == 0) return Array.Empty<CipCost>();
 
-            // SaveChanges if we actually added any new rows. The all-existing
-            // case (re-run after prior post) skips the write but still returns
-            // the existing rows to the caller for status reporting.
-            if (result.Any(c => c.Id == 0))
+            // Only persist if we actually added new rows in this call. The
+            // all-existing case (re-run after prior post) skips the write but
+            // still returns the existing rows for status reporting.
+            if (addedAny)
             {
                 await _db.SaveChangesAsync();
                 await _cipCostService.ReconcileProjectTotalAsync(wo.CipProjectId.Value);
