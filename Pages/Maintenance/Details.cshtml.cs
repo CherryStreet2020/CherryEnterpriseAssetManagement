@@ -227,9 +227,16 @@ namespace Abs.FixedAssets.Pages.Maintenance
             // a downstream financial concern.
             try
             {
-                var cipCost = await _cipAutoCostPosting.PostFromWorkOrderAsync(evt.Id);
-                if (cipCost != null)
-                    TempData["Success"] = $"Work order {evt.WorkOrderNumber} closed and ${cipCost.Amount:N2} posted to CIP project.";
+                // PR #268 — PostFromWorkOrderAsync now returns IReadOnlyList<CipCost>
+                // (Labor row + optional OutsideServices row). Sum across all
+                // posted rows for the success message so the user sees the full
+                // capitalized amount, not just the labor portion.
+                var cipCosts = await _cipAutoCostPosting.PostFromWorkOrderAsync(evt.Id);
+                if (cipCosts.Count > 0)
+                {
+                    var totalPosted = cipCosts.Sum(c => c.Amount);
+                    TempData["Success"] = $"Work order {evt.WorkOrderNumber} closed and ${totalPosted:N2} posted to CIP project ({cipCosts.Count} cost row(s)).";
+                }
             }
             catch (Exception cipEx)
             {
