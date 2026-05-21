@@ -4,11 +4,11 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Voice;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -62,6 +62,8 @@ public static class VoiceInvokeEndpoint
         VoiceInvokeRequest req,
         HttpContext httpContext,
         IReceiptVoiceTools voiceTools,
+        IHybridIntentRouter router,
+        ITenantContext tenantContext,
         AppDbContext db,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
@@ -89,15 +91,27 @@ public static class VoiceInvokeEndpoint
         int? actorUserId = TryGetUserId(httpContext.User);
         var username = httpContext.User?.Identity?.Name ?? "anonymous";
 
-        // ---------- Classify intent (keyword router) ----------
-        var intent = IntentClassifier.Classify(transcript);
+        // ---------- Classify intent (HYBRID router — PR #3) ----------
+        // Layer 1 keyword fast-path + Layer 2 vector cosine fallback.
+        // See Services/Voice/HybridIntentRouter.cs for the design.
+        //
+        // Unauthenticated callers (tenantContext.TenantId == null) fall back to
+        // TenantId=0 (the system tenant for intent prototypes). The OR-clause
+        // in the vector query (TenantId == caller OR TenantId == 0) means the
+        // worst case is matching the system prototypes twice, which is fine.
+        var routed = await router.RouteAsync(transcript, tenantContext.TenantId ?? IntentPrototypes.SystemTenantId, ct);
+        var intent = routed.Intent;
 
         // ---------- Build VoiceContext for audit trail ----------
+        // Per-call confidence comes from the router, not the speech client —
+        // the speech-recognition confidence on req.Confidence is unreliable.
+        // We persist the router confidence so AuditLog can drive threshold
+        // tuning later.
         var voiceContext = new VoiceContext(
             AiSessionId: aiSessionId,
             CommandText: transcript,
             ModelVersion: ModelVersion,
-            Confidence: req.Confidence);
+            Confidence: (decimal)Math.Round(routed.Confidence, 3));
 
         // ---------- Route to the right voice tool ----------
         VoiceInvokeResponse response;
@@ -129,7 +143,8 @@ public static class VoiceInvokeEndpoint
 
         // ---------- Audit-log the invocation ----------
         // Tool methods write their own audit rows; this top-level row
-        // captures the intent + the raw utterance (Purview pattern).
+        // captures the intent + the raw utterance + which router layer
+        // settled the routing (Keyword/Vector/Fallback) (Purview pattern).
         await WriteAiAuditAsync(
             db, logger,
             action: $"Voice.Invoke.{intent.Kind}",
@@ -137,6 +152,11 @@ public static class VoiceInvokeEndpoint
             username: username,
             voiceContext: voiceContext,
             description: TruncateForAudit(response.Spoken),
+            // toolName carries router source AND reason (cosine distance for
+            // vector hits, "keyword match" for Layer 1, the specific Fallback
+            // cause when neither layer settled). Used for threshold tuning
+            // from AuditLog. ~80 chars max — fits in AiToolName(255).
+            toolName: TruncateToolName($"router:{routed.Source}:{routed.Reason ?? "n/a"}"),
             ct);
 
         return Results.Ok(response);
@@ -388,6 +408,14 @@ public static class VoiceInvokeEndpoint
     }
 
     /// <summary>
+    /// Clamp the router-emitted toolName to fit AuditLog.AiToolName's column
+    /// width (255 chars). Should always be well under; defensive against
+    /// future Reason strings that grow.
+    /// </summary>
+    private static string TruncateToolName(string s) =>
+        s.Length <= 200 ? s : s[..200];
+
+    /// <summary>
     /// Voice-flavored audit logger. Wrapped in try/catch so an audit
     /// failure never blocks the user's voice round-trip.
     /// </summary>
@@ -399,6 +427,7 @@ public static class VoiceInvokeEndpoint
         string username,
         VoiceContext voiceContext,
         string description,
+        string toolName,
         CancellationToken ct)
     {
         try
@@ -416,7 +445,7 @@ public static class VoiceInvokeEndpoint
                 AiSessionId = voiceContext.AiSessionId,
                 AiCommandText = voiceContext.CommandText,
                 AiModelVersion = voiceContext.ModelVersion,
-                AiToolName = action,
+                AiToolName = toolName,
                 AiConfidence = voiceContext.Confidence,
             });
             await db.SaveChangesAsync(ct);
@@ -487,81 +516,8 @@ public sealed record VoiceDisplayed
 public sealed record VoiceActionLink(string Label, string Href);
 
 // ====================================================================
-// Intent classifier — keyword/regex routing. Phase 1.
-// Sprint 5 swaps this for an LLM-driven router.
+// IntentKind, ParsedIntent, IntentClassifier MOVED 2026-05-21 to
+// Services/Voice/IntentClassifier.cs so the new HybridIntentRouter can
+// consume them from the Services namespace without crossing into
+// Endpoints internals. PR #3 / ADR-021.
 // ====================================================================
-
-public enum IntentKind
-{
-    Unknown = 0,
-    ExpectedArrivals,
-    LookupReceipt,
-    ExplainException,
-    Help,
-}
-
-public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
-
-internal static class IntentClassifier
-{
-    // Match a receipt-ish natural key: RCPT-2026-1234, LOT-XYZ, SN-ABC123,
-    // or any token of 4+ alphanumeric chars containing at least one digit.
-    private static readonly Regex NaturalKeyPattern = new Regex(
-        @"\b((?:RCPT|LOT|SN|ASN|PO|HEAT|REC)[-_][A-Za-z0-9\-]{2,30}|[A-Z]{2,5}\d{2,}\-?[A-Za-z0-9\-]{0,20}|\d{6,})\b",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    public static ParsedIntent Classify(string raw)
-    {
-        var s = raw.ToLowerInvariant();
-
-        // HELP intents
-        if (s.Contains("help") || s.Contains("what can you do") || s.Contains("how do i"))
-        {
-            return new ParsedIntent(IntentKind.Help, null);
-        }
-
-        // EXPLAIN intents — must come before LOOKUP so "explain receipt X" is
-        // routed to explain, not lookup.
-        if (s.Contains("explain") || s.Contains("why is") || s.Contains("why was") ||
-            s.Contains("what's wrong") || s.Contains("what is wrong"))
-        {
-            var key = ExtractNaturalKey(raw);
-            return new ParsedIntent(IntentKind.ExplainException, key);
-        }
-
-        // LOOKUP intents
-        if (s.Contains("find") || s.Contains("look up") || s.Contains("lookup") ||
-            s.Contains("show me") || s.Contains("pull up") || s.Contains("locate"))
-        {
-            var key = ExtractNaturalKey(raw);
-            if (!string.IsNullOrEmpty(key))
-            {
-                return new ParsedIntent(IntentKind.LookupReceipt, key);
-            }
-        }
-
-        // EXPECTED ARRIVALS intents
-        if (s.Contains("arriv") || s.Contains("expected") || s.Contains("coming in") ||
-            s.Contains("what's coming") || s.Contains("incoming") || s.Contains("on the way") ||
-            s.Contains("what's on the dock") || s.Contains("dock today"))
-        {
-            return new ParsedIntent(IntentKind.ExpectedArrivals, null);
-        }
-
-        // Fallback: if the utterance contains a receipt-shaped natural key,
-        // treat as a lookup intent.
-        var fallbackKey = ExtractNaturalKey(raw);
-        if (!string.IsNullOrEmpty(fallbackKey))
-        {
-            return new ParsedIntent(IntentKind.LookupReceipt, fallbackKey);
-        }
-
-        return new ParsedIntent(IntentKind.Unknown, null);
-    }
-
-    private static string? ExtractNaturalKey(string raw)
-    {
-        var m = NaturalKeyPattern.Match(raw);
-        return m.Success ? m.Value.ToUpperInvariant() : null;
-    }
-}

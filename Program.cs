@@ -565,6 +565,21 @@ builder.Services.AddScoped<
     Abs.FixedAssets.Services.Voice.EmbeddingBackfillService>();
 builder.Services.AddHostedService<Abs.FixedAssets.Services.Voice.EmbeddingWorker>();
 
+// Sprint 12C PR #3 / ADR-021 — Hybrid Intent Router + prototype seeder.
+//
+// HybridIntentRouter is the new injection point for voice intent
+// classification. VoiceInvokeEndpoint depends on IHybridIntentRouter
+// (not the static IntentClassifier) per ADR-025.
+//
+// IntentEmbeddingsBootstrap is an IHostedService that runs once on
+// startup. It enqueues IntentPrototypes.All into the existing
+// PendingEmbeddings queue; the EmbeddingWorker drains them in <5s.
+// Idempotent — re-enqueues with the same ContentHash no-op.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Voice.IHybridIntentRouter,
+    Abs.FixedAssets.Services.Voice.HybridIntentRouter>();
+builder.Services.AddHostedService<Abs.FixedAssets.Services.Voice.IntentEmbeddingsBootstrap>();
+
 var app = builder.Build();
 
 // Ensure database is created with current model and seed default data
