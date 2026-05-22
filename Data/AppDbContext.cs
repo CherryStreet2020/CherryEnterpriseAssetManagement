@@ -202,6 +202,21 @@ namespace Abs.FixedAssets.Data
         public DbSet<CipCapitalization> CipCapitalizations => Set<CipCapitalization>();
         public DbSet<CipCapitalizationCost> CipCapitalizationCosts => Set<CipCapitalizationCost>();
 
+        // Sprint 13.5 PR #1 / ADR-026 — Customer-Project foundation.
+        // Program is the optional v2 portfolio bucket. CustomerProject is the
+        // customer-facing project entity (distinct from CipProject, which is
+        // internal capital improvement). ProjectMember M:N supports joint-
+        // venture / pass-through scenarios. ProjectPhase is a flat-but-tree-
+        // capable WBS via nullable ParentPhaseId.
+        public DbSet<Abs.FixedAssets.Models.Projects.Program> Programs
+            => Set<Abs.FixedAssets.Models.Projects.Program>();
+        public DbSet<Abs.FixedAssets.Models.Projects.CustomerProject> CustomerProjects
+            => Set<Abs.FixedAssets.Models.Projects.CustomerProject>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectMember> ProjectMembers
+            => Set<Abs.FixedAssets.Models.Projects.ProjectMember>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectPhase> ProjectPhases
+            => Set<Abs.FixedAssets.Models.Projects.ProjectPhase>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -2619,6 +2634,117 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => new { x.FromUnit, x.ToUnit, x.Active })
                     .HasDatabaseName("ix_unitconversion_lookup");
+            });
+
+            // ============================================================
+            // Sprint 13.5 PR #1 / ADR-026 — Customer-Project foundation.
+            //
+            // - Program  : portfolio bucket. Empty in v1; reserved for v2
+            //              EVM / DCAA portfolio rollup. UNIQUE (CompanyId, Code).
+            // - CustomerProject : customer-facing project. UNIQUE (CompanyId,
+            //              Code). Optional links to Company / Program /
+            //              PrimaryCustomer / ProjectManager — all SET NULL
+            //              so project history survives administrative cleanup.
+            // - ProjectMember   : M:N junction for joint-venture / pass-
+            //              through. UNIQUE (CustomerProjectId, CustomerId, Role).
+            //              CASCADE on project delete (member rows are not
+            //              independently meaningful).
+            // - ProjectPhase    : flat-but-tree-capable WBS via ParentPhaseId
+            //              self-FK (SET NULL on parent delete). UNIQUE
+            //              (CustomerProjectId, Code). CASCADE on project delete.
+            //
+            // - ProductionOrder extension : nullable CustomerProjectId /
+            //              ProjectPhaseId / ProjectPostingMode columns wired
+            //              with SET NULL on project / phase delete. Partial
+            //              indexes (WHERE CustomerProjectId IS NOT NULL) so
+            //              job-shop-mode (no-project) lookups remain cheap.
+            // ============================================================
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.Program>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique();
+                e.HasIndex(x => x.Status);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.CustomerProject>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique();
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.Mode);
+                e.HasIndex(x => x.PrimaryCustomerId);
+                e.HasIndex(x => x.ProgramId);
+                e.Property(x => x.Currency).HasMaxLength(3).HasDefaultValue("CAD");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Program)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProgramId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PrimaryCustomer)
+                    .WithMany()
+                    .HasForeignKey(x => x.PrimaryCustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectManager)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectManagerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectMember>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.CustomerId, x.Role }).IsUnique();
+                e.HasIndex(x => x.CustomerId);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectPhase>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique();
+                e.HasIndex(x => x.ParentPhaseId);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ParentPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ProductionOrder gets the new nullable FKs + a partial index
+            // on CustomerProjectId so job-shop-mode lookups (the vast
+            // majority of rows have NULL here) stay fast.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrder>(e =>
+            {
+                e.HasOne(x => x.CustomerProject)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_productionorders_customerproject")
+                    .HasFilter("\"CustomerProjectId\" IS NOT NULL");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_productionorders_projectphase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
             });
         }
 
