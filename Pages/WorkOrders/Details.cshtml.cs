@@ -43,10 +43,18 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // CR — every capitalization broke trial balance silently.
         private readonly ICapitalImprovementPostingService _improvementPosting;
 
+        // Sprint 12.9 PR #3 — IWorkOrderService extracts the worst-offender
+        // page's writes off direct AppDbContext access. v1 covers 5 of 17
+        // writes (Add/Move/UpdateStatus/AddTool for Operations + AddPlanned
+        // for Materials). Subsequent PRs in Sprint 12.9 (#3.1-3.3) finish
+        // the JE-posting + WO-level writes. _context still injected for
+        // read-path projections, which is ADR-025 compliant.
+        private readonly IWorkOrderService _workOrderService;
+
         public DetailsModel(AppDbContext context, ICloseoutService closeoutService, ILookupService lookupService, ITenantContext tenantContext,
             IModuleGuardService moduleGuard, IOutboxWriter outbox, IGlAccountResolver glResolver, AttachmentService attachmentService,
             IPeriodGuard periodGuard, DepreciationBackfillService depBackfill, MaintenanceService maintenanceService,
-            ICapitalImprovementPostingService improvementPosting)
+            ICapitalImprovementPostingService improvementPosting, IWorkOrderService workOrderService)
         {
             _moduleGuard = moduleGuard;
             _context = context;
@@ -60,6 +68,7 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             _depBackfill = depBackfill;
             _maintenanceService = maintenanceService;
             _improvementPosting = improvementPosting;
+            _workOrderService = workOrderService;
         }
 
         public WorkOrder WorkOrder { get; set; } = null!;
@@ -187,108 +196,32 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddOperationAsync(int workOrderId, string title, int typeLookupValueId, int? craftId, decimal plannedHours, string? description)
         {
-            var maxSeq = await _context.WorkOrderOperations
-                .Where(o => o.WorkOrderId == workOrderId)
-                .MaxAsync(o => (int?)o.Sequence) ?? 0;
-
-            var nextNum = await _context.WorkOrderOperations
-                .Where(o => o.WorkOrderId == workOrderId)
-                .CountAsync() + 1;
-
-            var resolvedType = OperationType.Mechanical;
-            int? resolvedTypeLvId = typeLookupValueId > 0 ? typeLookupValueId : (int?)null;
-            var typeLv = await _lookupService.GetValueByIdAsync(null, null, typeLookupValueId);
-            if (typeLv != null)
-            {
-                resolvedTypeLvId = typeLv.Id;
-                if (int.TryParse(typeLv.Code, out var enumVal))
-                    resolvedType = (OperationType)enumVal;
-            }
-
-            var operation = new WorkOrderOperation
-            {
-                WorkOrderId = workOrderId,
-                OperationNumber = $"OP-{nextNum:D3}",
-                Sequence = maxSeq + 10,
-                Title = title?.ToUpper() ?? "NEW OPERATION",
-                Type = resolvedType,
-                TypeLookupValueId = resolvedTypeLvId,
-                CraftId = craftId,
-                PlannedHours = plannedHours,
-                Description = description?.ToUpper(),
-                Status = OperationStatus.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.WorkOrderOperations.Add(operation);
-            await _context.SaveChangesAsync();
-
+            // Sprint 12.9 PR #3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.AddOperationAsync(
+                new AddOperationRequest(workOrderId, title, typeLookupValueId, craftId, plannedHours, description),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
             return RedirectToPage(new { id = workOrderId });
         }
 
         public async Task<IActionResult> OnPostMoveOperationAsync(int operationId, string direction)
         {
-            var companyId = GetCompanyId();
-            var operation = await _context.WorkOrderOperations
-                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (operation == null) return NotFound();
-
-            var allOps = await _context.WorkOrderOperations
-                .Where(o => o.WorkOrderId == operation.WorkOrderId)
-                .OrderBy(o => o.Sequence)
-                .ToListAsync();
-
-            var idx = allOps.FindIndex(o => o.Id == operationId);
-            if (direction == "up" && idx > 0)
-            {
-                var temp = allOps[idx].Sequence;
-                allOps[idx].Sequence = allOps[idx - 1].Sequence;
-                allOps[idx - 1].Sequence = temp;
-            }
-            else if (direction == "down" && idx < allOps.Count - 1)
-            {
-                var temp = allOps[idx].Sequence;
-                allOps[idx].Sequence = allOps[idx + 1].Sequence;
-                allOps[idx + 1].Sequence = temp;
-            }
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.WorkOrderId });
+            // Sprint 12.9 PR #3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.MoveOperationAsync(
+                new MoveOperationRequest(operationId, direction),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostUpdateStatusAsync(int operationId, int statusLookupValueId)
         {
-            var companyId = GetCompanyId();
-            var operation = await _context.WorkOrderOperations
-                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (operation == null) return NotFound();
-
-            var resolvedStatus = OperationStatus.Pending;
-            int? resolvedStatusLvId = statusLookupValueId > 0 ? statusLookupValueId : (int?)null;
-            var statusLv = await _lookupService.GetValueByIdAsync(null, null, statusLookupValueId);
-            if (statusLv != null)
-            {
-                resolvedStatusLvId = statusLv.Id;
-                if (int.TryParse(statusLv.Code, out var enumVal))
-                    resolvedStatus = (OperationStatus)enumVal;
-            }
-
-            operation.Status = resolvedStatus;
-            operation.StatusLookupValueId = resolvedStatusLvId;
-            if (resolvedStatus == OperationStatus.InProgress && operation.ActualStartDate == null)
-                operation.ActualStartDate = DateTime.UtcNow;
-            if (resolvedStatus == OperationStatus.Completed)
-            {
-                operation.ActualEndDate = DateTime.UtcNow;
-                operation.CompletedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.WorkOrderId });
+            // Sprint 12.9 PR #3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.UpdateOperationStatusAsync(
+                new UpdateOperationStatusRequest(operationId, statusLookupValueId),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostAddLaborAsync(int operationId, int? technicianId, decimal hours, decimal hourlyRate, string? notes)
@@ -397,25 +330,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddToolAsync(int operationId, string toolName, int quantityRequired, string? notes)
         {
-            var companyId = GetCompanyId();
-            var operation = await _context.WorkOrderOperations
-                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (operation == null) return NotFound();
-
-            var tool = new WorkOrderOperationTool
-            {
-                WorkOrderOperationId = operationId,
-                ToolName = toolName?.ToUpper() ?? "TOOL",
-                QuantityRequired = quantityRequired,
-                Notes = notes?.ToUpper(),
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.WorkOrderOperationTools.Add(tool);
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.WorkOrderId });
+            // Sprint 12.9 PR #3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.AddOperationToolAsync(
+                new AddOperationToolRequest(operationId, toolName, quantityRequired, notes),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostAddPartAsync(int operationId, int itemId, decimal quantityPlanned, decimal unitCost, string? notes)
@@ -665,27 +585,11 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddPlannedMaterialAsync(int workOrderId, int itemId, decimal quantityPlanned, string? notes)
         {
-            // S1-7: tenant-scope the item lookup (cross-tenant leak in the
-            // picker handler). Same shape as the page's main Items query.
-            var item = await _context.Items
-                .Where(i => i.Id == itemId
-                    && (i.CompanyId == null
-                        || _tenantContext.VisibleCompanyIds.Contains(i.CompanyId.Value)))
-                .FirstOrDefaultAsync();
-            if (item == null) return NotFound();
-
-            var part = new WorkOrderPart
-            {
-                WorkOrderId = workOrderId,
-                ItemId = itemId,
-                QuantityPlanned = quantityPlanned,
-                UnitCost = item.StandardCost,
-                Notes = notes?.ToUpper(),
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.WorkOrderParts.Add(part);
-            await _context.SaveChangesAsync();
+            // Sprint 12.9 PR #3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.AddPlannedMaterialAsync(
+                new AddPlannedMaterialRequest(workOrderId, itemId, quantityPlanned, notes),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
             return RedirectToPage(new { id = workOrderId });
         }
 

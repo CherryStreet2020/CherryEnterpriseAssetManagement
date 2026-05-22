@@ -160,6 +160,14 @@ builder.Services.AddScoped<DepreciationService>();
 // service is scoped because it consumes the per-request AppDbContext.
 builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 
+// ADR-025 D5 / Sprint 12.9 PR #3 — IWorkOrderService extracts the 17 direct
+// SaveChangesAsync writes off Pages/WorkOrders/Details.cshtml.cs into a typed
+// service. PR #3 v1 covers 5 of 17 (operations CRUD + planned-material add);
+// PRs #3.1-3.3 finish the JE-posting + WO-level writes. Each subsequent PR
+// extends both this DI registration and IWorkOrderService.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.IWorkOrderService,
+    Abs.FixedAssets.Services.Maintenance.WorkOrderService>();
+
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService>(
