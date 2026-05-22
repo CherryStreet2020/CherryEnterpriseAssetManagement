@@ -28,17 +28,20 @@ public sealed class ItemMasterService : IItemMasterService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly ILookupService _lookupService;
+    private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<ItemMasterService> _logger;
 
     public ItemMasterService(
         AppDbContext db,
         ITenantContext tenantContext,
         ILookupService lookupService,
+        Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
         ILogger<ItemMasterService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
         _lookupService = lookupService;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
     }
 
@@ -171,6 +174,40 @@ public sealed class ItemMasterService : IItemMasterService
         revision.ChangeReason = request.ChangeReason;
 
         await _db.SaveChangesAsync(ct);
+
+        // Sprint 12D PR #3.4 / ADR-022 §D5 — chain-of-custody graph emission.
+        //
+        // Closes the PR #3.x arc — all 5 Sprint 12.9 services now emit chain
+        // edges. Voice query "what's the revision history of this item?"
+        // walks downstream from Item through REVISION_OF to find every
+        // released revision in lineage order (the revision's RevisionCode
+        // becomes the node label so the cytoscape.js viz can render the
+        // version timeline directly).
+        //
+        // Edge:
+        //   Item --REVISION_OF--> ItemRevision
+        //
+        // Failure isolation: same try/catch + LogWarning pattern.
+        try
+        {
+            await _chainOfCustody.RecordEdgeAsync(
+                new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                    FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Item,
+                    FromEntityId: revision.ItemId,
+                    FromLabel:    revision.Item?.PartNumber ?? $"Item-{revision.ItemId}",
+                    ToNodeType:   "ItemRevision",
+                    ToEntityId:   revision.Id,
+                    ToLabel:      revision.RevisionCode ?? $"Rev-{revision.Id}",
+                    EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.RevisionOf),
+                ct);
+        }
+        catch (Exception chainEx)
+        {
+            _logger.LogWarning(chainEx,
+                "ItemMasterService.SaveRevisionAsync: chain-of-custody emit failed for item {ItemId} revision {RevisionId}. Revision save committed; chain can be rebuilt via backfill.",
+                revision.ItemId, revision.Id);
+        }
+
         return Result.Success(revision);
     }
 
