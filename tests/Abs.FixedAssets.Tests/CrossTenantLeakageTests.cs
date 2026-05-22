@@ -238,7 +238,9 @@ public class CrossTenantLeakageTests
         var audit = new AuditService(db);
         var approval = new ApprovalService(db, audit, NullLogger<ApprovalService>.Instance);
         var outbox = new OutboxWriter(db, tenant, NullLogger<OutboxWriter>.Instance);
-        return new PurchasingService(db, tenant, lookup, approval, outbox, NullLogger<PurchasingService>.Instance);
+        return new PurchasingService(db, tenant, lookup, approval, outbox,
+            new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(),
+            NullLogger<PurchasingService>.Instance);
     }
 
     [Fact]
