@@ -12,10 +12,13 @@
 #     2 Endpoints (Endpoints/*.cs)
 #     2 BackgroundServices (Services/**/*HostedService.cs)
 #
-# Current: 117 entries (PR #277 — Sprint 12.9 PR #3.3 closes out the
-# worst-offender file Pages/WorkOrders/Details.cshtml.cs — first reduction).
+# Current: 116 entries (PR #278 — Sprint 12.9 PR #4 closes out the
+# 2nd-worst-offender file Pages/Purchasing/Details.cshtml.cs).
+# Prior reductions:
+#   PR #277 (Sprint 12.9 PR #3.3): 118 → 117 (WorkOrders/Details)
+#   PR #278 (Sprint 12.9 PR #4  ): 117 → 116 (Purchasing/Details)
 #
-# Refactor cadence: each Sprint 12.9 PR (#3 WorkOrders ✅, #4 Purchasing,
+# Refactor cadence: each Sprint 12.9 PR (#3 WorkOrders ✅, #4 Purchasing ✅,
 # #5 ItemEdit) removes its target line from this file. The line count is
 # the audit-completeness CI metric (wired in PR #6).
 #
@@ -123,7 +126,6 @@ Pages/Periods/Index.cshtml.cs
 Pages/Plant/Floor.cshtml.cs
 Pages/Plant/Index.cshtml.cs
 Pages/Purchasing/Create.cshtml.cs
-Pages/Purchasing/Details.cshtml.cs
 Pages/Purchasing/Index.cshtml.cs
 Pages/Receiving/Details.cshtml.cs
 Pages/Receiving/History.cshtml.cs
