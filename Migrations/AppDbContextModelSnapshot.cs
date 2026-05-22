@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
@@ -21,6 +22,7 @@ namespace Abs.FixedAssets.Migrations
                 .HasAnnotation("ProductVersion", "9.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ActionCode", b =>
@@ -60,6 +62,70 @@ namespace Abs.FixedAssets.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ActionCodes");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.AdvancedShippingNotice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AsnNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ExpectedArrivalDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ShipDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ShipToSiteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourcePoNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("VendorId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpectedArrivalDate");
+
+                    b.HasIndex("ShipToSiteId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("VendorId", "AsnNumber")
+                        .IsUnique();
+
+                    b.ToTable("AdvancedShippingNotices");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ApiKey", b =>
@@ -114,6 +180,64 @@ namespace Abs.FixedAssets.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ApiKeys");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApprovalWorkflowId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ApproverRole")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("CompanyId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("DecidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DecidedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.Property<string>("DecidedByUsername")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StepNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetEntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TargetEntityType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalWorkflowId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("ApprovalActions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalWorkflow", b =>
@@ -172,7 +296,7 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("ApprovalWorkflows");
                 });
 
-            modelBuilder.Entity("Abs.FixedAssets.Models.AssetSensorReading", b =>
+            modelBuilder.Entity("Abs.FixedAssets.Models.AsnLine", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -180,208 +304,71 @@ namespace Abs.FixedAssets.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AssetId")
+                    b.Property<int>("AsnId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("IsOutOfSpec")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("ReadingAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("ReadingType")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Source")
+                    b.Property<string>("Description")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
-                    b.Property<string>("Unit")
+                    b.Property<decimal>("ExpectedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime?>("ExpirationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HeatNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LotNumber")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("PartNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("RefPoLineId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("RefPoNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Uom")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
-                    b.Property<decimal>("Value")
-                        .HasColumnType("numeric(12,4)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ReadingAt");
-                    b.HasIndex("AssetId", "ReadingType", "ReadingAt");
+                    b.HasIndex("AsnId");
 
-                    b.ToTable("AssetSensorReadings");
-                });
+                    b.HasIndex("ItemId");
 
-            // Sprint 2 PR #117.2 — Equipment Catalog.
-            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentClass", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                    b.HasIndex("RefPoNumber");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Active").HasColumnType("boolean");
-                    b.Property<string>("Category").IsRequired().HasMaxLength(60).HasColumnType("character varying(60)");
-                    b.Property<string>("Code").IsRequired().HasMaxLength(64).HasColumnType("character varying(64)");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                    b.Property<string>("Description").HasMaxLength(500).HasColumnType("character varying(500)");
-                    b.Property<int>("DisplayOrder").HasColumnType("integer");
-                    b.Property<string>("IconCode").HasMaxLength(40).HasColumnType("character varying(40)");
-                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Category");
-                    b.HasIndex("Code").IsUnique();
-
-                    b.Navigation("Models");
-                    b.Navigation("SensorProfiles");
-
-                    b.ToTable("EquipmentClasses");
-                });
-
-            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentModel", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Active").HasColumnType("boolean");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                    b.Property<string>("DisplayName").HasMaxLength(180).HasColumnType("character varying(180)");
-                    b.Property<int>("EquipmentClassId").HasColumnType("integer");
-                    b.Property<string>("ImageUrl").HasMaxLength(500).HasColumnType("character varying(500)");
-                    b.Property<string>("MaintenanceManualUrl").HasMaxLength(500).HasColumnType("character varying(500)");
-                    b.Property<string>("Manufacturer").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
-                    b.Property<string>("ModelNumber").IsRequired().HasMaxLength(120).HasColumnType("character varying(120)");
-                    b.Property<string>("Notes").HasMaxLength(1000).HasColumnType("character varying(1000)");
-                    b.Property<string>("ProductPageUrl").HasMaxLength(500).HasColumnType("character varying(500)");
-                    b.Property<int?>("ServiceLifeYears").HasColumnType("integer");
-                    b.Property<decimal?>("TypicalAcquisitionCost").HasColumnType("numeric(14,2)");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
-                    b.Property<int>("Weight").HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentClassId");
-                    b.HasIndex("Manufacturer", "ModelNumber").IsUnique();
-
-                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
-                        .WithMany("Models")
-                        .HasForeignKey("EquipmentClassId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EquipmentClass");
-
-                    b.ToTable("EquipmentModels");
-                });
-
-            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.SensorProfile", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("BreachOnHighSide").HasColumnType("boolean");
-                    b.Property<DateTime>("CreatedAt").HasColumnType("timestamp with time zone");
-                    b.Property<decimal?>("CriticalThreshold").HasColumnType("numeric(14,4)");
-                    b.Property<int>("DisplayOrder").HasColumnType("integer");
-                    b.Property<int>("EquipmentClassId").HasColumnType("integer");
-                    b.Property<bool>("IsPrimary").HasColumnType("boolean");
-                    b.Property<decimal>("NormalMax").HasColumnType("numeric(14,4)");
-                    b.Property<decimal>("NormalMin").HasColumnType("numeric(14,4)");
-                    b.Property<string>("Notes").HasMaxLength(500).HasColumnType("character varying(500)");
-                    b.Property<int>("ReadingType").HasColumnType("integer");
-                    b.Property<int>("SampleRateMinutes").HasColumnType("integer");
-                    b.Property<string>("SensorName").IsRequired().HasMaxLength(80).HasColumnType("character varying(80)");
-                    b.Property<string>("Unit").IsRequired().HasMaxLength(20).HasColumnType("character varying(20)");
-                    b.Property<DateTime>("UpdatedAt").HasColumnType("timestamp with time zone");
-                    b.Property<decimal?>("WarningThreshold").HasColumnType("numeric(14,4)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EquipmentClassId");
-                    b.HasIndex("EquipmentClassId", "ReadingType");
-
-                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
-                        .WithMany("SensorProfiles")
-                        .HasForeignKey("EquipmentClassId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("EquipmentClass");
-
-                    b.ToTable("SensorProfiles");
-                });
-
-            modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ApprovalWorkflowId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ApproverRole")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int?>("CompanyId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Decision")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("DecidedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("DecidedByUserId")
-                        .IsRequired()
-                        .HasMaxLength(450)
-                        .HasColumnType("character varying(450)");
-
-                    b.Property<string>("DecidedByUsername")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<int>("StepNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TargetEntityType")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int>("TargetEntityId")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApprovalWorkflowId");
-                    b.HasIndex("CompanyId");
-                    b.HasIndex("DecidedByUserId");
-                    b.HasIndex("TargetEntityType", "TargetEntityId");
-
-                    b.ToTable("ApprovalActions");
+                    b.ToTable("AsnLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Asset", b =>
@@ -842,7 +829,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<uint>("RowVersion")
+                    b.Property<uint?>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -979,12 +966,6 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("ManufacturerId");
-
-                    b.HasIndex("OriginatingCipProjectId");
-
-                    b.HasIndex("OriginatingPurchaseOrderId");
-
-                    b.HasIndex("OriginatingVendorInvoiceId");
 
                     b.HasIndex("ParentAssetId");
 
@@ -1207,6 +1188,49 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("AssetInventories");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.AssetSensorReading", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsOutOfSpec")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("ReadingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("decimal(12,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.ToTable("AssetSensorReadings");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetTaxSettings", b =>
                 {
                     b.Property<int>("Id")
@@ -1371,9 +1395,6 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<long>("FileSize")
                         .HasColumnType("bigint");
 
-                    b.Property<int?>("MaintenanceEventId")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Source")
                         .HasColumnType("integer");
 
@@ -1392,6 +1413,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int?>("WorkOrderId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssetId");
@@ -1406,7 +1430,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CipProjectId");
 
-                    b.HasIndex("MaintenanceEventId");
+                    b.HasIndex("WorkOrderId");
 
                     b.ToTable("Attachments");
                 });
@@ -1424,8 +1448,28 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int>("ActorKind")
+                        .HasColumnType("integer");
+
                     b.Property<string>("AfterJson")
                         .HasColumnType("text");
+
+                    b.Property<string>("AiCommandText")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("AiConfidence")
+                        .HasColumnType("decimal(4,3)");
+
+                    b.Property<string>("AiModelVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("AiSessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AiToolName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("BeforeJson")
                         .HasColumnType("text");
@@ -1445,6 +1489,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
                         .HasColumnType("character varying(45)");
+
+                    b.Property<int?>("OnBehalfOfUserId")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp with time zone");
@@ -1780,6 +1827,195 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("CapitalImprovements");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentClass", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IconCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("EquipmentClasses", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentModel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)");
+
+                    b.Property<int>("EquipmentClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("MaintenanceManualUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Manufacturer")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ModelNumber")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ProductPageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ServiceLifeYears")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TypicalAcquisitionCost")
+                        .HasColumnType("decimal(14,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Weight")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentClassId");
+
+                    b.HasIndex("Manufacturer", "ModelNumber")
+                        .IsUnique();
+
+                    b.ToTable("EquipmentModels", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.SensorProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("BreachOnHighSide")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("CriticalThreshold")
+                        .HasColumnType("decimal(14,4)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EquipmentClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("NormalMax")
+                        .HasColumnType("decimal(14,4)");
+
+                    b.Property<decimal>("NormalMin")
+                        .HasColumnType("decimal(14,4)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SampleRateMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SensorName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("WarningThreshold")
+                        .HasColumnType("decimal(14,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentClassId");
+
+                    b.HasIndex("EquipmentClassId", "ReadingType");
+
+                    b.ToTable("SensorProfiles", (string)null);
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.CauseCode", b =>
                 {
                     b.Property<int>("Id")
@@ -1925,6 +2161,8 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CcaClassId");
 
                     b.HasIndex("CompanyId", "CcaClassId", "FiscalYear")
                         .IsUnique();
@@ -2308,7 +2546,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<uint>("RowVersion")
+                    b.Property<uint?>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -2575,8 +2813,9 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex(new[] { "CompanyId", "AccountKind" }, "UX_CompanyGlAccountConfigs_CompanyKind")
-                        .IsUnique();
+                    b.HasIndex("CompanyId", "AccountKind")
+                        .IsUnique()
+                        .HasDatabaseName("UX_CompanyGlAccountConfigs_CompanyKind");
 
                     b.ToTable("CompanyGlAccountConfigs");
                 });
@@ -3262,6 +3501,110 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("DepreciationRunDetails");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Embeddings.Embedding", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasColumnType("char(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<HalfVector>("Embedding_")
+                        .IsRequired()
+                        .HasColumnType("halfvec(1024)");
+
+                    b.Property<long>("EntityId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ModelVersion")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SourceText")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_embeddings_tenant");
+
+                    b.HasIndex("EntityType", "EntityId", "ModelVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ix_embeddings_entity_model");
+
+                    b.ToTable("Embeddings", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Embeddings.PendingEmbedding", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasColumnType("char(64)");
+
+                    b.Property<DateTime>("EnqueuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("EntityId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SourceText")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Attempts")
+                        .HasDatabaseName("ix_pending_embeddings_attempts");
+
+                    b.HasIndex("EnqueuedAt")
+                        .HasDatabaseName("ix_pending_embeddings_enqueued");
+
+                    b.HasIndex("EntityType", "EntityId", "ContentHash")
+                        .HasDatabaseName("ix_pending_embeddings_dedup");
+
+                    b.ToTable("PendingEmbeddings", (string)null);
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.ExchangeRate", b =>
                 {
                     b.Property<int>("Id")
@@ -3592,7 +3935,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<uint>("RowVersion")
+                    b.Property<uint?>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -3758,6 +4101,74 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("InboundEvents");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Infrastructure.IdempotencyKey", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Key")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("RequestHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ResponseBody")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("ResponseStatus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "Key");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.ToTable("IdempotencyKeys");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Infrastructure.VoiceSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LastTurnAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StateJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("TenantId", "UserId", "LastTurnAt");
+
+                    b.ToTable("VoiceSessions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.IntegrationEndpoint", b =>
@@ -4137,6 +4548,15 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int?>("DefaultLocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DefaultReceiptAttributes")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("DefaultReceiptProfileId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -4400,6 +4820,10 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CurrentReleasedRevisionId");
 
+                    b.HasIndex("DefaultLocationId");
+
+                    b.HasIndex("DefaultReceiptProfileId");
+
                     b.HasIndex("ManufacturerId");
 
                     b.HasIndex("PartNumber");
@@ -4604,6 +5028,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<int?>("DefaultLocationId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("DefaultRack")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -4626,6 +5053,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ItemId1")
                         .HasColumnType("integer");
 
                     b.Property<int>("LeadTimeDays")
@@ -4663,9 +5093,14 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.HasIndex("ItemId");
+                    b.HasIndex("DefaultLocationId");
+
+                    b.HasIndex("ItemId1");
 
                     b.HasIndex("PreferredVendorId");
+
+                    b.HasIndex("ItemId", "CompanyId")
+                        .IsUnique();
 
                     b.ToTable("ItemCompanyStockings");
                 });
@@ -4990,8 +5425,8 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Property<string>("TransactionNumber")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -5824,244 +6259,6 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("MachineSpecifications");
                 });
 
-            modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceEvent", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("ActualCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("ApprovalStatus")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("ApprovedById")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("AssetId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("CipProjectId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ClosedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("CompletedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<DateTime?>("CompletedDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CorrectiveAction")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("CustomField1")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField10")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField2")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField3")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField4")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField5")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField6")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField7")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField8")
-                        .HasColumnType("text");
-
-                    b.Property<string>("CustomField9")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<decimal?>("DowntimeHours")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal>("EstimatedCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("FailureCode")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("HoldReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<decimal?>("LaborCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("LaborHours")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("LessonsLearned")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<decimal?>("MaterialsCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<DateTime?>("NextScheduledDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<decimal?>("OutsideVendorCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("OvertimeHours")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("PartsCost")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int?>("PMOccurrenceId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PMTemplateAssetId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PriorityLookupValueId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("PurchaseOrderNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.Property<int?>("RecurrenceIntervalDays")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime?>("RequestedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("RequestedById")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Resolution")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("ResolutionSummary")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("RootCause")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<uint>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("xid")
-                        .HasColumnName("xmin");
-
-                    b.Property<DateTime>("ScheduledDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("StartedBy")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("StatusLookupValueId")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TechnicianId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("TechnicianName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TypeLookupValueId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Vendor")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("WorkOrderNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApprovedById");
-
-                    b.HasIndex("AssetId");
-
-                    b.HasIndex("CipProjectId");
-
-                    b.HasIndex("PMOccurrenceId");
-
-                    b.HasIndex("PMTemplateAssetId");
-
-                    b.HasIndex("PriorityLookupValueId");
-
-                    b.HasIndex("RequestedById");
-
-                    b.HasIndex("ScheduledDate");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("StatusLookupValueId");
-
-                    b.HasIndex("TechnicianId");
-
-                    b.HasIndex("TypeLookupValueId");
-
-                    b.ToTable("MaintenanceEvents");
-                });
-
             modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceSchedule", b =>
                 {
                     b.Property<int>("Id")
@@ -6559,6 +6756,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int?>("WorkOrderId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("WorkOrderId1")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
@@ -6569,7 +6769,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SiteId");
 
-                    b.HasIndex("WorkOrderId");
+                    b.HasIndex("WorkOrderId1");
 
                     b.HasIndex("TenantId", "CompanyId", "SiteId", "PMTemplateId", "DueDateUtc")
                         .IsUnique();
@@ -7183,6 +7383,1465 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("ProblemCodes");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Bom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BomType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPhantom")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("LeadTimeDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaterialStructureId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TotalWeightKg")
+                        .HasColumnType("decimal(12,4)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("YieldPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BomType");
+
+                    b.HasIndex("MaterialStructureId")
+                        .IsUnique();
+
+                    b.ToTable("Boms");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.CutListLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CommonLineGroup")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("CutAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("GrainDirection")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("LengthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("MaterialMasterId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("NestId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("SourceProductionOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ThicknessMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("WidthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DueDate");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("MaterialMasterId");
+
+                    b.HasIndex("Priority");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("NestId", "Status");
+
+                    b.HasIndex("SourceProductionOrderId", "Status");
+
+                    b.ToTable("CutListLines");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialMaster", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AstmDesignation")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal?>("DensityKgPerM3")
+                        .HasColumnType("decimal(10,4)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Form")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsAnisotropic")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ShopCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AstmDesignation");
+
+                    b.HasIndex("Form");
+
+                    b.HasIndex("ShopCode")
+                        .IsUnique();
+
+                    b.ToTable("MaterialMasters");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructure", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ControlledDocumentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsControlled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MasterStructureId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("OutputItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RegulatoryProfileId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Revision")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StructureNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("StructureType")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MasterStructureId");
+
+                    b.HasIndex("OutputItemId");
+
+                    b.HasIndex("RegulatoryProfileId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StructureNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StructureType");
+
+                    b.ToTable("MaterialStructures");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructureLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LineKind")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaterialStructureId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("PhaseSequence")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("ScrapPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TypeSpecificProperties")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Uom")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LineKind");
+
+                    b.HasIndex("MaterialStructureId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("MaterialStructureLines");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MrbDisposition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DispositionNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Justification")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("NonConformanceType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DispositionNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Outcome");
+
+                    b.ToTable("MrbDispositions");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Nest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CutByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("CutPathLengthMm")
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<int?>("CuttingTimeSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DxfFileUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("NestingSoftware")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("PiecesCut")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PiecesPlanned")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PierceCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductionBatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SheetCount")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("SheetLengthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("SheetWidthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("StockItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StockReceiptId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("Utilization")
+                        .HasColumnType("decimal(5,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionBatchId")
+                        .IsUnique();
+
+                    b.HasIndex("StockItemId");
+
+                    b.HasIndex("StockReceiptId");
+
+                    b.ToTable("Nests");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProcessBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AtmosphereType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<decimal?>("BathPh")
+                        .HasColumnType("decimal(4,2)");
+
+                    b.Property<string>("ChemistrySpec")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ColorCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HeatTreatChartUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal?>("LoadMassKg")
+                        .HasColumnType("decimal(10,3)");
+
+                    b.Property<int?>("PaintBatchLotItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProcessType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductionBatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("QuenchMedium")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("RackPositionNotes")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal?>("SetpointTempC")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<int?>("SoakTimeMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TankConcentrationPct")
+                        .HasColumnType("decimal(6,3)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WitnessCouponLotId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessType");
+
+                    b.HasIndex("ProductionBatchId")
+                        .IsUnique();
+
+                    b.ToTable("ProcessBatches");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActualEndAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ActualStartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("AllocationMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("BatchNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("BatchPoolCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("BatchType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("OperatorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PrimaryEquipmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("QuarantineDispositionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RecipeRevisionId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("ScheduledStartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SupervisorUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TotalCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchNumber")
+                        .IsUnique();
+
+                    b.HasIndex("BatchPoolCode");
+
+                    b.HasIndex("BatchType");
+
+                    b.HasIndex("PrimaryEquipmentId");
+
+                    b.HasIndex("QuarantineDispositionId");
+
+                    b.HasIndex("RecipeRevisionId");
+
+                    b.HasIndex("ScheduledStartAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ProductionBatches");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchAllocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("AllocatedCost")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("AllocationBasis")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("AllocationPct")
+                        .HasColumnType("decimal(7,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductionBatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProductionOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ProductionOrderOperationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WorkOrderOperationId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductionOrderId");
+
+                    b.HasIndex("WorkOrderOperationId");
+
+                    b.HasIndex("ProductionBatchId", "WorkOrderOperationId")
+                        .IsUnique();
+
+                    b.ToTable("ProductionBatchAllocations");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EnteredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EquipmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ExitedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("ProductionBatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SequenceNo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipmentId");
+
+                    b.HasIndex("ProductionBatchId", "SequenceNo");
+
+                    b.ToTable("ProductionBatchEquipmentLinks");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchStateEvent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("ChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ChangedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("FromStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MrbDispositionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductionBatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MrbDispositionId");
+
+                    b.HasIndex("ProductionBatchId", "ChangedAt");
+
+                    b.ToTable("ProductionBatchStateEvents");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionJobShopDetail", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DrawingNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("DrawingRevision")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<bool>("HasOutsideOperations")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("InspectionNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("MaterialIssueMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NestPlanId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("OutsideOperationCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PriorityRank")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductionOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("QualityHoldOnCompletion")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("SerializedOutput")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DrawingNumber");
+
+                    b.HasIndex("HasOutsideOperations");
+
+                    b.HasIndex("NestPlanId");
+
+                    b.HasIndex("PriorityRank");
+
+                    b.HasIndex("ProductionOrderId")
+                        .IsUnique();
+
+                    b.ToTable("ProductionJobShopDetails");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ActualEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ActualStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("CustomerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MasterProductionOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaterialStructureId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OrderNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("QuantityCompleted")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("QuantityOrdered")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("QuantityScrapped")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("ScheduledEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ScheduledStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Uom")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("MaterialStructureId");
+
+                    b.HasIndex("OrderNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ScheduledEnd");
+
+                    b.HasIndex("ScheduledStart");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Type");
+
+                    b.HasIndex("MasterProductionOrderId", "Revision");
+
+                    b.ToTable("ProductionOrders");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ReceiptProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("DefaultAttributes")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("JsonSchema")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PromotedFacets")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RegulatoryProfileIds")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("UiFormSpec")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReceiptProfiles");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Recipe", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BatchUom")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("IntermediateItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaterialStructureId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("RecipeRevisionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ScalingMode")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("StandardBatchSize")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int?>("TotalDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("YieldPercent")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IntermediateItemId");
+
+                    b.HasIndex("MaterialStructureId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipeRevisionId");
+
+                    b.ToTable("Recipes");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipePhase", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AgitationSpec")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("AtmosphereType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("HasQualityHold")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OperatorInstructions")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<decimal?>("PressurePsi")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<int>("RecipeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RequiredEquipmentClass")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("SetpointTempC")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<decimal?>("TempToleranceC")
+                        .HasColumnType("decimal(8,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("RecipePhases");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipeRevision", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("ControlledDocumentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("IsControlled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MasterRecipeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MasterRecipeId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Name", "Version")
+                        .IsUnique();
+
+                    b.ToTable("RecipeRevisions");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.RegulatoryProfile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Gates")
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsExternalRegime")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("MinimumRetentionYears")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Regime")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("Regime");
+
+                    b.ToTable("RegulatoryProfiles");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Remnant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ConsumedByNestId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("HeatNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal?>("LengthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MaterialMasterId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ParentNestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ParentReceiptId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RemnantNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("ThicknessMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("WidthMm")
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConsumedByNestId");
+
+                    b.HasIndex("HeatNumber");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("MaterialMasterId");
+
+                    b.HasIndex("ParentNestId");
+
+                    b.HasIndex("ParentReceiptId");
+
+                    b.HasIndex("RemnantNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Remnants");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.StockReceipt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Attributes")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LocationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LotNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("MaterialMasterId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ModifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ProfileId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("QuantityReceived")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("QuantityRemaining")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("QuarantineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ReceiptNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReceivedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("SourcePoLineId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("SourcePoNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Uom")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("LotNumber");
+
+                    b.HasIndex("MaterialMasterId");
+
+                    b.HasIndex("ProfileId");
+
+                    b.HasIndex("ReceiptNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ReceivedAt");
+
+                    b.HasIndex("ReceivedByUserId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("StockReceipts");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.ProjectManager", b =>
                 {
                     b.Property<int>("Id")
@@ -7310,7 +8969,7 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<DateTime?>("RequiredDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<uint>("RowVersion")
+                    b.Property<uint?>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -8793,6 +10452,522 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("TechnicianSkills");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AlarmRationalization", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("AlarmKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Consequence")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EffectiveUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("EquipmentClassId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Justification")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("OperatorResponse")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<byte>("Priority")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("ProcedureReference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeSpan>("TargetResponseTime")
+                        .HasColumnType("interval");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlarmKey", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("EquipmentClassId", "ReadingType", "Priority", "Active")
+                        .HasDatabaseName("ix_alarmrationalization_lookup");
+
+                    b.ToTable("AlarmRationalizations");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AssetSensorLatest", b =>
+                {
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsOutOfSpec")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("QualityCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("ReadingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Tone")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<short>("Unit")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(14,4)");
+
+                    b.HasKey("AssetId", "ReadingType");
+
+                    b.ToTable("AssetSensorLatest");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorAlarm", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("AcknowledgedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AcknowledgementNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ClearedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClearedReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long?>("ClearingEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("OpeningEventId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("PeakAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("PeakValue")
+                        .HasColumnType("numeric(14,4)");
+
+                    b.Property<byte>("Priority")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("RationalizationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ShelfReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("ShelvedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ShelvedUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte>("State")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte?>("SuppressionMode")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcknowledgedByUserId");
+
+                    b.HasIndex("OpenedAt");
+
+                    b.HasIndex("RationalizationId");
+
+                    b.HasIndex("ShelvedByUserId");
+
+                    b.HasIndex("State")
+                        .HasDatabaseName("ix_sensoralarm_state");
+
+                    b.HasIndex("AssetId", "ReadingType", "State")
+                        .HasDatabaseName("ix_sensoralarm_asset_type_state");
+
+                    b.ToTable("SensorAlarms");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("ReadingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("AssetSensorChannelId")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("IngestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsOutOfSpec")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("OpcQualityByte")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("QualityCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("SchemaVersion")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<byte>("SourceZone")
+                        .HasColumnType("smallint");
+
+                    b.Property<short>("Unit")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(14,4)");
+
+                    b.HasKey("Id", "ReadingAt");
+
+                    b.HasIndex("AssetId", "ReadingAt")
+                        .HasDatabaseName("ix_sensorevent_oos")
+                        .HasFilter("\"IsOutOfSpec\" = true");
+
+                    b.HasIndex("AssetId", "ReadingType", "ReadingAt")
+                        .HasDatabaseName("ix_sensorevent_asset_type_time");
+
+                    b.ToTable("SensorEvents");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorRollupDay", b =>
+                {
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("AvgValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("BucketStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("FailureCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MaintenanceCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("MaxValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("MinValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("OosCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SampleCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("StdDev")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("UncertainCount")
+                        .HasColumnType("bigint");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("SensorRollupDay", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorRollupHour", b =>
+                {
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("AvgValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("BucketStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("FailureCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MaintenanceCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("MaxValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("MinValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("OosCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SampleCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("StdDev")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("UncertainCount")
+                        .HasColumnType("bigint");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("SensorRollupHour", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorRollupMinute", b =>
+                {
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("AvgValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("BucketStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("FailureCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MaintenanceCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal>("MaxValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("MinValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("OosCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SampleCount")
+                        .HasColumnType("bigint");
+
+                    b.Property<decimal?>("StdDev")
+                        .HasColumnType("numeric");
+
+                    b.Property<long>("UncertainCount")
+                        .HasColumnType("bigint");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("SensorRollupMinute", (string)null);
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CapturedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CapturedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte>("GampValidationStatus")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<byte>("Reason")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte[]>("SignatureHash")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte>("SignatureMethod")
+                        .HasColumnType("smallint");
+
+                    b.Property<long?>("TriggerEventId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CapturedAt");
+
+                    b.HasIndex("CapturedByUserId");
+
+                    b.HasIndex("Reason", "CapturedAt");
+
+                    b.ToTable("SensorSnapshots");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsOutOfSpec")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte>("OpcQualityByte")
+                        .HasColumnType("smallint");
+
+                    b.Property<byte>("QualityCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("ReadingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ReadingType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("SnapshotId")
+                        .HasColumnType("bigint");
+
+                    b.Property<short>("Unit")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(14,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("SnapshotId", "AssetId", "ReadingType");
+
+                    b.ToTable("SensorSnapshotValues");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.UnitConversion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Active")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<short>("FromUnit")
+                        .HasColumnType("smallint");
+
+                    b.Property<decimal>("Multiplier")
+                        .HasColumnType("numeric(20,10)");
+
+                    b.Property<decimal>("Offset")
+                        .HasColumnType("numeric(20,10)");
+
+                    b.Property<short>("ToUnit")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("UneceCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromUnit", "ToUnit", "Active")
+                        .HasDatabaseName("ix_unitconversion_lookup");
+
+                    b.ToTable("UnitConversions");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.Tenant", b =>
                 {
                     b.Property<int>("Id")
@@ -9144,6 +11319,10 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("AsnFormat")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("City")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -9177,6 +11356,9 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Property<int?>("DefaultGlAccountId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("DefaultReceiptAttributes")
+                        .HasColumnType("jsonb");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
@@ -9218,6 +11400,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<string>("PostalCode")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("SendsAsn")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
@@ -9311,7 +11496,7 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<DateTime>("ReceivedDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<uint>("RowVersion")
+                    b.Property<uint?>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("xid")
@@ -9532,6 +11717,266 @@ namespace Abs.FixedAssets.Migrations
                     b.ToTable("WebhookSubscriptions");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("ActualCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("ApprovalStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ApprovedById")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CipProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CompletedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CorrectiveAction")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("CustomField1")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField10")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField2")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField3")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField4")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField5")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField6")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField7")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField8")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CustomField9")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("DowntimeHours")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("EstimatedCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ExternalSource")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("ExternalWorkOrderId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("FailureCode")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("FailureCodeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal?>("LaborCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("LaborHours")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("LessonsLearned")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("MasterWorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("MaterialsCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("NextScheduledDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal?>("OutsideVendorCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("OvertimeHours")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PMOccurrenceId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PMTemplateAssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("PartsCost")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PriorityLookupValueId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PurchaseOrderNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int?>("RecurrenceIntervalDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("RequestedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("RequestedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ResolutionSummary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<short>("Revision")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("RootCause")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime>("ScheduledDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("StartedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StatusLookupValueId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TechnicianId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TechnicianName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TypeLookupValueId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Vendor")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("WorkOrderNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedById");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("CipProjectId");
+
+                    b.HasIndex("Classification");
+
+                    b.HasIndex("FailureCodeId");
+
+                    b.HasIndex("PriorityLookupValueId");
+
+                    b.HasIndex("RequestedById");
+
+                    b.HasIndex("ScheduledDate");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("StatusLookupValueId");
+
+                    b.HasIndex("TechnicianId");
+
+                    b.HasIndex("TypeLookupValueId");
+
+                    b.HasIndex("MasterWorkOrderId", "Revision");
+
+                    b.ToTable("WorkOrders");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperation", b =>
                 {
                     b.Property<int>("Id")
@@ -9550,6 +11995,16 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int?>("AssignedTechnicianId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("AutoGeneratePR")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("BatchPoolCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int?>("BatchSequenceNo")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("CompletedAt")
@@ -9577,12 +12032,12 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<bool>("IsExternal")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("LOTOProcedureId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<int>("MaintenanceEventId")
-                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone");
@@ -9608,6 +12063,9 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Property<DateTime?>("PlannedStartDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ProductionBatchId")
+                        .HasColumnType("integer");
 
                     b.Property<bool>("RequiresConfinedSpaceEntry")
                         .HasColumnType("boolean");
@@ -9641,13 +12099,34 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int?>("TypeLookupValueId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("VendorExpectedReturnDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("VendorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VendorPoLineId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedTechnicianId");
 
+                    b.HasIndex("BatchPoolCode");
+
                     b.HasIndex("CraftId");
 
-                    b.HasIndex("MaintenanceEventId");
+                    b.HasIndex("IsExternal");
+
+                    b.HasIndex("ProductionBatchId");
+
+                    b.HasIndex("VendorId");
+
+                    b.HasIndex("WorkOrderId");
 
                     b.ToTable("WorkOrderOperations");
                 });
@@ -9862,9 +12341,6 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
-                    b.Property<int>("MaintenanceEventId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -9891,13 +12367,16 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("IssuedFromLocationId");
 
                     b.HasIndex("ItemId");
 
-                    b.HasIndex("MaintenanceEventId", "ItemId");
+                    b.HasIndex("WorkOrderId", "ItemId");
 
                     b.ToTable("WorkOrderParts");
                 });
@@ -9945,6 +12424,670 @@ namespace Abs.FixedAssets.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("WorkOrderTypes");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AfeNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<decimal?>("ApprovedBudget")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("CapitalizedInterest")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int>("ChangeOrderCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DepreciationMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("GlCipSubAccount")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("InServiceDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("JvPartnerSplits")
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("RegulatoryAuthority")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal?>("RetainagePercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<int>("Stage")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SubstantialCompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("TargetFixedAssetId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UsefulLifeMonths")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AfeNumber");
+
+                    b.HasIndex("Stage");
+
+                    b.HasIndex("TargetFixedAssetId");
+
+                    b.HasIndex("WorkOrderId")
+                        .IsUnique();
+
+                    b.ToTable("CipWorkOrderDetails");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AffectedItems")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("ChangeTypeFFF")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CutInSerial")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("EcoNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("EffectiveDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EngineeringIssueType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsReplacementInKind")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("LinkedNcrWorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("MocOperatingProceduresUpdated")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("MocPshUpdated")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("MocTrainingRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PssrCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("PssrCompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("RegulatoryReview")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RiskLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EcoNumber");
+
+                    b.HasIndex("EngineeringIssueType");
+
+                    b.HasIndex("LinkedNcrWorkOrderId");
+
+                    b.HasIndex("WorkOrderId")
+                        .IsUnique();
+
+                    b.ToTable("EngineeringWorkOrderDetails");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BodyPartAffected")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DaysAway")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DaysRestricted")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("EmployeesAffected")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HazardSeverity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HseIssueType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("InjuryType")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("JsaSteps")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Likelihood")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("LostTimeIncident")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("OshaCaseNumber")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<bool>("OshaItaSubmissionRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PhotosUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("RecordabilityClass")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RegulatoryNotifications")
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("RiskScore")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("WitnessStatementsUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HseIssueType");
+
+                    b.HasIndex("OshaCaseNumber");
+
+                    b.HasIndex("RecordabilityClass");
+
+                    b.HasIndex("RiskScore");
+
+                    b.HasIndex("WorkOrderId")
+                        .IsUnique();
+
+                    b.ToTable("HseWorkOrderDetails");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.NumberSequence", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CounterSeparator")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CurrentValue")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Padding")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("YearSeparator")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Classification", "Year", "TenantId");
+
+                    b.ToTable("NumberSequence");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AffectedLotNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<decimal?>("AffectedQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<bool>("CapaRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("CapaWorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("D0PrepNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D1Team")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D2ProblemDescription")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D3ContainmentActions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D4RootCause")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D5PermanentCorrectiveActions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D6Implementation")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D7Prevention")
+                        .HasColumnType("text");
+
+                    b.Property<string>("D8Recognition")
+                        .HasColumnType("text");
+
+                    b.Property<int>("DispositionCode")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("EffectivenessVerificationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EffectivenessVerificationStatus")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("LinkedNcrId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NcrNumber")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<int>("QualityIssueType")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("RegulatoryReportable")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("RootCauseCategory")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RootCauseMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CapaWorkOrderId");
+
+                    b.HasIndex("DispositionCode");
+
+                    b.HasIndex("LinkedNcrId");
+
+                    b.HasIndex("NcrNumber");
+
+                    b.HasIndex("QualityIssueType");
+
+                    b.HasIndex("WorkOrderId")
+                        .IsUnique();
+
+                    b.ToTable("QualityWorkOrderDetails");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApproverUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Comments")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Decision")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("DecisionAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayLabel")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("RoleRequired")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<uint?>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("Stage")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("StageOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("WorkOrderId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApproverUserId");
+
+                    b.HasIndex("WorkOrderId");
+
+                    b.HasIndex("WorkOrderId", "Stage", "Decision");
+
+                    b.ToTable("WorkOrderApproval");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayLabel")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FieldName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("HelpText")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("SectionName")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ValidationHint")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Visibility")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Classification", "TenantId");
+
+                    b.ToTable("WorkOrderFieldVisibility");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusLabel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DisplayColor")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DisplayLabel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsHolding")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsTerminal")
+                        .HasColumnType("boolean");
+
+                    b.Property<short>("StatusCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("StatusKey")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Classification", "StatusCode")
+                        .IsUnique();
+
+                    b.HasIndex("Classification", "StatusKey")
+                        .IsUnique();
+
+                    b.ToTable("WorkOrderStatusLabel");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusProfile", b =>
+                {
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("CanReopenFromTerminal")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<short>("StartStatusCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Classification");
+
+                    b.ToTable("WorkOrderStatusProfile");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionLabel")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Classification")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("FromStatusCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("GuardServiceName")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("IsBackTransition")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RequiredApprovalStage")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<short>("ToStatusCode")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Classification", "FromStatusCode");
+
+                    b.HasIndex("Classification", "FromStatusCode", "ToStatusCode")
+                        .IsUnique();
+
+                    b.ToTable("WorkOrderStatusTransition");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkRequest", b =>
@@ -10048,6 +13191,57 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("StatusLookupValueId");
 
                     b.ToTable("WorkRequests");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.AdvancedShippingNotice", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Site", "ShipToSite")
+                        .WithMany()
+                        .HasForeignKey("ShipToSiteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ShipToSite");
+
+                    b.Navigation("Vendor");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.ApprovalWorkflow", "ApprovalWorkflow")
+                        .WithMany()
+                        .HasForeignKey("ApprovalWorkflowId");
+
+                    b.HasOne("Abs.FixedAssets.Models.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId");
+
+                    b.Navigation("ApprovalWorkflow");
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.AsnLine", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.AdvancedShippingNotice", "Asn")
+                        .WithMany("Lines")
+                        .HasForeignKey("AsnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Asn");
+
+                    b.Navigation("Item");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Asset", b =>
@@ -10220,6 +13414,17 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("LastInventoryList");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.AssetSensorReading", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetTaxSettings", b =>
                 {
                     b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
@@ -10289,9 +13494,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("CipProjectId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "MaintenanceEvent")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany()
-                        .HasForeignKey("MaintenanceEventId")
+                        .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Asset");
@@ -10306,7 +13511,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Navigation("CipProject");
 
-                    b.Navigation("MaintenanceEvent");
+                    b.Navigation("WorkOrder");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Book", b =>
@@ -10380,6 +13585,28 @@ namespace Abs.FixedAssets.Migrations
                         .IsRequired();
 
                     b.Navigation("Asset");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentModel", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
+                        .WithMany("Models")
+                        .HasForeignKey("EquipmentClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EquipmentClass");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.SensorProfile", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
+                        .WithMany("SensorProfiles")
+                        .HasForeignKey("EquipmentClassId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EquipmentClass");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CauseCode", b =>
@@ -10545,7 +13772,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("VendorInvoiceLineId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "WorkOrder")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany()
                         .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -10947,8 +14174,7 @@ namespace Abs.FixedAssets.Migrations
                 {
                     b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
                         .WithMany()
-                        .HasForeignKey("StatusLookupValueId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("StatusLookupValueId");
 
                     b.Navigation("StatusLookupValue");
                 });
@@ -11004,6 +14230,15 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("CurrentReleasedRevisionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Abs.FixedAssets.Models.Location", "DefaultLocationRef")
+                        .WithMany()
+                        .HasForeignKey("DefaultLocationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ReceiptProfile", "DefaultReceiptProfile")
+                        .WithMany()
+                        .HasForeignKey("DefaultReceiptProfileId");
+
                     b.HasOne("Abs.FixedAssets.Models.Manufacturer", "Manufacturer")
                         .WithMany()
                         .HasForeignKey("ManufacturerId")
@@ -11036,6 +14271,10 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("CostMethodLookupValue");
 
                     b.Navigation("CurrentReleasedRevision");
+
+                    b.Navigation("DefaultLocationRef");
+
+                    b.Navigation("DefaultReceiptProfile");
 
                     b.Navigation("Manufacturer");
 
@@ -11162,17 +14401,29 @@ namespace Abs.FixedAssets.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Abs.FixedAssets.Models.Location", "DefaultLocationRef")
+                        .WithMany()
+                        .HasForeignKey("DefaultLocationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Abs.FixedAssets.Models.Item", "Item")
-                        .WithMany("CompanyStockingSettings")
+                        .WithMany()
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Abs.FixedAssets.Models.Item", null)
+                        .WithMany("CompanyStockingSettings")
+                        .HasForeignKey("ItemId1");
+
                     b.HasOne("Abs.FixedAssets.Models.Vendor", "PreferredVendor")
                         .WithMany()
-                        .HasForeignKey("PreferredVendorId");
+                        .HasForeignKey("PreferredVendorId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Company");
+
+                    b.Navigation("DefaultLocationRef");
 
                     b.Navigation("Item");
 
@@ -11415,7 +14666,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "SourceWorkOrder")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "SourceWorkOrder")
                         .WithMany()
                         .HasForeignKey("SourceWorkOrderId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -11496,63 +14747,6 @@ namespace Abs.FixedAssets.Migrations
                         .IsRequired();
 
                     b.Navigation("Asset");
-                });
-
-            modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceEvent", b =>
-                {
-                    b.HasOne("Abs.FixedAssets.Models.User", "ApprovedBy")
-                        .WithMany()
-                        .HasForeignKey("ApprovedById");
-
-                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
-                        .WithMany("MaintenanceEvents")
-                        .HasForeignKey("AssetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Abs.FixedAssets.Models.CipProject", "CipProject")
-                        .WithMany()
-                        .HasForeignKey("CipProjectId");
-
-                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "PriorityLookupValue")
-                        .WithMany()
-                        .HasForeignKey("PriorityLookupValueId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Abs.FixedAssets.Models.User", "RequestedBy")
-                        .WithMany()
-                        .HasForeignKey("RequestedById");
-
-                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
-                        .WithMany()
-                        .HasForeignKey("StatusLookupValueId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Abs.FixedAssets.Models.Technician", "Technician")
-                        .WithMany("MaintenanceEvents")
-                        .HasForeignKey("TechnicianId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "TypeLookupValue")
-                        .WithMany()
-                        .HasForeignKey("TypeLookupValueId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("ApprovedBy");
-
-                    b.Navigation("Asset");
-
-                    b.Navigation("CipProject");
-
-                    b.Navigation("PriorityLookupValue");
-
-                    b.Navigation("RequestedBy");
-
-                    b.Navigation("StatusLookupValue");
-
-                    b.Navigation("Technician");
-
-                    b.Navigation("TypeLookupValue");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceSchedule", b =>
@@ -11649,9 +14843,9 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("SiteId");
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "WorkOrder")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany()
-                        .HasForeignKey("WorkOrderId");
+                        .HasForeignKey("WorkOrderId1");
 
                     b.Navigation("Company");
 
@@ -11807,6 +15001,387 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("DepreciationPolicy");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Bom", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialStructure", "MaterialStructure")
+                        .WithOne("Bom")
+                        .HasForeignKey("Abs.FixedAssets.Models.Production.Bom", "MaterialStructureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MaterialStructure");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.CutListLine", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialMaster", "MaterialMaster")
+                        .WithMany()
+                        .HasForeignKey("MaterialMasterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.Nest", "Nest")
+                        .WithMany()
+                        .HasForeignKey("NestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionOrder", "SourceProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("SourceProductionOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Item");
+
+                    b.Navigation("MaterialMaster");
+
+                    b.Navigation("Nest");
+
+                    b.Navigation("SourceProductionOrder");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructure", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialStructure", "MasterStructure")
+                        .WithMany()
+                        .HasForeignKey("MasterStructureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Item", "OutputItem")
+                        .WithMany()
+                        .HasForeignKey("OutputItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.RegulatoryProfile", "RegulatoryProfile")
+                        .WithMany()
+                        .HasForeignKey("RegulatoryProfileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MasterStructure");
+
+                    b.Navigation("OutputItem");
+
+                    b.Navigation("RegulatoryProfile");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructureLine", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialStructure", "MaterialStructure")
+                        .WithMany("Lines")
+                        .HasForeignKey("MaterialStructureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+
+                    b.Navigation("MaterialStructure");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Nest", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithOne("Nest")
+                        .HasForeignKey("Abs.FixedAssets.Models.Production.Nest", "ProductionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Item", "StockItem")
+                        .WithMany()
+                        .HasForeignKey("StockItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.StockReceipt", "StockReceipt")
+                        .WithMany()
+                        .HasForeignKey("StockReceiptId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ProductionBatch");
+
+                    b.Navigation("StockItem");
+
+                    b.Navigation("StockReceipt");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProcessBatch", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithOne("ProcessBatch")
+                        .HasForeignKey("Abs.FixedAssets.Models.Production.ProcessBatch", "ProductionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductionBatch");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatch", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "PrimaryEquipment")
+                        .WithMany()
+                        .HasForeignKey("PrimaryEquipmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MrbDisposition", "QuarantineDisposition")
+                        .WithMany()
+                        .HasForeignKey("QuarantineDispositionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.RecipeRevision", "RecipeRevision")
+                        .WithMany()
+                        .HasForeignKey("RecipeRevisionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("PrimaryEquipment");
+
+                    b.Navigation("QuarantineDisposition");
+
+                    b.Navigation("RecipeRevision");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchAllocation", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithMany("Allocations")
+                        .HasForeignKey("ProductionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrderOperation", "WorkOrderOperation")
+                        .WithMany()
+                        .HasForeignKey("WorkOrderOperationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductionBatch");
+
+                    b.Navigation("WorkOrderOperation");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Equipment")
+                        .WithMany()
+                        .HasForeignKey("EquipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithMany("EquipmentLinks")
+                        .HasForeignKey("ProductionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Equipment");
+
+                    b.Navigation("ProductionBatch");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchStateEvent", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.MrbDisposition", "MrbDisposition")
+                        .WithMany()
+                        .HasForeignKey("MrbDispositionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithMany("StateEvents")
+                        .HasForeignKey("ProductionBatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("MrbDisposition");
+
+                    b.Navigation("ProductionBatch");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionJobShopDetail", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.Nest", "NestPlan")
+                        .WithMany()
+                        .HasForeignKey("NestPlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionOrder", "ProductionOrder")
+                        .WithOne("JobShopDetail")
+                        .HasForeignKey("Abs.FixedAssets.Models.Production.ProductionJobShopDetail", "ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NestPlan");
+
+                    b.Navigation("ProductionOrder");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionOrder", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abs.FixedAssets.Models.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionOrder", "MasterProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("MasterProductionOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialStructure", "MaterialStructure")
+                        .WithMany()
+                        .HasForeignKey("MaterialStructureId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("MasterProductionOrder");
+
+                    b.Navigation("MaterialStructure");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Recipe", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Item", "IntermediateItem")
+                        .WithMany()
+                        .HasForeignKey("IntermediateItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialStructure", "MaterialStructure")
+                        .WithOne("Recipe")
+                        .HasForeignKey("Abs.FixedAssets.Models.Production.Recipe", "MaterialStructureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.RecipeRevision", "RecipeRevision")
+                        .WithMany()
+                        .HasForeignKey("RecipeRevisionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("IntermediateItem");
+
+                    b.Navigation("MaterialStructure");
+
+                    b.Navigation("RecipeRevision");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipePhase", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.Recipe", "Recipe")
+                        .WithMany("Phases")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipeRevision", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.RecipeRevision", "MasterRecipe")
+                        .WithMany()
+                        .HasForeignKey("MasterRecipeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("MasterRecipe");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Remnant", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Production.Nest", "ConsumedByNest")
+                        .WithMany()
+                        .HasForeignKey("ConsumedByNestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialMaster", "MaterialMaster")
+                        .WithMany()
+                        .HasForeignKey("MaterialMasterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.Nest", "ParentNest")
+                        .WithMany()
+                        .HasForeignKey("ParentNestId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.StockReceipt", "ParentReceipt")
+                        .WithMany()
+                        .HasForeignKey("ParentReceiptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ConsumedByNest");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("MaterialMaster");
+
+                    b.Navigation("ParentNest");
+
+                    b.Navigation("ParentReceipt");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.StockReceipt", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.MaterialMaster", "MaterialMaster")
+                        .WithMany()
+                        .HasForeignKey("MaterialMasterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Production.ReceiptProfile", "Profile")
+                        .WithMany()
+                        .HasForeignKey("ProfileId");
+
+                    b.HasOne("Abs.FixedAssets.Models.User", "ReceivedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReceivedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Location");
+
+                    b.Navigation("MaterialMaster");
+
+                    b.Navigation("Profile");
+
+                    b.Navigation("ReceivedByUser");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.ProjectManager", b =>
                 {
                     b.HasOne("Abs.FixedAssets.Models.CostCenter", "CostCenter")
@@ -11870,7 +15445,7 @@ namespace Abs.FixedAssets.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "WorkOrder")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany()
                         .HasForeignKey("WorkOrderId");
 
@@ -12252,6 +15827,100 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Technician");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AlarmRationalization", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Catalog.EquipmentClass", "EquipmentClass")
+                        .WithMany()
+                        .HasForeignKey("EquipmentClassId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("EquipmentClass");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AssetSensorLatest", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorAlarm", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.User", "AcknowledgedByUser")
+                        .WithMany()
+                        .HasForeignKey("AcknowledgedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Telemetry.AlarmRationalization", "Rationalization")
+                        .WithMany()
+                        .HasForeignKey("RationalizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.User", "ShelvedByUser")
+                        .WithMany()
+                        .HasForeignKey("ShelvedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AcknowledgedByUser");
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("Rationalization");
+
+                    b.Navigation("ShelvedByUser");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorEvent", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshot", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.User", "CapturedByUser")
+                        .WithMany()
+                        .HasForeignKey("CapturedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CapturedByUser");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.Telemetry.SensorSnapshot", "Snapshot")
+                        .WithMany("Values")
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("Snapshot");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.UsTaxSettings", b =>
                 {
                     b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
@@ -12407,6 +16076,76 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrder", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.User", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById");
+
+                    b.HasOne("Abs.FixedAssets.Models.Asset", "Asset")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Abs.FixedAssets.Models.CipProject", "CipProject")
+                        .WithMany()
+                        .HasForeignKey("CipProjectId");
+
+                    b.HasOne("Abs.FixedAssets.Models.FailureCode", "FailureCodeRef")
+                        .WithMany()
+                        .HasForeignKey("FailureCodeId");
+
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "MasterWorkOrder")
+                        .WithMany()
+                        .HasForeignKey("MasterWorkOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "PriorityLookupValue")
+                        .WithMany()
+                        .HasForeignKey("PriorityLookupValueId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.User", "RequestedBy")
+                        .WithMany()
+                        .HasForeignKey("RequestedById");
+
+                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
+                        .WithMany()
+                        .HasForeignKey("StatusLookupValueId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Technician", "Technician")
+                        .WithMany("WorkOrders")
+                        .HasForeignKey("TechnicianId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.LookupValue", "TypeLookupValue")
+                        .WithMany()
+                        .HasForeignKey("TypeLookupValueId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ApprovedBy");
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("CipProject");
+
+                    b.Navigation("FailureCodeRef");
+
+                    b.Navigation("MasterWorkOrder");
+
+                    b.Navigation("PriorityLookupValue");
+
+                    b.Navigation("RequestedBy");
+
+                    b.Navigation("StatusLookupValue");
+
+                    b.Navigation("Technician");
+
+                    b.Navigation("TypeLookupValue");
+                });
+
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperation", b =>
                 {
                     b.HasOne("Abs.FixedAssets.Models.Technician", "AssignedTechnician")
@@ -12417,9 +16156,19 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("CraftId");
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "MaintenanceEvent")
+                    b.HasOne("Abs.FixedAssets.Models.Production.ProductionBatch", "ProductionBatch")
+                        .WithMany()
+                        .HasForeignKey("ProductionBatchId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.Vendor", "Vendor")
+                        .WithMany()
+                        .HasForeignKey("VendorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany("Operations")
-                        .HasForeignKey("MaintenanceEventId")
+                        .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -12427,7 +16176,11 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Navigation("Craft");
 
-                    b.Navigation("MaintenanceEvent");
+                    b.Navigation("ProductionBatch");
+
+                    b.Navigation("Vendor");
+
+                    b.Navigation("WorkOrder");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperationLabor", b =>
@@ -12514,9 +16267,9 @@ namespace Abs.FixedAssets.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "MaintenanceEvent")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "WorkOrder")
                         .WithMany()
-                        .HasForeignKey("MaintenanceEventId")
+                        .HasForeignKey("WorkOrderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -12524,7 +16277,17 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Navigation("Item");
 
-                    b.Navigation("MaintenanceEvent");
+                    b.Navigation("WorkOrder");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval", b =>
+                {
+                    b.HasOne("Abs.FixedAssets.Models.User", "ApproverUser")
+                        .WithMany()
+                        .HasForeignKey("ApproverUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ApproverUser");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkRequest", b =>
@@ -12537,7 +16300,7 @@ namespace Abs.FixedAssets.Migrations
                         .WithMany()
                         .HasForeignKey("CompanyId");
 
-                    b.HasOne("Abs.FixedAssets.Models.MaintenanceEvent", "GeneratedWorkOrder")
+                    b.HasOne("Abs.FixedAssets.Models.WorkOrder", "GeneratedWorkOrder")
                         .WithMany()
                         .HasForeignKey("GeneratedWorkOrderId");
 
@@ -12551,8 +16314,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasOne("Abs.FixedAssets.Models.LookupValue", "StatusLookupValue")
                         .WithMany()
-                        .HasForeignKey("StatusLookupValueId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("StatusLookupValueId");
 
                     b.Navigation("Asset");
 
@@ -12562,9 +16324,14 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Navigation("Location");
 
-                    b.Navigation("StatusLookupValue");
-
                     b.Navigation("Site");
+
+                    b.Navigation("StatusLookupValue");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.AdvancedShippingNotice", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Asset", b =>
@@ -12577,11 +16344,11 @@ namespace Abs.FixedAssets.Migrations
 
                     b.Navigation("MachineSpecification");
 
-                    b.Navigation("MaintenanceEvents");
-
                     b.Navigation("TaxSettings");
 
                     b.Navigation("UsTaxSettings");
+
+                    b.Navigation("WorkOrders");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetCategory", b =>
@@ -12596,6 +16363,13 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("BookGlAccounts");
 
                     b.Navigation("PolicyCategoryDefaults");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentClass", b =>
+                {
+                    b.Navigation("Models");
+
+                    b.Navigation("SensorProfiles");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CcaClass", b =>
@@ -12745,11 +16519,6 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Values");
                 });
 
-            modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceEvent", b =>
-                {
-                    b.Navigation("Operations");
-                });
-
             modelBuilder.Entity("Abs.FixedAssets.Models.Manufacturer", b =>
                 {
                     b.Navigation("Assets");
@@ -12774,6 +16543,38 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("Revisions");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructure", b =>
+                {
+                    b.Navigation("Bom");
+
+                    b.Navigation("Lines");
+
+                    b.Navigation("Recipe");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatch", b =>
+                {
+                    b.Navigation("Allocations");
+
+                    b.Navigation("EquipmentLinks");
+
+                    b.Navigation("Nest");
+
+                    b.Navigation("ProcessBatch");
+
+                    b.Navigation("StateEvents");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionOrder", b =>
+                {
+                    b.Navigation("JobShopDetail");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Production.Recipe", b =>
+                {
+                    b.Navigation("Phases");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ProjectManager", b =>
@@ -12824,9 +16625,14 @@ namespace Abs.FixedAssets.Migrations
                 {
                     b.Navigation("Certifications");
 
-                    b.Navigation("MaintenanceEvents");
-
                     b.Navigation("Skills");
+
+                    b.Navigation("WorkOrders");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshot", b =>
+                {
+                    b.Navigation("Values");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Tenant", b =>
@@ -12860,6 +16666,11 @@ namespace Abs.FixedAssets.Migrations
             modelBuilder.Entity("Abs.FixedAssets.Models.WebhookSubscription", b =>
                 {
                     b.Navigation("DeliveryLogs");
+                });
+
+            modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrder", b =>
+                {
+                    b.Navigation("Operations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperation", b =>
