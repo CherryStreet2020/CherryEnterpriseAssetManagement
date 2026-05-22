@@ -226,106 +226,13 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddLaborAsync(int operationId, int? technicianId, decimal hours, decimal hourlyRate, string? notes)
         {
-            var companyId = GetCompanyId();
-            var operation = await _context.WorkOrderOperations
-                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (operation == null) return NotFound();
-
-            var labor = new WorkOrderOperationLabor
-            {
-                WorkOrderOperationId = operationId,
-                TechnicianId = technicianId,
-                WorkDate = DateTime.UtcNow.Date,
-                Hours = hours,
-                HourlyRate = hourlyRate,
-                Notes = notes?.ToUpper(),
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.WorkOrderOperationLabors.Add(labor);
-
-            operation.ActualHours += hours;
-
-            // PR #92: Post the GL impact of the labor entry. Pairs with PR #89's
-            // materials posting to complete the WO cost rollup — without this
-            // entry, the asset-level maintenance spend KPI undercounts every
-            // internally-staffed work order by the entire labor side. DR
-            // MaintenanceLabor (expense) / CR AccruedLabor (liability); the
-            // payroll subsystem clears AccruedLabor to Cash on the next pay
-            // cycle. If hours or rate is zero we skip — no GL impact and the
-            // PR #84 balance guard would refuse an empty entry anyway.
-            await PostLaborJournalEntryAsync(operation, labor);
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.WorkOrderId });
-        }
-
-        /// <summary>
-        /// PR #92 (DEF-N09 follow-up): Posts the journal entry for a labor
-        /// entry against a Work Order Operation:
-        ///   DR <see cref="GlAccountKind.MaintenanceLabor"/>
-        ///   CR <see cref="GlAccountKind.AccruedLabor"/>
-        /// Amount is <c>hours * hourlyRate</c>. Resolves accounts via the
-        /// ADR-003 cascade so per-company overrides are honored. The JE is
-        /// added to the ChangeTracker but not saved here — the caller's
-        /// SaveChanges flushes it alongside the WorkOrderOperationLabor in a
-        /// single transaction so they cannot diverge.
-        /// </summary>
-        private async Task<JournalEntry?> PostLaborJournalEntryAsync(WorkOrderOperation operation, WorkOrderOperationLabor labor)
-        {
-            if (labor.Hours <= 0m || labor.HourlyRate <= 0m) return null;
-            var amount = labor.Hours * labor.HourlyRate;
-            if (amount <= 0m) return null;
-
-            var resolvedCompanyId = operation.WorkOrder?.Asset?.CompanyId
-                ?? _tenantContext.CompanyId
-                ?? 0;
-            if (resolvedCompanyId == 0) return null;
-
-            var ctx = new GlResolveContext(
-                WorkOrderId: operation.WorkOrderId,
-                AssetId: operation.WorkOrder?.AssetId);
-            var laborAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceLabor, ctx);
-            var accruedAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.AccruedLabor, ctx);
-
-            var ticks = DateTime.UtcNow.Ticks;
-            var jeReference = $"WO-LBR-{operation.WorkOrderId}-op{operation.Id}-{ticks}";
-            var woNumber = operation.WorkOrder?.WorkOrderNumber ?? $"WO#{operation.WorkOrderId}";
-
-            var je = new JournalEntry
-            {
-                BookId = null,
-                Batch = jeReference,
-                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
-                PostingDate = DateTime.UtcNow.Date,
-                Source = "WO-LBR",
-                Reference = jeReference,
-                Description = $"Labor posted to {woNumber} (op {operation.Sequence}, {labor.Hours:0.00}h @ {labor.HourlyRate:C})",
-                CreatedUtc = DateTime.UtcNow,
-                Lines = new List<JournalLine>
-                {
-                    new JournalLine
-                    {
-                        LineNo = 1,
-                        Account = laborAccount,
-                        Description = $"Maintenance labor - {woNumber}",
-                        Debit = amount,
-                        Credit = 0m
-                    },
-                    new JournalLine
-                    {
-                        LineNo = 2,
-                        Account = accruedAccount,
-                        Description = $"Accrued labor - {woNumber}",
-                        Debit = 0m,
-                        Credit = amount
-                    }
-                }
-            };
-            _context.JournalEntries.Add(je);
-            return je;
+            // Sprint 12.9 PR #3.1 — delegated to IWorkOrderService (ADR-025 D5).
+            // Posts labor entry + WO-LBR JE (DR MaintenanceLabor / CR AccruedLabor).
+            var result = await _workOrderService.AddLaborAsync(
+                new AddLaborRequest(operationId, technicianId, hours, hourlyRate, notes),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostAddToolAsync(int operationId, string toolName, int quantityRequired, string? notes)
@@ -373,212 +280,24 @@ namespace Abs.FixedAssets.Pages.WorkOrders
         // ops chose the operation-level surface.
         public async Task<IActionResult> OnPostIssueOperationPartAsync(int operationPartId, decimal quantityIssue)
         {
-            var part = await _context.WorkOrderOperationParts
-                .Include(p => p.WorkOrderOperation)
-                    .ThenInclude(op => op!.WorkOrder)
-                        .ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == operationPartId
-                    && p.WorkOrderOperation != null
-                    && p.WorkOrderOperation.WorkOrder != null
-                    && p.WorkOrderOperation.WorkOrder.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (part == null) return NotFound();
-            var woId = part.WorkOrderOperation!.WorkOrderId;
-
-            if (quantityIssue <= 0) return RedirectToPage(new { id = woId });
-
-            // Same planned-vs-unplanned rule as WO-level: bounded by planned
-            // when planned > 0, otherwise extends planned to match (unplanned
-            // pull). Keeps the operation part counters internally consistent.
-            decimal actualIssue = quantityIssue;
-            if (part.QuantityPlanned > 0)
-            {
-                var maxIssuable = part.QuantityPlanned - part.QuantityIssued;
-                if (maxIssuable <= 0) return RedirectToPage(new { id = woId });
-                actualIssue = Math.Min(quantityIssue, maxIssuable);
-            }
-            else
-            {
-                part.QuantityPlanned += actualIssue;
-            }
-
-            part.QuantityIssued += actualIssue;
-            part.QuantityUsed = part.QuantityIssued - part.QuantityReturned;
-            part.IssuedAt = DateTime.UtcNow;
-            part.IssuedBy = User.Identity?.Name ?? "SYSTEM";
-
-            await ApplyOperationPartMovementAsync(part, actualIssue, isIssue: true);
-            await PostOperationPartJournalEntryAsync(part, actualIssue, isIssue: true);
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = woId });
+            // Sprint 12.9 PR #3.1 — delegated to IWorkOrderService (ADR-025 D5).
+            // Issues part + inventory movement + ItemTransaction + WO-ISS-OP JE.
+            var result = await _workOrderService.IssueOperationPartAsync(
+                new IssueOperationPartRequest(operationPartId, quantityIssue, User.Identity?.Name),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderOperation!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostReturnOperationPartAsync(int operationPartId, decimal quantityReturn)
         {
-            var part = await _context.WorkOrderOperationParts
-                .Include(p => p.WorkOrderOperation)
-                    .ThenInclude(op => op!.WorkOrder)
-                        .ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == operationPartId
-                    && p.WorkOrderOperation != null
-                    && p.WorkOrderOperation.WorkOrder != null
-                    && p.WorkOrderOperation.WorkOrder.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrderOperation.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (part == null) return NotFound();
-            var woId = part.WorkOrderOperation!.WorkOrderId;
-
-            if (quantityReturn <= 0) return RedirectToPage(new { id = woId });
-
-            var maxReturnable = part.QuantityIssued - part.QuantityReturned;
-            if (maxReturnable <= 0) return RedirectToPage(new { id = woId });
-            var actualReturn = Math.Min(quantityReturn, maxReturnable);
-
-            part.QuantityReturned += actualReturn;
-            part.QuantityUsed = Math.Max(0m, part.QuantityIssued - part.QuantityReturned);
-
-            await ApplyOperationPartMovementAsync(part, actualReturn, isIssue: false);
-            await PostOperationPartJournalEntryAsync(part, actualReturn, isIssue: false);
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = woId });
-        }
-
-        /// <summary>
-        /// Operation-part variant of <see cref="ApplyItemMovementAsync"/>.
-        /// Same inventory + ItemTransaction shape, but keyed off the
-        /// operation-part's IssuedFromLocationId and the WorkOrder
-        /// reached via the parent operation.
-        /// </summary>
-        private async Task<decimal?> ApplyOperationPartMovementAsync(WorkOrderOperationPart part, decimal qty, bool isIssue)
-        {
-            var sign = isIssue ? -1m : 1m;
-            var companyId = part.WorkOrderOperation?.WorkOrder?.Asset?.CompanyId ?? _tenantContext.CompanyId;
-            decimal? newOnHand = null;
-
-            if (part.IssuedFromLocationId.HasValue)
-            {
-                var inv = await _context.Set<ItemInventory>()
-                    .FirstOrDefaultAsync(i =>
-                        i.ItemId == part.ItemId &&
-                        i.LocationId == part.IssuedFromLocationId.Value &&
-                        i.CompanyId == companyId);
-                if (inv == null)
-                {
-                    inv = new ItemInventory
-                    {
-                        ItemId = part.ItemId,
-                        LocationId = part.IssuedFromLocationId.Value,
-                        CompanyId = companyId,
-                        QuantityOnHand = sign * qty,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Set<ItemInventory>().Add(inv);
-                }
-                else
-                {
-                    inv.QuantityOnHand += sign * qty;
-                    inv.UpdatedAt = DateTime.UtcNow;
-                    if (isIssue) inv.LastIssueDate = DateTime.UtcNow;
-                }
-                newOnHand = inv.QuantityOnHand;
-            }
-
-            var workOrderId = part.WorkOrderOperation?.WorkOrderId ?? 0;
-            _context.Set<ItemTransaction>().Add(new ItemTransaction
-            {
-                TransactionNumber = $"WO{workOrderId}-OP{part.WorkOrderOperationId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
-                ItemId = part.ItemId,
-                Type = isIssue ? TransactionType.Issue : TransactionType.Return,
-                Quantity = qty,
-                UnitCost = part.UnitCost,
-                FromLocationId = isIssue ? part.IssuedFromLocationId : null,
-                ToLocationId = isIssue ? null : part.IssuedFromLocationId,
-                LotNumber = part.LotNumber,
-                SerialNumber = part.SerialNumber
-            });
-            return newOnHand;
-        }
-
-        /// <summary>
-        /// Operation-part variant of <see cref="PostMaterialMovementJournalEntryAsync"/>.
-        /// Posts the same DR MaintenanceMaterials / CR Inventory pair (signs
-        /// reversed for returns), but uses a distinct <c>Source</c> code
-        /// (<c>WO-ISS-OP</c> / <c>WO-RTN-OP</c>) so downstream reports — the
-        /// Maintenance Spend report from PR #93 and the CloseoutService cost
-        /// rollup from PR #103 — can identify operation-scoped material moves
-        /// vs WO-header moves.
-        /// </summary>
-        private async Task<JournalEntry?> PostOperationPartJournalEntryAsync(WorkOrderOperationPart part, decimal qty, bool isIssue)
-        {
-            if (qty <= 0m) return null;
-            var amount = qty * part.UnitCost;
-            if (amount <= 0m) return null;
-
-            var maintenanceEvent = part.WorkOrderOperation?.WorkOrder;
-            var resolvedCompanyId = maintenanceEvent?.Asset?.CompanyId
-                ?? _tenantContext.CompanyId
-                ?? 0;
-            if (resolvedCompanyId == 0) return null;
-            var workOrderId = maintenanceEvent?.Id ?? 0;
-            var assetId = maintenanceEvent?.AssetId;
-
-            var ctx = new GlResolveContext(WorkOrderId: workOrderId, AssetId: assetId);
-            var materialsAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceMaterials, ctx);
-            var inventoryAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.Inventory, ctx);
-
-            var ticks = DateTime.UtcNow.Ticks;
-            var src = isIssue ? "WO-ISS-OP" : "WO-RTN-OP";
-            // Reference includes the WO id so the CloseoutService rollup (PR
-            // #103) — which sums by `Reference.StartsWith("WO-ISS-{woId}-")`
-            // and a parallel `WO-ISS-OP-{woId}-` prefix added in this PR —
-            // catches both header-level and operation-level material moves.
-            var jeReference = $"{src}-{workOrderId}-op{part.WorkOrderOperationId}-p{part.Id}-{ticks}";
-            var woNumber = maintenanceEvent?.WorkOrderNumber ?? $"WO#{workOrderId}";
-            var verb = isIssue ? "issued to" : "returned from";
-
-            var drAccount = isIssue ? materialsAccount : inventoryAccount;
-            var crAccount = isIssue ? inventoryAccount  : materialsAccount;
-
-            var je = new JournalEntry
-            {
-                BookId = null,
-                Batch = jeReference,
-                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
-                PostingDate = DateTime.UtcNow.Date,
-                Source = src,
-                Reference = jeReference,
-                Description = $"Operation-part materials {verb} {woNumber} op#{part.WorkOrderOperationId} (qty {qty} @ {part.UnitCost:C})",
-                CreatedUtc = DateTime.UtcNow,
-                Lines = new List<JournalLine>
-                {
-                    new JournalLine
-                    {
-                        LineNo = 1,
-                        Account = drAccount,
-                        Description = isIssue
-                            ? $"Op-part materials - {woNumber}"
-                            : $"Op-part inventory restored - {woNumber}",
-                        Debit = amount,
-                        Credit = 0m
-                    },
-                    new JournalLine
-                    {
-                        LineNo = 2,
-                        Account = crAccount,
-                        Description = isIssue
-                            ? $"Op-part inventory {verb} {woNumber}"
-                            : $"Op-part materials reversed - {woNumber}",
-                        Debit = 0m,
-                        Credit = amount
-                    }
-                }
-            };
-            _context.JournalEntries.Add(je);
-            return je;
+            // Sprint 12.9 PR #3.1 — delegated to IWorkOrderService (ADR-025 D5).
+            // Reverses inventory + WO-RTN-OP reversing JE.
+            var result = await _workOrderService.ReturnOperationPartAsync(
+                new ReturnOperationPartRequest(operationPartId, quantityReturn),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderOperation!.WorkOrderId });
         }
 
         // ==================== WO-LEVEL MATERIALS (WorkOrderPart) ====================

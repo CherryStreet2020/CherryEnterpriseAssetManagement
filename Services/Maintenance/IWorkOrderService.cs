@@ -73,6 +73,34 @@ public interface IWorkOrderService
     /// <c>StandardCost</c> as the planned unit cost.
     /// </summary>
     Task<Result<WorkOrderPart>> AddPlannedMaterialAsync(AddPlannedMaterialRequest request, CancellationToken ct);
+
+    // === Phase 2 (Sprint 12.9 PR #3.1) — operation-level JE-posting writes ===
+
+    /// <summary>
+    /// Record a labor entry against a work-order operation. Bumps the operation's
+    /// <c>ActualHours</c> and posts a balanced <c>WO-LBR</c> journal entry
+    /// (DR MaintenanceLabor / CR AccruedLabor) at the operation's resolved
+    /// company. Zero-hours or zero-rate entries skip the JE.
+    /// </summary>
+    Task<Result<WorkOrderOperation>> AddLaborAsync(AddLaborRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Issue an operation-level part. Decrements inventory at
+    /// <c>IssuedFromLocationId</c> (or creates the stock row if absent),
+    /// writes an <see cref="ItemTransaction"/> audit row, and posts a balanced
+    /// <c>WO-ISS-OP</c> journal entry (DR MaintenanceMaterials / CR Inventory)
+    /// at the part's <c>UnitCost</c>. Bounded by planned quantity when
+    /// planned &gt; 0; otherwise auto-extends planned to match (unplanned pull).
+    /// </summary>
+    Task<Result<WorkOrderOperationPart>> IssueOperationPartAsync(IssueOperationPartRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Return an operation-level part. Reverses the inventory movement +
+    /// posts a reversing <c>WO-RTN-OP</c> journal entry. Bounded by net
+    /// issued (<c>QuantityIssued - QuantityReturned</c>) — over-return
+    /// requests are silently capped.
+    /// </summary>
+    Task<Result<WorkOrderOperationPart>> ReturnOperationPartAsync(ReturnOperationPartRequest request, CancellationToken ct);
 }
 
 // === Request DTOs ===
@@ -109,3 +137,22 @@ public sealed record AddPlannedMaterialRequest(
     int ItemId,
     decimal QuantityPlanned,
     string? Notes);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.AddLaborAsync"/>.</summary>
+public sealed record AddLaborRequest(
+    int OperationId,
+    int? TechnicianId,
+    decimal Hours,
+    decimal HourlyRate,
+    string? Notes);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.IssueOperationPartAsync"/>.</summary>
+public sealed record IssueOperationPartRequest(
+    int OperationPartId,
+    decimal QuantityIssue,
+    string? IssuedBy);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.ReturnOperationPartAsync"/>.</summary>
+public sealed record ReturnOperationPartRequest(
+    int OperationPartId,
+    decimal QuantityReturn);
