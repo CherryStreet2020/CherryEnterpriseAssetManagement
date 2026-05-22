@@ -1,0 +1,207 @@
+@*
+    Sprint 12D PR #4 / ADR-022 §D4 — Chain-of-Custody Graph visualization.
+
+    Takes a ChainOfCustodyGraph model and renders an HTML container + a
+    cytoscape.js init script that draws the chain as an interactive graph
+    with a dagre top-to-bottom layout. Node coloring is by NodeType.
+
+    Q3 2026 swap to real Apache AGE leaves this partial untouched — the
+    chain comes in via the same shape regardless of backend.
+
+    Usage from any PageModel:
+        @await Html.PartialAsync("/Pages/Shared/Partials/_ChainOfCustodyGraph.cshtml", Model.Chain)
+
+    The container is keyed by a unique id so multiple chain renders on the
+    same page (e.g., upstream + downstream side-by-side) don't collide.
+*@
+
+@model Abs.FixedAssets.Services.ChainOfCustody.ChainOfCustodyGraph
+
+@{
+    var containerId = $"chain-of-custody-{Guid.NewGuid():N}";
+    var hopsJson = System.Text.Json.JsonSerializer.Serialize(
+        Model.Hops.Select(h => new {
+            id = h.NodeId,
+            type = h.NodeType,
+            entityId = h.EntityId,
+            label = h.Label,
+            depth = h.Depth,
+            incomingEdgeId = h.IncomingEdgeId,
+            incomingEdgeType = h.IncomingEdgeType
+        }).ToList());
+}
+
+<div class="pe-card" data-csp-style="margin-top:1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">
+            <span class="accent-dot accent-dot--green"></span>
+            Chain of Custody
+        </span>
+        <span class="status-badge info">@Model.Hops.Count node@(Model.Hops.Count == 1 ? "" : "s")</span>
+    </div>
+    <div class="pe-card__body">
+        @if (Model.Hops.Count == 0)
+        {
+            <div class="line-section__empty">
+                No chain-of-custody edges yet. The graph populates when typed services
+                emit edges (receiving, capitalization, AP approval, PO approval, item revision).
+            </div>
+        }
+        else
+        {
+            <div id="@containerId" data-csp-style="width:100%; height:480px; border:1px solid var(--cherry-border, #e5e5e5); border-radius:6px; background:#fafafa;"></div>
+            <div data-csp-style="margin-top:0.5rem; font-size:0.75rem; color:var(--cherry-muted, #666);">
+                Pan/zoom with mouse. Hover a node for detail. Layout: top→bottom (upstream chain).
+            </div>
+        }
+    </div>
+</div>
+
+@if (Model.Hops.Count > 0)
+{
+    @section Scripts {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js" defer></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js" defer></script>
+        <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js" defer></script>
+        <script defer>
+            (function () {
+                // Sprint 12D PR #4 — render the chain via cytoscape.js + dagre.
+                // The hops payload is rendered server-side as JSON. Edges are derived
+                // from each hop's IncomingEdgeId (skip the root which has none).
+                document.addEventListener('DOMContentLoaded', function () {
+                    if (typeof cytoscape === 'undefined' || typeof dagre === 'undefined') {
+                        console.warn('[chain-of-custody] cytoscape/dagre not loaded yet, retrying in 500ms');
+                        setTimeout(arguments.callee, 500);
+                        return;
+                    }
+                    if (typeof cytoscapeDagre !== 'undefined') {
+                        cytoscape.use(cytoscapeDagre);
+                    }
+
+                    var hops = @Html.Raw(hopsJson);
+                    if (!hops || hops.length === 0) return;
+
+                    // Build cytoscape elements: one node per hop + one edge per non-root hop.
+                    var nodes = hops.map(function (h) {
+                        return {
+                            data: {
+                                id: 'n' + h.id,
+                                label: h.label + '\n[' + h.type + ']',
+                                type: h.type,
+                                depth: h.depth,
+                                entityId: h.entityId
+                            }
+                        };
+                    });
+                    var edges = hops
+                        .filter(function (h) { return h.incomingEdgeId !== null; })
+                        .map(function (h) {
+                            // The incoming edge goes from parent (one of the earlier hops) to this hop.
+                            // The recursive CTE result rows are ordered by depth so the parent is
+                            // always already in the list. The edge metadata is implicit via depth.
+                            // We don't have the explicit parent node id in the row, but cytoscape
+                            // will resolve via the FromNodeId/ToNodeId convention if needed.
+                            // For demo purposes, link by adjacent depth.
+                            // (Future PR: include explicit FromNodeId in ChainHop record.)
+                            return null;
+                        })
+                        .filter(function (e) { return e !== null; });
+
+                    // Fall back: build edges from depth-adjacency where ParentNodeId isn't on
+                    // the hop record yet. For the demo this is sufficient; PR #6 polish can
+                    // extend ChainHop to include the parent linkage explicitly.
+                    var byDepth = {};
+                    hops.forEach(function (h) {
+                        if (!byDepth[h.depth]) byDepth[h.depth] = [];
+                        byDepth[h.depth].push(h);
+                    });
+                    var depthLevels = Object.keys(byDepth).map(Number).sort(function (a, b) { return a - b; });
+                    for (var i = 1; i < depthLevels.length; i++) {
+                        var parentDepth = depthLevels[i - 1];
+                        var childDepth = depthLevels[i];
+                        // Each child hop has an incomingEdgeType — use that as edge label.
+                        byDepth[childDepth].forEach(function (child) {
+                            // Pair each child to the first parent at the prior depth.
+                            // Visual approximation suitable for a ~20-node chain.
+                            var parent = byDepth[parentDepth][0];
+                            edges.push({
+                                data: {
+                                    id: 'e' + parent.id + '-' + child.id,
+                                    source: 'n' + parent.id,
+                                    target: 'n' + child.id,
+                                    label: child.incomingEdgeType || ''
+                                }
+                            });
+                        });
+                    }
+
+                    cytoscape({
+                        container: document.getElementById('@containerId'),
+                        elements: { nodes: nodes, edges: edges },
+                        layout: {
+                            name: typeof cytoscapeDagre !== 'undefined' ? 'dagre' : 'breadthfirst',
+                            rankDir: 'TB',
+                            nodeSep: 60,
+                            rankSep: 80,
+                            padding: 30
+                        },
+                        style: [
+                            {
+                                selector: 'node',
+                                style: {
+                                    'background-color': function (ele) {
+                                        var t = ele.data('type');
+                                        switch (t) {
+                                            case 'Receipt': return '#cf3339';
+                                            case 'PurchaseOrder': return '#1976d2';
+                                            case 'Vendor': return '#7b1fa2';
+                                            case 'Item': return '#388e3c';
+                                            case 'WorkOrder': return '#f57c00';
+                                            case 'CapitalImprovement': return '#0288d1';
+                                            case 'Asset': return '#5d4037';
+                                            case 'Invoice': return '#c2185b';
+                                            case 'GlEntry': return '#455a64';
+                                            case 'User': return '#00796b';
+                                            case 'ItemRevision': return '#9e9d24';
+                                            default: return '#90a4ae';
+                                        }
+                                    },
+                                    'label': 'data(label)',
+                                    'color': '#fff',
+                                    'text-valign': 'center',
+                                    'text-halign': 'center',
+                                    'text-wrap': 'wrap',
+                                    'text-max-width': '120px',
+                                    'font-size': '11px',
+                                    'font-weight': '500',
+                                    'width': '140px',
+                                    'height': '60px',
+                                    'shape': 'round-rectangle',
+                                    'border-width': 0
+                                }
+                            },
+                            {
+                                selector: 'edge',
+                                style: {
+                                    'curve-style': 'bezier',
+                                    'target-arrow-shape': 'triangle',
+                                    'target-arrow-color': '#9e9e9e',
+                                    'line-color': '#9e9e9e',
+                                    'width': 2,
+                                    'label': 'data(label)',
+                                    'color': '#555',
+                                    'font-size': '9px',
+                                    'text-background-color': '#fff',
+                                    'text-background-opacity': 1,
+                                    'text-background-padding': '2px',
+                                    'text-rotation': 'autorotate'
+                                }
+                            }
+                        ],
+                        wheelSensitivity: 0.2
+                    });
+                });
+            }());
+        </script>
+    }
+}
