@@ -175,6 +175,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.IWorkOrderServic
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingService,
     Abs.FixedAssets.Services.Purchasing.PurchasingService>();
 
+// ADR-025 D5 / Sprint 12.9 PR #5 — IItemMasterService extracts the 11 direct
+// SaveChangesAsync writes off Pages/Materials/ItemEdit.cshtml.cs into a typed
+// service (3rd-worst-offender refactor; pure CRUD — no JE/inventory).
+// De-risks Sprint 7-9 Item Master Expansion + 11-tab ItemEdit rewrite.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterService,
+    Abs.FixedAssets.Services.Items.ItemMasterService>();
+
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService>(
