@@ -152,7 +152,7 @@ public class ReceivingTenantScopeTests
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostService);
         var glResolver = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, outbox, new PassthroughIdempotencyMediator(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, outbox, new PassthroughIdempotencyMediator(), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup,
             new AllowAllPeriodGuard(), NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance,
