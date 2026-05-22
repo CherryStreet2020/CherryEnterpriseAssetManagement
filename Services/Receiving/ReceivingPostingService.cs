@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Infrastructure;
+using Abs.FixedAssets.Services.Posting;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
@@ -52,12 +55,13 @@ namespace Abs.FixedAssets.Services.Receiving
         Task<ReceivingPostingResult> PostRejectionReversalAsync(int goodsReceiptId);
     }
 
-    public class ReceivingPostingService : IReceivingPostingService
+    public class ReceivingPostingService : IReceivingPostingService, IPostingService<ReceiveGoodsRequest>
     {
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenantContext;
         private readonly IGlAccountResolver _glResolver;
         private readonly IOutboxWriter _outbox;
+        private readonly IIdempotencyMediator _idempotency;
         private readonly ILogger<ReceivingPostingService> _logger;
 
         public ReceivingPostingService(
@@ -65,13 +69,67 @@ namespace Abs.FixedAssets.Services.Receiving
             ITenantContext tenantContext,
             IGlAccountResolver glResolver,
             IOutboxWriter outbox,
+            IIdempotencyMediator idempotency,
             ILogger<ReceivingPostingService> logger)
         {
             _db = db;
             _tenantContext = tenantContext;
             _glResolver = glResolver;
             _outbox = outbox;
+            _idempotency = idempotency;
             _logger = logger;
+        }
+
+        // ADR-025 D2 — IPostingService<ReceiveGoodsRequest> implementation.
+        //
+        // Sprint 12.9 PR #2 — wraps the legacy PostReceiptAsync(int) entry point
+        // in the canonical contract: idempotency-keyed, Result-enveloped,
+        // CancellationToken-aware. Existing call sites continue to use the
+        // legacy method; new code paths (Receiving Control Center cockpit voice
+        // tools, Sprint 13/14 Control Centers) should call PostAsync.
+        //
+        // PostRejectionReversalAsync stays on IReceivingPostingService — it's a
+        // separate logical post operation. When that flow needs the IPostingService
+        // contract too, add a sibling IPostingService<RejectGoodsReversalRequest>
+        // implementation in a follow-up PR rather than overload PostAsync.
+        async Task<Result<PostingReceipt>> IPostingService<ReceiveGoodsRequest>.PostAsync(
+            ReceiveGoodsRequest source,
+            int actorUserId,
+            Guid idempotencyKey,
+            CancellationToken ct)
+        {
+            return await _idempotency.ExecuteAsync(
+                actorUserId,
+                idempotencyKey,
+                source,
+                async innerCt =>
+                {
+                    try
+                    {
+                        var legacy = await PostReceiptAsync(source.GoodsReceiptId);
+
+                        // Map ReceivingPostingResult → PostingReceipt envelope. The
+                        // legacy result records InventoryRowsTouched + TotalAccrued
+                        // (the credit side of the JE — Cr GR-Accrued). For posting
+                        // contract purposes, debits balance to TotalAccrued by
+                        // construction (every Dr line aggregates against the single
+                        // Cr GR-Accrued credit).
+                        var receipt = new PostingReceipt(
+                            JournalEntryId: legacy.JournalEntryId,
+                            LinesPosted: 0,
+                            TotalDebits: legacy.TotalAccrued,
+                            TotalCredits: legacy.TotalAccrued,
+                            WasReplay: false,
+                            AuditEventId: null);
+
+                        return Result.Success(receipt);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        return Result.Failure<PostingReceipt>(ex.Message);
+                    }
+                },
+                ct);
         }
 
         public async Task<ReceivingPostingResult> PostReceiptAsync(int goodsReceiptId)

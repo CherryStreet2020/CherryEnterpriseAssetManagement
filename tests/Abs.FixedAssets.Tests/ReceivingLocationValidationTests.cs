@@ -162,7 +162,7 @@ public class ReceivingLocationValidationTests
         var lookup = new LookupService(db, new MemoryCache(new MemoryCacheOptions()), NullLogger<LookupService>.Instance);
         var glResolver = new GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, outbox, NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var receivingPosting = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolver, outbox, new PassthroughIdempotencyMediator(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var cipCostSvc = new Abs.FixedAssets.Services.Cip.CipCostService(db, lookup, tenant);
         var cipAutoCost = new Abs.FixedAssets.Services.Cip.CipAutoCostPostingService(db, lookup, tenant, cipCostSvc);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
