@@ -106,12 +106,28 @@ public sealed class EmbeddingBackfillService : IEmbeddingBackfillService
         int succeeded = 0;
         foreach (var batch in leased.Chunk(VoyageBatchSize))
         {
+            var successfullyProcessedIds = new List<long>();
             try
             {
                 var texts = batch.Select(b => b.SourceText).ToList();
                 var vectors = await _voyage.EmbedDocumentsAsync(texts, ct);
 
-                // Upsert + delete queue rows in one transaction.
+                // PR #282 — Sprint 12C bootstrap-loss bug fix.
+                //
+                // Phase 1: stage the upsert intent in the EF change tracker
+                // for every row in the batch. UpsertEmbeddingAsync now checks
+                // .Local first so within-batch duplicate (EntityType, EntityId)
+                // keys collapse to ONE tracked entity (last write wins) instead
+                // of three Add() calls that violate the
+                // ix_embeddings_entity_model UNIQUE constraint on SaveChanges.
+                //
+                // Phase 2: flush the Embeddings change set.
+                //
+                // Phase 3 (ONLY on Phase 2 success): delete the corresponding
+                // PendingEmbeddings rows. The pre-fix code deleted BEFORE
+                // SaveChangesAsync, which meant a failed flush silently
+                // destroyed the queue rows (the bug that prevented Intent
+                // prototype seeding for the past two days).
                 for (int i = 0; i < batch.Length; i++)
                 {
                     var pending = batch[i];
@@ -126,13 +142,22 @@ public sealed class EmbeddingBackfillService : IEmbeddingBackfillService
 
                     var half = ToHalfVector(vector);
                     await UpsertEmbeddingAsync(pending, half, ct);
-
-                    _db.PendingEmbeddings
-                        .Where(p => p.Id == pending.Id)
-                        .ExecuteDelete();
-                    succeeded++;
+                    successfullyProcessedIds.Add(pending.Id);
                 }
+
+                // Phase 2 — flush Embeddings upserts before deleting queue rows.
                 await _db.SaveChangesAsync(ct);
+
+                // Phase 3 — only NOW remove the queue rows that successfully
+                // landed in Embeddings. If Phase 2 threw, we land in the catch
+                // block below and the queue rows survive for the next retry.
+                if (successfullyProcessedIds.Count > 0)
+                {
+                    await _db.PendingEmbeddings
+                        .Where(p => successfullyProcessedIds.Contains(p.Id))
+                        .ExecuteDeleteAsync(ct);
+                    succeeded += successfullyProcessedIds.Count;
+                }
             }
             catch (Exception ex)
             {
@@ -141,6 +166,8 @@ public sealed class EmbeddingBackfillService : IEmbeddingBackfillService
                     batch.Length);
 
                 // Bump Attempts + set LastError on all rows in the failed batch.
+                // Queue rows are intact because Phase 3 only deletes after a
+                // successful Phase 2.
                 var ids = batch.Select(b => b.Id).ToList();
                 foreach (var id in ids)
                 {
@@ -346,6 +373,28 @@ public sealed class EmbeddingBackfillService : IEmbeddingBackfillService
         HalfVector vector,
         CancellationToken ct)
     {
+        // PR #282 — Sprint 12C bootstrap-loss bug fix.
+        //
+        // BEFORE going to the database, check the EF change tracker. If a
+        // prior iteration in the SAME batch already staged an Add() for this
+        // (EntityType, EntityId, ModelVersion) tuple, mutate THAT entity
+        // instead of staging a second Add. Two Add()s with the same key
+        // would violate ix_embeddings_entity_model UNIQUE on SaveChanges,
+        // which is exactly what was silently destroying the 12-row Intent
+        // prototype batch on every restart (3 rows per IntentKind).
+        var localExisting = _db.Embeddings.Local.FirstOrDefault(e =>
+            e.EntityType == pending.EntityType &&
+            e.EntityId == pending.EntityId &&
+            e.ModelVersion == ModelVersion);
+
+        if (localExisting is not null)
+        {
+            localExisting.ContentHash = pending.ContentHash;
+            localExisting.Embedding_ = vector;
+            localExisting.SourceText = pending.SourceText;
+            return;
+        }
+
         var existing = await _db.Embeddings.FirstOrDefaultAsync(e =>
             e.EntityType == pending.EntityType &&
             e.EntityId == pending.EntityId &&
