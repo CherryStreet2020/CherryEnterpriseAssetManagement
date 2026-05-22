@@ -27,6 +27,7 @@ on:
       - 'Analyzers/**'
       - 'Helpers/ControlPlaneExemptAttribute.cs'
       - 'Abs.FixedAssets.csproj'
+      - 'scripts/audit-completeness-check.sh'
       - '.github/workflows/control-plane.yml'
   workflow_dispatch:
 
@@ -66,3 +67,12 @@ jobs:
         # patterns it's meant to catch (not just silently passing because
         # of an analyzer-load bug).
         run: dotnet test tests/Abs.FixedAssets.ControlPlaneAnalyzer.Tests/Abs.FixedAssets.ControlPlaneAnalyzer.Tests.csproj -c Release --no-restore --nologo --verbosity normal
+
+      - name: Audit-completeness ratchet (Sprint 12.9 PR #6)
+        # Enforces strict equality between Analyzers/.allowlist-ratchet and
+        # the actual non-comment, non-blank line count in
+        # Analyzers/ControlPlaneAllowlist.txt. Any PR that adds entries OR
+        # reduces entries without lowering the ratchet fails this step.
+        # Emits a Step Summary block with the trend (current count vs.
+        # 118-entry baseline).
+        run: bash scripts/audit-completeness-check.sh
