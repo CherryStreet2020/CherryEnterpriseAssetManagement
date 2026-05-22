@@ -168,6 +168,13 @@ builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Maintenance.IWorkOrderService,
     Abs.FixedAssets.Services.Maintenance.WorkOrderService>();
 
+// ADR-025 D5 / Sprint 12.9 PR #4 — IPurchasingService extracts the 12 direct
+// SaveChangesAsync writes off Pages/Purchasing/Details.cshtml.cs into a typed
+// service (2nd-worst-offender refactor; no JE/inventory complexity vs WO).
+// De-risks Sprint 13 Purchasing Control Center.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingService,
+    Abs.FixedAssets.Services.Purchasing.PurchasingService>();
+
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService>(
