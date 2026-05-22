@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Abs.FixedAssets.ControlPlane;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Revisions;
@@ -12,9 +13,16 @@ using Abs.FixedAssets.Services.Navigation;
 
 namespace Abs.FixedAssets.Pages.Materials;
 
+// Sprint 12.9 PR #5 — all 11 operational writes refactored to IItemMasterService.
+// AppDbContext is retained for read-path projections + tenant-scope guards per
+// ADR-025 D1. CHERRY025 analyzer is satisfied via this exempt attribute, NOT
+// via the allowlist (file removed from Analyzers/ControlPlaneAllowlist.txt
+// 116 → 115 in this PR).
+[ControlPlaneExempt("Sprint 12.9 PR #5 — all 11 operational writes refactored to IItemMasterService; remaining AppDbContext use is read-only projections + tenant-scope guards per ADR-025 D1.")]
 public class ItemEditModel : PageModel
 {
     private readonly AppDbContext _db;
+    private readonly IItemMasterService _itemMaster;
     private readonly IItemRevisionService _revisionService;
     private readonly IItemCrossReferenceService _crossRefService;
     private readonly IItemSourcingService _sourcingService;
@@ -28,8 +36,9 @@ public class ItemEditModel : PageModel
     private readonly ITenantContext _tenantContext;
     private readonly IModuleGuardService _moduleGuard;
 
-    public ItemEditModel(AppDbContext db, 
-        IItemRevisionService revisionService, 
+    public ItemEditModel(AppDbContext db,
+        IItemMasterService itemMaster,
+        IItemRevisionService revisionService,
         IItemCrossReferenceService crossRefService,
         IItemSourcingService sourcingService,
         IItemAlternateService alternateService,
@@ -44,6 +53,7 @@ public class ItemEditModel : PageModel
     {
             _moduleGuard = moduleGuard;
         _db = db;
+        _itemMaster = itemMaster;
         _revisionService = revisionService;
         _crossRefService = crossRefService;
         _sourcingService = sourcingService;
@@ -293,125 +303,78 @@ public class ItemEditModel : PageModel
             return RedirectToPage(new { id });
         }
 
-        var resolvedType = ItemType.Part;
-        if (typeLookupValueId.HasValue)
-        {
-            var lv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, typeLookupValueId.Value);
-            if (lv != null && int.TryParse(lv.Code, out var enumVal))
-                resolvedType = (ItemType)enumVal;
-        }
-
-        var resolvedStatus = ItemStatus.Active;
-        if (statusLookupValueId.HasValue)
-        {
-            var lv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, statusLookupValueId.Value);
-            if (lv != null && int.TryParse(lv.Code, out var enumVal))
-                resolvedStatus = (ItemStatus)enumVal;
-        }
-
-        var resolvedCostMethod = CostMethod.Average;
-        if (costMethodLookupValueId.HasValue)
-        {
-            var lv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, costMethodLookupValueId.Value);
-            if (lv != null && int.TryParse(lv.Code, out var enumVal))
-                resolvedCostMethod = (CostMethod)enumVal;
-        }
-
-        var resolvedTrackingType = TrackingType.None;
-        if (trackingTypeLookupValueId.HasValue)
-        {
-            var lv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, trackingTypeLookupValueId.Value);
-            if (lv != null && int.TryParse(lv.Code, out var enumVal))
-                resolvedTrackingType = (TrackingType)enumVal;
-        }
-
-        var visibleIds = _tenantContext.VisibleCompanyIds;
-
         if (id.HasValue && id.Value > 0)
         {
-            var existing = await _db.Items.Where(i => i.Id == id.Value && visibleIds.Contains(i.CompanyId ?? 0)).FirstOrDefaultAsync();
-            if (existing == null)
+            var result = await _itemMaster.UpdateItemAsync(new UpdateItemRequest(
+                ItemId: id.Value,
+                PartNumber: partNumber,
+                TypeLookupValueId: typeLookupValueId,
+                Description: description,
+                ExtendedDescription: extendedDescription,
+                StockUom: stockUom,
+                IsActive: isActive,
+                LeadTimeDays: leadTimeDays,
+                MinOrderQty: minOrderQty,
+                OrderMultiple: orderMultiple,
+                PurchaseUom: purchaseUom,
+                PackQty: packQty,
+                StockPolicy: stockPolicy,
+                LastPrice: lastPrice,
+                CurrencyCode: currencyCode,
+                PriceEffectiveDate: priceEffectiveDate,
+                ContractFlag: contractFlag,
+                ContractRef: contractRef,
+                StatusLookupValueId: statusLookupValueId,
+                CostMethodLookupValueId: costMethodLookupValueId,
+                TrackingTypeLookupValueId: trackingTypeLookupValueId,
+                StandardCost: standardCost,
+                DefaultLocationId: defaultLocationId), HttpContext.RequestAborted);
+
+            if (result.IsFailure)
             {
-                return NotFound();
+                if (string.Equals(result.Error, "Item not found in scope.", StringComparison.Ordinal))
+                    return NotFound();
+                ErrorMessage = result.Error;
+                return RedirectToPage(new { id });
             }
 
-            existing.Description = description;
-            existing.ExtendedDescription = extendedDescription;
-            existing.Type = resolvedType;
-            existing.TypeLookupValueId = typeLookupValueId;
-            existing.Status = resolvedStatus;
-            existing.StatusLookupValueId = statusLookupValueId;
-            existing.CostMethod = resolvedCostMethod;
-            existing.CostMethodLookupValueId = costMethodLookupValueId;
-            existing.TrackingType = resolvedTrackingType;
-            existing.TrackingTypeLookupValueId = trackingTypeLookupValueId;
-            existing.StockUOM = stockUom;
-            existing.IsActive = isActive;
-            
-            existing.LeadTimeDays = leadTimeDays ?? existing.LeadTimeDays;
-            existing.MinOrderQty = minOrderQty;
-            existing.OrderMultiple = orderMultiple;
-            existing.PurchaseUOM = purchaseUom ?? existing.PurchaseUOM;
-            existing.PackQty = packQty;
-            existing.StockPolicy = stockPolicy;
-            existing.LastPrice = lastPrice;
-            existing.CurrencyCode = currencyCode;
-            existing.PriceEffectiveDate = priceEffectiveDate;
-            existing.ContractFlag = contractFlag;
-            existing.ContractRef = contractRef;
-            existing.DefaultLocationId = defaultLocationId;
-            if (standardCost.HasValue)
-                existing.StandardCost = standardCost.Value;
-
-            await _db.SaveChangesAsync();
             SuccessMessage = "Item updated successfully.";
-            return RedirectToPage(new { id = existing.Id });
+            return RedirectToPage(new { id = result.Value!.Id });
         }
         else
         {
-            var existingPn = await _db.Items.Where(i => visibleIds.Contains(i.CompanyId ?? 0)).AnyAsync(i => i.PartNumber.ToLower() == partNumber.ToLower());
-            if (existingPn)
+            var result = await _itemMaster.CreateItemAsync(new CreateItemRequest(
+                PartNumber: partNumber,
+                TypeLookupValueId: typeLookupValueId,
+                Description: description,
+                ExtendedDescription: extendedDescription,
+                StockUom: stockUom,
+                IsActive: isActive,
+                LeadTimeDays: leadTimeDays,
+                MinOrderQty: minOrderQty,
+                OrderMultiple: orderMultiple,
+                PurchaseUom: purchaseUom,
+                PackQty: packQty,
+                StockPolicy: stockPolicy,
+                LastPrice: lastPrice,
+                CurrencyCode: currencyCode,
+                PriceEffectiveDate: priceEffectiveDate,
+                ContractFlag: contractFlag,
+                ContractRef: contractRef,
+                StatusLookupValueId: statusLookupValueId,
+                CostMethodLookupValueId: costMethodLookupValueId,
+                TrackingTypeLookupValueId: trackingTypeLookupValueId,
+                StandardCost: standardCost,
+                DefaultLocationId: defaultLocationId), HttpContext.RequestAborted);
+
+            if (result.IsFailure)
             {
-                ErrorMessage = "An item with this Part Number already exists.";
+                ErrorMessage = result.Error;
                 return RedirectToPage();
             }
 
-            var newItem = new Item
-            {
-                PartNumber = partNumber,
-                Description = description,
-                ExtendedDescription = extendedDescription,
-                Type = resolvedType,
-                TypeLookupValueId = typeLookupValueId,
-                Status = resolvedStatus,
-                StatusLookupValueId = statusLookupValueId,
-                CostMethod = resolvedCostMethod,
-                CostMethodLookupValueId = costMethodLookupValueId,
-                TrackingType = resolvedTrackingType,
-                TrackingTypeLookupValueId = trackingTypeLookupValueId,
-                StockUOM = stockUom,
-                IsActive = isActive,
-                LeadTimeDays = leadTimeDays ?? 0,
-                MinOrderQty = minOrderQty,
-                OrderMultiple = orderMultiple,
-                PurchaseUOM = purchaseUom!,
-                PackQty = packQty,
-                StockPolicy = stockPolicy,
-                LastPrice = lastPrice,
-                CurrencyCode = currencyCode ?? "USD",
-                PriceEffectiveDate = priceEffectiveDate,
-                ContractFlag = contractFlag,
-                ContractRef = contractRef,
-                StandardCost = standardCost ?? 0,
-                DefaultLocationId = defaultLocationId,
-                CompanyId = _tenantContext.CompanyId
-            };
-
-            _db.Items.Add(newItem);
-            await _db.SaveChangesAsync();
-
             SuccessMessage = "Item created successfully.";
-            return RedirectToPage(new { id = newItem.Id });
+            return RedirectToPage(new { id = result.Value!.Id });
         }
     }
 
@@ -465,26 +428,15 @@ public class ItemEditModel : PageModel
     {
         try
         {
-            var visibleIds = _tenantContext.VisibleCompanyIds;
-            var revision = await _db.ItemRevisions.Include(r => r.Item).Where(r => r.Id == revisionId && r.Item != null && visibleIds.Contains(r.Item.CompanyId ?? 0)).FirstOrDefaultAsync();
-            if (revision == null)
+            var result = await _itemMaster.SaveRevisionAsync(
+                new SaveRevisionRequest(revisionId, revisionCode, name, description, changeReason),
+                HttpContext.RequestAborted);
+            if (result.IsFailure)
             {
-                ErrorMessage = "Revision not found.";
+                ErrorMessage = result.Error;
                 return RedirectToPage();
             }
-            
-            if (revision.Status != RevisionStatus.Draft)
-            {
-                ErrorMessage = "Only draft revisions can be edited.";
-                return RedirectToPage(new { id = revision.ItemId, tab = "revisions", revId = revisionId });
-            }
-            
-            revision.RevisionCode = revisionCode;
-            revision.Name = name;
-            revision.Description = description;
-            revision.ChangeReason = changeReason;
-            
-            await _db.SaveChangesAsync();
+            var revision = result.Value!;
             SuccessMessage = $"Revision {revision.RevisionCode} saved.";
             return RedirectToPage(new { id = revision.ItemId, tab = "revisions", revId = revisionId });
         }
@@ -499,42 +451,13 @@ public class ItemEditModel : PageModel
     {
         try
         {
-            var visibleIds = _tenantContext.VisibleCompanyIds;
-            var revision = await _db.ItemRevisions
-                .Include(r => r.Item)
-                .Where(r => r.Id == revisionId && r.Item != null && visibleIds.Contains(r.Item.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (revision == null)
+            var result = await _itemMaster.ObsoleteRevisionAsync(revisionId, HttpContext.RequestAborted);
+            if (result.IsFailure)
             {
-                ErrorMessage = "Revision not found.";
+                ErrorMessage = result.Error;
                 return RedirectToPage();
             }
-            
-            if (revision.Status == RevisionStatus.Draft)
-            {
-                ErrorMessage = "Cannot obsolete a draft. Delete it instead.";
-                return RedirectToPage(new { id = revision.ItemId, tab = "revisions", revId = revisionId });
-            }
-            
-            // Guard: cannot obsolete the current released revision
-            if (revision.Item?.CurrentReleasedRevisionId == revisionId)
-            {
-                ErrorMessage = "Cannot obsolete the current released revision. Release a new revision first.";
-                return RedirectToPage(new { id = revision.ItemId, tab = "revisions", revId = revisionId });
-            }
-            
-            revision.Status = RevisionStatus.Obsolete;
-            // Keep the FK column in sync with the legacy enum write.
-            var obsoleteLv = await _lookupService.GetValueByCodeAsync(
-                _tenantContext.TenantId, _tenantContext.CompanyId,
-                "RevisionStatus", ((int)RevisionStatus.Obsolete).ToString());
-            if (obsoleteLv != null)
-                revision.StatusLookupValueId = obsoleteLv.Id;
-
-            revision.ObsoletedAtUtc = DateTime.UtcNow;
-            revision.EffectiveToUtc = DateTime.UtcNow;
-
-            await _db.SaveChangesAsync();
+            var revision = result.Value!;
             SuccessMessage = $"Revision {revision.RevisionCode} marked obsolete.";
             return RedirectToPage(new { id = revision.ItemId, tab = "revisions" });
         }
@@ -544,30 +467,19 @@ public class ItemEditModel : PageModel
             return RedirectToPage();
         }
     }
-    
+
     public async Task<IActionResult> OnPostDeleteRevisionAsync(int revisionId)
     {
         try
         {
-            var visibleIds = _tenantContext.VisibleCompanyIds;
-            var revision = await _db.ItemRevisions.Include(r => r.Item).Where(r => r.Id == revisionId && r.Item != null && visibleIds.Contains(r.Item.CompanyId ?? 0)).FirstOrDefaultAsync();
-            if (revision == null)
+            var result = await _itemMaster.DeleteDraftRevisionAsync(revisionId, HttpContext.RequestAborted);
+            if (result.IsFailure)
             {
-                ErrorMessage = "Revision not found.";
+                ErrorMessage = result.Error;
                 return RedirectToPage();
             }
-            
-            if (revision.Status != RevisionStatus.Draft)
-            {
-                ErrorMessage = "Only draft revisions can be deleted.";
-                return RedirectToPage(new { id = revision.ItemId, tab = "revisions" });
-            }
-            
-            var itemId = revision.ItemId;
-            _db.ItemRevisions.Remove(revision);
-            await _db.SaveChangesAsync();
             SuccessMessage = "Draft revision deleted.";
-            return RedirectToPage(new { id = itemId, tab = "revisions" });
+            return RedirectToPage(new { id = result.Value, tab = "revisions" });
         }
         catch (Exception ex)
         {
@@ -597,15 +509,18 @@ public class ItemEditModel : PageModel
         try
         {
             var vpn = await _crossRefService.AddVpnAsync(itemId, vendorId, vendorPartNumber, mpnId, User.Identity?.Name);
-            // Update catalog/image URLs if provided
-            if (!string.IsNullOrEmpty(catalogUrl) || !string.IsNullOrEmpty(datasheetUrl) || !string.IsNullOrEmpty(externalImageUrl))
+            // Update catalog/image URLs if provided — via service per ADR-025.
+            var urlResult = await _itemMaster.SetVpnUrlsAsync(
+                new SetVpnUrlsRequest(vpn.Id, catalogUrl, datasheetUrl, externalImageUrl),
+                HttpContext.RequestAborted);
+            if (urlResult.IsFailure)
             {
-                vpn.CatalogUrl = ValidateHttpsUrl(catalogUrl);
-                vpn.DatasheetUrl = ValidateHttpsUrl(datasheetUrl);
-                vpn.ExternalImageUrl = ValidateHttpsUrl(externalImageUrl);
-                await _db.SaveChangesAsync();
+                ErrorMessage = urlResult.Error;
             }
-            SuccessMessage = $"VPN {vpn.VendorPartNumber} added successfully.";
+            else
+            {
+                SuccessMessage = $"VPN {vpn.VendorPartNumber} added successfully.";
+            }
         }
         catch (Exception ex)
         {
@@ -760,8 +675,12 @@ public class ItemEditModel : PageModel
             return RedirectToPage(new { id = itemId });
         }
 
-        item.ImagePath = newPath;
-        await _db.SaveChangesAsync();
+        var setResult = await _itemMaster.SetItemImagePathAsync(itemId, newPath, HttpContext.RequestAborted);
+        if (setResult.IsFailure)
+        {
+            ErrorMessage = setResult.Error;
+            return RedirectToPage(new { id = itemId });
+        }
         SuccessMessage = "Image uploaded successfully.";
         return RedirectToPage(new { id = itemId });
     }
@@ -774,8 +693,12 @@ public class ItemEditModel : PageModel
             return NotFound();
 
         _imageService.DeleteImage(item.ImagePath);
-        item.ImagePath = null;
-        await _db.SaveChangesAsync();
+        var clearResult = await _itemMaster.ClearItemImagePathAsync(itemId, HttpContext.RequestAborted);
+        if (clearResult.IsFailure)
+        {
+            ErrorMessage = clearResult.Error;
+            return RedirectToPage(new { id = itemId });
+        }
         SuccessMessage = "Image removed.";
         return RedirectToPage(new { id = itemId });
     }
@@ -800,30 +723,30 @@ public class ItemEditModel : PageModel
             return RedirectToPage(new { id = itemId });
         }
 
-        var result = await _enrichmentService.EnrichFromUrlAsync(catalogUrl);
-        vpn.LastEnrichedUtc = DateTime.UtcNow;
-        vpn.LastEnrichStatus = result.Status;
+        var enrich = await _enrichmentService.EnrichFromUrlAsync(catalogUrl);
 
-        if (result.Status == "Success" || result.Status == "NoMetadata")
+        var applyResult = await _itemMaster.ApplyVpnEnrichmentAsync(
+            new ApplyVpnEnrichmentRequest(
+                VpnId: vpnId,
+                Status: enrich.Status,
+                CanonicalUrl: enrich.CanonicalUrl,
+                ImageUrl: enrich.ImageUrl,
+                Mpn: enrich.Mpn,
+                Sku: enrich.Sku),
+            HttpContext.RequestAborted);
+
+        if (applyResult.IsFailure)
         {
-            if (!string.IsNullOrEmpty(result.CanonicalUrl))
-                vpn.CatalogUrl = result.CanonicalUrl;
-            if (!string.IsNullOrEmpty(result.ImageUrl))
-                vpn.ExternalImageUrl = result.ImageUrl;
-            if (!string.IsNullOrEmpty(result.Mpn))
-                vpn.ExtractedMpn = result.Mpn;
-            if (!string.IsNullOrEmpty(result.Sku))
-                vpn.ExtractedSku = result.Sku;
+            ErrorMessage = applyResult.Error;
+            return RedirectToPage(new { id = itemId });
         }
 
-        await _db.SaveChangesAsync();
-
-        if (result.Status == "Success")
+        if (enrich.Status == "Success")
             SuccessMessage = "Catalog metadata enriched successfully.";
-        else if (result.Status == "NoMetadata")
+        else if (enrich.Status == "NoMetadata")
             SuccessMessage = "Enrichment complete but no structured metadata found on the page.";
         else
-            ErrorMessage = $"Enrichment failed: {result.ErrorMessage ?? result.Status}";
+            ErrorMessage = $"Enrichment failed: {enrich.ErrorMessage ?? enrich.Status}";
 
         return RedirectToPage(new { id = itemId });
     }
@@ -831,36 +754,30 @@ public class ItemEditModel : PageModel
     public async Task<IActionResult> OnPostUpdateVpnCatalogAsync(int itemId, int vpnId, string? catalogUrl, string? imageUrl)
     {
         if (await LoadItemInScopeAsync(itemId) == null) return NotFound();
-        var vpn = await _db.Set<VendorItemPart>().Where(v => v.Id == vpnId && v.ItemId == itemId).FirstOrDefaultAsync();
-        if (vpn == null)
-            return NotFound();
-
-        vpn.CatalogUrl = ValidateHttpsUrl(catalogUrl);
-        if (!string.IsNullOrEmpty(imageUrl))
-            vpn.ExternalImageUrl = ValidateHttpsUrl(imageUrl);
-        vpn.UpdatedAtUtc = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
+        var result = await _itemMaster.UpdateVpnCatalogInfoAsync(
+            new UpdateVpnCatalogRequest(itemId, vpnId, catalogUrl, imageUrl),
+            HttpContext.RequestAborted);
+        if (result.IsFailure)
+        {
+            if (string.Equals(result.Error, "VendorItemPart not found.", StringComparison.Ordinal))
+                return NotFound();
+            ErrorMessage = result.Error;
+            return RedirectToPage(new { id = itemId });
+        }
         SuccessMessage = "Vendor part catalog info updated.";
         return RedirectToPage(new { id = itemId });
     }
 
     public async Task<IActionResult> OnPostCopyExternalImageAsync(int itemId, int vpnId)
     {
-        var visibleIds = _tenantContext.VisibleCompanyIds;
-        var item = await _db.Items.Where(i => i.Id == itemId && visibleIds.Contains(i.CompanyId ?? 0)).FirstOrDefaultAsync();
-        var vpn = await _db.Set<VendorItemPart>().Where(v => v.Id == vpnId && v.ItemId == itemId).FirstOrDefaultAsync();
-        if (item == null || vpn == null)
-            return NotFound();
-
-        var externalUrl = vpn.ExternalImageUrl ?? vpn.ImageUrl;
-        if (string.IsNullOrEmpty(externalUrl))
+        var result = await _itemMaster.SetItemExternalImageFromVpnAsync(itemId, vpnId, HttpContext.RequestAborted);
+        if (result.IsFailure)
         {
-            ErrorMessage = "No external image URL available to copy.";
+            if (string.Equals(result.Error, "Item or VendorItemPart not found.", StringComparison.Ordinal))
+                return NotFound();
+            ErrorMessage = result.Error;
             return RedirectToPage(new { id = itemId });
         }
-
-        item.ExternalImageUrl = externalUrl;
-        await _db.SaveChangesAsync();
         SuccessMessage = "External image URL set as item fallback image.";
         return RedirectToPage(new { id = itemId });
     }
