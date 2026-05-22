@@ -178,6 +178,10 @@ public sealed class ChainOfCustodyService : IChainOfCustodyService
             ? ("e.\"ToNodeId\"   = chain.\"Id\"", "e.\"FromNodeId\"")
             : ("e.\"FromNodeId\" = chain.\"Id\"", "e.\"ToNodeId\"");
 
+        // Sprint 12D PR #6 — added "IncomingFromNodeId" column (the parent
+        // ChainNode.Id we recursed FROM). NULL on anchor row, populated on
+        // every recursive row. Replaces depth-adjacency fallback in the
+        // cytoscape partial.
         var sql = $@"
             WITH RECURSIVE chain AS (
                 SELECT
@@ -190,6 +194,7 @@ public sealed class ChainOfCustodyService : IChainOfCustodyService
                     CAST(NULL AS BIGINT)  AS ""IncomingEdgeId"",
                     CAST(NULL AS VARCHAR) AS ""IncomingEdgeType"",
                     CAST(NULL AS JSONB)   AS ""EdgeMetadata"",
+                    CAST(NULL AS BIGINT)  AS ""IncomingFromNodeId"",
                     ARRAY[n.""Id""]       AS path
                 FROM ""ChainNodes"" n
                 WHERE n.""Id"" = {{0}}
@@ -204,6 +209,7 @@ public sealed class ChainOfCustodyService : IChainOfCustodyService
                     e.""Id""        AS ""IncomingEdgeId"",
                     e.""EdgeType""  AS ""IncomingEdgeType"",
                     e.""Metadata""  AS ""EdgeMetadata"",
+                    chain.""Id""    AS ""IncomingFromNodeId"",
                     chain.path || nn.""Id""
                 FROM chain
                 JOIN ""ChainEdges"" e ON {joinOn}
@@ -213,7 +219,7 @@ public sealed class ChainOfCustodyService : IChainOfCustodyService
             )
             SELECT ""Id"", ""NodeType"", ""EntityId"", ""Label"", ""Depth"",
                    ""IncomingEdgeId"", ""IncomingEdgeType"",
-                   ""NodeMetadata"", ""EdgeMetadata""
+                   ""NodeMetadata"", ""EdgeMetadata"", ""IncomingFromNodeId""
             FROM chain
             ORDER BY ""Depth"", ""Id"";
         ";
@@ -237,15 +243,16 @@ public sealed class ChainOfCustodyService : IChainOfCustodyService
             while (await rdr.ReadAsync(ct))
             {
                 hops.Add(new ChainHop(
-                    NodeId:           rdr.GetInt64(0),
-                    NodeType:         rdr.GetString(1),
-                    EntityId:         rdr.GetInt64(2),
-                    Label:            rdr.GetString(3),
-                    Depth:            rdr.GetInt32(4),
-                    IncomingEdgeId:   rdr.IsDBNull(5) ? null : rdr.GetInt64(5),
-                    IncomingEdgeType: rdr.IsDBNull(6) ? null : rdr.GetString(6),
-                    NodeMetadata:     rdr.IsDBNull(7) ? null : JsonDocument.Parse(rdr.GetString(7)),
-                    EdgeMetadata:     rdr.IsDBNull(8) ? null : JsonDocument.Parse(rdr.GetString(8))));
+                    NodeId:             rdr.GetInt64(0),
+                    NodeType:           rdr.GetString(1),
+                    EntityId:           rdr.GetInt64(2),
+                    Label:              rdr.GetString(3),
+                    Depth:              rdr.GetInt32(4),
+                    IncomingEdgeId:     rdr.IsDBNull(5) ? null : rdr.GetInt64(5),
+                    IncomingEdgeType:   rdr.IsDBNull(6) ? null : rdr.GetString(6),
+                    NodeMetadata:       rdr.IsDBNull(7) ? null : JsonDocument.Parse(rdr.GetString(7)),
+                    EdgeMetadata:       rdr.IsDBNull(8) ? null : JsonDocument.Parse(rdr.GetString(8)),
+                    IncomingFromNodeId: rdr.IsDBNull(9) ? null : rdr.GetInt64(9)));
             }
         }
         finally

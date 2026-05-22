@@ -107,4 +107,12 @@ public sealed record ChainHop(
     long? IncomingEdgeId,
     string? IncomingEdgeType,
     JsonDocument? NodeMetadata,
-    JsonDocument? EdgeMetadata);
+    JsonDocument? EdgeMetadata,
+    // Sprint 12D PR #6 — explicit parent linkage to replace depth-adjacency
+    // fallback in cytoscape viz. NULL on the anchor (depth=0); on every
+    // recursive row it points to the ChainNode.Id we recursed FROM. For
+    // upstream traversal this is the downstream-side node (the child in
+    // the rendered tree); for downstream it's the upstream-side node.
+    // The cytoscape viz uses this to draw exact parent→child edges
+    // instead of pairing children to the first parent at depth−1.
+    long? IncomingFromNodeId = null);

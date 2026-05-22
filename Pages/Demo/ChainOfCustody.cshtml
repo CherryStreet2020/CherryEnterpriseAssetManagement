@@ -1,0 +1,216 @@
+@page "{id:int?}"
+@*
+    Sprint 12D PR #6 / ADR-022 §D4 — "Machine Event → General Ledger" demo
+    walkthrough. The narrative spine of the June 3 EVS pitch.
+
+    Picks a Receipt (?id query string or auto-selects the most-recent
+    receipt with chain edges), then renders BOTH upstream + downstream
+    chains side-by-side, with a numbered narration of every edge.
+
+    Cross-refs:
+      - _ChainOfCustodyGraph.cshtml      — reusable cytoscape partial (PR #4)
+      - Pages/Receiving/Details.cshtml   — voice-trigger + per-receipt chain (PRs #4 + #5)
+      - VoiceInvokeEndpoint.cs           — ExplainChainOfCustody handler (PR #5)
+*@
+@model Abs.FixedAssets.Pages.Demo.ChainOfCustodyModel
+@{
+    ViewData["Title"] = "Chain of Custody Walkthrough";
+    ViewData["TabTitle"] = "Machine Event → General Ledger";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+}
+
+<div class="pe-card" data-csp-style="margin-top:1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">
+            <span class="accent-dot accent-dot--red"></span>
+            Machine Event → General Ledger
+        </span>
+        <span class="status-badge info">Sprint 12D · ADR-022</span>
+    </div>
+    <div class="pe-card__body">
+        <p data-csp-style="margin:0 0 .5rem 0; font-size:.9rem; color:var(--cherry-muted,#555);">
+            The chain-of-evidence story from raw material to financial entry.
+            One query traces a goods receipt upstream to its purchase order,
+            vendor, item master, and material certs &mdash; and downstream to
+            its work order, capitalized asset, AP invoice, and posted GL entry.
+        </p>
+        <p data-csp-style="margin:0; font-size:.85rem; color:var(--cherry-muted,#666); font-style:italic;">
+            Zero Tier-1 ERPs ship this end-to-end in a single graph query. Every
+            edge in the chain is emitted by a typed write service (Sprint 12.9 control
+            plane) and traversed via Postgres recursive CTE (PR #2, the Q3-swap target
+            for real Apache AGE).
+        </p>
+    </div>
+</div>
+
+@* Picker — receipts in the tenant that have at least one chain edge *@
+@if (Model.CandidateReceipts.Count > 0)
+{
+    <div class="pe-card" data-csp-style="margin-top:1rem;">
+        <div class="pe-card__header">
+            <span class="pe-card__title">
+                <span class="accent-dot accent-dot--blue"></span>
+                Pick a receipt to walk through
+            </span>
+            <span class="status-badge neutral">@Model.CandidateReceipts.Count candidate@(Model.CandidateReceipts.Count == 1 ? "" : "s")</span>
+        </div>
+        <div class="pe-card__body">
+            <form method="get" data-csp-style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+                <label for="receipt-picker" data-csp-style="font-size:.85rem; font-weight:500;">Receipt:</label>
+                <select id="receipt-picker" name="id" data-csp-style="padding:.4rem .6rem; border:1px solid var(--cherry-border,#ddd); border-radius:4px; min-width:280px;">
+                    @foreach (var r in Model.CandidateReceipts)
+                    {
+                        var selected = Model.ReceiptId == r.Id ? "selected" : null;
+                        var label = r.ReceiptNumber
+                            + (string.IsNullOrEmpty(r.VendorName) ? "" : $" — {r.VendorName}")
+                            + (string.IsNullOrEmpty(r.PurchaseOrderNumber) ? "" : $" ({r.PurchaseOrderNumber})")
+                            + $" — {r.ReceiptDate:yyyy-MM-dd}";
+                        <option value="@r.Id" selected="@selected">@label</option>
+                    }
+                </select>
+                <button type="submit" class="btn btn-primary btn-sm">Load chain</button>
+            </form>
+        </div>
+    </div>
+}
+
+@if (Model.ReceiptId.HasValue)
+{
+    <div class="pe-card" data-csp-style="margin-top:1rem;">
+        <div class="pe-card__header">
+            <span class="pe-card__title">
+                <span class="accent-dot accent-dot--green"></span>
+                Anchor: @Model.ReceiptNumber
+            </span>
+            <span data-csp-style="display:flex; gap:.5rem; align-items:center;">
+                <a class="btn btn-outline btn-sm" href="/Receiving/Details/@Model.ReceiptId">Open receipt</a>
+                <span class="status-badge info">Receipt ID @Model.ReceiptId</span>
+            </span>
+        </div>
+        <div class="pe-card__body">
+            <div data-csp-style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:.75rem; font-size:.85rem;">
+                <div>
+                    <div data-csp-style="color:var(--cherry-muted,#666); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em;">Vendor</div>
+                    <div data-csp-style="font-weight:500;">@(Model.VendorName ?? "—")</div>
+                </div>
+                <div>
+                    <div data-csp-style="color:var(--cherry-muted,#666); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em;">Purchase Order</div>
+                    <div data-csp-style="font-weight:500;">@(Model.PurchaseOrderNumber ?? "—")</div>
+                </div>
+                <div>
+                    <div data-csp-style="color:var(--cherry-muted,#666); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em;">Upstream Hops</div>
+                    <div data-csp-style="font-weight:500;">@Model.UpstreamChain.Hops.Count</div>
+                </div>
+                <div>
+                    <div data-csp-style="color:var(--cherry-muted,#666); font-size:.75rem; text-transform:uppercase; letter-spacing:.05em;">Downstream Hops</div>
+                    <div data-csp-style="font-weight:500;">@Model.DownstreamChain.Hops.Count</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Upstream chain (where did this material come from?) *@
+    <div data-csp-style="margin-top:1rem;">
+        <h2 data-csp-style="margin:0 0 .5rem 0; font-size:1rem; font-weight:600;">
+            <span data-csp-style="color:#1976d2;">&#9650;</span> Upstream — Where did this come from?
+        </h2>
+        @await Html.PartialAsync("/Pages/Shared/Partials/_ChainOfCustodyGraph.cshtml", Model.UpstreamChain)
+
+        @if (Model.UpstreamNarration.Count > 0)
+        {
+            <div class="pe-card" data-csp-style="margin-top:.5rem;">
+                <div class="pe-card__header">
+                    <span class="pe-card__title">
+                        <span class="accent-dot accent-dot--blue"></span>
+                        Upstream narration
+                    </span>
+                    <span class="status-badge neutral">@Model.UpstreamNarration.Count step@(Model.UpstreamNarration.Count == 1 ? "" : "s")</span>
+                </div>
+                <div class="pe-card__body">
+                    <ol data-csp-style="margin:0; padding-left:1.2rem;">
+                        @foreach (var step in Model.UpstreamNarration)
+                        {
+                            <li data-csp-style="margin-bottom:.4rem;">
+                                <span data-csp-style="font-weight:500;">@step.Sentence</span>
+                                <span data-csp-style="margin-left:.5rem; font-size:.75rem; color:var(--cherry-muted,#888);">
+                                    [@step.EdgeType · depth @step.Depth]
+                                </span>
+                            </li>
+                        }
+                    </ol>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* Downstream chain (where did it go next?) *@
+    <div data-csp-style="margin-top:1rem;">
+        <h2 data-csp-style="margin:0 0 .5rem 0; font-size:1rem; font-weight:600;">
+            <span data-csp-style="color:#cf3339;">&#9660;</span> Downstream — Where did it go next?
+        </h2>
+        @await Html.PartialAsync("/Pages/Shared/Partials/_ChainOfCustodyGraph.cshtml", Model.DownstreamChain)
+
+        @if (Model.DownstreamNarration.Count > 0)
+        {
+            <div class="pe-card" data-csp-style="margin-top:.5rem;">
+                <div class="pe-card__header">
+                    <span class="pe-card__title">
+                        <span class="accent-dot accent-dot--red"></span>
+                        Downstream narration
+                    </span>
+                    <span class="status-badge neutral">@Model.DownstreamNarration.Count step@(Model.DownstreamNarration.Count == 1 ? "" : "s")</span>
+                </div>
+                <div class="pe-card__body">
+                    <ol data-csp-style="margin:0; padding-left:1.2rem;">
+                        @foreach (var step in Model.DownstreamNarration)
+                        {
+                            <li data-csp-style="margin-bottom:.4rem;">
+                                <span data-csp-style="font-weight:500;">@step.Sentence</span>
+                                <span data-csp-style="margin-left:.5rem; font-size:.75rem; color:var(--cherry-muted,#888);">
+                                    [@step.EdgeType · depth @step.Depth]
+                                </span>
+                            </li>
+                        }
+                    </ol>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="pe-card" data-csp-style="margin-top:1rem;">
+        <div class="pe-card__header">
+            <span class="pe-card__title">
+                <span class="accent-dot accent-dot--purple"></span>
+                Voice query equivalent
+            </span>
+        </div>
+        <div class="pe-card__body">
+            <p data-csp-style="margin:0; font-size:.9rem;">
+                A user on this page can press the voice button and ask any of:
+            </p>
+            <ul data-csp-style="margin:.4rem 0 0 0; padding-left:1.2rem; font-size:.85rem;">
+                <li>&ldquo;Trace receipt @Model.ReceiptNumber back to its source.&rdquo;</li>
+                <li>&ldquo;Show me the chain of custody for receipt @Model.ReceiptNumber.&rdquo;</li>
+                <li>&ldquo;Where did this material come from?&rdquo;</li>
+                <li>&ldquo;Walk me through the audit trail.&rdquo;</li>
+            </ul>
+            <p data-csp-style="margin:.5rem 0 0 0; font-size:.85rem; color:var(--cherry-muted,#666); font-style:italic;">
+                The ExplainChainOfCustody voice intent (PR #5) returns the same narration
+                as the lists above, plus an &ldquo;View graph&rdquo; action link straight
+                back to the receipt detail page.
+            </p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="pe-card" data-csp-style="margin-top:1rem;">
+        <div class="pe-card__body">
+            <div class="line-section__empty">
+                No receipts in this tenant have chain-of-custody edges yet.
+                Post a goods receipt via Receiving to seed the chain.
+            </div>
+        </div>
+    </div>
+}
