@@ -161,13 +161,25 @@ builder.Services.AddScoped<DepreciationService>();
 builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
-builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService,
-    Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService>(
+    sp => sp.GetRequiredService<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>());
+// ADR-025 D2 (Sprint 12.9 PR #2) — also resolvable via the IPostingService<T>
+// generic contract so future Sprint 13/14 Control Center services + the voice
+// MCP tool layer can depend on the typed receipt API.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Posting.IPostingService<Abs.FixedAssets.Services.Posting.ReceiveGoodsRequest>>(
+    sp => sp.GetRequiredService<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>());
 
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
-builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingService,
-    Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.IApPostingService>(
+    sp => sp.GetRequiredService<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>());
+// ADR-025 D2 (Sprint 12.9 PR #2) — also resolvable via IPostingService<T>.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Posting.IPostingService<Abs.FixedAssets.Services.Posting.ApInvoiceApprovalRequest>>(
+    sp => sp.GetRequiredService<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>());
 builder.Services.AddScoped<IPeriodGuard, PeriodGuard>();
 builder.Services.AddScoped<IFiscalCalendarService, FiscalCalendarService>();
 // MP #112: Period Close Orchestration — sequenced one-click month-end close

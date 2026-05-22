@@ -69,7 +69,7 @@ public class ReceivingPostingServiceTests
         var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(
             db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
         return new ReceivingPostingService(db, tenant, resolver, outbox,
-            NullLogger<ReceivingPostingService>.Instance);
+            new PassthroughIdempotencyMediator(), NullLogger<ReceivingPostingService>.Instance);
     }
 
     private static async Task<(GoodsReceipt receipt, Item item, Location location)>

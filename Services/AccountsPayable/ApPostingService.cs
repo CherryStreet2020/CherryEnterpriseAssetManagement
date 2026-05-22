@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Infrastructure;
+using Abs.FixedAssets.Services.Posting;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
@@ -30,7 +33,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
         Task<ApPostingResult> PostVoidAsync(int invoiceId, string reason);
     }
 
-    public class ApPostingService : IApPostingService
+    public class ApPostingService : IApPostingService, IPostingService<ApInvoiceApprovalRequest>
     {
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenantContext;
@@ -38,6 +41,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
         private readonly IPeriodGuard _periodGuard;
         private readonly InvoiceMatchingService _matching;
         private readonly IOutboxWriter _outbox;
+        private readonly IIdempotencyMediator _idempotency;
         private readonly ILogger<ApPostingService> _logger;
 
         public ApPostingService(
@@ -47,6 +51,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             IPeriodGuard periodGuard,
             InvoiceMatchingService matching,
             IOutboxWriter outbox,
+            IIdempotencyMediator idempotency,
             ILogger<ApPostingService> logger)
         {
             _db = db;
@@ -55,7 +60,70 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             _periodGuard = periodGuard;
             _matching = matching;
             _outbox = outbox;
+            _idempotency = idempotency;
             _logger = logger;
+        }
+
+        // ADR-025 D2 — IPostingService<ApInvoiceApprovalRequest> implementation.
+        //
+        // Sprint 12.9 PR #2 — wraps the legacy PostApprovalAsync(int, bool, string)
+        // entry point in the canonical contract: idempotency-keyed, Result-enveloped,
+        // CancellationToken-aware. Existing call sites continue to use the legacy
+        // method; new code paths (Razor pages refactored under Sprint 12.9 PR #4,
+        // Sprint 13 Purchasing Control Center, voice MCP tool layer) should call
+        // PostAsync.
+        //
+        // The IIdempotencyMediator wrap means same (actorUserId, idempotencyKey)
+        // returns the cached PostingReceipt from the prior call. Same key with a
+        // different request payload (e.g. flipping OverrideMatch) returns a
+        // 409-style failure inside the Result envelope.
+        //
+        // Expected failures (invoice not found, period closed, match exception
+        // without override) get caught and converted to Result.Failure for the
+        // service-method-first action surface (ADR-014 D2). Unexpected failures
+        // continue to throw — those are platform errors the caller should treat
+        // as unrecoverable.
+        async Task<Result<PostingReceipt>> IPostingService<ApInvoiceApprovalRequest>.PostAsync(
+            ApInvoiceApprovalRequest source,
+            int actorUserId,
+            Guid idempotencyKey,
+            CancellationToken ct)
+        {
+            return await _idempotency.ExecuteAsync(
+                actorUserId,
+                idempotencyKey,
+                source,
+                async innerCt =>
+                {
+                    try
+                    {
+                        var legacy = await PostApprovalAsync(
+                            source.InvoiceId,
+                            source.OverrideMatch,
+                            source.ApproverUsername);
+
+                        // Map ApPostingResult → PostingReceipt envelope. LinesPosted
+                        // and TotalDebits/TotalCredits aren't tracked on the legacy
+                        // result type; receipt callers that need full fidelity should
+                        // load the JournalEntry by Id from PostingReceipt.JournalEntryId.
+                        var receipt = new PostingReceipt(
+                            JournalEntryId: legacy.JournalEntryId,
+                            LinesPosted: 0,
+                            TotalDebits: legacy.AmountPosted,
+                            TotalCredits: legacy.AmountPosted,
+                            WasReplay: false,
+                            AuditEventId: null);
+
+                        return Result.Success(receipt);
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        // Expected failure modes — convert to Result.Failure for the
+                        // service-method-first surface.
+                        return Result.Failure<PostingReceipt>(ex.Message);
+                    }
+                },
+                ct);
         }
 
         public async Task<ApPostingResult> PostApprovalAsync(int invoiceId, bool overrideMatch = false, string approverUsername = "")

@@ -83,7 +83,7 @@ public class ApPostingServiceTests
         var matching = new InvoiceMatchingService(db);
         var outbox = new OutboxWriter(db, tenant, NullLogger<OutboxWriter>.Instance);
         return new ApPostingService(db, tenant, resolver, guard ?? new AllowAllPeriodGuard(), matching,
-            outbox, NullLogger<ApPostingService>.Instance);
+            outbox, new PassthroughIdempotencyMediator(), NullLogger<ApPostingService>.Instance);
     }
 
     private static async Task<VendorInvoice> SeedManualInvoiceAsync(AppDbContext db, int companyId, decimal lineTotal)
