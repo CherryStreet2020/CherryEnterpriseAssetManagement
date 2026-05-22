@@ -119,7 +119,7 @@ public class CrossTenantLeakageTests
         await db.SaveChangesAsync();
 
         // Tenant B tries to update it.
-        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), NullLogger<ItemMasterService>.Instance);
+        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<ItemMasterService>.Instance);
         var req = new UpdateItemRequest(
             ItemId: item.Id, PartNumber: "A-WIDGET", TypeLookupValueId: null,
             Description: "PWNED", ExtendedDescription: null, StockUom: "EA", IsActive: true,
@@ -150,7 +150,7 @@ public class CrossTenantLeakageTests
         db.Items.Add(new Item { PartNumber = "WIDGET", Description = "TenantA Widget", StockUOM = "EA", CompanyId = TenantACompanyId });
         await db.SaveChangesAsync();
 
-        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), NullLogger<ItemMasterService>.Instance);
+        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<ItemMasterService>.Instance);
         var req = new CreateItemRequest(
             PartNumber: "WIDGET", TypeLookupValueId: null,
             Description: "TenantB Widget", ExtendedDescription: null, StockUom: "EA", IsActive: true,
@@ -176,7 +176,7 @@ public class CrossTenantLeakageTests
         db.Items.Add(item);
         await db.SaveChangesAsync();
 
-        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), NullLogger<ItemMasterService>.Instance);
+        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<ItemMasterService>.Instance);
 
         var result = await svc.SetItemImagePathAsync(item.Id, "/images/pwned.png", CancellationToken.None);
 
@@ -197,7 +197,7 @@ public class CrossTenantLeakageTests
         db.Items.Add(item);
         await db.SaveChangesAsync();
 
-        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), NullLogger<ItemMasterService>.Instance);
+        var svc = new ItemMasterService(db, TenantBOnly(), NewLookup(db), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<ItemMasterService>.Instance);
 
         var result = await svc.ClearItemImagePathAsync(item.Id, CancellationToken.None);
 
