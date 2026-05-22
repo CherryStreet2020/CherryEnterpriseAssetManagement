@@ -101,6 +101,46 @@ public interface IWorkOrderService
     /// requests are silently capped.
     /// </summary>
     Task<Result<WorkOrderOperationPart>> ReturnOperationPartAsync(ReturnOperationPartRequest request, CancellationToken ct);
+
+    // === Phase 3 (Sprint 12.9 PR #3.2) — WO-header material writes ===
+
+    /// <summary>
+    /// Add an operation-level part (<see cref="WorkOrderOperationPart"/>) at
+    /// an explicit unit cost. Distinct from the broader
+    /// <see cref="IssueOperationPartAsync"/> flow because this method only
+    /// PLANS the part — no inventory movement, no JE posting.
+    /// </summary>
+    Task<Result<WorkOrderOperation>> AddOperationPartAsync(AddOperationPartRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Issue a WO-header material. Decrements inventory, writes
+    /// <see cref="ItemTransaction"/>, posts <c>WO-ISS</c> JE
+    /// (DR MaintenanceMaterials / CR Inventory), and enqueues an
+    /// <c>ItemIssuedV1</c> outbox event for downstream consumers.
+    /// </summary>
+    Task<Result<WorkOrderPart>> IssueMaterialAsync(IssueMaterialRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Return a WO-header material. Reverses inventory + posts <c>WO-RTN</c>
+    /// reversing JE. Capped at net issued.
+    /// </summary>
+    Task<Result<WorkOrderPart>> ReturnMaterialAsync(ReturnMaterialRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Remove a planned (not yet issued) WO-header material. Rejected if
+    /// <c>QuantityIssued &gt; 0</c> — already-issued parts must be returned,
+    /// not removed. Returns the WO id so callers can redirect.
+    /// </summary>
+    Task<Result<int>> RemovePlannedMaterialAsync(RemovePlannedMaterialRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Bulk-load planned materials onto a work order from its linked PM
+    /// Template. Resolves the template via the WO's <c>PMTemplateAssetId</c>
+    /// FK (or the legacy <c>CustomField1</c> "PMTA:" marker). Skips items
+    /// that already exist on the WO. Returns a structured outcome the
+    /// caller maps to TempData messages.
+    /// </summary>
+    Task<Result<LoadTemplateMaterialsOutcome>> LoadTemplateMaterialsAsync(LoadTemplateMaterialsRequest request, CancellationToken ct);
 }
 
 // === Request DTOs ===
@@ -156,3 +196,52 @@ public sealed record IssueOperationPartRequest(
 public sealed record ReturnOperationPartRequest(
     int OperationPartId,
     decimal QuantityReturn);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.AddOperationPartAsync"/>.</summary>
+public sealed record AddOperationPartRequest(
+    int OperationId,
+    int ItemId,
+    decimal QuantityPlanned,
+    decimal UnitCost,
+    string? Notes);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.IssueMaterialAsync"/>.</summary>
+public sealed record IssueMaterialRequest(
+    int WorkOrderPartId,
+    decimal QuantityIssue,
+    string? IssuedBy);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.ReturnMaterialAsync"/>.</summary>
+public sealed record ReturnMaterialRequest(
+    int WorkOrderPartId,
+    decimal QuantityReturn);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.RemovePlannedMaterialAsync"/>.</summary>
+public sealed record RemovePlannedMaterialRequest(int WorkOrderPartId);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.LoadTemplateMaterialsAsync"/>.</summary>
+public sealed record LoadTemplateMaterialsRequest(int WorkOrderId);
+
+/// <summary>
+/// Outcome of <see cref="IWorkOrderService.LoadTemplateMaterialsAsync"/>. The
+/// PageModel translates <see cref="Status"/> into a TempData message slot
+/// (Success / Warning / Error) to preserve the legacy UX.
+/// </summary>
+public sealed record LoadTemplateMaterialsOutcome(
+    int WorkOrderId,
+    int Added,
+    LoadTemplateMaterialsStatus Status,
+    string? Message);
+
+/// <summary>Status flag for <see cref="LoadTemplateMaterialsOutcome"/>.</summary>
+public enum LoadTemplateMaterialsStatus
+{
+    /// <summary>At least one item was added.</summary>
+    Loaded,
+    /// <summary>WO has no PM Template linked. Maps to TempData["Error"].</summary>
+    NoTemplate,
+    /// <summary>Template exists but has no materials. Maps to TempData["Warning"].</summary>
+    EmptyTemplate,
+    /// <summary>Every template item already exists on the WO. Maps to TempData["Warning"].</summary>
+    AllAlreadyExist
+}

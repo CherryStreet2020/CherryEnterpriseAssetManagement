@@ -247,26 +247,12 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostAddPartAsync(int operationId, int itemId, decimal quantityPlanned, decimal unitCost, string? notes)
         {
-            var companyId = GetCompanyId();
-            var operation = await _context.WorkOrderOperations
-                .Include(o => o.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(o => o.Id == operationId && o.WorkOrder != null && o.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(o.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (operation == null) return NotFound();
-
-            var part = new WorkOrderOperationPart
-            {
-                WorkOrderOperationId = operationId,
-                ItemId = itemId,
-                QuantityPlanned = quantityPlanned,
-                UnitCost = unitCost,
-                Notes = notes?.ToUpper(),
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.WorkOrderOperationParts.Add(part);
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = operation.WorkOrderId });
+            // Sprint 12.9 PR #3.2 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.AddOperationPartAsync(
+                new AddOperationPartRequest(operationId, itemId, quantityPlanned, unitCost, notes),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         // PR #106 / B-20: Operation-level parts now have a real Issue/Return
@@ -314,360 +300,60 @@ namespace Abs.FixedAssets.Pages.WorkOrders
 
         public async Task<IActionResult> OnPostIssueMaterialAsync(int workOrderPartId, decimal quantityIssue)
         {
-            var companyId = GetCompanyId();
-            var part = await _context.WorkOrderParts
-                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (part == null) return NotFound();
-
-            if (quantityIssue <= 0) return RedirectToPage(new { id = part.WorkOrderId });
-
-            // For planned materials: cannot issue more than (planned - already issued)
-            // For unplanned: allow any quantity (auto-extends planned)
-            decimal actualIssue = quantityIssue;
-            if (part.QuantityPlanned > 0)
-            {
-                var maxIssuable = part.QuantityPlanned - part.QuantityIssued;
-                if (maxIssuable <= 0) return RedirectToPage(new { id = part.WorkOrderId });
-                actualIssue = Math.Min(quantityIssue, maxIssuable);
-            }
-            else
-            {
-                // Unplanned issue: extend planned to match
-                part.QuantityPlanned += actualIssue;
-            }
-
-            part.QuantityIssued += actualIssue;
-            // Used = Issued - Returned (recalculate, don't add incrementally)
-            part.QuantityUsed = part.QuantityIssued - part.QuantityReturned;
-            part.IssuedDate = DateTime.UtcNow;
-            part.IssuedBy = User.Identity?.Name ?? "SYSTEM";
-            part.UpdatedAt = DateTime.UtcNow;
-
-            // S1-7: decrement inventory + create ItemTransaction. The pre-fix
-            // code updated WorkOrderPart counters only, leaving ItemInventory
-            // untouched and ItemTransaction never created — inventory drifted
-            // forever. See docs/audit-2026-05-08-followup/STRUCTURAL_AUDIT.md.
-            // Inventory failure is logged but does NOT roll back the WO part
-            // update — the operational truth (issuance happened) is the WO
-            // part counter; inventory accuracy is downstream and correctable.
-            var newOnHand = await ApplyItemMovementAsync(part, actualIssue, isIssue: true);
-
-            // DEF-N09 (PR #89): Post the GL impact of the material issuance.
-            // Pre-fix, WorkOrderPart counters and ItemInventory both moved but
-            // no JournalEntry was created — work orders showed inventory drained
-            // while the P&L never saw the maintenance expense. This is the WO
-            // cost-rollup that lets finance close a WO and reconcile asset-level
-            // maintenance spend. DR MaintenanceMaterials / CR Inventory at the
-            // part's UnitCost (the standing convention used by the receiving
-            // service for inventory-to-expense moves).
-            await PostMaterialMovementJournalEntryAsync(part, actualIssue, isIssue: true);
-
-            await _context.SaveChangesAsync();
-
-            await _outbox.EnqueueAsync(
-                part.WorkOrder?.Asset?.CompanyId ?? companyId,
-                siteId: null,
-                new ItemIssuedV1(
-                    ItemId: part.ItemId,
-                    LocationId: part.IssuedFromLocationId,
-                    CompanyId: part.WorkOrder?.Asset?.CompanyId,
-                    WorkOrderId: part.WorkOrderId,
-                    WorkOrderPartId: part.Id,
-                    WorkOrderNumber: part.WorkOrder?.WorkOrderNumber ?? string.Empty,
-                    AssetId: part.WorkOrder?.AssetId,
-                    Quantity: actualIssue,
-                    UnitCost: part.UnitCost,
-                    NewQuantityOnHand: newOnHand,
-                    LotNumber: part.LotNumber,
-                    SerialNumber: part.SerialNumber,
-                    IssuedBy: part.IssuedBy,
-                    IssuedAt: part.IssuedDate ?? DateTime.UtcNow),
-                correlationId: $"item-issue-wo{part.WorkOrderId}-p{part.Id}-{DateTime.UtcNow.Ticks}"
-            );
-
-            return RedirectToPage(new { id = part.WorkOrderId });
-        }
-
-        /// <summary>
-        /// Applies an inventory movement for a WorkOrderPart issue or return.
-        /// Decrements (issue) or increments (return) ItemInventory at the
-        /// part's IssuedFromLocationId, and creates an ItemTransaction row
-        /// for audit. Idempotent at the WorkOrderPart-counter level since
-        /// the caller updates QuantityIssued/QuantityReturned in-place.
-        ///
-        /// If IssuedFromLocationId is null we still log the transaction but
-        /// can't update a specific inventory row — operations team can
-        /// reconcile later via cycle count.
-        /// </summary>
-        private async Task<decimal?> ApplyItemMovementAsync(WorkOrderPart part, decimal qty, bool isIssue)
-        {
-            var sign = isIssue ? -1m : 1m;
-            var companyId = part.WorkOrder?.Asset?.CompanyId ?? _tenantContext.CompanyId;
-            decimal? newOnHand = null;
-
-            if (part.IssuedFromLocationId.HasValue)
-            {
-                var inv = await _context.Set<ItemInventory>()
-                    .FirstOrDefaultAsync(i =>
-                        i.ItemId == part.ItemId &&
-                        i.LocationId == part.IssuedFromLocationId.Value &&
-                        i.CompanyId == companyId);
-                if (inv == null)
-                {
-                    // Stock row didn't exist; create it with the negative
-                    // (or positive) quantity so the issuance is recorded.
-                    // A subsequent cycle count or receipt will correct.
-                    inv = new ItemInventory
-                    {
-                        ItemId = part.ItemId,
-                        LocationId = part.IssuedFromLocationId.Value,
-                        CompanyId = companyId,
-                        QuantityOnHand = sign * qty,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Set<ItemInventory>().Add(inv);
-                }
-                else
-                {
-                    inv.QuantityOnHand += sign * qty;
-                    inv.UpdatedAt = DateTime.UtcNow;
-                    if (isIssue) inv.LastIssueDate = DateTime.UtcNow;
-                }
-                newOnHand = inv.QuantityOnHand;
-            }
-
-            var txn = new ItemTransaction
-            {
-                TransactionNumber = $"WO{part.WorkOrderId}-{(isIssue ? "ISS" : "RTN")}-{DateTime.UtcNow.Ticks}",
-                ItemId = part.ItemId,
-                Type = isIssue ? TransactionType.Issue : TransactionType.Return,
-                Quantity = qty,
-                UnitCost = part.UnitCost,
-                FromLocationId = isIssue ? part.IssuedFromLocationId : null,
-                ToLocationId = isIssue ? null : part.IssuedFromLocationId,
-                LotNumber = part.LotNumber,
-                SerialNumber = part.SerialNumber
-            };
-            _context.Set<ItemTransaction>().Add(txn);
-
-            return newOnHand;
-        }
-
-        /// <summary>
-        /// DEF-N09 (PR #89): Posts the journal entry pair for a material
-        /// issuance (or return) against a Work Order. On an issue:
-        ///   DR <see cref="GlAccountKind.MaintenanceMaterials"/>
-        ///   CR <see cref="GlAccountKind.Inventory"/>
-        /// On a return, signs are reversed (DR Inventory, CR Materials).
-        /// Amount is <c>qty * part.UnitCost</c>. Resolves accounts via the
-        /// company GL cascade (ADR-003) so per-company overrides are honored.
-        /// The JE is added to the ChangeTracker but not saved here — the
-        /// caller's SaveChanges flushes it alongside the WorkOrderPart and
-        /// ItemTransaction in a single transaction so they cannot diverge.
-        /// </summary>
-        private async Task<JournalEntry?> PostMaterialMovementJournalEntryAsync(WorkOrderPart part, decimal qty, bool isIssue)
-        {
-            if (qty <= 0m) return null;
-            var amount = qty * part.UnitCost;
-            if (amount <= 0m) return null; // a zero-standard-cost item issues without GL impact
-
-            // Resolve the WO's owning company. ADR-003 keys configs by CompanyId.
-            var resolvedCompanyId = part.WorkOrder?.Asset?.CompanyId
-                ?? _tenantContext.CompanyId
-                ?? 0;
-            if (resolvedCompanyId == 0) return null; // can't resolve GL accounts without a company
-
-            var ctx = new GlResolveContext(
-                WorkOrderId: part.WorkOrderId,
-                AssetId: part.WorkOrder?.AssetId);
-            var materialsAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.MaintenanceMaterials, ctx);
-            var inventoryAccount = await _glResolver.ResolveAsync(resolvedCompanyId, GlAccountKind.Inventory, ctx);
-
-            // Reference includes Ticks so each issuance produces a unique JE
-            // even if the same part is issued multiple times in quick
-            // succession. Source distinguishes WO material issues ("WO-ISS")
-            // from returns ("WO-RTN") for downstream reporting filters.
-            var ticks = DateTime.UtcNow.Ticks;
-            var src = isIssue ? "WO-ISS" : "WO-RTN";
-            var jeReference = $"{src}-{part.WorkOrderId}-p{part.Id}-{ticks}";
-            var woNumber = part.WorkOrder?.WorkOrderNumber ?? $"WO#{part.WorkOrderId}";
-            var verb = isIssue ? "issued to" : "returned from";
-
-            // DR/CR signs: issue moves cost INTO the maintenance expense
-            // (DR Materials, CR Inventory); return reverses it.
-            var drAccount = isIssue ? materialsAccount : inventoryAccount;
-            var crAccount = isIssue ? inventoryAccount  : materialsAccount;
-
-            var je = new JournalEntry
-            {
-                BookId = null,
-                Batch = jeReference,
-                Period = int.Parse(DateTime.UtcNow.ToString("yyyyMM")),
-                PostingDate = DateTime.UtcNow.Date,
-                Source = src,
-                Reference = jeReference,
-                Description = isIssue
-                    ? $"Materials {verb} {woNumber} (qty {qty} @ {part.UnitCost:C})"
-                    : $"Materials {verb} {woNumber} (qty {qty} @ {part.UnitCost:C})",
-                CreatedUtc = DateTime.UtcNow,
-                Lines = new List<JournalLine>
-                {
-                    new JournalLine
-                    {
-                        LineNo = 1,
-                        Account = drAccount,
-                        Description = isIssue
-                            ? $"Maintenance materials - {woNumber}"
-                            : $"Inventory restored - {woNumber}",
-                        Debit = amount,
-                        Credit = 0m
-                    },
-                    new JournalLine
-                    {
-                        LineNo = 2,
-                        Account = crAccount,
-                        Description = isIssue
-                            ? $"Inventory {verb} {woNumber}"
-                            : $"Maintenance materials reversed - {woNumber}",
-                        Debit = 0m,
-                        Credit = amount
-                    }
-                }
-            };
-            _context.JournalEntries.Add(je);
-            return je;
+            // Sprint 12.9 PR #3.2 — delegated to IWorkOrderService (ADR-025 D5).
+            // Issues part + inventory movement + ItemTransaction + WO-ISS JE + ItemIssuedV1 outbox event.
+            var result = await _workOrderService.IssueMaterialAsync(
+                new IssueMaterialRequest(workOrderPartId, quantityIssue, User.Identity?.Name),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostReturnMaterialAsync(int workOrderPartId, decimal quantityReturn)
         {
-            var companyId = GetCompanyId();
-            var part = await _context.WorkOrderParts
-                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (part == null) return NotFound();
-
-            if (quantityReturn <= 0) return RedirectToPage(new { id = part.WorkOrderId });
-
-            // Guardrail: Cannot return more than net issued (issued - returned)
-            var maxReturnable = part.QuantityIssued - part.QuantityReturned;
-            if (maxReturnable <= 0) return RedirectToPage(new { id = part.WorkOrderId });
-            var actualReturn = Math.Min(quantityReturn, maxReturnable);
-
-            part.QuantityReturned += actualReturn;
-            // Used = Issued - Returned (recalculate to prevent negative)
-            part.QuantityUsed = Math.Max(0, part.QuantityIssued - part.QuantityReturned);
-            part.UpdatedAt = DateTime.UtcNow;
-
-            // S1-7: increment inventory + create ItemTransaction (Return).
-            await ApplyItemMovementAsync(part, actualReturn, isIssue: false);
-
-            // DEF-N09 (PR #89): Reverse the GL impact of the original issuance
-            // for the returned quantity. DR Inventory / CR MaintenanceMaterials
-            // so the WO cost rollup ticks back down by the returned cost. The
-            // ItemTransaction this pairs with is Type=Return.
-            await PostMaterialMovementJournalEntryAsync(part, actualReturn, isIssue: false);
-
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = part.WorkOrderId });
+            // Sprint 12.9 PR #3.2 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.ReturnMaterialAsync(
+                new ReturnMaterialRequest(workOrderPartId, quantityReturn),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value!.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostRemovePlannedMaterialAsync(int workOrderPartId)
         {
-            var companyId = GetCompanyId();
-            var part = await _context.WorkOrderParts
-                .Include(p => p.WorkOrder).ThenInclude(m => m!.Asset)
-                .Where(p => p.Id == workOrderPartId && p.WorkOrder != null && p.WorkOrder.Asset != null && _tenantContext.VisibleCompanyIds.Contains(p.WorkOrder.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (part == null) return NotFound();
-
-            // Guardrail: Cannot remove if already issued
-            if (part.QuantityIssued > 0) return RedirectToPage(new { id = part.WorkOrderId });
-
-            var woId = part.WorkOrderId;
-            _context.WorkOrderParts.Remove(part);
-            await _context.SaveChangesAsync();
-            return RedirectToPage(new { id = woId });
+            // Sprint 12.9 PR #3.2 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.RemovePlannedMaterialAsync(
+                new RemovePlannedMaterialRequest(workOrderPartId),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
+            return RedirectToPage(new { id = result.Value });
         }
 
         public async Task<IActionResult> OnPostLoadTemplateMaterialsAsync(int workOrderId)
         {
-            // Find the WO and check for PMTA linkage in CustomField1
-            var companyId = GetCompanyId();
-            var wo = await _context.WorkOrders
-                .Include(m => m.Asset)
-                .Where(m => m.Id == workOrderId && m.Asset != null && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (wo == null) return NotFound();
+            // Sprint 12.9 PR #3.2 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.LoadTemplateMaterialsAsync(
+                new LoadTemplateMaterialsRequest(workOrderId),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
 
-            // S1-2: prefer PMTemplateAssetId FK; fall back to legacy CustomField1
-            // marker for in-flight rows that predate the migration.
-            int? pmtaId = wo.PMTemplateAssetId;
-            if (pmtaId == null
-                && !string.IsNullOrEmpty(wo.CustomField1)
-                && wo.CustomField1.StartsWith("PMTA:"))
+            // Map structured outcome to legacy TempData slots so the UX
+            // is bit-identical to the pre-refactor surface.
+            var outcome = result.Value!;
+            switch (outcome.Status)
             {
-                int.TryParse(wo.CustomField1.Substring(5), out var parsed);
-                pmtaId = parsed > 0 ? parsed : null;
+                case LoadTemplateMaterialsStatus.Loaded:
+                    TempData["Success"] = outcome.Message;
+                    break;
+                case LoadTemplateMaterialsStatus.NoTemplate:
+                    TempData["Error"] = outcome.Message;
+                    break;
+                case LoadTemplateMaterialsStatus.EmptyTemplate:
+                case LoadTemplateMaterialsStatus.AllAlreadyExist:
+                    TempData["Warning"] = outcome.Message;
+                    break;
             }
-
-            if (pmtaId == null)
-            {
-                TempData["Error"] = "No PM Template linked to this Work Order.";
-                return RedirectToPage(new { id = workOrderId });
-            }
-
-            // Get the PMTemplateId from the PMTemplateAsset
-            var pmta = await _context.PMTemplateAssets
-                .Include(a => a.PMTemplate)
-                    .ThenInclude(t => t!.Items!)
-                        .ThenInclude(i => i.Item)
-                .FirstOrDefaultAsync(a => a.Id == pmtaId);
-
-            if (pmta?.PMTemplate?.Items == null || !pmta.PMTemplate.Items.Any())
-            {
-                TempData["Warning"] = "PM Template has no materials defined.";
-                return RedirectToPage(new { id = workOrderId });
-            }
-
-            // Get existing WO parts to avoid duplicates
-            var existingItemIds = await _context.WorkOrderParts
-                .Where(p => p.WorkOrderId == workOrderId)
-                .Select(p => p.ItemId)
-                .ToListAsync();
-
-            int added = 0;
-            foreach (var templateItem in pmta.PMTemplate.Items)
-            {
-                if (existingItemIds.Contains(templateItem.ItemId)) continue;
-
-                var woPart = new WorkOrderPart
-                {
-                    WorkOrderId = workOrderId,
-                    ItemId = templateItem.ItemId,
-                    QuantityPlanned = templateItem.Quantity,
-                    UnitCost = templateItem.Item?.StandardCost ?? 0,
-                    Notes = templateItem.Notes?.ToUpper(),
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.WorkOrderParts.Add(woPart);
-                added++;
-            }
-
-            if (added > 0)
-            {
-                await _context.SaveChangesAsync();
-                TempData["Success"] = $"Loaded {added} material(s) from PM Template.";
-            }
-            else
-            {
-                TempData["Warning"] = "All template materials already exist on this Work Order.";
-            }
-
-            return RedirectToPage(new { id = workOrderId });
+            return RedirectToPage(new { id = outcome.WorkOrderId });
         }
 
         public async Task<IActionResult> OnPostCloseWorkOrderAsync(int workOrderId, string? lessonsLearned)
