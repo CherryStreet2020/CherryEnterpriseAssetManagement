@@ -45,8 +45,12 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Restore packages
-        run: dotnet restore Abs.FixedAssets.csproj --nologo
+      - name: Restore packages (solution-wide)
+        # Restore at the solution level so the test project's deps are also
+        # restored. Restoring just Abs.FixedAssets.csproj only pulls main +
+        # the analyzer ProjectReference — the test project is a sibling
+        # and would otherwise hit NETSDK1004 on the test step.
+        run: dotnet restore Abs.FixedAssets.sln --nologo
 
       - name: Build main app with CHERRY025 escalated to error
         # The Roslyn analyzer (CHERRY025) emits Warning by default. The
