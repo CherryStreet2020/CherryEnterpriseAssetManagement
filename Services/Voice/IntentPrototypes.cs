@@ -58,5 +58,13 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.Help, "what commands does voice support"),
         new IntentPrototype(IntentKind.Help, "how do I use this voice feature"),
         new IntentPrototype(IntentKind.Help, "what should I say to you"),
+
+        // ExplainChainOfCustody — Sprint 12D PR #5 / ADR-022 §D4. Phrasings
+        // the keyword layer might miss; vector layer catches paraphrases.
+        new IntentPrototype(IntentKind.ExplainChainOfCustody, "show me the chain of custody for this receipt"),
+        new IntentPrototype(IntentKind.ExplainChainOfCustody, "where did this material come from"),
+        new IntentPrototype(IntentKind.ExplainChainOfCustody, "trace this receipt back to its source"),
+        new IntentPrototype(IntentKind.ExplainChainOfCustody, "who supplied this item"),
+        new IntentPrototype(IntentKind.ExplainChainOfCustody, "walk me through the audit trail"),
     };
 }

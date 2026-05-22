@@ -65,6 +65,7 @@ public static class VoiceInvokeEndpoint
         IHybridIntentRouter router,
         ITenantContext tenantContext,
         AppDbContext db,
+        Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -119,11 +120,12 @@ public static class VoiceInvokeEndpoint
         {
             response = intent.Kind switch
             {
-                IntentKind.ExpectedArrivals => await HandleExpectedArrivalsAsync(voiceTools, intent, ct),
-                IntentKind.LookupReceipt    => await HandleLookupReceiptAsync(voiceTools, intent, ct),
-                IntentKind.ExplainException => await HandleExplainExceptionAsync(voiceTools, intent, ct),
-                IntentKind.Help             => HandleHelp(),
-                _                           => HandleUnknown(transcript),
+                IntentKind.ExpectedArrivals      => await HandleExpectedArrivalsAsync(voiceTools, intent, ct),
+                IntentKind.LookupReceipt         => await HandleLookupReceiptAsync(voiceTools, intent, ct),
+                IntentKind.ExplainException      => await HandleExplainExceptionAsync(voiceTools, intent, ct),
+                IntentKind.ExplainChainOfCustody => await HandleExplainChainOfCustodyAsync(voiceTools, chainOfCustody, intent, ct),
+                IntentKind.Help                  => HandleHelp(),
+                _                                => HandleUnknown(transcript),
             };
         }
         catch (Exception ex)
@@ -357,10 +359,143 @@ public static class VoiceInvokeEndpoint
         };
     }
 
+    // Sprint 12D PR #5 / ADR-022 §D4 — chain-of-custody voice narration.
+    //
+    // EVS demo headline. Voice query "trace this receipt back to its source"
+    // OR "chain of custody for RCPT-XXX" → AI narrates the chain via the
+    // IChainOfCustodyService recursive-CTE traversal, paired visually with
+    // the cytoscape.js viz (PR #4) on /Receiving/Details/{id}.
+    //
+    // Narration shape (template-driven, no LLM needed for demo headline —
+    // a future PR can route the same data through an LLM for richer prose):
+    //
+    //   "Receipt RCPT-2026-1234 traces back through 4 nodes:
+    //    received under PO-555, supplied by Vendor-7, contains item PART-A."
+    //
+    // Failure modes:
+    //   - No natural key in utterance → ask the user to specify a receipt
+    //   - Receipt not found via LookupReceiptAsync → friendly error
+    //   - Chain query fails → friendly error + log the exception
+    //   - Empty chain (0 hops) → "RCPT-XXX has no chain edges yet — try
+    //     posting it via Receiving first"
+    private static async Task<VoiceInvokeResponse> HandleExplainChainOfCustodyAsync(
+        IReceiptVoiceTools tools,
+        Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which receipt should I trace? Say its number or lot.",
+            };
+        }
+
+        // Resolve the receipt via the existing voice-tool lookup so we get
+        // tenant-scoped resolution + the same "didn't find it" message shape
+        // as the other intents.
+        var lookup = await tools.LookupReceiptAsync(intent.NaturalKey, null, ct);
+        if (lookup.IsFailure || lookup.Value is null || lookup.Value.Count == 0)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = $"I couldn't find a receipt matching '{intent.NaturalKey}'.",
+            };
+        }
+
+        var receipt = lookup.Value[0];
+        var chainResult = await chainOfCustody.GetUpstreamChainAsync(
+            Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Receipt,
+            receipt.Id,
+            maxDepth: 6,
+            ct);
+
+        if (chainResult.IsFailure || chainResult.Value is null)
+        {
+            return VoiceInvokeResponse.Error(
+                chainResult.Error ?? "I couldn't load the chain of custody for that receipt.");
+        }
+
+        var chain = chainResult.Value;
+        if (chain.Hops.Count == 0)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = true,
+                Spoken = $"Receipt {receipt.ReceiptNumber} has no chain of custody edges yet. " +
+                         "The chain populates when the receipt posts through Receiving.",
+                Displayed = new VoiceDisplayed
+                {
+                    Title = $"Chain of custody — {receipt.ReceiptNumber}",
+                    Lines = new[] { "No chain edges recorded yet." },
+                },
+            };
+        }
+
+        // Build a natural-language narration from the hops. The root node
+        // (depth=0) is the receipt itself; each subsequent hop describes a
+        // relationship (RECEIVED_AT, SUPPLIED_BY, CONTAINS_ITEM, etc.).
+        var nonRootHops = chain.Hops.Where(h => h.Depth > 0).ToList();
+        var spokenParts = new List<string>
+        {
+            $"Receipt {receipt.ReceiptNumber} traces back through {nonRootHops.Count} " +
+            $"node{(nonRootHops.Count == 1 ? "" : "s")}."
+        };
+        var displayLines = new List<string>
+        {
+            $"Receipt {receipt.ReceiptNumber}"
+        };
+
+        foreach (var hop in nonRootHops)
+        {
+            var phrase = NarrateEdge(hop.IncomingEdgeType, hop.NodeType, hop.Label);
+            spokenParts.Add(phrase);
+            displayLines.Add($"  → {hop.IncomingEdgeType ?? "linked to"}: {hop.NodeType} {hop.Label}");
+        }
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = string.Join(" ", spokenParts),
+            Displayed = new VoiceDisplayed
+            {
+                Title = $"Chain of custody — {receipt.ReceiptNumber}",
+                Lines = displayLines.ToArray(),
+            },
+            ActionLinks = new[]
+            {
+                new VoiceActionLink("View graph", $"/Receiving/Details/{receipt.Id}#chain-of-custody"),
+            },
+        };
+    }
+
+    private static string NarrateEdge(string? edgeType, string nodeType, string label) =>
+        edgeType switch
+        {
+            "RECEIVED_AT"    => $"Received under {nodeType.ToLower()} {label}.",
+            "SUPPLIED_BY"    => $"Supplied by {nodeType.ToLower()} {label}.",
+            "CONTAINS_ITEM"  => $"Contains item {label}.",
+            "INSPECTED_BY"   => $"Inspected by IQC {label}.",
+            "CERTIFIED_BY"   => $"Certified by {label}.",
+            "MELTED_FROM"    => $"Melted from heat {label}.",
+            "OF_MATERIAL"    => $"Of material master {label}.",
+            "CARRIED_BY"     => $"Carried by {label}.",
+            "PRODUCED_BY"    => $"Produced by {nodeType.ToLower()} {label}.",
+            "CAPITALIZED_TO" => $"Capitalized to asset {label}.",
+            "APPROVED_BY"    => $"Approved by {label}.",
+            "POSTED_TO"      => $"Posted to {nodeType.ToLower()} {label}.",
+            "INVOICES_FOR"   => $"Invoices for {nodeType.ToLower()} {label}.",
+            "REVISION_OF"    => $"Revision of {label}.",
+            _                => $"Linked to {nodeType.ToLower()} {label}.",
+        };
+
     private static VoiceInvokeResponse HandleHelp() => new()
     {
         Ok = true,
-        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, or explain receipt RCPT-2026-1234.",
+        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, explain receipt RCPT-2026-1234, or trace receipt RCPT-2026-1234.",
         Displayed = new VoiceDisplayed
         {
             Title = "Voice commands I understand today",
@@ -369,6 +504,7 @@ public static class VoiceInvokeEndpoint
                 "what's arriving today",
                 "find receipt RCPT-YYYY-####",
                 "explain receipt RCPT-YYYY-####",
+                "trace receipt RCPT-YYYY-####  (chain of custody)",
             },
         },
     };
@@ -376,7 +512,7 @@ public static class VoiceInvokeEndpoint
     private static VoiceInvokeResponse HandleUnknown(string transcript) => new()
     {
         Ok = false,
-        Spoken = "I'm not set up for that yet. Try: what's arriving today, find receipt, or explain a receipt.",
+        Spoken = "I'm not set up for that yet. Try: what's arriving today, find receipt, explain a receipt, or trace a receipt.",
         Displayed = new VoiceDisplayed
         {
             Title = "I didn't understand that",
@@ -386,6 +522,7 @@ public static class VoiceInvokeEndpoint
                 "Try: what's arriving today",
                 "Try: find receipt RCPT-...",
                 "Try: explain receipt RCPT-...",
+                "Try: trace receipt RCPT-...",
             },
         },
     };
