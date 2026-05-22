@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using Abs.FixedAssets.ControlPlane;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
@@ -13,6 +14,12 @@ using Abs.FixedAssets.Services.Webhooks.Events;
 
 namespace Abs.FixedAssets.Pages.WorkOrders
 {
+    // Sprint 12.9 PR #3.3 — All 17 operational writes have been refactored to
+    // IWorkOrderService. AppDbContext is retained on the ctor for the OnGetAsync
+    // read-path projections only (per ADR-025 D1: "PageModels MAY read directly
+    // via AppDbContext for thin display projections"). This attribute documents
+    // that fact for the CHERRY025 analyzer + code review.
+    [ControlPlaneExempt("Sprint 12.9 PR #3.3 — all 17 operational writes refactored to IWorkOrderService; AppDbContext retained for read-path projections only (ADR-025 D1)")]
     public class DetailsModel : PageModel
     {
         private readonly AppDbContext _context;
@@ -476,220 +483,65 @@ namespace Abs.FixedAssets.Pages.WorkOrders
             string? notes,
             int? failureCodeId)
         {
-            var wo = await _context.WorkOrders
-                .Where(m => m.Id == id
-                    && m.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (wo == null) return NotFound();
+            // Sprint 12.9 PR #3.3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.EditWorkOrderAsync(
+                new EditWorkOrderRequest(id, maintenanceTypeLookupValueId, priorityLookupValueId,
+                    scheduledDate, workOrderNumber, vendor, technicianId, estimatedCost,
+                    description, notes, failureCodeId),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
 
-            if (wo.Status == MaintenanceStatus.Completed || wo.Status == MaintenanceStatus.Cancelled)
+            var outcome = result.Value!;
+            switch (outcome.Status)
             {
-                TempData["Error"] = "Cannot edit a Completed or Cancelled work order.";
-                return RedirectToPage(new { id });
+                case EditWorkOrderStatus.Updated:
+                    TempData["Success"] = outcome.Message;
+                    break;
+                case EditWorkOrderStatus.TerminalStateRejected:
+                    TempData["Error"] = outcome.Message;
+                    break;
             }
-
-            // Type — keep enum value in sync with the lookup row (same dual-write pattern
-            // used in OnPostAddOperationAsync).
-            var typeLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, maintenanceTypeLookupValueId);
-            if (typeLv != null)
-            {
-                wo.TypeLookupValueId = typeLv.Id;
-                if (int.TryParse(typeLv.Code, out var typeEnumVal))
-                    wo.Type = (MaintenanceType)typeEnumVal;
-            }
-
-            // Priority — same dual-write.
-            var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, priorityLookupValueId);
-            if (priorityLv != null)
-            {
-                wo.PriorityLookupValueId = priorityLv.Id;
-                if (int.TryParse(priorityLv.Code, out var pEnumVal))
-                    wo.Priority = (MaintenancePriority)pEnumVal;
-            }
-
-            wo.ScheduledDate = scheduledDate;
-            wo.WorkOrderNumber = workOrderNumber;
-            wo.Vendor = vendor;
-            wo.TechnicianId = technicianId;
-            wo.EstimatedCost = estimatedCost;
-            wo.Description = description ?? "";
-            wo.Notes = notes;
-
-            // PR #104 (B-16): write the FK alongside the denormalized
-            // FailureCode text label. Reads the master row to populate the
-            // string field with its canonical Name so downstream code that
-            // still consumes wo.FailureCode (legacy reports, the closeout
-            // summary template) shows the operator-friendly label, not the
-            // numeric Id. Null FK clears the label.
-            if (failureCodeId.HasValue && failureCodeId.Value > 0)
-            {
-                var fc = await _context.FailureCodes
-                    .FirstOrDefaultAsync(f => f.Id == failureCodeId.Value && f.IsActive);
-                if (fc != null)
-                {
-                    wo.FailureCodeId = fc.Id;
-                    wo.FailureCode = fc.Name;
-                }
-            }
-            else
-            {
-                wo.FailureCodeId = null;
-                wo.FailureCode = null;
-            }
-
-            await _context.SaveChangesAsync();
-            TempData["Success"] = "Work order updated.";
             return RedirectToPage(new { id });
         }
 
-        // Quick dispatch reassignment — narrower than Edit (just priority,
-        // scheduled date, technician). Same shape as the legacy handler so
-        // any external integration POSTing to ?handler=DispatchUpdate keeps
-        // working. Delegates to MaintenanceService for the actual update.
         public async Task<IActionResult> OnPostDispatchUpdateAsync(
             int id,
             int priorityLookupValueId,
             DateTime scheduledDate,
             int? technicianId)
         {
-            var wo = await _context.WorkOrders
-                .Where(m => m.Id == id
-                    && m.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (wo == null) return NotFound();
-
-            var resolvedPriority = MaintenancePriority.Medium;
-            int? resolvedPriorityLvId = null;
-            var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, priorityLookupValueId);
-            if (priorityLv != null && int.TryParse(priorityLv.Code, out var pEnumVal))
-            {
-                resolvedPriority = (MaintenancePriority)pEnumVal;
-                resolvedPriorityLvId = priorityLv.Id;
-            }
-
-            var result = await _maintenanceService.UpdateDispatchAsync(id, resolvedPriority, scheduledDate, technicianId);
-            if (result == null) return NotFound();
-
-            result.PriorityLookupValueId = resolvedPriorityLvId;
-            await _context.SaveChangesAsync();
-
+            // Sprint 12.9 PR #3.3 — delegated to IWorkOrderService (ADR-025 D5).
+            var result = await _workOrderService.DispatchUpdateAsync(
+                new DispatchUpdateRequest(id, priorityLookupValueId, scheduledDate, technicianId),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
             TempData["Success"] = "Dispatch updated.";
             return RedirectToPage(new { id });
         }
 
-        // ==================== CAPITALIZE → CIP (PR #96 migration) ====================
-        // Ports OnPostCapitalizeAsync from legacy /Maintenance/Details. Same
-        // financial posting: creates a CapitalImprovement row, increments
-        // Asset.AcquisitionCost, refreshes the depreciation snapshot. Behavior
-        // is bit-identical so legacy-vs-modern parity is guaranteed; only the
-        // entry point moves.
         public async Task<IActionResult> OnPostCapitalizeAsync(int id, decimal amount, string description)
         {
-            var wo = await _context.WorkOrders
-                .Include(m => m.Asset)
-                .Where(m => m.Id == id
-                    && m.Asset != null
-                    && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
-                .FirstOrDefaultAsync();
-            if (wo == null) return NotFound();
+            // Sprint 12.9 PR #3.3 — delegated to IWorkOrderService (ADR-025 D5).
+            // Capitalize → CIP flow: improvement row + asset cost bump + JE + depreciation refresh.
+            var result = await _workOrderService.CapitalizeAsync(
+                new CapitalizeWorkOrderRequest(id, amount, description, User.Identity?.Name),
+                HttpContext.RequestAborted);
+            if (result.IsFailure) return NotFound();
 
-            // Guardrail mirrors legacy: only completed WOs with a valid asset
-            // can be capitalized, and double-capitalization is refused.
-            if (wo.Status != MaintenanceStatus.Completed || wo.AssetId <= 0)
+            var outcome = result.Value!;
+            switch (outcome.Status)
             {
-                TempData["Error"] = "Cannot capitalize: WO must be Completed and tied to an asset.";
-                return RedirectToPage(new { id });
+                case CapitalizeStatus.Capitalized:
+                    TempData["Success"] = outcome.Message;
+                    break;
+                case CapitalizeStatus.NotEligible:
+                case CapitalizeStatus.AlreadyCapitalized:
+                case CapitalizeStatus.InvalidAmount:
+                case CapitalizeStatus.PeriodClosed:
+                case CapitalizeStatus.PostingRefused:
+                    TempData["Error"] = outcome.Message;
+                    break;
             }
-            if (!string.IsNullOrEmpty(wo.CustomField2) && wo.CustomField2.StartsWith("IMPR:"))
-            {
-                TempData["Error"] = "Cannot capitalize: this WO has already been capitalized.";
-                return RedirectToPage(new { id });
-            }
-            if (amount <= 0m)
-            {
-                TempData["Error"] = "Capitalization amount must be positive.";
-                return RedirectToPage(new { id });
-            }
-
-            var improvementDate = wo.CompletedDate ?? DateTime.UtcNow;
-            var asset = wo.Asset!; // non-null by the Include + filter above
-            var assetCompanyId = asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
-
-            // Period guard — same posture as Pages/Assets/Improve.cshtml.cs
-            // and Pages/Assets/Dispose.cshtml.cs. Capitalizing into a closed
-            // period would silently distort prior-period AcquisitionCost and
-            // depreciation; refuse fast with a user-readable reason.
-            if (assetCompanyId > 0)
-            {
-                var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, improvementDate);
-                if (!periodCheck.IsAllowed)
-                {
-                    TempData["Error"] = periodCheck.Reason
-                        ?? $"Cannot capitalize: posting period for {improvementDate:yyyy-MM-dd} is closed.";
-                    return RedirectToPage(new { id });
-                }
-            }
-
-            var improvement = new CapitalImprovement
-            {
-                AssetId = wo.AssetId,
-                ImprovementDate = improvementDate,
-                Description = string.IsNullOrEmpty(description) ? $"WO {wo.WorkOrderNumber}: {wo.Description}" : description,
-                Cost = amount,
-                Vendor = wo.Vendor,
-                Notes = $"Source: Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}",
-                Capitalized = true,
-                CreatedAt = DateTime.UtcNow,
-                CreatedBy = User.Identity?.Name
-            };
-
-            // PR #99: Save first so EF populates improvement.Id, *then* stamp
-            // the IMPR pointer on CustomField2 and save again. Pre-fix code
-            // stamped IMPR:{improvement.Id} while Id was still its 0 default,
-            // so every capitalization landed as IMPR:0 — the marker satisfied
-            // the IsCapitalized "starts with IMPR:" gate but pointed nowhere.
-            _context.CapitalImprovements.Add(improvement);
-            asset.AcquisitionCost += amount;
-            await _context.SaveChangesAsync();
-
-            wo.CustomField2 = $"IMPR:{improvement.Id}";
-            await _context.SaveChangesAsync();
-
-            // PR #102 (B-10): post the JE that finally makes this a real GL
-            // event. Pre-fix, AcquisitionCost was bumped on line 1090 above
-            // and the GL never saw a thing — trial balance silently drifted
-            // every time someone capitalized a WO. Service posts DR AssetCost
-            // / CR CipPending and respects the fiscal-period guard.
-            try
-            {
-                await _improvementPosting.PostImprovementJeAsync(
-                    improvementId: improvement.Id,
-                    assetId: wo.AssetId,
-                    companyId: assetCompanyId,
-                    amount: amount,
-                    improvementDate: improvementDate,
-                    description: $"WO {wo.WorkOrderNumber} — {wo.Description}");
-            }
-            catch (InvalidOperationException ex)
-            {
-                // Period-guard refusal. The WO close above already passed the
-                // period check; this is defense-in-depth. Surface the message
-                // and return — the AcquisitionCost bump and improvement row
-                // are already committed, so the operator sees the capitalize
-                // succeeded with a GL posting refusal noted. The follow-up is
-                // to either re-open the period and retry, or post a manual JE.
-                TempData["Error"] = $"Capitalized to asset successfully, but the GL posting was refused: {ex.Message}";
-                return RedirectToPage(new { id });
-            }
-
-            // Refresh the depreciation snapshot on Asset and each
-            // AssetBookSettings so subsequent reads (asset detail, KPI
-            // dashboard, schedule report) reflect the new cost basis.
-            await _depBackfill.RecomputeAssetAsync(wo.AssetId, improvementDate);
-
-            TempData["Success"] = $"Capitalized {amount:C} to asset {asset.AssetNumber} as improvement #{improvement.Id}.";
             return RedirectToPage(new { id });
         }
 

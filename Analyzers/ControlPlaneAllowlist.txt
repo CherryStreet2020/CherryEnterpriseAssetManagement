@@ -12,9 +12,12 @@
 #     2 Endpoints (Endpoints/*.cs)
 #     2 BackgroundServices (Services/**/*HostedService.cs)
 #
-# Refactor cadence: each Sprint 12.9 PR (#3 WorkOrders, #4 Purchasing, #5
-# ItemEdit) removes its target line from this file. The line count is the
-# audit-completeness CI metric (wired in PR #6).
+# Current: 117 entries (PR #277 — Sprint 12.9 PR #3.3 closes out the
+# worst-offender file Pages/WorkOrders/Details.cshtml.cs — first reduction).
+#
+# Refactor cadence: each Sprint 12.9 PR (#3 WorkOrders ✅, #4 Purchasing,
+# #5 ItemEdit) removes its target line from this file. The line count is
+# the audit-completeness CI metric (wired in PR #6).
 #
 # DO NOT add new entries to this list. New AppDbContext injections must be
 # refactored to a service, OR marked with [ControlPlaneExempt("reason")] on
@@ -135,6 +138,5 @@ Pages/Reports/Export.cshtml.cs
 Pages/Reports/Form4562.cshtml.cs
 Pages/Reports/Reliability.cshtml.cs
 Pages/Reports/TrialBalance.cshtml.cs
-Pages/WorkOrders/Details.cshtml.cs
 Services/Integrations/InboundEventProcessorHostedService.cs
 Services/Webhooks/WebhookDispatcherHostedService.cs

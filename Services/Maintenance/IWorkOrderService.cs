@@ -141,6 +141,33 @@ public interface IWorkOrderService
     /// caller maps to TempData messages.
     /// </summary>
     Task<Result<LoadTemplateMaterialsOutcome>> LoadTemplateMaterialsAsync(LoadTemplateMaterialsRequest request, CancellationToken ct);
+
+    // === Phase 4 (Sprint 12.9 PR #3.3 — final) — WO-level writes ===
+
+    /// <summary>
+    /// Edit a work order's header fields (type / priority / schedule /
+    /// vendor / technician / cost / description / notes / failure code).
+    /// Rejected if the WO is already Completed or Cancelled.
+    /// </summary>
+    Task<Result<EditWorkOrderOutcome>> EditWorkOrderAsync(EditWorkOrderRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Quick dispatch reassignment: priority + scheduled date + technician.
+    /// Narrower than <see cref="EditWorkOrderAsync"/>. Delegates the actual
+    /// update to <c>MaintenanceService.UpdateDispatchAsync</c> and persists
+    /// the priority-lookup FK alongside.
+    /// </summary>
+    Task<Result<DispatchUpdateOutcome>> DispatchUpdateAsync(DispatchUpdateRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Capitalize a completed work order's cost as a capital improvement
+    /// against its linked asset. Increments <c>Asset.AcquisitionCost</c>,
+    /// creates a <see cref="CapitalImprovement"/> row, stamps
+    /// <c>WO.CustomField2 = "IMPR:{improvementId}"</c>, posts the JE via
+    /// <c>ICapitalImprovementPostingService</c>, and refreshes the asset's
+    /// depreciation snapshot. Many guardrails — see <see cref="CapitalizeOutcome"/>.
+    /// </summary>
+    Task<Result<CapitalizeOutcome>> CapitalizeAsync(CapitalizeWorkOrderRequest request, CancellationToken ct);
 }
 
 // === Request DTOs ===
@@ -244,4 +271,78 @@ public enum LoadTemplateMaterialsStatus
     EmptyTemplate,
     /// <summary>Every template item already exists on the WO. Maps to TempData["Warning"].</summary>
     AllAlreadyExist
+}
+
+// === Phase 4 (Sprint 12.9 PR #3.3) — WO-level requests + outcomes ===
+
+/// <summary>Inputs for <see cref="IWorkOrderService.EditWorkOrderAsync"/>.</summary>
+public sealed record EditWorkOrderRequest(
+    int WorkOrderId,
+    int MaintenanceTypeLookupValueId,
+    int PriorityLookupValueId,
+    DateTime ScheduledDate,
+    string? WorkOrderNumber,
+    string? Vendor,
+    int? TechnicianId,
+    decimal EstimatedCost,
+    string? Description,
+    string? Notes,
+    int? FailureCodeId);
+
+/// <summary>Outcome of <see cref="IWorkOrderService.EditWorkOrderAsync"/>.</summary>
+public sealed record EditWorkOrderOutcome(
+    int WorkOrderId,
+    EditWorkOrderStatus Status,
+    string? Message);
+
+/// <summary>Status flag for <see cref="EditWorkOrderOutcome"/>.</summary>
+public enum EditWorkOrderStatus
+{
+    /// <summary>WO header updated. Maps to TempData["Success"].</summary>
+    Updated,
+    /// <summary>WO is Completed or Cancelled. Maps to TempData["Error"].</summary>
+    TerminalStateRejected
+}
+
+/// <summary>Inputs for <see cref="IWorkOrderService.DispatchUpdateAsync"/>.</summary>
+public sealed record DispatchUpdateRequest(
+    int WorkOrderId,
+    int PriorityLookupValueId,
+    DateTime ScheduledDate,
+    int? TechnicianId);
+
+/// <summary>Outcome of <see cref="IWorkOrderService.DispatchUpdateAsync"/>.</summary>
+public sealed record DispatchUpdateOutcome(int WorkOrderId);
+
+/// <summary>Inputs for <see cref="IWorkOrderService.CapitalizeAsync"/>.</summary>
+public sealed record CapitalizeWorkOrderRequest(
+    int WorkOrderId,
+    decimal Amount,
+    string Description,
+    string? CreatedBy);
+
+/// <summary>Outcome of <see cref="IWorkOrderService.CapitalizeAsync"/>.</summary>
+public sealed record CapitalizeOutcome(
+    int WorkOrderId,
+    CapitalizeStatus Status,
+    int? ImprovementId,
+    string? AssetNumber,
+    decimal Amount,
+    string? Message);
+
+/// <summary>Status flag for <see cref="CapitalizeOutcome"/>.</summary>
+public enum CapitalizeStatus
+{
+    /// <summary>Capitalized + JE posted + depreciation refreshed. TempData["Success"].</summary>
+    Capitalized,
+    /// <summary>WO not Completed, or no asset link. TempData["Error"].</summary>
+    NotEligible,
+    /// <summary>Already capitalized (CustomField2 starts with "IMPR:"). TempData["Error"].</summary>
+    AlreadyCapitalized,
+    /// <summary>Amount &lt;= 0. TempData["Error"].</summary>
+    InvalidAmount,
+    /// <summary>Fiscal period closed. TempData["Error"].</summary>
+    PeriodClosed,
+    /// <summary>Improvement persisted but JE posting refused. TempData["Error"]. AcquisitionCost is already bumped.</summary>
+    PostingRefused
 }
