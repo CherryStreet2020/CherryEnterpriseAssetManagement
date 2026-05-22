@@ -24,6 +24,10 @@ public enum IntentKind
     LookupReceipt,
     ExplainException,
     Help,
+    // Sprint 12D PR #5 / ADR-022 §D4 — chain-of-custody narration intent.
+    // "trace this receipt", "where did it come from", "who supplied it",
+    // "chain of custody for RCPT-XXX", "audit trail for this receipt".
+    ExplainChainOfCustody,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -44,6 +48,19 @@ public static class IntentClassifier
         if (s.Contains("help") || s.Contains("what can you do") || s.Contains("how do i"))
         {
             return new ParsedIntent(IntentKind.Help, null);
+        }
+
+        // CHAIN-OF-CUSTODY intents — must come before EXPLAIN so "trace
+        // this receipt" / "chain of custody" routes here, not to ExplainException.
+        // Sprint 12D PR #5 / ADR-022 §D4.
+        if (s.Contains("chain of custody") || s.Contains("chain-of-custody") ||
+            s.Contains("trace this") || s.Contains("trace receipt") || s.Contains("trace back") ||
+            s.Contains("where did") || s.Contains("who supplied") || s.Contains("who shipped") ||
+            s.Contains("audit trail") || s.Contains("provenance") ||
+            s.Contains("how did") && s.Contains("get here"))
+        {
+            var key = ExtractNaturalKey(raw);
+            return new ParsedIntent(IntentKind.ExplainChainOfCustody, key);
         }
 
         // EXPLAIN intents — must come before LOOKUP so "explain receipt X" is
