@@ -104,7 +104,9 @@ public class AccountsPayableTenantScopeTests
             db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
         var apPosting = new Abs.FixedAssets.Services.AccountsPayable.ApPostingService(
             db, tenant, glResolver, periodGuard, matchingService, outbox,
-            new PassthroughIdempotencyMediator(), NullLogger<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>.Instance);
+            new PassthroughIdempotencyMediator(),
+            new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(),
+            NullLogger<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>.Instance);
         var page = new DetailsModel(db, moduleGuard, tenant, lookupService, matchingService,
             cipAutoCost, apPosting, NullLogger<DetailsModel>.Instance);
 

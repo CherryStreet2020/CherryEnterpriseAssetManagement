@@ -42,6 +42,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
         private readonly InvoiceMatchingService _matching;
         private readonly IOutboxWriter _outbox;
         private readonly IIdempotencyMediator _idempotency;
+        private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
         private readonly ILogger<ApPostingService> _logger;
 
         public ApPostingService(
@@ -52,6 +53,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             InvoiceMatchingService matching,
             IOutboxWriter outbox,
             IIdempotencyMediator idempotency,
+            Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
             ILogger<ApPostingService> logger)
         {
             _db = db;
@@ -61,6 +63,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             _matching = matching;
             _outbox = outbox;
             _idempotency = idempotency;
+            _chainOfCustody = chainOfCustody;
             _logger = logger;
         }
 
@@ -324,6 +327,53 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                     MatchOverride: overrideMatch),
                 correlationId: $"ap-approve-{invoice.Id}"
             );
+
+            // Sprint 12D PR #3.2 / ADR-022 §D5 — chain-of-custody graph emission.
+            //
+            // Closes the "Machine Event → General Ledger" chain at the financial
+            // boundary. Voice query "what does this GL entry come from?" walks
+            // BACKWARDS from the GlEntry node through POSTED_TO → Invoice → (Vendor,
+            // PO via the receipt chain established in PR #3). Combined with the
+            // PR #3 Receipt → PO chain and PR #3.1 WO → Improvement → Asset chain,
+            // any GL line can now be narrated end-to-end.
+            //
+            // Edges:
+            //   Invoice --POSTED_TO--> GlEntry        (financial closure)
+            //   Invoice --SUPPLIED_BY--> Vendor       (who got paid)
+            //
+            // Failure isolation: try/catch + LogWarning; JE/outbox already
+            // committed when this runs.
+            try
+            {
+                await _chainOfCustody.RecordEdgeAsync(
+                    new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                        FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Invoice,
+                        FromEntityId: invoice.Id,
+                        FromLabel:    invoice.InvoiceNumber ?? $"INV-{invoice.Id}",
+                        ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.GlEntry,
+                        ToEntityId:   je.Id,
+                        ToLabel:      je.Reference ?? $"JE-{je.Id}",
+                        EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.PostedTo));
+
+                if (invoice.VendorId > 0)
+                {
+                    await _chainOfCustody.RecordEdgeAsync(
+                        new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                            FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Invoice,
+                            FromEntityId: invoice.Id,
+                            FromLabel:    invoice.InvoiceNumber ?? $"INV-{invoice.Id}",
+                            ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Vendor,
+                            ToEntityId:   invoice.VendorId,
+                            ToLabel:      $"Vendor-{invoice.VendorId}",
+                            EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.SuppliedBy));
+                }
+            }
+            catch (Exception chainEx)
+            {
+                _logger.LogWarning(chainEx,
+                    "ApPostingService.PostApprovalAsync: chain-of-custody emit failed for invoice {InvoiceId} → JE {JeId}. JE + outbox already committed; chain can be rebuilt via backfill.",
+                    invoice.Id, je.Id);
+            }
 
             return new ApPostingResult(invoiceId, je.Id, match, totalCredit);
         }
