@@ -42,6 +42,7 @@ public sealed class WorkOrderService : IWorkOrderService
     private readonly DepreciationBackfillService _depBackfill;
     private readonly ICapitalImprovementPostingService _improvementPosting;
     private readonly MaintenanceService _maintenanceService;
+    private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<WorkOrderService> _logger;
 
     public WorkOrderService(
@@ -54,6 +55,7 @@ public sealed class WorkOrderService : IWorkOrderService
         DepreciationBackfillService depBackfill,
         ICapitalImprovementPostingService improvementPosting,
         MaintenanceService maintenanceService,
+        Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
         ILogger<WorkOrderService> logger)
     {
         _db = db;
@@ -65,6 +67,7 @@ public sealed class WorkOrderService : IWorkOrderService
         _depBackfill = depBackfill;
         _improvementPosting = improvementPosting;
         _maintenanceService = maintenanceService;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
     }
 
@@ -1238,6 +1241,53 @@ public sealed class WorkOrderService : IWorkOrderService
 
         // Refresh the depreciation snapshot so subsequent reads reflect the new cost basis.
         await _depBackfill.RecomputeAssetAsync(wo.AssetId, improvementDate);
+
+        // Sprint 12D PR #3.1 / ADR-022 §D5 — chain-of-custody graph emission.
+        //
+        // Voice query "where did this asset's NBV come from?" walks BACKWARDS
+        // from the Asset node through these edges to find every capitalized
+        // WorkOrder + its cost basis contribution. The Controller Cockpit
+        // (Sprint 12.7 per strategic absorption Item 3) reads this same
+        // chain to narrate "asset #4231 NBV $1.2M is sourced from WO-A
+        // ($300K, 2024-01) + WO-B ($420K, 2024-04) + WO-C ($480K, 2024-09)".
+        //
+        // Edges:
+        //   WorkOrder --PRODUCED_BY--> CapitalImprovement   (origin link)
+        //   CapitalImprovement --CAPITALIZED_TO--> Asset    (target link)
+        //
+        // Failure isolation: same pattern as ReceivingPostingService (PR #3).
+        // Chain emit can't roll back the JE / improvement / depreciation
+        // recompute. LogWarning on failure, recoverable via PR #6 backfill.
+        try
+        {
+            await _chainOfCustody.RecordEdgeAsync(
+                new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                    FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.WorkOrder,
+                    FromEntityId: wo.Id,
+                    FromLabel:    wo.WorkOrderNumber ?? $"WO-{wo.Id}",
+                    ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.CapitalImprovement,
+                    ToEntityId:   improvement.Id,
+                    ToLabel:      $"IMPR-{improvement.Id}",
+                    EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.ProducedBy),
+                ct);
+
+            await _chainOfCustody.RecordEdgeAsync(
+                new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                    FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.CapitalImprovement,
+                    FromEntityId: improvement.Id,
+                    FromLabel:    $"IMPR-{improvement.Id}",
+                    ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Asset,
+                    ToEntityId:   asset.Id,
+                    ToLabel:      asset.AssetNumber ?? $"Asset-{asset.Id}",
+                    EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.CapitalizedTo),
+                ct);
+        }
+        catch (Exception chainEx)
+        {
+            _logger.LogWarning(chainEx,
+                "WorkOrderService.CapitalizeAsync: chain-of-custody emit failed for WO {WorkOrderId} → improvement {ImprovementId} → asset {AssetId}. JE + improvement + depreciation already committed; chain can be rebuilt via backfill.",
+                wo.Id, improvement.Id, asset.Id);
+        }
 
         return Result.Success(new CapitalizeOutcome(
             WorkOrderId: request.WorkOrderId,
