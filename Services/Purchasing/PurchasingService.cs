@@ -28,6 +28,7 @@ public sealed class PurchasingService : IPurchasingService
     private readonly ILookupService _lookupService;
     private readonly IApprovalService _approvals;
     private readonly IOutboxWriter _outbox;
+    private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<PurchasingService> _logger;
 
     public PurchasingService(
@@ -36,6 +37,7 @@ public sealed class PurchasingService : IPurchasingService
         ILookupService lookupService,
         IApprovalService approvals,
         IOutboxWriter outbox,
+        Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
         ILogger<PurchasingService> logger)
     {
         _db = db;
@@ -43,7 +45,22 @@ public sealed class PurchasingService : IPurchasingService
         _lookupService = lookupService;
         _approvals = approvals;
         _outbox = outbox;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
+    }
+
+    // Sprint 12D PR #3.3 — stable positive int key derived from a username.
+    // Used as the EntityId for the User node in the chain-of-custody graph,
+    // since usernames are the only stable identifier we have at the approval
+    // boundary (no User table FK threaded through). Different usernames →
+    // different keys; same username (e.g. multiple approvals) → same key
+    // (idempotent dedup at the RecordEdgeAsync level).
+    private static long UsernameKey(string? username)
+    {
+        if (string.IsNullOrEmpty(username)) return 0L;
+        long h = 0;
+        foreach (var c in username) h = h * 31 + c;
+        return Math.Abs(h);
     }
 
     public async Task<Result<PurchaseOrder>> UpdateHeaderAsync(
@@ -389,6 +406,44 @@ public sealed class PurchasingService : IPurchasingService
                     ApproverUsername: request.ApproverUsername),
                 correlationId: $"po-approve-{po.Id}"
             );
+
+            // Sprint 12D PR #3.3 / ADR-022 §D5 — chain-of-custody graph emission.
+            //
+            // Voice query "who approved this PO?" or compliance-narration
+            // "this PO was approved by Jane Smith on 2026-05-14" walks
+            // from the PurchaseOrder node through APPROVED_BY → User. The
+            // User node is keyed by a stable username-derived hash since
+            // usernames are the only stable identifier at this boundary
+            // (no User table FK threaded through ApprovePoRequest).
+            //
+            // Edge:
+            //   PurchaseOrder --APPROVED_BY--> User
+            //
+            // Fires ONLY on FullyApproved / NoWorkflowApplicable — partial
+            // approvals don't yet count as a committed approval action.
+            try
+            {
+                var userKey = UsernameKey(request.ApproverUsername);
+                if (userKey > 0)
+                {
+                    await _chainOfCustody.RecordEdgeAsync(
+                        new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                            FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.PurchaseOrder,
+                            FromEntityId: po.Id,
+                            FromLabel:    po.PONumber ?? $"PO-{po.Id}",
+                            ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.User,
+                            ToEntityId:   userKey,
+                            ToLabel:      request.ApproverUsername ?? "(unknown)",
+                            EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.ApprovedBy),
+                        ct);
+                }
+            }
+            catch (Exception chainEx)
+            {
+                _logger.LogWarning(chainEx,
+                    "PurchasingService.ApproveAsync: chain-of-custody emit failed for PO {PoId} approver {Username}. Approval state already committed; chain can be rebuilt via backfill.",
+                    po.Id, request.ApproverUsername);
+            }
 
             return Result.Success(new ApprovePoOutcome(
                 PurchaseOrderId: po.Id,
