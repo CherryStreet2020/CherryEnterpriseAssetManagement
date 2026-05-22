@@ -177,7 +177,7 @@ public class CipAutoCostPostingWiringTests
 
         var glResolverR = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var outboxR = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, outboxR, new PassthroughIdempotencyMediator(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, outboxR, new PassthroughIdempotencyMediator(), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(),
             NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPostingR, outboxR);
@@ -235,7 +235,7 @@ public class CipAutoCostPostingWiringTests
 
         var glResolverR = new Abs.FixedAssets.Services.GlAccountResolver(db, new MemoryCache(new MemoryCacheOptions()));
         var outboxR = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, outboxR, new PassthroughIdempotencyMediator(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
+        var receivingPostingR = new Abs.FixedAssets.Services.Receiving.ReceivingPostingService(db, tenant, glResolverR, outboxR, new PassthroughIdempotencyMediator(), new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(), NullLogger<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>.Instance);
         var page = new Abs.FixedAssets.Pages.Receiving.ReceiveModel(
             db, new AlwaysEnabledModuleGuard(), tenant, lookup, new AllowAllPeriodGuard(),
             NullLogger<Abs.FixedAssets.Pages.Receiving.ReceiveModel>.Instance, cipAutoCost, receivingPostingR, outboxR);

@@ -62,6 +62,7 @@ namespace Abs.FixedAssets.Services.Receiving
         private readonly IGlAccountResolver _glResolver;
         private readonly IOutboxWriter _outbox;
         private readonly IIdempotencyMediator _idempotency;
+        private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
         private readonly ILogger<ReceivingPostingService> _logger;
 
         public ReceivingPostingService(
@@ -70,6 +71,7 @@ namespace Abs.FixedAssets.Services.Receiving
             IGlAccountResolver glResolver,
             IOutboxWriter outbox,
             IIdempotencyMediator idempotency,
+            Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
             ILogger<ReceivingPostingService> logger)
         {
             _db = db;
@@ -77,6 +79,7 @@ namespace Abs.FixedAssets.Services.Receiving
             _glResolver = glResolver;
             _outbox = outbox;
             _idempotency = idempotency;
+            _chainOfCustody = chainOfCustody;
             _logger = logger;
         }
 
@@ -313,6 +316,84 @@ namespace Abs.FixedAssets.Services.Receiving
                         ReceiptDate: receipt.ReceiptDate),
                     correlationId: $"item-receipt-{line.Id}"
                 );
+            }
+
+            // Sprint 12D PR #3 / ADR-022 §D5 — chain-of-custody graph emission.
+            //
+            // This is the EVS demo chain. Voice query "why is receipt X blocked?"
+            // walks BACKWARDS from the Receipt node through these edges to find
+            // its PO, its Vendor, and the Items it carries — and then narrates
+            // the chain via LLM (Sprint 12D PR #5).
+            //
+            // Edges emitted per receipt:
+            //   Receipt --RECEIVED_AT--> PurchaseOrder      (one edge per unique PO)
+            //   PurchaseOrder --SUPPLIED_BY--> Vendor       (one edge per unique vendor)
+            //   Receipt --CONTAINS_ITEM--> Item             (one edge per unique item)
+            //
+            // Failures of the graph emit DO NOT roll back the JE. The chain is
+            // a read-only narration substrate — losing one edge is recoverable
+            // (the chain can be rebuilt from the relational data via PR #6's
+            // backfill tool). Wrapping in a per-edge try/catch matches the
+            // pattern AuditService.LogAsync uses for its bidirectional-nav
+            // safety net (memory feedback_audit_log_serialization).
+            try
+            {
+                var emittedPos = new HashSet<int>();
+                var emittedVendors = new HashSet<int>();
+                var emittedItems = new HashSet<int>();
+                foreach (var (line, poLine, _, _, _) in inventoryReceipts)
+                {
+                    // Receipt -> PurchaseOrder
+                    var po = poLine.PurchaseOrder;
+                    if (po != null && emittedPos.Add(po.Id))
+                    {
+                        await _chainOfCustody.RecordEdgeAsync(
+                            new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                                FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Receipt,
+                                FromEntityId: receipt.Id,
+                                FromLabel:    receipt.ReceiptNumber,
+                                ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.PurchaseOrder,
+                                ToEntityId:   po.Id,
+                                ToLabel:      po.PONumber ?? $"PO-{po.Id}",
+                                EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.ReceivedAt));
+
+                        // PurchaseOrder -> Vendor (one per unique vendor across this receipt)
+                        if (po.VendorId > 0 && emittedVendors.Add(po.VendorId))
+                        {
+                            await _chainOfCustody.RecordEdgeAsync(
+                                new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                                    FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.PurchaseOrder,
+                                    FromEntityId: po.Id,
+                                    FromLabel:    po.PONumber ?? $"PO-{po.Id}",
+                                    ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Vendor,
+                                    ToEntityId:   po.VendorId,
+                                    ToLabel:      $"Vendor-{po.VendorId}",
+                                    EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.SuppliedBy));
+                        }
+                    }
+
+                    // Receipt -> Item
+                    var itemId = poLine.ItemId ?? 0;
+                    if (itemId > 0 && emittedItems.Add(itemId))
+                    {
+                        var itemLabel = poLine.Item?.PartNumber ?? $"Item-{itemId}";
+                        await _chainOfCustody.RecordEdgeAsync(
+                            new Abs.FixedAssets.Services.ChainOfCustody.RecordEdgeRequest(
+                                FromNodeType: Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Receipt,
+                                FromEntityId: receipt.Id,
+                                FromLabel:    receipt.ReceiptNumber,
+                                ToNodeType:   Abs.FixedAssets.Models.ChainOfCustody.ChainNodeTypes.Item,
+                                ToEntityId:   itemId,
+                                ToLabel:      itemLabel,
+                                EdgeType:     Abs.FixedAssets.Models.ChainOfCustody.ChainEdgeTypes.ContainsItem));
+                    }
+                }
+            }
+            catch (Exception chainEx)
+            {
+                _logger.LogWarning(chainEx,
+                    "ReceivingPostingService: chain-of-custody emit failed for GR {Id} — JE {JeId} still committed; chain can be rebuilt via backfill.",
+                    goodsReceiptId, je.Id);
             }
 
             return new ReceivingPostingResult(goodsReceiptId, je.Id, inventoryRowsTouched, totalAccrued);
