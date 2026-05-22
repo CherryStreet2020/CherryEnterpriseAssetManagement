@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ADR-025 D4 upgrade — Roslyn DiagnosticAnalyzer emitting CHERRY025.
+
+    Replaces scripts/check-control-plane.sh's grep gate. Catches direct AppDbContext
+    injection on PageModels, Controllers, MinimalAPI endpoints, and BackgroundServices —
+    the four layers that can mutate data outside the Service Layer Standard.
+
+    Severity: Warning by default. CI runs `dotnet build /warnaserror:CHERRY025` to
+    promote to Error. Local IDE shows a yellow squiggle without breaking the build.
+
+    See:
+      - docs/ADR-025-service-layer-standard.md
+      - docs/ADR-025-roslyn-analyzer-design.md
+      - MASTER_PLAN.md Priority 1.6080 (Sprint 12.9 Control Plane Hardening)
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Abs.FixedAssets.ControlPlane</RootNamespace>
+    <AssemblyName>Abs.FixedAssets.ControlPlaneAnalyzer</AssemblyName>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <IncludeBuildOutput>true</IncludeBuildOutput>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" PrivateAssets="all">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

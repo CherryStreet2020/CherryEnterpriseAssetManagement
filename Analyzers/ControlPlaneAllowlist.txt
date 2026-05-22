@@ -1,0 +1,140 @@
+# ADR-025 D4 — Control Plane Analyzer Allowlist
+# ---------------------------------------------
+# One file path per line (repo-relative, forward slashes).
+# Lines starting with '#' are comments.
+# The CHERRY025 Roslyn analyzer suppresses on classes declared in any file
+# whose path matches an entry here. Used to grandfather legacy AppDbContext
+# direct-injection patterns without forcing a 30-day stop-and-refactor.
+#
+# Baseline: 118 entries (PR #272 — Sprint 12.9 PR #1, 2026-05-22).
+#   106 PageModels (Pages/**/*.cshtml.cs)
+#     8 Controllers (Controllers/*.cs)
+#     2 Endpoints (Endpoints/*.cs)
+#     2 BackgroundServices (Services/**/*HostedService.cs)
+#
+# Refactor cadence: each Sprint 12.9 PR (#3 WorkOrders, #4 Purchasing, #5
+# ItemEdit) removes its target line from this file. The line count is the
+# audit-completeness CI metric (wired in PR #6).
+#
+# DO NOT add new entries to this list. New AppDbContext injections must be
+# refactored to a service, OR marked with [ControlPlaneExempt("reason")] on
+# the class itself (typed, code-review-auditable).
+
+Controllers/AnalyticsController.cs
+Controllers/AssetsApiController.cs
+Controllers/BackupController.cs
+Controllers/BarcodeApiController.cs
+Controllers/DetailController.cs
+Controllers/DrilldownController.cs
+Controllers/OrgController.cs
+Controllers/SensorEventsController.cs
+Endpoints/AdminEmbedEndpoint.cs
+Endpoints/VoiceInvokeEndpoint.cs
+Pages/API/Index.cshtml.cs
+Pages/AccountsPayable/Create.cshtml.cs
+Pages/AccountsPayable/Details.cshtml.cs
+Pages/AccountsPayable/Index.cshtml.cs
+Pages/Admin/AssetCategories.cshtml.cs
+Pages/Admin/AuditLog.cshtml.cs
+Pages/Admin/Barcodes.cshtml.cs
+Pages/Admin/Companies.cshtml.cs
+Pages/Admin/Company.cshtml.cs
+Pages/Admin/CostCenters.cshtml.cs
+Pages/Admin/DataImport.cshtml.cs
+Pages/Admin/DataManagement.cshtml.cs
+Pages/Admin/Departments.cshtml.cs
+Pages/Admin/ExchangeRates.cshtml.cs
+Pages/Admin/FiscalCalendar.cshtml.cs
+Pages/Admin/GlAccounts.cshtml.cs
+Pages/Admin/Integrations/Inbound.cshtml.cs
+Pages/Admin/Integrations/Index.cshtml.cs
+Pages/Admin/Integrations/Maps.cshtml.cs
+Pages/Admin/ItemCategories.cshtml.cs
+Pages/Admin/Items.cshtml.cs
+Pages/Admin/Kits.cshtml.cs
+Pages/Admin/Locations.cshtml.cs
+Pages/Admin/Lookups/EditValues.cshtml.cs
+Pages/Admin/Lookups/Index.cshtml.cs
+Pages/Admin/Manufacturers.cshtml.cs
+Pages/Admin/Outbox/Index.cshtml.cs
+Pages/Admin/PMScheduleEdit.cshtml.cs
+Pages/Admin/PMSchedules.cshtml.cs
+Pages/Admin/PMTemplateEdit.cshtml.cs
+Pages/Admin/PMTemplates.cshtml.cs
+Pages/Admin/ProjectManagers.cshtml.cs
+Pages/Admin/Requisitions.cshtml.cs
+Pages/Admin/Sites.cshtml.cs
+Pages/Admin/StockLevels.cshtml.cs
+Pages/Admin/SystemSettings.cshtml.cs
+Pages/Admin/Technicians.cshtml.cs
+Pages/Admin/Users.cshtml.cs
+Pages/Admin/Vendors.cshtml.cs
+Pages/Admin/Webhooks/Deliveries.cshtml.cs
+Pages/Admin/Webhooks/Index.cshtml.cs
+Pages/Assets/Asset.cshtml.cs
+Pages/Assets/Delete.cshtml.cs
+Pages/Assets/Dispose.cshtml.cs
+Pages/Assets/Improve.cshtml.cs
+Pages/Assets/Index.cshtml.cs
+Pages/Assets/Schedule.cshtml.cs
+Pages/Assets/Transfer.cshtml.cs
+Pages/Books/Create.cshtml.cs
+Pages/Books/Delete.cshtml.cs
+Pages/Books/Details.cshtml.cs
+Pages/Books/Edit.cshtml.cs
+Pages/Books/GlAccounts.cshtml.cs
+Pages/Books/Index.cshtml.cs
+Pages/BulkOperations/Details.cshtml.cs
+Pages/BulkOperations/Index.cshtml.cs
+Pages/CCA/ClassReport.cshtml.cs
+Pages/CCA/Index.cshtml.cs
+Pages/CIP/CostDetails.cshtml.cs
+Pages/CIP/CostTypeDetails.cshtml.cs
+Pages/CIP/Costs.cshtml.cs
+Pages/CIP/Details.cshtml.cs
+Pages/CIP/Index.cshtml.cs
+Pages/CIP/PartyDrilldown.cshtml.cs
+Pages/Index.cshtml.cs
+Pages/Inventory/List.cshtml.cs
+Pages/Journals/Details.cshtml.cs
+Pages/Journals/Generate.cshtml.cs
+Pages/Journals/Index.cshtml.cs
+Pages/Journals/Manual.cshtml.cs
+Pages/Maintenance/Assignments/Index.cshtml.cs
+Pages/Maintenance/Create.cshtml.cs
+Pages/Maintenance/Details.cshtml.cs
+Pages/Maintenance/Index.cshtml.cs
+Pages/Maintenance/ScheduleBoard.cshtml.cs
+Pages/Maintenance/Schedules.cshtml.cs
+Pages/Maintenance/Technicians/Index.cshtml.cs
+Pages/Maintenance/Technicians/Profile.cshtml.cs
+Pages/Maintenance/WorkRequests/Create.cshtml.cs
+Pages/Maintenance/WorkRequests/Details.cshtml.cs
+Pages/Maintenance/WorkRequests/Index.cshtml.cs
+Pages/Materials/ItemEdit.cshtml.cs
+Pages/Materials/Items.cshtml.cs
+Pages/Materials/Vendors/Create.cshtml.cs
+Pages/Materials/Vendors/Edit.cshtml.cs
+Pages/Periods/Close.cshtml.cs
+Pages/Periods/Index.cshtml.cs
+Pages/Plant/Floor.cshtml.cs
+Pages/Plant/Index.cshtml.cs
+Pages/Purchasing/Create.cshtml.cs
+Pages/Purchasing/Details.cshtml.cs
+Pages/Purchasing/Index.cshtml.cs
+Pages/Receiving/Details.cshtml.cs
+Pages/Receiving/History.cshtml.cs
+Pages/Receiving/Inspect.cshtml.cs
+Pages/Receiving/MatchOrphan.cshtml.cs
+Pages/Receiving/Receive.cshtml.cs
+Pages/Reports/Builder.cshtml.cs
+Pages/Reports/ChartOfAccounts.cshtml.cs
+Pages/Reports/DepreciationPreview.cshtml.cs
+Pages/Reports/DepreciationSchedule.cshtml.cs
+Pages/Reports/Export.cshtml.cs
+Pages/Reports/Form4562.cshtml.cs
+Pages/Reports/Reliability.cshtml.cs
+Pages/Reports/TrialBalance.cshtml.cs
+Pages/WorkOrders/Details.cshtml.cs
+Services/Integrations/InboundEventProcessorHostedService.cs
+Services/Webhooks/WebhookDispatcherHostedService.cs

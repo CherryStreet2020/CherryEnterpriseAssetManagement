@@ -1,20 +1,36 @@
 #!/bin/bash
-# ADR-025 — Service Layer Standard CI gate.
+# ADR-025 — Service Layer Standard CI gate (LEGACY).
 #
-# Detects NEW PageModels (added in the PR diff) that inject AppDbContext
-# without the explicit `// PRAGMA: control-plane-exempt` allow-comment.
-# Modified-existing pages are NOT flagged — legacy pattern is grandfathered.
+# ⚠️ DEPRECATED 2026-05-22 (Sprint 12.9 PR #1, commit history search "CHERRY025").
+#
+# The canonical gate is now the Roslyn analyzer `CHERRY025` at
+# `Analyzers/Abs.FixedAssets.ControlPlaneAnalyzer/`. The new gate catches
+# direct AppDbContext injection on:
+#   - PageModels (this script's original scope)
+#   - Controllers
+#   - MinimalAPI Endpoints
+#   - BackgroundServices / IHostedService classes
+#
+# Run the canonical gate locally:
+#   dotnet build Abs.FixedAssets.csproj -c Release /warnaserror:CHERRY025
+#
+# This script is kept on disk for backward-compatible local convenience —
+# greps only the Pages layer, only NEW files. It will be removed in a
+# follow-up PR once nothing references it.
+#
+# Original detection logic preserved below for reference.
 #
 # Usage:
 #   bash scripts/check-control-plane.sh [base-ref]
 #
 # Default base-ref is origin/main. The gate exits 0 (pass) when no
-# violations are detected, 1 (fail) otherwise. Output is human-readable
-# with a remediation hint pointing to ADR-025.
-#
-# Run locally before pushing:
-#   bash scripts/check-control-plane.sh main
+# violations are detected, 1 (fail) otherwise.
 set -euo pipefail
+
+echo "⚠️  scripts/check-control-plane.sh is DEPRECATED."
+echo "   Run \`dotnet build Abs.FixedAssets.csproj -c Release /warnaserror:CHERRY025\` instead."
+echo "   See docs/ADR-025-roslyn-analyzer-design.md."
+echo ""
 
 BASE_REF="${1:-origin/main}"
 
