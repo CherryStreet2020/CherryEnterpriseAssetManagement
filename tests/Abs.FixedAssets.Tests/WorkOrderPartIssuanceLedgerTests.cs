@@ -202,7 +202,8 @@ public class WorkOrderPartIssuanceLedgerTests
             null!,  // IPeriodGuard
             null!,  // DepreciationBackfillService
             null!,  // MaintenanceService
-            null!); // ICapitalImprovementPostingService
+            null!,  // ICapitalImprovementPostingService
+            null!); // IWorkOrderService (Sprint 12.9 PR #3 — not exercised by OnPostIssueMaterial)
         WirePageContext(page);
 
         return (db, part, page);
