@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Abs.FixedAssets.Models.Projects;
 
 namespace Abs.FixedAssets.Models.Production
 {
@@ -132,6 +133,43 @@ namespace Abs.FixedAssets.Models.Production
         // structure cleanup (rare; usually Status -> Retired).
         public int? MaterialStructureId { get; set; }
         public MaterialStructure? MaterialStructure { get; set; }
+
+        // Sprint 13.5 PR #1 / ADR-026 — Customer-project foundation.
+        //
+        // Nullable link to a CustomerProject. The vast majority of
+        // ProductionOrders run with no project at all (pure job-shop
+        // mode) — this column stays NULL for those. When set, the
+        // project's cost rollup and revenue recognition rules apply.
+        //
+        // FK uses SET NULL on project delete so production-order history
+        // survives a project being archived. Indexed via partial index
+        // (WHERE CustomerProjectId IS NOT NULL) in the migration to keep
+        // job-shop-mode lookups cheap.
+        //
+        // See research_project_job_hierarchy_patterns.md §4 for the
+        // dominant-pattern derivation (matches SAP S/4HANA PS, Oracle
+        // Project Mfg, D365 Project Ops, IFS Cloud, Epicor Kinetic,
+        // Acumatica, Infor LN — all of which model the Project link as
+        // a nullable header FK on the manufacturing-order side).
+        public int? CustomerProjectId { get; set; }
+        public CustomerProject? CustomerProject { get; set; }
+
+        // Optional WBS-phase pegging within the project. Customers who
+        // do not care about WBS leave this NULL. Independent of
+        // CustomerProjectId so a job can be project-linked without
+        // committing to a phase.
+        public int? ProjectPhaseId { get; set; }
+        public ProjectPhase? ProjectPhase { get; set; }
+
+        // D365-style posting-mode override per ProductionOrder.
+        //   FinishedItem — produce normally, consume finished good into
+        //                  the project on completion.
+        //   Consumed     — post costs directly to the project as they
+        //                  hit the job (project becomes the cost object).
+        // NULL when CustomerProjectId is also NULL; required to be set
+        // (by ICustomerProjectService) when linking a job to a project.
+        // CHECK constraint enforced in the migration.
+        public ProjectPostingMode? ProjectPostingMode { get; set; }
 
         // Audit fields — same convention as WorkOrder.
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
