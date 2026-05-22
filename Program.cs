@@ -182,6 +182,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingServic
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterService,
     Abs.FixedAssets.Services.Items.ItemMasterService>();
 
+// ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
+// Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
+// recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage
+// backend for real Apache AGE behind the same interface.
+builder.Services.AddScoped<Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService,
+    Abs.FixedAssets.Services.ChainOfCustody.ChainOfCustodyService>();
+
 // ADR-001 / S1-1: GR/IR accrual + inventory movement on goods receipt.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>();
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceivingPostingService>(
