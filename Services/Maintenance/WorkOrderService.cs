@@ -38,6 +38,10 @@ public sealed class WorkOrderService : IWorkOrderService
     private readonly ILookupService _lookupService;
     private readonly IGlAccountResolver _glResolver;
     private readonly IOutboxWriter _outbox;
+    private readonly IPeriodGuard _periodGuard;
+    private readonly DepreciationBackfillService _depBackfill;
+    private readonly ICapitalImprovementPostingService _improvementPosting;
+    private readonly MaintenanceService _maintenanceService;
     private readonly ILogger<WorkOrderService> _logger;
 
     public WorkOrderService(
@@ -46,6 +50,10 @@ public sealed class WorkOrderService : IWorkOrderService
         ILookupService lookupService,
         IGlAccountResolver glResolver,
         IOutboxWriter outbox,
+        IPeriodGuard periodGuard,
+        DepreciationBackfillService depBackfill,
+        ICapitalImprovementPostingService improvementPosting,
+        MaintenanceService maintenanceService,
         ILogger<WorkOrderService> logger)
     {
         _db = db;
@@ -53,6 +61,10 @@ public sealed class WorkOrderService : IWorkOrderService
         _lookupService = lookupService;
         _glResolver = glResolver;
         _outbox = outbox;
+        _periodGuard = periodGuard;
+        _depBackfill = depBackfill;
+        _improvementPosting = improvementPosting;
+        _maintenanceService = maintenanceService;
         _logger = logger;
     }
 
@@ -993,5 +1005,246 @@ public sealed class WorkOrderService : IWorkOrderService
         };
         _db.JournalEntries.Add(je);
         return je;
+    }
+
+    // === Phase 4 (Sprint 12.9 PR #3.3 — final) — WO-level writes ===
+
+    public async Task<Result<EditWorkOrderOutcome>> EditWorkOrderAsync(
+        EditWorkOrderRequest request,
+        CancellationToken ct)
+    {
+        var wo = await _db.WorkOrders
+            .Where(m => m.Id == request.WorkOrderId
+                && m.Asset != null
+                && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+            .FirstOrDefaultAsync(ct);
+        if (wo == null)
+        {
+            return Result.Failure<EditWorkOrderOutcome>($"Work order {request.WorkOrderId} not found or not visible.");
+        }
+
+        if (wo.Status == MaintenanceStatus.Completed || wo.Status == MaintenanceStatus.Cancelled)
+        {
+            return Result.Success(new EditWorkOrderOutcome(
+                WorkOrderId: request.WorkOrderId,
+                Status: EditWorkOrderStatus.TerminalStateRejected,
+                Message: "Cannot edit a Completed or Cancelled work order."));
+        }
+
+        // Type — keep enum value in sync with the lookup row.
+        var typeLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, request.MaintenanceTypeLookupValueId);
+        if (typeLv != null)
+        {
+            wo.TypeLookupValueId = typeLv.Id;
+            if (int.TryParse(typeLv.Code, out var typeEnumVal))
+                wo.Type = (MaintenanceType)typeEnumVal;
+        }
+
+        // Priority — same dual-write.
+        var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, request.PriorityLookupValueId);
+        if (priorityLv != null)
+        {
+            wo.PriorityLookupValueId = priorityLv.Id;
+            if (int.TryParse(priorityLv.Code, out var pEnumVal))
+                wo.Priority = (MaintenancePriority)pEnumVal;
+        }
+
+        wo.ScheduledDate = request.ScheduledDate;
+        wo.WorkOrderNumber = request.WorkOrderNumber;
+        wo.Vendor = request.Vendor;
+        wo.TechnicianId = request.TechnicianId;
+        wo.EstimatedCost = request.EstimatedCost;
+        wo.Description = request.Description ?? "";
+        wo.Notes = request.Notes;
+
+        // PR #104 (B-16): write the FK alongside the denormalized
+        // FailureCode text label.
+        if (request.FailureCodeId.HasValue && request.FailureCodeId.Value > 0)
+        {
+            var fc = await _db.FailureCodes
+                .FirstOrDefaultAsync(f => f.Id == request.FailureCodeId.Value && f.IsActive, ct);
+            if (fc != null)
+            {
+                wo.FailureCodeId = fc.Id;
+                wo.FailureCode = fc.Name;
+            }
+        }
+        else
+        {
+            wo.FailureCodeId = null;
+            wo.FailureCode = null;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return Result.Success(new EditWorkOrderOutcome(
+            WorkOrderId: request.WorkOrderId,
+            Status: EditWorkOrderStatus.Updated,
+            Message: "Work order updated."));
+    }
+
+    public async Task<Result<DispatchUpdateOutcome>> DispatchUpdateAsync(
+        DispatchUpdateRequest request,
+        CancellationToken ct)
+    {
+        var wo = await _db.WorkOrders
+            .Where(m => m.Id == request.WorkOrderId
+                && m.Asset != null
+                && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+            .FirstOrDefaultAsync(ct);
+        if (wo == null)
+        {
+            return Result.Failure<DispatchUpdateOutcome>($"Work order {request.WorkOrderId} not found or not visible.");
+        }
+
+        var resolvedPriority = MaintenancePriority.Medium;
+        int? resolvedPriorityLvId = null;
+        var priorityLv = await _lookupService.GetValueByIdAsync(_tenantContext.TenantId, _tenantContext.CompanyId, request.PriorityLookupValueId);
+        if (priorityLv != null && int.TryParse(priorityLv.Code, out var pEnumVal))
+        {
+            resolvedPriority = (MaintenancePriority)pEnumVal;
+            resolvedPriorityLvId = priorityLv.Id;
+        }
+
+        var result = await _maintenanceService.UpdateDispatchAsync(request.WorkOrderId, resolvedPriority, request.ScheduledDate, request.TechnicianId);
+        if (result == null)
+        {
+            return Result.Failure<DispatchUpdateOutcome>($"Dispatch update failed for work order {request.WorkOrderId}.");
+        }
+
+        result.PriorityLookupValueId = resolvedPriorityLvId;
+        await _db.SaveChangesAsync(ct);
+        return Result.Success(new DispatchUpdateOutcome(request.WorkOrderId));
+    }
+
+    public async Task<Result<CapitalizeOutcome>> CapitalizeAsync(
+        CapitalizeWorkOrderRequest request,
+        CancellationToken ct)
+    {
+        var wo = await _db.WorkOrders
+            .Include(m => m.Asset)
+            .Where(m => m.Id == request.WorkOrderId
+                && m.Asset != null
+                && _tenantContext.VisibleCompanyIds.Contains(m.Asset.CompanyId ?? 0))
+            .FirstOrDefaultAsync(ct);
+        if (wo == null)
+        {
+            return Result.Failure<CapitalizeOutcome>($"Work order {request.WorkOrderId} not found or not visible.");
+        }
+
+        // Guardrail 1: completed + has asset
+        if (wo.Status != MaintenanceStatus.Completed || wo.AssetId <= 0)
+        {
+            return Result.Success(new CapitalizeOutcome(
+                WorkOrderId: request.WorkOrderId,
+                Status: CapitalizeStatus.NotEligible,
+                ImprovementId: null,
+                AssetNumber: wo.Asset?.AssetNumber,
+                Amount: request.Amount,
+                Message: "Cannot capitalize: WO must be Completed and tied to an asset."));
+        }
+
+        // Guardrail 2: not already capitalized
+        if (!string.IsNullOrEmpty(wo.CustomField2) && wo.CustomField2.StartsWith("IMPR:"))
+        {
+            return Result.Success(new CapitalizeOutcome(
+                WorkOrderId: request.WorkOrderId,
+                Status: CapitalizeStatus.AlreadyCapitalized,
+                ImprovementId: null,
+                AssetNumber: wo.Asset?.AssetNumber,
+                Amount: request.Amount,
+                Message: "Cannot capitalize: this WO has already been capitalized."));
+        }
+
+        // Guardrail 3: positive amount
+        if (request.Amount <= 0m)
+        {
+            return Result.Success(new CapitalizeOutcome(
+                WorkOrderId: request.WorkOrderId,
+                Status: CapitalizeStatus.InvalidAmount,
+                ImprovementId: null,
+                AssetNumber: wo.Asset?.AssetNumber,
+                Amount: request.Amount,
+                Message: "Capitalization amount must be positive."));
+        }
+
+        var improvementDate = wo.CompletedDate ?? DateTime.UtcNow;
+        var asset = wo.Asset!;
+        var assetCompanyId = asset.CompanyId ?? _tenantContext.CompanyId ?? 0;
+
+        // Guardrail 4: fiscal period open
+        if (assetCompanyId > 0)
+        {
+            var periodCheck = await _periodGuard.CanPostAsync(assetCompanyId, improvementDate);
+            if (!periodCheck.IsAllowed)
+            {
+                return Result.Success(new CapitalizeOutcome(
+                    WorkOrderId: request.WorkOrderId,
+                    Status: CapitalizeStatus.PeriodClosed,
+                    ImprovementId: null,
+                    AssetNumber: asset.AssetNumber,
+                    Amount: request.Amount,
+                    Message: periodCheck.Reason ?? $"Cannot capitalize: posting period for {improvementDate:yyyy-MM-dd} is closed."));
+            }
+        }
+
+        var improvement = new CapitalImprovement
+        {
+            AssetId = wo.AssetId,
+            ImprovementDate = improvementDate,
+            Description = string.IsNullOrEmpty(request.Description)
+                ? $"WO {wo.WorkOrderNumber}: {wo.Description}"
+                : request.Description,
+            Cost = request.Amount,
+            Vendor = wo.Vendor,
+            Notes = $"Source: Work Order {wo.WorkOrderNumber ?? wo.Id.ToString()}",
+            Capitalized = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = request.CreatedBy
+        };
+
+        // PR #99 pattern: save first to populate improvement.Id, then stamp
+        // CustomField2 with the real id and save again.
+        _db.CapitalImprovements.Add(improvement);
+        asset.AcquisitionCost += request.Amount;
+        await _db.SaveChangesAsync(ct);
+
+        wo.CustomField2 = $"IMPR:{improvement.Id}";
+        await _db.SaveChangesAsync(ct);
+
+        // PR #102 (B-10): post the JE that makes this a real GL event.
+        // Service delegates JE construction to ICapitalImprovementPostingService.
+        try
+        {
+            await _improvementPosting.PostImprovementJeAsync(
+                improvementId: improvement.Id,
+                assetId: wo.AssetId,
+                companyId: assetCompanyId,
+                amount: request.Amount,
+                improvementDate: improvementDate,
+                description: $"WO {wo.WorkOrderNumber} — {wo.Description}");
+        }
+        catch (InvalidOperationException ex)
+        {
+            // Period-guard refusal at the posting service. AcquisitionCost + improvement row
+            // are already committed — surface the partial success to the caller.
+            return Result.Success(new CapitalizeOutcome(
+                WorkOrderId: request.WorkOrderId,
+                Status: CapitalizeStatus.PostingRefused,
+                ImprovementId: improvement.Id,
+                AssetNumber: asset.AssetNumber,
+                Amount: request.Amount,
+                Message: $"Capitalized to asset successfully, but the GL posting was refused: {ex.Message}"));
+        }
+
+        // Refresh the depreciation snapshot so subsequent reads reflect the new cost basis.
+        await _depBackfill.RecomputeAssetAsync(wo.AssetId, improvementDate);
+
+        return Result.Success(new CapitalizeOutcome(
+            WorkOrderId: request.WorkOrderId,
+            Status: CapitalizeStatus.Capitalized,
+            ImprovementId: improvement.Id,
+            AssetNumber: asset.AssetNumber,
+            Amount: request.Amount,
+            Message: $"Capitalized {request.Amount:C} to asset {asset.AssetNumber} as improvement #{improvement.Id}."));
     }
 }
