@@ -380,6 +380,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Embeddings.Embedding> Embeddings => Set<Abs.FixedAssets.Models.Embeddings.Embedding>();
         public DbSet<Abs.FixedAssets.Models.Embeddings.PendingEmbedding> PendingEmbeddings => Set<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>();
 
+        // Sprint 12D / ADR-022 — chain-of-custody graph (virtual Apache AGE).
+        public DbSet<Abs.FixedAssets.Models.ChainOfCustody.ChainNode> ChainNodes => Set<Abs.FixedAssets.Models.ChainOfCustody.ChainNode>();
+        public DbSet<Abs.FixedAssets.Models.ChainOfCustody.ChainEdge> ChainEdges => Set<Abs.FixedAssets.Models.ChainOfCustody.ChainEdge>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -432,6 +436,56 @@ namespace Abs.FixedAssets.Data
                 modelBuilder.Ignore<Abs.FixedAssets.Models.Embeddings.Embedding>();
                 modelBuilder.Ignore<Abs.FixedAssets.Models.Embeddings.PendingEmbedding>();
             }
+
+            // Sprint 12D / ADR-022 — ChainNodes + ChainEdges (regular Postgres
+            // tables, no extension dependency). Register on ALL providers
+            // including EF InMemory + Sqlite test contexts, since these are
+            // plain tables.
+            modelBuilder.Entity<Abs.FixedAssets.Models.ChainOfCustody.ChainNode>(b =>
+            {
+                b.ToTable("ChainNodes");
+                b.HasKey(n => n.Id);
+                b.HasIndex(n => new { n.NodeType, n.EntityId, n.TenantId })
+                 .IsUnique()
+                 .HasDatabaseName("ix_chainnodes_entity");
+                b.HasIndex(n => n.TenantId).HasDatabaseName("ix_chainnodes_tenant");
+                // EF InMemory doesn't model jsonb — guard the column-type config
+                // behind a provider check so test contexts skip it.
+                if (Database.IsNpgsql())
+                {
+                    b.Property(n => n.Metadata).HasColumnType("jsonb");
+                }
+                else
+                {
+                    // EF InMemory can't materialize JsonDocument either — ignore
+                    // the metadata column entirely in test contexts.
+                    b.Ignore(n => n.Metadata);
+                }
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.ChainOfCustody.ChainEdge>(b =>
+            {
+                b.ToTable("ChainEdges");
+                b.HasKey(e => e.Id);
+                b.HasOne(e => e.FromNode)
+                 .WithMany()
+                 .HasForeignKey(e => e.FromNodeId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(e => e.ToNode)
+                 .WithMany()
+                 .HasForeignKey(e => e.ToNodeId)
+                 .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(e => new { e.FromNodeId, e.EdgeType }).HasDatabaseName("ix_chainedges_from");
+                b.HasIndex(e => new { e.ToNodeId, e.EdgeType }).HasDatabaseName("ix_chainedges_to");
+                if (Database.IsNpgsql())
+                {
+                    b.Property(e => e.Metadata).HasColumnType("jsonb");
+                }
+                else
+                {
+                    b.Ignore(e => e.Metadata);
+                }
+            });
 
             // Configure all DateTime properties to use UTC
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -2712,6 +2766,12 @@ namespace Abs.FixedAssets.Data
                         propertyName.Contains("resolution") || propertyName.Contains("notes") ||
                         propertyName.Contains("entitytype") || propertyName.Contains("action") ||
                         propertyName.Contains("description") ||
+                        // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph
+                        // ChainNodes.NodeType, ChainNodes.Label, ChainEdges.EdgeType
+                        // are case-preserving (mixed-case business labels +
+                        // PascalCase polymorphic type tags).
+                        propertyName.Contains("nodetype") || propertyName.Contains("edgetype") ||
+                        propertyName == "label" ||
                         propertyName == "key" || propertyName == "code" || propertyName == "metadata")
                         continue;
                     
