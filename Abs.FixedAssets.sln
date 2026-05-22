@@ -6,6 +6,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets", "Abs.Fixe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets.Tests", "tests\Abs.FixedAssets.Tests\Abs.FixedAssets.Tests.csproj", "{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets.ControlPlaneAnalyzer", "Analyzers\Abs.FixedAssets.ControlPlaneAnalyzer\Abs.FixedAssets.ControlPlaneAnalyzer.csproj", "{C3D5E7F9-1B2D-4F6A-8E0B-2D4F6A8C0E1B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Abs.FixedAssets.ControlPlaneAnalyzer.Tests", "tests\Abs.FixedAssets.ControlPlaneAnalyzer.Tests\Abs.FixedAssets.ControlPlaneAnalyzer.Tests.csproj", "{D4E6F8A0-2C3D-4E5F-9A1B-3C5D7E9F1A2B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +24,14 @@ Global
 		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AB7C4F2D-9E1B-4C8A-B5F3-7D9E1F2A3B4C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3D5E7F9-1B2D-4F6A-8E0B-2D4F6A8C0E1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3D5E7F9-1B2D-4F6A-8E0B-2D4F6A8C0E1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D5E7F9-1B2D-4F6A-8E0B-2D4F6A8C0E1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3D5E7F9-1B2D-4F6A-8E0B-2D4F6A8C0E1B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E6F8A0-2C3D-4E5F-9A1B-3C5D7E9F1A2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E6F8A0-2C3D-4E5F-9A1B-3C5D7E9F1A2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E6F8A0-2C3D-4E5F-9A1B-3C5D7E9F1A2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E6F8A0-2C3D-4E5F-9A1B-3C5D7E9F1A2B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -25,6 +25,26 @@
     <None Remove="tests/**/*" />
   </ItemGroup>
 
+  <!-- Exclude the analyzer source from the main web app build (it's a separate
+       project that's referenced as an analyzer via the ProjectReference below). -->
+  <ItemGroup>
+    <Compile Remove="Analyzers/**/*.cs" />
+    <Content Remove="Analyzers/**/*" />
+    <None Remove="Analyzers/**/*" />
+  </ItemGroup>
+
+  <!-- ADR-025 D4 — Control Plane Analyzer (CHERRY025). Same-repo Roslyn analyzer
+       wired in as an Analyzer (not a runtime reference). Allowlist is exposed
+       to the analyzer via AdditionalFiles. CI invokes /warnaserror:CHERRY025. -->
+  <ItemGroup>
+    <ProjectReference Include="Analyzers\Abs.FixedAssets.ControlPlaneAnalyzer\Abs.FixedAssets.ControlPlaneAnalyzer.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="Analyzers\ControlPlaneAllowlist.txt" />
+  </ItemGroup>
+
   <!-- Exclude codemod backup directory (per-file backups written by scripts/codemod_csp_inline.js). -->
   <ItemGroup>
     <Compile Remove="out/csp_codemod_backup/**/*" />

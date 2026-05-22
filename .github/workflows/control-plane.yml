@@ -1,15 +1,18 @@
 name: control-plane
 
-# ADR-025 — Service Layer Standard control-plane gate.
+# ADR-025 D4 — Service Layer Standard CI gate (Sprint 12.9 PR #1 upgrade).
 #
-# Runs on every PR. Fails the build if a NEW PageModel injects
-# AppDbContext directly without the explicit allow-comment.
-# Modified pages are NOT flagged (legacy pattern grandfathered).
+# UPGRADED 2026-05-22 from a bash grep gate (scripts/check-control-plane.sh)
+# to a Roslyn DiagnosticAnalyzer (CHERRY025). The new gate catches direct
+# AppDbContext injection on Pages + Controllers + Endpoints + BackgroundServices
+# — four layers, vs. the grep gate which only saw PageModels.
 #
-# The job calls scripts/check-control-plane.sh which encapsulates
-# the grep logic so it can be run locally too:
+# Run locally:
+#   dotnet build Abs.FixedAssets.csproj -c Release /warnaserror:CHERRY025
 #
-#   bash scripts/check-control-plane.sh origin/main
+# Analyzer + allowlist:
+#   Analyzers/Abs.FixedAssets.ControlPlaneAnalyzer/  — the analyzer project
+#   Analyzers/ControlPlaneAllowlist.txt              — grandfathered legacy files (118 entries baseline)
 #
 # Remediation: see docs/ADR-025-service-layer-standard.md.
 
@@ -18,21 +21,48 @@ on:
     branches: [main]
     paths:
       - 'Pages/**/*.cshtml.cs'
+      - 'Controllers/**/*.cs'
+      - 'Endpoints/**/*.cs'
+      - 'Services/**/*.cs'
+      - 'Analyzers/**'
+      - 'Helpers/ControlPlaneExemptAttribute.cs'
+      - 'Abs.FixedAssets.csproj'
       - '.github/workflows/control-plane.yml'
-      - 'scripts/check-control-plane.sh'
   workflow_dispatch:
 
 jobs:
   control-plane-gate:
+    # Job name preserved from the bash-era gate so branch-protection settings
+    # don't need to be re-pointed. DO NOT rename without coordinating a
+    # branch-protection rule change in the GitHub repo settings.
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Fetch full history so we can diff against main.
-          fetch-depth: 0
 
-      - name: Run control-plane gate
-        run: |
-          chmod +x scripts/check-control-plane.sh
-          bash scripts/check-control-plane.sh origin/main
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore packages (solution-wide)
+        # Restore at the solution level so the test project's deps are also
+        # restored. Restoring just Abs.FixedAssets.csproj only pulls main +
+        # the analyzer ProjectReference — the test project is a sibling
+        # and would otherwise hit NETSDK1004 on the test step.
+        run: dotnet restore Abs.FixedAssets.sln --nologo
+
+      - name: Build main app with CHERRY025 escalated to error
+        # The Roslyn analyzer (CHERRY025) emits Warning by default. The
+        # /warnaserror:CHERRY025 flag promotes ONLY that diagnostic to an
+        # error, leaving all other warnings unchanged. If any class declared
+        # outside the allowlist injects AppDbContext directly without the
+        # ControlPlaneExempt opt-out, this step fails.
+        run: dotnet build Abs.FixedAssets.csproj -c Release /warnaserror:CHERRY025 --no-restore --nologo
+
+      - name: Run analyzer unit tests
+        # 8 test cases mirror the design memo's case table. Passing here
+        # proves the analyzer is wired and CHERRY025 actually fires on the
+        # patterns it's meant to catch (not just silently passing because
+        # of an analyzer-load bug).
+        run: dotnet test tests/Abs.FixedAssets.ControlPlaneAnalyzer.Tests/Abs.FixedAssets.ControlPlaneAnalyzer.Tests.csproj -c Release --no-restore --nologo --verbosity normal

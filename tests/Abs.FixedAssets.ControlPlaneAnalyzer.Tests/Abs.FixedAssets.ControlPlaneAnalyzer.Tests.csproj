@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unit tests for the CHERRY025 Roslyn analyzer.
+
+    Architecture: we run the analyzer directly against a CSharpCompilation
+    using the Roslyn API (no Microsoft.CodeAnalysis.CSharp.Analyzer.Testing
+    harness). That harness's 1.1.2 release transitively pulls in
+    Microsoft.CodeAnalysis 1.0.1, which conflicts irreconcilably with the
+    analyzer's 4.8.0 dependency (CS1705 error).
+
+    The direct-API approach is ~80 lines of helper for 8 test cases.
+
+    Run locally:
+      dotnet test tests/Abs.FixedAssets.ControlPlaneAnalyzer.Tests/
+
+    CI invokes the same.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Abs.FixedAssets.ControlPlane.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.8.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Analyzers\Abs.FixedAssets.ControlPlaneAnalyzer\Abs.FixedAssets.ControlPlaneAnalyzer.csproj" />
+  </ItemGroup>
+
+</Project>
