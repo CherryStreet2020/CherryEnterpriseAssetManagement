@@ -19,6 +19,8 @@
 
 @{
     var containerId = $"chain-of-custody-{Guid.NewGuid():N}";
+    // Sprint 12D PR #6 — now includes incomingFromNodeId so the JS can build
+    // exact parent→child edges instead of depth-adjacency pairing.
     var hopsJson = System.Text.Json.JsonSerializer.Serialize(
         Model.Hops.Select(h => new {
             id = h.NodeId,
@@ -27,7 +29,8 @@
             label = h.Label,
             depth = h.Depth,
             incomingEdgeId = h.IncomingEdgeId,
-            incomingEdgeType = h.IncomingEdgeType
+            incomingEdgeType = h.IncomingEdgeType,
+            incomingFromNodeId = h.IncomingFromNodeId
         }).ToList());
 }
 
@@ -93,47 +96,27 @@
                             }
                         };
                     });
+                    // Sprint 12D PR #6 — exact edge construction via the explicit
+                    // IncomingFromNodeId field carried on each ChainHop (the parent
+                    // ChainNode.Id we recursed FROM). Replaces the PR #4 depth-adjacency
+                    // fallback that paired each child to the first parent at depth−1
+                    // — the fallback failed for diamond/multi-parent topologies.
+                    //
+                    // Anchor row has incomingFromNodeId === null, so filter skips it.
+                    // Every recursive row has both incomingEdgeId AND incomingFromNodeId,
+                    // so one edge per non-anchor hop renders the topology exactly.
                     var edges = hops
-                        .filter(function (h) { return h.incomingEdgeId !== null; })
+                        .filter(function (h) { return h.incomingFromNodeId !== null && h.incomingFromNodeId !== undefined; })
                         .map(function (h) {
-                            // The incoming edge goes from parent (one of the earlier hops) to this hop.
-                            // The recursive CTE result rows are ordered by depth so the parent is
-                            // always already in the list. The edge metadata is implicit via depth.
-                            // We don't have the explicit parent node id in the row, but cytoscape
-                            // will resolve via the FromNodeId/ToNodeId convention if needed.
-                            // For demo purposes, link by adjacent depth.
-                            // (Future PR: include explicit FromNodeId in ChainHop record.)
-                            return null;
-                        })
-                        .filter(function (e) { return e !== null; });
-
-                    // Fall back: build edges from depth-adjacency where ParentNodeId isn't on
-                    // the hop record yet. For the demo this is sufficient; PR #6 polish can
-                    // extend ChainHop to include the parent linkage explicitly.
-                    var byDepth = {};
-                    hops.forEach(function (h) {
-                        if (!byDepth[h.depth]) byDepth[h.depth] = [];
-                        byDepth[h.depth].push(h);
-                    });
-                    var depthLevels = Object.keys(byDepth).map(Number).sort(function (a, b) { return a - b; });
-                    for (var i = 1; i < depthLevels.length; i++) {
-                        var parentDepth = depthLevels[i - 1];
-                        var childDepth = depthLevels[i];
-                        // Each child hop has an incomingEdgeType — use that as edge label.
-                        byDepth[childDepth].forEach(function (child) {
-                            // Pair each child to the first parent at the prior depth.
-                            // Visual approximation suitable for a ~20-node chain.
-                            var parent = byDepth[parentDepth][0];
-                            edges.push({
+                            return {
                                 data: {
-                                    id: 'e' + parent.id + '-' + child.id,
-                                    source: 'n' + parent.id,
-                                    target: 'n' + child.id,
-                                    label: child.incomingEdgeType || ''
+                                    id: 'e' + h.incomingFromNodeId + '-' + h.id + '-' + (h.incomingEdgeId || ''),
+                                    source: 'n' + h.incomingFromNodeId,
+                                    target: 'n' + h.id,
+                                    label: h.incomingEdgeType || ''
                                 }
-                            });
+                            };
                         });
-                    }
 
                     cytoscape({
                         container: document.getElementById('@containerId'),
