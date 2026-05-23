@@ -67,4 +67,12 @@ public static class ChainEdgeTypes
 
     // Item lineage
     public const string RevisionOf    = "REVISION_OF";    // Item → Item (predecessor revision)
+
+    // Sprint 13.5 PR #2 — CustomerProject chain edges. Only mutating ops on
+    // ICustomerProjectService emit these — read paths still query the FK
+    // relationships directly. Amendment / Phase edges are deliberately
+    // omitted in PR #2 (amendments live in the append-only ProjectAmendments
+    // table backed by a status-regression trigger; phases are internal WBS).
+    public const string MemberOf            = "MEMBER_OF";            // Customer → CustomerProject (ProjectMember row)
+    public const string ContainsProductionOrder = "CONTAINS_PRODUCTION_ORDER"; // CustomerProject → ProductionOrder (link emitted by LinkProductionOrderAsync)
 }

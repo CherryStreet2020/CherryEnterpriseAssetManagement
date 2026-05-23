@@ -59,4 +59,14 @@ public static class ChainNodeTypes
     public const string GlEntry          = "GlEntry";
     public const string CapitalImprovement = "CapitalImprovement";
     public const string User             = "User";
+
+    // Sprint 13.5 PR #2 — CustomerProject hierarchy node types. ProductionOrder
+    // is introduced here (rather than PR #3) because LinkProductionOrderAsync
+    // on ICustomerProjectService emits the first CustomerProject→ProductionOrder
+    // edge. PR #3 IProductionOrderService extends what ProductionOrder nodes
+    // participate in (CONSUMED_BY / PRODUCED_BY etc.). Customer becomes a node
+    // so ProjectMember MEMBER_OF edges have a real source.
+    public const string CustomerProject  = "CustomerProject";
+    public const string ProductionOrder  = "ProductionOrder";
+    public const string Customer         = "Customer";
 }

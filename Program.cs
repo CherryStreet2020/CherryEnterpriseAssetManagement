@@ -182,6 +182,16 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingServic
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterService,
     Abs.FixedAssets.Services.Items.ItemMasterService>();
 
+// ADR-025 D5 / Sprint 13.5 PR #2 — ICustomerProjectService is the mutation
+// surface for the CustomerProject hierarchy (Programs / CustomerProjects /
+// ProjectMembers / ProjectPhases / ProjectAmendments) plus the link from
+// ProductionOrder.CustomerProjectId. Emits chain-of-custody edges for the
+// custody-relevant operations (MEMBER_OF, CONTAINS_PRODUCTION_ORDER) so the
+// upstream graph is queryable from day one. Every PageModel and voice intent
+// that mutates a CustomerProject calls THIS service — never AppDbContext.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.ICustomerProjectService,
+    Abs.FixedAssets.Services.Projects.CustomerProjectService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage
