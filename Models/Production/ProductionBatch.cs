@@ -57,7 +57,18 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
+        // Sprint 13.5 PR #5c.2 — Direct tenant scoping (no longer parent-scoped only).
+        // Both NOT NULL because every batch physically lives at exactly one site.
+        // Backfilled in migration 20260524120000_TenantScopingHardeningPr5c2 via
+        // PrimaryEquipment (Asset.CompanyId/LocationId) with ProductionBatchAllocation
+        // → ProductionOrder fallback. UNIQUE on (CompanyId, LocationId, BatchNumber)
+        // replaces the global BatchNumber UNIQUE that was the P0 cross-tenant leak.
+        public int CompanyId { get; set; }
+        public int LocationId { get; set; }
+
         // Human-facing identifier — "BATCH-2026-00042" or shop convention.
+        // UNIQUE per (CompanyId, LocationId) — "BATCH-001" at Houston shop is a
+        // different batch from "BATCH-001" at Dallas shop in the same company.
         [Required]
         [StringLength(32)]
         [Display(Name = "Batch #")]

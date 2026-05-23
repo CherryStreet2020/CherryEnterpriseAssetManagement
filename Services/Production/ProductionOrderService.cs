@@ -69,16 +69,6 @@ public sealed class ProductionOrderService : IProductionOrderService
         if (request.QuantityOrdered < 0)
             return Result.Failure<ProductionOrder>("QuantityOrdered cannot be negative.");
 
-        // Soft-uniqueness pre-check — friendlier than a DbUpdateException
-        // bubble. (If the schema gains a UNIQUE constraint later, the DB
-        // is the authoritative backstop.)
-        var orderNumberTaken = await _db.ProductionOrders
-            .Where(p => p.OrderNumber == request.OrderNumber)
-            .AnyAsync(ct);
-        if (orderNumberTaken)
-            return Result.Failure<ProductionOrder>(
-                $"Production order number '{request.OrderNumber}' is already in use.");
-
         // Tenant scope must be resolvable from either Location or Customer
         // (matches the ICustomerProjectService.LinkProductionOrderAsync rule).
         int? scopedCompanyId = null;
@@ -139,8 +129,24 @@ public sealed class ProductionOrderService : IProductionOrderService
                     $"Item {request.ItemId} does not belong to company {scopedCompanyId.Value}.");
         }
 
+        // PR #5c.2 — Soft-uniqueness pre-check is now tenant-scoped (OrderNumber
+        // UNIQUE became composite (CompanyId, OrderNumber) per the migration).
+        // Two tenants can each have their own "PRO-2026-00042" without colliding.
+        var orderNumberTaken = await _db.ProductionOrders
+            .Where(p => p.CompanyId == scopedCompanyId.Value
+                     && p.OrderNumber == request.OrderNumber)
+            .AnyAsync(ct);
+        if (orderNumberTaken)
+            return Result.Failure<ProductionOrder>(
+                $"Production order number '{request.OrderNumber}' is already in use for this company.");
+
         var order = new ProductionOrder
         {
+            // PR #5c.2 — Stamp CompanyId directly on the row. The migration
+            // backfilled existing rows via Location/CustomerProject joins; new
+            // rows stamp it explicitly here so the UNIQUE index works correctly
+            // and tenant filters skip the Location JOIN.
+            CompanyId               = scopedCompanyId.Value,
             OrderNumber             = request.OrderNumber,
             Type                    = request.Type,
             Status                  = ProductionOrderStatus.Planned,

@@ -28,6 +28,17 @@ namespace Abs.FixedAssets.Models
     {
         public int Id { get; set; }
 
+        // Sprint 13.5 PR #5c.2 — Direct tenant scoping (defensive denormalization
+        // from Asset.CompanyId). The historical pattern scoped WorkOrders through
+        // Asset.CompanyId, and that continues to work — but a direct CompanyId
+        // column lets tenant-filter queries skip the Asset JOIN, hardens against
+        // an Asset record having its CompanyId mistakenly nulled, and satisfies
+        // the BIC checklist rule that user-mutable entities should carry CompanyId
+        // NOT NULL directly. Backfilled from Assets table in migration 20260524120000.
+        // CHECK >= 0 (grace period — never expected to be 0 in practice since
+        // AssetId is NOT NULL and Assets all have CompanyId).
+        public int CompanyId { get; set; }
+
         public int AssetId { get; set; }
         public Asset? Asset { get; set; }
 

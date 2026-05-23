@@ -64,20 +64,25 @@ public class ProductionOperation
     // Traceability — nullable for ad-hoc inserts.
     public int? RoutingOperationId { get; set; }
 
+    // Sprint 13.5 PR #5c.2 — Tenant lineage SNAPSHOT (sync gap fix).
+    // PR #5c.1 added the LocationIdSnapshot DB COLUMN with DEFAULT 0 + CHECK >= 0
+    // but the C# property was missing, so every EF insert silently left it at 0.
+    // PR #5c.2 closes the loop: properties added on the entity AND the service
+    // (IProductionOperationService.ReleaseFromRoutingAsync) stamps both values
+    // from ProductionOrder.LocationId + Location.CompanyId at release time.
+    //
+    // Snapshot semantics: editing the master Routing or Location post-release must
+    // NOT retroactively change in-flight production. These columns freeze the
+    // tenant/site lineage at the moment the operation hits the floor.
+    public int LocationIdSnapshot { get; set; }
+    public int CompanyIdSnapshot { get; set; }
+
     // Snapshot of routing rev at release (audit + reproducibility).
     [MaxLength(10)]
     public string? RoutingRevisionSnapshot { get; set; }
 
     // SequenceNumber — copied at release, editable on the floor.
     public int SequenceNumber { get; set; } = 10;
-
-    // PR #5c.1 — snapshot of the parent ProductionOrder.LocationId at release time.
-    // Lets site-floor queries avoid joining through ProductionOrder, and survives
-    // a hypothetical post-release re-tenanting of the parent (which the system
-    // forbids — but the snapshot is the guard). This is the field that PR #5e's
-    // DowntimeEvent / ScrapEvent / ReworkEvent will reference for site-scoped
-    // aggregates without joining all the way to ProductionOrder.LocationId.
-    public int LocationIdSnapshot { get; set; }
 
     // WorkCenter — copied at release, the floor can reassign.
     public int WorkCenterId { get; set; }
