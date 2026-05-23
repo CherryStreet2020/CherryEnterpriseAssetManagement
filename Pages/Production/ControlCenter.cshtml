@@ -1,0 +1,443 @@
+@page
+@model Abs.FixedAssets.Pages.Production.ControlCenterModel
+@using Abs.FixedAssets.Models.Production
+@using Abs.FixedAssets.Services.Production
+@{
+    ViewData["Title"] = "Production Control Center";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 13.5 PR #5b — Production Control Center.
+
+    Composes IProductionControlCenterService data into the BIC Control
+    Center contract: KPI band + AI summary + 3-tab shell (Queue /
+    Exceptions / Activity) + Next Up + quick actions + bulk actions
+    + composable filters + search + drill-everywhere.
+
+    Per Dean's 2026-05-23 lock: text says "Control Center", never "cockpit".
+*@
+
+<div class="cc-page">
+    <!-- ============================================================ -->
+    <!-- PAGE HEADER + SEARCH                                          -->
+    <!-- ============================================================ -->
+    <div class="cc-header">
+        <div class="cc-header-titles">
+            <nav class="breadcrumb-trail" aria-label="breadcrumb">
+                <a href="/">Home</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">Production Control Center</span>
+            </nav>
+            <h1 class="cc-title">Production Control Center</h1>
+            <p class="cc-subtitle">
+                @if (Model.KpiBand != null)
+                {
+                    <span>@Model.KpiBand.TotalActive active orders · @Model.KpiBand.AsOfText</span>
+                }
+                else
+                {
+                    <span>Live operational command surface for shop floor and dispatch</span>
+                }
+            </p>
+        </div>
+        <div class="cc-header-actions">
+            <form method="get" class="cc-search-form">
+                <input type="hidden" name="tab" value="@Model.ActiveTab" />
+                @if (!string.IsNullOrEmpty(Model.StatusFilter)) { <input type="hidden" name="status" value="@Model.StatusFilter" /> }
+                <input type="search" name="q" value="@Model.SearchText"
+                       placeholder="Search PRO # or title…"
+                       class="cc-search-input" />
+                <button type="submit" class="btn-secondary" title="Search">
+                    <i class="fas fa-magnifying-glass"></i>
+                </button>
+            </form>
+            <a href="/Production/Create" class="btn-primary">
+                <i class="fas fa-plus"></i> New Order
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null) { <div class="alert alert--success">@TempData["Success"]</div> }
+    @if (TempData["Warning"] != null) { <div class="alert alert--warning">@TempData["Warning"]</div> }
+    @if (TempData["Error"] != null)   { <div class="alert alert--error">@TempData["Error"]</div> }
+
+    <!-- ============================================================ -->
+    <!-- KPI BAND — 6 hero tiles, clickable to filter                  -->
+    <!-- ============================================================ -->
+    @if (Model.KpiBand != null)
+    {
+        <div class="cc-kpi-band">
+            @foreach (var tile in Model.KpiBand.Tiles)
+            {
+                var cls = "cc-kpi-tile cc-kpi-tile--" + tile.Tone;
+                if (!string.IsNullOrEmpty(tile.DrillHref))
+                {
+                    <a href="@tile.DrillHref" class="@cls" title="@(tile.Hint ?? tile.Label)">
+                        <div class="cc-kpi-icon"><i class="@tile.IconClass"></i></div>
+                        <div class="cc-kpi-body">
+                            <div class="cc-kpi-value">@tile.Value</div>
+                            <div class="cc-kpi-label">@tile.Label</div>
+                            @if (!string.IsNullOrEmpty(tile.Hint))
+                            {
+                                <div class="cc-kpi-hint">@tile.Hint</div>
+                            }
+                        </div>
+                    </a>
+                }
+                else
+                {
+                    <div class="@cls" title="@(tile.Hint ?? tile.Label)">
+                        <div class="cc-kpi-icon"><i class="@tile.IconClass"></i></div>
+                        <div class="cc-kpi-body">
+                            <div class="cc-kpi-value">@tile.Value</div>
+                            <div class="cc-kpi-label">@tile.Label</div>
+                            @if (!string.IsNullOrEmpty(tile.Hint))
+                            {
+                                <div class="cc-kpi-hint">@tile.Hint</div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    <!-- ============================================================ -->
+    <!-- AI SUMMARY STRIP                                              -->
+    <!-- ============================================================ -->
+    @if (Model.AiSuggestions != null)
+    {
+        <div class="cc-ai-strip">
+            <div class="cc-ai-summary">
+                <i class="fas fa-sparkles cc-ai-icon"></i>
+                <span class="cc-ai-label">AI Snapshot:</span>
+                <span class="cc-ai-text">@Model.AiSuggestions.SummaryText</span>
+            </div>
+            @if (Model.AiSuggestions.Suggestions.Count > 0)
+            {
+                <div class="cc-ai-suggestions">
+                    @foreach (var s in Model.AiSuggestions.Suggestions)
+                    {
+                        var sCls = "cc-ai-card cc-ai-card--" + s.Tone;
+                        <div class="@sCls">
+                            <div class="cc-ai-card-headline">@s.Headline</div>
+                            @if (!string.IsNullOrEmpty(s.Subtext))
+                            {
+                                <div class="cc-ai-card-subtext">@s.Subtext</div>
+                            }
+                            @if (!string.IsNullOrEmpty(s.ActionHref))
+                            {
+                                <a href="@s.ActionHref" class="cc-ai-card-action">@(s.ActionLabel ?? "View") →</a>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ============================================================ -->
+    <!-- TAB BAR                                                       -->
+    <!-- ============================================================ -->
+    <div class="cc-tab-bar" role="tablist">
+        @{
+            var queueActive = Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabQueue;
+            var excActive   = Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabExceptions;
+            var actActive   = Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabActivity;
+        }
+        <a href="?tab=queue" class="cc-tab @(queueActive ? "cc-tab--active" : "")" role="tab" aria-selected="@queueActive">
+            <i class="fas fa-list-check"></i> Queue
+            @if (Model.KpiBand != null) { <span class="cc-tab-count">@Model.KpiBand.TotalActive</span> }
+        </a>
+        <a href="?tab=exceptions" class="cc-tab @(excActive ? "cc-tab--active" : "")" role="tab" aria-selected="@excActive">
+            <i class="fas fa-triangle-exclamation"></i> Exceptions
+        </a>
+        <a href="?tab=activity" class="cc-tab @(actActive ? "cc-tab--active" : "")" role="tab" aria-selected="@actActive">
+            <i class="fas fa-clock-rotate-left"></i> Activity
+        </a>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB CONTENT                                                   -->
+    <!-- ============================================================ -->
+    <div class="cc-tab-content">
+
+        @if (Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabQueue)
+        {
+            <!-- Filter chips (composable) -->
+            <div class="cc-filter-row">
+                <span class="cc-filter-label">Filter:</span>
+                @{
+                    var statuses = new[]
+                    {
+                        ProductionOrderStatus.Planned, ProductionOrderStatus.Released,
+                        ProductionOrderStatus.InProgress, ProductionOrderStatus.OnHold,
+                    };
+                }
+                <a href="?tab=queue" class="cc-chip @(Model.ResolvedStatusFilter == null ? "cc-chip--active" : "")">All Active</a>
+                @foreach (var s in statuses)
+                {
+                    var cls = "cc-chip cc-chip--" + s.ToString().ToLower();
+                    if (Model.ResolvedStatusFilter == s) { cls += " cc-chip--active"; }
+                    <a href="?tab=queue&status=@s" class="@cls">@s</a>
+                }
+                @if (!string.IsNullOrEmpty(Model.LensFilter))
+                {
+                    <span class="cc-chip cc-chip--lens cc-chip--active">
+                        Lens: @Model.LensFilter
+                        <a href="?tab=queue@(Model.StatusFilter != null ? "&status=" + Model.StatusFilter : "")" class="cc-chip-clear" title="Clear lens">×</a>
+                    </span>
+                }
+            </div>
+
+            <div class="cc-queue-layout">
+                <!-- LEFT: Next Up + Queue -->
+                <div class="cc-queue-main">
+                    @if (Model.NextUp != null && Model.NextUp.HasCandidate)
+                    {
+                        <section class="cc-nextup">
+                            <div class="cc-nextup-label">Next Up</div>
+                            <a href="/Production/Details/@Model.NextUp.OrderId" class="cc-nextup-card">
+                                <div class="cc-nextup-line1">
+                                    <span class="link-mono">@Model.NextUp.OrderNumber</span>
+                                    <span class="status-chip status-chip--@Model.NextUp.Status?.ToString().ToLower()">@Model.NextUp.Status</span>
+                                </div>
+                                <div class="cc-nextup-title">@Model.NextUp.Title</div>
+                                <div class="cc-nextup-reason">
+                                    <i class="fas fa-bullseye"></i> @Model.NextUp.ReasonText
+                                </div>
+                                @if (Model.NextUp.ProjectId.HasValue)
+                                {
+                                    <div class="cc-nextup-meta">
+                                        Linked to project <span class="link-mono">@Model.NextUp.ProjectCode</span>
+                                    </div>
+                                }
+                            </a>
+                        </section>
+                    }
+
+                    @if (Model.Queue == null || Model.Queue.Rows.Count == 0)
+                    {
+                        <div class="empty-state">
+                            <div class="empty-state-icon"><i class="fas fa-circle-check"></i></div>
+                            <h2 class="empty-state-title">Queue is clear</h2>
+                            <p class="empty-state-body">
+                                @(Model.ResolvedStatusFilter.HasValue
+                                    ? $"No orders matching status {Model.ResolvedStatusFilter} and the current filters."
+                                    : "No active production orders match the current filters. Try clearing search or opening a new order.")
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        @* Verb mini-forms — emitted BEFORE the bulk form so they're siblings
+                           (forms can't nest in HTML). Each verb button inside the queue list
+                           references its mini-form via the `form="cc-verb-{orderId}-{status}"`
+                           attribute. Tokens (anti-forgery) are wired by ASP.NET automatically. *@
+                        @foreach (var r in Model.Queue.Rows)
+                        {
+                            var legalVerbs = new System.Collections.Generic.List<ProductionOrderStatus>();
+                            switch (r.Status)
+                            {
+                                case ProductionOrderStatus.Planned:
+                                    legalVerbs.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.Cancelled }); break;
+                                case ProductionOrderStatus.Released:
+                                    legalVerbs.AddRange(new[] { ProductionOrderStatus.InProgress, ProductionOrderStatus.OnHold }); break;
+                                case ProductionOrderStatus.InProgress:
+                                    legalVerbs.AddRange(new[] { ProductionOrderStatus.OnHold, ProductionOrderStatus.Completed }); break;
+                                case ProductionOrderStatus.OnHold:
+                                    legalVerbs.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.InProgress }); break;
+                            }
+                            foreach (var t in legalVerbs)
+                            {
+                                <form id="cc-verb-@r.OrderId-@t" method="post" asp-page-handler="Transition" class="action-form">
+                                    <input type="hidden" name="orderId" value="@r.OrderId" />
+                                    <input type="hidden" name="newStatus" value="@t" />
+                                </form>
+                            }
+                        }
+
+                        <form method="post" asp-page-handler="BulkTransition" class="cc-bulk-form" id="cc-bulk-form">
+                            <div class="cc-bulk-toolbar" id="cc-bulk-toolbar" data-cc-bulk-toolbar>
+                                <span class="cc-bulk-count" id="cc-bulk-count">0 selected</span>
+                                <div class="cc-bulk-actions">
+                                    <select name="bulkNewStatus" class="cc-bulk-select">
+                                        @foreach (var s in System.Enum.GetValues<ProductionOrderStatus>())
+                                        {
+                                            <option value="@s">@s</option>
+                                        }
+                                    </select>
+                                    <button type="submit" class="btn-secondary">Apply to selected</button>
+                                </div>
+                            </div>
+
+                            <ul class="cc-queue-list">
+                                @foreach (var r in Model.Queue.Rows)
+                                {
+                                    var rowCls = "cc-queue-row cc-queue-row--" + r.Tone;
+                                    <li class="@rowCls" data-order-id="@r.OrderId" data-status="@r.Status">
+                                        <label class="cc-queue-checkbox">
+                                            <input type="checkbox" name="selectedIds" value="@r.OrderId" class="cc-queue-check" data-cc-row-check />
+                                        </label>
+                                        <a href="/Production/Details/@r.OrderId" class="cc-queue-link">
+                                            <div class="cc-queue-line1">
+                                                <span class="link-mono">@r.Primary</span>
+                                                @if (!string.IsNullOrEmpty(r.StatusLabel))
+                                                {
+                                                    <span class="status-chip status-chip--@r.Status.ToString().ToLower()">@r.StatusLabel</span>
+                                                }
+                                            </div>
+                                            <div class="cc-queue-line2">@r.Secondary</div>
+                                            <div class="cc-queue-meta">
+                                                @foreach (var m in r.Meta)
+                                                {
+                                                    <span class="cc-queue-meta-pair"><span class="cc-queue-meta-label">@m.Label</span> <span class="cc-queue-meta-value">@m.Value</span></span>
+                                                }
+                                                @if (r.ProjectId.HasValue)
+                                                {
+                                                    <span class="cc-queue-meta-pair">
+                                                        <span class="cc-queue-meta-label">Proj</span>
+                                                        <span class="cc-queue-meta-value">@r.ProjectCode</span>
+                                                    </span>
+                                                }
+                                            </div>
+                                        </a>
+                                        <div class="cc-queue-actions" data-cc-verb-tray>
+                                            @* Quick-action verb tray — one mini-form per legal transition.
+                                               Each posts to OnPostTransitionAsync with the single row's
+                                               (orderId, newStatus). Mini-forms keep the buttons OUT of the
+                                               surrounding bulk form so they don't accidentally inherit its
+                                               handler or selected-row payload. *@
+                                            @{
+                                                var legal = new System.Collections.Generic.List<ProductionOrderStatus>();
+                                                switch (r.Status)
+                                                {
+                                                    case ProductionOrderStatus.Planned:
+                                                        legal.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.Cancelled }); break;
+                                                    case ProductionOrderStatus.Released:
+                                                        legal.AddRange(new[] { ProductionOrderStatus.InProgress, ProductionOrderStatus.OnHold }); break;
+                                                    case ProductionOrderStatus.InProgress:
+                                                        legal.AddRange(new[] { ProductionOrderStatus.OnHold, ProductionOrderStatus.Completed }); break;
+                                                    case ProductionOrderStatus.OnHold:
+                                                        legal.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.InProgress }); break;
+                                                }
+                                            }
+                                            @foreach (var t in legal)
+                                            {
+                                                <button type="submit"
+                                                        form="cc-verb-@r.OrderId-@t"
+                                                        class="cc-verb cc-verb--@t.ToString().ToLower()"
+                                                        title="Transition @r.Primary → @t">
+                                                    @t
+                                                </button>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        </form>
+
+                        <script>
+                            (function () {
+                                var form = document.getElementById('cc-bulk-form');
+                                if (!form) return;
+                                var toolbar = document.getElementById('cc-bulk-toolbar');
+                                var countEl = document.getElementById('cc-bulk-count');
+                                var update = function () {
+                                    var checks = form.querySelectorAll('input[data-cc-row-check]:checked');
+                                    var n = checks.length;
+                                    countEl.textContent = n + ' selected';
+                                    toolbar.classList.toggle('cc-bulk-toolbar--active', n > 0);
+                                };
+                                form.addEventListener('change', function (e) {
+                                    if (e.target && e.target.matches('input[data-cc-row-check]')) { update(); }
+                                });
+                                update();
+                            })();
+                        </script>
+                    }
+                </div>
+            </div>
+        }
+        else if (Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabExceptions)
+        {
+            <!-- EXCEPTIONS TAB — heuristic-ranked AI lane -->
+            @if (Model.ExceptionLane == null || Model.ExceptionLane.Items.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-circle-check"></i></div>
+                    <h2 class="empty-state-title">No exceptions</h2>
+                    <p class="empty-state-body">Nothing past due, nothing stale on hold, nothing flagged.</p>
+                </div>
+            }
+            else
+            {
+                <div class="cc-exception-lane">
+                    <div class="cc-exception-lane-header">
+                        <span>@Model.ExceptionLane.TotalCount candidates ranked by composite score</span>
+                        <span class="muted">as of @Model.ExceptionLane.AsOfUtc.ToString("HH:mm") UTC</span>
+                    </div>
+                    @foreach (var item in Model.ExceptionLane.Items)
+                    {
+                        var sevCls = "cc-exception cc-exception--" + item.Severity;
+                        <a href="@item.Href" class="@sevCls">
+                            <div class="cc-exception-dot" aria-hidden="true"></div>
+                            <div class="cc-exception-body">
+                                <div class="cc-exception-line1">
+                                    <span class="link-mono cc-exception-eyebrow">@item.OrderNumber</span>
+                                    <span class="cc-exception-headline">@item.Headline</span>
+                                </div>
+                                <div class="cc-exception-subtext">@item.Subtext</div>
+                            </div>
+                            <div class="cc-exception-score" title="Composite rank score">@item.Score</div>
+                        </a>
+                    }
+                </div>
+            }
+        }
+        else if (Model.ActiveTab == Abs.FixedAssets.Pages.Production.ControlCenterModel.TabActivity)
+        {
+            <!-- ACTIVITY TAB — recent mutations -->
+            @if (Model.ActivityFeed == null || Model.ActivityFeed.Entries.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-state-icon"><i class="fas fa-clock"></i></div>
+                    <h2 class="empty-state-title">No recent activity</h2>
+                    <p class="empty-state-body">Production order mutations will appear here as they happen.</p>
+                </div>
+            }
+            else
+            {
+                <ul class="cc-activity-feed">
+                    @foreach (var e in Model.ActivityFeed.Entries)
+                    {
+                        var actorIcon = e.ActorKind == "ai" ? "fa-sparkles"
+                                       : e.ActorKind == "system" ? "fa-gear" : "fa-user";
+                        <li class="cc-activity-entry">
+                            <div class="cc-activity-icon cc-activity-icon--@e.ActorKind">
+                                <i class="fas @actorIcon"></i>
+                            </div>
+                            <div class="cc-activity-body">
+                                <div class="cc-activity-line1">
+                                    <strong>@e.ActorName</strong>
+                                    <span class="muted">@e.Verb</span>
+                                    @if (!string.IsNullOrEmpty(e.Href))
+                                    {
+                                        <a href="@e.Href" class="link-mono">@e.TargetRef</a>
+                                    }
+                                    else { <span class="link-mono">@e.TargetRef</span> }
+                                </div>
+                                @if (!string.IsNullOrEmpty(e.Snippet))
+                                {
+                                    <div class="cc-activity-snippet">@e.Snippet</div>
+                                }
+                                <div class="cc-activity-time">@e.OccurredAtUtc.ToString("yyyy-MM-dd HH:mm") UTC</div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        }
+    </div>
+</div>

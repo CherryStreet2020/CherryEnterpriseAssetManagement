@@ -27,17 +27,20 @@
     bool receivingActive = IsPageHelper("/Receiving");
 }
 
-<div class="nav-section-label">COCKPITS</div>
+<div class="nav-section-label">CONTROL CENTERS</div>
 
 <div class="menu-group nav-cc-group expanded" data-section="control-centers">
     <div class="menu-items">
         @* Sprint 13.5 PR #4 — show LIVE Control Centers only.  Disabled
-           cockpits (the "soon · Sprint X" placeholders) used to render
+           Control Centers (the "soon · Sprint X" placeholders) used to render
            here in a greyed-out state but created visual noise — Dean's
            2026-05-23 call to clean up the menu. The registry still tracks
-           every planned cockpit for code-side roadmap signal; the sidebar
-           just shows what users can actually USE. When a cockpit ships
-           (IsLive = true), it auto-appears with no Razor change. *@
+           every planned Control Center for code-side roadmap signal; the
+           sidebar just shows what users can actually USE. When a Control
+           Center ships (IsLive = true), it auto-appears with no Razor change.
+
+           PR #5b 2026-05-23: "Cockpit" is internal pattern jargon only —
+           user-facing label is "Control Center" everywhere (Dean lock). *@
         @foreach (var cc in ControlCenterRegistry.All)
         {
             if (!cc.IsLive) { continue; }
@@ -45,7 +48,7 @@
             var ccActive = IsPageHelper(cc.Route);
             var rowCls = "menu-item nav-cc-item" + (ccActive ? " active" : "");
 
-            <a href="@cc.Route" class="@rowCls" data-nav-route="@cc.Route" title="@cc.Title cockpit">
+            <a href="@cc.Route" class="@rowCls" data-nav-route="@cc.Route" title="@cc.Title Control Center">
                 <i class="@cc.IconClass menu-item-icon"></i>
                 <span class="nav-cc-title">@cc.Title</span>
                 @if (ccActive)

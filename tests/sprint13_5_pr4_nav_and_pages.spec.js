@@ -17,21 +17,21 @@ const { BASE, login } = require('./_helpers');
 
 test.describe('Sprint 13.5 PR #4 — BIC nav + Production + CustomerProjects + Master Files', () => {
 
-  test('sidebar renders Production + Customer Projects cockpits', async ({ page }) => {
+  test('sidebar renders Production + Customer Projects Control Centers', async ({ page }) => {
     await login(page);
     await page.goto(`${BASE}/`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Cockpits section header
-    const cockpitsLabel = page.locator('.nav-section-label', { hasText: /COCKPITS/i });
-    await expect(cockpitsLabel).toBeVisible();
+    // PR #5b 2026-05-23: section label is CONTROL CENTERS (was COCKPITS).
+    const ccLabel = page.locator('.nav-section-label', { hasText: /CONTROL CENTERS/i });
+    await expect(ccLabel).toBeVisible();
 
-    // Production cockpit nav item
-    const prodLink = page.locator('a.nav-cc-item[href="/Production"]');
+    // PR #5b 2026-05-23: Production link now points to /Production/ControlCenter.
+    const prodLink = page.locator('a.nav-cc-item[href="/Production/ControlCenter"]');
     await expect(prodLink).toBeVisible();
     await expect(prodLink).toContainText(/Production/);
 
-    // Customer Projects cockpit nav item
+    // Customer Projects nav item (unchanged from PR #4 until PR #5d ships its CC).
     const projLink = page.locator('a.nav-cc-item[href="/CustomerProjects"]');
     await expect(projLink).toBeVisible();
     await expect(projLink).toContainText(/Customer Projects/);
