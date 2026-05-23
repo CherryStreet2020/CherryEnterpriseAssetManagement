@@ -33,6 +33,7 @@
             <tr>
                 <th>Code</th>
                 <th>Name</th>
+                <th>Site</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th>Capacity Model</th>
@@ -47,6 +48,7 @@
                 <tr>
                     <td><a href="/Admin/WorkCenters/Details/@w.Id" class="link-mono">@w.Code</a></td>
                     <td>@w.Name</td>
+                    <td>@w.LocationName</td>
                     <td>@w.Type</td>
                     <td><span class="status-chip status-chip--@w.StatusTone()">@w.Status</span></td>
                     <td>@w.CapacityModel</td>

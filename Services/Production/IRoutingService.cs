@@ -22,7 +22,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.ChainOfCustody;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.ChainOfCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +42,8 @@ public interface IRoutingService
 
 public sealed record CreateRoutingRequest(
     int CompanyId,
+    int? LocationId,             // PR #5c.1: null = company-wide template (IsSiteWideTemplate must be true), else site-scoped
+    bool IsSiteWideTemplate,     // PR #5c.1: when true, LocationId must be null (CHECK constraint)
     string Code,
     string RevisionNumber,
     string Name,
@@ -108,12 +112,18 @@ public sealed class RoutingService : IRoutingService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<RoutingService> _logger;
 
-    public RoutingService(AppDbContext db, ITenantContext tenantContext, ILogger<RoutingService> logger)
+    public RoutingService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IChainOfCustodyService chainOfCustody,
+        ILogger<RoutingService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
     }
 
@@ -125,13 +135,26 @@ public sealed class RoutingService : IRoutingService
             return Result.Failure<Routing>("Company is not in your tenant scope.");
         if (r.LotBaseSize <= 0) return Result.Failure<Routing>("LotBaseSize must be > 0.");
 
+        // PR #5c.1 — enforce site-scope-OR-template invariant matching the CHECK constraint.
+        if (r.LocationId is null && !r.IsSiteWideTemplate)
+            return Result.Failure<Routing>("Routing must either have a LocationId (site-scoped) or be marked IsSiteWideTemplate (company-wide engineering template).");
+        if (r.LocationId is not null && r.IsSiteWideTemplate)
+            return Result.Failure<Routing>("Routing cannot have a LocationId AND be a site-wide template at the same time.");
+
+        // Site-prefixed dup check (mirrors the new UNIQUE index).
+        var locKey = r.LocationId ?? 0;
         var dup = await _db.Routings
-            .AnyAsync(x => x.CompanyId == r.CompanyId && x.Code == r.Code && x.RevisionNumber == r.RevisionNumber, ct);
-        if (dup) return Result.Failure<Routing>($"Routing '{r.Code}' rev '{r.RevisionNumber}' already exists.");
+            .AnyAsync(x => x.CompanyId == r.CompanyId
+                        && (x.LocationId ?? 0) == locKey
+                        && x.Code == r.Code
+                        && x.RevisionNumber == r.RevisionNumber, ct);
+        if (dup) return Result.Failure<Routing>($"Routing '{r.Code}' rev '{r.RevisionNumber}' already exists at this scope.");
 
         var routing = new Routing
         {
             CompanyId = r.CompanyId,
+            LocationId = r.LocationId,
+            IsSiteWideTemplate = r.IsSiteWideTemplate,
             Code = r.Code.Trim(),
             RevisionNumber = string.IsNullOrEmpty(r.RevisionNumber) ? "A" : r.RevisionNumber.Trim(),
             Name = r.Name.Trim(),
@@ -161,9 +184,21 @@ public sealed class RoutingService : IRoutingService
         if (routing.Status == RoutingStatus.Obsolete)
             return Result.Failure<RoutingOperation>("Cannot add operations to an Obsolete routing.");
 
+        // PR #5c.1 — verify the target WorkCenter exists in the same site (if site-scoped).
+        var wc = await _db.WorkCenters.FirstOrDefaultAsync(w => w.Id == r.WorkCenterId, ct);
+        if (wc is null) return Result.Failure<RoutingOperation>("WorkCenter not found.");
+        if (wc.CompanyId != routing.CompanyId)
+            return Result.Failure<RoutingOperation>("WorkCenter is in a different company than the routing.");
+        if (routing.LocationId is not null && wc.LocationId != routing.LocationId.Value)
+            return Result.Failure<RoutingOperation>("WorkCenter is at a different site than the site-scoped routing.");
+
         var op = new RoutingOperation
         {
             RoutingId = r.RoutingId,
+            // PR #5c.1 — snapshot LocationId. For site-wide templates, snapshot the WC's site
+            // (since WCs are always site-scoped) — preserves the lineage even if the template
+            // is later forked to a site-specific routing.
+            LocationIdSnapshot = routing.LocationId ?? wc.LocationId,
             SequenceNumber = r.SequenceNumber > 0 ? r.SequenceNumber : 10,
             WorkCenterId = r.WorkCenterId,
             OperationType = r.OperationType,
@@ -185,6 +220,27 @@ public sealed class RoutingService : IRoutingService
         };
         _db.RoutingOperations.Add(op);
         await _db.SaveChangesAsync(ct);
+
+        // PR #5c.1 — emit chain edges per the BIC entity checklist.
+        // (1) Routing → RoutingOperation (composition edge)
+        // (2) RoutingOperation → WorkCenter (where this op runs)
+        try
+        {
+            await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                FromNodeType: "Routing",      FromEntityId: routing.Id, FromLabel: routing.Code + "/" + routing.RevisionNumber,
+                ToNodeType:   "RoutingOperation", ToEntityId: op.Id,        ToLabel: "Op-" + op.SequenceNumber,
+                EdgeType: ChainEdgeTypes.RoutingHasOperation), ct);
+
+            await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                FromNodeType: "RoutingOperation", FromEntityId: op.Id, FromLabel: "Op-" + op.SequenceNumber,
+                ToNodeType:   "WorkCenter",       ToEntityId: wc.Id,   ToLabel: wc.Code,
+                EdgeType: ChainEdgeTypes.OperationAtWorkCenter), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Chain edge emission failed for Routing/Operation/WC (non-fatal)");
+        }
+
         return Result.Success(op);
     }
 

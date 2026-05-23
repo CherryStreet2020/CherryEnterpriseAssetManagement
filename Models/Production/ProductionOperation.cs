@@ -71,6 +71,14 @@ public class ProductionOperation
     // SequenceNumber — copied at release, editable on the floor.
     public int SequenceNumber { get; set; } = 10;
 
+    // PR #5c.1 — snapshot of the parent ProductionOrder.LocationId at release time.
+    // Lets site-floor queries avoid joining through ProductionOrder, and survives
+    // a hypothetical post-release re-tenanting of the parent (which the system
+    // forbids — but the snapshot is the guard). This is the field that PR #5e's
+    // DowntimeEvent / ScrapEvent / ReworkEvent will reference for site-scoped
+    // aggregates without joining all the way to ProductionOrder.LocationId.
+    public int LocationIdSnapshot { get; set; }
+
     // WorkCenter — copied at release, the floor can reassign.
     public int WorkCenterId { get; set; }
 

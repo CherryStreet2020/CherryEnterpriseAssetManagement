@@ -32,6 +32,11 @@ public class IndexModel : PageModel
             {
                 Id = r.Id,
                 CompanyId = r.CompanyId,
+                LocationId = r.LocationId,
+                IsSiteWideTemplate = r.IsSiteWideTemplate,
+                LocationName = r.LocationId.HasValue
+                    ? (_db.Locations.Where(l => l.Id == r.LocationId.Value).Select(l => l.Name).FirstOrDefault() ?? "—")
+                    : "Company-wide template",
                 Code = r.Code,
                 RevisionNumber = r.RevisionNumber,
                 Name = r.Name,
@@ -54,6 +59,9 @@ public class IndexModel : PageModel
     {
         public int Id { get; set; }
         public int CompanyId { get; set; }
+        public int? LocationId { get; set; }
+        public bool IsSiteWideTemplate { get; set; }
+        public string LocationName { get; set; } = "—";
         public string Code { get; set; } = string.Empty;
         public string RevisionNumber { get; set; } = "A";
         public string Name { get; set; } = string.Empty;

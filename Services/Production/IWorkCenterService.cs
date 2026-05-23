@@ -21,7 +21,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.ChainOfCustody;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.ChainOfCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -37,13 +39,13 @@ public interface IWorkCenterService
 
 public sealed record CreateWorkCenterRequest(
     int CompanyId,
+    int LocationId,           // PR #5c.1: REQUIRED — every WC physically lives at a site
     string Code,
     string Name,
     string? Description,
     WorkCenterType Type,
     WorkCenterCapacityModel CapacityModel,
     int? CalendarId,
-    int? LocationId,
     int? OwningDepartmentId,
     decimal StandardCostRatePerHour,
     decimal OverheadRatePerHour,
@@ -52,12 +54,12 @@ public sealed record CreateWorkCenterRequest(
 
 public sealed record UpdateWorkCenterHeaderRequest(
     int WorkCenterId,
+    int LocationId,            // PR #5c.1: REQUIRED on Update too
     string Name,
     string? Description,
     WorkCenterType Type,
     WorkCenterCapacityModel CapacityModel,
     int? CalendarId,
-    int? LocationId,
     int? OwningDepartmentId,
     decimal EfficiencyPct,
     decimal UtilizationPct,
@@ -81,12 +83,18 @@ public sealed class WorkCenterService : IWorkCenterService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenantContext;
+    private readonly IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<WorkCenterService> _logger;
 
-    public WorkCenterService(AppDbContext db, ITenantContext tenantContext, ILogger<WorkCenterService> logger)
+    public WorkCenterService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IChainOfCustodyService chainOfCustody,
+        ILogger<WorkCenterService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
     }
 
@@ -96,12 +104,15 @@ public sealed class WorkCenterService : IWorkCenterService
             return Result.Failure<WorkCenter>("Code is required.");
         if (string.IsNullOrWhiteSpace(r.Name))
             return Result.Failure<WorkCenter>("Name is required.");
+        if (r.LocationId <= 0)
+            return Result.Failure<WorkCenter>("LocationId is required — every Work Center physically lives at a site.");
         if (!_tenantContext.VisibleCompanyIds.Contains(r.CompanyId))
             return Result.Failure<WorkCenter>("Company is not in your tenant scope.");
 
+        // PR #5c.1 — site-prefixed dup check (mirrors the new UNIQUE index).
         var dup = await _db.WorkCenters
-            .AnyAsync(w => w.CompanyId == r.CompanyId && w.Code == r.Code, ct);
-        if (dup) return Result.Failure<WorkCenter>($"WorkCenter with code '{r.Code}' already exists.");
+            .AnyAsync(w => w.CompanyId == r.CompanyId && w.LocationId == r.LocationId && w.Code == r.Code, ct);
+        if (dup) return Result.Failure<WorkCenter>($"WorkCenter with code '{r.Code}' already exists at this site.");
 
         var wc = new WorkCenter
         {
@@ -133,6 +144,8 @@ public sealed class WorkCenterService : IWorkCenterService
         if (wc is null) return Result.Failure<WorkCenter>("WorkCenter not found.");
         if (!_tenantContext.VisibleCompanyIds.Contains(wc.CompanyId))
             return Result.Failure<WorkCenter>("WorkCenter is not in your tenant scope.");
+        if (r.LocationId <= 0)
+            return Result.Failure<WorkCenter>("LocationId is required.");
 
         wc.Name = r.Name?.Trim() ?? wc.Name;
         wc.Description = r.Description;
@@ -198,6 +211,24 @@ public sealed class WorkCenterService : IWorkCenterService
         };
         _db.WorkCenterAssetLinks.Add(link);
         await _db.SaveChangesAsync(ct);
+
+        // PR #5c.1 — emit WC→Asset chain edge per the BIC entity checklist + ADR-022.
+        // Failure-isolated: log warning but don't fail the link write.
+        try
+        {
+            await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                FromNodeType: "WorkCenter",
+                FromEntityId: wc.Id,
+                FromLabel: wc.Code,
+                ToNodeType: "Asset",
+                ToEntityId: r.AssetId,
+                ToLabel: "Asset-" + r.AssetId,
+                EdgeType: ChainEdgeTypes.WorkCenterUsesAsset), ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Chain edge emission failed for WorkCenter→Asset link (non-fatal)");
+        }
         return Result.Success(link);
     }
 }

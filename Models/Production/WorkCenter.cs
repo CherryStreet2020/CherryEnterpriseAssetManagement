@@ -95,7 +95,10 @@ public class WorkCenter
     public string CurrencyCode { get; set; } = "USD";
 
     // Org / location FKs.
-    public int? LocationId { get; set; }
+    // PR #5c.1: LocationId is REQUIRED — every WorkCenter physically lives at exactly
+    // one site. Multi-site companies can have "CNC-1" at Site A AND Site B without
+    // collision because UNIQUE is (CompanyId, LocationId, Code).
+    public int LocationId { get; set; }
     public int? OwningDepartmentId { get; set; }
 
     // Subcontract-specific (only meaningful when Type == Subcontract).

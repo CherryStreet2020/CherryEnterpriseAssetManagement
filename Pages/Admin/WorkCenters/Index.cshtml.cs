@@ -43,6 +43,8 @@ public class IndexModel : PageModel
             {
                 Id = w.Id,
                 CompanyId = w.CompanyId,
+                LocationId = w.LocationId,
+                LocationName = _db.Locations.Where(l => l.Id == w.LocationId).Select(l => l.Name).FirstOrDefault() ?? "—",
                 Code = w.Code,
                 Name = w.Name,
                 Type = w.Type,
@@ -73,6 +75,8 @@ public class IndexModel : PageModel
     {
         public int Id { get; set; }
         public int CompanyId { get; set; }
+        public int LocationId { get; set; }
+        public string LocationName { get; set; } = "—";
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public WorkCenterType Type { get; set; }
