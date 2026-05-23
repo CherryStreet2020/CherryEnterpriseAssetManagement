@@ -35,6 +35,7 @@
                 <th>Rev</th>
                 <th>Name</th>
                 <th>Item</th>
+                <th>Site Scope</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th class="num">Operations</th>
@@ -51,6 +52,7 @@
                     <td><span class="link-mono">@r.RevisionNumber</span></td>
                     <td>@r.Name</td>
                     <td class="num">#@r.ItemId</td>
+                    <td>@r.LocationName</td>
                     <td>@r.Type</td>
                     <td><span class="status-chip status-chip--@r.StatusTone()">@r.Status</span></td>
                     <td class="num">@r.OperationCount</td>

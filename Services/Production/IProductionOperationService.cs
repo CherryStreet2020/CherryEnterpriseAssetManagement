@@ -26,7 +26,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.ChainOfCustody;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.ChainOfCustody;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -71,12 +73,43 @@ public sealed record RecordOperationActualsRequest(
 public sealed class ProductionOperationService : IProductionOperationService
 {
     private readonly AppDbContext _db;
+    private readonly ITenantContext _tenantContext;
+    private readonly IChainOfCustodyService _chainOfCustody;
     private readonly ILogger<ProductionOperationService> _logger;
 
-    public ProductionOperationService(AppDbContext db, ILogger<ProductionOperationService> logger)
+    public ProductionOperationService(
+        AppDbContext db,
+        ITenantContext tenantContext,
+        IChainOfCustodyService chainOfCustody,
+        ILogger<ProductionOperationService> logger)
     {
         _db = db;
+        _tenantContext = tenantContext;
+        _chainOfCustody = chainOfCustody;
         _logger = logger;
+    }
+
+    // PR #5c.1 — central tenant-scope check.  ProductionOperation has no direct
+    // CompanyId; we derive scope through the parent ProductionOrder → Location.CompanyId
+    // (same pattern as ProductionOrderService).
+    private async Task<int?> ResolveOrderCompanyIdAsync(int productionOrderId, CancellationToken ct)
+    {
+        var row = await _db.ProductionOrders
+            .Where(o => o.Id == productionOrderId)
+            .Select(o => new { o.LocationId, o.CustomerId })
+            .FirstOrDefaultAsync(ct);
+        if (row is null) return null;
+        if (row.LocationId.HasValue)
+        {
+            var locCompanyId = await _db.Locations.Where(l => l.Id == row.LocationId.Value).Select(l => (int?)l.CompanyId).FirstOrDefaultAsync(ct);
+            if (locCompanyId.HasValue) return locCompanyId.Value;
+        }
+        if (row.CustomerId.HasValue)
+        {
+            var custCompanyId = await _db.Customers.Where(c => c.Id == row.CustomerId.Value).Select(c => (int?)c.CompanyId).FirstOrDefaultAsync(ct);
+            if (custCompanyId.HasValue) return custCompanyId.Value;
+        }
+        return null;
     }
 
     // Legal-transition map for the 8-state ProductionOperationStatus machine.
@@ -115,10 +148,22 @@ public sealed class ProductionOperationService : IProductionOperationService
         var order = await _db.ProductionOrders.FirstOrDefaultAsync(x => x.Id == r.ProductionOrderId, ct);
         if (order is null) return Result.Failure<IReadOnlyList<ProductionOperation>>("ProductionOrder not found.");
 
+        // PR #5c.1 — tenant scope check (was missing entirely).
+        var orderCompanyId = await ResolveOrderCompanyIdAsync(r.ProductionOrderId, ct);
+        if (orderCompanyId is null || !_tenantContext.VisibleCompanyIds.Contains(orderCompanyId.Value))
+            return Result.Failure<IReadOnlyList<ProductionOperation>>("ProductionOrder is not in your tenant scope.");
+
         var routing = await _db.Routings.FirstOrDefaultAsync(x => x.Id == r.RoutingId, ct);
         if (routing is null) return Result.Failure<IReadOnlyList<ProductionOperation>>("Routing not found.");
         if (routing.Status != RoutingStatus.Released)
             return Result.Failure<IReadOnlyList<ProductionOperation>>("Can only release from a Released routing.");
+        // PR #5c.1 — routing tenant check too (defense in depth).
+        if (!_tenantContext.VisibleCompanyIds.Contains(routing.CompanyId))
+            return Result.Failure<IReadOnlyList<ProductionOperation>>("Routing is not in your tenant scope.");
+        // PR #5c.1 — site-scoped routing must match the order's site.
+        if (routing.LocationId is not null && order.LocationId != routing.LocationId)
+            return Result.Failure<IReadOnlyList<ProductionOperation>>(
+                $"Routing is site-scoped to LocationId={routing.LocationId} but the order is at LocationId={(object?)order.LocationId ?? "null"}. Use a site-wide template or matching-site routing.");
 
         var existingCount = await _db.ProductionOperations.CountAsync(x => x.ProductionOrderId == r.ProductionOrderId, ct);
         if (existingCount > 0)
@@ -132,12 +177,20 @@ public sealed class ProductionOperationService : IProductionOperationService
         if (ops.Count == 0)
             return Result.Failure<IReadOnlyList<ProductionOperation>>("Routing has no operations to release from.");
 
+        // PR #5c.1 — snapshot LocationId from the order at release time so PR #5e's
+        // DowntimeEvent/ScrapEvent/etc. can site-scope without joining all the way
+        // back to ProductionOrder.LocationId.
+        if (!order.LocationId.HasValue)
+            return Result.Failure<IReadOnlyList<ProductionOperation>>("ProductionOrder must have a LocationId to release operations (snapshot discipline requires a site).");
+        var locationSnapshot = order.LocationId.Value;
+
         var now = DateTime.UtcNow;
         var snapshots = ops.Select(op => new ProductionOperation
         {
             ProductionOrderId = r.ProductionOrderId,
             RoutingOperationId = op.Id,
             RoutingRevisionSnapshot = routing.RevisionNumber,
+            LocationIdSnapshot = locationSnapshot,
             SequenceNumber = op.SequenceNumber,
             WorkCenterId = op.WorkCenterId,
             OperationType = op.OperationType,
@@ -156,6 +209,36 @@ public sealed class ProductionOperationService : IProductionOperationService
 
         _db.ProductionOperations.AddRange(snapshots);
         await _db.SaveChangesAsync(ct);
+
+        // PR #5c.1 — emit chain edges per the BIC entity checklist.
+        //   (1) ProductionOrder → Routing  (HAS_ROUTING — set on release)
+        //   (2) ProductionOrder → ProductionOperation  (ORDER_HAS_OPERATION — per row)
+        //   (3) ProductionOperation → WorkCenter  (OPERATION_AT_WORKCENTER — per row)
+        try
+        {
+            await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                FromNodeType: "ProductionOrder", FromEntityId: order.Id, FromLabel: order.OrderNumber,
+                ToNodeType:   "Routing",         ToEntityId:   routing.Id, ToLabel: routing.Code + "/" + routing.RevisionNumber,
+                EdgeType: ChainEdgeTypes.HasRouting), ct);
+
+            foreach (var po in snapshots)
+            {
+                await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                    FromNodeType: "ProductionOrder",     FromEntityId: order.Id, FromLabel: order.OrderNumber,
+                    ToNodeType:   "ProductionOperation", ToEntityId:   po.Id,    ToLabel: "Op-" + po.SequenceNumber,
+                    EdgeType: ChainEdgeTypes.OrderHasOperation), ct);
+
+                await _chainOfCustody.RecordEdgeAsync(new RecordEdgeRequest(
+                    FromNodeType: "ProductionOperation", FromEntityId: po.Id,           FromLabel: "Op-" + po.SequenceNumber,
+                    ToNodeType:   "WorkCenter",          ToEntityId:   po.WorkCenterId, ToLabel: "WC-" + po.WorkCenterId,
+                    EdgeType: ChainEdgeTypes.OperationAtWorkCenter), ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Chain edge emission failed for Order/Routing/Operation/WC (non-fatal)");
+        }
+
         return Result.Success<IReadOnlyList<ProductionOperation>>(snapshots);
     }
 
@@ -164,6 +247,11 @@ public sealed class ProductionOperationService : IProductionOperationService
     {
         var op = await _db.ProductionOperations.FirstOrDefaultAsync(x => x.Id == r.ProductionOperationId, ct);
         if (op is null) return Result.Failure<ProductionOperation>("ProductionOperation not found.");
+
+        // PR #5c.1 — tenant scope check (was missing entirely).
+        var orderCompanyId = await ResolveOrderCompanyIdAsync(op.ProductionOrderId, ct);
+        if (orderCompanyId is null || !_tenantContext.VisibleCompanyIds.Contains(orderCompanyId.Value))
+            return Result.Failure<ProductionOperation>("ProductionOperation is not in your tenant scope.");
 
         if (op.Status == r.NewStatus) return Result.Success(op);  // idempotent
 
@@ -193,6 +281,11 @@ public sealed class ProductionOperationService : IProductionOperationService
     {
         var op = await _db.ProductionOperations.FirstOrDefaultAsync(x => x.Id == r.ProductionOperationId, ct);
         if (op is null) return Result.Failure<ProductionOperation>("ProductionOperation not found.");
+
+        // PR #5c.1 — tenant scope check (was missing entirely).
+        var orderCompanyId = await ResolveOrderCompanyIdAsync(op.ProductionOrderId, ct);
+        if (orderCompanyId is null || !_tenantContext.VisibleCompanyIds.Contains(orderCompanyId.Value))
+            return Result.Failure<ProductionOperation>("ProductionOperation is not in your tenant scope.");
 
         if (r.CompletedQty.HasValue)     op.CompletedQty = r.CompletedQty.Value;
         if (r.ScrappedQty.HasValue)      op.ScrappedQty = r.ScrappedQty.Value;

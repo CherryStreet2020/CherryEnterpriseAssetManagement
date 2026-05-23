@@ -79,6 +79,16 @@ public class Routing
     public RoutingType Type { get; set; } = RoutingType.Discrete;
     public RoutingStatus Status { get; set; } = RoutingStatus.Draft;
 
+    // PR #5c.1: Site scoping per the BIC checklist.
+    //   - LocationId NULL + IsSiteWideTemplate=TRUE → company-wide engineering template
+    //     (SAP's "BOM with no plant" pattern). Production orders at any site can release
+    //     from it; the order's LocationId snapshots onto each ProductionOperation.
+    //   - LocationId NOT NULL + IsSiteWideTemplate=FALSE → site-scoped routing.
+    //     ProductionOrder.LocationId must match at release.
+    //   - LocationId NULL + IsSiteWideTemplate=FALSE → not allowed (CHECK constraint).
+    public int? LocationId { get; set; }
+    public bool IsSiteWideTemplate { get; set; } = false;
+
     // Lifecycle.
     public DateTime? EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }

@@ -75,4 +75,15 @@ public static class ChainEdgeTypes
     // table backed by a status-regression trigger; phases are internal WBS).
     public const string MemberOf            = "MEMBER_OF";            // Customer → CustomerProject (ProjectMember row)
     public const string ContainsProductionOrder = "CONTAINS_PRODUCTION_ORDER"; // CustomerProject → ProductionOrder (link emitted by LinkProductionOrderAsync)
+
+    // Sprint 13.5 PR #5c.1 — Routing / WorkCenter / ProductionOperation chain edges.
+    // Wired by WorkCenterService.LinkAssetAsync (WC→Asset), RoutingService.AddOperationAsync
+    // (Routing→RoutingOperation + RoutingOperation→WorkCenter), and
+    // ProductionOperationService.ReleaseFromRoutingAsync (Order→ProductionOperation per row +
+    // ProductionOperation→WorkCenter per row).
+    public const string HasRouting          = "HAS_ROUTING";              // ProductionOrder → Routing (set on release)
+    public const string RoutingHasOperation = "ROUTING_HAS_OPERATION";    // Routing → RoutingOperation
+    public const string OperationAtWorkCenter = "OPERATION_AT_WORKCENTER"; // RoutingOperation → WorkCenter OR ProductionOperation → WorkCenter
+    public const string OrderHasOperation   = "ORDER_HAS_OPERATION";      // ProductionOrder → ProductionOperation (per snapshot row)
+    public const string WorkCenterUsesAsset = "WORKCENTER_USES_ASSET";    // WorkCenter → Asset (linked via WorkCenterAssetLink)
 }

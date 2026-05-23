@@ -53,6 +53,12 @@ public class RoutingOperation
     // Sequence (in 10s — leaves gaps for inserts).
     public int SequenceNumber { get; set; } = 10;
 
+    // PR #5c.1 — snapshot of Routing.LocationId at create time. Lets site-scoped
+    // queries avoid joining through Routing AND survives the parent routing being
+    // re-pointed to a different site post-create (which shouldn't happen but the
+    // snapshot is the guard).
+    public int LocationIdSnapshot { get; set; }
+
     // Where this op runs.
     public int WorkCenterId { get; set; }
 
