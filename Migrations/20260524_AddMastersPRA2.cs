@@ -83,7 +83,7 @@ namespace Abs.FixedAssets.Migrations
                     ('DE', 'DEU', '276', 'Germany',        'Federal Republic of Germany',        '+49', 'EUR', 50),
                     ('FR', 'FRA', '250', 'France',         'French Republic',                    '+33', 'EUR', 60),
                     ('JP', 'JPN', '392', 'Japan',          'Japan',                              '+81', 'JPY', 70),
-                    ('CN', 'CHN', '156', 'China',          ""People's Republic of China"",       '+86', 'CNY', 80)
+                    ('CN', 'CHN', '156', 'China',          'People''s Republic of China',        '+86', 'CNY', 80)
                 ON CONFLICT (""Alpha2"") DO NOTHING;
             ");
 
@@ -297,9 +297,9 @@ namespace Abs.FixedAssets.Migrations
                         INSERT INTO ""Holidays""
                             (""WorkCalendarId"", ""ObservedDate"", ""NominalDate"", ""Name"", ""Category"")
                         VALUES
-                            (cal_id, '2026-01-01', '2026-01-01', ""New Year's Day"",         0),
+                            (cal_id, '2026-01-01', '2026-01-01', 'New Year''s Day',         0),
                             (cal_id, '2026-01-19', '2026-01-19', 'Martin Luther King Jr. Day', 0),
-                            (cal_id, '2026-02-16', '2026-02-16', ""Presidents' Day"",        0),
+                            (cal_id, '2026-02-16', '2026-02-16', 'Presidents'' Day',        0),
                             (cal_id, '2026-05-25', '2026-05-25', 'Memorial Day',            0),
                             (cal_id, '2026-06-19', '2026-06-19', 'Juneteenth',              0),
                             (cal_id, '2026-07-03', '2026-07-04', 'Independence Day (observed)', 0),
