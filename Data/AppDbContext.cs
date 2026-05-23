@@ -225,6 +225,19 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectAmendment> ProjectAmendments
             => Set<Abs.FixedAssets.Models.Projects.ProjectAmendment>();
 
+        // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
+        // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
+        // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
+        // material / spec / process / test rows. Attachments reused via
+        // 3 new nullable FK cols (FaiReportId / FaiCharacteristicId /
+        // FaiProductAccountabilityId).
+        public DbSet<Abs.FixedAssets.Models.Quality.FaiReport> FaiReports
+            => Set<Abs.FixedAssets.Models.Quality.FaiReport>();
+        public DbSet<Abs.FixedAssets.Models.Quality.FaiCharacteristic> FaiCharacteristics
+            => Set<Abs.FixedAssets.Models.Quality.FaiCharacteristic>();
+        public DbSet<Abs.FixedAssets.Models.Quality.FaiProductAccountability> FaiProductAccountability
+            => Set<Abs.FixedAssets.Models.Quality.FaiProductAccountability>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -2801,6 +2814,112 @@ namespace Abs.FixedAssets.Data
                     .HasDatabaseName("ix_customerprojects_atrisk_queue")
                     .HasFilter("\"RiskTone\" IN (1, 2)")
                     .IsDescending();
+            });
+
+            // ============================================================
+            // Sprint 13.5 PR #1.75 — AS9102 FAI workflow.
+            //
+            // Raw-SQL migration 20260523_AddFaiWorkflow handles the DDL
+            // (tables, CHECK constraints, indexes, status-regression
+            // trigger, +3 nullable FK cols on Attachments). This block
+            // wires the EF relationship side.
+            // See docs/research/fai-workflow-schema.md.
+            // ============================================================
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Quality.FaiReport>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.FaiNumber }).IsUnique();
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasFilter("\"CustomerProjectId\" IS NOT NULL");
+                e.HasIndex(x => x.ProductionOrderId)
+                    .HasFilter("\"ProductionOrderId\" IS NOT NULL");
+                e.HasIndex(x => x.BaselineFaiReportId)
+                    .HasFilter("\"BaselineFaiReportId\" IS NOT NULL");
+
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Tenant)
+                    .WithMany()
+                    .HasForeignKey(x => x.TenantId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.CustomerProject)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.StockReceipt)
+                    .WithMany()
+                    .HasForeignKey(x => x.StockReceiptId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PurchaseOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.BaselineFaiReport)
+                    .WithMany()
+                    .HasForeignKey(x => x.BaselineFaiReportId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.SubmittedBy)
+                    .WithMany()
+                    .HasForeignKey(x => x.SubmittedById)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ApprovedBy)
+                    .WithMany()
+                    .HasForeignKey(x => x.ApprovedById)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Quality.FaiCharacteristic>(e =>
+            {
+                e.HasIndex(x => new { x.FaiReportId, x.BalloonNumber }).IsUnique();
+                e.HasIndex(x => x.Conformance);
+                e.HasIndex(x => x.MrbDispositionId)
+                    .HasFilter("\"MrbDispositionId\" IS NOT NULL");
+
+                e.HasOne(x => x.FaiReport)
+                    .WithMany()
+                    .HasForeignKey(x => x.FaiReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Inspector)
+                    .WithMany()
+                    .HasForeignKey(x => x.InspectorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.MrbDisposition)
+                    .WithMany()
+                    .HasForeignKey(x => x.MrbDispositionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Quality.FaiProductAccountability>(e =>
+            {
+                e.HasIndex(x => new { x.FaiReportId, x.EntryType });
+                e.HasIndex(x => x.HeatNumber)
+                    .HasFilter("\"HeatNumber\" IS NOT NULL");
+
+                e.HasOne(x => x.FaiReport)
+                    .WithMany()
+                    .HasForeignKey(x => x.FaiReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
 
