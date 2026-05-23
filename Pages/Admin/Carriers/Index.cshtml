@@ -1,0 +1,45 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Carriers.IndexModel
+@{
+    ViewData["Title"] = "Carriers";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Carriers</span>
+        </nav>
+        <h1 class="page-title">Carriers</h1>
+        <p class="page-subtitle">@Model.TotalCount carriers · System rows (NULL CompanyId) shared by every tenant · Seeded by Sprint 13.5 PRA-1</p>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th><th>SCAC</th><th>Name</th><th>Scope</th>
+                <th>Contact</th><th>Tracking URL</th><th>Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Carriers)
+            {
+                <tr>
+                    <td><span class="link-mono">@c.Code</span></td>
+                    <td>@(c.ScacCode ?? "—")</td>
+                    <td>@c.Name</td>
+                    <td>@(c.CompanyId.HasValue ? "Tenant" : "System")</td>
+                    <td>@(string.IsNullOrEmpty(c.ContactEmail) ? "—" : c.ContactEmail)</td>
+                    <td>@(string.IsNullOrEmpty(c.TrackingUrlTemplate) ? "—" : "✓")</td>
+                    <td>@(c.IsActive ? "Yes" : "No")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

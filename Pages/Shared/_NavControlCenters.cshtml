@@ -27,37 +27,32 @@
     bool receivingActive = IsPageHelper("/Receiving");
 }
 
-<div class="nav-section-label">CONTROL CENTERS</div>
+<div class="nav-section-label">COCKPITS</div>
 
-<div class="menu-group nav-cc-group @(receivingActive ? "expanded" : "")" data-section="control-centers">
+<div class="menu-group nav-cc-group expanded" data-section="control-centers">
     <div class="menu-items">
+        @* Sprint 13.5 PR #4 — show LIVE Control Centers only.  Disabled
+           cockpits (the "soon · Sprint X" placeholders) used to render
+           here in a greyed-out state but created visual noise — Dean's
+           2026-05-23 call to clean up the menu. The registry still tracks
+           every planned cockpit for code-side roadmap signal; the sidebar
+           just shows what users can actually USE. When a cockpit ships
+           (IsLive = true), it auto-appears with no Razor change. *@
         @foreach (var cc in ControlCenterRegistry.All)
         {
-            var ccActive = cc.IsLive && IsPageHelper(cc.Route);
-            var rowCls = "menu-item nav-cc-item" +
-                         (cc.IsLive ? "" : " nav-cc-item--disabled") +
-                         (ccActive ? " active" : "");
+            if (!cc.IsLive) { continue; }
 
-            if (cc.IsLive)
-            {
-                <a href="@cc.Route" class="@rowCls" data-nav-route="@cc.Route" title="@cc.Title Control Center">
-                    <i class="@cc.IconClass menu-item-icon"></i>
-                    <span class="nav-cc-title">@cc.Title</span>
-                    @if (ccActive)
-                    {
-                        <span class="nav-cc-chip nav-cc-chip--live" aria-label="live">live</span>
-                    }
-                </a>
-            }
-            else
-            {
-                <span class="@rowCls" role="link" aria-disabled="true"
-                      title="@cc.Title Control Center ships in Sprint @cc.SprintNumber. Not yet available.">
-                    <i class="@cc.IconClass menu-item-icon"></i>
-                    <span class="nav-cc-title">@cc.Title</span>
-                    <span class="nav-cc-chip nav-cc-chip--soon">@cc.StatusChip</span>
-                </span>
-            }
+            var ccActive = IsPageHelper(cc.Route);
+            var rowCls = "menu-item nav-cc-item" + (ccActive ? " active" : "");
+
+            <a href="@cc.Route" class="@rowCls" data-nav-route="@cc.Route" title="@cc.Title cockpit">
+                <i class="@cc.IconClass menu-item-icon"></i>
+                <span class="nav-cc-title">@cc.Title</span>
+                @if (ccActive)
+                {
+                    <span class="nav-cc-chip nav-cc-chip--live" aria-label="live">live</span>
+                }
+            </a>
         }
     </div>
 </div>

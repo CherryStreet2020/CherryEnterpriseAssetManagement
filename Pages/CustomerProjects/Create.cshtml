@@ -1,0 +1,170 @@
+@page
+@model Abs.FixedAssets.Pages.CustomerProjects.CreateModel
+@{
+    ViewData["Title"] = "New Customer Project";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/CustomerProjects">Customer Projects</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">New Project</span>
+        </nav>
+        <h1 class="page-title">New Customer Project</h1>
+        <p class="page-subtitle">Opens in <strong>Quote</strong> status. Transition to Active when the customer commits.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/CustomerProjects" class="btn-secondary">
+            <i class="fas fa-arrow-left"></i> Cancel
+        </a>
+    </div>
+</div>
+
+<form method="post" class="form-grid">
+    <div asp-validation-summary="ModelOnly" class="alert alert--error"></div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Identification</h3>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.CompanyId" class="form-label form-label--required">Company</label>
+                <select asp-for="Input.CompanyId" class="form-input" asp-items="Model.CompanyOptions">
+                    <option value="">— select —</option>
+                </select>
+                <span asp-validation-for="Input.CompanyId" class="form-error"></span>
+            </div>
+            <div>
+                <label asp-for="Input.PrimaryCustomerId" class="form-label">Primary Customer</label>
+                <select asp-for="Input.PrimaryCustomerId" class="form-input" asp-items="Model.CustomerOptions">
+                    <option value="">— none (internal R&amp;D) —</option>
+                </select>
+            </div>
+            <div>
+                <label asp-for="Input.ProgramId" class="form-label">Program</label>
+                <select asp-for="Input.ProgramId" class="form-input" asp-items="Model.ProgramOptions">
+                    <option value="">— none —</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.Code" class="form-label form-label--required">Project Code</label>
+                <input asp-for="Input.Code" class="form-input form-input--mono" placeholder="e.g. PRJ-2026-Q2-WEIR" />
+                <span asp-validation-for="Input.Code" class="form-error"></span>
+            </div>
+            <div>
+                <label asp-for="Input.Name" class="form-label form-label--required">Name</label>
+                <input asp-for="Input.Name" class="form-input" />
+                <span asp-validation-for="Input.Name" class="form-error"></span>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <label asp-for="Input.Description" class="form-label">Description</label>
+            <textarea asp-for="Input.Description" class="form-input" rows="3"></textarea>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Customer Mode (ADR-026)</h3>
+        <p class="hint">Drives downstream UI specialization, cost rollup, and revenue recognition.</p>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.Mode" class="form-label">Project Mode</label>
+                <select asp-for="Input.Mode" class="form-input" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.Projects.CustomerProjectMode>()"></select>
+            </div>
+            <div>
+                <label asp-for="Input.CostingMode" class="form-label">Costing Mode</label>
+                <select asp-for="Input.CostingMode" class="form-input" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.Projects.CustomerProjectCostingMode>()"></select>
+            </div>
+            <div>
+                <label asp-for="Input.RevenueMode" class="form-label">Revenue Mode</label>
+                <select asp-for="Input.RevenueMode" class="form-input" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.Projects.CustomerProjectRevenueMode>()"></select>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Commercial</h3>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.ContractValue" class="form-label">Contract Value</label>
+                <input asp-for="Input.ContractValue" class="form-input form-input--num" type="number" step="0.01" />
+            </div>
+            <div>
+                <label asp-for="Input.Currency" class="form-label">Currency</label>
+                <input asp-for="Input.Currency" class="form-input form-input--narrow" maxlength="3" />
+            </div>
+            <div>
+                <label asp-for="Input.CustomerPoNumber" class="form-label">Customer PO #</label>
+                <input asp-for="Input.CustomerPoNumber" class="form-input" />
+            </div>
+        </div>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.ContractType" class="form-label">Contract Type (FAR Part 16)</label>
+                <select asp-for="Input.ContractType" class="form-input">
+                    <option value="">— none —</option>
+                    @foreach (var ct in System.Enum.GetValues<Abs.FixedAssets.Models.Projects.ContractType>())
+                    {
+                        <option value="@((short)ct)">@ct</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label asp-for="Input.QualityProgram" class="form-label">Quality Program</label>
+                <select asp-for="Input.QualityProgram" class="form-input">
+                    <option value="">— none —</option>
+                    @foreach (var qp in System.Enum.GetValues<Abs.FixedAssets.Models.Projects.QualityProgram>())
+                    {
+                        <option value="@((short)qp)">@qp</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label asp-for="Input.ExportControl" class="form-label">Export Control</label>
+                <select asp-for="Input.ExportControl" class="form-input">
+                    @foreach (var ec in System.Enum.GetValues<Abs.FixedAssets.Models.Projects.ExportControl>())
+                    {
+                        <option value="@((short)ec)">@ec</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h3 class="form-section-title">Schedule + Ownership</h3>
+
+        <div class="form-row form-row--inline">
+            <div>
+                <label asp-for="Input.TargetStartDate" class="form-label">Target Start</label>
+                <input asp-for="Input.TargetStartDate" class="form-input" type="date" />
+            </div>
+            <div>
+                <label asp-for="Input.TargetEndDate" class="form-label">Target End</label>
+                <input asp-for="Input.TargetEndDate" class="form-input" type="date" />
+            </div>
+            <div>
+                <label asp-for="Input.ProjectManagerName" class="form-label">Project Manager</label>
+                <input asp-for="Input.ProjectManagerName" class="form-input" />
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <a href="/CustomerProjects" class="btn-secondary">Cancel</a>
+        <button type="submit" class="btn-primary">
+            <i class="fas fa-plus"></i> Create Project
+        </button>
+    </div>
+</form>

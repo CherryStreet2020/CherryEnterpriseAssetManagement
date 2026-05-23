@@ -1,0 +1,46 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Countries.IndexModel
+@{
+    ViewData["Title"] = "Countries";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Countries</span>
+        </nav>
+        <h1 class="page-title">Countries</h1>
+        <p class="page-subtitle">@Model.TotalCount countries · ISO 3166-1 system master · Seeded by Sprint 13.5 PRA-2</p>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Alpha-2</th><th>Alpha-3</th><th>Numeric</th><th>Name</th>
+                <th>Call</th><th>Currency</th><th class="num">Subdivisions</th><th>Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Countries)
+            {
+                <tr>
+                    <td><span class="link-mono">@c.Alpha2</span></td>
+                    <td><span class="link-mono">@c.Alpha3</span></td>
+                    <td><span class="link-mono">@c.Numeric</span></td>
+                    <td>@c.Name</td>
+                    <td>@(c.CallingCode ?? "—")</td>
+                    <td>@(c.Currency ?? "—")</td>
+                    <td class="num">@c.SubdivisionCount</td>
+                    <td>@(c.IsActive ? "Yes" : "No")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

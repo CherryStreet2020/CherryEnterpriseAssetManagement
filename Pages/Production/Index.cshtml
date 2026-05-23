@@ -1,0 +1,129 @@
+@page
+@model Abs.FixedAssets.Pages.Production.IndexModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Production";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 13.5 PR #4 — /Production cockpit landing page.
+    KPI strip + status filter chips + table of orders + New Order CTA.
+    Uses locked UX tokens — no over-formatting, no striped rows,
+    32px DataTable row density per design-tokens-v2.
+*@
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Production</span>
+        </nav>
+        <h1 class="page-title">Production Orders</h1>
+        <p class="page-subtitle">@Model.TotalCount @(Model.TotalCount == 1 ? "order" : "orders") across all statuses</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/Production/Create" class="btn-primary">
+            <i class="fas fa-plus"></i> New Order
+        </a>
+    </div>
+</div>
+
+<div class="kpi-strip">
+    @{
+        var statusList = new[]
+        {
+            ProductionOrderStatus.Planned,
+            ProductionOrderStatus.Released,
+            ProductionOrderStatus.InProgress,
+            ProductionOrderStatus.OnHold,
+            ProductionOrderStatus.Completed,
+            ProductionOrderStatus.Cancelled,
+        };
+    }
+    <a href="/Production" class="kpi-chip @(Model.FilterStatus == null ? "kpi-chip--active" : "")">
+        <span class="kpi-chip-label">All</span>
+        <span class="kpi-chip-value">@Model.TotalCount</span>
+    </a>
+    @foreach (var s in statusList)
+    {
+        var count = Model.CountByStatus.TryGetValue(s, out var c) ? c : 0;
+        var active = Model.FilterStatus == s;
+        var chipCls = "kpi-chip kpi-chip--status-" + s.ToString().ToLower() + (active ? " kpi-chip--active" : "");
+        <a href="/Production?status=@s" class="@chipCls">
+            <span class="kpi-chip-label">@s</span>
+            <span class="kpi-chip-value">@count</span>
+        </a>
+    }
+</div>
+
+@if (Model.Orders.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-industry"></i></div>
+        <h2 class="empty-state-title">
+            @(Model.FilterStatus.HasValue ? $"No {Model.FilterStatus} orders" : "No production orders yet")
+        </h2>
+        <p class="empty-state-body">
+            @(Model.FilterStatus.HasValue
+                ? "Try a different status filter — or clear the filter to see all orders."
+                : "Production orders track manufacturing work — job-shop, ETO, repetitive discrete, process batch. Create your first order to begin.")
+        </p>
+        <a href="/Production/Create" class="btn-primary">
+            <i class="fas fa-plus"></i> New Production Order
+        </a>
+    </div>
+}
+else
+{
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Order #</th>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th class="num">Qty Ord</th>
+                    <th class="num">Qty Cmpl</th>
+                    <th>Item</th>
+                    <th>Location</th>
+                    <th>Customer</th>
+                    <th>Project</th>
+                    <th>Scheduled</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var o in Model.Orders)
+                {
+                    <tr>
+                        <td><a href="/Production/Details/@o.Id" class="link-mono">@o.OrderNumber</a></td>
+                        <td>@o.Title</td>
+                        <td><span class="status-chip status-chip--@o.Status.ToString().ToLower()">@o.Status</span></td>
+                        <td>@o.Type</td>
+                        <td class="num">@o.QuantityOrdered.ToString("0.##")</td>
+                        <td class="num">@o.QuantityCompleted.ToString("0.##")</td>
+                        <td>@(string.IsNullOrEmpty(o.ItemCode) ? "—" : o.ItemCode)</td>
+                        <td>@(string.IsNullOrEmpty(o.LocationCode) ? "—" : o.LocationCode)</td>
+                        <td>@(string.IsNullOrEmpty(o.CustomerName) ? "—" : o.CustomerName)</td>
+                        <td>
+                            @if (o.ProjectId.HasValue)
+                            {
+                                <a href="/CustomerProjects/Details/@o.ProjectId" class="link-chip">@o.ProjectCode</a>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            @(o.ScheduledStart.HasValue ? o.ScheduledStart.Value.ToString("yyyy-MM-dd") : "—")
+                            @if (o.ScheduledEnd.HasValue) { <text> → @o.ScheduledEnd.Value.ToString("yyyy-MM-dd")</text> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

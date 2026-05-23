@@ -1,0 +1,127 @@
+@page
+@model Abs.FixedAssets.Pages.CustomerProjects.IndexModel
+@using Abs.FixedAssets.Models.Projects
+@{
+    ViewData["Title"] = "Customer Projects";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Customer Projects</span>
+        </nav>
+        <h1 class="page-title">Customer Projects</h1>
+        <p class="page-subtitle">@Model.TotalCount @(Model.TotalCount == 1 ? "project" : "projects") across all statuses</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/CustomerProjects/Create" class="btn-primary">
+            <i class="fas fa-plus"></i> New Project
+        </a>
+    </div>
+</div>
+
+<div class="kpi-strip">
+    @{
+        var statusList = new[]
+        {
+            CustomerProjectStatus.Quote,
+            CustomerProjectStatus.Active,
+            CustomerProjectStatus.OnHold,
+            CustomerProjectStatus.Closed,
+            CustomerProjectStatus.Cancelled,
+        };
+    }
+    <a href="/CustomerProjects" class="kpi-chip @(Model.FilterStatus == null ? "kpi-chip--active" : "")">
+        <span class="kpi-chip-label">All</span>
+        <span class="kpi-chip-value">@Model.TotalCount</span>
+    </a>
+    @foreach (var s in statusList)
+    {
+        var count = Model.CountByStatus.TryGetValue(s, out var c) ? c : 0;
+        var active = Model.FilterStatus == s;
+        var chipCls = "kpi-chip kpi-chip--projectstatus-" + s.ToString().ToLower() + (active ? " kpi-chip--active" : "");
+        <a href="/CustomerProjects?status=@s" class="@chipCls">
+            <span class="kpi-chip-label">@s</span>
+            <span class="kpi-chip-value">@count</span>
+        </a>
+    }
+</div>
+
+@if (Model.Projects.Count == 0)
+{
+    <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-diagram-project"></i></div>
+        <h2 class="empty-state-title">
+            @(Model.FilterStatus.HasValue ? $"No {Model.FilterStatus} projects" : "No customer projects yet")
+        </h2>
+        <p class="empty-state-body">
+            @(Model.FilterStatus.HasValue
+                ? "Try a different status filter — or clear the filter to see all projects."
+                : "Customer projects let you bind jobs, costs, and revenue to a single deliverable. ETO turbine, multi-job campaign, joint-venture, internal R&D — all seven Customer Modes (ADR-026) live here.")
+        </p>
+        <a href="/CustomerProjects/Create" class="btn-primary">
+            <i class="fas fa-plus"></i> New Customer Project
+        </a>
+    </div>
+}
+else
+{
+    <div class="data-table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                    <th>Risk</th>
+                    <th class="num">Contract</th>
+                    <th>Customer PO</th>
+                    <th>Schedule</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Model.Projects)
+                {
+                    <tr>
+                        <td><a href="/CustomerProjects/Details/@p.Id" class="link-mono">@p.Code</a></td>
+                        <td>@p.Name</td>
+                        <td>@(string.IsNullOrEmpty(p.CustomerName) ? "—" : p.CustomerName)</td>
+                        <td><span class="status-chip status-chip--projectstatus-@p.Status.ToString().ToLower()">@p.Status</span></td>
+                        <td>@p.Mode</td>
+                        <td>
+                            @if (p.RiskTone.HasValue)
+                            {
+                                <span class="risk-dot risk-dot--@p.RiskTone.ToString()!.ToLower()" title="Risk tone @p.RiskTone (score @(p.RiskScore?.ToString() ?? "n/a"))"></span>
+                                <span>@p.RiskTone</span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td class="num">
+                            @if (p.ContractValue.HasValue)
+                            {
+                                @($"{p.ContractValue.Value:N2} {p.Currency}")
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td>@(string.IsNullOrEmpty(p.CustomerPo) ? "—" : p.CustomerPo)</td>
+                        <td>
+                            @(p.TargetStartDate.HasValue ? p.TargetStartDate.Value.ToString("yyyy-MM-dd") : "—")
+                            @if (p.TargetEndDate.HasValue) { <text> → @p.TargetEndDate.Value.ToString("yyyy-MM-dd")</text> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

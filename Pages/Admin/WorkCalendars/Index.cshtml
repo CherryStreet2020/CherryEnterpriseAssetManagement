@@ -1,0 +1,46 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.WorkCalendars.IndexModel
+@{
+    ViewData["Title"] = "Work Calendars";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Work Calendars</span>
+        </nav>
+        <h1 class="page-title">Work Calendars</h1>
+        <p class="page-subtitle">@Model.TotalCount calendars · Drives business-day arithmetic across the app · Seeded by Sprint 13.5 PRA-2</p>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th><th>Name</th><th>Scope</th><th>Time Zone</th>
+                <th>Work Days</th><th class="num">Holidays</th><th>Default</th><th>Active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var c in Model.Calendars)
+            {
+                <tr>
+                    <td><span class="link-mono">@c.Code</span></td>
+                    <td>@c.Name</td>
+                    <td>@(c.CompanyId.HasValue ? "Tenant" : "System")</td>
+                    <td>@c.TimeZone</td>
+                    <td><span class="link-mono">@c.WorkDayPattern()</span></td>
+                    <td class="num">@c.HolidayCount</td>
+                    <td>@(c.IsDefault ? "Yes" : "—")</td>
+                    <td>@(c.IsActive ? "Yes" : "No")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

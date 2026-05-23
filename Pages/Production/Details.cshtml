@@ -1,0 +1,153 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Production.DetailsModel
+@using Abs.FixedAssets.Models.Production
+@{
+    var o = Model.Order!;
+    ViewData["Title"] = $"Production Order {o.OrderNumber}";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Production">Production</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">@o.OrderNumber</span>
+        </nav>
+        <h1 class="page-title">
+            <span class="link-mono">@o.OrderNumber</span>
+            <span class="status-chip status-chip--@o.Status.ToString().ToLower()">@o.Status</span>
+        </h1>
+        <p class="page-subtitle">@o.Title</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/Production" class="btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to List
+        </a>
+    </div>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert--success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert--error">@TempData["Error"]</div>
+}
+
+<div class="detail-grid">
+    <section class="detail-card">
+        <h3 class="detail-card-title">Order Header</h3>
+        <dl class="detail-list">
+            <dt>Type</dt><dd>@o.Type</dd>
+            <dt>Status</dt><dd><span class="status-chip status-chip--@o.Status.ToString().ToLower()">@o.Status</span></dd>
+            <dt>Description</dt><dd>@(string.IsNullOrEmpty(o.Description) ? "—" : o.Description)</dd>
+            <dt>Item</dt><dd>@(o.Item != null ? o.Item.PartNumber + " — " + o.Item.Description : "—")</dd>
+            <dt>Location</dt><dd>@(o.Location != null ? o.Location.Code + " — " + o.Location.Name : "—")</dd>
+            <dt>Customer</dt><dd>@(o.Customer != null ? o.Customer.Name : "—")</dd>
+            <dt>UoM</dt><dd>@(string.IsNullOrEmpty(o.Uom) ? "—" : o.Uom)</dd>
+            <dt>Priority</dt><dd>@o.Priority</dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">Quantities</h3>
+        <dl class="detail-list">
+            <dt>Ordered</dt><dd class="num">@o.QuantityOrdered.ToString("0.####")</dd>
+            <dt>Completed</dt><dd class="num">@o.QuantityCompleted.ToString("0.####")</dd>
+            <dt>Scrapped</dt><dd class="num">@o.QuantityScrapped.ToString("0.####")</dd>
+            @{
+                var remaining = o.QuantityOrdered - o.QuantityCompleted - o.QuantityScrapped;
+            }
+            <dt>Remaining</dt><dd class="num"><strong>@remaining.ToString("0.####")</strong></dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">Schedule</h3>
+        <dl class="detail-list">
+            <dt>Scheduled Start</dt><dd>@(o.ScheduledStart.HasValue ? o.ScheduledStart.Value.ToString("yyyy-MM-dd HH:mm") : "—")</dd>
+            <dt>Scheduled End</dt><dd>@(o.ScheduledEnd.HasValue ? o.ScheduledEnd.Value.ToString("yyyy-MM-dd HH:mm") : "—")</dd>
+            <dt>Actual Start</dt><dd>@(o.ActualStart.HasValue ? o.ActualStart.Value.ToString("yyyy-MM-dd HH:mm") : "—")</dd>
+            <dt>Actual End</dt><dd>@(o.ActualEnd.HasValue ? o.ActualEnd.Value.ToString("yyyy-MM-dd HH:mm") : "—")</dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">Project Link</h3>
+        @if (o.CustomerProject != null)
+        {
+            <dl class="detail-list">
+                <dt>Project</dt>
+                <dd><a href="/CustomerProjects/Details/@o.CustomerProjectId" class="link-chip">@o.CustomerProject.Code — @o.CustomerProject.Name</a></dd>
+                <dt>Phase</dt><dd>@(o.ProjectPhase != null ? o.ProjectPhase.Code + " — " + o.ProjectPhase.Name : "—")</dd>
+                <dt>Posting Mode</dt><dd>@(o.ProjectPostingMode?.ToString() ?? "—")</dd>
+            </dl>
+            <form method="post" asp-page-handler="UnassignFromProject" asp-route-id="@o.Id" class="action-form">
+                <button type="submit" class="btn-secondary btn-secondary--danger"
+                        onclick="return confirm('Unassign this order from the project? History survives.');">
+                    <i class="fas fa-unlink"></i> Unassign from project
+                </button>
+            </form>
+        }
+        else
+        {
+            <p class="muted">Not linked to a customer project.</p>
+            <p class="hint">Link from the Customer Project page → Jobs tab → Add Job.</p>
+        }
+    </section>
+</div>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Status Actions</h3>
+    <p class="hint">Available transitions from <strong>@o.Status</strong>:</p>
+    <div class="action-row">
+        @{
+            // Same legal-transition map as IProductionOrderService.UpdateStatusAsync.
+            // Only render buttons for transitions the service would accept.
+            var transitions = new System.Collections.Generic.List<ProductionOrderStatus>();
+            switch (o.Status)
+            {
+                case ProductionOrderStatus.Planned:
+                    transitions.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.Cancelled });
+                    break;
+                case ProductionOrderStatus.Released:
+                    transitions.AddRange(new[] { ProductionOrderStatus.InProgress, ProductionOrderStatus.OnHold, ProductionOrderStatus.Cancelled });
+                    break;
+                case ProductionOrderStatus.InProgress:
+                    transitions.AddRange(new[] { ProductionOrderStatus.OnHold, ProductionOrderStatus.Completed, ProductionOrderStatus.Cancelled });
+                    break;
+                case ProductionOrderStatus.OnHold:
+                    transitions.AddRange(new[] { ProductionOrderStatus.Released, ProductionOrderStatus.InProgress, ProductionOrderStatus.Cancelled });
+                    break;
+            }
+        }
+        @if (transitions.Count == 0)
+        {
+            <p class="muted">@o.Status is terminal — no further transitions.</p>
+        }
+        else
+        {
+            @foreach (var t in transitions)
+            {
+                <form method="post" asp-page-handler="Transition" asp-route-id="@o.Id" class="action-form">
+                    <input type="hidden" name="newStatus" value="@t" />
+                    <button type="submit" class="btn-secondary">
+                        → @t
+                    </button>
+                </form>
+            }
+        }
+    </div>
+</section>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Audit</h3>
+    <dl class="detail-list detail-list--inline">
+        <dt>Created</dt><dd>@o.CreatedAt.ToString("yyyy-MM-dd HH:mm") by @(o.CreatedBy ?? "—")</dd>
+        <dt>Modified</dt><dd>@(o.ModifiedAt.HasValue ? o.ModifiedAt.Value.ToString("yyyy-MM-dd HH:mm") : "—") by @(o.ModifiedBy ?? "—")</dd>
+    </dl>
+</section>

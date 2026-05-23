@@ -5,10 +5,16 @@ namespace Abs.FixedAssets.Services.Navigation;
 
 // ADR-017 §D2 — registry of the v1 launch-scope Control Centers.
 //
-// Order is intentional: 1 live (Receiving) at top, then 6 placeholders for
-// Sprints 12-18 in sprint order. The sidebar shape is stable across the
-// next five sprints — each shipping sprint flips its line from
-// IsLive=false to IsLive=true (one-line edit per sprint), no IA churn.
+// Order is intentional: live entries first, then placeholders for not-yet-
+// shipped sprints. Each shipping sprint flips its line from IsLive=false
+// to IsLive=true (one-line edit per sprint), no IA churn.
+//
+// Sprint 13.5 PR #4 — added PRODUCTION + CUSTOMER_PROJECTS, set both
+// IsLive=true. Per Dean's "menu is a mess" complaint, the sidebar partial
+// (_NavControlCenters.cshtml) now HIDES disabled entries rather than
+// rendering them as "soon · Sprint X" placeholders. The placeholder pattern
+// is preserved here for roadmap signal in code, but only IsLive=true
+// entries reach the user.
 //
 // v2 post-launch Control Centers (Quality, AP/AR, HR/Crew) are intentionally
 // NOT in this list per Dean's 2026-05-18 launch-scope lock — CherryAI v1 is
@@ -29,50 +35,70 @@ public static class ControlCenterRegistry
             IsLive: true,
             StatusChip: "live"),
 
+        // Sprint 13.5 PR #4 — Production Orders cockpit.
+        new ControlCenterDescriptor(
+            Code: "PRODUCTION",
+            Title: "Production",
+            Route: "/Production",
+            IconClass: "fas fa-industry",
+            SprintNumber: 135,
+            IsLive: true,
+            StatusChip: "live"),
+
+        // Sprint 13.5 PR #4 — Customer Projects cockpit.
+        new ControlCenterDescriptor(
+            Code: "CUSTOMER_PROJECTS",
+            Title: "Customer Projects",
+            Route: "/CustomerProjects",
+            IconClass: "fas fa-diagram-project",
+            SprintNumber: 135,
+            IsLive: true,
+            StatusChip: "live"),
+
         new ControlCenterDescriptor(
             Code: "PURCHASING",
             Title: "Purchasing",
             Route: "/Purchasing/ControlCenter",
             IconClass: "fas fa-file-invoice",
-            SprintNumber: 12,
+            SprintNumber: 13,
             IsLive: false,
-            StatusChip: "soon · Sprint 12"),
+            StatusChip: "soon · Sprint 13"),
 
         new ControlCenterDescriptor(
             Code: "MAINTENANCE",
             Title: "Maintenance",
             Route: "/Maintenance/ControlCenter",
             IconClass: "fas fa-wrench",
-            SprintNumber: 13,
+            SprintNumber: 14,
             IsLive: false,
-            StatusChip: "soon · Sprint 13"),
+            StatusChip: "soon · Sprint 14"),
 
         new ControlCenterDescriptor(
             Code: "PLANNING",
             Title: "Planning",
             Route: "/Planning/ControlCenter",
             IconClass: "fas fa-chart-line",
-            SprintNumber: 14,
+            SprintNumber: 15,
             IsLive: false,
-            StatusChip: "soon · Sprint 14"),
+            StatusChip: "soon · Sprint 15"),
 
         new ControlCenterDescriptor(
             Code: "SCHEDULING",
             Title: "Scheduling",
             Route: "/Scheduling/ControlCenter",
             IconClass: "fas fa-calendar-days",
-            SprintNumber: 15,
+            SprintNumber: 16,
             IsLive: false,
-            StatusChip: "soon · Sprint 15"),
+            StatusChip: "soon · Sprint 16"),
 
         new ControlCenterDescriptor(
             Code: "INVENTORY",
             Title: "Inventory",
             Route: "/Inventory/ControlCenter",
             IconClass: "fas fa-warehouse",
-            SprintNumber: 16,
+            SprintNumber: 17,
             IsLive: false,
-            StatusChip: "soon · Sprint 16"),
+            StatusChip: "soon · Sprint 17"),
 
         new ControlCenterDescriptor(
             Code: "SHIPPING",
