@@ -217,6 +217,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectPhase> ProjectPhases
             => Set<Abs.FixedAssets.Models.Projects.ProjectPhase>();
 
+        // Sprint 13.5 PR #1.5 — append-only change-order log.
+        // CustomerProjects.ContractValue stays the immutable baseline;
+        // effective value = baseline + SUM(approved amendments.ValueDelta).
+        // Postgres trigger fn_block_amendment_status_regression backstops
+        // the append-only discipline.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectAmendment> ProjectAmendments
+            => Set<Abs.FixedAssets.Models.Projects.ProjectAmendment>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -2745,6 +2753,54 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.ProjectPhaseId)
                     .HasDatabaseName("ix_productionorders_projectphase")
                     .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+            });
+
+            // ============================================================
+            // Sprint 13.5 PR #1.5 — Field expansion + ProjectAmendments.
+            //
+            // Most of this layer's DDL (CHECK constraints, triggers, partial
+            // indexes with the cockpit at-risk filter, Companies governance
+            // flag) lives in the raw-SQL migration 20260523_Add
+            // CustomerProjectFieldExpansion. This fluent block wires the
+            // EF relationship + relational indexes for the LINQ side.
+            // See docs/research/customerproject-field-set.md for the
+            // full design rationale.
+            // ============================================================
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectAmendment>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.AmendmentNumber })
+                    .IsUnique()
+                    .HasDatabaseName("ix_projectamendments_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status, x.EffectiveDate })
+                    .HasDatabaseName("ix_projectamendments_project_status_date");
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("ix_projectamendments_status")
+                    .HasFilter("\"Status\" IN (0, 1)");
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ApprovedBy)
+                    .WithMany()
+                    .HasForeignKey(x => x.ApprovedById)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // CustomerProject gets the new cockpit-sort indexes. The raw-
+            // SQL migration creates them with the cockpit filter; this
+            // declaration tells EF they exist so .Include / sort hints
+            // can opt in correctly.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.CustomerProject>(e =>
+            {
+                e.HasIndex(x => x.RiskScore)
+                    .HasDatabaseName("ix_customerprojects_riskscore")
+                    .HasFilter("\"RiskScore\" IS NOT NULL")
+                    .IsDescending();
+                e.HasIndex(x => x.RiskScore)
+                    .HasDatabaseName("ix_customerprojects_atrisk_queue")
+                    .HasFilter("\"RiskTone\" IN (1, 2)")
+                    .IsDescending();
             });
         }
 

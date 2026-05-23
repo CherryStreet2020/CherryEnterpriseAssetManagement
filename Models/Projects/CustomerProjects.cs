@@ -190,8 +190,95 @@ namespace Abs.FixedAssets.Models.Projects
         [Timestamp]
         public byte[]? RowVersion { get; set; }
 
+        // ------------------------------------------------------------
+        // Sprint 13.5 PR #1.5 — AI / EVM / Aero-Def field expansion.
+        // Research: docs/research/customerproject-field-set.md
+        // ------------------------------------------------------------
+
+        // AI risk-score: 0..100. Computed by ProjectRiskService from
+        // structured signals (overdue jobs, EVM variance, amendments).
+        // Per research §2.4: never LLM-computed (LLM scoring is non-
+        // deterministic and audit-hostile). NULL = not yet scored.
+        // CHECK ck_customerprojects_riskscore_range enforces 0..100.
+        public short? RiskScore { get; set; }
+
+        // Three-state visual tone, decoupled from the numeric threshold
+        // so we can re-tune score→tone without bulk recomputation.
+        // 0=Green, 1=Amber, 2=Red. NULL=Unknown. Linear pattern.
+        // CHECK ck_customerprojects_risktone_range enforces 0..2.
+        public RiskTone? RiskTone { get; set; }
+
+        // LLM-generated 1-3 sentence narrative. Rendered at top of
+        // project detail and read out by voice. Refreshed by background
+        // worker (ProjectAiService) via outbox; never on request path.
+        public string? AiSummaryText { get; set; }
+
+        // Versioned model identifier (e.g. "anthropic/claude-opus-4-7-1m@2026-05").
+        // Lets us re-summarize on model upgrade without losing audit trail.
+        [StringLength(64)]
+        public string? AiSummaryModel { get; set; }
+
+        // Staleness signal — UI fades the summary after N hours.
+        public DateTime? AiSummaryGeneratedAt { get; set; }
+
+        // Idempotent backoff for the AI refresh worker. If set in the
+        // future, worker skips. Prevents thundering-herd LLM calls when
+        // many events fire. Pattern matches ADR-014 D5 IdempotencyMediator.
+        public DateTime? AiRefreshLockedUntil { get; set; }
+
+        // EVM/POC: denominator for cost-based percent-of-completion and
+        // EAC headline. Set at project baseline; mutated ONLY by
+        // ProjectAmendments. ASC 606 input-method requirement.
+        // CHECK ck_customerprojects_estimatedtotalcost_nonneg.
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal? EstimatedTotalCost { get; set; }
+
+        // Cached service-computed percent complete (0..100). Refreshed
+        // by ProjectEvmRollupService. UI never recomputes inline.
+        // CHECK ck_customerprojects_percentcomplete_range enforces 0..100.
+        // Per research §3.4: never user-edited freely (ASC 606 fraud risk).
+        [Column(TypeName = "decimal(5,2)")]
+        public decimal? PercentComplete { get; set; }
+
+        // Forecast end date. DISTINCT from TargetEndDate (which is the
+        // customer-committed date). Linear "off track" requires both;
+        // (ProjectedEndDate > TargetEndDate) drives the voice query
+        // "is job X going to slip?".
+        [DataType(DataType.Date)]
+        public DateTime? ProjectedEndDate { get; set; }
+
+        // Staleness signal for the EVM rollup. Admin endpoint can detect
+        // stale rollups; UI shows "EVM as of …".
+        public DateTime? LastEvmRollupAt { get; set; }
+
+        // The customer-issued PO number — different from our internal
+        // Code. Required on FAI report headers, AIA G701 change orders,
+        // and every gov/aerospace contract.
+        [StringLength(100)]
+        public string? CustomerPoNumber { get; set; }
+
+        // Contract type per FAR Part 16 / DCAA pattern. Drives revenue
+        // posting rules (Sprint 14 AR). Needed earlier as a queryable
+        // filter. CHECK ck_customerprojects_contracttype_range 0..5.
+        public ContractType? ContractType { get; set; }
+
+        // Quality program required by the customer. Drives FAI requirement
+        // in Sprint 14 Quality. Per research §4.3: do NOT add a separate
+        // RequiresFai bool — QualityProgram != None implies FAI per AS9100
+        // 8.5.1.3. CHECK ck_customerprojects_qualityprogram_range 0..5.
+        public QualityProgram? QualityProgram { get; set; }
+
+        // Export-control jurisdiction marker. Per research §4.3: stores
+        // the marker ONLY, never classified or ITAR-controlled technical
+        // data. Drives future RLS row-filter (Sprint 15) so non-cleared
+        // users can't see ITAR rows. Service layer enforces
+        // Company.ProjectExportControlRequired = true → must be set
+        // explicitly on create. CHECK ck_customerprojects_exportcontrol_range 0..3.
+        public ExportControl ExportControl { get; set; } = ExportControl.None;
+
         public ICollection<ProjectMember>? Members { get; set; }
         public ICollection<ProjectPhase>? Phases { get; set; }
+        public ICollection<ProjectAmendment>? Amendments { get; set; }
     }
 
     // ----------------------------------------------------------------
@@ -341,5 +428,60 @@ namespace Abs.FixedAssets.Models.Projects
         // Costs post directly to the project as they hit the job (project
         // is the cost object).
         Consumed = 1
+    }
+
+    // ================================================================
+    // Sprint 13.5 PR #1.5 enums — see research_customerproject_field_set.md
+    // ================================================================
+
+    // Visual risk tone — decoupled from the numeric RiskScore so the
+    // tone threshold can be re-tuned without bulk recomputation.
+    // Linear "On track / At risk / Off track" pattern.
+    public enum RiskTone : short
+    {
+        Green = 0,
+        Amber = 1,
+        Red = 2
+    }
+
+    // FAR Part 16 contract types + commercial. Service layer maps to
+    // revenue-recognition rules in Sprint 14 AR.
+    public enum ContractType : short
+    {
+        // No contract type declared / not applicable.
+        None = 0,
+        // Firm Fixed Price — bedrock commercial / aero-def.
+        FirmFixedPrice = 1,
+        // Cost Plus Fixed Fee — requires CAS-compliant cost accounting.
+        CostPlusFixedFee = 2,
+        // Cost Plus Incentive Fee — requires CAS + incentive math.
+        CostPlusIncentiveFee = 3,
+        // Time & Materials.
+        TimeAndMaterials = 4,
+        // Indefinite Delivery / Indefinite Quantity — ordering framework.
+        Idiq = 5
+    }
+
+    // Customer-required quality program. Drives FAI requirement
+    // (Sprint 14 / PR #1.75) and audit posture.
+    public enum QualityProgram : short
+    {
+        None = 0,
+        Iso9001 = 1,
+        As9100 = 2,        // Aerospace manufacturers
+        As9120 = 3,        // Aerospace distributors
+        Iatf16949 = 4,     // Automotive
+        Custom = 5         // Customer-specific standard
+    }
+
+    // Export-control jurisdiction marker. STORES THE MARKER ONLY —
+    // never classified or ITAR-controlled technical data. Drives
+    // future RLS row-filter (Sprint 15) for non-cleared users.
+    public enum ExportControl : short
+    {
+        None = 0,                 // Not export-controlled
+        Ear99 = 1,                // EAR but unrestricted
+        EarControlled = 2,        // Has ECCN; license may be required
+        Itar = 3                  // USML; full DDTC compliance
     }
 }

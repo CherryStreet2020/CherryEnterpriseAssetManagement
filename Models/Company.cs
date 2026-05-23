@@ -158,6 +158,17 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "Enable Vendor Management")]
         public bool EnableVendors { get; set; } = true;
 
+        // Sprint 13.5 PR #1.5 — tenant-level governance flag.
+        // When true, the create-CustomerProject service refuses to create
+        // a project without an explicit ExportControl choice. Default false
+        // keeps commercial tenants frictionless; aero/def tenants flip this
+        // to true and the create-project form forces a deliberate decision.
+        // Service-layer enforcement lives in ICustomerProjectService.CreateAsync
+        // (Sprint 13.5 PR #2). DB-level default is false so existing rows
+        // remain valid; no backfill needed.
+        [Display(Name = "Force Explicit Export Control on Project Create")]
+        public bool ProjectExportControlRequired { get; set; } = false;
+
         [StringLength(500)]
         public string? ERPConnectionString { get; set; }
 
