@@ -1,0 +1,321 @@
+{
+  "$schema": "https://schemas.cherrystreet.io/design-tokens-v2.json",
+  "__about": "Locked UX baseline for IndustryOS Control Center cockpits. Sprint 13.5 PR #4 onwards. Sibling research memo: ../../../../../../Library/Application Support/Claude/.../memory/research_luxury_multivertical_cockpit_ux.md",
+  "version": "2.0.0",
+  "name": "IndustryOS Tokens v2 (Luxury Cockpit Baseline)",
+  "extends": "wwwroot/css/tokens.css (v3.0)",
+
+  "typography": {
+    "__notes": "Inter for UI, JetBrains Mono for numerics/IDs. Geist-derived 14-size scale. Negative tracking on every heading >= 24px is the single biggest 'expensive' tell.",
+    "fontFamily": {
+      "sans": "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+      "mono": "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
+      "__notes": "Two families only. Adding a third is a rejected anti-pattern."
+    },
+    "fontFeatureSettings": {
+      "tabular": "'tnum' on, 'cv11' on",
+      "default": "'cv11' on",
+      "__notes": "tnum is required on every DataTable mono cell + KPI numeric. cv11 gives Inter the disambiguated single-story 'a' that reads more professional."
+    },
+    "scale": {
+      "display-72":  { "fontSize": "72px", "lineHeight": "1.05", "letterSpacing": "-0.045em", "fontWeight": 600, "__usage": "Marketing-only. Not used in cockpit." },
+      "display-56":  { "fontSize": "56px", "lineHeight": "1.05", "letterSpacing": "-0.045em", "fontWeight": 600, "__usage": "Customer / Project detail hero" },
+      "display-40":  { "fontSize": "40px", "lineHeight": "1.1",  "letterSpacing": "-0.04em",  "fontWeight": 600, "__usage": "Cockpit KPI hero numeral ('$2.4M')" },
+      "display-32":  { "fontSize": "32px", "lineHeight": "1.15", "letterSpacing": "-0.04em",  "fontWeight": 600, "__usage": "Cockpit page title" },
+      "heading-24":  { "fontSize": "24px", "lineHeight": "1.25", "letterSpacing": "-0.025em", "fontWeight": 600, "__usage": "Section title" },
+      "heading-20":  { "fontSize": "20px", "lineHeight": "1.3",  "letterSpacing": "-0.02em",  "fontWeight": 600, "__usage": "Preview-pane title" },
+      "heading-16":  { "fontSize": "16px", "lineHeight": "1.4",  "letterSpacing": "-0.01em",  "fontWeight": 600, "__usage": "Card title" },
+      "label-14":    { "fontSize": "14px", "lineHeight": "1.4",  "letterSpacing": "0",        "fontWeight": 500, "__usage": "Most-common UI text (queue row, button, label)" },
+      "label-13":    { "fontSize": "13px", "lineHeight": "1.4",  "letterSpacing": "0",        "fontWeight": 500, "__usage": "Secondary line / metadata" },
+      "label-12":    { "fontSize": "12px", "lineHeight": "1.4",  "letterSpacing": "0.02em",   "fontWeight": 500, "textTransform": "uppercase", "__usage": "KPI label, table header, chip" },
+      "copy-16":     { "fontSize": "16px", "lineHeight": "1.6",  "letterSpacing": "0",        "fontWeight": 400, "__usage": "Body copy in detail panes" },
+      "copy-14":     { "fontSize": "14px", "lineHeight": "1.55", "letterSpacing": "0",        "fontWeight": 400, "__usage": "Dense body copy" },
+      "mono-14":     { "fontSize": "14px", "lineHeight": "1.4",  "letterSpacing": "0",        "fontWeight": 500, "fontFamily": "mono", "__usage": "IDs, codes, heat numbers" },
+      "mono-13":     { "fontSize": "13px", "lineHeight": "1.4",  "letterSpacing": "0",        "fontWeight": 500, "fontFamily": "mono", "__usage": "Tabular numerics in DataTable (with tnum)" }
+    }
+  },
+
+  "spacing": {
+    "__notes": "4-px base with asymmetric values (6, 12, 20, 40, 48, 96). Asymmetric values are the luxury tell — they show the spacing was chosen, not derived from a rigid grid.",
+    "base": 4,
+    "scale": {
+      "0":    "0",
+      "px":   "1px",
+      "0_5":  "2px",
+      "1":    "4px",
+      "1_5":  "6px",
+      "2":    "8px",
+      "3":    "12px",
+      "4":    "16px",
+      "5":    "20px",
+      "6":    "24px",
+      "8":    "32px",
+      "10":   "40px",
+      "12":   "48px",
+      "16":   "64px",
+      "24":   "96px",
+      "32":   "128px"
+    }
+  },
+
+  "motion": {
+    "__notes": "All animations <= 400ms. ONE enter ease (cubic-bezier 0.2 0 0 1) and ONE exit ease (cubic-bezier 0.4 0 1 1). No springs, no overshoot, no bounce. Cockpit surfaces feel glassy, not playful.",
+    "duration": {
+      "instant":   "0ms",
+      "fast":      "100ms",
+      "base":      "160ms",
+      "moderate":  "220ms",
+      "slow":      "320ms",
+      "exit":      "140ms"
+    },
+    "easing": {
+      "enter":     "cubic-bezier(0.2, 0, 0, 1)",
+      "exit":      "cubic-bezier(0.4, 0, 1, 1)",
+      "linear":    "linear",
+      "__notes":   "Linear is RESERVED for skeleton shimmer and rotations only. Never apply to translate or opacity transitions."
+    },
+    "reducedMotion": {
+      "durationMultiplier": 0.5,
+      "disableTransforms": true,
+      "__notes": "When prefers-reduced-motion is set, halve all durations and disable translate/scale; opacity-only transitions remain."
+    }
+  },
+
+  "elevation": {
+    "__notes": "Three tiers only. Heavy shadows kill the luxury read instantly. Borders + flat surfaces beat shadows.",
+    "flat":     "none",
+    "raised":   "0 1px 0 rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.04)",
+    "floating": "0 8px 24px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.06)"
+  },
+
+  "radius": {
+    "__notes": "Vercel ships 0-4 across entire system. We allow up to 16 for the Cherry Bar modal, but default sit at 4-6.",
+    "0":  "0",
+    "1":  "2px",
+    "2":  "4px",
+    "3":  "6px",
+    "4":  "8px",
+    "5":  "12px",
+    "6":  "16px",
+    "full": "9999px",
+    "__usage": "1: hairline chip. 2: button. 3: chip / pill / card corner. 4: input. 5: drawer. 6: Cherry Bar modal. full: user avatar ONLY."
+  },
+
+  "density": {
+    "__notes": "The cockpit picks. Users never see a toggle in v1. Three modes: comfortable (detail), compact (queue), dense (DataTable).",
+    "comfortable": {
+      "rowHeight": "56px",
+      "padX":      "24px",
+      "padY":      "16px",
+      "__usage":   "Detail panes, preview pane, card body"
+    },
+    "compact": {
+      "rowHeight": "40px",
+      "padX":      "16px",
+      "padY":      "12px",
+      "__usage":   "Cockpit queue, sidebar list"
+    },
+    "dense": {
+      "rowHeight": "32px",
+      "padX":      "12px",
+      "padY":      "8px",
+      "__usage":   "DataTable spreadsheet view ONLY"
+    }
+  },
+
+  "color": {
+    "__notes": "Monochrome chassis + ONE accent (CherryAI red) + tri-state semantic. Source-of-truth for hex values is tokens.css v3.0; this file references the variable names and the chosen role mapping.",
+    "discipline": {
+      "rule":  "Color is for meaning, not decoration (Stripe rule).",
+      "accent": "CherryAI red #cf3339, used SPARINGLY (primary CTA, focus ring, brand mark).",
+      "semantic": "Tri-state ONLY: success (green), warning (amber), danger (red). No 'info-blue'. No 'purple-AI'.",
+      "vertical": "Vertical signal lives in the chip, never the page chrome. Monochrome regardless of vertical."
+    },
+    "surface": {
+      "0": "var(--color-surface-0)",
+      "1": "var(--color-surface-1)",
+      "2": "var(--color-surface-2)",
+      "3": "var(--color-surface-3)",
+      "__notes": "Three surface tiers max. Stop here."
+    },
+    "border": {
+      "1": "var(--color-border-1)",
+      "2": "var(--color-border-2)",
+      "3": "var(--color-border-3)",
+      "__notes": "1 is default; 2 is emphasis; 3 is subtle/recess."
+    },
+    "text": {
+      "1": "var(--color-text-1)",
+      "2": "var(--color-text-2)",
+      "3": "var(--color-text-3)",
+      "4": "var(--color-text-4)",
+      "__notes": "1 primary, 2 secondary, 3 tertiary/metadata, 4 disabled/muted. AI-generated content uses text-2 plus a glyph, never a unique color."
+    },
+    "accent": {
+      "primary":     "var(--color-accent)",
+      "hover":       "var(--color-accent-hover)",
+      "soft":        "var(--color-accent-soft)",
+      "glow":        "var(--color-accent-glow)",
+      "__notes":     "Accent rendered as 2-px solid focus ring. Never as default border. Never on inactive states."
+    },
+    "semantic": {
+      "success": { "fg": "var(--color-success-700)", "bg": "var(--color-success-50)",  "ring": "var(--color-success-400)" },
+      "warning": { "fg": "var(--color-warning-700)", "bg": "var(--color-warning-50)",  "ring": "var(--color-warning-500)" },
+      "danger":  { "fg": "var(--color-danger-700)",  "bg": "var(--color-danger-50)",   "ring": "var(--color-danger-500)"  }
+    }
+  },
+
+  "verticalChip": {
+    "__notes": "The single primitive for vertical overlays. Renders ONLY when entity has the signal; never reserves space when empty.",
+    "shape": {
+      "height":       "22px",
+      "radius":       "6px",
+      "padX":         "8px",
+      "gap":          "4px",
+      "fontSize":     "12px",
+      "fontWeight":   500,
+      "border":       "1px solid var(--color-border-1)",
+      "background":   "var(--color-surface-2)",
+      "color":        "var(--color-text-2)",
+      "glyphFontFamily": "mono",
+      "__notes":      "One color always. Severity overrides text and ring only; background stays neutral."
+    },
+    "kinds": {
+      "fai":       { "glyph": "F", "label": "First Article Inspection" },
+      "lot":       { "glyph": "L", "label": "Lot tracked" },
+      "expiry":    { "glyph": "X", "label": "Expiry" },
+      "allergen":  { "glyph": "A", "label": "Allergen" },
+      "ndc":       { "glyph": "N", "label": "National Drug Code" },
+      "coldChain": { "glyph": "C", "label": "Cold chain" },
+      "metrc":     { "glyph": "M", "label": "METRC tag" },
+      "msl":       { "glyph": "K", "label": "Moisture Sensitivity Level (IPC/JEDEC J-STD-020)" },
+      "udi":       { "glyph": "U", "label": "Unique Device Identifier" },
+      "exportControl": { "glyph": "E", "label": "Export controlled (ECCN / ITAR)" },
+      "rohs":      { "glyph": "R", "label": "RoHS" },
+      "test":      { "glyph": "T", "label": "Test result / COA" }
+    },
+    "placement": {
+      "pageHeader": { "alignment": "right-of-title", "max": 3, "overflow": "+N drawer" },
+      "queueRow":   { "alignment": "right-column",   "max": 2, "overflow": "+N drawer", "columnWidth": "120px" },
+      "dataTable":  { "alignment": "inline-plain-text-with-glyph", "__notes": "Chip shape does not survive in dense table view." },
+      "previewPane":{ "alignment": "footer-list", "max": "unlimited" }
+    },
+    "invisibility": {
+      "rule": "If the entity has no vertical signal, the chip slot is completely absent. No whitespace reservation. No placeholder."
+    }
+  },
+
+  "tenantModeBand": {
+    "__notes": "The ONE banner pattern. Reserved for 'you are not in production data'. Vertical signals never use a banner. Project context never uses a banner.",
+    "height":     "32px",
+    "fontSize":   "13px",
+    "fontWeight": 500,
+    "modes": {
+      "live":        { "render": false },
+      "demo":        { "background": "var(--color-warning-50)", "color": "var(--color-warning-700)", "border": "1px solid var(--color-warning-500)" },
+      "sandbox":     { "background": "var(--color-warning-50)", "color": "var(--color-warning-700)", "border": "1px solid var(--color-warning-500)" },
+      "maintenance": { "background": "var(--color-surface-3)",  "color": "var(--color-text-2)",      "border": "1px solid var(--color-border-2)" }
+    }
+  },
+
+  "cherryBar": {
+    "__notes": "The single voice + Cmd-K entry point. Lives top-right in header (NOT floating FAB, NOT side panel). Cmd-K opens from anywhere. Cmd-Shift-V opens with voice already active.",
+    "trigger": {
+      "position":          "header-right",
+      "widthCollapsed":    "36px",
+      "widthExpanded":     "240px",
+      "expandOn":          ["hover", "focus"],
+      "transition":        "width var(--motion-base) var(--easing-enter)",
+      "glyph":             "mic",
+      "label":             "Ask Cherry",
+      "shortcutHint":      "Cmd-K"
+    },
+    "modal": {
+      "position":          "top-center",
+      "maxWidth":          "720px",
+      "topOffset":         "96px",
+      "radius":            "16px",
+      "elevation":         "floating",
+      "background":        "var(--color-surface-1)",
+      "padX":              "24px",
+      "padY":              "16px",
+      "__notes":           "Centered modal at top of viewport. NOT full-screen. NOT side panel."
+    },
+    "transcription": {
+      "interimColor":      "var(--color-text-3)",
+      "finalColor":        "var(--color-text-1)",
+      "__notes":           "Granola pattern: interim transcript in muted gray, final transcript in primary text."
+    },
+    "narration": {
+      "renderMode":        "inline-typed",
+      "typingSpeedMs":     40,
+      "typingMaxMs":       1500,
+      "ttsAutoplay":       false,
+      "__notes":           "ADR-014 D6: state-mutating commands ALWAYS require user confirmation; TTS never auto-plays."
+    },
+    "voiceActiveIndicator": {
+      "headerWaveformAmplitude": "low",
+      "viewportHairline":        "2px accent gradient at top of viewport, gentle pulse with audio amplitude",
+      "screenLockout":           false,
+      "screenDarkening":         false
+    }
+  },
+
+  "focusRing": {
+    "__notes": "2px solid accent. NEVER box-shadow (Tailwind default is the same on every site on earth).",
+    "width":  "2px",
+    "style":  "solid",
+    "color":  "var(--color-accent)",
+    "offset": "2px"
+  },
+
+  "datatable": {
+    "__notes": "Spreadsheet-density view. Dense rows, tabular numerics, hairline borders.",
+    "rowHeight":  "32px",
+    "headerHeight": "40px",
+    "padX":       "12px",
+    "fontSize":   "13px",
+    "monoFontSize": "13px",
+    "borderColor": "var(--color-border-3)",
+    "hoverBg":    "var(--color-surface-2)",
+    "stripe":     false,
+    "__notes2":   "No striped rows. Stripes read consumer-app."
+  },
+
+  "skeleton": {
+    "__notes": "Slow pulse only. Fast pulse reads cheap.",
+    "pulseDuration": "1500ms",
+    "pulseEasing":   "ease-in-out",
+    "background":    "var(--color-surface-3)",
+    "highlight":     "var(--color-surface-2)"
+  },
+
+  "antiPatterns": {
+    "__notes": "Inlined here so the JSON can be linted in CI for direct violations. Add a Stylelint / custom rule to fail PRs that introduce these.",
+    "rejected": [
+      "Material-style heavy box shadows on cards",
+      "Springs with overshoot/bounce on cockpit surfaces (M3 Expressive default)",
+      "Rainbow status badges (only green/amber/red)",
+      "Per-vertical theme palettes",
+      "Multiple font families beyond Inter + JetBrains Mono",
+      "Animations longer than 400ms",
+      "Default Tailwind tracking on display headings (>=24px must have -0.04em)",
+      "More than 3 surface elevation tiers",
+      "Tooltip on every cell",
+      "User-toggleable density control in UI chrome (v1)",
+      "Force-onboarding wizards",
+      "Sample data on empty states",
+      "Sidebar nav items visible to tenants who can't use the feature",
+      "Vertical chip slots that reserve whitespace when empty",
+      "Banner stacks (more than one full-width banner at a time)",
+      "Floating mic FAB at bottom-right",
+      "Sidebar AI pane that always takes 320px",
+      "Voice trigger only on cockpit pages",
+      "TTS auto-narration without user gesture",
+      "Two separate command palettes (one Cmd-K text, one Cmd-Shift-V voice)",
+      "AI-generated content colored with a 'purple is AI' convention",
+      "Coloring the page based on vertical",
+      "Showing a vertical's chrome to a tenant who doesn't use that vertical"
+    ]
+  }
+}

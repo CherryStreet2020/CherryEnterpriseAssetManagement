@@ -127,6 +127,41 @@ namespace Abs.FixedAssets.Models
 
         public int SortOrder { get; set; }
 
+        // ============================================================
+        // Sprint 13.5 PRA-1 — regulator-issued identifiers + PaymentTermId FK
+        // retrofit. Existing `PaymentTerms` enum stays for back-compat;
+        // service layer reads FK first, falls back to enum (DEF-008 pattern).
+        // ============================================================
+
+        [StringLength(10), Display(Name = "CAGE Code")]
+        public string? CageCode { get; set; }
+
+        [StringLength(13), Display(Name = "DUNS Number")]
+        public string? DunsNumber { get; set; }
+
+        [StringLength(12), Display(Name = "UEI (SAM.gov)")]
+        public string? UeiNumber { get; set; }
+
+        [StringLength(20), Display(Name = "FDA Establishment ID")]
+        public string? FdaEstablishmentId { get; set; }
+
+        [StringLength(20), Display(Name = "DEA Registration")]
+        public string? DeaRegistration { get; set; }
+
+        [StringLength(40), Display(Name = "ITAR Registration")]
+        public string? ItarRegistration { get; set; }
+
+        [StringLength(60), Display(Name = "AS9100 Cert Ref")]
+        public string? As9100CertRef { get; set; }
+
+        [StringLength(60), Display(Name = "ISO 9001 Cert Ref")]
+        public string? Iso9001CertRef { get; set; }
+
+        [StringLength(60), Display(Name = "ISO 13485 Cert Ref")]
+        public string? Iso13485CertRef { get; set; }
+
+        public int? PaymentTermId { get; set; }
+
         // ADR-015 — Per-supplier default Attributes JSON merged into
         // every receipt against this supplier at PO-receipt time. E.g.
         // a steel mill's default `{"mill":"Nucor Steel — Decatur, AL"}`,

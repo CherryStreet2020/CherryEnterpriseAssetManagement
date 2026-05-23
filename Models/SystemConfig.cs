@@ -197,6 +197,12 @@ namespace Abs.FixedAssets.Models
         [StringLength(100)]
         public string? Carrier { get; set; }
 
+        // Sprint 13.5 PRA-1 — FK to first-class Carrier master. Existing
+        // free-text Carrier column stays for back-compat. Service layer
+        // resolves text → CarrierId where possible.
+        public int? CarrierId { get; set; }
+        public Carrier? CarrierRef { get; set; }
+
         public int EstimatedDays { get; set; } = 5;
 
         public decimal? DefaultCost { get; set; }
