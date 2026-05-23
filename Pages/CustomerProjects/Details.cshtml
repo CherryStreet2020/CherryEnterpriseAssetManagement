@@ -1,0 +1,211 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.CustomerProjects.DetailsModel
+@using Abs.FixedAssets.Models.Projects
+@{
+    var p = Model.Project!;
+    ViewData["Title"] = $"Project {p.Code}";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/CustomerProjects">Customer Projects</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">@p.Code</span>
+        </nav>
+        <h1 class="page-title">
+            <span class="link-mono">@p.Code</span>
+            <span class="status-chip status-chip--projectstatus-@p.Status.ToString().ToLower()">@p.Status</span>
+        </h1>
+        <p class="page-subtitle">@p.Name</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/CustomerProjects" class="btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to List
+        </a>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <section class="detail-card">
+        <h3 class="detail-card-title">Project Header</h3>
+        <dl class="detail-list">
+            <dt>Customer</dt><dd>@(p.PrimaryCustomer != null ? p.PrimaryCustomer.Name : "—")</dd>
+            <dt>Program</dt><dd>@(p.Program != null ? p.Program.Code + " — " + p.Program.Name : "—")</dd>
+            <dt>Mode</dt><dd>@p.Mode</dd>
+            <dt>Costing</dt><dd>@p.CostingMode</dd>
+            <dt>Revenue</dt><dd>@p.RevenueMode</dd>
+            <dt>Customer PO</dt><dd>@(string.IsNullOrEmpty(p.CustomerPoNumber) ? "—" : p.CustomerPoNumber)</dd>
+            <dt>Manager</dt><dd>@(string.IsNullOrEmpty(p.ProjectManagerName) ? "—" : p.ProjectManagerName)</dd>
+            <dt>Description</dt><dd>@(string.IsNullOrEmpty(p.Description) ? "—" : p.Description)</dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">Commercial</h3>
+        <dl class="detail-list">
+            <dt>Contract Value</dt><dd class="num">@(p.ContractValue.HasValue ? $"{p.ContractValue.Value:N2} {p.Currency}" : "—")</dd>
+            <dt>EAC (Total Cost)</dt><dd class="num">@(p.EstimatedTotalCost.HasValue ? $"{p.EstimatedTotalCost.Value:N2} {p.Currency}" : "—")</dd>
+            <dt>% Complete</dt><dd class="num">@(p.PercentComplete.HasValue ? $"{p.PercentComplete:N1}%" : "—")</dd>
+            <dt>Contract Type</dt><dd>@(p.ContractType?.ToString() ?? "—")</dd>
+            <dt>Quality Program</dt><dd>@(p.QualityProgram?.ToString() ?? "—")</dd>
+            <dt>Export Control</dt><dd>@p.ExportControl</dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">Schedule + Risk</h3>
+        <dl class="detail-list">
+            <dt>Target Start</dt><dd>@(p.TargetStartDate.HasValue ? p.TargetStartDate.Value.ToString("yyyy-MM-dd") : "—")</dd>
+            <dt>Target End</dt><dd>@(p.TargetEndDate.HasValue ? p.TargetEndDate.Value.ToString("yyyy-MM-dd") : "—")</dd>
+            <dt>Projected End</dt><dd>@(p.ProjectedEndDate.HasValue ? p.ProjectedEndDate.Value.ToString("yyyy-MM-dd") : "—")</dd>
+            <dt>Closed</dt><dd>@(p.ClosedAt.HasValue ? p.ClosedAt.Value.ToString("yyyy-MM-dd") : "—")</dd>
+            <dt>Risk Score</dt><dd>@(p.RiskScore?.ToString() ?? "—") / 100</dd>
+            <dt>Risk Tone</dt>
+            <dd>
+                @if (p.RiskTone.HasValue)
+                {
+                    <span class="risk-dot risk-dot--@p.RiskTone.ToString()!.ToLower()"></span>
+                    <span>@p.RiskTone</span>
+                }
+                else { <span class="muted">—</span> }
+            </dd>
+        </dl>
+    </section>
+
+    <section class="detail-card">
+        <h3 class="detail-card-title">AI Summary</h3>
+        @if (!string.IsNullOrEmpty(p.AiSummaryText))
+        {
+            <p class="ai-summary">@p.AiSummaryText</p>
+            <p class="hint">
+                Refreshed @(p.AiSummaryGeneratedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                · model @(string.IsNullOrEmpty(p.AiSummaryModel) ? "unset" : p.AiSummaryModel)
+            </p>
+        }
+        else
+        {
+            <p class="muted">No AI summary yet. ProjectAiService refreshes via outbox worker — not on request path.</p>
+        }
+    </section>
+</div>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Jobs <span class="muted">(@Model.Jobs.Count)</span></h3>
+    @if (Model.Jobs.Count == 0)
+    {
+        <p class="muted">No jobs linked to this project yet.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>Order #</th><th>Title</th><th>Status</th><th>Item</th><th>Location</th><th class="num">Qty Ord</th><th class="num">Qty Cmpl</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var j in Model.Jobs)
+                {
+                    <tr>
+                        <td><a href="/Production/Details/@j.Id" class="link-mono">@j.OrderNumber</a></td>
+                        <td>@j.Title</td>
+                        <td><span class="status-chip status-chip--@j.Status.ToString().ToLower()">@j.Status</span></td>
+                        <td>@(j.Item != null ? j.Item.PartNumber : "—")</td>
+                        <td>@(j.Location != null ? j.Location.Code : "—")</td>
+                        <td class="num">@j.QuantityOrdered.ToString("0.##")</td>
+                        <td class="num">@j.QuantityCompleted.ToString("0.##")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Phases <span class="muted">(@Model.Phases.Count)</span></h3>
+    @if (Model.Phases.Count == 0)
+    {
+        <p class="muted">No phases defined. v1 treats phases as a flat list — sub-phases reserved for v2.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead><tr><th>Code</th><th>Name</th><th>Description</th><th class="num">Sort</th></tr></thead>
+            <tbody>
+                @foreach (var ph in Model.Phases)
+                {
+                    <tr>
+                        <td><span class="link-mono">@ph.Code</span></td>
+                        <td>@ph.Name</td>
+                        <td>@(string.IsNullOrEmpty(ph.Description) ? "—" : ph.Description)</td>
+                        <td class="num">@ph.SortOrder</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Members <span class="muted">(@Model.Members.Count)</span></h3>
+    @if (Model.Members.Count == 0)
+    {
+        <p class="muted">No members. Most projects have one Primary customer + zero additional members.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead><tr><th>Customer</th><th>Role</th><th class="num">Share %</th></tr></thead>
+            <tbody>
+                @foreach (var m in Model.Members)
+                {
+                    <tr>
+                        <td>@(m.Customer != null ? m.Customer.Name : $"Customer {m.CustomerId}")</td>
+                        <td>@m.Role</td>
+                        <td class="num">@(m.SharePct.HasValue ? $"{m.SharePct:N2}%" : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Amendments <span class="muted">(@Model.Amendments.Count)</span></h3>
+    @if (Model.Amendments.Count == 0)
+    {
+        <p class="muted">No change orders on this project.</p>
+    }
+    else
+    {
+        <table class="data-table">
+            <thead>
+                <tr><th>#</th><th>Effective</th><th>Type</th><th>Status</th><th class="num">Value Δ</th><th>Customer Ref</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var a in Model.Amendments)
+                {
+                    <tr>
+                        <td><span class="link-mono">#@a.AmendmentNumber</span></td>
+                        <td>@a.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                        <td>@a.ChangeType</td>
+                        <td><span class="status-chip">@a.Status</span></td>
+                        <td class="num">@($"{a.ValueDelta:N2}")</td>
+                        <td>@(string.IsNullOrEmpty(a.CustomerReference) ? "—" : a.CustomerReference)</td>
+                        <td>@(string.IsNullOrEmpty(a.Reason) ? "—" : a.Reason)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="detail-card detail-card--full">
+    <h3 class="detail-card-title">Audit</h3>
+    <dl class="detail-list detail-list--inline">
+        <dt>Created</dt><dd>@p.CreatedAt.ToString("yyyy-MM-dd HH:mm") by @(p.CreatedBy ?? "—")</dd>
+        <dt>Modified</dt><dd>@(p.ModifiedAt.HasValue ? p.ModifiedAt.Value.ToString("yyyy-MM-dd HH:mm") : "—") by @(p.ModifiedBy ?? "—")</dd>
+    </dl>
+</section>

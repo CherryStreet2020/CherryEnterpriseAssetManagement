@@ -1,0 +1,66 @@
+@*
+    _NavSidebar.cshtml — Sprint 13.5 PR #4 / Nav-2.
+    Best In Class nav rebuild — replaces the ~200 lines of hard-coded
+    menu-group HTML that used to live inline in _ModernLayout.cshtml.
+
+    Renders the full sidebar (below the Cockpits spine handled by
+    _NavControlCenters.cshtml) from a single registry:
+        Services.Navigation.NavRegistry.All
+
+    Adding a sidebar item is now a one-line edit to NavRegistry.cs.
+    No Razor changes per ship.
+
+    Active-state detection uses route-prefix matching so a parent item
+    stays "active" when the user drills into a child page (e.g.
+    /Production matches /Production/Details/42).
+*@
+@using Abs.FixedAssets.Services.Navigation
+@using Abs.FixedAssets.Models.Navigation
+@{
+    Func<string, bool> NavIsActive = (string route) =>
+        (ViewContext.RouteData.Values["page"]?.ToString() ?? "")
+            .StartsWith(route, System.StringComparison.OrdinalIgnoreCase);
+
+    Func<NavGroup, bool> AnyItemActive = (NavGroup grp) =>
+    {
+        foreach (var item in grp.Items)
+        {
+            var prefix = item.RoutePrefix ?? item.Route;
+            if (NavIsActive(prefix)) { return true; }
+        }
+        return false;
+    };
+}
+
+@foreach (var grp in NavRegistry.All)
+{
+    var groupActive = AnyItemActive(grp);
+    var grpExpandedCls = (grp.DefaultExpanded || groupActive) ? "expanded" : "";
+
+    <div class="nav-section-label">@grp.Title.ToUpper()</div>
+
+    <div class="menu-group @grpExpandedCls" data-section="@grp.Code.ToLower()">
+        <div class="menu-group-header" data-tooltip="@grp.Title" role="button" tabindex="0" aria-expanded="@(groupActive ? "true" : "false")" aria-label="@grp.Title navigation group">
+            <span class="menu-group-icon"><i class="@grp.IconClass"></i></span>
+            <span class="menu-group-title">@grp.Title</span>
+            <span class="menu-group-arrow"><i class="fas fa-chevron-down"></i></span>
+        </div>
+        <div class="menu-items">
+            @foreach (var item in grp.Items)
+            {
+                var prefix = item.RoutePrefix ?? item.Route;
+                var itemActive = NavIsActive(prefix);
+                var itemCls = "menu-item" + (itemActive ? " active" : "");
+
+                <a href="@item.Route" class="@itemCls" data-nav-route="@item.Route" title="@item.Title">
+                    <i class="@item.IconClass menu-item-icon"></i>
+                    <span class="menu-item-title">@item.Title</span>
+                    @if (!string.IsNullOrWhiteSpace(item.Badge))
+                    {
+                        <span class="nav-badge @(item.BadgeClass ?? "")">@item.Badge</span>
+                    }
+                </a>
+            }
+        </div>
+    </div>
+}
