@@ -192,6 +192,16 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.ICustomerProjectService,
     Abs.FixedAssets.Services.Projects.CustomerProjectService>();
 
+// ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
+// surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
+// UpdateHeader / UpdateStatus / AssignToProject / UnassignFromProject.
+// AssignToProjectAsync delegates to ICustomerProjectService.LinkProductionOrderAsync
+// so the chain edge (CONTAINS_PRODUCTION_ORDER) and posting-mode rule stay
+// in one place. JE-posting / inventory writes (IssueMaterial, Complete,
+// Scrap) defer to Sprint 14 PR per the WorkOrderService PR #3.1+ precedent.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOrderService,
+    Abs.FixedAssets.Services.Production.ProductionOrderService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage
