@@ -50,33 +50,26 @@
     </div>
 </div>
 
-@* Siemens-style horizontal routing stepper. Placeholder pips until PR #5c lands
-   the real ProductionOperation entity; v1 shows the order's lifecycle stages. *@
+@* Siemens-style horizontal routing stepper.
+   PR #5c: when ProductionOperation rows exist for the selected order, the
+   stepper renders REAL ops (pip = Sequence number, label = WorkCenter code,
+   tone driven by 8-state ProductionOperationStatus). Falls back to order-
+   lifecycle pips (Planned -> Released -> InProgress -> Completed) when no
+   ops are released yet. Hydration in ControlCenter.cshtml's selectProductionOrder. *@
 <div class="cockpit__preview-lines">
     <div class="cockpit__preview-lines-header">
         <span><i class="fas fa-route"></i> Routing</span>
-        <span class="cockpit__queue-count">v1: order lifecycle · PR #5c: real ops</span>
+        <span class="cockpit__queue-count">Real ops when present · lifecycle pips otherwise</span>
     </div>
-    <div class="cockpit__stepper" data-csp-style="display:flex; align-items:center; padding: 1rem; gap: 0.5rem;">
-        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Planned">
-            <div class="cockpit__step-pip">1</div>
-            <div class="cockpit__step-label">Planned</div>
-        </div>
+    <div id="pvProStepperHost" class="cockpit__stepper" data-csp-style="display:flex; align-items:center; padding: 1rem; gap: 0.5rem; overflow-x: auto;">
+        @* Default skeleton (replaced by selectProductionOrder). *@
+        <div class="cockpit__step cockpit__step--pending"><div class="cockpit__step-pip">1</div><div class="cockpit__step-label">Planned</div></div>
         <div class="cockpit__step-line"></div>
-        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Released">
-            <div class="cockpit__step-pip">2</div>
-            <div class="cockpit__step-label">Released</div>
-        </div>
+        <div class="cockpit__step cockpit__step--pending"><div class="cockpit__step-pip">2</div><div class="cockpit__step-label">Released</div></div>
         <div class="cockpit__step-line"></div>
-        <div class="cockpit__step cockpit__step--pending" id="pvProStep_InProgress">
-            <div class="cockpit__step-pip">3</div>
-            <div class="cockpit__step-label">In Progress</div>
-        </div>
+        <div class="cockpit__step cockpit__step--pending"><div class="cockpit__step-pip">3</div><div class="cockpit__step-label">In Progress</div></div>
         <div class="cockpit__step-line"></div>
-        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Completed">
-            <div class="cockpit__step-pip"><i class="fas fa-check"></i></div>
-            <div class="cockpit__step-label">Completed</div>
-        </div>
+        <div class="cockpit__step cockpit__step--pending"><div class="cockpit__step-pip"><i class="fas fa-check"></i></div><div class="cockpit__step-label">Completed</div></div>
     </div>
 </div>
 

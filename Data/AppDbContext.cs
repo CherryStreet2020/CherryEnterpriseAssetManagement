@@ -169,6 +169,26 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.RegulatoryProfile> RegulatoryProfiles
             => Set<Abs.FixedAssets.Models.Production.RegulatoryProfile>();
 
+        // Sprint 13.5 PR #5c — Routing + WorkCenter + ProductionOperation.
+        // The MES dispatch + manufacturing-method layer. WorkCenter is the
+        // dispatch unit (FK to N Assets via WorkCenterAssetLink for live state
+        // rollup). Routing + RoutingOperation = the master template. Production-
+        // Operation = the execution-time instance that DowntimeEvent / Scrap-
+        // Event / ReworkEvent / MaterialConsumption / OeeEvent (PR #5e-#5g)
+        // all FK to. Multi-vertical via RoutingType: Discrete / Repetitive /
+        // ETO use these tables; ProcessBatch continues to use Recipe +
+        // RecipePhase (above).
+        public DbSet<Abs.FixedAssets.Models.Production.WorkCenter> WorkCenters
+            => Set<Abs.FixedAssets.Models.Production.WorkCenter>();
+        public DbSet<Abs.FixedAssets.Models.Production.WorkCenterAssetLink> WorkCenterAssetLinks
+            => Set<Abs.FixedAssets.Models.Production.WorkCenterAssetLink>();
+        public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
+            => Set<Abs.FixedAssets.Models.Production.Routing>();
+        public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
+            => Set<Abs.FixedAssets.Models.Production.RoutingOperation>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionOperation> ProductionOperations
+            => Set<Abs.FixedAssets.Models.Production.ProductionOperation>();
+
         // ADR-015 / Migration PR #1 — Industry-agnostic receipt profile catalog.
         // One row per industry vertical defining the JSON Schema, UiFormSpec,
         // promoted facets, default attributes, and regulatory gates that

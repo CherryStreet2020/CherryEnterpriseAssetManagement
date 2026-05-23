@@ -211,6 +211,20 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOrderS
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionControlCenterService,
     Abs.FixedAssets.Services.Production.ProductionControlCenterService>();
 
+// Sprint 13.5 PR #5c — Routing + WorkCenter + ProductionOperation services.
+// WorkCenter = dispatch unit master (N:N with Asset for live OEE rollup).
+// Routing + RoutingOperation = manufacturing method master, versioned, with
+// 5-time decomp (Setup/Run/Queue/Move/Wait) per SAP/Oracle convention.
+// ProductionOperation = execution-time instance (snapshot from RoutingOperation
+// at release). The UNIVERSAL entity that PR #5e (DowntimeEvent/ScrapEvent/
+// ReworkEvent/MaterialConsumption) and PR #5g (OeeEvent) all FK to.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IWorkCenterService,
+    Abs.FixedAssets.Services.Production.WorkCenterService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IRoutingService,
+    Abs.FixedAssets.Services.Production.RoutingService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperationService,
+    Abs.FixedAssets.Services.Production.ProductionOperationService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage

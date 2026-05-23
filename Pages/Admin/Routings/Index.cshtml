@@ -1,0 +1,72 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.Routings.IndexModel
+@{
+    ViewData["Title"] = "Routings";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Routings</span>
+        </nav>
+        <h1 class="page-title">Routings</h1>
+        <p class="page-subtitle">
+            @Model.TotalCount routings · <strong>@Model.ReleasedCount released</strong> · @Model.DraftCount draft ·
+            <em>PR #5c.1 ships drag-to-reorder Kanban builder + voice editing</em>
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/Admin/Routings/Create" class="btn-primary">
+            <i class="fas fa-plus"></i> New Routing
+        </a>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Rev</th>
+                <th>Name</th>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th class="num">Operations</th>
+                <th class="num">Lot Base</th>
+                <th>Default</th>
+                <th>Effective</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model.Routings)
+            {
+                <tr>
+                    <td><a href="/Admin/Routings/Details/@r.Id" class="link-mono">@r.Code</a></td>
+                    <td><span class="link-mono">@r.RevisionNumber</span></td>
+                    <td>@r.Name</td>
+                    <td class="num">#@r.ItemId</td>
+                    <td>@r.Type</td>
+                    <td><span class="status-chip status-chip--@r.StatusTone()">@r.Status</span></td>
+                    <td class="num">@r.OperationCount</td>
+                    <td class="num">@r.LotBaseSize.ToString("0.###")</td>
+                    <td>@(r.IsDefault ? "★" : "—")</td>
+                    <td>@(r.EffectiveFrom?.ToString("yyyy-MM-dd") ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.Routings.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="fas fa-route empty-state-icon"></i>
+            <div class="empty-state-title">No Routings yet</div>
+            <div class="empty-state-body">Routings define the manufacturing method (sequence of operations a part flows through). Click "New Routing" to create the first one.</div>
+        </div>
+    }
+</div>

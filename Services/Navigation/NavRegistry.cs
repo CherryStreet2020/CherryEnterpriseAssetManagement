@@ -139,6 +139,8 @@ public static class NavRegistry
                 new NavItem("Carriers",        "/Admin/Carriers",           "fas fa-truck", Badge: "new", BadgeClass: "nav-badge--new"),
                 new NavItem("Countries",       "/Admin/Countries",          "fas fa-globe", Badge: "new", BadgeClass: "nav-badge--new"),
                 new NavItem("Work Calendars",  "/Admin/WorkCalendars",      "fas fa-calendar", Badge: "new", BadgeClass: "nav-badge--new"),
+                new NavItem("Work Centers",    "/Admin/WorkCenters",        "fas fa-industry", Badge: "new", BadgeClass: "nav-badge--new"),
+                new NavItem("Routings",        "/Admin/Routings",           "fas fa-route", Badge: "new", BadgeClass: "nav-badge--new"),
                 new NavItem("Locations",       "/Admin/Locations",          "fas fa-location-dot"),
                 new NavItem("GL Accounts",     "/Admin/GlAccounts",         "fas fa-list-ol"),
                 new NavItem("Numbering",       "/Admin/NumberSequences",    "fas fa-hashtag"),

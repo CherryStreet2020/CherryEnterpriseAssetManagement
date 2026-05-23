@@ -371,7 +371,34 @@ public sealed class ProductionControlCenterService : IProductionControlCenterSer
             r.Meta = meta;
         }
 
-        // Preview blob: { "pro-42": { orderNumber, title, status, qty, project... }, ... }
+        // Sprint 13.5 PR #5c — fold in real ProductionOperation rows per order.
+        // The PreviewBlobJson now carries each order's ordered op list so the
+        // Production CC routing stepper can render real ops (with status-driven
+        // pip colors) instead of the lifecycle pip placeholder.
+        var orderIds = rows.Select(r => r.OrderId).ToList();
+        var opsByOrder = await _db.ProductionOperations
+            .AsNoTracking()
+            .Where(o => orderIds.Contains(o.ProductionOrderId))
+            .OrderBy(o => o.SequenceNumber)
+            .Select(o => new
+            {
+                o.ProductionOrderId,
+                seq = o.SequenceNumber,
+                desc = o.Description,
+                status = o.Status.ToString(),
+                workCenterId = o.WorkCenterId,
+            })
+            .ToListAsync(ct);
+
+        // Resolve WorkCenter codes once for the rendered ops.
+        var wcIds = opsByOrder.Select(o => o.workCenterId).Distinct().ToList();
+        var wcCodeById = wcIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await _db.WorkCenters.AsNoTracking()
+                .Where(w => wcIds.Contains(w.Id))
+                .ToDictionaryAsync(w => w.Id, w => w.Code, ct);
+
+        // Preview blob: { "pro-42": { orderNumber, title, status, qty, project, operations[]... }, ... }
         var preview = rows.ToDictionary(
             r => r.Id,
             r => new
@@ -386,6 +413,17 @@ public sealed class ProductionControlCenterService : IProductionControlCenterSer
                 project = r.ProjectCode,
                 projectId = r.ProjectId,
                 detailsHref = $"/Production/Details/{r.OrderId}",
+                // Empty array when no ops released yet — the CC view falls back to lifecycle pips.
+                operations = opsByOrder
+                    .Where(o => o.ProductionOrderId == r.OrderId)
+                    .Select(o => new
+                    {
+                        seq = o.seq,
+                        desc = o.desc,
+                        status = o.status,
+                        wc = wcCodeById.TryGetValue(o.workCenterId, out var c) ? c : "—",
+                    })
+                    .ToArray(),
             });
 
         return Result.Success(new ProductionQueueData
