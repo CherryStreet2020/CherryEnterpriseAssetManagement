@@ -35,11 +35,14 @@ public static class ControlCenterRegistry
             IsLive: true,
             StatusChip: "live"),
 
-        // Sprint 13.5 PR #4 — Production Orders cockpit.
+        // Sprint 13.5 PR #4 — Production Orders Control Center.
+        // PR #5b 2026-05-23 — repoint to /Production/ControlCenter (the
+        // true CC page with KPI band + AI strip + tabs + verb tray + bulk).
+        // /Production (flat list) is preserved as a fallback browse route.
         new ControlCenterDescriptor(
             Code: "PRODUCTION",
             Title: "Production",
-            Route: "/Production",
+            Route: "/Production/ControlCenter",
             IconClass: "fas fa-industry",
             SprintNumber: 135,
             IsLive: true,
