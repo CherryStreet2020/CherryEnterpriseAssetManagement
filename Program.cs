@@ -202,6 +202,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.ICustomerProjectSer
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOrderService,
     Abs.FixedAssets.Services.Production.ProductionOrderService>();
 
+// ADR-016 §D7 + ADR-018 / Sprint 13.5 PR #5 — IProductionControlCenterService
+// is the read surface backing the Production Control Center: KPI band /
+// exception lanes / time-bucketed queue / activity feed / Next Up / AI
+// suggestions. Plus bulk-status mutation that iterates single-row calls
+// through IProductionOrderService so legal-transitions + chain emit +
+// CHERRY025 control plane all still apply per row.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionControlCenterService,
+    Abs.FixedAssets.Services.Production.ProductionControlCenterService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage
