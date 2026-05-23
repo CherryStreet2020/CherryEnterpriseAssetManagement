@@ -1,0 +1,71 @@
+@page
+@model Abs.FixedAssets.Pages.Production.Operations.IndexModel
+@{
+    ViewData["Title"] = "Production Operations";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Production/ControlCenter">Production</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Operations</span>
+        </nav>
+        <h1 class="page-title">Production Operations</h1>
+        <p class="page-subtitle">
+            @Model.TotalCount active ops · <strong>@Model.RunningCount running</strong> · @Model.PausedCount paused ·
+            sorted by status urgency (Running first), then planned start
+        </p>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Order</th>
+                <th class="num">Seq</th>
+                <th>Operation</th>
+                <th>Work Center</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th class="num">Progress</th>
+                <th>Planned Start</th>
+                <th>Actual Start</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var o in Model.Operations)
+            {
+                <tr>
+                    <td><a href="/Production/Details/@o.ProductionOrderId" class="link-mono">PRO-@o.ProductionOrderId</a></td>
+                    <td class="num">@o.SequenceNumber</td>
+                    <td>@o.Description</td>
+                    <td><span class="link-mono">@o.WorkCenterCode</span></td>
+                    <td>@o.OperationType</td>
+                    <td><span class="status-chip status-chip--@o.StatusTone()">@o.Status</span></td>
+                    <td class="num">
+                        @o.CompletedQty.ToString("0.#") / @o.PlannedQty.ToString("0.#")
+                        @if (o.ProgressPct > 0)
+                        {
+                            <span class="muted"> (@o.ProgressPct.ToString("0")%)</span>
+                        }
+                    </td>
+                    <td>@(o.PlannedStart?.ToString("MM-dd HH:mm") ?? "—")</td>
+                    <td>@(o.ActualStart?.ToString("MM-dd HH:mm") ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.Operations.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="fas fa-circle-check empty-state-icon"></i>
+            <div class="empty-state-title">No active operations</div>
+            <div class="empty-state-body">Production operations are created when an order is released against a routing (IProductionOperationService.ReleaseFromRoutingAsync). None active right now.</div>
+        </div>
+    }
+</div>

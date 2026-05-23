@@ -1,0 +1,77 @@
+@page
+@model Abs.FixedAssets.Pages.Admin.WorkCenters.IndexModel
+@{
+    ViewData["Title"] = "Work Centers";
+    Layout = "_ModernLayout";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a>
+            <span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a>
+            <span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">Work Centers</span>
+        </nav>
+        <h1 class="page-title">Work Centers</h1>
+        <p class="page-subtitle">
+            @Model.TotalCount centers · <strong>@Model.ActiveCount active</strong> · @Model.DownCount in maintenance ·
+            <em>BIC differentiator: master + live OEE in one grid</em>
+        </p>
+    </div>
+    <div class="page-header-actions">
+        <a href="/Admin/WorkCenters/Create" class="btn-primary" title="Create a new Work Center (PR #5c.1 polish)">
+            <i class="fas fa-plus"></i> New Work Center
+        </a>
+    </div>
+</div>
+
+<div class="data-table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Capacity Model</th>
+                <th class="num">Assets</th>
+                <th class="num">Avg OEE</th>
+                <th class="num">Std Rate /hr</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var w in Model.WorkCenters)
+            {
+                <tr>
+                    <td><a href="/Admin/WorkCenters/Details/@w.Id" class="link-mono">@w.Code</a></td>
+                    <td>@w.Name</td>
+                    <td>@w.Type</td>
+                    <td><span class="status-chip status-chip--@w.StatusTone()">@w.Status</span></td>
+                    <td>@w.CapacityModel</td>
+                    <td class="num">@w.LinkedAssetCount</td>
+                    <td class="num">
+                        @if (w.AvgOeePct > 0)
+                        {
+                            <span class="status-chip status-chip--@w.OeeTone()">@w.AvgOeePct.ToString("0.0")%</span>
+                        }
+                        else
+                        {
+                            <span class="muted">—</span>
+                        }
+                    </td>
+                    <td class="num">@w.CurrencyCode @w.StandardCostRatePerHour.ToString("0.00")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (Model.WorkCenters.Count == 0)
+    {
+        <div class="empty-state">
+            <i class="fas fa-industry empty-state-icon"></i>
+            <div class="empty-state-title">No Work Centers</div>
+            <div class="empty-state-body">PR #5c migration seeds 8 demo centers for the ABS Machining tenant — re-run dev migrations if this is empty.</div>
+        </div>
+    }
+</div>

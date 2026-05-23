@@ -200,17 +200,49 @@
                     statusEl.className = 'cockpit__preview-status status-badge-p status-badge-p--' + (pro.status || '').toLowerCase();
                 }
 
-                // Routing stepper — Siemens style: highlights pips through Planned -> Released -> InProgress -> Completed.
-                var steps = ['Planned', 'Released', 'InProgress', 'Completed'];
-                var activeIdx = steps.indexOf(pro.status);
-                steps.forEach(function (s, i) {
-                    var pip = document.getElementById('pvProStep_' + s);
-                    if (!pip) return;
-                    pip.classList.remove('cockpit__step--active', 'cockpit__step--done', 'cockpit__step--pending');
-                    if (i < activeIdx) pip.classList.add('cockpit__step--done');
-                    else if (i === activeIdx) pip.classList.add('cockpit__step--active');
-                    else pip.classList.add('cockpit__step--pending');
-                });
+                // Routing stepper — Siemens style.
+                // PR #5c upgrade: when ProductionOperations exist for this order,
+                // render real op pips with status-driven colors. Otherwise fall
+                // back to the order-lifecycle placeholder (Planned -> Released ->
+                // InProgress -> Completed).
+                var stepperHost = document.getElementById('pvProStepperHost');
+                if (stepperHost && pro.operations && pro.operations.length > 0) {
+                    // Real ops mode — render dynamic pips.
+                    var opHtml = pro.operations.map(function (op, idx) {
+                        var toneCls = 'cockpit__step--pending';
+                        if (op.status === 'Running' || op.status === 'InSetup') toneCls = 'cockpit__step--active';
+                        else if (op.status === 'Completed') toneCls = 'cockpit__step--done';
+                        else if (op.status === 'Paused') toneCls = 'cockpit__step--active';
+                        else if (op.status === 'Scrapped' || op.status === 'Skipped') toneCls = 'cockpit__step--done';
+
+                        var pip = '<div class="cockpit__step ' + toneCls + '" title="' + op.desc + ' · ' + op.status + ' · ' + op.wc + '">'
+                                + '<div class="cockpit__step-pip">' + op.seq + '</div>'
+                                + '<div class="cockpit__step-label">' + op.wc + '</div>'
+                                + '</div>';
+                        var line = idx < pro.operations.length - 1 ? '<div class="cockpit__step-line"></div>' : '';
+                        return pip + line;
+                    }).join('');
+                    stepperHost.innerHTML = opHtml;
+                } else {
+                    // Fallback: order-lifecycle pips (when no ops released yet).
+                    var steps = ['Planned', 'Released', 'InProgress', 'Completed'];
+                    var activeIdx = steps.indexOf(pro.status);
+                    if (stepperHost) {
+                        var fb = steps.map(function (s, i) {
+                            var cls = i < activeIdx ? 'cockpit__step--done'
+                                    : i === activeIdx ? 'cockpit__step--active'
+                                    : 'cockpit__step--pending';
+                            var label = s === 'InProgress' ? 'In Progress' : s;
+                            var content = '<div class="cockpit__step ' + cls + '">'
+                                        + '<div class="cockpit__step-pip">' + (i + 1) + '</div>'
+                                        + '<div class="cockpit__step-label">' + label + '</div>'
+                                        + '</div>';
+                            var line = i < 3 ? '<div class="cockpit__step-line"></div>' : '';
+                            return content + line;
+                        }).join('');
+                        stepperHost.innerHTML = fb;
+                    }
+                }
 
                 // Wire the Details / Transition links to the actual order.
                 var detailsBtn = document.getElementById('pvProDetailsBtn');
