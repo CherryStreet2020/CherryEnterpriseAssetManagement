@@ -285,6 +285,11 @@ namespace Abs.FixedAssets.Data
         public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
         public DbSet<Vendor> Vendors => Set<Vendor>();
 
+        // Sprint 13.5 PRA-1 — first-class Carrier master.
+        // Replaces free-text Carrier on AdvancedShippingNotice + ShippingMethod.
+        // 12 system-wide seed rows (UPS / FedEx / DHL / USPS / etc.) inserted by migration.
+        public DbSet<Carrier> Carriers => Set<Carrier>();
+
         // Purchasing & Accounts Payable
         public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
         public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
@@ -2814,6 +2819,95 @@ namespace Abs.FixedAssets.Data
                     .HasDatabaseName("ix_customerprojects_atrisk_queue")
                     .HasFilter("\"RiskTone\" IN (1, 2)")
                     .IsDescending();
+            });
+
+            // ============================================================
+            // Sprint 13.5 PRA-1 — Master Files: Carrier + Customer/Vendor/Manufacturer
+            // verticalization + Company.IndustryVertical. Raw-SQL migration
+            // 20260524_AddMasterFilesPRA1 handles the DDL (12 carrier seeds,
+            // CHECK constraints, demo-tenant IndustryVertical seed updates).
+            // This fluent block wires the EF relationship side.
+            // ============================================================
+
+            modelBuilder.Entity<Carrier>(e =>
+            {
+                // UNIQUE (COALESCE(CompanyId, 0), Code) per audit
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .IsUnique()
+                    .HasDatabaseName("uq_carriers_company_code");
+                e.HasIndex(x => x.ScacCode)
+                    .HasFilter("\"ScacCode\" IS NOT NULL")
+                    .HasDatabaseName("ix_carriers_scac");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<AdvancedShippingNotice>(e =>
+            {
+                e.HasOne(x => x.CarrierRef)
+                    .WithMany()
+                    .HasForeignKey(x => x.CarrierId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CarrierId)
+                    .HasFilter("\"CarrierId\" IS NOT NULL")
+                    .HasDatabaseName("ix_asn_carrierid");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.ShippingMethod>(e =>
+            {
+                e.HasOne(x => x.CarrierRef)
+                    .WithMany()
+                    .HasForeignKey(x => x.CarrierId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CarrierId)
+                    .HasFilter("\"CarrierId\" IS NOT NULL")
+                    .HasDatabaseName("ix_shippingmethods_carrierid");
+            });
+
+            // Customers gets cockpit-sort partial indexes on default-inheritance
+            // columns (drives the project-create form's inheritance hints).
+            modelBuilder.Entity<Customer>(e =>
+            {
+                e.HasIndex(x => x.DefaultQualityProgram)
+                    .HasFilter("\"DefaultQualityProgram\" IS NOT NULL")
+                    .HasDatabaseName("ix_customers_defaultqualityprogram");
+                e.HasIndex(x => x.DefaultExportControl)
+                    .HasFilter("\"DefaultExportControl\" IS NOT NULL")
+                    .HasDatabaseName("ix_customers_defaultexportcontrol");
+            });
+
+            // Vendors and Manufacturers get regulator-ID partial indexes
+            // (operators search by these codes — make the lookup cheap).
+            modelBuilder.Entity<Vendor>(e =>
+            {
+                e.HasIndex(x => x.CageCode)
+                    .HasFilter("\"CageCode\" IS NOT NULL")
+                    .HasDatabaseName("ix_vendors_cagecode");
+                e.HasIndex(x => x.DunsNumber)
+                    .HasFilter("\"DunsNumber\" IS NOT NULL")
+                    .HasDatabaseName("ix_vendors_duns");
+                e.HasIndex(x => x.FdaEstablishmentId)
+                    .HasFilter("\"FdaEstablishmentId\" IS NOT NULL")
+                    .HasDatabaseName("ix_vendors_fda");
+                e.HasIndex(x => x.DeaRegistration)
+                    .HasFilter("\"DeaRegistration\" IS NOT NULL")
+                    .HasDatabaseName("ix_vendors_dea");
+            });
+
+            modelBuilder.Entity<Manufacturer>(e =>
+            {
+                e.HasIndex(x => x.CageCode)
+                    .HasFilter("\"CageCode\" IS NOT NULL")
+                    .HasDatabaseName("ix_manufacturers_cagecode");
+            });
+
+            // Companies — IndustryVertical lookup index for cockpit branching.
+            modelBuilder.Entity<Company>(e =>
+            {
+                e.HasIndex(x => x.IndustryVertical)
+                    .HasDatabaseName("ix_companies_industryvertical");
             });
 
             // ============================================================

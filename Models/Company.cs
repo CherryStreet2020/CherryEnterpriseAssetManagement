@@ -33,6 +33,35 @@ namespace Abs.FixedAssets.Models
         CustomAPI = 5
     }
 
+    // Sprint 13.5 PRA-1 — locked 17-value vertical enum (17-31 reserved).
+    // Gates every cockpit branching decision: which vertical chips render,
+    // which Item.DefaultReceiptProfile to suggest, which Quality program is
+    // the default, etc. Per Dean's "no stones unturned" directive
+    // (2026-05-23): Aero and Defense kept SEPARATE (DCAA/CAS divergence),
+    // Machining and MetalFab kept SEPARATE (cut-list/nest UI prominence).
+    // See docs/research/master-files-audit.md §5.
+    public enum IndustryVertical : short
+    {
+        Unspecified = 0,
+        Machining = 1,
+        MetalFab = 2,
+        PrecisionEto = 3,
+        FoodSciences = 4,
+        Pharma = 5,
+        Cannabis = 6,
+        Electronics = 7,
+        Aerospace = 8,
+        Defense = 9,
+        MedDevice = 10,
+        OilGas = 11,
+        Automotive = 12,
+        Chemicals = 13,
+        Apparel = 14,
+        Construction = 15,
+        GeneralMfg = 16
+        // 17-31 reserved for future verticals — CHECK constraint enforces 0..31.
+    }
+
     public class Company
     {
         public int Id { get; set; }
@@ -168,6 +197,26 @@ namespace Abs.FixedAssets.Models
         // remain valid; no backfill needed.
         [Display(Name = "Force Explicit Export Control on Project Create")]
         public bool ProjectExportControlRequired { get; set; } = false;
+
+        // Sprint 13.5 PRA-1 — locked 17-value IndustryVertical enum.
+        // Default Unspecified (0) for existing rows; seed UPDATE in the
+        // migration stamps known demo tenants (ABS → Machining, EVS →
+        // PrecisionEto, Cherry/IndustryOS → Machining). CHECK constraint
+        // ck_companies_industryvertical_range enforces 0..31.
+        [Display(Name = "Industry Vertical")]
+        public IndustryVertical IndustryVertical { get; set; } = IndustryVertical.Unspecified;
+
+        // Sprint 13.5 PRA-1 — CAGE Code (5-char alphanumeric, DLA-issued)
+        // for tenants who are themselves DoD suppliers (DFARS 252.204-7001).
+        [StringLength(10)]
+        [Display(Name = "CAGE Code")]
+        public string? CageCode { get; set; }
+
+        // Sprint 13.5 PRA-1 — DUNS (9-digit, D&B-issued). Universal supplier
+        // identifier; many commercial supply chains still require it.
+        [StringLength(13)]
+        [Display(Name = "DUNS Number")]
+        public string? DunsNumber { get; set; }
 
         [StringLength(500)]
         public string? ERPConnectionString { get; set; }

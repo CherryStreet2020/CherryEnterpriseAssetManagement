@@ -95,6 +95,13 @@ public class AdvancedShippingNotice
     [Display(Name = "Carrier")]
     public string? Carrier { get; set; }
 
+    // Sprint 13.5 PRA-1 — FK to first-class Carrier master. Existing
+    // free-text Carrier column stays for back-compat + EDI ingestion
+    // fall-back. Service layer resolves text → CarrierId where possible.
+    [Display(Name = "Carrier (Master)")]
+    public int? CarrierId { get; set; }
+    public Carrier? CarrierRef { get; set; }
+
     [StringLength(80)]
     [Display(Name = "Tracking #")]
     public string? TrackingNumber { get; set; }

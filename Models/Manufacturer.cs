@@ -40,6 +40,15 @@ namespace Abs.FixedAssets.Models
 
         public bool Active { get; set; } = true;
 
+        // Sprint 13.5 PRA-1 — manufacturer-side regulator identifiers.
+        // Manufacturers more often than vendors carry CAGE codes (the
+        // actual maker, not the distributor).
+        [StringLength(10), Display(Name = "CAGE Code")]
+        public string? CageCode { get; set; }
+
+        [StringLength(13), Display(Name = "DUNS Number")]
+        public string? DunsNumber { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Asset>? Assets { get; set; }
