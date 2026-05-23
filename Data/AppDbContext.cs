@@ -238,6 +238,20 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Quality.FaiProductAccountability> FaiProductAccountability
             => Set<Abs.FixedAssets.Models.Quality.FaiProductAccountability>();
 
+        // Sprint 13.5 PRA-2 — Country / Subdivision / WorkCalendar / Holiday
+        // masters. Countries + Subdivisions are system-wide reference data
+        // (NULL CompanyId not applicable — they're global). WorkCalendars
+        // and Holidays are tenant-scoped with NULL-CompanyId system fallback
+        // (same Carriers pattern as PRA-1).
+        public DbSet<Abs.FixedAssets.Models.Masters.Country> Countries
+            => Set<Abs.FixedAssets.Models.Masters.Country>();
+        public DbSet<Abs.FixedAssets.Models.Masters.Subdivision> Subdivisions
+            => Set<Abs.FixedAssets.Models.Masters.Subdivision>();
+        public DbSet<Abs.FixedAssets.Models.Masters.WorkCalendar> WorkCalendars
+            => Set<Abs.FixedAssets.Models.Masters.WorkCalendar>();
+        public DbSet<Abs.FixedAssets.Models.Masters.Holiday> Holidays
+            => Set<Abs.FixedAssets.Models.Masters.Holiday>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3013,6 +3027,75 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Vendor)
                     .WithMany()
                     .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ============================================================
+            // Sprint 13.5 PRA-2 — Country / Subdivision / WorkCalendar /
+            // Holiday masters. Most DDL (CHECK constraints, partial
+            // indexes, FK NOT VALID) lives in the migration itself; here
+            // we just declare the unique-index shapes EF needs to know
+            // about for query generation + FK relationships for nav
+            // properties.
+            // ============================================================
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.Country>(e =>
+            {
+                e.HasIndex(x => x.Alpha2)
+                    .IsUnique()
+                    .HasDatabaseName("uq_countries_alpha2");
+                e.HasIndex(x => x.Alpha3)
+                    .IsUnique()
+                    .HasDatabaseName("uq_countries_alpha3");
+                e.HasIndex(x => new { x.IsActive, x.SortOrder })
+                    .HasDatabaseName("ix_countries_active_sort");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.Subdivision>(e =>
+            {
+                e.HasIndex(x => new { x.CountryId, x.Code })
+                    .IsUnique()
+                    .HasDatabaseName("uq_subdivisions_country_code");
+                e.HasIndex(x => new { x.CountryId, x.IsActive })
+                    .HasDatabaseName("ix_subdivisions_country_active");
+
+                e.HasOne(x => x.Country)
+                    .WithMany(c => c.Subdivisions)
+                    .HasForeignKey(x => x.CountryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.WorkCalendar>(e =>
+            {
+                // UNIQUE (COALESCE(CompanyId,0), Code) — declared via raw
+                // SQL in the migration; EF can't express the COALESCE
+                // expression on a composite index. We declare a non-unique
+                // index here so query planning gets the hint.
+                e.HasIndex(x => new { x.CompanyId, x.IsActive })
+                    .HasDatabaseName("ix_workcalendars_company_active");
+
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.Holiday>(e =>
+            {
+                e.HasIndex(x => new { x.WorkCalendarId, x.ObservedDate })
+                    .HasDatabaseName("ix_holidays_calendar_date")
+                    .HasFilter("\"IsActive\" = TRUE");
+                e.HasIndex(x => x.SubdivisionId)
+                    .HasDatabaseName("ix_holidays_subdivision")
+                    .HasFilter("\"SubdivisionId\" IS NOT NULL");
+
+                e.HasOne(x => x.WorkCalendar)
+                    .WithMany(c => c.Holidays)
+                    .HasForeignKey(x => x.WorkCalendarId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Subdivision)
+                    .WithMany()
+                    .HasForeignKey(x => x.SubdivisionId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }
