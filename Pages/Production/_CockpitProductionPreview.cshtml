@@ -1,0 +1,126 @@
+@using Abs.FixedAssets.Models.Production
+@*
+    _CockpitProductionPreview.cshtml — Sprint 13.5 PR #5b.1.
+
+    Production-specific right-pane preview body. Mirrors the Receiving
+    _CockpitPoQueuePreview pattern: uses the cockpit__preview-* classes from
+    cockpit.css for dark theme + dark-card styling.
+
+    Hydrated by selectProductionOrder(id) (defined inline in ControlCenter.cshtml's
+    @section Scripts) reading from __productionDetails JSON blob.
+
+    Design (from MES research synthesis 2026-05-23):
+      - Siemens-style horizontal routing stepper (Planned -> Released -> InProgress -> Completed)
+      - Live progress bar (qty done / qty ordered)
+      - Vertical metadata stack (Customer / Project / Scheduled End)
+      - Action verb tray (Start / Pause / Log Downtime / Log Scrap / Complete) — Voice-driven later (PR #7)
+*@
+
+<div class="cockpit__preview-header">
+    <div data-csp-style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+        <span class="cockpit__preview-po" id="pvProOrderNum"></span>
+        <span class="cockpit__preview-status" id="pvProStatus"></span>
+    </div>
+    <a id="pvProDetailsBtn" href="#" class="btn-p btn-p--primary">
+        <i class="fas fa-arrow-right"></i> Open Details
+    </a>
+</div>
+
+@* Production order title row *@
+<div class="cockpit__preview-info">
+    <div class="cockpit__preview-field" data-csp-style="grid-column: span 2;">
+        <span class="cockpit__preview-label">Order</span>
+        <span class="cockpit__preview-value" id="pvProTitle"></span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Customer</span>
+        <span class="cockpit__preview-value" id="pvProCustomer"></span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Project</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvProProject"></span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Scheduled End</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvProScheduledEnd"></span>
+    </div>
+    <div class="cockpit__preview-field">
+        <span class="cockpit__preview-label">Qty Ordered</span>
+        <span class="cockpit__preview-value cockpit__preview-value--mono" id="pvProQtyOrdered"></span>
+    </div>
+</div>
+
+@* Siemens-style horizontal routing stepper. Placeholder pips until PR #5c lands
+   the real ProductionOperation entity; v1 shows the order's lifecycle stages. *@
+<div class="cockpit__preview-lines">
+    <div class="cockpit__preview-lines-header">
+        <span><i class="fas fa-route"></i> Routing</span>
+        <span class="cockpit__queue-count">v1: order lifecycle · PR #5c: real ops</span>
+    </div>
+    <div class="cockpit__stepper" data-csp-style="display:flex; align-items:center; padding: 1rem; gap: 0.5rem;">
+        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Planned">
+            <div class="cockpit__step-pip">1</div>
+            <div class="cockpit__step-label">Planned</div>
+        </div>
+        <div class="cockpit__step-line"></div>
+        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Released">
+            <div class="cockpit__step-pip">2</div>
+            <div class="cockpit__step-label">Released</div>
+        </div>
+        <div class="cockpit__step-line"></div>
+        <div class="cockpit__step cockpit__step--pending" id="pvProStep_InProgress">
+            <div class="cockpit__step-pip">3</div>
+            <div class="cockpit__step-label">In Progress</div>
+        </div>
+        <div class="cockpit__step-line"></div>
+        <div class="cockpit__step cockpit__step--pending" id="pvProStep_Completed">
+            <div class="cockpit__step-pip"><i class="fas fa-check"></i></div>
+            <div class="cockpit__step-label">Completed</div>
+        </div>
+    </div>
+</div>
+
+@* Live progress bar (qty done / qty ordered). *@
+<div class="cockpit__preview-lines">
+    <div class="cockpit__preview-lines-header">
+        <span><i class="fas fa-bolt"></i> Live Progress</span>
+        <span class="cockpit__queue-count">
+            <span id="pvProQtyCompleted">0</span> /
+            <span id="pvProQtyOrdered_dup">0</span> ·
+            <span id="pvProProgressPct">0%</span>
+        </span>
+    </div>
+    <div class="cockpit__progress-track" data-csp-style="margin: 0.5rem 1rem 1rem;">
+        <div id="pvProProgressBar" class="cockpit__progress-bar" data-csp-style="width: 0%;"></div>
+    </div>
+</div>
+
+@* Action verb tray — server-rendered mini-forms (one per legal transition).
+   Each form's hidden orderId is updated by selectProductionOrder. *@
+<div class="cockpit__preview-lines">
+    <div class="cockpit__preview-lines-header">
+        <span><i class="fas fa-hand-pointer"></i> Actions</span>
+        <span class="cockpit__queue-count">Voice: hold Space + "release this", "hold this", "complete this"</span>
+    </div>
+    <div class="cockpit__action-tray" data-csp-style="display:flex; flex-wrap:wrap; gap: 0.5rem; padding: 0.75rem 1rem 1rem;">
+        @foreach (var t in new[] { ProductionOrderStatus.Released, ProductionOrderStatus.InProgress,
+                                   ProductionOrderStatus.OnHold,   ProductionOrderStatus.Completed,
+                                   ProductionOrderStatus.Cancelled })
+        {
+            <form method="post" asp-page-handler="Transition" data-csp-style="display:inline;">
+                <input type="hidden" name="orderId" value="0" data-pv-pro-order-id />
+                <input type="hidden" name="newStatus" value="@t" />
+                <button type="submit" class="btn-p btn-p--ghost cockpit__verb cockpit__verb--@t.ToString().ToLower()">
+                    @t
+                </button>
+            </form>
+        }
+        <span data-csp-style="flex:1;"></span>
+        <button type="button" class="btn-p btn-p--ghost" disabled title="PR #5e — DowntimeEvent">
+            <i class="fas fa-pause"></i> Log Downtime
+        </button>
+        <button type="button" class="btn-p btn-p--ghost" disabled title="PR #5e — ScrapEvent">
+            <i class="fas fa-xmark"></i> Log Scrap
+        </button>
+    </div>
+</div>
