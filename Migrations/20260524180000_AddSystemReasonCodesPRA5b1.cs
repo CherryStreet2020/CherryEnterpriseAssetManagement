@@ -167,17 +167,24 @@ namespace Abs.FixedAssets.Migrations
             // PR #5c.2 added CompanyId NOT NULL on most production-domain
             // tables. MaterialStructure was kept nullable to grandfather
             // existing rows for one ship-cycle. This is the second cycle —
-            // backfill from the parent Item's CompanyId, then keep nullable
-            // until a follow-up PR formally tightens to NOT NULL.
+            // backfill from the OutputItem's CompanyId (MaterialStructure.OutputItemId
+            // → Items.Id — see Models/Production/MaterialStructure.cs line 78),
+            // then keep nullable until a follow-up PR formally tightens to NOT NULL.
             //
             // Idempotent: UPDATE only WHERE CompanyId IS NULL.
+            // Safe against rows where OutputItemId is NULL (those are
+            // skipped — they need manual triage if any exist).
+            //
+            // HOTFIX 2026-05-24: original PR used ms.""ItemId"" which does
+            // not exist on this entity; the correct FK column is
+            // ""OutputItemId"".
             // ----------------------------------------------------------------
             mb.Sql(@"
                 UPDATE ""MaterialStructures"" ms
                 SET ""CompanyId"" = i.""CompanyId""
                 FROM ""Items"" i
                 WHERE ms.""CompanyId"" IS NULL
-                  AND ms.""ItemId"" = i.""Id""
+                  AND ms.""OutputItemId"" = i.""Id""
                   AND i.""CompanyId"" IS NOT NULL;
             ");
         }
