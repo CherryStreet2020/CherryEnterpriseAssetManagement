@@ -1,0 +1,135 @@
+@page
+@model Abs.FixedAssets.Pages.Production.WorkbenchModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Operator Workbench";
+    ViewData["TabTitle"] = "Workbench";
+    ViewData["BodyClass"] = "is-control-center";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 13.5 PR #5d — Operator Workbench.
+    Composes the shared Cockpit primitives. Dark theme + two-pane queue+preview
+    + KPI hero band + LIVE + Voice. Per Dean 2026-05-23 lock: user-facing label
+    is "Workbench" (a kind of Control Center for the shop-floor operator role).
+*@
+
+@if (TempData["WorkbenchError"] is string errorMsg && !string.IsNullOrEmpty(errorMsg))
+{
+    <div class="cockpit__flash cockpit__flash--danger">
+        <i class="fas fa-circle-exclamation"></i>
+        <span>@errorMsg</span>
+    </div>
+}
+
+@* 1) Page header — title + scope + LIVE + Voice pill. *@
+@if (Model.PageHeader is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", Model.PageHeader)
+}
+
+@* 2) KPI hero band — My Active Op / Setup Today / Run Today / Qty Today. *@
+@if (Model.KpiBand is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
+}
+
+@* 3) Tab shell — Operations | My Time Today | Activity. *@
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+@* 4) Tab content. *@
+@switch (Model.ActiveTab)
+{
+    case Abs.FixedAssets.Pages.Production.WorkbenchModel.TabMyTime:
+        <div role="tabpanel" aria-labelledby="tab-mytime" class="cockpit-tab-pane">
+            <div class="cockpit__empty">
+                <i class="fas fa-clock cockpit__empty-icon"></i>
+                <div class="cockpit__empty-message">
+                    Your time-today log lands here in PR #5d.1 (a small follow-up). For now, the KPI band above shows the totals.
+                </div>
+            </div>
+        </div>
+        break;
+
+    case Abs.FixedAssets.Pages.Production.WorkbenchModel.TabActivity:
+        <div role="tabpanel" aria-labelledby="tab-activity" class="cockpit-tab-pane">
+            <div class="cockpit__empty">
+                <i class="fas fa-clock-rotate-left cockpit__empty-icon"></i>
+                <div class="cockpit__empty-message">
+                    Operator activity feed lands when PR #5e (event tables) ships. The DowntimeEvent / ScrapEvent / ReworkEvent stream renders here.
+                </div>
+            </div>
+        </div>
+        break;
+
+    default:
+        @* Operations tab — the real Workbench canvas (queue + preview). *@
+        <div role="tabpanel" aria-labelledby="tab-operations">
+            @if (Model.QueueShell is not null)
+            {
+                @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.QueueShell)
+            }
+        </div>
+        break;
+}
+
+@section Scripts {
+    <script src="~/js/cockpit.js" asp-append-version="true"></script>
+    <script>
+        // selectWorkbenchOp — operator-picks-an-op preview hydrator.
+        // Reads from __workbenchDetails blob emitted by WorkbenchModel.
+        (function () {
+            var OP_DATA = {};
+            try {
+                var blob = document.getElementById('__workbenchDetails');
+                if (blob) { OP_DATA = JSON.parse(blob.textContent); }
+            } catch (e) { /* keep welcome state */ }
+
+            window.selectWorkbenchOp = function (id) {
+                document.querySelectorAll('.cockpit__card').forEach(function (c) { c.classList.remove('cockpit__card--active'); });
+                var card = document.querySelector('.cockpit__card[data-id="' + id + '"]');
+                if (card) card.classList.add('cockpit__card--active');
+
+                var op = OP_DATA[id];
+                if (!op) return;
+
+                var welcome = document.getElementById('mainWelcome');
+                var pv = document.getElementById('mainPreview');
+                if (welcome) welcome.style.display = 'none';
+                if (pv) pv.style.display = 'flex';
+
+                function set(elemId, val) {
+                    var el = document.getElementById(elemId);
+                    if (el) el.textContent = val == null ? '—' : val;
+                }
+                set('pvWbOpId', '#' + op.opId + ' · OP ' + (op.sequenceNumber || '').toString().padStart(2, '0'));
+                set('pvWbOrderNumber', op.orderNumber);
+                set('pvWbOrderTitle', op.orderTitle);
+                set('pvWbDescription', op.description);
+                set('pvWbWorkCenter', op.workCenter);
+                set('pvWbStatus', op.status);
+                set('pvWbPlannedQty', op.plannedQty);
+                set('pvWbCompletedQty', op.completedQty);
+                set('pvWbScrappedQty', op.scrappedQty);
+                set('pvWbReworkQty', op.reworkQty);
+                set('pvWbPlannedSetup', (op.plannedSetupMins || 0).toFixed(1) + ' mins');
+                set('pvWbPlannedRun', (op.plannedRunMins || 0).toFixed(1) + ' mins');
+                set('pvWbActualSetup', (op.actualSetupMins || 0).toFixed(1) + ' mins');
+                set('pvWbActualRun', (op.actualRunMins || 0).toFixed(1) + ' mins');
+                set('pvWbInstructions', op.instructions || '(no instructions on this op)');
+
+                // Status pill color.
+                var pill = document.getElementById('pvWbStatusPill');
+                if (pill) {
+                    pill.className = 'cockpit__preview-status status-badge-p status-badge-p--' + (op.status || '').toLowerCase();
+                }
+
+                // Wire all hidden form inputs to this opId.
+                document.querySelectorAll('[data-pv-op-id]').forEach(function (input) {
+                    input.value = op.opId;
+                });
+            };
+        })();
+    </script>
+}
