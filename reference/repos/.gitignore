@@ -1,0 +1,13 @@
+# reference/repos/ — local clones of external library source used as ground
+# truth for the agent's grep-before-code workflow. NEVER commit the cloned
+# source — it bloats the repo, blows out CI checkout time, and the canonical
+# copies are upstream anyway. We commit only the README + setup script that
+# tells future agents how to reconstruct the folder.
+
+# Ignore everything in this directory ...
+*
+
+# ... except the metadata files that describe what should be here.
+!.gitignore
+!README.md
+!setup.sh
