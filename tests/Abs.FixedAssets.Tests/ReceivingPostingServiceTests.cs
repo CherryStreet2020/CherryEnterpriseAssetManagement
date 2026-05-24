@@ -308,4 +308,76 @@ public class ReceivingPostingServiceTests
 
         Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "item.received"));
     }
+
+    // =========================================================================
+    // Sprint 13.5 PRA-5d — DEF-008 dual-write: JournalLine.AccountingKeyId
+    // stamped alongside the legacy Account string. Mirrors PRA-5c pattern
+    // from ApPostingServiceTests.
+    // =========================================================================
+
+    private static async Task SeedSystemGlAccountAsync(AppDbContext db, string accountNumber)
+    {
+        if (!await db.Set<GlAccount>().AnyAsync(a => a.AccountNumber == accountNumber && a.CompanyId == null))
+        {
+            db.Set<GlAccount>().Add(new GlAccount
+            {
+                AccountNumber = accountNumber,
+                Name = $"Test {accountNumber}",
+                CompanyId = null,
+                AccountType = GlAccountType.Asset,
+                Category = GlAccountCategory.CashAndReceivables,
+                NormalBalance = NormalBalance.Debit,
+                IsActive = true,
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PostReceipt_WithGlAccountsSeeded_StampsAccountingKeyIdOnAllLines()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        // Industry defaults: Inventory=1300, GrAccrued=2150.
+        await SeedSystemGlAccountAsync(db, "1300");
+        await SeedSystemGlAccountAsync(db, "2150");
+        var (receipt, _, _) = await SeedStockReceiptAsync(db, companyId, qty: 10m, unitPrice: 5m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        await NewService(db, tenant).PostReceiptAsync(receipt.Id);
+
+        var je = await db.JournalEntries.Include(j => j.Lines).SingleAsync();
+        Assert.Equal(2, je.Lines.Count);
+        Assert.All(je.Lines, l => Assert.True(l.AccountingKeyId.HasValue,
+            $"Expected AccountingKeyId stamped on line Account={l.Account}; actual NULL"));
+
+        // Both lines share CompanyId, so AccountingKeys differ only by AccountId.
+        var keyCount = await db.Set<Abs.FixedAssets.Models.Masters.AccountingKey>()
+            .CountAsync(k => k.CompanyId == companyId);
+        Assert.Equal(2, keyCount);
+    }
+
+    [Fact]
+    public async Task PostReceipt_WithoutGlAccountsSeeded_LeavesAccountingKeyIdNullAndStillWorks()
+    {
+        // Mirrors existing tests in this file — no GlAccount seeded → try/catch
+        // in ResolveAccountAndKeyAsync swallows GlAccountResolutionException +
+        // legacy Account string path continues unchanged.
+        const int companyId = 100;
+        await using var db = NewDb();
+        var (receipt, _, _) = await SeedStockReceiptAsync(db, companyId, qty: 10m, unitPrice: 5m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        await NewService(db, tenant).PostReceiptAsync(receipt.Id);
+
+        var je = await db.JournalEntries.Include(j => j.Lines).SingleAsync();
+        Assert.Equal(2, je.Lines.Count);
+        Assert.All(je.Lines, l => Assert.False(l.AccountingKeyId.HasValue,
+            $"Expected AccountingKeyId NULL (orphan fallback); actual {l.AccountingKeyId}"));
+        // Legacy Account strings still set.
+        var dr = je.Lines.Single(l => l.Debit > 0);
+        var cr = je.Lines.Single(l => l.Credit > 0);
+        Assert.Equal("1300", dr.Account);
+        Assert.Equal("2150", cr.Account);
+    }
 }
