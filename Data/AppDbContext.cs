@@ -291,6 +291,24 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.UomConversion> UomConversions
             => Set<Abs.FixedAssets.Models.Masters.UomConversion>();
 
+        // Sprint 13.5 PRA-6 — Currency / PaymentTerm / TaxAuthority / TaxCode
+        // master shapes. Naming pattern: appending "Master" to dodge name
+        // collision with the pre-existing thin entities in Models/SystemConfig.cs
+        // that already own the Currencies/PaymentTerms/TaxCodes table names.
+        // The existing thin entities stay for back-compat (5 services depend
+        // on them); the new *Master tables carry the BIC-compliant shape with
+        // CompanyId nullable cross-tenant ref + partial UNIQUEs + extended
+        // metadata (ISO 4217 decimals, 2/10 N30 discount fields, tax-authority
+        // FK, etc.). See docs/research/master-files-baseline-2026-05-24.md §6.
+        public DbSet<Abs.FixedAssets.Models.Masters.CurrencyMaster> CurrencyMasters
+            => Set<Abs.FixedAssets.Models.Masters.CurrencyMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.PaymentTermMaster> PaymentTermMasters
+            => Set<Abs.FixedAssets.Models.Masters.PaymentTermMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.TaxAuthority> TaxAuthorities
+            => Set<Abs.FixedAssets.Models.Masters.TaxAuthority>();
+        public DbSet<Abs.FixedAssets.Models.Masters.TaxCodeMaster> TaxCodeMasters
+            => Set<Abs.FixedAssets.Models.Masters.TaxCodeMaster>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3241,6 +3259,72 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.ItemId)
                     .HasDatabaseName("ix_uom_conversions_item")
                     .HasFilter("\"ItemId\" IS NOT NULL");
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-6 — Currency / PaymentTerm / TaxAuthority /
+            // TaxCode masters. Partial UNIQUE indexes (NO COALESCE-in-index
+            // per the Replit prod-validator lesson).
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CurrencyMaster>(e =>
+            {
+                e.HasIndex(x => x.IsoCode)
+                    .HasDatabaseName("ix_currency_masters_system_iso")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.IsoCode })
+                    .HasDatabaseName("ix_currency_masters_company_iso")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.PaymentTermMaster>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_payment_term_masters_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_payment_term_masters_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.CurrencyId)
+                    .HasDatabaseName("ix_payment_term_masters_currency")
+                    .HasFilter("\"CurrencyId\" IS NOT NULL");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.TaxAuthority>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_tax_authorities_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_tax_authorities_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.CountryCode)
+                    .HasDatabaseName("ix_tax_authorities_country");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.TaxCodeMaster>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_tax_code_masters_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_tax_code_masters_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.TaxAuthorityId)
+                    .HasDatabaseName("ix_tax_code_masters_authority")
+                    .HasFilter("\"TaxAuthorityId\" IS NOT NULL");
+
+                e.HasOne(x => x.TaxAuthority)
+                    .WithMany()
+                    .HasForeignKey(x => x.TaxAuthorityId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
 
