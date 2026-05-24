@@ -69,6 +69,25 @@
     <None Remove="out/**/*" />
   </ItemGroup>
 
+  <!-- HOTFIX 2026-05-24 (PR #324 — PRA-5b prerequisite) — exclude the
+       reference/repos/ shallow-clone tree from the build. PR #323 installed
+       reference clones of dotnet/sdk + dotnet/efcore + npgsql/efcore.pg under
+       reference/repos/ for grep-before-infer source lookups (see
+       feedback_use_reference_repos_for_grep memory). The clones are pinned
+       to release branches but they include thousands of .cs files. Without
+       this exclude, Microsoft.NET.Sdk.Web's implicit Compile glob pulls
+       them into THIS project's build, producing 2293 compiler errors in
+       npgsql's QueryBaseline.cs (which uses raw-string-literal syntax not
+       valid in our C# version setup). The clones are reference-only —
+       never meant to be compiled — so excluding the entire tree is the
+       right fix. -->
+  <ItemGroup>
+    <Compile Remove="reference/repos/**/*.cs" />
+    <Content Remove="reference/repos/**/*" />
+    <None Remove="reference/repos/**/*" />
+    <EmbeddedResource Remove="reference/repos/**/*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="JsonSchema.Net" Version="7.3.0" />
