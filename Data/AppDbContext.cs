@@ -280,6 +280,17 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.Holiday> Holidays
             => Set<Abs.FixedAssets.Models.Masters.Holiday>();
 
+        // Sprint 13.5 PRA-4 — Unified UOM master.
+        // Replaces the two parallel enums (Models.Item.UnitOfMeasure +
+        // Models.Telemetry.UnitOfMeasure) with one master table per the
+        // master-files-baseline-2026-05-24 memo.
+        public DbSet<Abs.FixedAssets.Models.Masters.UomCategory> UomCategories
+            => Set<Abs.FixedAssets.Models.Masters.UomCategory>();
+        public DbSet<Abs.FixedAssets.Models.Masters.UnitOfMeasureMaster> UnitsOfMeasure
+            => Set<Abs.FixedAssets.Models.Masters.UnitOfMeasureMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.UomConversion> UomConversions
+            => Set<Abs.FixedAssets.Models.Masters.UomConversion>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3174,6 +3185,62 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.SubdivisionId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-4 — UOM master config.
+            //
+            // Partial UNIQUE indexes per the Replit prod-validator convention
+            // (PR #5c.1.1 lesson: NO COALESCE-in-index — use WHERE filters).
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.UomCategory>(e =>
+            {
+                // Two partial UNIQUEs on Code (system vs tenant).
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_uom_categories_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_uom_categories_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.CompanyId)
+                    .HasDatabaseName("ix_uom_categories_company")
+                    .HasFilter("\"CompanyId\" IS NOT NULL");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.UnitOfMeasureMaster>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_units_of_measure_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_units_of_measure_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.UomCategoryId)
+                    .HasDatabaseName("ix_units_of_measure_category");
+                e.HasIndex(x => x.UneceCode)
+                    .HasDatabaseName("ix_units_of_measure_unece")
+                    .HasFilter("\"UneceCode\" IS NOT NULL");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.UomConversion>(e =>
+            {
+                // (Company, From, To, ItemId-or-0) unique. Partial UNIQUEs for
+                // company-wide vs per-item overrides.
+                e.HasIndex(x => new { x.CompanyId, x.FromUomId, x.ToUomId })
+                    .HasDatabaseName("ix_uom_conversions_company_wide")
+                    .HasFilter("\"ItemId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.FromUomId, x.ToUomId, x.ItemId })
+                    .HasDatabaseName("ix_uom_conversions_per_item")
+                    .HasFilter("\"ItemId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_uom_conversions_item")
+                    .HasFilter("\"ItemId\" IS NOT NULL");
             });
         }
 
