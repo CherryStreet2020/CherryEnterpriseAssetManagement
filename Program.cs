@@ -123,7 +123,21 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
         npg.UseVector();
     });
     options.AddInterceptors(sp.GetRequiredService<Abs.FixedAssets.Services.Diagnostics.SlowQueryInterceptor>());
-    
+
+    // ALL environments: suppress PendingModelChangesWarning so MigrateAsync()
+    // can run in production. The AppDbContext model has accumulated drift vs
+    // the latest migration snapshot (shadow-state FKs on FaiProductAccountability,
+    // CustomerProject, PMOccurrence, etc.). EF Core 9 elevates this drift to a
+    // fatal warning by default. We cannot safely auto-capture the drift because
+    // dotnet ef migrations add generates a destructive 46-DropTable + 57-DropColumn
+    // migration. Suppressing the warning lets MigrateAsync apply pending migrations
+    // normally while we tackle the actual entity FK config cleanup as a separate
+    // careful effort. See discovery_helium_vs_prod_db_2026_05_24 memory.
+    options.ConfigureWarnings(warnings =>
+    {
+        warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning);
+    });
+
     // Development-only: Configure warning behavior for First/FirstOrDefault without OrderBy
     if (builder.Environment.IsDevelopment())
     {
@@ -139,9 +153,6 @@ builder.Services.AddDbContext<AppDbContext>((sp, options) =>
                 // Log as warning (default behavior, but explicit)
                 warnings.Log(CoreEventId.FirstWithoutOrderByAndFilterWarning);
             }
-            
-            // Suppress PendingModelChangesWarning for migrations
-            warnings.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning);
         });
     }
 });
