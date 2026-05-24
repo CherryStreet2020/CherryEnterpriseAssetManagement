@@ -309,6 +309,26 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.TaxCodeMaster> TaxCodeMasters
             => Set<Abs.FixedAssets.Models.Masters.TaxCodeMaster>();
 
+        // Sprint 13.5 PRA-7 — Warehouse + Bin + Lot + Serial + ItemGroup +
+        // PostingProfile (Master Files Baseline cascade ship #5 of 8).
+        // SAP S/4 + Dynamics 365 separation-of-concerns shape: EAM Location
+        // stays as the asset hierarchy; WarehouseMaster + BinMaster carry the
+        // financial inventory side; LotMaster + SerialMaster the traceability
+        // spine; ItemGroup + PostingProfile the GL routing matrix.
+        // See docs/ADR-019-wms-posting-profile-pattern.md.
+        public DbSet<Abs.FixedAssets.Models.Masters.WarehouseMaster> WarehouseMasters
+            => Set<Abs.FixedAssets.Models.Masters.WarehouseMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.BinMaster> BinMasters
+            => Set<Abs.FixedAssets.Models.Masters.BinMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.LotMaster> LotMasters
+            => Set<Abs.FixedAssets.Models.Masters.LotMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.SerialMaster> SerialMasters
+            => Set<Abs.FixedAssets.Models.Masters.SerialMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.ItemGroup> ItemGroups
+            => Set<Abs.FixedAssets.Models.Masters.ItemGroup>();
+        public DbSet<Abs.FixedAssets.Models.Masters.PostingProfile> PostingProfiles
+            => Set<Abs.FixedAssets.Models.Masters.PostingProfile>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3324,6 +3344,160 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.TaxAuthority)
                     .WithMany()
                     .HasForeignKey(x => x.TaxAuthorityId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-7 — Warehouse + Bin + Lot + Serial + ItemGroup
+            // + PostingProfile. Partial UNIQUE indexes per the cross-tenant
+            // CompanyId NULL pattern. No COALESCE-in-index (PR #5c.1.1 lesson).
+            // See docs/ADR-019-wms-posting-profile-pattern.md.
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.WarehouseMaster>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_warehouse_masters_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_warehouse_masters_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.SiteId)
+                    .HasDatabaseName("ix_warehouse_masters_site")
+                    .HasFilter("\"SiteId\" IS NOT NULL");
+                e.HasIndex(x => x.WarehouseType)
+                    .HasDatabaseName("ix_warehouse_masters_type");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.BinMaster>(e =>
+            {
+                e.HasIndex(x => new { x.WarehouseId, x.Code })
+                    .HasDatabaseName("ix_bin_masters_system_warehouse_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.Code })
+                    .HasDatabaseName("ix_bin_masters_company_warehouse_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.WarehouseId)
+                    .HasDatabaseName("ix_bin_masters_warehouse");
+
+                e.HasOne(x => x.Warehouse)
+                    .WithMany()
+                    .HasForeignKey(x => x.WarehouseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.LotMaster>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.LotNumber })
+                    .HasDatabaseName("ix_lot_masters_company_item_lot")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.ItemId })
+                    .HasDatabaseName("ix_lot_masters_company_item");
+                e.HasIndex(x => x.ExpiryDate)
+                    .HasDatabaseName("ix_lot_masters_expiry")
+                    .HasFilter("\"ExpiryDate\" IS NOT NULL");
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("ix_lot_masters_status");
+                e.HasIndex(x => x.ParentLotId)
+                    .HasDatabaseName("ix_lot_masters_parent")
+                    .HasFilter("\"ParentLotId\" IS NOT NULL");
+
+                e.HasOne(x => x.ParentLot)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentLotId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.SerialMaster>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.SerialNumber })
+                    .HasDatabaseName("ix_serial_masters_company_item_serial")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.ItemId })
+                    .HasDatabaseName("ix_serial_masters_company_item");
+                e.HasIndex(x => x.LotId)
+                    .HasDatabaseName("ix_serial_masters_lot")
+                    .HasFilter("\"LotId\" IS NOT NULL");
+                e.HasIndex(x => x.CurrentWarehouseId)
+                    .HasDatabaseName("ix_serial_masters_current_warehouse")
+                    .HasFilter("\"CurrentWarehouseId\" IS NOT NULL");
+                e.HasIndex(x => x.CurrentBinId)
+                    .HasDatabaseName("ix_serial_masters_current_bin")
+                    .HasFilter("\"CurrentBinId\" IS NOT NULL");
+                e.HasIndex(x => x.LifecycleStatus)
+                    .HasDatabaseName("ix_serial_masters_lifecycle");
+                e.HasIndex(x => x.AssetId)
+                    .HasDatabaseName("ix_serial_masters_asset")
+                    .HasFilter("\"AssetId\" IS NOT NULL");
+
+                e.HasOne(x => x.Lot)
+                    .WithMany()
+                    .HasForeignKey(x => x.LotId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.CurrentWarehouse)
+                    .WithMany()
+                    .HasForeignKey(x => x.CurrentWarehouseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.CurrentBin)
+                    .WithMany()
+                    .HasForeignKey(x => x.CurrentBinId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemGroup>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_item_groups_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_item_groups_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.GroupType)
+                    .HasDatabaseName("ix_item_groups_type");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.PostingProfile>(e =>
+            {
+                // Composite UNIQUE across the resolution tuple. PostgreSQL
+                // partial UNIQUEs with NULLs need explicit COALESCE in the
+                // expression — we avoid that (PR #5c.1.1 quoting lesson) and
+                // ship four partial indexes for the four NULL combos.
+                e.HasIndex(x => new { x.ItemGroupId, x.TransactionType, x.WarehouseId })
+                    .HasDatabaseName("ix_posting_profiles_system_full")
+                    .HasFilter("\"CompanyId\" IS NULL AND \"WarehouseId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.ItemGroupId, x.TransactionType })
+                    .HasDatabaseName("ix_posting_profiles_system_nowh")
+                    .HasFilter("\"CompanyId\" IS NULL AND \"WarehouseId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.ItemGroupId, x.TransactionType, x.WarehouseId })
+                    .HasDatabaseName("ix_posting_profiles_company_full")
+                    .HasFilter("\"CompanyId\" IS NOT NULL AND \"WarehouseId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.ItemGroupId, x.TransactionType })
+                    .HasDatabaseName("ix_posting_profiles_company_nowh")
+                    .HasFilter("\"CompanyId\" IS NOT NULL AND \"WarehouseId\" IS NULL")
+                    .IsUnique();
+
+                e.HasIndex(x => x.WarehouseId)
+                    .HasDatabaseName("ix_posting_profiles_warehouse")
+                    .HasFilter("\"WarehouseId\" IS NOT NULL");
+
+                e.HasOne(x => x.ItemGroup)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemGroupId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Warehouse)
+                    .WithMany()
+                    .HasForeignKey(x => x.WarehouseId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }
