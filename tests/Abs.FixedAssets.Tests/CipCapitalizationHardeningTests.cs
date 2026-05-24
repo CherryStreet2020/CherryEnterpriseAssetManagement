@@ -124,7 +124,7 @@ public class CipCapitalizationHardeningTests
             NullLogger<DepreciationBackfillService>.Instance);
 
         var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenant, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var svc = new CipCapitalizationService(db, costSvc, lookup, tenant, resolver, guard, depBackfill, outbox);
+        var svc = new CipCapitalizationService(db, costSvc, lookup, tenant, resolver, guard, depBackfill, outbox, NullLogger<CipCapitalizationService>.Instance);
         return (db, project, svc, guard);
     }
 
@@ -238,7 +238,7 @@ public class CipCapitalizationHardeningTests
         var depBackfill = new DepreciationBackfillService(db, new DepreciationService(),
             NullLogger<DepreciationBackfillService>.Instance);
         var outbox = new Abs.FixedAssets.Services.Webhooks.OutboxWriter(db, tenantA, NullLogger<Abs.FixedAssets.Services.Webhooks.OutboxWriter>.Instance);
-        var svc = new CipCapitalizationService(db, costSvc, lookup, tenantA, resolver, guard, depBackfill, outbox);
+        var svc = new CipCapitalizationService(db, costSvc, lookup, tenantA, resolver, guard, depBackfill, outbox, NullLogger<CipCapitalizationService>.Instance);
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.CapitalizeAsync(foreignProject.Id, "X", "leak attempt", usefulLifeMonths: 60));
