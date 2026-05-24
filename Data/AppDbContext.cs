@@ -3495,10 +3495,18 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.ItemGroupId)
                     .OnDelete(DeleteBehavior.Restrict);
 
+                // ON DELETE RESTRICT — SetNull would collide with the partial
+                // UNIQUE indexes on (CompanyId, ItemGroupId, TransactionType)
+                // WHERE WarehouseId IS NULL. Nulling a warehouse-specific
+                // override would create a duplicate of the fallback key and
+                // fail the delete with a unique-constraint error. RESTRICT
+                // forces tenant admins to explicitly delete or reassign
+                // posting overrides before deleting a warehouse — the right
+                // semantic. (Codex review catch on PR #317.)
                 e.HasOne(x => x.Warehouse)
                     .WithMany()
                     .HasForeignKey(x => x.WarehouseId)
-                    .OnDelete(DeleteBehavior.SetNull);
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 
