@@ -232,6 +232,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ILaborService,
     Abs.FixedAssets.Services.Production.LaborService>();
 
+// Sprint 13.5 PRA-4 — IUomService backs the unified UOM master.
+// Replaces the two parallel enums (Models.Item.UnitOfMeasure inventory +
+// Models.Telemetry.UnitOfMeasure sensors) with one master table per the
+// master-files-baseline-2026-05-24 memo. Affine factor + offset to category
+// base unit handles in-category conversion arithmetically; UomConversion
+// table carries per-item + cross-category overrides only.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Masters.IUomService,
+    Abs.FixedAssets.Services.Masters.UomService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage

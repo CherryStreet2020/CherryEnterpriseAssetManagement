@@ -183,19 +183,79 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "Item Category")]
         public ItemCategory? Category { get; set; }
 
+        // ====================================================================
+        // LEGACY UOM (pre-Sprint-13.5-PRA-4) — kept for back-compat. New code
+        // should READ via the StockUomId / PurchaseUomId / SalesUomId FKs below
+        // and the IUomService.ConvertAsync helper. Removal of these legacy
+        // fields will happen in a dedicated cleanup PR after the FK fields are
+        // populated everywhere AND every read path has migrated.
+        // ====================================================================
         public UnitOfMeasure UOM { get; set; } = UnitOfMeasure.Each;
 
         [StringLength(20)]
-        [Display(Name = "Stock UOM")]
+        [Display(Name = "Stock UOM (legacy)")]
         public string StockUOM { get; set; } = "EA";
 
         [StringLength(20)]
-        [Display(Name = "Purchase UOM")]
+        [Display(Name = "Purchase UOM (legacy)")]
         public string PurchaseUOM { get; set; } = "EA";
 
-        [Display(Name = "Purchase/Stock Conversion")]
+        [Display(Name = "Purchase/Stock Conversion (legacy)")]
         [Column(TypeName = "decimal(18,4)")]
         public decimal PurchaseConversion { get; set; } = 1;
+
+        // ====================================================================
+        // Sprint 13.5 PRA-4 — UOM master FKs (10 new columns, all NULLABLE).
+        //
+        // The new master UOM table replaces the two parallel enums
+        // (Models.Item.UnitOfMeasure inventory + Models.Telemetry.UnitOfMeasure
+        // sensors) with a unified Masters.UnitOfMeasureMaster table — one row
+        // per UOM, affine factor + offset to its category's base unit, ISO/
+        // UNECE/UCUM codes, decimal precision per UOM.
+        //
+        // ALL FKs ARE NULLABLE in this PR. The PRA-4 migration backfills
+        // StockUomId from the legacy UOM enum so existing rows have a value
+        // immediately. Other FKs (PurchaseUomId / SalesUomId / etc.) default
+        // to NULL = "same as Stock" — service-layer resolver handles the
+        // fallback.
+        //
+        // NOT-NULLing StockUomId is a SEPARATE migration after every read
+        // path has migrated (PRA-4.x cleanup or later sprint).
+        //
+        // AUTHORITY:
+        //   - docs/research/master-files-baseline-2026-05-24.md §5
+        //   - memory: reference_master_files_baseline.md
+        // ====================================================================
+
+        [Display(Name = "Stock UOM"), Column("StockUomId")]
+        public int? StockUomId { get; set; }
+
+        [Display(Name = "Purchase UOM"), Column("PurchaseUomId")]
+        public int? PurchaseUomId { get; set; }
+
+        [Display(Name = "Purchase Pack UOM"), Column("PurchasePackUomId")]
+        public int? PurchasePackUomId { get; set; }
+
+        [Display(Name = "Sales UOM"), Column("SalesUomId")]
+        public int? SalesUomId { get; set; }
+
+        [Display(Name = "Sales Pack UOM"), Column("SalesPackUomId")]
+        public int? SalesPackUomId { get; set; }
+
+        [Display(Name = "Price UOM"), Column("PriceUomId")]
+        public int? PriceUomId { get; set; }
+
+        [Display(Name = "Reporting UOM"), Column("ReportingUomId")]
+        public int? ReportingUomId { get; set; }
+
+        [Display(Name = "Weight UOM"), Column("WeightUomId")]
+        public int? WeightUomId { get; set; }
+
+        [Display(Name = "Volume UOM"), Column("VolumeUomId")]
+        public int? VolumeUomId { get; set; }
+
+        [Display(Name = "Dimension UOM"), Column("DimensionUomId")]
+        public int? DimensionUomId { get; set; }
 
         public CostMethod CostMethod { get; set; } = CostMethod.Average;
         public int? CostMethodLookupValueId { get; set; }
