@@ -355,6 +355,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.RebateAgreement> RebateAgreements
             => Set<Abs.FixedAssets.Models.Masters.RebateAgreement>();
 
+        // Sprint 13.5 PRA-10 — TaxRateMaster (Master Files Baseline cascade
+        // ship #8 of 10). Effective-dated tax rate matrix joining
+        // (TaxCode × Jurisdiction × ProductClass × DateRange) → rate.
+        // AvaTax / Vertex-style resolution. Caps PRA-6's TaxAuthority +
+        // TaxCodeMaster (the SHAPE) with the actual rates at points in time.
+        public DbSet<Abs.FixedAssets.Models.Masters.TaxRateMaster> TaxRateMasters
+            => Set<Abs.FixedAssets.Models.Masters.TaxRateMaster>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3692,6 +3700,44 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.EffectiveToUtc)
                     .HasDatabaseName("ix_rebate_agreements_effective_to")
                     .HasFilter("\"EffectiveToUtc\" IS NULL");
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-10 — TaxRateMaster (effective-dated tax rates).
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.TaxRateMaster>(e =>
+            {
+                // (CompanyId IS NULL, Code, EffectiveFromUtc) UNIQUE for
+                // system templates — same code can recur across effective
+                // periods (rate changes over time).
+                e.HasIndex(x => new { x.Code, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_tax_rate_masters_system_code_effective")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_tax_rate_masters_company_code_effective")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.TaxCodeMasterId)
+                    .HasDatabaseName("ix_tax_rate_masters_taxcode");
+                e.HasIndex(x => new { x.CountryCode, x.SubdivisionCode, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_tax_rate_masters_jurisdiction_effective");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_tax_rate_masters_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
+                e.HasIndex(x => x.AppliesToItemGroupId)
+                    .HasDatabaseName("ix_tax_rate_masters_itemgroup")
+                    .HasFilter("\"AppliesToItemGroupId\" IS NOT NULL");
+
+                e.HasOne(x => x.TaxCodeMaster)
+                    .WithMany()
+                    .HasForeignKey(x => x.TaxCodeMasterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.TaxAuthority)
+                    .WithMany()
+                    .HasForeignKey(x => x.TaxAuthorityId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
 
