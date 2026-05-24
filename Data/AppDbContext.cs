@@ -363,6 +363,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.TaxRateMaster> TaxRateMasters
             => Set<Abs.FixedAssets.Models.Masters.TaxRateMaster>();
 
+        // Sprint 13.5 PRA-11 — PackLevel + ItemPackHierarchy (Master Files
+        // Baseline cascade ship #9 of 10). GS1-style named pack tiers
+        // (Each/Inner/Case/Pallet/Truck) + per-Item physical config
+        // (qty, dimensions, weights, barcodes) at each tier. Drives WMS
+        // slotting, shipping label generation, MRP rounding.
+        public DbSet<Abs.FixedAssets.Models.Masters.PackLevel> PackLevels
+            => Set<Abs.FixedAssets.Models.Masters.PackLevel>();
+        public DbSet<Abs.FixedAssets.Models.Masters.ItemPackHierarchy> ItemPackHierarchies
+            => Set<Abs.FixedAssets.Models.Masters.ItemPackHierarchy>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3738,6 +3748,39 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.TaxAuthorityId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-11 — PackLevel + ItemPackHierarchy.
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.PackLevel>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_pack_levels_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_pack_levels_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.LevelOrder)
+                    .HasDatabaseName("ix_pack_levels_order");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemPackHierarchy>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.PackLevelId })
+                    .HasDatabaseName("ix_item_pack_hierarchies_company_item_level");
+                e.HasIndex(x => x.Gtin)
+                    .HasDatabaseName("ix_item_pack_hierarchies_gtin")
+                    .HasFilter("\"Gtin\" IS NOT NULL");
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_item_pack_hierarchies_item");
+
+                e.HasOne(x => x.PackLevel)
+                    .WithMany()
+                    .HasForeignKey(x => x.PackLevelId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 
