@@ -29,7 +29,19 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
-        // Shop-defined short code. Required, UNIQUE per shop.
+        // Sprint 13.5 PR #5c.2 — Cross-tenant reference scoping.
+        // NULL CompanyId = system reference data (shared across all tenants — the
+        // canonical "ASTM A36 hot-rolled plate" row that every shop sees).
+        // NOT NULL CompanyId = tenant-specific extension (a shop's custom shorthand
+        // that doesn't apply company-wide).
+        // Enforced via two partial UNIQUE indexes:
+        //   IX_MaterialMasters_System_ShopCode  WHERE CompanyId IS NULL
+        //   IX_MaterialMasters_Company_ShopCode WHERE CompanyId IS NOT NULL
+        // (Replit gotcha lesson from PR #5c.1.1 — no COALESCE-in-index.)
+        public int? CompanyId { get; set; }
+        public int? LocationId { get; set; }
+
+        // Shop-defined short code. Required, UNIQUE per scope (system or tenant).
         [Required]
         [StringLength(64)]
         [Display(Name = "Shop Code")]

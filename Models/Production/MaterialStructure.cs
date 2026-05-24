@@ -31,7 +31,23 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
+        // Sprint 13.5 PR #5c.2 — Tenant scoping + site-or-template pattern.
+        // Mirrors the Routing pattern from PR #5c.1:
+        //   - CompanyId NOT NULL — every BOM/Recipe belongs to exactly one company.
+        //   - LocationId NULL    — when set, the structure is site-scoped (only valid
+        //                          at that shop). When NULL + IsSiteWideTemplate=TRUE,
+        //                          the structure is a company-wide engineering template
+        //                          that any site can inherit (SAP "BOM with no plant").
+        //   - IsSiteWideTemplate — required when LocationId is NULL, must be FALSE
+        //                          when LocationId is set (CHECK constraint in migration).
+        // UNIQUE on (CompanyId, [LocationId,] StructureNumber, Revision) — two partial
+        // indexes to avoid COALESCE-in-index (Replit prod-validator gotcha).
+        public int CompanyId { get; set; }
+        public int? LocationId { get; set; }
+        public bool IsSiteWideTemplate { get; set; }
+
         // Human-facing identifier — "MS-2026-00042" or shop convention.
+        // UNIQUE per (CompanyId, LocationId-or-null, Revision).
         [Required]
         [StringLength(64)]
         [Display(Name = "Structure #")]

@@ -40,6 +40,17 @@ namespace Abs.FixedAssets.Models.Production
     {
         public int Id { get; set; }
 
+        // Sprint 13.5 PR #5c.2 — Direct tenant scoping (defensive denormalization
+        // from Location.CompanyId for fast tenant filtering + leak-prevention).
+        // Backfilled in migration 20260524120000_TenantScopingHardeningPr5c2:
+        //   primary path: po.LocationId → Location.CompanyId
+        //   fallback:     po.CustomerProjectId → CustomerProject.CompanyId
+        // Grace-period CHECK >= 0 — orphan unsited/unprojected orders stay at 0
+        // until PR #5c.4 seeder fills them and a follow-up tightens to > 0.
+        // UNIQUE (CompanyId, OrderNumber) replaces the global OrderNumber UNIQUE
+        // (P0 cross-tenant leak — every tenant collided on each other's numbers).
+        public int CompanyId { get; set; }
+
         // Human-facing identifier (e.g., "PRO-2026-00042"). Generated via
         // NumberSequence (SAP NRIV pattern, PR #119.5) once a number-
         // sequence row for ProductionOrder is seeded — current MVP allows

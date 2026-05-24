@@ -69,15 +69,9 @@ public sealed class ProductionOrderService : IProductionOrderService
         if (request.QuantityOrdered < 0)
             return Result.Failure<ProductionOrder>("QuantityOrdered cannot be negative.");
 
-        // Soft-uniqueness pre-check — friendlier than a DbUpdateException
-        // bubble. (If the schema gains a UNIQUE constraint later, the DB
-        // is the authoritative backstop.)
-        var orderNumberTaken = await _db.ProductionOrders
-            .Where(p => p.OrderNumber == request.OrderNumber)
-            .AnyAsync(ct);
-        if (orderNumberTaken)
-            return Result.Failure<ProductionOrder>(
-                $"Production order number '{request.OrderNumber}' is already in use.");
+        // PR #5c.2 — Soft-uniqueness pre-check moved BELOW tenant resolution so
+        // it can be (CompanyId, OrderNumber) scoped (matches the new composite
+        // UNIQUE that replaced the global OrderNumber UNIQUE).
 
         // Tenant scope must be resolvable from either Location or Customer
         // (matches the ICustomerProjectService.LinkProductionOrderAsync rule).
@@ -113,6 +107,18 @@ public sealed class ProductionOrderService : IProductionOrderService
             return Result.Failure<ProductionOrder>(
                 $"Resolved company {scopedCompanyId.Value} is not visible to the current tenant.");
 
+        // PR #5c.2 — Tenant-scoped soft-uniqueness pre-check (replaces the prior
+        // global OrderNumber check). Two tenants can each have their own
+        // "PRO-2026-00042" without colliding because the UNIQUE is now
+        // (CompanyId, OrderNumber). DB UNIQUE is the authoritative backstop.
+        var orderNumberTaken = await _db.ProductionOrders
+            .Where(p => p.CompanyId == scopedCompanyId.Value
+                     && p.OrderNumber == request.OrderNumber)
+            .AnyAsync(ct);
+        if (orderNumberTaken)
+            return Result.Failure<ProductionOrder>(
+                $"Production order number '{request.OrderNumber}' is already in use for this company.");
+
         // Cross-FK sanity: if both Location and Customer are set, their
         // companies should match (an order can't physically run at company
         // A while being billed to a customer of company B).
@@ -141,6 +147,11 @@ public sealed class ProductionOrderService : IProductionOrderService
 
         var order = new ProductionOrder
         {
+            // PR #5c.2 — Stamp CompanyId directly on the row. The migration
+            // backfilled existing rows via Location/CustomerProject joins; new
+            // rows stamp it explicitly here so the UNIQUE index works correctly
+            // and tenant filters skip the Location JOIN.
+            CompanyId               = scopedCompanyId.Value,
             OrderNumber             = request.OrderNumber,
             Type                    = request.Type,
             Status                  = ProductionOrderStatus.Planned,

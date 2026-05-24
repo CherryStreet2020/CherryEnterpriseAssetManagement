@@ -79,6 +79,14 @@ public class ProductionOperation
     // aggregates without joining all the way to ProductionOrder.LocationId.
     public int LocationIdSnapshot { get; set; }
 
+    // Sprint 13.5 PR #5c.2 — Tenant snapshot (sibling to LocationIdSnapshot).
+    // Snapped at release time from ProductionOrder.CompanyId so cross-tenant
+    // queries can filter ops without joining all the way to ProductionOrder
+    // → Location → CompanyId. Same snapshot discipline as the rest of this
+    // entity: editing the parent order's CompanyId post-release must NOT
+    // retroactively change in-flight operations.
+    public int CompanyIdSnapshot { get; set; }
+
     // WorkCenter — copied at release, the floor can reassign.
     public int WorkCenterId { get; set; }
 
