@@ -71,9 +71,28 @@ namespace Abs.FixedAssets.Models
 
     public enum GlAccountCategory
     {
+        // ====================================================================
+        // ASSETS (100-299) — original 14 values + Sprint 13.5 PRA-5a additions.
+        // ====================================================================
         CashAndReceivables = 100,
         MroInventory = 110,
-        WorkInProgress = 120,
+
+        // Sprint 13.5 PRA-5a — Manufacturing-side inventory categories
+        // (additive; NO renumber of existing values). These give the COA the
+        // shape every manufacturer-grade ERP needs: separate buckets per
+        // material lifecycle stage so cost-of-goods accounting can flow
+        // RM → WIP → FG → COGS cleanly, with sub-assembly / subcontract /
+        // consigned / in-transit / scrap as siblings.
+        RawMaterialInventory = 111,
+        WipInventoryProduction = 112,    // distinct from WorkInProgress=120 (CIP/CapImpr)
+        FinishedGoodsInventory = 113,
+        SubAssemblyInventory = 114,
+        SubcontractInventory = 115,
+        ConsignedInventory = 116,
+        InventoryInTransit = 117,
+        ScrapInventory = 118,
+
+        WorkInProgress = 120,             // CIP/capital-improvement WIP (existing)
         PrepaidAndDeposits = 130,
         FixedAssetsLandBuildings = 140,
         FixedAssetsMachinery = 150,
@@ -82,15 +101,62 @@ namespace Abs.FixedAssets.Models
         FixedAssetsTooling = 180,
         AccumulatedDepreciation = 190,
         IntercompanyReceivables = 195,
+
+        // ====================================================================
+        // LIABILITIES (200-299).
+        // ====================================================================
         CurrentLiabilities = 200,
         IntercompanyPayables = 205,
         LongTermLiabilities = 210,
         InvestmentInSubsidiaries = 215,
+
+        // ====================================================================
+        // EQUITY (300-399).
+        // ====================================================================
         Equity = 300,
+        // Sprint 13.5 PRA-5a — period-end clearing
+        CurrentYearEarnings = 305,
         IntercompanyEliminations = 310,
         CurrencyTranslation = 320,
+
+        // ====================================================================
+        // REVENUE (400-499) — original RevenueAndGains + PRA-5a sub-buckets.
+        // ====================================================================
         RevenueAndGains = 400,
+        // Sprint 13.5 PRA-5a — product/service/contract revenue split
+        // (lets P&L break by revenue-stream + intercompany roll-up)
+        ProductRevenue = 401,
+        ServiceRevenue = 402,
+        ContractRevenue = 403,
+        IntercompanySales = 410,
+
+        // ====================================================================
+        // COST OF SALES + MANUFACTURING (500-599).
+        // Sprint 13.5 PRA-5a adds variance + intercompany + production-cost
+        // categories so cost rollup can isolate the drivers (PPV / MUV / LRV /
+        // LEV / OH spending / OH volume / yield / scrap / rework / WIP
+        // clearing) instead of dumping everything into CostOfSales.
+        // ====================================================================
         CostOfSales = 500,
+        IntercompanyCogs = 510,
+        ProductionLaborExpense = 520,
+        ProductionOverhead = 530,
+        ProductionConsumables = 540,
+        PurchasePriceVariance = 550,
+        MaterialUsageVariance = 560,
+        LaborRateVariance = 570,
+        LaborEfficiencyVariance = 580,
+        OverheadApplied = 590,            // NormalBalance = Credit (subtractive against CostOfSales)
+        OverheadSpendingVariance = 591,
+        OverheadVolumeVariance = 592,
+        YieldVariance = 593,
+        ScrapExpense = 594,
+        ReworkExpense = 595,
+        WipToFgClearing = 596,
+
+        // ====================================================================
+        // OPERATING EXPENSES (600-699) — unchanged.
+        // ====================================================================
         DepreciationExpense = 600,
         MaintenanceLabor = 610,
         RepairParts = 620,
