@@ -341,6 +341,20 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.LaborRateMaster> LaborRateMasters
             => Set<Abs.FixedAssets.Models.Masters.LaborRateMaster>();
 
+        // Sprint 13.5 PRA-9 — PriceListMaster + PriceListLine + DiscountSchema
+        // + RebateAgreement (Master Files Baseline cascade ship #7 of 10).
+        // Customer pricing + promotional / contract discounts + back-end
+        // rebates. Ships alongside ADR-027 (locks SalesOrder→Line→Release
+        // shape for Sprint 19+).
+        public DbSet<Abs.FixedAssets.Models.Masters.PriceListMaster> PriceListMasters
+            => Set<Abs.FixedAssets.Models.Masters.PriceListMaster>();
+        public DbSet<Abs.FixedAssets.Models.Masters.PriceListLine> PriceListLines
+            => Set<Abs.FixedAssets.Models.Masters.PriceListLine>();
+        public DbSet<Abs.FixedAssets.Models.Masters.DiscountSchema> DiscountSchemas
+            => Set<Abs.FixedAssets.Models.Masters.DiscountSchema>();
+        public DbSet<Abs.FixedAssets.Models.Masters.RebateAgreement> RebateAgreements
+            => Set<Abs.FixedAssets.Models.Masters.RebateAgreement>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3595,6 +3609,89 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.WageGroupId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-9 — PriceListMaster + PriceListLine
+            // + DiscountSchema + RebateAgreement. Customer-facing pricing
+            // substrate. Lays the ground for ADR-027 (SalesOrder lines that
+            // reference PriceListLineId for price provenance + DiscountSchemaId
+            // for discount provenance).
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.PriceListMaster>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_price_list_masters_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_price_list_masters_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.CustomerId)
+                    .HasDatabaseName("ix_price_list_masters_customer")
+                    .HasFilter("\"CustomerId\" IS NOT NULL");
+                e.HasIndex(x => x.CustomerTier)
+                    .HasDatabaseName("ix_price_list_masters_tier")
+                    .HasFilter("\"CustomerTier\" IS NOT NULL");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_price_list_masters_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
+
+                e.HasOne(x => x.Currency)
+                    .WithMany()
+                    .HasForeignKey(x => x.CurrencyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.PriceListLine>(e =>
+            {
+                e.HasIndex(x => new { x.PriceListMasterId, x.ItemId, x.UomId, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_price_list_lines_list_item_uom_effective");
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_price_list_lines_item");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_price_list_lines_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
+
+                e.HasOne(x => x.PriceListMaster)
+                    .WithMany()
+                    .HasForeignKey(x => x.PriceListMasterId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.DiscountSchema>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_discount_schemas_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_discount_schemas_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.AppliesToScope)
+                    .HasDatabaseName("ix_discount_schemas_scope");
+                e.HasIndex(x => new { x.AppliesToScope, x.AppliesToEntityId })
+                    .HasDatabaseName("ix_discount_schemas_scope_entity")
+                    .HasFilter("\"AppliesToEntityId\" IS NOT NULL");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_discount_schemas_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.RebateAgreement>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_rebate_agreements_company_code")
+                    .IsUnique();
+                e.HasIndex(x => x.CustomerId)
+                    .HasDatabaseName("ix_rebate_agreements_customer");
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("ix_rebate_agreements_status");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_rebate_agreements_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
             });
         }
 
