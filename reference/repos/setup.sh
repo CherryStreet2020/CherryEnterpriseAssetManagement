@@ -44,23 +44,38 @@ clone_or_update() {
   echo ""
 }
 
+# =============================================================================
+# Pinned to stable refs that match our deployed package versions
+# (Codex P2 review catch on PR #323 — tracking `main` makes reference
+# context non-reproducible and can mislead debugging when upstream diverges
+# from prod). Bump these when bumping the corresponding NuGet packages.
+#
+# Current prod deps (from Abs.FixedAssets.csproj):
+#   Microsoft.EntityFrameworkCore.* @ 9.0.0           → efcore: release/9.0
+#   Npgsql.EntityFrameworkCore.PostgreSQL @ 9.0.4     → efcore.pg: v9.0.4
+#   .NET 9 SDK (TargetFramework=net9.0)               → sdk: release/9.0.3xx (current latest 9.x feature band)
+# =============================================================================
+
 # .NET SDK — MSBuild internals, web SDK content rules, publish targets.
-# Track main (release/* branches are point-version specific and shift).
+# release/9.0.3xx tracks the current .NET 9 SDK feature band (9.0.3xx).
+# Bump to .4xx / .5xx as later feature bands ship.
 clone_or_update "dotnet/sdk" \
   "https://github.com/dotnet/sdk.git" \
-  "main"
+  "release/9.0.3xx"
 
 # EF Core — migrations, model snapshots, query translation, FluentAPI semantics.
-# Track main; we read latest source for the conceptual understanding.
+# release/9.0 is the canonical .NET 9 line (single branch — no .Nxx feature
+# bands like SDK).
 clone_or_update "dotnet/efcore" \
   "https://github.com/dotnet/efcore.git" \
-  "main"
+  "release/9.0"
 
 # Npgsql EF Core provider — partial UNIQUE quirks, JSONB mapping, prod-validator
-# quoting issues. Track main; small enough that drift is fine.
+# quoting issues. Pinned to the tag matching our deployed version
+# (Npgsql.EntityFrameworkCore.PostgreSQL @ 9.0.4 per Abs.FixedAssets.csproj).
 clone_or_update "npgsql/Npgsql.EntityFrameworkCore.PostgreSQL" \
   "https://github.com/npgsql/efcore.pg.git" \
-  "main"
+  "v9.0.4"
 
 echo "==== Done ===="
 echo ""

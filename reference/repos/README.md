@@ -49,6 +49,28 @@ The script:
 
 Re-run any time we bump a package version. The script is idempotent.
 
+### Pinning policy (Codex P2 catch on PR #323)
+
+Reference clones must track **stable refs that match our deployed package
+versions** — NOT moving `main` branches. Tracking `main` makes reference
+context non-reproducible and can mislead debugging when upstream code
+diverges from what's actually running in prod.
+
+**Current pins** (verify alignment whenever bumping a NuGet package):
+
+| Repo | Pin | Matches |
+|---|---|---|
+| `dotnet/sdk` | `release/9.0.3xx` branch | The current .NET 9 SDK feature band (.3xx). Bump to `.4xx` / `.5xx` as later bands ship. |
+| `dotnet/efcore` | `release/9.0` branch | The canonical .NET 9 EF Core line (single branch — no `.Nxx` feature bands here). |
+| `npgsql/efcore.pg` | `v9.0.4` tag | Exact match for `Npgsql.EntityFrameworkCore.PostgreSQL @ 9.0.4` in `Abs.FixedAssets.csproj`. |
+
+**Bump checklist** when updating package versions in `Abs.FixedAssets.csproj`:
+
+1. Open `reference/repos/setup.sh`.
+2. Update each `clone_or_update` line to the new corresponding tag/branch.
+3. Run `bash reference/repos/setup.sh` to refresh the local clones.
+4. Commit the `setup.sh` change in the same PR as the NuGet bump.
+
 ## How the agent uses it
 
 When the agent is about to integrate a library, debug a build failure, or trace a runtime exception in one of the high-touch deps:
