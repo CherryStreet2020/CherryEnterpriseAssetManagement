@@ -329,6 +329,18 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Masters.PostingProfile> PostingProfiles
             => Set<Abs.FixedAssets.Models.Masters.PostingProfile>();
 
+        // Sprint 13.5 PRA-8 — Employee + WageGroup + LaborRateMaster
+        // (Master Files Baseline cascade ship #6 of 10). HR org master,
+        // hourly band classification, effective-dated rate matrix.
+        // LaborRateMaster suffix dodges legacy LaborRate collision in
+        // Models/LaborConfig.cs (DEF-008 pattern, same as PRA-6).
+        public DbSet<Abs.FixedAssets.Models.Masters.Employee> Employees
+            => Set<Abs.FixedAssets.Models.Masters.Employee>();
+        public DbSet<Abs.FixedAssets.Models.Masters.WageGroup> WageGroups
+            => Set<Abs.FixedAssets.Models.Masters.WageGroup>();
+        public DbSet<Abs.FixedAssets.Models.Masters.LaborRateMaster> LaborRateMasters
+            => Set<Abs.FixedAssets.Models.Masters.LaborRateMaster>();
+
         // Users
         public DbSet<User> Users => Set<User>();
 
@@ -3506,6 +3518,82 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Warehouse)
                     .WithMany()
                     .HasForeignKey(x => x.WarehouseId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ================================================================
+            // Sprint 13.5 PRA-8 — Employee + WageGroup + LaborRateMaster.
+            // Tenant-owned operational data (CompanyId NOT NULL on Employee
+            // and LaborRateMaster); WageGroup carries system templates.
+            // ================================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.Employee>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.EmployeeNumber })
+                    .HasDatabaseName("ix_employees_company_employeenumber")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.LastName, x.FirstName })
+                    .HasDatabaseName("ix_employees_company_name");
+                e.HasIndex(x => x.DepartmentId)
+                    .HasDatabaseName("ix_employees_department")
+                    .HasFilter("\"DepartmentId\" IS NOT NULL");
+                e.HasIndex(x => x.ManagerId)
+                    .HasDatabaseName("ix_employees_manager")
+                    .HasFilter("\"ManagerId\" IS NOT NULL");
+                e.HasIndex(x => x.SiteId)
+                    .HasDatabaseName("ix_employees_site")
+                    .HasFilter("\"SiteId\" IS NOT NULL");
+                e.HasIndex(x => x.DefaultWageGroupId)
+                    .HasDatabaseName("ix_employees_wagegroup")
+                    .HasFilter("\"DefaultWageGroupId\" IS NOT NULL");
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("ix_employees_status");
+
+                // Self-ref manager — RESTRICT forces explicit reassignment.
+                e.HasOne(x => x.Manager)
+                    .WithMany()
+                    .HasForeignKey(x => x.ManagerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.DefaultWageGroup)
+                    .WithMany()
+                    .HasForeignKey(x => x.DefaultWageGroupId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.WageGroup>(e =>
+            {
+                e.HasIndex(x => x.Code)
+                    .HasDatabaseName("ix_wage_groups_system_code")
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .HasDatabaseName("ix_wage_groups_company_code")
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => x.GroupType)
+                    .HasDatabaseName("ix_wage_groups_type");
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.LaborRateMaster>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.EmployeeId, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_labor_rate_masters_company_employee_effective")
+                    .HasFilter("\"EmployeeId\" IS NOT NULL");
+                e.HasIndex(x => new { x.CompanyId, x.WageGroupId, x.EffectiveFromUtc })
+                    .HasDatabaseName("ix_labor_rate_masters_company_wagegroup_effective")
+                    .HasFilter("\"EmployeeId\" IS NULL");
+                e.HasIndex(x => x.EffectiveToUtc)
+                    .HasDatabaseName("ix_labor_rate_masters_effective_to")
+                    .HasFilter("\"EffectiveToUtc\" IS NULL");
+
+                e.HasOne(x => x.Employee)
+                    .WithMany()
+                    .HasForeignKey(x => x.EmployeeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.WageGroup)
+                    .WithMany()
+                    .HasForeignKey(x => x.WageGroupId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
         }
