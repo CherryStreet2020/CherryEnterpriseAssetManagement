@@ -205,4 +205,161 @@ public class GlAccountResolverTests
         var second = await resolver.ResolveAsync(companyId, GlAccountKind.Inventory);
         Assert.Equal("INVENTORY-V1", second); // cached
     }
+
+    // =========================================================================
+    // Sprint 13.5 PRA-5b — ResolveAccountingKeyAsync coverage.
+    //
+    // The new method extends the existing cascade: resolves the account-number
+    // string (existing path), looks up GlAccount.Id, denormalizes
+    // IndustryVertical from Company, computes a deterministic sha256 hash
+    // over the canonical 8-segment string, and find-or-inserts an
+    // AccountingKey row. Returns the row's Id.
+    // =========================================================================
+
+    private static async Task SeedGlAccountAsync(AppDbContext db, int? companyId, string accountNumber)
+    {
+        if (!await db.Set<GlAccount>().AnyAsync(a => a.AccountNumber == accountNumber && a.CompanyId == companyId))
+        {
+            db.Set<GlAccount>().Add(new GlAccount
+            {
+                AccountNumber = accountNumber,
+                Name = $"Test account {accountNumber}",
+                CompanyId = companyId,
+                AccountType = GlAccountType.Asset,
+                Category = GlAccountCategory.CashAndReceivables,
+                NormalBalance = NormalBalance.Debit,
+                IsActive = true,
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task ResolveAccountingKey_HappyPath_MintsRowAndReturnsId()
+    {
+        await using var db = NewDb();
+        var companyId = await SeedCompanyAsync(db);
+        await SeedGlAccountAsync(db, companyId: null, accountNumber: "1500"); // industry-default AssetCost
+        var resolver = NewResolver(db);
+
+        var keyId = await resolver.ResolveAccountingKeyAsync(
+            companyId,
+            GlAccountKind.AssetCost,
+            new AccountingKeyResolveContext()); // all segments NULL
+
+        Assert.True(keyId > 0);
+        var row = await db.Set<Abs.FixedAssets.Models.Masters.AccountingKey>()
+            .FirstOrDefaultAsync(k => k.Id == keyId);
+        Assert.NotNull(row);
+        Assert.Equal(companyId, row!.CompanyId);
+        Assert.Null(row.SiteId);
+        Assert.Null(row.CostCenterId);
+        Assert.NotEmpty(row.AccountingKeyHash);
+        Assert.Equal(64, row.AccountingKeyHash.Length); // sha256-hex
+    }
+
+    [Fact]
+    public async Task ResolveAccountingKey_RepeatCall_ReturnsSameId()
+    {
+        await using var db = NewDb();
+        var companyId = await SeedCompanyAsync(db);
+        await SeedGlAccountAsync(db, companyId: null, accountNumber: "1500");
+        var resolver = NewResolver(db);
+
+        var first = await resolver.ResolveAccountingKeyAsync(
+            companyId, GlAccountKind.AssetCost, new AccountingKeyResolveContext());
+        var second = await resolver.ResolveAccountingKeyAsync(
+            companyId, GlAccountKind.AssetCost, new AccountingKeyResolveContext());
+
+        Assert.Equal(first, second);
+        // And only one row exists in the table.
+        var rowCount = await db.Set<Abs.FixedAssets.Models.Masters.AccountingKey>()
+            .CountAsync(k => k.CompanyId == companyId);
+        Assert.Equal(1, rowCount);
+    }
+
+    [Fact]
+    public async Task ResolveAccountingKey_DifferentSegments_MintDistinctRows()
+    {
+        await using var db = NewDb();
+        var companyId = await SeedCompanyAsync(db);
+        await SeedGlAccountAsync(db, companyId: null, accountNumber: "1500");
+        var resolver = NewResolver(db);
+
+        var keyA = await resolver.ResolveAccountingKeyAsync(
+            companyId, GlAccountKind.AssetCost,
+            new AccountingKeyResolveContext(DepartmentId: 7));
+        var keyB = await resolver.ResolveAccountingKeyAsync(
+            companyId, GlAccountKind.AssetCost,
+            new AccountingKeyResolveContext(DepartmentId: 8));
+        var keyC = await resolver.ResolveAccountingKeyAsync(
+            companyId, GlAccountKind.AssetCost,
+            new AccountingKeyResolveContext(DepartmentId: 7, ProjectId: 42));
+
+        // 3 different segment combos = 3 different AccountingKey rows.
+        Assert.NotEqual(keyA, keyB);
+        Assert.NotEqual(keyA, keyC);
+        Assert.NotEqual(keyB, keyC);
+    }
+
+    [Fact]
+    public async Task ResolveAccountingKey_NoMatchingGlAccount_Throws()
+    {
+        await using var db = NewDb();
+        var companyId = await SeedCompanyAsync(db);
+        // Deliberately DO NOT seed GlAccount "1500" — the industry default
+        // string will resolve, but no row matches in COA.
+        var resolver = NewResolver(db);
+
+        await Assert.ThrowsAsync<GlAccountResolutionException>(() =>
+            resolver.ResolveAccountingKeyAsync(
+                companyId, GlAccountKind.AssetCost, new AccountingKeyResolveContext()));
+    }
+
+    [Fact]
+    public void BuildCanonicalKeyString_NullSegmentsSerializeAsEmpty()
+    {
+        // Matches the SQL backfill canonical form: NULL → ''.
+        var canonical = GlAccountResolver.BuildCanonicalKeyString(
+            companyId: 1,
+            siteId: null,
+            accountId: 42,
+            costCenterId: null,
+            departmentId: null,
+            projectId: null,
+            interCoPartnerCompanyId: null,
+            vertical: null);
+
+        // 7 pipes total: 2 before "42" (Company|Site|Account), 5 after
+        // (CostCenter|Department|Project|InterCo|Vertical). SQL backfill
+        // produces the IDENTICAL string — verified via python sha256
+        // round-trip during PRA-5b pre-flight.
+        Assert.Equal("1||42|||||", canonical);
+    }
+
+    [Fact]
+    public void BuildCanonicalKeyString_AllSegmentsPopulated_FormatsCorrectly()
+    {
+        var canonical = GlAccountResolver.BuildCanonicalKeyString(
+            companyId: 1,
+            siteId: 17,
+            accountId: 5610,
+            costCenterId: 110100,
+            departmentId: 2009,
+            projectId: 14,
+            interCoPartnerCompanyId: 2,
+            vertical: IndustryVertical.Machining);
+
+        // Vertical.Machining = 1 (short).
+        Assert.Equal("1|17|5610|110100|2009|14|2|1", canonical);
+    }
+
+    [Fact]
+    public void Sha256Hex_KnownInput_ProducesExpectedHash()
+    {
+        // Lock-in: sha256("hello") = 2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+        var actual = GlAccountResolver.Sha256Hex("hello");
+        Assert.Equal("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824", actual);
+        Assert.Equal(64, actual.Length);
+    }
 }

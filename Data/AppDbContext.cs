@@ -21,6 +21,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
         public DbSet<JournalLine> JournalLines => Set<JournalLine>();
 
+        // Sprint 13.5 PRA-5b — segment-keyed posting dimension. See
+        // Models/Masters/AccountingKey.cs for the architecture; resolution
+        // cascade lives in IGlAccountResolver.ResolveAccountingKeyAsync.
+        public DbSet<Abs.FixedAssets.Models.Masters.AccountingKey> AccountingKeys =>
+            Set<Abs.FixedAssets.Models.Masters.AccountingKey>();
+
         // CCA Tax Engine (Canada)
         public DbSet<CcaClass> CcaClasses => Set<CcaClass>();
         public DbSet<AssetTaxSettings> AssetTaxSettings => Set<AssetTaxSettings>();
@@ -826,6 +832,54 @@ namespace Abs.FixedAssets.Data
 
                 // Helpful index on (JournalEntryId, LineNo)
                 e.HasIndex(x => new { x.JournalEntryId, x.LineNo });
+
+                // Sprint 13.5 PRA-5b — segment-keyed posting dimension.
+                // RESTRICT delete so a referenced AccountingKey can't vanish
+                // out from under historical JournalLines (the row is the
+                // posting-time snapshot of all 8 segments — destroying it
+                // would orphan reporting).
+                e.HasOne(x => x.AccountingKey)
+                    .WithMany()
+                    .HasForeignKey(x => x.AccountingKeyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasIndex(x => x.AccountingKeyId);
+            });
+
+            // Sprint 13.5 PRA-5b — AccountingKey segment-key materialization.
+            // Most schema lives in the migration (raw SQL pattern matching
+            // PRA-7 through PRA-11). Fluent config here only wires the FK
+            // navs + delete behaviors; constraints + partial UNIQUE indexes
+            // are in 20260524250000_AddAccountingKeyPRA5b.cs.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.AccountingKey>(e =>
+            {
+                e.Property(x => x.AccountingKeyHash).HasMaxLength(64).IsRequired();
+                e.Property(x => x.AccountingKeyString).HasMaxLength(256);
+
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.Account)
+                    .WithMany()
+                    .HasForeignKey(x => x.AccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.CostCenter)
+                    .WithMany()
+                    .HasForeignKey(x => x.CostCenterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.Department)
+                    .WithMany()
+                    .HasForeignKey(x => x.DepartmentId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // CCA Classes
