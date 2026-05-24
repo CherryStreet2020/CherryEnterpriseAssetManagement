@@ -75,7 +75,7 @@ namespace Abs.FixedAssets.Migrations
                 CREATE TABLE IF NOT EXISTS ""ItemPackHierarchies"" (
                     ""Id""                  serial          PRIMARY KEY,
                     ""CompanyId""           integer         NOT NULL,
-                    ""ItemId""              integer         NOT NULL,
+                    ""ItemId""              integer         NOT NULL REFERENCES ""Items""(""Id"") ON DELETE CASCADE,
                     ""PackLevelId""         integer         NOT NULL REFERENCES ""PackLevels""(""Id"") ON DELETE RESTRICT,
                     ""QtyOfBaseUnits""      numeric(18,4)   NOT NULL,
                     ""BaseUomId""           integer         NULL REFERENCES ""UnitsOfMeasure""(""Id"") ON DELETE SET NULL,
@@ -106,7 +106,23 @@ namespace Abs.FixedAssets.Migrations
 
                 CREATE INDEX IF NOT EXISTS ix_item_pack_hierarchies_company_item_level
                     ON ""ItemPackHierarchies"" (""CompanyId"", ""ItemId"", ""PackLevelId"");
-                CREATE INDEX IF NOT EXISTS ix_item_pack_hierarchies_gtin
+
+                -- Codex P1 review catch on PR #321 — enforce uniqueness.
+                -- Two partial UNIQUEs cover the with-barcode + without-barcode cases:
+                --   (a) When Gtin IS NOT NULL: same item × level × barcode is one row.
+                --   (b) When Gtin IS NULL:     one default config per item × level
+                --                               (prevents duplicate rows missing both
+                --                                barcode and tie-breaker).
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_item_pack_hierarchies_company_item_level_gtin
+                    ON ""ItemPackHierarchies"" (""CompanyId"", ""ItemId"", ""PackLevelId"", ""Gtin"")
+                    WHERE ""Gtin"" IS NOT NULL;
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_item_pack_hierarchies_company_item_level_nogtin
+                    ON ""ItemPackHierarchies"" (""CompanyId"", ""ItemId"", ""PackLevelId"")
+                    WHERE ""Gtin"" IS NULL;
+
+                -- Lookup-by-GTIN (the barcode-scanner path). Cleaner as a
+                -- separate UNIQUE-when-set index for barcode-resolution queries.
+                CREATE UNIQUE INDEX IF NOT EXISTS ix_item_pack_hierarchies_gtin
                     ON ""ItemPackHierarchies"" (""Gtin"") WHERE ""Gtin"" IS NOT NULL;
                 CREATE INDEX IF NOT EXISTS ix_item_pack_hierarchies_item
                     ON ""ItemPackHierarchies"" (""ItemId"");

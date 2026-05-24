@@ -3769,11 +3769,26 @@ namespace Abs.FixedAssets.Data
 
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemPackHierarchy>(e =>
             {
+                // Composite scan index (non-unique).
                 e.HasIndex(x => new { x.CompanyId, x.ItemId, x.PackLevelId })
                     .HasDatabaseName("ix_item_pack_hierarchies_company_item_level");
+
+                // Codex P1 catch on PR #321: two partial UNIQUEs cover
+                // duplicate-prevention with-barcode and without-barcode.
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.PackLevelId, x.Gtin })
+                    .HasDatabaseName("ix_item_pack_hierarchies_company_item_level_gtin")
+                    .HasFilter("\"Gtin\" IS NOT NULL")
+                    .IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.ItemId, x.PackLevelId })
+                    .HasDatabaseName("ix_item_pack_hierarchies_company_item_level_nogtin")
+                    .HasFilter("\"Gtin\" IS NULL")
+                    .IsUnique();
+
+                // Barcode-scanner lookup path — UNIQUE when present.
                 e.HasIndex(x => x.Gtin)
                     .HasDatabaseName("ix_item_pack_hierarchies_gtin")
-                    .HasFilter("\"Gtin\" IS NOT NULL");
+                    .HasFilter("\"Gtin\" IS NOT NULL")
+                    .IsUnique();
                 e.HasIndex(x => x.ItemId)
                     .HasDatabaseName("ix_item_pack_hierarchies_item");
 
