@@ -190,6 +190,11 @@ namespace Abs.FixedAssets.Services.Receiving
 
             // Aggregate JE debits by GL account, plus a single GR-Accrued credit.
             var debitTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            // PRA-5d — DEF-008 dual-write: parallel dict mapping account-number
+            // string → AccountingKeyId. Stamped on every JournalLine alongside
+            // legacy Account string. Try/catch in ResolveAccountAndKeyAsync
+            // keeps legacy flow working if AccountingKey resolution fails.
+            var accountToKeyId = new Dictionary<string, int?>(StringComparer.Ordinal);
             decimal totalAccrued = 0m;
             int inventoryRowsTouched = 0;
             var inventoryReceipts = new List<(GoodsReceiptLine Line, PurchaseOrderLine PoLine, decimal Quantity, int LocationId, decimal NewQuantityOnHand)>();
@@ -230,8 +235,9 @@ namespace Abs.FixedAssets.Services.Receiving
                 }
 
                 var ctx = new GlResolveContext(PurchaseOrderLineId: poLine.Id);
-                var drAccount = await _glResolver.ResolveAsync(receiptCompanyId, drKind, ctx);
+                var (drAccount, drKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, drKind, ctx, $"receipt={receipt.ReceiptNumber} line={line.Id}");
                 debitTotals[drAccount] = debitTotals.GetValueOrDefault(drAccount, 0m) + lineAmount;
+                accountToKeyId[drAccount] = drKeyId;
                 totalAccrued += lineAmount;
 
                 // Stock items: move inventory + write transaction.
@@ -249,7 +255,7 @@ namespace Abs.FixedAssets.Services.Receiving
                 return new ReceivingPostingResult(goodsReceiptId, null, inventoryRowsTouched, 0m);
             }
 
-            var grAccruedAccount = await _glResolver.ResolveAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext());
+            var (grAccruedAccount, grAccruedKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), $"receipt={receipt.ReceiptNumber} gr-accrued");
 
             var je = new JournalEntry
             {
@@ -271,6 +277,7 @@ namespace Abs.FixedAssets.Services.Receiving
                 {
                     LineNo = lineNo++,
                     Account = account,
+                    AccountingKeyId = accountToKeyId.TryGetValue(account, out var keyId) ? keyId : null,
                     Description = $"GR {receipt.ReceiptNumber}",
                     Debit = amount,
                     Credit = 0m
@@ -280,6 +287,7 @@ namespace Abs.FixedAssets.Services.Receiving
             {
                 LineNo = lineNo,
                 Account = grAccruedAccount,
+                AccountingKeyId = grAccruedKeyId,
                 Description = $"GR-Accrued {receipt.ReceiptNumber}",
                 Debit = 0m,
                 Credit = totalAccrued
@@ -505,6 +513,8 @@ namespace Abs.FixedAssets.Services.Receiving
             }
 
             var creditTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            // PRA-5d — DEF-008 dual-write parallel dict (reversal-side).
+            var accountToKeyId = new Dictionary<string, int?>(StringComparer.Ordinal);
             decimal totalReversed = 0m;
             int inventoryRowsTouched = 0;
 
@@ -534,8 +544,9 @@ namespace Abs.FixedAssets.Services.Receiving
 
                 GlAccountKind crKind = isStock ? GlAccountKind.Inventory : GlAccountKind.DirectExpense;
                 var ctx = new GlResolveContext(PurchaseOrderLineId: poLine.Id);
-                var crAccount = await _glResolver.ResolveAsync(receiptCompanyId, crKind, ctx);
+                var (crAccount, crKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, crKind, ctx, $"gr-rev receipt={receipt.ReceiptNumber} line={line.Id}");
                 creditTotals[crAccount] = creditTotals.GetValueOrDefault(crAccount, 0m) + amount;
+                accountToKeyId[crAccount] = crKeyId;
                 totalReversed += amount;
 
                 // Stock items: decrement on-hand + write a negative-qty Adjust
@@ -582,7 +593,7 @@ namespace Abs.FixedAssets.Services.Receiving
             // line) for the rejected portion. Trial balance net of the
             // Receipt JE + this reversal equals just the accepted portion,
             // which is what AP will eventually invoice and pay against.
-            var grAccruedAccount = await _glResolver.ResolveAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext());
+            var (grAccruedAccount, grAccruedKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), $"gr-rev={receipt.ReceiptNumber} accrued");
 
             var je = new JournalEntry
             {
@@ -602,6 +613,7 @@ namespace Abs.FixedAssets.Services.Receiving
             {
                 LineNo = lineNo++,
                 Account = grAccruedAccount,
+                AccountingKeyId = grAccruedKeyId,
                 Description = $"GR-REV {receipt.ReceiptNumber}",
                 Debit = totalReversed,
                 Credit = 0m
@@ -612,6 +624,7 @@ namespace Abs.FixedAssets.Services.Receiving
                 {
                     LineNo = lineNo++,
                     Account = account,
+                    AccountingKeyId = accountToKeyId.TryGetValue(account, out var keyId) ? keyId : null,
                     Description = $"GR-REV {receipt.ReceiptNumber}",
                     Debit = 0m,
                     Credit = amount
@@ -626,6 +639,41 @@ namespace Abs.FixedAssets.Services.Receiving
                 goodsReceiptId, je.Id, totalReversed, creditTotals.Count, inventoryRowsTouched);
 
             return new ReceivingPostingResult(goodsReceiptId, je.Id, inventoryRowsTouched, totalReversed);
+        }
+
+        // =====================================================================
+        // PRA-5d — DEF-008 dual-write helper. Same shape as PRA-5c's helper
+        // in ApPostingService. Resolves both the legacy account-number
+        // string AND the new AccountingKeyId in one shot; try/catch on the
+        // AccountingKey side keeps the legacy flow working if no GlAccount
+        // row matches the resolved account-number string (orphan path).
+        //
+        // First-iteration AccountingKeyResolveContext is empty (CompanyId-
+        // only). Future PRs enrich SiteId / CostCenterId / DepartmentId /
+        // ProjectId per posting purpose (receipt.LocationId for SiteId,
+        // PO.WorkOrderId for ProjectId, etc.).
+        // =====================================================================
+        private async Task<(string account, int? accountingKeyId)> ResolveAccountAndKeyAsync(
+            int companyId,
+            GlAccountKind kind,
+            GlResolveContext? glContext = null,
+            string? logContext = null)
+        {
+            var account = await _glResolver.ResolveAsync(companyId, kind, glContext);
+            int? keyId = null;
+            try
+            {
+                keyId = await _glResolver.ResolveAccountingKeyAsync(
+                    companyId, kind, new AccountingKeyResolveContext(), glContext);
+            }
+            catch (GlAccountResolutionException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "AccountingKey resolution failed for kind={Kind} ctx={Ctx}; legacy Account={Account} only",
+                    kind, logContext ?? "", account);
+            }
+            return (account, keyId);
         }
     }
 }
