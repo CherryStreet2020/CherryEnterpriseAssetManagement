@@ -189,6 +189,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionOperation> ProductionOperations
             => Set<Abs.FixedAssets.Models.Production.ProductionOperation>();
 
+        // Sprint 13.5 PR #5d — LaborEntries (operator clock-in/out events).
+        public DbSet<Abs.FixedAssets.Models.Production.LaborEntry> LaborEntries
+            => Set<Abs.FixedAssets.Models.Production.LaborEntry>();
+
+        // Sprint 13.5 PR #5d (rolling PRA-3) — ReasonCodes catalog (Scrap/Rework/Downtime/Hold).
+        public DbSet<Abs.FixedAssets.Models.Production.ReasonCode> ReasonCodes
+            => Set<Abs.FixedAssets.Models.Production.ReasonCode>();
+
         // ADR-015 / Migration PR #1 — Industry-agnostic receipt profile catalog.
         // One row per industry vertical defining the JSON Schema, UiFormSpec,
         // promoted facets, default attributes, and regulatory gates that

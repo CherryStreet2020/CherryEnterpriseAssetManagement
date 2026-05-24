@@ -225,6 +225,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IRoutingService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperationService,
     Abs.FixedAssets.Services.Production.ProductionOperationService>();
 
+// Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
+// event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /
+// Skill / LaborRate are catalog config; LaborService writes execution-time
+// LaborEntry rows the operator creates by hitting "Clock In" on the Workbench).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ILaborService,
+    Abs.FixedAssets.Services.Production.LaborService>();
+
 // ADR-022 / Sprint 12D PR #2 — chain-of-custody graph (virtual Apache AGE).
 // Two regular Postgres tables (ChainNodes + ChainEdges) traversed via
 // recursive CTEs, rendered via cytoscape.js. Q3 2026 swaps the storage

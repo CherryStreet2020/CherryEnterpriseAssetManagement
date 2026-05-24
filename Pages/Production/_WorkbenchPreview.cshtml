@@ -1,0 +1,138 @@
+@model Abs.FixedAssets.Pages.Production.WorkbenchModel
+@*
+    Sprint 13.5 PR #5d — Operator Workbench preview pane.
+    Composes inside _CockpitShell on the right side.
+
+    Shape (top to bottom):
+      - Eyebrow row: order number + status pill
+      - Title: OP # + work center + description
+      - KPI strip: Planned vs Actual setup/run + qty trio
+      - Instructions blob (snapshot from RoutingOperation)
+      - Action verb tray:
+          - Clock In        (when no active labor entry exists)
+          - Clock Out       (when this op has the active labor entry)
+          - Log Scrap qty   (with reason code dropdown)
+          - Log Rework qty  (with reason code dropdown)
+          - View Details    (navigates to Production/Operations/Details)
+*@
+
+<div class="cockpit__preview-pane cockpit__preview-pane--workbench">
+    <header class="cockpit__preview-header">
+        <div class="cockpit__preview-eyebrow">
+            <span id="pvWbOrderNumber" class="cockpit__preview-eyebrow-mono">—</span>
+            <span class="cockpit__preview-eyebrow-sep">·</span>
+            <span id="pvWbOrderTitle" class="muted">—</span>
+        </div>
+        <div class="cockpit__preview-headline">
+            <span id="pvWbOpId" class="cockpit__preview-headline-strong">—</span>
+            <span class="cockpit__preview-headline-sep">·</span>
+            <span id="pvWbWorkCenter" class="cockpit__preview-headline-mono">—</span>
+        </div>
+        <div class="cockpit__preview-subhead" id="pvWbDescription">—</div>
+        <div class="cockpit__preview-meta-row">
+            <span id="pvWbStatusPill" class="cockpit__preview-status status-badge-p">—</span>
+        </div>
+    </header>
+
+    <section class="cockpit__preview-kpis">
+        <div class="cockpit__preview-kpi">
+            <div class="cockpit__preview-kpi-label">SETUP</div>
+            <div class="cockpit__preview-kpi-value"><span id="pvWbActualSetup">—</span></div>
+            <div class="cockpit__preview-kpi-sub">planned <span id="pvWbPlannedSetup">—</span></div>
+        </div>
+        <div class="cockpit__preview-kpi">
+            <div class="cockpit__preview-kpi-label">RUN</div>
+            <div class="cockpit__preview-kpi-value"><span id="pvWbActualRun">—</span></div>
+            <div class="cockpit__preview-kpi-sub">planned <span id="pvWbPlannedRun">—</span></div>
+        </div>
+        <div class="cockpit__preview-kpi">
+            <div class="cockpit__preview-kpi-label">QTY</div>
+            <div class="cockpit__preview-kpi-value"><span id="pvWbCompletedQty">0</span> / <span id="pvWbPlannedQty">0</span></div>
+            <div class="cockpit__preview-kpi-sub">
+                scrap <span id="pvWbScrappedQty">0</span> · rework <span id="pvWbReworkQty">0</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="cockpit__preview-block">
+        <div class="cockpit__preview-block-label">INSTRUCTIONS</div>
+        <div id="pvWbInstructions" class="cockpit__preview-block-body cockpit__preview-block-body--mono">—</div>
+    </section>
+
+    @* ============== ACTION VERB TRAY ============== *@
+    <section class="cockpit__preview-actions cockpit__preview-actions--workbench">
+        @if (Model.ActiveLaborEntry is null)
+        {
+            @* CLOCK IN — visible when operator has no open clock-in *@
+            <form method="post" asp-page-handler="ClockIn" class="cockpit__action-form cockpit__action-form--primary">
+                <input type="hidden" name="productionOperationId" value="0" data-pv-op-id />
+                <button type="submit" class="btn btn-primary cockpit__action-btn cockpit__action-btn--primary"
+                        title="Start work on this operation">
+                    <i class="fas fa-play"></i>
+                    <span>Clock In</span>
+                </button>
+            </form>
+        }
+        else
+        {
+            @* CLOCK OUT — visible when operator HAS an open clock-in. Always clocks out
+                of the active entry (not necessarily on the previewed op — operator clocks
+                into one thing at a time). *@
+            <form method="post" asp-page-handler="ClockOut" class="cockpit__action-form cockpit__action-form--primary">
+                <input type="hidden" name="laborEntryId" value="@Model.ActiveLaborEntry.Id" />
+                <button type="submit" class="btn btn-warning cockpit__action-btn cockpit__action-btn--primary"
+                        title="Clock out of operation #@Model.ActiveLaborEntry.ProductionOperationId">
+                    <i class="fas fa-pause"></i>
+                    <span>Clock Out</span>
+                    <small class="cockpit__action-meta">op #@Model.ActiveLaborEntry.ProductionOperationId</small>
+                </button>
+            </form>
+        }
+
+        @* LOG SCRAP *@
+        <form method="post" asp-page-handler="LogScrap" class="cockpit__action-form cockpit__action-form--inline">
+            <input type="hidden" name="productionOperationId" value="0" data-pv-op-id />
+            <label class="cockpit__action-label">
+                <i class="fas fa-ban"></i> Log scrap qty
+                <input type="number" name="scrapQty" step="0.1" min="0.1"
+                       placeholder="0.0" required
+                       class="form-control cockpit__action-input cockpit__action-input--qty" />
+            </label>
+            <select name="reasonCode" class="form-select cockpit__action-input cockpit__action-input--reason">
+                <option value="">— pick reason —</option>
+                @foreach (var rc in Model.ScrapReasonCodes)
+                {
+                    <option value="@rc.Value">@rc.Label</option>
+                }
+            </select>
+            <input type="text" name="notes" placeholder="optional note"
+                   class="form-control cockpit__action-input cockpit__action-input--notes" />
+            <button type="submit" class="btn btn-danger cockpit__action-btn">
+                <i class="fas fa-plus"></i> Log
+            </button>
+        </form>
+
+        @* LOG REWORK *@
+        <form method="post" asp-page-handler="LogRework" class="cockpit__action-form cockpit__action-form--inline">
+            <input type="hidden" name="productionOperationId" value="0" data-pv-op-id />
+            <label class="cockpit__action-label">
+                <i class="fas fa-rotate"></i> Log rework qty
+                <input type="number" name="reworkQty" step="0.1" min="0.1"
+                       placeholder="0.0" required
+                       class="form-control cockpit__action-input cockpit__action-input--qty" />
+            </label>
+            <select name="reasonCode" class="form-select cockpit__action-input cockpit__action-input--reason">
+                <option value="">— pick reason —</option>
+                @foreach (var rc in Model.ReworkReasonCodes)
+                {
+                    <option value="@rc.Value">@rc.Label</option>
+                }
+            </select>
+            <input type="text" name="notes" placeholder="optional note"
+                   class="form-control cockpit__action-input cockpit__action-input--notes" />
+            <button type="submit" class="btn btn-warning cockpit__action-btn">
+                <i class="fas fa-plus"></i> Log
+            </button>
+        </form>
+    </section>
+</div>

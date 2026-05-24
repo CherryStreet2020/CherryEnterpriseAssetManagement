@@ -48,6 +48,19 @@ public static class ControlCenterRegistry
             IsLive: true,
             StatusChip: "live"),
 
+        // Sprint 13.5 PR #5d — Operator Workbench (shop-floor execution surface).
+        // Sibling Control Center to /Production/ControlCenter — the planner uses
+        // /Production/ControlCenter for the dispatch view, the floor operator
+        // uses /Production/Workbench to clock in/out + log progress.
+        new ControlCenterDescriptor(
+            Code: "PRODUCTION_WORKBENCH",
+            Title: "Workbench",
+            Route: "/Production/Workbench",
+            IconClass: "fas fa-screwdriver-wrench",
+            SprintNumber: 135,
+            IsLive: true,
+            StatusChip: "live"),
+
         // Sprint 13.5 PR #4 — Customer Projects cockpit.
         new ControlCenterDescriptor(
             Code: "CUSTOMER_PROJECTS",
