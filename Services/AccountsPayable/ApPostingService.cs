@@ -220,7 +220,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 var ctx = new GlResolveContext(
                     PurchaseOrderLineId: line.PurchaseOrderLineId,
                     VendorInvoiceLineId: line.Id);
-                var (drAccount, drKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, drKind, ctx, $"invoice={invoice.InvoiceNumber} line={line.Id}");
+                var (drAccount, drKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, drKind, ctx, logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} line={line.Id}");
                 debitTotals[drAccount] = debitTotals.GetValueOrDefault(drAccount, 0m) + drAmount;
                 accountToKeyId[drAccount] = drKeyId;
             }
@@ -230,7 +230,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             int? ppvKeyId = null;
             if (ppvTotal != 0m)
             {
-                (ppvAccount, ppvKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.PurchasePriceVariance, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} ppv");
+                (ppvAccount, ppvKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.PurchasePriceVariance, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} ppv");
                 if (ppvTotal > 0m)
                 {
                     debitTotals[ppvAccount] = debitTotals.GetValueOrDefault(ppvAccount, 0m) + ppvTotal;
@@ -252,20 +252,20 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             // (tax matrix) refines for jurisdictions and non-recoverable rules.
             if (invoice.TaxAmount > 0m)
             {
-                var (taxAccount, taxKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.SalesTaxRecoverable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} tax");
+                var (taxAccount, taxKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.SalesTaxRecoverable, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} tax");
                 debitTotals[taxAccount] = debitTotals.GetValueOrDefault(taxAccount, 0m) + invoice.TaxAmount;
                 accountToKeyId[taxAccount] = taxKeyId;
                 totalCredit += invoice.TaxAmount;
             }
             if (invoice.ShippingAmount > 0m)
             {
-                var (freightAccount, freightKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.FreightExpense, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} freight");
+                var (freightAccount, freightKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.FreightExpense, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} freight");
                 debitTotals[freightAccount] = debitTotals.GetValueOrDefault(freightAccount, 0m) + invoice.ShippingAmount;
                 accountToKeyId[freightAccount] = freightKeyId;
                 totalCredit += invoice.ShippingAmount;
             }
 
-            var (apAccount, apKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} ap");
+            var (apAccount, apKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} ap");
 
             var je = new JournalEntry
             {
@@ -411,8 +411,8 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             if (!periodCheck.IsAllowed)
                 throw new InvalidOperationException(periodCheck.Reason ?? $"Payment period for {paymentDate:yyyy-MM-dd} is closed.");
 
-            var (apAccount, apKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} pmt-ap");
-            var (cashAccount, cashKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.Cash, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} pmt-cash");
+            var (apAccount, apKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} pmt-ap");
+            var (cashAccount, cashKeyId) = await _glResolver.ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.Cash, new GlResolveContext(), logger: _logger, logContext: $"invoice={invoice.InvoiceNumber} pmt-cash");
 
             var je = new JournalEntry
             {
@@ -551,47 +551,9 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 .FirstOrDefaultAsync();
         }
 
-        // =====================================================================
-        // PRA-5c — DEF-008 dual-write helper. Resolves the legacy
-        // account-number string (existing IGlAccountResolver cascade) AND the
-        // new AccountingKeyId in one shot. Catches GlAccountResolutionException
-        // on the AccountingKey side so the legacy flow keeps working even if
-        // the resolved account-number string doesn't have a matching
-        // GlAccount row in COA (orphan path — line emits with
-        // AccountingKeyId = NULL, reads continue via legacy Account string).
-        //
-        // First-iteration segment context is empty (CompanyId-only). Future
-        // PRs enrich AccountingKeyResolveContext with SiteId / CostCenterId /
-        // DepartmentId / ProjectId derivable from PO + invoice headers.
-        //
-        // The cache inside GlAccountResolver makes the double-resolve cost
-        // negligible — the second call is a memory-cache hit on (companyId,
-        // hash) after the first runtime mint.
-        // =====================================================================
-        private async Task<(string account, int? accountingKeyId)> ResolveAccountAndKeyAsync(
-            int companyId,
-            GlAccountKind kind,
-            GlResolveContext? glContext = null,
-            string? logContext = null)
-        {
-            var account = await _glResolver.ResolveAsync(companyId, kind, glContext);
-            int? keyId = null;
-            try
-            {
-                keyId = await _glResolver.ResolveAccountingKeyAsync(
-                    companyId, kind, new AccountingKeyResolveContext(), glContext);
-            }
-            catch (GlAccountResolutionException ex)
-            {
-                // Orphan case: ResolveAsync returned an industry-default
-                // account-number string (e.g. "1500") that has no matching
-                // GlAccount row in COA. Log + fall back to legacy-only.
-                _logger.LogWarning(
-                    ex,
-                    "AccountingKey resolution failed for kind={Kind} ctx={Ctx}; legacy Account={Account} only",
-                    kind, logContext ?? "", account);
-            }
-            return (account, keyId);
-        }
+        // PRA-5c inline helper extracted to shared
+        // Services/Posting/GlPostingHelpers.ResolveAccountAndKeyAsync in
+        // PRA-5e.1. Call sites use the extension method directly:
+        //   _glResolver.ResolveAccountAndKeyAsync(companyId, kind, ctx, _logger, "...")
     }
 }

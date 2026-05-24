@@ -235,7 +235,7 @@ namespace Abs.FixedAssets.Services.Receiving
                 }
 
                 var ctx = new GlResolveContext(PurchaseOrderLineId: poLine.Id);
-                var (drAccount, drKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, drKind, ctx, $"receipt={receipt.ReceiptNumber} line={line.Id}");
+                var (drAccount, drKeyId) = await _glResolver.ResolveAccountAndKeyAsync(receiptCompanyId, drKind, ctx, logger: _logger, logContext: $"receipt={receipt.ReceiptNumber} line={line.Id}");
                 debitTotals[drAccount] = debitTotals.GetValueOrDefault(drAccount, 0m) + lineAmount;
                 accountToKeyId[drAccount] = drKeyId;
                 totalAccrued += lineAmount;
@@ -255,7 +255,7 @@ namespace Abs.FixedAssets.Services.Receiving
                 return new ReceivingPostingResult(goodsReceiptId, null, inventoryRowsTouched, 0m);
             }
 
-            var (grAccruedAccount, grAccruedKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), $"receipt={receipt.ReceiptNumber} gr-accrued");
+            var (grAccruedAccount, grAccruedKeyId) = await _glResolver.ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), logger: _logger, logContext: $"receipt={receipt.ReceiptNumber} gr-accrued");
 
             var je = new JournalEntry
             {
@@ -544,7 +544,7 @@ namespace Abs.FixedAssets.Services.Receiving
 
                 GlAccountKind crKind = isStock ? GlAccountKind.Inventory : GlAccountKind.DirectExpense;
                 var ctx = new GlResolveContext(PurchaseOrderLineId: poLine.Id);
-                var (crAccount, crKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, crKind, ctx, $"gr-rev receipt={receipt.ReceiptNumber} line={line.Id}");
+                var (crAccount, crKeyId) = await _glResolver.ResolveAccountAndKeyAsync(receiptCompanyId, crKind, ctx, logger: _logger, logContext: $"gr-rev receipt={receipt.ReceiptNumber} line={line.Id}");
                 creditTotals[crAccount] = creditTotals.GetValueOrDefault(crAccount, 0m) + amount;
                 accountToKeyId[crAccount] = crKeyId;
                 totalReversed += amount;
@@ -593,7 +593,7 @@ namespace Abs.FixedAssets.Services.Receiving
             // line) for the rejected portion. Trial balance net of the
             // Receipt JE + this reversal equals just the accepted portion,
             // which is what AP will eventually invoice and pay against.
-            var (grAccruedAccount, grAccruedKeyId) = await ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), $"gr-rev={receipt.ReceiptNumber} accrued");
+            var (grAccruedAccount, grAccruedKeyId) = await _glResolver.ResolveAccountAndKeyAsync(receiptCompanyId, GlAccountKind.GrAccrued, new GlResolveContext(), logger: _logger, logContext: $"gr-rev={receipt.ReceiptNumber} accrued");
 
             var je = new JournalEntry
             {
@@ -641,39 +641,8 @@ namespace Abs.FixedAssets.Services.Receiving
             return new ReceivingPostingResult(goodsReceiptId, je.Id, inventoryRowsTouched, totalReversed);
         }
 
-        // =====================================================================
-        // PRA-5d — DEF-008 dual-write helper. Same shape as PRA-5c's helper
-        // in ApPostingService. Resolves both the legacy account-number
-        // string AND the new AccountingKeyId in one shot; try/catch on the
-        // AccountingKey side keeps the legacy flow working if no GlAccount
-        // row matches the resolved account-number string (orphan path).
-        //
-        // First-iteration AccountingKeyResolveContext is empty (CompanyId-
-        // only). Future PRs enrich SiteId / CostCenterId / DepartmentId /
-        // ProjectId per posting purpose (receipt.LocationId for SiteId,
-        // PO.WorkOrderId for ProjectId, etc.).
-        // =====================================================================
-        private async Task<(string account, int? accountingKeyId)> ResolveAccountAndKeyAsync(
-            int companyId,
-            GlAccountKind kind,
-            GlResolveContext? glContext = null,
-            string? logContext = null)
-        {
-            var account = await _glResolver.ResolveAsync(companyId, kind, glContext);
-            int? keyId = null;
-            try
-            {
-                keyId = await _glResolver.ResolveAccountingKeyAsync(
-                    companyId, kind, new AccountingKeyResolveContext(), glContext);
-            }
-            catch (GlAccountResolutionException ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "AccountingKey resolution failed for kind={Kind} ctx={Ctx}; legacy Account={Account} only",
-                    kind, logContext ?? "", account);
-            }
-            return (account, keyId);
-        }
+        // PRA-5d inline helper extracted to shared
+        // Services/Posting/GlPostingHelpers.ResolveAccountAndKeyAsync in
+        // PRA-5e.1. Call sites use the extension method directly.
     }
 }
