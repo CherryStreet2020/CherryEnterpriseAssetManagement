@@ -170,6 +170,12 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             // Build the JE: Dr GR-Accrued (matched-against-PO lines) + Dr
             // DirectExpense (manual lines) + Dr/Cr PPV / Cr AccountsPayable.
             var debitTotals = new Dictionary<string, decimal>(StringComparer.Ordinal);
+            // PRA-5c — DEF-008 dual-write: parallel dict mapping account-number
+            // string → AccountingKeyId. Stamped on every JournalLine alongside
+            // the legacy Account string. Try/catch in ResolveAccountAndKeyAsync
+            // keeps the legacy flow working if AccountingKey resolution fails
+            // (e.g. no GlAccount row for the resolved industry-default number).
+            var accountToKeyId = new Dictionary<string, int?>(StringComparer.Ordinal);
             decimal ppvTotal = 0m; // positive = unfavorable (Dr PPV)
             decimal totalCredit = 0m;
 
@@ -214,17 +220,22 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 var ctx = new GlResolveContext(
                     PurchaseOrderLineId: line.PurchaseOrderLineId,
                     VendorInvoiceLineId: line.Id);
-                var drAccount = await _glResolver.ResolveAsync(invoiceCompanyId, drKind, ctx);
+                var (drAccount, drKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, drKind, ctx, $"invoice={invoice.InvoiceNumber} line={line.Id}");
                 debitTotals[drAccount] = debitTotals.GetValueOrDefault(drAccount, 0m) + drAmount;
+                accountToKeyId[drAccount] = drKeyId;
             }
 
             // Apply PPV as either debit (unfavorable: invoice > PO) or credit (favorable).
             string? ppvAccount = null;
+            int? ppvKeyId = null;
             if (ppvTotal != 0m)
             {
-                ppvAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.PurchasePriceVariance, new GlResolveContext());
+                (ppvAccount, ppvKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.PurchasePriceVariance, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} ppv");
                 if (ppvTotal > 0m)
+                {
                     debitTotals[ppvAccount] = debitTotals.GetValueOrDefault(ppvAccount, 0m) + ppvTotal;
+                    accountToKeyId[ppvAccount] = ppvKeyId;
+                }
                 // else handled in the credit-line section below
             }
 
@@ -241,18 +252,20 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             // (tax matrix) refines for jurisdictions and non-recoverable rules.
             if (invoice.TaxAmount > 0m)
             {
-                var taxAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.SalesTaxRecoverable, new GlResolveContext());
+                var (taxAccount, taxKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.SalesTaxRecoverable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} tax");
                 debitTotals[taxAccount] = debitTotals.GetValueOrDefault(taxAccount, 0m) + invoice.TaxAmount;
+                accountToKeyId[taxAccount] = taxKeyId;
                 totalCredit += invoice.TaxAmount;
             }
             if (invoice.ShippingAmount > 0m)
             {
-                var freightAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.FreightExpense, new GlResolveContext());
+                var (freightAccount, freightKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.FreightExpense, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} freight");
                 debitTotals[freightAccount] = debitTotals.GetValueOrDefault(freightAccount, 0m) + invoice.ShippingAmount;
+                accountToKeyId[freightAccount] = freightKeyId;
                 totalCredit += invoice.ShippingAmount;
             }
 
-            var apAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext());
+            var (apAccount, apKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} ap");
 
             var je = new JournalEntry
             {
@@ -274,6 +287,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 {
                     LineNo = lineNo++,
                     Account = account,
+                    AccountingKeyId = accountToKeyId.TryGetValue(account, out var keyId) ? keyId : null,
                     Description = $"AP {invoice.InvoiceNumber}",
                     Debit = amount,
                     Credit = 0m
@@ -286,6 +300,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 {
                     LineNo = lineNo++,
                     Account = ppvAccount,
+                    AccountingKeyId = ppvKeyId,
                     Description = $"PPV (favorable) {invoice.InvoiceNumber}",
                     Debit = 0m,
                     Credit = -ppvTotal
@@ -295,6 +310,7 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             {
                 LineNo = lineNo,
                 Account = apAccount,
+                AccountingKeyId = apKeyId,
                 Description = $"AP — Vendor {invoice.VendorId}",
                 Debit = 0m,
                 Credit = totalCredit
@@ -395,8 +411,8 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             if (!periodCheck.IsAllowed)
                 throw new InvalidOperationException(periodCheck.Reason ?? $"Payment period for {paymentDate:yyyy-MM-dd} is closed.");
 
-            var apAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext());
-            var cashAccount = await _glResolver.ResolveAsync(invoiceCompanyId, GlAccountKind.Cash, new GlResolveContext());
+            var (apAccount, apKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.AccountsPayable, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} pmt-ap");
+            var (cashAccount, cashKeyId) = await ResolveAccountAndKeyAsync(invoiceCompanyId, GlAccountKind.Cash, new GlResolveContext(), $"invoice={invoice.InvoiceNumber} pmt-cash");
 
             var je = new JournalEntry
             {
@@ -410,8 +426,8 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 CreatedUtc = DateTime.UtcNow,
                 Lines = new List<JournalLine>
                 {
-                    new JournalLine { LineNo = 1, Account = apAccount, Description = $"AP — Vendor {invoice.VendorId}", Debit = amount, Credit = 0m },
-                    new JournalLine { LineNo = 2, Account = cashAccount, Description = "Cash", Debit = 0m, Credit = amount }
+                    new JournalLine { LineNo = 1, Account = apAccount, AccountingKeyId = apKeyId, Description = $"AP — Vendor {invoice.VendorId}", Debit = amount, Credit = 0m },
+                    new JournalLine { LineNo = 2, Account = cashAccount, AccountingKeyId = cashKeyId, Description = "Cash", Debit = 0m, Credit = amount }
                 }
             };
             _db.JournalEntries.Add(je);
@@ -487,6 +503,10 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                     {
                         LineNo = idx + 1,
                         Account = l.Account,
+                        // PRA-5c — copy AccountingKeyId from the original line so
+                        // the contra entry references the same AccountingKey row
+                        // (segment-key continuity for reporting).
+                        AccountingKeyId = l.AccountingKeyId,
                         Description = $"VOID: {l.Description}",
                         Debit = l.Credit,
                         Credit = l.Debit
@@ -529,6 +549,49 @@ namespace Abs.FixedAssets.Services.AccountsPayable
                 .Where(i => i.Id == invoiceId
                     && _tenantContext.VisibleCompanyIds.Contains(i.CompanyId ?? 0))
                 .FirstOrDefaultAsync();
+        }
+
+        // =====================================================================
+        // PRA-5c — DEF-008 dual-write helper. Resolves the legacy
+        // account-number string (existing IGlAccountResolver cascade) AND the
+        // new AccountingKeyId in one shot. Catches GlAccountResolutionException
+        // on the AccountingKey side so the legacy flow keeps working even if
+        // the resolved account-number string doesn't have a matching
+        // GlAccount row in COA (orphan path — line emits with
+        // AccountingKeyId = NULL, reads continue via legacy Account string).
+        //
+        // First-iteration segment context is empty (CompanyId-only). Future
+        // PRs enrich AccountingKeyResolveContext with SiteId / CostCenterId /
+        // DepartmentId / ProjectId derivable from PO + invoice headers.
+        //
+        // The cache inside GlAccountResolver makes the double-resolve cost
+        // negligible — the second call is a memory-cache hit on (companyId,
+        // hash) after the first runtime mint.
+        // =====================================================================
+        private async Task<(string account, int? accountingKeyId)> ResolveAccountAndKeyAsync(
+            int companyId,
+            GlAccountKind kind,
+            GlResolveContext? glContext = null,
+            string? logContext = null)
+        {
+            var account = await _glResolver.ResolveAsync(companyId, kind, glContext);
+            int? keyId = null;
+            try
+            {
+                keyId = await _glResolver.ResolveAccountingKeyAsync(
+                    companyId, kind, new AccountingKeyResolveContext(), glContext);
+            }
+            catch (GlAccountResolutionException ex)
+            {
+                // Orphan case: ResolveAsync returned an industry-default
+                // account-number string (e.g. "1500") that has no matching
+                // GlAccount row in COA. Log + fall back to legacy-only.
+                _logger.LogWarning(
+                    ex,
+                    "AccountingKey resolution failed for kind={Kind} ctx={Ctx}; legacy Account={Account} only",
+                    kind, logContext ?? "", account);
+            }
+            return (account, keyId);
         }
     }
 }

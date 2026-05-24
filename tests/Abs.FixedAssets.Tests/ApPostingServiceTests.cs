@@ -376,4 +376,109 @@ public class ApPostingServiceTests
 
         Assert.Equal(1, await db.OutboxEvents.CountAsync(e => e.EventType == "invoice.voided"));
     }
+
+    // =========================================================================
+    // Sprint 13.5 PRA-5c — DEF-008 dual-write: JournalLine.AccountingKeyId
+    // gets stamped alongside the legacy Account string when GlAccount rows
+    // exist for the resolved account-number string.
+    //
+    // BEHAVIOR:
+    //   - GlAccount seeded for the kind → AccountingKeyId stamped (NOT NULL).
+    //   - GlAccount NOT seeded → AccountingKeyId stays NULL (graceful
+    //     fallback via try/catch in ResolveAccountAndKeyAsync), legacy
+    //     Account string still works. All prior tests in this file run
+    //     WITHOUT GlAccount seeding and rely on this fallback.
+    //
+    //   - PostVoid copies AccountingKeyId from the original line (segment-key
+    //     continuity in the contra entry).
+    // =========================================================================
+
+    private static async Task SeedSystemGlAccountAsync(AppDbContext db, string accountNumber)
+    {
+        if (!await db.Set<GlAccount>().AnyAsync(a => a.AccountNumber == accountNumber && a.CompanyId == null))
+        {
+            db.Set<GlAccount>().Add(new GlAccount
+            {
+                AccountNumber = accountNumber,
+                Name = $"Test {accountNumber}",
+                CompanyId = null, // system COA
+                AccountType = GlAccountType.Asset,
+                Category = GlAccountCategory.CashAndReceivables,
+                NormalBalance = NormalBalance.Debit,
+                IsActive = true,
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task PostApproval_WithGlAccountsSeeded_StampsAccountingKeyIdOnAllLines()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        // Seed GlAccount rows for the industry defaults the resolver returns:
+        //   DirectExpense → "6000"
+        //   AccountsPayable → "2000"
+        await SeedSystemGlAccountAsync(db, "6000");
+        await SeedSystemGlAccountAsync(db, "2000");
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 100m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var result = await NewService(db, tenant).PostApprovalAsync(inv.Id);
+
+        Assert.NotNull(result.JournalEntryId);
+        var je = await db.JournalEntries.Include(j => j.Lines).SingleAsync(j => j.Id == result.JournalEntryId);
+        Assert.Equal(2, je.Lines.Count);
+        Assert.All(je.Lines, l => Assert.True(l.AccountingKeyId.HasValue,
+            $"Expected AccountingKeyId stamped on line Account={l.Account}; actual NULL"));
+
+        // Both lines share the same CompanyId, so the AccountingKey rows differ
+        // only by AccountId. Both should exist in the AccountingKeys table.
+        var keyCount = await db.Set<Abs.FixedAssets.Models.Masters.AccountingKey>()
+            .CountAsync(k => k.CompanyId == companyId);
+        Assert.Equal(2, keyCount);
+    }
+
+    [Fact]
+    public async Task PostApproval_WithoutGlAccountsSeeded_LeavesAccountingKeyIdNullAndStillWorks()
+    {
+        // Mirrors the existing tests in this file — no GlAccount seeded, so
+        // the AccountingKey resolver's GlAccount lookup throws + the
+        // try/catch in ResolveAccountAndKeyAsync swallows it. The legacy
+        // Account string path keeps working unchanged.
+        const int companyId = 100;
+        await using var db = NewDb();
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 100m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var result = await NewService(db, tenant).PostApprovalAsync(inv.Id);
+
+        var je = await db.JournalEntries.Include(j => j.Lines).SingleAsync(j => j.Id == result.JournalEntryId);
+        Assert.Equal(2, je.Lines.Count);
+        Assert.All(je.Lines, l => Assert.False(l.AccountingKeyId.HasValue,
+            $"Expected AccountingKeyId NULL (orphan fallback); actual {l.AccountingKeyId}"));
+        // Legacy Account strings still set.
+        Assert.Equal("6000", je.Lines.OrderBy(l => l.LineNo).First().Account);
+        Assert.Equal("2000", je.Lines.OrderBy(l => l.LineNo).Last().Account);
+    }
+
+    [Fact]
+    public async Task PostVoid_ContraEntry_CopiesAccountingKeyIdFromOriginal()
+    {
+        const int companyId = 100;
+        await using var db = NewDb();
+        await SeedSystemGlAccountAsync(db, "6000");
+        await SeedSystemGlAccountAsync(db, "2000");
+        var inv = await SeedManualInvoiceAsync(db, companyId, lineTotal: 100m);
+
+        var tenant = new StubTenantContext { CompanyId = companyId, VisibleCompanyIds = new() { companyId } };
+        var svc = NewService(db, tenant);
+        await svc.PostApprovalAsync(inv.Id);
+        await svc.PostVoidAsync(inv.Id, "test void");
+
+        var contra = await db.JournalEntries.Include(j => j.Lines)
+            .SingleAsync(j => j.Reference == $"AP-VOID-{inv.InvoiceNumber}");
+        Assert.All(contra.Lines, l => Assert.True(l.AccountingKeyId.HasValue,
+            $"Contra line should copy AccountingKeyId from original; got NULL for Account={l.Account}"));
+    }
 }
