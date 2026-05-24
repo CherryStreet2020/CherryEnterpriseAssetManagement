@@ -177,6 +177,39 @@ namespace Abs.FixedAssets.Migrations
                 ALTER TABLE ""Departments"" ADD COLUMN IF NOT EXISTS ""DefaultOhGlAccountId""       integer NULL;
                 ALTER TABLE ""Departments"" ADD COLUMN IF NOT EXISTS ""DefaultAbsorbedGlAccountId"" integer NULL;
                 ALTER TABLE ""Departments"" ADD COLUMN IF NOT EXISTS ""DefaultWageGroupId""         integer NULL;
+
+                -- FK constraints — Codex P2 review catch on PR #318. Prevent
+                -- orphan refs into nonexistent GlAccount / WageGroup rows.
+                -- All four ON DELETE SET NULL — when a referenced master is
+                -- deleted, the Department's default falls back to GL resolver
+                -- chain (next level up in PostingProfile).
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                                   WHERE constraint_name='fk_departments_default_labor_gl') THEN
+                        ALTER TABLE ""Departments""
+                            ADD CONSTRAINT fk_departments_default_labor_gl
+                            FOREIGN KEY (""DefaultLaborGlAccountId"") REFERENCES ""GlAccounts""(""Id"") ON DELETE SET NULL;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                                   WHERE constraint_name='fk_departments_default_oh_gl') THEN
+                        ALTER TABLE ""Departments""
+                            ADD CONSTRAINT fk_departments_default_oh_gl
+                            FOREIGN KEY (""DefaultOhGlAccountId"") REFERENCES ""GlAccounts""(""Id"") ON DELETE SET NULL;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                                   WHERE constraint_name='fk_departments_default_absorbed_gl') THEN
+                        ALTER TABLE ""Departments""
+                            ADD CONSTRAINT fk_departments_default_absorbed_gl
+                            FOREIGN KEY (""DefaultAbsorbedGlAccountId"") REFERENCES ""GlAccounts""(""Id"") ON DELETE SET NULL;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints
+                                   WHERE constraint_name='fk_departments_default_wage_group') THEN
+                        ALTER TABLE ""Departments""
+                            ADD CONSTRAINT fk_departments_default_wage_group
+                            FOREIGN KEY (""DefaultWageGroupId"") REFERENCES ""WageGroups""(""Id"") ON DELETE SET NULL;
+                    END IF;
+                END $$;
             ");
 
             // ================================================================
@@ -224,16 +257,14 @@ namespace Abs.FixedAssets.Migrations
                 )
                 INSERT INTO ""PostingProfiles"" (""CompanyId"", ""ItemGroupId"", ""TransactionType"", ""WarehouseId"", ""DebitGlAccountId"", ""CreditGlAccountId"", ""Priority"", ""Notes"", ""IsSystem"", ""SortOrder"")
                 VALUES
-                    -- WIP labor apply (ProductionLaborExpense=520, falls into WIP via PostingProfile resolution)
-                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  1, NULL, (SELECT ""Id"" FROM gl WHERE ""Category""=520), NULL,                                          200, 'PRA-8: Production labor apply — Dr ProductionLaborExpense (Cr accrued payroll wired by tenant)',  TRUE, 200),
-                    -- ProductionOverhead apply (when MES system applies OH on production complete)
-                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  10, NULL, (SELECT ""Id"" FROM gl WHERE ""Category""=530), NULL,                                          200, 'PRA-8: Production OH apply on ProductionComplete — Dr ProductionOverhead',                        TRUE, 210),
-                    -- OverheadApplied credit (variance side)
-                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  10, NULL, NULL,                                            (SELECT ""Id"" FROM gl WHERE ""Category""=590), 200, 'PRA-8: OverheadApplied credit (subtractive) on production complete',                              TRUE, 220),
-                    -- OverheadSpendingVariance
-                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  14, NULL, NULL,                                            (SELECT ""Id"" FROM gl WHERE ""Category""=591), 200, 'PRA-8: OverheadSpendingVariance on revaluation',                                                  TRUE, 230),
-                    -- OverheadVolumeVariance
-                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  14, NULL, NULL,                                            (SELECT ""Id"" FROM gl WHERE ""Category""=592), 100, 'PRA-8: OverheadVolumeVariance on revaluation',                                                    TRUE, 240)
+                    -- WIP × IssueToProduction (1)         → Dr ProductionLaborExpense (520). Cr (accrued payroll) wired by tenant.
+                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'),  1, NULL, (SELECT ""Id"" FROM gl WHERE ""Category""=520), NULL,                                          200, 'PRA-8: Production labor apply on issue to production', TRUE, 200),
+                    -- WIP × ProductionComplete (10)       → Dr ProductionOverhead (530)         + Cr OverheadApplied (590).
+                    --   Codex P1 catch fix: previously split into 2 rows that collided on partial-UNIQUE; collapsed into one row carrying both legs.
+                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'), 10, NULL, (SELECT ""Id"" FROM gl WHERE ""Category""=530), (SELECT ""Id"" FROM gl WHERE ""Category""=590), 200, 'PRA-8: Production overhead apply on production complete (Dr ProductionOverhead, Cr OverheadApplied)', TRUE, 210),
+                    -- WIP × Revaluation (14)              → Cr OverheadSpendingVariance (591).
+                    --   Codex P1 catch fix: dropped the duplicate Volume-variance row that collided on partial-UNIQUE; tenant onboarding adds (FG, Revaluation) row for Volume variance OR uses a future LaborVariance/OhVariance transaction type when InventoryTransactionType enum is extended.
+                    (NULL, (SELECT ""Id"" FROM ig WHERE ""Code""='WIP'), 14, NULL, NULL,                                            (SELECT ""Id"" FROM gl WHERE ""Category""=591), 200, 'PRA-8: Overhead spending variance on revaluation (volume variance deferred to tenant onboarding pending TxType enum extension)', TRUE, 230)
                 ON CONFLICT DO NOTHING;
             ");
         }
