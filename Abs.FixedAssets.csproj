@@ -52,6 +52,23 @@
     <None Remove="out/csp_codemod_backup/**/*" />
   </ItemGroup>
 
+  <!-- HOTFIX 2026-05-24 — exclude the entire `out/` publish-output directory
+       from Microsoft.NET.Sdk.Web's implicit Content scan. Replit's deploy
+       command is `dotnet publish -c Release -o out`. Without this exclude,
+       the SDK's auto-Content-Include picks up files under out/config/ (left
+       over from a prior publish), then the new publish wipes `out/` first
+       which leaves stale manifest entries pointing at non-existent sources
+       → MSB3030 "Could not copy ... because it was not found" during the
+       _CopyFilesMarkedCopyLocal step. Excluding `out/**` from the content
+       scan resolves it: MSBuild stops considering anything under `out/` as
+       project content, the publish creates `out/` as a fresh output dir,
+       and `config/*.json` is correctly published from the SOURCE path. -->
+  <ItemGroup>
+    <Compile Remove="out/**/*" />
+    <Content Remove="out/**/*" />
+    <None Remove="out/**/*" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.104.2" />
     <PackageReference Include="JsonSchema.Net" Version="7.3.0" />
