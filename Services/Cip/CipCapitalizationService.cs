@@ -2,6 +2,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Lookups;
+using Abs.FixedAssets.Services.Posting;
 using Abs.FixedAssets.Services.Webhooks;
 using Abs.FixedAssets.Services.Webhooks.Events;
 using Microsoft.EntityFrameworkCore;
@@ -195,8 +196,8 @@ namespace Abs.FixedAssets.Services.Cip
                 // hardcoded "1500"/"1400" string literals. Cascade per ADR-003:
                 // per-asset override → per-book → per-company config → industry default.
                 var glContext = new GlResolveContext(AssetId: asset.Id, CipProjectId: cipProjectId);
-                var (assetCostAccount, assetCostKeyId) = await ResolveAccountAndKeyAsync(projectCompanyId, GlAccountKind.AssetCost, glContext, $"cip-cap project={project.ProjectNumber} asset");
-                var (cipPendingAccount, cipPendingKeyId) = await ResolveAccountAndKeyAsync(projectCompanyId, GlAccountKind.CipPending, glContext, $"cip-cap project={project.ProjectNumber} cip-pending");
+                var (assetCostAccount, assetCostKeyId) = await _glResolver.ResolveAccountAndKeyAsync(projectCompanyId, GlAccountKind.AssetCost, glContext, logger: _logger, logContext: $"cip-cap project={project.ProjectNumber} asset");
+                var (cipPendingAccount, cipPendingKeyId) = await _glResolver.ResolveAccountAndKeyAsync(projectCompanyId, GlAccountKind.CipPending, glContext, logger: _logger, logContext: $"cip-cap project={project.ProjectNumber} cip-pending");
 
                 journalEntry = new JournalEntry
                 {
@@ -324,39 +325,8 @@ namespace Abs.FixedAssets.Services.Cip
             return (asset, capitalization);
         }
 
-        // =====================================================================
-        // PRA-5e — DEF-008 dual-write helper (3rd inline copy after PRA-5c +
-        // PRA-5d). Follow-up cleanup PR extracts to shared
-        // Services/Posting/GlPostingHelpers.ResolveAccountAndKeyAsync and
-        // refactors all 3 services to consume it.
-        //
-        // Pattern: resolve legacy account-number string via existing
-        // ResolveAsync cascade + resolve new AccountingKeyId via the
-        // PRA-5b ResolveAccountingKeyAsync extension. Try/catch on the
-        // AccountingKey side keeps legacy flow working when no GlAccount
-        // row matches the resolved account-number string (orphan path).
-        // =====================================================================
-        private async Task<(string account, int? accountingKeyId)> ResolveAccountAndKeyAsync(
-            int companyId,
-            GlAccountKind kind,
-            GlResolveContext? glContext = null,
-            string? logContext = null)
-        {
-            var account = await _glResolver.ResolveAsync(companyId, kind, glContext);
-            int? keyId = null;
-            try
-            {
-                keyId = await _glResolver.ResolveAccountingKeyAsync(
-                    companyId, kind, new AccountingKeyResolveContext(), glContext);
-            }
-            catch (GlAccountResolutionException ex)
-            {
-                _logger.LogWarning(
-                    ex,
-                    "AccountingKey resolution failed for kind={Kind} ctx={Ctx}; legacy Account={Account} only",
-                    kind, logContext ?? "", account);
-            }
-            return (account, keyId);
-        }
+        // PRA-5e inline helper extracted to shared
+        // Services/Posting/GlPostingHelpers.ResolveAccountAndKeyAsync in
+        // PRA-5e.1. Call sites use the extension method directly.
     }
 }
