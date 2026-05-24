@@ -1,5 +1,6 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services.Posting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -98,8 +99,23 @@ namespace Abs.FixedAssets.Services
                 return existingJeId;
 
             var ctx = new GlResolveContext(AssetId: assetId);
-            var drAccount = await _glResolver.ResolveAsync(companyId, GlAccountKind.AssetCost, ctx);
-            var crAccount = await _glResolver.ResolveAsync(companyId, GlAccountKind.CipPending, ctx);
+            // PRA-5f: dual-write Account + AccountingKeyId via shared
+            // GlPostingHelpers.ResolveAccountAndKeyAsync (extracted in PRA-5e.1
+            // from the inline copies in Ap/Receiving/Cip posting services).
+            // On AccountingKey resolution failure, helper logs a warning and
+            // returns NULL keyId — JE still posts with legacy Account string.
+            var (drAccount, drAccountKeyId) = await _glResolver.ResolveAccountAndKeyAsync(
+                companyId,
+                GlAccountKind.AssetCost,
+                ctx,
+                logger: _logger,
+                logContext: $"cap-impr improvement={improvementId} asset");
+            var (crAccount, crAccountKeyId) = await _glResolver.ResolveAccountAndKeyAsync(
+                companyId,
+                GlAccountKind.CipPending,
+                ctx,
+                logger: _logger,
+                logContext: $"cap-impr improvement={improvementId} cip-pending");
 
             var je = new JournalEntry
             {
@@ -119,6 +135,7 @@ namespace Abs.FixedAssets.Services
                     {
                         LineNo = 1,
                         Account = drAccount,
+                        AccountingKeyId = drAccountKeyId,
                         Description = $"Improvement to asset {assetId}",
                         Debit = amount,
                         Credit = 0m
@@ -127,6 +144,7 @@ namespace Abs.FixedAssets.Services
                     {
                         LineNo = 2,
                         Account = crAccount,
+                        AccountingKeyId = crAccountKeyId,
                         Description = $"CIP-Pending settlement (improvement #{improvementId})",
                         Debit = 0m,
                         Credit = amount
