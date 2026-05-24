@@ -184,6 +184,13 @@ public sealed class ProductionOperationService : IProductionOperationService
             return Result.Failure<IReadOnlyList<ProductionOperation>>("ProductionOrder must have a LocationId to release operations (snapshot discipline requires a site).");
         var locationSnapshot = order.LocationId.Value;
 
+        // PR #5c.2 — sibling tenant snapshot. orderCompanyId is the value
+        // resolved by ResolveOrderCompanyIdAsync at the top of this method and
+        // already tenant-scope-validated against ITenantContext. Same snapshot
+        // discipline as LocationIdSnapshot: post-release re-tenanting of the
+        // parent must NOT retroactively change in-flight ops.
+        var companySnapshot = orderCompanyId.Value;
+
         var now = DateTime.UtcNow;
         var snapshots = ops.Select(op => new ProductionOperation
         {
@@ -191,6 +198,7 @@ public sealed class ProductionOperationService : IProductionOperationService
             RoutingOperationId = op.Id,
             RoutingRevisionSnapshot = routing.RevisionNumber,
             LocationIdSnapshot = locationSnapshot,
+            CompanyIdSnapshot = companySnapshot,
             SequenceNumber = op.SequenceNumber,
             WorkCenterId = op.WorkCenterId,
             OperationType = op.OperationType,

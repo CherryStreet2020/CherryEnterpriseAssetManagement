@@ -929,6 +929,10 @@ namespace Abs.FixedAssets.Data
             // Maintenance Events
             modelBuilder.Entity<WorkOrder>(e =>
             {
+                // PR #5c.2 — Direct CompanyId (defensive denormalization from
+                // Asset.CompanyId). Indexed for fast tenant-scoped queries that
+                // skip the Asset JOIN.
+                e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.AssetId);
                 e.HasIndex(x => x.ScheduledDate);
                 e.HasIndex(x => x.Status);
@@ -1076,10 +1080,16 @@ namespace Abs.FixedAssets.Data
             // Status, Type, ScheduledStart, ScheduledEnd all carry indexes
             // for queue/dashboard filtering. Revision-chain self-FK mirrors
             // WorkOrder.MasterWorkOrderId pattern (SET NULL on master delete).
-            // OrderNumber UNIQUE — one human-facing identifier per order.
+            // PR #5c.2 — OrderNumber UNIQUE now tenant-prefixed (CompanyId, OrderNumber).
+            // The migration drops the global UNIQUE and creates the composite via
+            // raw SQL with a custom name; this HasIndex mirrors that so the EF
+            // model stays consistent.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrder>(e =>
             {
-                e.HasIndex(x => x.OrderNumber).IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.OrderNumber })
+                    .IsUnique()
+                    .HasDatabaseName("IX_ProductionOrders_Company_OrderNumber");
+                e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.Type);
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.ScheduledStart);
@@ -1144,14 +1154,20 @@ namespace Abs.FixedAssets.Data
             });
 
             // ADR-013 / PR #119.13a — ProductionBatch polymorphic parent.
-            // BatchNumber UNIQUE. Type / Status / BatchPoolCode all indexed
-            // for queue + dashboard filtering. PrimaryEquipment SET NULL on
-            // equipment delete (the batch record outlives the machine).
-            // RecipeRevision SET NULL on delete (stub table; full revisioning
-            // in PR #119.14). MrbDisposition SET NULL on delete.
+            // PR #5c.2 — BatchNumber UNIQUE is now tenant+site-prefixed
+            // (CompanyId, LocationId, BatchNumber). The migration drops the global
+            // BatchNumber UNIQUE (P0 cross-tenant leak) and creates the composite
+            // via raw SQL; this HasIndex mirrors that so the EF model stays consistent.
+            // PrimaryEquipment SET NULL on equipment delete (the batch record outlives
+            // the machine). RecipeRevision SET NULL on delete (stub table; full
+            // revisioning in PR #119.14). MrbDisposition SET NULL on delete.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionBatch>(e =>
             {
-                e.HasIndex(x => x.BatchNumber).IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.LocationId, x.BatchNumber })
+                    .IsUnique()
+                    .HasDatabaseName("IX_ProductionBatches_Company_Location_BatchNumber");
+                e.HasIndex(x => new { x.CompanyId, x.LocationId })
+                    .HasDatabaseName("IX_ProductionBatches_Company_Location");
                 e.HasIndex(x => x.BatchType);
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.BatchPoolCode);
@@ -1277,11 +1293,27 @@ namespace Abs.FixedAssets.Data
             });
 
             // ADR-013 / PR #119.13b — MaterialMaster reference.
-            // ShopCode UNIQUE per shop. AstmDesignation indexed for
-            // cross-shop analytics joins.
+            // PR #5c.2 — Cross-tenant reference pattern: nullable CompanyId/LocationId.
+            //   NULL CompanyId   = system reference (cross-tenant, shared)
+            //   NOT NULL Company = tenant-specific extension
+            // Two partial UNIQUEs replace the global ShopCode UNIQUE (P0 leak):
+            //   IX_MaterialMasters_System_ShopCode   WHERE CompanyId IS NULL
+            //   IX_MaterialMasters_Company_ShopCode  WHERE CompanyId IS NOT NULL
+            // (Replit prod-validator gotcha from PR #5c.1.1 — partial indexes, no
+            // COALESCE-in-index.) AstmDesignation indexed for cross-shop analytics joins.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.MaterialMaster>(e =>
             {
-                e.HasIndex(x => x.ShopCode).IsUnique();
+                e.HasIndex(x => x.ShopCode)
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NULL")
+                    .HasDatabaseName("IX_MaterialMasters_System_ShopCode");
+                e.HasIndex(x => new { x.CompanyId, x.ShopCode })
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .HasDatabaseName("IX_MaterialMasters_Company_ShopCode");
+                e.HasIndex(x => x.CompanyId)
+                    .HasFilter("\"CompanyId\" IS NOT NULL")
+                    .HasDatabaseName("IX_MaterialMasters_Company");
                 e.HasIndex(x => x.AstmDesignation);
                 e.HasIndex(x => x.Form);
             });
@@ -1403,12 +1435,29 @@ namespace Abs.FixedAssets.Data
             });
 
             // ADR-013 / PR #119.14 — MaterialStructure polymorphic parent.
-            // StructureNumber UNIQUE. StructureType / Status indexed for
-            // queue/dashboard filtering. Revision-chain self-FK mirrors
-            // RecipeRevision pattern (SET NULL on master delete).
+            // PR #5c.2 — Tenant scoping + site-or-template pattern (mirrors PR #5c.1
+            // Routings):
+            //   CompanyId NOT NULL — every BOM/Recipe belongs to one company.
+            //   LocationId NULL    — site-scoped when set, company-wide engineering
+            //                        template when NULL + IsSiteWideTemplate=TRUE.
+            // Two partial UNIQUEs replace the global StructureNumber UNIQUE (P0 leak):
+            //   IX_MaterialStructures_Site_StructureNumber_Rev      WHERE LocationId IS NOT NULL
+            //   IX_MaterialStructures_Template_StructureNumber_Rev  WHERE LocationId IS NULL
+            // (Replit prod-validator gotcha from PR #5c.1.1 — partial, no COALESCE.)
+            // StructureType / Status indexed for queue/dashboard filtering.
+            // Revision-chain self-FK mirrors RecipeRevision (SET NULL on master delete).
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.MaterialStructure>(e =>
             {
-                e.HasIndex(x => x.StructureNumber).IsUnique();
+                e.HasIndex(x => new { x.CompanyId, x.LocationId, x.StructureNumber, x.Revision })
+                    .IsUnique()
+                    .HasFilter("\"LocationId\" IS NOT NULL")
+                    .HasDatabaseName("IX_MaterialStructures_Site_StructureNumber_Rev");
+                e.HasIndex(x => new { x.CompanyId, x.StructureNumber, x.Revision })
+                    .IsUnique()
+                    .HasFilter("\"LocationId\" IS NULL")
+                    .HasDatabaseName("IX_MaterialStructures_Template_StructureNumber_Rev");
+                e.HasIndex(x => new { x.CompanyId, x.LocationId })
+                    .HasDatabaseName("IX_MaterialStructures_Company_Location");
                 e.HasIndex(x => x.StructureType);
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.OutputItemId);
