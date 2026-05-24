@@ -1,0 +1,46 @@
+{
+  "lookupKey": "ReasonCodeMaster",
+  "name": "Reason Codes (Master)",
+  "description": "System-wide reason codes for shop-floor events: Scrap / Rework / Downtime / Hold / Other. Loaded as CompanyId IS NULL rows in the ReasonCodes table. Tenants extend by adding their own rows with CompanyId set.",
+  "isSystem": true,
+  "source": "Sprint 13.5 PR #5c.4 — system seed.",
+  "categories": {
+    "0": "Scrap",
+    "1": "Rework",
+    "2": "Downtime",
+    "3": "Hold",
+    "99": "Other"
+  },
+  "values": [
+    { "category": 0, "code": "SC-MATL",   "description": "Material defect — incoming raw material out of spec",                  "sortOrder": 10 },
+    { "category": 0, "code": "SC-OP",     "description": "Operator error — wrong setup, wrong feed, mis-pick",                  "sortOrder": 20 },
+    { "category": 0, "code": "SC-SETUP",  "description": "Setup error — first-piece out of tolerance",                          "sortOrder": 30 },
+    { "category": 0, "code": "SC-EQUIP",  "description": "Equipment failure — tool break, fixture slip, axis drift",            "sortOrder": 40 },
+    { "category": 0, "code": "SC-PROG",   "description": "Program / NC defect — toolpath or offset wrong",                       "sortOrder": 50 },
+
+    { "category": 1, "code": "RW-DIM",    "description": "Dimensional out-of-spec — needs re-machining",                         "sortOrder": 10 },
+    { "category": 1, "code": "RW-FIN",    "description": "Surface finish below spec — needs polish / re-finish",                 "sortOrder": 20 },
+    { "category": 1, "code": "RW-COSM",   "description": "Cosmetic defect — scratch / mark / discoloration",                     "sortOrder": 30 },
+    { "category": 1, "code": "RW-ASSY",   "description": "Assembly defect — needs disassembly / rework",                         "sortOrder": 40 },
+
+    { "category": 2, "code": "DT-SETUP",  "description": "Planned setup — machine being set up for next job",                    "sortOrder": 10 },
+    { "category": 2, "code": "DT-PM",     "description": "Preventive maintenance — scheduled PM activity",                       "sortOrder": 20 },
+    { "category": 2, "code": "DT-BRKDN",  "description": "Unplanned breakdown — machine down for repair",                        "sortOrder": 30 },
+    { "category": 2, "code": "DT-MATL",   "description": "Waiting on material — material not at machine",                        "sortOrder": 40 },
+    { "category": 2, "code": "DT-TOOL",   "description": "Waiting on tooling — tool not available or broken",                    "sortOrder": 50 },
+    { "category": 2, "code": "DT-PROG",   "description": "Waiting on program / NC file",                                         "sortOrder": 60 },
+    { "category": 2, "code": "DT-INSP",   "description": "Waiting on inspection / quality release",                              "sortOrder": 70 },
+    { "category": 2, "code": "DT-BREAK",  "description": "Operator break / shift change",                                        "sortOrder": 80 },
+    { "category": 2, "code": "DT-MTG",    "description": "Meeting / training / shift huddle",                                    "sortOrder": 90 },
+
+    { "category": 3, "code": "HD-CUST",   "description": "Waiting on customer — confirmation / spec change / hold instruction",  "sortOrder": 10 },
+    { "category": 3, "code": "HD-MATL",   "description": "Waiting on material — incoming PO not received",                       "sortOrder": 20 },
+    { "category": 3, "code": "HD-NCR",    "description": "NCR open — non-conformance under review",                              "sortOrder": 30 },
+    { "category": 3, "code": "HD-ENG",    "description": "Engineering review — drawing or spec being revised",                   "sortOrder": 40 },
+    { "category": 3, "code": "HD-CREDIT", "description": "Credit hold — customer financial",                                     "sortOrder": 50 },
+    { "category": 3, "code": "HD-QUAL",   "description": "Quality hold — pending inspection / disposition",                      "sortOrder": 60 },
+    { "category": 3, "code": "HD-CAP",    "description": "Capacity hold — work center over capacity",                            "sortOrder": 70 },
+
+    { "category": 99, "code": "OTHER",    "description": "Other — operator to add note in detail field",                         "sortOrder": 999 }
+  ]
+}
