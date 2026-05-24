@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.Masters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -22,6 +26,28 @@ namespace Abs.FixedAssets.Services
         int? CipProjectId = null);
 
     /// <summary>
+    /// Sprint 13.5 PRA-5b — segment context for AccountingKey resolution.
+    /// All segments other than CompanyId + AccountId are optional; the
+    /// resolver mints an AccountingKey row keyed on whatever subset the
+    /// caller can supply. NULL segments serialize as empty string in the
+    /// canonical hash form (matching the SQL backfill in
+    /// 20260524250000_AddAccountingKeyPRA5b.cs).
+    /// </summary>
+    /// <param name="SiteId">Location.Id of the physical site for the post; NULL for corporate overhead.</param>
+    /// <param name="CostCenterId">CostCenter.Id; required when <c>GlAccount.RequiresCostCenter</c>.</param>
+    /// <param name="DepartmentId">Department.Id; required when <c>GlAccount.RequiresDepartment</c>.</param>
+    /// <param name="ProjectId">CustomerProject.Id; required for project-tracked accounts.</param>
+    /// <param name="InterCoPartnerCompanyId">Counterparty Company.Id for intercompany pairs.</param>
+    /// <param name="VerticalOverride">Force a specific IndustryVertical; defaults to <c>Company.IndustryVertical</c>.</param>
+    public sealed record AccountingKeyResolveContext(
+        int? SiteId = null,
+        int? CostCenterId = null,
+        int? DepartmentId = null,
+        int? ProjectId = null,
+        int? InterCoPartnerCompanyId = null,
+        IndustryVertical? VerticalOverride = null);
+
+    /// <summary>
     /// Resolves the GL account string for a posting purpose. See
     /// <c>docs/adr/ADR-003-central-gl-account-resolver.md</c> §D-3-2 for
     /// the cascade order.
@@ -33,6 +59,37 @@ namespace Abs.FixedAssets.Services
         /// cascade history when nothing resolves — fail fast, never post
         /// to a wrong-because-blank account.</summary>
         Task<string> ResolveAsync(int companyId, GlAccountKind kind, GlResolveContext? context = null);
+
+        /// <summary>
+        /// Sprint 13.5 PRA-5b — resolves (and creates on-demand) the
+        /// 8-segment <see cref="AccountingKey"/> row for a posting purpose
+        /// and returns its <c>Id</c>. Posting services call this in addition
+        /// to <see cref="ResolveAsync"/> so the resulting <c>JournalLine</c>
+        /// can carry both the legacy <c>Account</c> varchar(50) string AND
+        /// the new <c>AccountingKeyId</c> FK (DEF-008 dual-write).
+        /// </summary>
+        /// <remarks>
+        /// Internally: walks the existing <see cref="ResolveAsync"/> cascade
+        /// to get the account-number string, looks up the matching
+        /// <see cref="GlAccount.Id"/> in the given company (or system-wide
+        /// fallback), denormalizes <see cref="IndustryVertical"/> from
+        /// <see cref="Company"/>, computes the sha256 hash of the canonical
+        /// 8-segment string, then performs a find-or-insert against the
+        /// <c>AccountingKeys</c> table. Concurrent inserts of the same hash
+        /// race-cleanly — the second loser catches the duplicate-key error
+        /// and re-reads the winner's Id.
+        ///
+        /// Returns the <see cref="AccountingKey.Id"/>. Throws
+        /// <see cref="GlAccountResolutionException"/> if the account string
+        /// resolves but no matching <see cref="GlAccount"/> row exists in the
+        /// given company (or as a system-wide row).
+        /// </remarks>
+        Task<int> ResolveAccountingKeyAsync(
+            int companyId,
+            GlAccountKind kind,
+            AccountingKeyResolveContext keyContext,
+            GlResolveContext? glContext = null,
+            CancellationToken ct = default);
     }
 
     /// <summary>
@@ -194,6 +251,198 @@ namespace Abs.FixedAssets.Services
 
             _cache.Set(key, row, CacheTtl);
             return row;
+        }
+
+        // =====================================================================
+        // Sprint 13.5 PRA-5b — ResolveAccountingKeyAsync implementation.
+        //
+        // CALLED BY: every posting service after the legacy ResolveAsync call,
+        // to obtain the AccountingKeyId for the JournalLine. JournalLine
+        // carries BOTH the legacy Account string AND the new AccountingKeyId
+        // FK (DEF-008 dual-write).
+        //
+        // CANONICAL HASH FORM (matches the SQL backfill in
+        // 20260524250000_AddAccountingKeyPRA5b.cs):
+        //   "{CompanyId}|{SiteId|''}|{AccountId}|{CostCenterId|''}
+        //    |{DepartmentId|''}|{ProjectId|''}|{InterCoPartnerCompanyId|''}
+        //    |{(short)IndustryVertical|''}"
+        // NULL segments serialize as empty string. The hash is sha256-hex.
+        //
+        // FIND-OR-INSERT WITH RACE TOLERANCE:
+        //   1. Look up by (CompanyId, AccountingKeyHash) — partial UNIQUE index.
+        //   2. If found, return the cached Id.
+        //   3. Else INSERT; if a concurrent insert raced ahead and we hit the
+        //      duplicate-key, re-read and return the winner's Id.
+        //
+        // CACHED: in-memory by (companyId, hash) with the same 10-min TTL as
+        // the GlAccount cascade. New AccountingKey rows are immutable; the
+        // cache can hold the resolved Id forever in practice.
+        // =====================================================================
+
+        private static readonly TimeSpan KeyCacheTtl = TimeSpan.FromMinutes(10);
+
+        public async Task<int> ResolveAccountingKeyAsync(
+            int companyId,
+            GlAccountKind kind,
+            AccountingKeyResolveContext keyContext,
+            GlResolveContext? glContext = null,
+            CancellationToken ct = default)
+        {
+            if (companyId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(companyId), "AccountingKey requires a positive companyId — JournalEntry must resolve through Book.CompanyId.");
+
+            // Step 1 — walk the existing cascade to get the account-number string.
+            // Throws GlAccountResolutionException if nothing resolves (fail-fast,
+            // never post to a blank account).
+            var accountNumber = await ResolveAsync(companyId, kind, glContext);
+
+            // Step 2 — resolve account-number string to GlAccount.Id.
+            // Same scope rule as the SQL backfill: company-owned row OR
+            // system-wide row (CompanyId IS NULL). Company-owned wins when
+            // both exist for the same account number.
+            var accountId = await _db.Set<GlAccount>().AsNoTracking()
+                .Where(a => a.AccountNumber == accountNumber
+                    && (a.CompanyId == companyId || a.CompanyId == null))
+                .OrderByDescending(a => a.CompanyId.HasValue) // company-owned first
+                .Select(a => (int?)a.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (accountId is null or 0)
+                throw new GlAccountResolutionException(
+                    companyId, kind,
+                    new[] {
+                        $"per-entity=(skipped)",
+                        $"resolved-account-number={accountNumber}",
+                        $"gl-account-lookup=NOT-FOUND for (CompanyId={companyId} OR NULL, AccountNumber={accountNumber})",
+                    });
+
+            // Step 3 — denormalize IndustryVertical from Company unless caller forces override.
+            var vertical = keyContext.VerticalOverride;
+            if (vertical is null)
+            {
+                vertical = await _db.Set<Company>().AsNoTracking()
+                    .Where(c => c.Id == companyId)
+                    .Select(c => (IndustryVertical?)c.IndustryVertical)
+                    .FirstOrDefaultAsync(ct);
+            }
+
+            // Step 4 — build canonical hash string + hex.
+            var canonical = BuildCanonicalKeyString(
+                companyId,
+                keyContext.SiteId,
+                accountId.Value,
+                keyContext.CostCenterId,
+                keyContext.DepartmentId,
+                keyContext.ProjectId,
+                keyContext.InterCoPartnerCompanyId,
+                vertical);
+            var hashHex = Sha256Hex(canonical);
+
+            // Step 5 — in-memory cache check (Id is immutable once minted).
+            var cacheKey = ("AK", companyId, hashHex);
+            if (_cache.TryGetValue<int>(cacheKey, out var cachedId))
+                return cachedId;
+
+            // Step 6 — find-or-insert against AccountingKeys table.
+            var existing = await _db.Set<AccountingKey>().AsNoTracking()
+                .Where(k => k.CompanyId == companyId && k.AccountingKeyHash == hashHex)
+                .Select(k => (int?)k.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (existing.HasValue)
+            {
+                _cache.Set(cacheKey, existing.Value, KeyCacheTtl);
+                return existing.Value;
+            }
+
+            var newRow = new AccountingKey
+            {
+                CompanyId = companyId,
+                SiteId = keyContext.SiteId,
+                AccountId = accountId.Value,
+                CostCenterId = keyContext.CostCenterId,
+                DepartmentId = keyContext.DepartmentId,
+                ProjectId = keyContext.ProjectId,
+                InterCoPartnerCompanyId = keyContext.InterCoPartnerCompanyId,
+                IndustryVertical = vertical,
+                AccountingKeyHash = hashHex,
+                AccountingKeyString = $"Co={companyId}|Site={keyContext.SiteId?.ToString() ?? ""}" +
+                    $"|Acct={accountId.Value}|CC={keyContext.CostCenterId?.ToString() ?? ""}" +
+                    $"|Dept={keyContext.DepartmentId?.ToString() ?? ""}|Proj={keyContext.ProjectId?.ToString() ?? ""}" +
+                    $"|ICP={keyContext.InterCoPartnerCompanyId?.ToString() ?? ""}|Vert={(vertical.HasValue ? ((short)vertical.Value).ToString() : "")}",
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = "resolver",
+            };
+
+            _db.Set<AccountingKey>().Add(newRow);
+
+            try
+            {
+                await _db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException)
+            {
+                // Concurrent insert raced ahead and hit the (CompanyId, Hash)
+                // partial UNIQUE. Detach the loser, re-read the winner.
+                _db.Entry(newRow).State = EntityState.Detached;
+                var winner = await _db.Set<AccountingKey>().AsNoTracking()
+                    .Where(k => k.CompanyId == companyId && k.AccountingKeyHash == hashHex)
+                    .Select(k => (int?)k.Id)
+                    .FirstOrDefaultAsync(ct);
+                if (winner.HasValue)
+                {
+                    _cache.Set(cacheKey, winner.Value, KeyCacheTtl);
+                    return winner.Value;
+                }
+                throw; // unexpected — re-throw the original
+            }
+
+            _cache.Set(cacheKey, newRow.Id, KeyCacheTtl);
+            return newRow.Id;
+        }
+
+        /// <summary>
+        /// Builds the canonical 8-segment string used as input to the sha256
+        /// hash. NULL segments serialize as empty string (NOT "NULL" / "0")
+        /// so the form is unambiguous. The SQL backfill in
+        /// 20260524250000_AddAccountingKeyPRA5b.cs produces the IDENTICAL
+        /// string so backfill rows and runtime-resolved rows share hashes.
+        /// </summary>
+        public static string BuildCanonicalKeyString(
+            int companyId,
+            int? siteId,
+            int accountId,
+            int? costCenterId,
+            int? departmentId,
+            int? projectId,
+            int? interCoPartnerCompanyId,
+            IndustryVertical? vertical)
+        {
+            return string.Concat(
+                companyId.ToString(),
+                "|", siteId?.ToString() ?? "",
+                "|", accountId.ToString(),
+                "|", costCenterId?.ToString() ?? "",
+                "|", departmentId?.ToString() ?? "",
+                "|", projectId?.ToString() ?? "",
+                "|", interCoPartnerCompanyId?.ToString() ?? "",
+                "|", vertical.HasValue ? ((short)vertical.Value).ToString() : ""
+            );
+        }
+
+        /// <summary>
+        /// SHA-256 of the UTF-8 bytes of <paramref name="input"/>, lowercase
+        /// hex. 64-character output. Matches Postgres
+        /// <c>encode(digest(..., 'sha256'), 'hex')</c>.
+        /// </summary>
+        public static string Sha256Hex(string input)
+        {
+            var bytes = Encoding.UTF8.GetBytes(input);
+            var hash = SHA256.HashData(bytes);
+            var sb = new StringBuilder(64);
+            foreach (var b in hash) sb.Append(b.ToString("x2"));
+            return sb.ToString();
         }
 
         /// <summary>
