@@ -1,0 +1,159 @@
+@*
+    _CockpitChainTrace.cshtml — Sprint 12.7 PR #2.
+
+    Renders an IControllerCockpitService.ChainTraceResult as a vertical
+    timeline-style sequence of cards, top-of-chain (anchor entity) first,
+    GL postings last. Used by the Controller Control Center's Drilldown
+    tab as the right-pane preroll when ?q= is set.
+
+    Step types and the icons they map to:
+      Asset         fa-cube
+      CipProject    fa-hammer
+      CipCost       fa-coins
+      JournalEntry  fa-pen-to-square
+      JournalLine   fa-receipt
+      Vendor        fa-truck-front
+      Invoice       fa-file-invoice-dollar
+      PurchaseOrder fa-file-invoice
+*@
+@using Abs.FixedAssets.Services.Controller
+@model Abs.FixedAssets.Services.Controller.ChainTraceResult
+
+@functions {
+    static string StepIcon(string stepType) => stepType switch
+    {
+        "Asset"         => "fas fa-cube",
+        "CipProject"    => "fas fa-hammer",
+        "CipCost"       => "fas fa-coins",
+        "JournalEntry"  => "fas fa-pen-to-square",
+        "JournalLine"   => "fas fa-receipt",
+        "Vendor"        => "fas fa-truck-front",
+        "Invoice"       => "fas fa-file-invoice-dollar",
+        "PurchaseOrder" => "fas fa-file-invoice",
+        _               => "fas fa-circle",
+    };
+}
+
+<section class="cockpit-chain" aria-label="Source-to-GL trace">
+    @{
+        var drillQuery = ViewData["DrillQuery"] as string ?? "";
+    }
+
+    @* Sprint 12.7 PR #2 — always-visible search form. GET so back-button
+       + bookmark work, and so the URL is shareable for demo replay.
+       Pre-populated with current ?q= when present. *@
+    <form action="/Controller" method="get" class="cockpit-drill-form" role="search" aria-label="Drilldown entity search">
+        <input type="hidden" name="tab" value="drilldown" />
+        <input
+            type="text"
+            name="q"
+            value="@drillQuery"
+            placeholder="Asset #, JE#, PO#, Invoice# — e.g. ASSET-1116 or JE-1"
+            class="cockpit-drill-form__input"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Entity reference" />
+        <button type="submit" class="cockpit-drill-form__submit">Trace</button>
+    </form>
+
+    @if (Model is null)
+    {
+        <div class="cockpit-chain__empty">
+            <i class="fas fa-route cockpit-chain__empty-icon" aria-hidden="true"></i>
+            <h3 class="cockpit-chain__empty-title">Source-to-GL traceability</h3>
+            <p class="cockpit-chain__empty-text">
+                Type an Asset #, JE #, PO #, or Invoice # to walk the chain —
+                <code>JournalLine → AccountingKey → SourceDocument → upstream</code>.
+                Voice intent (&ldquo;why is NBV $X on Asset #Y?&rdquo;) lands in PR #3 on the Cherry Bar.
+            </p>
+        </div>
+    }
+    else if (!Model.IsResolved)
+    {
+        <header class="cockpit-chain__header cockpit-chain__header--unresolved">
+            <h3 class="cockpit-chain__title">@Model.Headline</h3>
+            @if (!string.IsNullOrEmpty(Model.Narration))
+            {
+                <p class="cockpit-chain__narration">@Model.Narration</p>
+            }
+        </header>
+    }
+    else
+    {
+        <header class="cockpit-chain__header">
+            <h3 class="cockpit-chain__title">@Model.Headline</h3>
+            @if (!string.IsNullOrEmpty(Model.Subtitle))
+            {
+                <p class="cockpit-chain__subtitle">@Model.Subtitle</p>
+            }
+            @if (!string.IsNullOrEmpty(Model.Narration))
+            {
+                <p class="cockpit-chain__narration">@Model.Narration</p>
+            }
+        </header>
+
+        <ol class="cockpit-chain__steps" role="list">
+            @foreach (var step in Model.Steps)
+            {
+                var iconClass = StepIcon(step.StepType);
+                var bodyTag = string.IsNullOrEmpty(step.DeepLinkHref) ? "div" : "a";
+
+                <li class="cockpit-chain__step cockpit-chain__step--@step.StepType.ToLowerInvariant()" data-step-key="@step.StepKey">
+                    <div class="cockpit-chain__step-rail" aria-hidden="true">
+                        <span class="cockpit-chain__step-bullet"><i class="@iconClass"></i></span>
+                    </div>
+                    <div class="cockpit-chain__step-body">
+                        @if (bodyTag == "a")
+                        {
+                            <a href="@step.DeepLinkHref" class="cockpit-chain__step-link">
+                                <div class="cockpit-chain__step-eyebrow">@step.Eyebrow</div>
+                                <div class="cockpit-chain__step-headline">@step.Headline</div>
+                                @if (!string.IsNullOrEmpty(step.Subtext))
+                                {
+                                    <div class="cockpit-chain__step-subtext">@step.Subtext</div>
+                                }
+                            </a>
+                        }
+                        else
+                        {
+                            <div>
+                                <div class="cockpit-chain__step-eyebrow">@step.Eyebrow</div>
+                                <div class="cockpit-chain__step-headline">@step.Headline</div>
+                                @if (!string.IsNullOrEmpty(step.Subtext))
+                                {
+                                    <div class="cockpit-chain__step-subtext">@step.Subtext</div>
+                                }
+                            </div>
+                        }
+
+                        <div class="cockpit-chain__step-meta">
+                            @if (!string.IsNullOrEmpty(step.AmountText))
+                            {
+                                <span class="cockpit-chain__step-amount">@step.AmountText</span>
+                            }
+                            @if (!string.IsNullOrEmpty(step.DateText))
+                            {
+                                <span class="cockpit-chain__step-date">@step.DateText</span>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(step.Narration))
+                        {
+                            <p class="cockpit-chain__step-narration">@step.Narration</p>
+                        }
+
+                        @if (step.SegmentChips is { Count: > 0 })
+                        {
+                            <div class="cockpit-chain__step-chips">
+                                @foreach (var chip in step.SegmentChips)
+                                {
+                                    <span class="cockpit-chain__step-chip">@chip</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </li>
+            }
+        </ol>
+    }
+</section>

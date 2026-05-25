@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Pages.Shared.ControlCenter;
 using Abs.FixedAssets.Pages.Shared.Primitives.Cockpit;
+using Abs.FixedAssets.Services.Controller;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -58,10 +59,14 @@ namespace Abs.FixedAssets.Pages.Controller;
 public sealed class IndexModel : ControlCenterPageModel
 {
     private readonly ILogger<IndexModel> _logger;
+    private readonly IControllerCockpitService _drilldown;
 
-    public IndexModel(ILogger<IndexModel> logger)
+    public IndexModel(
+        ILogger<IndexModel> logger,
+        IControllerCockpitService drilldown)
     {
         _logger = logger;
+        _drilldown = drilldown;
     }
 
     public override string ControlCenterCode  => "CONTROLLER";
@@ -82,6 +87,18 @@ public sealed class IndexModel : ControlCenterPageModel
     [BindProperty(SupportsGet = true, Name = "tab")]
     public string? TabKey { get; set; }
 
+    // Sprint 12.7 PR #2 — `?q=<entity-ref>` drives the source-to-GL drilldown.
+    // Format: ASSET-1234 / JE-1234 / bare integer (assumed Asset). Only
+    // active when ActiveTab == TabDrilldown.
+    [BindProperty(SupportsGet = true, Name = "q")]
+    public string? Query { get; set; }
+
+    // Sprint 12.7 PR #2 — chain-trace result hydrated from
+    // IControllerCockpitService when Query is non-empty on the Drilldown tab.
+    // Razor consumes this via the _CockpitChainTrace partial as the
+    // CockpitShell preroll.
+    public ChainTraceResult? DrilldownResult { get; private set; }
+
     public string ActiveTab =>
         !string.IsNullOrEmpty(TabKey)
         && KnownTabs.Contains(TabKey, StringComparer.OrdinalIgnoreCase)
@@ -94,14 +111,14 @@ public sealed class IndexModel : ControlCenterPageModel
     public CockpitTabShellModel       TabShell   { get; private set; } = new();
     public CockpitShellViewModel      TabContent { get; private set; } = new();
 
-    public Task<IActionResult> OnGetAsync(CancellationToken ct)
+    public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         HydratePageHeader();
         HydrateKpiBand();
         HydrateTabShell();
-        HydrateTabContent();
+        await HydrateTabContentAsync(ct);
 
-        return Task.FromResult<IActionResult>(Page());
+        return Page();
     }
 
     private void HydratePageHeader()
@@ -178,15 +195,16 @@ public sealed class IndexModel : ControlCenterPageModel
         };
     }
 
-    private void HydrateTabContent()
+    private async Task HydrateTabContentAsync(CancellationToken ct)
     {
         // Every tab renders a CockpitShellViewModel — queue (left) + welcome
-        // (right) — so the canvas matches Receiving's BIC composition. PR #1
-        // ships empty queues + descriptive welcome states that name which
-        // future PR fills the data.
+        // (right) — so the canvas matches Receiving's BIC composition. PR #2
+        // wires the Drilldown tab to IControllerCockpitService for the
+        // source-to-GL chain trace; other tabs still ship welcome states
+        // pointing at the PR that fills them.
         TabContent = ActiveTab switch
         {
-            TabDrilldown  => DrilldownTab(),
+            TabDrilldown  => await DrilldownTabAsync(ct),
             TabClosePrep  => ClosePrepTab(),
             TabAuditTrail => AuditTrailTab(),
             _             => BooksTab(),
@@ -218,30 +236,52 @@ public sealed class IndexModel : ControlCenterPageModel
         PreviewBlobElementId = "__jeDetails",
     };
 
-    private static CockpitShellViewModel DrilldownTab() => new()
+    private async Task<CockpitShellViewModel> DrilldownTabAsync(CancellationToken ct)
     {
-        Queue = new CockpitQueueViewModel
+        // Sprint 12.7 PR #2 — when ?q= is supplied, walk the chain via
+        // IControllerCockpitService and render the trace as the right-pane
+        // preroll. When ?q= is empty, the partial renders the friendly
+        // "Type an Asset #..." help state — same partial, IsResolved=false
+        // for the empty path keeps the surface consistent.
+        DrilldownResult = string.IsNullOrWhiteSpace(Query)
+            ? null
+            : await _drilldown.TraceAsync(Query, ct);
+
+        // Expose the current query to the partial so the search form can
+        // pre-populate its input. ViewData propagation works automatically
+        // through PartialAsync calls.
+        ViewData["DrillQuery"] = Query ?? "";
+
+        return new CockpitShellViewModel
         {
-            TitleHtml         = "Trace by entity",
-            TitleIconClass    = "fas fa-route",
-            SearchPlaceholder = "Asset #, JE#, PO#, Invoice#...",
-            SearchElementId   = "drilldownSearch",
-            Empty = new CockpitEmptyViewModel
+            Queue = new CockpitQueueViewModel
+            {
+                TitleHtml         = "Trace by entity",
+                TitleIconClass    = "fas fa-route",
+                SearchPlaceholder = "Asset #, JE#, PO#, Invoice#...",
+                SearchElementId   = "drilldownSearch",
+                Empty = new CockpitEmptyViewModel
+                {
+                    IconClass = "fas fa-circle-info",
+                    IconTone  = "info",
+                    Message   = "Drill via the search box on the right pane. Recent traces queue ships in PR #3.",
+                },
+            },
+            Welcome = new CockpitWelcomeViewModel
             {
                 IconClass = "fas fa-route",
-                IconTone  = "info",
-                Message   = "Source-to-GL drilldown service wires in via PR #2.",
+                Title     = "Source-to-GL traceability",
+                Subtitle  = "Type an Asset #, JE #, PO #, or Invoice # in the search box above to walk the chain. Voice intent ('why is NBV $X on Asset #Y?') lands in PR #3 on the Cherry Bar.",
             },
-        },
-        Welcome = new CockpitWelcomeViewModel
-        {
-            IconClass = "fas fa-route",
-            Title     = "Source-to-GL traceability",
-            Subtitle  = "Type an Asset #, JE #, PO #, or Invoice # to walk the chain — JournalLine → AccountingKey → SourceDocument → upstream. Voice intent ('why is NBV $X on Asset #Y?') lands in PR #3 on the Cherry Bar.",
-        },
-        PreviewBlobJson      = "[]",
-        PreviewBlobElementId = "__drilldownDetails",
-    };
+            PreviewBlobJson      = "[]",
+            PreviewBlobElementId = "__drilldownDetails",
+            // PR #2 — right pane preroll renders the chain trace partial.
+            // The partial handles both the search form (always visible) and
+            // the resolved/unresolved trace below it.
+            PrerollPartialName  = "Primitives/Cockpit/_CockpitChainTrace",
+            PrerollPartialModel = DrilldownResult,
+        };
+    }
 
     private static CockpitShellViewModel ClosePrepTab() => new()
     {
