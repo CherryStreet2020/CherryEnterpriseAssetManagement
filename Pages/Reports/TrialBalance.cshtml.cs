@@ -102,7 +102,15 @@ namespace Abs.FixedAssets.Pages.Reports
                 .Select(g => new { g.AccountNumber, g.Name, g.AccountType })
                 .ToListAsync();
 
-            var accountLookup = accounts.ToDictionary(a => a.AccountNumber);
+            // PRA-5e.2 (2026-05-24) seeded system-tier (CompanyId=NULL) GlAccount rows
+            // for 19 industry-default account numbers (1110 Cash, 2000 AP, 2150 GR-Accrued,
+            // etc.) that already existed as tenant-owned rows. A naive ToDictionary throws
+            // ArgumentException("An item with the same key has already been added") here.
+            // Sprint 13.6 PR #5 fix — GroupBy + First picks the tenant row when both exist
+            // (DISTINCT-ON-style precedence, matching IGlAccountResolver behavior).
+            var accountLookup = accounts
+                .GroupBy(a => a.AccountNumber)
+                .ToDictionary(g => g.Key, g => g.First());
             Rows = lineAgg
                 .Select(x =>
                 {
