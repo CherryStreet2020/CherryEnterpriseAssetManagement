@@ -53,6 +53,11 @@ namespace Abs.FixedAssets.Pages.Periods
 
         public async Task<IActionResult> OnGetAsync()
         {
+            // Sprint 13.6 PR #5 fix — bare /Periods/Close without route params
+            // was returning NotFound() then 500-ing via the AccessDenied chain.
+            // Redirect to the period picker when params are missing.
+            if (FiscalPeriodId == 0 || CompanyId == 0)
+                return RedirectToPage("/Periods/Index");
             await LoadAsync();
             if (Period == null) return NotFound();
             return Page();
