@@ -50,3 +50,7 @@ TestResults/
 proof/ui/playwright/test-results/
 proof/ui/playwright/playwright-report/
 proof/ui/playwright/screenshots/
+.ship/runs/
+.ship/msgs/
+.ship/scratch/
+.ship/*.bak
