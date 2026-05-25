@@ -412,6 +412,9 @@ builder.Services.AddScoped<MasterDataImportService>();
 // Sprint 13.5 PR #337 — /Admin/AssetImport bulk Excel upload service.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AssetImport.IAssetImportService,
                           Abs.FixedAssets.Services.AssetImport.AssetImportService>();
+// Sprint 13.5 PR #338 — Quality / FAI service (AS9102 First Article Inspection).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Quality.IFaiService,
+                          Abs.FixedAssets.Services.Quality.FaiService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<InvoiceMatchingService>();
 builder.Services.AddMemoryCache();

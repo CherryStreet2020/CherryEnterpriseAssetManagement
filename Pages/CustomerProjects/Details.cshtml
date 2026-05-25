@@ -203,6 +203,53 @@
 </section>
 
 <section class="detail-card detail-card--full">
+    @* PR #338 — First Article Inspections scoped to this project. *@
+    <div data-csp-style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 class="detail-card-title">First Article Inspections (AS9102)</h3>
+        <div data-csp-style="display: flex; gap: 0.5rem;">
+            <a href="/Quality/Fai?customerProjectId=@p.Id" class="btn-secondary">View all</a>
+            <a href="/Quality/Fai/Create?customerProjectId=@p.Id" class="btn-primary">+ New FAI</a>
+        </div>
+    </div>
+    @if (Model.FaiReports.Count == 0)
+    {
+        <p class="muted" data-csp-style="margin-top: 0.75rem;">No First Article Inspections recorded for this project yet.</p>
+    }
+    else
+    {
+        <table class="data-table" data-csp-style="margin-top: 0.75rem;">
+            <thead>
+                <tr>
+                    <th>FAI #</th>
+                    <th>Part</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Chars</th>
+                    <th>NC</th>
+                    <th>Created</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in Model.FaiReports)
+                {
+                    <tr>
+                        <td><span class="link-mono">@f.FaiNumber</span></td>
+                        <td>@f.PartNumberSnapshot</td>
+                        <td>@f.Type</td>
+                        <td><span class="status-chip">@f.Status</span></td>
+                        <td>@f.CharacteristicCount</td>
+                        <td class="@(f.NonConformCount > 0 ? "num" : "muted")">@f.NonConformCount</td>
+                        <td>@f.CreatedAt.ToString("yyyy-MM-dd")</td>
+                        <td><a href="/Quality/Fai/Detail/@f.Id" class="link-arrow">Open →</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="detail-card detail-card--full">
     <h3 class="detail-card-title">Audit</h3>
     <dl class="detail-list detail-list--inline">
         <dt>Created</dt><dd>@p.CreatedAt.ToString("yyyy-MM-dd HH:mm") by @(p.CreatedBy ?? "—")</dd>

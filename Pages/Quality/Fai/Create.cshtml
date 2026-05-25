@@ -1,0 +1,133 @@
+@page
+@model Abs.FixedAssets.Pages.Quality.Fai.CreateModel
+@{
+    ViewData["Title"] = "New FAI";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Quality" },
+        { "HeaderTitle", "New First Article Inspection" },
+        { "Subtitle", "AS9102 Form 1 — Part Number Accountability" },
+        { "StatusText", $"CompanyId {Model.CompanyId}" },
+        { "StatusTone", "info" },
+        { "ShowBackLink", true },
+        { "BackLinkFallback", "/Quality/Fai" },
+        { "BackLinkLabel", "Back to FAI list" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger mb-4">@TempData["Error"]</div>
+}
+
+<form method="post">
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Identity</h3>
+            </div>
+            <div class="section-card-body">
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Item *</label>
+                <select name="SelectedItemId" required data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <option value="">— Select an Item —</option>
+                    @foreach (var i in Model.ItemOptions)
+                    {
+                        <option value="@i.Id" selected="@(Model.SelectedItemId == i.Id)">@i.Label</option>
+                    }
+                </select>
+
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Customer</label>
+                <select name="SelectedCustomerId" data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <option value="">— (optional) —</option>
+                    @foreach (var c in Model.CustomerOptions)
+                    {
+                        <option value="@c.Id" selected="@(Model.SelectedCustomerId == c.Id)">@c.Label</option>
+                    }
+                </select>
+
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Customer Project</label>
+                <select name="CustomerProjectId" data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <option value="">— (optional) —</option>
+                    @foreach (var p in Model.CustomerProjectOptions)
+                    {
+                        <option value="@p.Id" selected="@(Model.CustomerProjectId == p.Id)">@p.Label</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="section-card">
+            <div class="section-card-header">
+                <h3 class="section-card-title">Snapshot fields (audit-legal)</h3>
+            </div>
+            <div class="section-card-body">
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Number *</label>
+                <input type="text" name="PartNumberSnapshot" required maxlength="100" value="@Model.PartNumberSnapshot"
+                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Name</label>
+                <input type="text" name="PartNameSnapshot" maxlength="200" value="@Model.PartNameSnapshot"
+                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Drawing Number</label>
+                <input type="text" name="DrawingNumberSnapshot" maxlength="100" value="@Model.DrawingNumberSnapshot"
+                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+
+                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Drawing Rev</label>
+                <input type="text" name="DrawingRevSnapshot" maxlength="20" value="@Model.DrawingRevSnapshot"
+                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+            </div>
+        </div>
+    </div>
+
+    <div class="section-card mb-4">
+        <div class="section-card-header">
+            <h3 class="section-card-title">AS9102 Classification</h3>
+        </div>
+        <div class="section-card-body">
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Type</label>
+                    <select name="Type" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                        <option value="0" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Full)">Full</option>
+                        <option value="1" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Partial)">Partial</option>
+                        <option value="2" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Delta)">Delta</option>
+                    </select>
+                </div>
+                <div>
+                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Type</label>
+                    <select name="PartType" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                        <option value="0" selected="@(Model.PartType == Abs.FixedAssets.Models.Quality.FaiPartType.Detail)">Detail</option>
+                        <option value="1" selected="@(Model.PartType == Abs.FixedAssets.Models.Quality.FaiPartType.Assembly)">Assembly</option>
+                    </select>
+                </div>
+                <div>
+                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Reason</label>
+                    <select name="Reason" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                        <option value="0" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.NewPart)">New Part</option>
+                        <option value="1" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.DesignChange)">Design Change</option>
+                        <option value="2" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.LocationChange)">Location Change</option>
+                        <option value="3" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.ProcessChange)">Process Change</option>
+                        <option value="4" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.LapseGreaterThan2Years)">Lapse > 2 years</option>
+                        <option value="5" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.CustomerRequest)">Customer Request</option>
+                        <option value="6" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.ToolingChange)">Tooling Change</option>
+                        <option value="7" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.Other)">Other</option>
+                    </select>
+                </div>
+            </div>
+            <label data-csp-style="display: block; font-weight: 500; margin-top: 1rem; margin-bottom: 0.25rem;">Reason Text</label>
+            <textarea name="ReasonText" rows="2" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">@Model.ReasonText</textarea>
+        </div>
+    </div>
+
+    <div data-csp-style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="hero-btn hero-btn-primary">Create FAI</button>
+        <a href="/Quality/Fai" class="hero-btn hero-btn-ghost">Cancel</a>
+    </div>
+</form>
