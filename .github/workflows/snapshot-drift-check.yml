@@ -65,7 +65,7 @@ jobs:
           set -e
           # Generate temp migration. If snapshot is in sync with model the
           # migration body will only contain empty Up() and Down() methods.
-          dotnet ef migrations add CIDriftCheck --no-build --project Abs.FixedAssets.csproj
+          dotnet ef migrations add CIDriftCheck --project Abs.FixedAssets.csproj --configuration Release
           # Locate the generated .cs file (not the .Designer.cs).
           MIG_FILE=$(ls -1 Migrations/*_CIDriftCheck.cs 2>/dev/null | head -1)
           if [ -z "$MIG_FILE" ]; then
@@ -102,4 +102,4 @@ jobs:
         run: |
           # Always clean up. The temp migration must not pollute the repo or
           # leak into the next PR.
-          dotnet ef migrations remove --force --project Abs.FixedAssets.csproj || true
+          dotnet ef migrations remove --force --project Abs.FixedAssets.csproj --configuration Release || true
