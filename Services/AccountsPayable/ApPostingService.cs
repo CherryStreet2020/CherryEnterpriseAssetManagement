@@ -622,13 +622,25 @@ namespace Abs.FixedAssets.Services.AccountsPayable
 
             invoice.AmountPaid -= payment.Amount;
             if (invoice.AmountPaid < 0m) invoice.AmountPaid = 0m;
-            // Status recompute: drop back from Paid to Approved (or
-            // PartiallyPaid) since we just removed payment coverage.
+            // PR #336 (Codex P1 catch). Persisted balance must stay in sync
+            // with AmountPaid — page reads BalanceDue directly, and stale
+            // values mislead the user / block subsequent payment actions.
+            invoice.BalanceDue = invoice.Total - invoice.AmountPaid;
+
+            // Status recompute (Codex P1 catch). Voiding a DUPLICATE payment
+            // can leave AmountPaid == Total (cleanup case: void one of two
+            // identical $99 payments → AmountPaid drops from $198 to $99
+            // which equals Total). In that case the invoice is STILL fully
+            // paid — must not demote to PartiallyPaid. Compare against Total,
+            // not just AmountPaid > 0.
             if (invoice.Status == InvoiceStatus.Paid)
             {
-                invoice.Status = invoice.AmountPaid > 0m
-                    ? InvoiceStatus.PartiallyPaid
-                    : InvoiceStatus.Approved;
+                if (invoice.AmountPaid >= invoice.Total)
+                    invoice.Status = InvoiceStatus.Paid;  // still fully covered (duplicate cleanup)
+                else if (invoice.AmountPaid > 0m)
+                    invoice.Status = InvoiceStatus.PartiallyPaid;
+                else
+                    invoice.Status = InvoiceStatus.Approved;
             }
             invoice.UpdatedAt = DateTime.UtcNow;
 
