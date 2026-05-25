@@ -409,6 +409,9 @@ builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<TemplateService>();
 builder.Services.AddScoped<MasterDataImportService>();
+// Sprint 13.5 PR #337 — /Admin/AssetImport bulk Excel upload service.
+builder.Services.AddScoped<Abs.FixedAssets.Services.AssetImport.IAssetImportService,
+                          Abs.FixedAssets.Services.AssetImport.AssetImportService>();
 builder.Services.AddScoped<AttachmentService>();
 builder.Services.AddScoped<InvoiceMatchingService>();
 builder.Services.AddMemoryCache();

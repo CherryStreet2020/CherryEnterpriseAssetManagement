@@ -1,0 +1,127 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Admin.AssetImport.DetailModel
+@{
+    ViewData["Title"] = $"Batch #{Model.Id} detail";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var batch = Model.Batch!;
+    var statusTone = batch.Status switch
+    {
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Committed => "success",
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Failed => "danger",
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Discarded => "muted",
+        _ => "info"
+    };
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", $"Batch #{batch.Id} — {batch.FileName}" },
+        { "Subtitle", $"Final batch state · {batch.RowCount} rows · {batch.ValidRowCount} valid · {batch.ErrorRowCount} errors" },
+        { "StatusText", batch.Status.ToString() },
+        { "StatusTone", statusTone },
+        { "ShowBackLink", true },
+        { "BackLinkFallback", "/Admin/AssetImport" },
+        { "BackLinkLabel", "Back to Asset Import" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="kpi-card">
+        <div class="kpi-label">Total rows</div>
+        <div class="kpi-value">@batch.RowCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Committed assets</div>
+        <div class="kpi-value success">@Model.Rows.Count(r => r.CommittedAssetId.HasValue)</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Created at</div>
+        <div class="kpi-value" data-csp-style="font-size: 1rem;">@batch.CreatedAt.ToString("yyyy-MM-dd HH:mm")</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Committed at</div>
+        <div class="kpi-value" data-csp-style="font-size: 1rem;">@(batch.CommittedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(batch.Notes))
+{
+    <div class="alert alert-info mb-4">
+        <strong>Notes:</strong>
+        <pre data-csp-style="margin: 0; white-space: pre-wrap; font-family: inherit;">@batch.Notes</pre>
+    </div>
+}
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">All rows</h3>
+    </div>
+    <div class="section-card-body" data-csp-style="padding: 0;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Row</th>
+                    <th>Status</th>
+                    <th>AssetNumber</th>
+                    <th>Description</th>
+                    <th>Manufacturer</th>
+                    <th>Cost</th>
+                    <th>Asset</th>
+                    <th>Errors</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in Model.Rows)
+                {
+                    <tr>
+                        <td>@r.RowNumber</td>
+                        <td>
+                            @switch (r.Status)
+                            {
+                                case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Committed:
+                                    <span class="status-badge success">Committed</span>
+                                    break;
+                                case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Valid:
+                                    <span class="status-badge info">Valid</span>
+                                    break;
+                                case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Error:
+                                    <span class="status-badge danger">Error</span>
+                                    break;
+                                default:
+                                    <span class="status-badge muted">Pending</span>
+                                    break;
+                            }
+                        </td>
+                        <td>@r.AssetNumber</td>
+                        <td>@r.Description</td>
+                        <td>@r.ManufacturerName</td>
+                        <td>
+                            @if (r.AcquisitionCost.HasValue)
+                            {
+                                @($"{r.AcquisitionCost.Value:N0} {r.Currency ?? ""}")
+                            }
+                        </td>
+                        <td>
+                            @if (r.CommittedAssetId.HasValue)
+                            {
+                                <a href="/Assets/Details/@r.CommittedAssetId">#@r.CommittedAssetId</a>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(r.ValidationErrors))
+                            {
+                                <pre data-csp-style="margin: 0; font-size: 0.75rem; color: #b91c1c; white-space: pre-wrap;">@r.ValidationErrors</pre>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
