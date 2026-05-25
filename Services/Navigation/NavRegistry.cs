@@ -51,7 +51,10 @@ public static class NavRegistry
             Items: new[]
             {
                 new NavItem("Dashboard",      "/Index",      "fas fa-gauge-high", RoutePrefix: "/Index"),
-                new NavItem("Approvals",      "/Approvals",  "fas fa-circle-check"),
+                // Sprint 13.6 PR #7 — /Approvals had no Index page; repointed to
+                // the only file in the folder (/Approvals/Pending). Caught by the
+                // new nav-routes-check.yml CI gate.
+                new NavItem("Approvals",      "/Approvals/Pending",  "fas fa-circle-check", RoutePrefix: "/Approvals"),
                 // Sprint 13.6 PR #2 — removed /Notifications nav entry (page never built).
                 // Add back when Pages/Notifications/Index.cshtml ships.
             }),
@@ -71,17 +74,44 @@ public static class NavRegistry
             SortOrder: 20,
             Items: new[]
             {
-                new NavItem("Work Orders",         "/WorkOrders",    "fas fa-wrench"),
-                new NavItem("Maintenance Schedule","/Maintenance/Schedule", "fas fa-calendar-days", RoutePrefix: "/Maintenance"),
+                // Sprint 13.6 PR #7 — /WorkOrders had only Details.cshtml (route
+                // "{id:int?}"); the bare /WorkOrders path 404s. Repointed to
+                // /Maintenance which is the work-order list cockpit.
+                new NavItem("Work Orders",         "/Maintenance",   "fas fa-wrench", RoutePrefix: "/Maintenance"),
+                // Sprint 13.6 PR #7 — /Maintenance/Schedule repointed to the
+                // actual file (/Maintenance/ScheduleBoard).
+                new NavItem("Maintenance Schedule","/Maintenance/ScheduleBoard", "fas fa-calendar-days"),
                 new NavItem("Work Requests",       "/Maintenance/WorkRequests", "fas fa-clipboard-list"),
                 new NavItem("Assets",              "/Assets",        "fas fa-boxes-stacked"),
                 // Sprint 13.6 PR #2 — repointed /Plant/Floor → /Plant (Floor.cshtml
                 // requires {siteId:int} route param; /Plant is the Index hub).
                 new NavItem("Plant Floor",         "/Plant",         "fas fa-industry", RoutePrefix: "/Plant"),
                 new NavItem("Bulk Operations",     "/BulkOperations","fas fa-layer-group"),
-                // Sprint 13.6 PR #2 — Add /Quality/Fai entry (PR #338 shipped UI).
-                // #1 highest-leverage demo addition per the UI audit (aerospace audit story).
-                new NavItem("First Article Inspections", "/Quality/Fai", "fas fa-clipboard-check"),
+            }),
+
+        // ============================================================
+        // 2b. QUALITY — aerospace / regulated-industry quality records
+        //
+        // Sprint 13.6 PR #7 — split out of Operations into its own group.
+        // ABS Machining + the aerospace demo audience explicitly look for a
+        // "Quality" sidebar bucket (AS9100 muscle memory). Sits between
+        // Operations (the work) and Finance (the books) so the IA reads
+        // Today → Operations → Quality → Finance → Insights → Master Data →
+        // AI & Integrations → Settings.
+        //
+        // First and only entry today is the FAI UI (PR #338 shipped, #1
+        // highest-leverage demo addition per the UI audit). Future: NCRs,
+        // CAPAs, supplier scorecards, audit log filters, ECR/ECO control
+        // (Sprint 14.5 per Dean's 2026-05-24 brainstorm).
+        // ============================================================
+        new NavGroup(
+            Code: "QUALITY",
+            Title: "Quality",
+            IconClass: "fas fa-clipboard-check",
+            SortOrder: 23,
+            Items: new[]
+            {
+                new NavItem("First Article Inspections", "/Quality/Fai", "fas fa-clipboard-check", RoutePrefix: "/Quality"),
             }),
 
         // ============================================================
@@ -142,7 +172,9 @@ public static class NavRegistry
                 // Stale "new" badges (6+ months old) removed across the group.
                 // Locations repointed to /Admin/Locations (canonical file path).
                 // Added /Admin/AssetImport (PR #337 shipped) — #1 highest-leverage operator workflow per UI audit.
-                new NavItem("Items",           "/Materials",                "fas fa-cubes", RoutePrefix: "/Materials"),
+                // Sprint 13.6 PR #7 — /Materials had no Index page; repointed
+                // to /Materials/Items (the actual landing).
+                new NavItem("Items",           "/Materials/Items",          "fas fa-cubes", RoutePrefix: "/Materials"),
                 new NavItem("Item Categories", "/Admin/ItemCategories",     "fas fa-tags"),
                 new NavItem("Vendors",         "/Admin/Vendors",            "fas fa-truck-front"),
                 new NavItem("Manufacturers",   "/Admin/Manufacturers",      "fas fa-helmet-safety"),
@@ -184,7 +216,8 @@ public static class NavRegistry
             {
                 new NavItem("Companies",       "/Admin/Companies",       "fas fa-building"),
                 new NavItem("Users",           "/Admin/Users",           "fas fa-users"),
-                new NavItem("Roles",           "/Admin/Roles",           "fas fa-user-shield"),
+                // Sprint 13.6 PR #7 — removed /Admin/Roles entry (page never built).
+                // Add back when Pages/Admin/Roles.cshtml ships.
                 new NavItem("System Settings", "/Admin/SystemSettings",  "fas fa-sliders"),
                 new NavItem("Help",            "/Help",                  "fas fa-circle-question"),
             }),

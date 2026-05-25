@@ -1,0 +1,131 @@
+name: nav-routes-check
+
+# Sprint 13.6 PR #7 — sidebar nav route integrity gate.
+#
+# Why this exists:
+#   PR #2 (Sprint 13.6) cleaned up half-a-dozen NavRegistry entries that pointed
+#   at routes whose Razor page did not exist (404 from a hard-coded sidebar link
+#   is a customer-facing bug). This gate prevents the regression.
+#
+# What it does:
+#   1. Greps every `new NavItem(...)` call in Services/Navigation/NavRegistry.cs.
+#   2. For each item, extracts the literal route string (the 2nd positional arg).
+#   3. Verifies a matching Razor page file exists. Route → file rules:
+#        /Foo              → Pages/Foo.cshtml      OR  Pages/Foo/Index.cshtml
+#        /Foo/Bar          → Pages/Foo/Bar.cshtml  OR  Pages/Foo/Bar/Index.cshtml
+#        /Foo/Bar/Baz      → Pages/Foo/Bar/Baz.cshtml OR Pages/Foo/Bar/Baz/Index.cshtml
+#   4. Fail the build with a clear list of broken routes.
+#
+# Scope limits (best-effort, not exhaustive):
+#   - Only literal routes are checked. Routes with `{id:int}` or similar route
+#     parameters in the registry would be a programmer error anyway — sidebar
+#     items never need parameters — so we don't try to resolve them.
+#   - We do NOT verify RoutePrefix arguments; those are matched at request
+#     time by the active-link helper and have looser semantics.
+#   - We do NOT cross-check the ControlCenterRegistry (Cockpit spine). Those
+#     routes are exercised by other tests + a11y-audit smoke.
+#
+# Trigger:
+#   - On every PR targeting main + every push to main.
+#   - Pure bash + grep, sub-5-second job, no .NET toolchain required.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  nav-routes-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify NavRegistry routes resolve to pages
+        run: |
+          set -euo pipefail
+
+          REG=Services/Navigation/NavRegistry.cs
+          if [ ! -f "$REG" ]; then
+            echo "::error::NavRegistry.cs not found at $REG"
+            exit 1
+          fi
+
+          # Extract the second positional argument (the route string) from
+          # every `new NavItem(...)` call. NavItem signature is:
+          #   new NavItem("Label", "/Route", "icon", ...)
+          # We scan for the second double-quoted token on each NavItem line.
+          ROUTES=$(grep -E 'new NavItem\(' "$REG" \
+            | grep -oE '"[^"]+"\s*,\s*"[^"]+"' \
+            | sed -E 's/^"[^"]+"\s*,\s*"([^"]+)"$/\1/')
+
+          if [ -z "$ROUTES" ]; then
+            echo "::error::Found no NavItem entries — grep extraction is broken."
+            exit 1
+          fi
+
+          echo "Found $(echo "$ROUTES" | wc -l | tr -d ' ') NavItem route(s) to verify:"
+          echo "$ROUTES" | sed 's/^/  /'
+          echo
+
+          BROKEN=""
+          CHECKED=0
+          while IFS= read -r ROUTE; do
+            CHECKED=$((CHECKED + 1))
+
+            # Only verify literal absolute routes (start with /).
+            case "$ROUTE" in
+              /*) ;;
+              *) echo "  skip (non-absolute): $ROUTE"; continue ;;
+            esac
+
+            # Skip routes with route parameters — out of scope.
+            case "$ROUTE" in
+              *"{"*)
+                echo "  skip (parameterized): $ROUTE"
+                continue
+                ;;
+            esac
+
+            # Strip leading slash. Empty path means root → Pages/Index.cshtml.
+            TRIMMED=${ROUTE#/}
+            if [ -z "$TRIMMED" ] || [ "$TRIMMED" = "Index" ]; then
+              if [ -f "Pages/Index.cshtml" ]; then
+                echo "  ok: $ROUTE → Pages/Index.cshtml"
+                continue
+              fi
+            fi
+
+            # Candidate file paths to try, in priority order.
+            FILE_A="Pages/${TRIMMED}.cshtml"
+            FILE_B="Pages/${TRIMMED}/Index.cshtml"
+
+            if [ -f "$FILE_A" ]; then
+              echo "  ok: $ROUTE → $FILE_A"
+            elif [ -f "$FILE_B" ]; then
+              echo "  ok: $ROUTE → $FILE_B"
+            else
+              echo "  ::MISS:: $ROUTE → expected $FILE_A or $FILE_B"
+              BROKEN="${BROKEN}${ROUTE}|${FILE_A}|${FILE_B}\n"
+            fi
+          done <<< "$ROUTES"
+
+          echo
+          echo "Checked $CHECKED route(s)."
+
+          if [ -n "$BROKEN" ]; then
+            echo "::error::One or more NavRegistry routes do not resolve to an existing Razor page."
+            echo "::error::Fix by either adding the page, repointing the NavItem to an existing route, or removing the entry."
+            echo "::error::"
+            echo "::error::Broken routes:"
+            # shellcheck disable=SC2059
+            printf "$BROKEN" | while IFS='|' read -r ROUTE FA FB; do
+              [ -z "$ROUTE" ] && continue
+              echo "::error::  $ROUTE  (looked for $FA or $FB)"
+            done
+            exit 1
+          fi
+
+          echo "All NavRegistry routes resolve to existing pages."

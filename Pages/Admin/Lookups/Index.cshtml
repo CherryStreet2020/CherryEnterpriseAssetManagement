@@ -2,12 +2,25 @@
 @model Abs.FixedAssets.Pages.Admin.Lookups.IndexModel
 @{
     ViewData["Title"] = "Lookup Types";
-    ViewData["Breadcrumb1"] = "Admin";
-    ViewData["Breadcrumb1Url"] = "/Admin";
-    ViewData["Breadcrumb2"] = "Lookups";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    // Sprint 13.6 PR #6 — switch from the legacy <partial name="_ScreenHeader"
+    // model="PageTitle"> shape (which only carries Title/Subtitle and is not
+    // the canonical _ScreenHeader contract) to the ViewDataDictionary contract
+    // used by Pages/Admin/DataImport.cshtml. Adds TypeLabel breadcrumb +
+    // Lookups module status pill for IA consistency across /Admin.
+    var headerVd = new ViewDataDictionary(ViewData)
+    {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", "Reference Data (Lookups)" },
+        { "Subtitle", "Manage lookup types and values used across the application" },
+        { "StatusText", "Active" },
+        { "StatusTone", "success" },
+    };
 }
 
-<partial name="_ScreenHeader" model='new Abs.FixedAssets.Models.PageTitle { Title = "Reference Data (Lookups)", Subtitle = "Manage lookup types and values used across the application" }' />
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
 
 <div class="page-content" data-csp-style="padding: 1.5rem;">
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))

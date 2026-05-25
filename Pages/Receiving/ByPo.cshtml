@@ -1,24 +1,35 @@
 @page "/Receiving/By-Po"
 @model Abs.FixedAssets.Pages.Receiving.ByPoModel
 @{
-    ViewData["Title"] = "Receive by PO";
+    ViewData["Title"] = "Receive against PO";
     ViewData["TabTitle"] = "Receive by PO";
     Layout = "_ModernLayout";
+
+    // Sprint 13.6 PR #6 — backport _CockpitPageHeader so the PO-driven receive
+    // workflow gains the anchored title bar (LIVE pill + Voice trigger) that
+    // Receiving/ControlCenter already uses. The bare ds-receive__head eyebrow
+    // is dropped to avoid stacking two title rows. Form body unchanged.
+    var poScope = !string.IsNullOrWhiteSpace(Model.Input?.PoNumber)
+        ? $"PO #{Model.Input.PoNumber}"
+        : (!string.IsNullOrWhiteSpace(Model.PoNumber) ? $"PO #{Model.PoNumber}" : null);
+    var pageHeader = new Abs.FixedAssets.Pages.Shared.Primitives.Cockpit.CockpitPageHeaderViewModel
+    {
+        Title = "Receive against PO",
+        Scope = poScope,
+        Subtitle = "Scan or type the PO. Idempotency-mediated, state-machine guarded, audit-logged.",
+        ShowLive = false,
+        ShowVoiceButton = true,
+        VoiceButtonLabel = "Voice",
+    };
 }
 
 @section Scripts {
     <script src="~/js/receiving-scan.js" asp-append-version="true"></script>
 }
 
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", pageHeader)
+
 <section class="ds-receive">
-    <header class="ds-receive__head">
-        <div class="ds-receive__eyebrow">RECEIVING · PO-DRIVEN (80% workflow)</div>
-        <h1 class="ds-receive__title">Receive against a PO</h1>
-        <p class="ds-receive__subtitle">
-            Scan or type the PO. Each receipt goes through <code>ReceiveByPoAsync</code>
-            with idempotency, state-machine guards, and audit logging.
-        </p>
-    </header>
 
     @if (!string.IsNullOrEmpty(Model.FlashOk))
     {
