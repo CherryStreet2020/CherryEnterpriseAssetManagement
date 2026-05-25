@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Services
 {
@@ -16,6 +18,11 @@ namespace Abs.FixedAssets.Services
         /// (MACRS / DDB / 150DB / SYD / SL all honored — see PR #102 B-11
         /// for the reflection-bug history). Used by /Pages/Journals (manual
         /// one-shot generation).
+        ///
+        /// PRA-5g (2026-05-25): optional <paramref name="glResolver"/> + <paramref name="logger"/>
+        /// added so callers can opt into DEF-008 dual-write of AccountingKeyId
+        /// on both posted JournalLines. When omitted, behavior is unchanged
+        /// (back-compat for non-cascade callers like manual JE pages + tests).
         /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyAsync(
             AppDbContext db,
@@ -23,7 +30,9 @@ namespace Abs.FixedAssets.Services
             DateTime month,
             string createdBy = "system",
             int? companyId = null,
-            bool enforcePeriodLock = true)
+            bool enforcePeriodLock = true,
+            IGlAccountResolver? glResolver = null,
+            ILogger? logger = null)
         {
             var period = new DateTime(month.Year, month.Month, 1);
 
@@ -43,13 +52,20 @@ namespace Abs.FixedAssets.Services
                 createdBy: createdBy,
                 companyId: companyId,
                 enforcePeriodLock: enforcePeriodLock,
-                saveChanges: true);
+                saveChanges: true,
+                glResolver: glResolver,
+                logger: logger);
         }
 
         /// <summary>
         /// Bulk overload that <see cref="GenerateMonthlyAsync"/> delegates to. Caller
         /// supplies the precomputed monthly total. Set <paramref name="saveChanges"/> to
         /// false when running inside a larger transaction.
+        ///
+        /// PRA-5g (2026-05-25): optional <paramref name="glResolver"/> + <paramref name="logger"/>
+        /// added so callers can opt into DEF-008 dual-write of AccountingKeyId
+        /// on both posted JournalLines (DR Depreciation Expense + CR Accumulated
+        /// Depreciation). When omitted, behavior is unchanged.
         /// </summary>
         public static async Task<JournalEntry> GenerateMonthlyWithAmountAsync(
             AppDbContext db,
@@ -59,7 +75,9 @@ namespace Abs.FixedAssets.Services
             string createdBy = "system",
             int? companyId = null,
             bool enforcePeriodLock = true,
-            bool saveChanges = true)
+            bool saveChanges = true,
+            IGlAccountResolver? glResolver = null,
+            ILogger? logger = null)
         {
             var period = new DateTime(month.Year, month.Month, 1);
             var posting = new DateTime(month.Year, month.Month, DateTime.DaysInMonth(month.Year, month.Month));
@@ -99,6 +117,59 @@ namespace Abs.FixedAssets.Services
 
             var batch = $"DEP-{book.Code}-{period:yyyyMM}";
 
+            // PRA-5g (2026-05-25) — DEF-008 dual-write: resolve AccountingKeyId
+            // for both depreciation legs when a resolver is provided. The legacy
+            // account-number strings (depExpense/accumDep) are ALWAYS stamped
+            // unchanged; AccountingKeyId is stamped IN ADDITION when resolution
+            // succeeds. Per the PRA-5c/5d/5e/5f pattern, GlAccountResolutionException
+            // is the orphan-fallback path: catch + log + leave AccountingKeyId null
+            // so the JE still balances and posts.
+            //
+            // We pass GlResolveContext(BookId: bookId) so the resolver's cascade
+            // (per-asset → per-book → per-company → industry-default) lands on
+            // the SAME GL account that we read into the legacy `Account` string
+            // above (which comes from Book.GlAccountDepExp / Book.GlAccountAccumDep
+            // via the BookGlAccount overlay). Without BookId in context the cascade
+            // would skip the per-book layer and resolve to the company default —
+            // creating inconsistent dual-write rows on any tenant whose book-level
+            // accounts differ from company defaults (Codex P1 catch on PR #344).
+            //
+            // First-iteration segment context (AccountingKeyResolveContext) is
+            // CompanyId-only; future overloads enrich Site/CostCenter/Department
+            // per posting purpose.
+            int? depExpenseKeyId = null;
+            int? accumDepKeyId = null;
+            var resolveCompanyId = companyId ?? book.CompanyId;
+            if (glResolver != null && resolveCompanyId.HasValue)
+            {
+                var keyCtx = new AccountingKeyResolveContext();
+                var glCtx = new GlResolveContext(BookId: bookId);
+                try
+                {
+                    depExpenseKeyId = await glResolver.ResolveAccountingKeyAsync(
+                        resolveCompanyId.Value, GlAccountKind.DepreciationExpense, keyCtx, glCtx);
+                }
+                catch (GlAccountResolutionException ex)
+                {
+                    logger?.LogWarning(
+                        ex,
+                        "AccountingKey resolution failed for DepreciationExpense (book={BookId} period={Period:yyyy-MM}); legacy Account={Account} only",
+                        bookId, period, depExpense);
+                }
+                try
+                {
+                    accumDepKeyId = await glResolver.ResolveAccountingKeyAsync(
+                        resolveCompanyId.Value, GlAccountKind.AccumulatedDepreciation, keyCtx, glCtx);
+                }
+                catch (GlAccountResolutionException ex)
+                {
+                    logger?.LogWarning(
+                        ex,
+                        "AccountingKey resolution failed for AccumulatedDepreciation (book={BookId} period={Period:yyyy-MM}); legacy Account={Account} only",
+                        bookId, period, accumDep);
+                }
+            }
+
             var entry = new JournalEntry
             {
                 BookId      = bookId,
@@ -115,19 +186,21 @@ namespace Abs.FixedAssets.Services
             {
                 new JournalLine
                 {
-                    LineNo      = 1,
-                    Account     = depExpense!,
-                    Description = "Depreciation expense",
-                    Debit       = monthlyTotal,
-                    Credit      = 0m
+                    LineNo           = 1,
+                    Account          = depExpense!,
+                    AccountingKeyId  = depExpenseKeyId,
+                    Description      = "Depreciation expense",
+                    Debit            = monthlyTotal,
+                    Credit           = 0m
                 },
                 new JournalLine
                 {
-                    LineNo      = 2,
-                    Account     = accumDep!,
-                    Description = "Accumulated depreciation",
-                    Debit       = 0m,
-                    Credit      = monthlyTotal
+                    LineNo           = 2,
+                    Account          = accumDep!,
+                    AccountingKeyId  = accumDepKeyId,
+                    Description      = "Accumulated depreciation",
+                    Debit            = 0m,
+                    Credit           = monthlyTotal
                 }
             };
 
