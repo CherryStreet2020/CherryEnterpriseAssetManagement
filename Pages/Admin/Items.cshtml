@@ -47,19 +47,19 @@ var currentCompanyId = @Model.CurrentCompanyId;
     </div>
     <div class="section-card-body" data-csp-style="padding: 0;">
         @{ var returnUrl = $"{HttpContext.Request.Path}{HttpContext.Request.QueryString}"; }
-        <table class="data-table" id="itemGrid" data-enhanced-grid="true" data-row-click="true">
+        <table class="data-table data-table--items" id="itemGrid" data-enhanced-grid="true" data-row-click="true">
             <thead>
                 <tr>
-                    <th data-csp-style="width: 120px;" data-col="Part #" data-filter="text">Part #</th>
-                    <th data-csp-style="width: 50px;" data-col="Rev" data-filter="text">Rev</th>
-                    <th data-csp-style="width: 120px;" data-col="Vendor Part #" data-filter="text">Vendor Part #</th>
-                    <th data-csp-style="width: 120px;" data-col="Mfr Part #" data-filter="text">Mfr Part #</th>
-                    <th data-csp-style="min-width: 180px;" data-col="Description" data-filter="text">Description</th>
-                    <th data-csp-style="width: 100px;" data-col="Type" data-filter="select" data-filter-options="Part|Consumable|Service|Tool|Kit">Type</th>
-                    <th data-csp-style="width: 100px;" data-col="Category" data-filter="text">Category</th>
-                    <th data-csp-style="width: 70px;" data-col="UOM" data-filter="text">UOM</th>
-                    <th data-csp-style="text-align: right; width: 90px;" data-col="Std Cost" data-filter="number">Std Cost</th>
-                    <th data-csp-style="width: 90px;" class="no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
+                    <th class="col-w-120" data-col="Part #" data-filter="text">Part #</th>
+                    <th class="col-w-50" data-col="Rev" data-filter="text">Rev</th>
+                    <th class="col-w-120" data-col="Vendor Part #" data-filter="text">Vendor Part #</th>
+                    <th class="col-w-120" data-col="Mfr Part #" data-filter="text">Mfr Part #</th>
+                    <th class="col-min-180" data-col="Description" data-filter="text">Description</th>
+                    <th class="col-w-100" data-col="Type" data-filter="select" data-filter-options="Part|Consumable|Service|Tool|Kit">Type</th>
+                    <th class="col-w-100" data-col="Category" data-filter="text">Category</th>
+                    <th class="col-w-70" data-col="UOM" data-filter="text">UOM</th>
+                    <th class="col-w-90 col-right" data-col="Std Cost" data-filter="number">Std Cost</th>
+                    <th class="col-w-90 no-sort" data-col="Status" data-filter="select" data-filter-options="Active|Inactive">Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -158,15 +158,13 @@ var currentCompanyId = @Model.CurrentCompanyId;
                                 <span class="text-muted">-</span>
                             }
                         </td>
-                        <td data-csp-style="max-width: 220px;">
-                            <div data-csp-style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500;" title="@item.Description">
-                                @item.Description
-                            </div>
+                        <td class="col-ellipsis">
+                            <div title="@item.Description">@item.Description</div>
                         </td>
                         <td><span class="badge badge-outline">@item.Type</span></td>
                         <td>@(item.Category?.Name ?? "-")</td>
                         <td>@item.StockUOM</td>
-                        <td data-csp-style="text-align: right; font-weight: 600;">@item.StandardCost.ToString("C2")</td>
+                        <td class="col-num">@item.StandardCost.ToString("C2")</td>
                         <td>
                             @if (isCriticalSpare)
                             {
