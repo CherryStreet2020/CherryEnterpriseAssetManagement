@@ -286,17 +286,22 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
             return RedirectToPage(new { id, returnUrl = safeReturnUrl });
         }
 
-        public async Task<IActionResult> OnPostRecordPaymentAsync(int id, string? returnUrl, decimal amount, string? paymentMethod, string? referenceNumber, string? notes)
+        public async Task<IActionResult> OnPostRecordPaymentAsync(int id, string? returnUrl, decimal amount, string? paymentMethod, string? referenceNumber, string? notes, Guid? idempotencyKey)
         {
             var invoice = await LoadInvoiceScopedAsync(id);
             if (invoice == null) return NotFound();
 
-            // S1-5: payment posting via ApPostingService — period-guards,
-            // posts the Dr AP / Cr Cash JE, flips status to Paid when fully
-            // paid (or PartiallyPaid otherwise via the resync below).
+            // PR #336. Idempotency-key dedup. The Razor view generates a fresh
+            // Guid per page render and submits it as a hidden field. When the
+            // user double-clicks (or the browser retries the POST due to a
+            // flaky network), every duplicate submission carries the SAME key
+            // → ADR-014's mediator dedupes against the canonical hash and
+            // returns the original ApPostingResult instead of creating a
+            // second JE + InvoicePayment row. Defense-in-depth alongside the
+            // server BalanceDue check and the UI button disable.
             try
             {
-                await _apPosting.PostPaymentAsync(id, amount, DateTime.Today, referenceNumber);
+                await _apPosting.PostPaymentAsync(id, amount, DateTime.Today, referenceNumber, idempotencyKey: idempotencyKey);
             }
             catch (InvalidOperationException ex)
             {
@@ -366,6 +371,42 @@ namespace Abs.FixedAssets.Pages.AccountsPayable
                 if (voidedLv != null && invoice.StatusLookupValueId != voidedLv.Id)
                 {
                     invoice.StatusLookupValueId = voidedLv.Id;
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            var safeReturnUrl = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+            return RedirectToPage(new { id, returnUrl = safeReturnUrl });
+        }
+
+        // PR #336 — Single-payment void handler. Distinct from OnPostVoidAsync
+        // which voids the whole invoice (approval + all payments). Use this for
+        // correcting individual mistakes (e.g. duplicate payment from a missed
+        // double-click).
+        public async Task<IActionResult> OnPostVoidPaymentAsync(int id, int paymentId, string? returnUrl, string? reason)
+        {
+            try
+            {
+                await _apPosting.VoidPaymentAsync(id, paymentId, reason ?? "voided by user");
+                TempData["Success"] = $"Payment #{paymentId} voided. Contra-JE written. AmountPaid adjusted.";
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "AP payment-void failed for invoice {Id} payment {PaymentId}", id, paymentId);
+                TempData["Error"] = ex.Message;
+                var fb = !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : "/AccountsPayable";
+                return RedirectToPage(new { id, returnUrl = fb });
+            }
+
+            // Mirror status back to the LookupValue FK if the recompute
+            // dropped us from Paid back to Approved or PartiallyPaid.
+            var invoice = await LoadInvoiceScopedAsync(id);
+            if (invoice != null)
+            {
+                var lv = await _lookupService.GetValueByCodeAsync(_tenantContext.TenantId, _tenantContext.CompanyId, "InvoiceStatus", ((int)invoice.Status).ToString());
+                if (lv != null && invoice.StatusLookupValueId != lv.Id)
+                {
+                    invoice.StatusLookupValueId = lv.Id;
                     await _context.SaveChangesAsync();
                 }
             }
