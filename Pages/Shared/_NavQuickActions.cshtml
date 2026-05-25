@@ -14,23 +14,27 @@
 
 <div class="nav-section-label">QUICK ACTIONS</div>
 
+@* Sprint 13.6 PR #2 — repointed 3 broken Create routes per UI audit
+   (/WorkOrders/Create, /Purchasing/Requisitions/Create, /Assets/Create
+   were vapor → 404). Replaced "Create blind receipt" with "Bulk import assets"
+   (PR #337 shipped /Admin/AssetImport — much higher-leverage entry point). *@
 <div class="menu-group nav-quick-group" data-section="quick-actions">
     <div class="menu-items">
-        <a href="/WorkOrders/Create" class="menu-item nav-quick-item" data-nav-route="/WorkOrders/Create">
+        <a href="/WorkOrders" class="menu-item nav-quick-item" data-nav-route="/WorkOrders">
             <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
-            <span>Create work order</span>
+            <span>New work order</span>
         </a>
-        <a href="/Purchasing/Requisitions/Create" class="menu-item nav-quick-item" data-nav-route="/Purchasing/Requisitions/Create">
+        <a href="/Purchasing/Requisitions" class="menu-item nav-quick-item" data-nav-route="/Purchasing/Requisitions">
             <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
-            <span>Create requisition</span>
+            <span>New requisition</span>
         </a>
         <a href="/Receiving/Blind" class="menu-item nav-quick-item" data-nav-route="/Receiving/Blind">
             <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
-            <span>Create blind receipt</span>
+            <span>Blind receipt</span>
         </a>
-        <a href="/Assets/Create" class="menu-item nav-quick-item" data-nav-route="/Assets/Create">
-            <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>
-            <span>Add asset</span>
+        <a href="/Admin/AssetImport" class="menu-item nav-quick-item" data-nav-route="/Admin/AssetImport">
+            <i class="fas fa-file-import menu-item-icon nav-quick-icon"></i>
+            <span>Bulk import assets</span>
         </a>
         <a href="/Maintenance/WorkRequests/Create" class="menu-item nav-quick-item" data-nav-route="/Maintenance/WorkRequests/Create">
             <i class="fas fa-plus menu-item-icon nav-quick-icon"></i>

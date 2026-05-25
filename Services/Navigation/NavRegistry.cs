@@ -52,7 +52,8 @@ public static class NavRegistry
             {
                 new NavItem("Dashboard",      "/Index",      "fas fa-gauge-high", RoutePrefix: "/Index"),
                 new NavItem("Approvals",      "/Approvals",  "fas fa-circle-check"),
-                new NavItem("Notifications",  "/Notifications", "fas fa-bell"),
+                // Sprint 13.6 PR #2 — removed /Notifications nav entry (page never built).
+                // Add back when Pages/Notifications/Index.cshtml ships.
             }),
 
         // ============================================================
@@ -74,8 +75,13 @@ public static class NavRegistry
                 new NavItem("Maintenance Schedule","/Maintenance/Schedule", "fas fa-calendar-days", RoutePrefix: "/Maintenance"),
                 new NavItem("Work Requests",       "/Maintenance/WorkRequests", "fas fa-clipboard-list"),
                 new NavItem("Assets",              "/Assets",        "fas fa-boxes-stacked"),
-                new NavItem("Plant Floor",         "/Plant/Floor",   "fas fa-industry"),
+                // Sprint 13.6 PR #2 — repointed /Plant/Floor → /Plant (Floor.cshtml
+                // requires {siteId:int} route param; /Plant is the Index hub).
+                new NavItem("Plant Floor",         "/Plant",         "fas fa-industry", RoutePrefix: "/Plant"),
                 new NavItem("Bulk Operations",     "/BulkOperations","fas fa-layer-group"),
+                // Sprint 13.6 PR #2 — Add /Quality/Fai entry (PR #338 shipped UI).
+                // #1 highest-leverage demo addition per the UI audit (aerospace audit story).
+                new NavItem("First Article Inspections", "/Quality/Fai", "fas fa-clipboard-check"),
             }),
 
         // ============================================================
@@ -111,7 +117,8 @@ public static class NavRegistry
             SortOrder: 30,
             Items: new[]
             {
-                new NavItem("Reports",        "/Reports",      "fas fa-file-chart-column"),
+                // Sprint 13.6 PR #2 — repointed /Reports → /Reports/ReportHub (no Index page).
+                new NavItem("Reports",        "/Reports/ReportHub", "fas fa-file-chart-column", RoutePrefix: "/Reports"),
                 new NavItem("Audit Log",      "/Admin/AuditLog", "fas fa-clipboard-check"),
             }),
 
@@ -131,19 +138,22 @@ public static class NavRegistry
             SortOrder: 40,
             Items: new[]
             {
+                // Sprint 13.6 PR #2 — Customers + Numbering entries REMOVED (no page exists).
+                // Stale "new" badges (6+ months old) removed across the group.
+                // Locations repointed to /Admin/Locations (canonical file path).
+                // Added /Admin/AssetImport (PR #337 shipped) — #1 highest-leverage operator workflow per UI audit.
                 new NavItem("Items",           "/Materials",                "fas fa-cubes", RoutePrefix: "/Materials"),
                 new NavItem("Item Categories", "/Admin/ItemCategories",     "fas fa-tags"),
-                new NavItem("Customers",       "/Admin/Customers",          "fas fa-user-tie", Badge: "new", BadgeClass: "nav-badge--new"),
                 new NavItem("Vendors",         "/Admin/Vendors",            "fas fa-truck-front"),
                 new NavItem("Manufacturers",   "/Admin/Manufacturers",      "fas fa-helmet-safety"),
-                new NavItem("Carriers",        "/Admin/Carriers",           "fas fa-truck", Badge: "new", BadgeClass: "nav-badge--new"),
-                new NavItem("Countries",       "/Admin/Countries",          "fas fa-globe", Badge: "new", BadgeClass: "nav-badge--new"),
-                new NavItem("Work Calendars",  "/Admin/WorkCalendars",      "fas fa-calendar", Badge: "new", BadgeClass: "nav-badge--new"),
-                new NavItem("Work Centers",    "/Admin/WorkCenters",        "fas fa-industry", Badge: "new", BadgeClass: "nav-badge--new"),
-                new NavItem("Routings",        "/Admin/Routings",           "fas fa-route", Badge: "new", BadgeClass: "nav-badge--new"),
+                new NavItem("Carriers",        "/Admin/Carriers",           "fas fa-truck"),
+                new NavItem("Countries",       "/Admin/Countries",          "fas fa-globe"),
+                new NavItem("Work Calendars",  "/Admin/WorkCalendars",      "fas fa-calendar"),
+                new NavItem("Work Centers",    "/Admin/WorkCenters",        "fas fa-industry"),
+                new NavItem("Routings",        "/Admin/Routings",           "fas fa-route"),
                 new NavItem("Locations",       "/Admin/Locations",          "fas fa-location-dot"),
                 new NavItem("GL Accounts",     "/Admin/GlAccounts",         "fas fa-list-ol"),
-                new NavItem("Numbering",       "/Admin/NumberSequences",    "fas fa-hashtag"),
+                new NavItem("Asset Bulk Import","/Admin/AssetImport",       "fas fa-file-import"),
             }),
 
         // ============================================================
