@@ -100,6 +100,10 @@ namespace Abs.FixedAssets.Services.Finance
         private readonly AppDbContext _db;
         private readonly AuditService _audit;
         private readonly ILogger<PeriodCloseOrchestrationService> _logger;
+        // PRA-5g (2026-05-25) — DEF-008 dual-write: depreciation JEs posted during
+        // close stamp AccountingKeyId in addition to legacy Account string. The
+        // resolver is passed through to JournalGenerator.GenerateMonthlyAsync below.
+        private readonly IGlAccountResolver _glResolver;
 
         // GR/IR clearing tolerance: net DR-CR on the clearing account at
         // period close should be ≤ this. Anything bigger means one or more
@@ -114,11 +118,13 @@ namespace Abs.FixedAssets.Services.Finance
         public PeriodCloseOrchestrationService(
             AppDbContext db,
             AuditService audit,
-            ILogger<PeriodCloseOrchestrationService> logger)
+            ILogger<PeriodCloseOrchestrationService> logger,
+            IGlAccountResolver glResolver)
         {
             _db = db;
             _audit = audit;
             _logger = logger;
+            _glResolver = glResolver;
         }
 
         public async Task<FiscalPeriod?> GetNextCloseableAsync(int companyId)
@@ -240,7 +246,9 @@ namespace Abs.FixedAssets.Services.Finance
                                 new DateTime(period.StartDate.Year, period.StartDate.Month, 1),
                                 createdBy: username,
                                 companyId: companyId,
-                                enforcePeriodLock: false /* we're inside the close; bypass */);
+                                enforcePeriodLock: false /* we're inside the close; bypass */,
+                                glResolver: _glResolver,
+                                logger: _logger);
                             depTotal += entry.Lines?.Sum(l => l.Debit) ?? 0m;
                             booksRun++;
                         }
