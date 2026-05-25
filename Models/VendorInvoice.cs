@@ -187,5 +187,25 @@ namespace Abs.FixedAssets.Models
         public string? Notes { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // PR #336 (2026-05-25). Void support for individual payments. When
+        // IsVoided=true the payment is excluded from AmountPaid roll-ups and
+        // a contra-JE (Dr Cash / Cr AP) has been written via
+        // ApPostingService.VoidPaymentAsync. Added because PostPaymentAsync
+        // previously accepted overpayments (no BalanceDue guard) and Record
+        // Payment had no UI debounce — see GD84-1 overpay incident.
+
+        [Display(Name = "Voided")]
+        public bool IsVoided { get; set; }
+
+        [Display(Name = "Voided At")]
+        public DateTime? VoidedAt { get; set; }
+
+        [StringLength(500)]
+        [Display(Name = "Void Reason")]
+        public string? VoidReason { get; set; }
+
+        [Display(Name = "Contra JE")]
+        public int? ContraJournalEntryId { get; set; }
     }
 }

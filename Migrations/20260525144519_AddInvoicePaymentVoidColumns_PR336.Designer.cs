@@ -4,6 +4,7 @@ using System.Text.Json;
 using Abs.FixedAssets.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -13,9 +14,11 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260525144519_AddInvoicePaymentVoidColumns_PR336")]
+    partial class AddInvoicePaymentVoidColumns_PR336
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -61,7 +64,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ActionCodes", (string)null);
+                    b.ToTable("ActionCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AdvancedShippingNotice", b =>
@@ -132,7 +135,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("VendorId", "AsnNumber")
                         .IsUnique();
 
-                    b.ToTable("AdvancedShippingNotices", (string)null);
+                    b.ToTable("AdvancedShippingNotices");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ApiKey", b =>
@@ -186,7 +189,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApiKeys", (string)null);
+                    b.ToTable("ApiKeys");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalAction", b =>
@@ -244,7 +247,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.ToTable("ApprovalActions", (string)null);
+                    b.ToTable("ApprovalActions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ApprovalWorkflow", b =>
@@ -300,7 +303,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ApprovalWorkflows", (string)null);
+                    b.ToTable("ApprovalWorkflows");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AsnLine", b =>
@@ -375,7 +378,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("RefPoNumber");
 
-                    b.ToTable("AsnLines", (string)null);
+                    b.ToTable("AsnLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Asset", b =>
@@ -985,7 +988,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex(new[] { "CompanyId", "AssetNumber" }, "IX_Assets_CompanyId_AssetNumber_Unique")
                         .IsUnique();
 
-                    b.ToTable("Assets", (string)null);
+                    b.ToTable("Assets");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetBookSettings", b =>
@@ -1055,7 +1058,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("AssetId", "BookId")
                         .IsUnique();
 
-                    b.ToTable("AssetBookSettings", (string)null);
+                    b.ToTable("AssetBookSettings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetCategory", b =>
@@ -1130,7 +1133,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("DepreciationPolicyId");
 
-                    b.ToTable("AssetCategories", (string)null);
+                    b.ToTable("AssetCategories");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetInventory", b =>
@@ -1192,7 +1195,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("LastInventoryListId");
 
-                    b.ToTable("AssetInventories", (string)null);
+                    b.ToTable("AssetInventories");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetSensorReading", b =>
@@ -1235,7 +1238,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("AssetId");
 
-                    b.ToTable("AssetSensorReadings", (string)null);
+                    b.ToTable("AssetSensorReadings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetTaxSettings", b =>
@@ -1284,7 +1287,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CcaClassId");
 
-                    b.ToTable("AssetTaxSettings", (string)null);
+                    b.ToTable("AssetTaxSettings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AssetTransfer", b =>
@@ -1350,7 +1353,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TransferDate");
 
-                    b.ToTable("AssetTransfers", (string)null);
+                    b.ToTable("AssetTransfers");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Attachment", b =>
@@ -1448,7 +1451,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderId");
 
-                    b.ToTable("Attachments", (string)null);
+                    b.ToTable("Attachments");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AuditLog", b =>
@@ -1524,7 +1527,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("EntityType", "EntityId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.BonusDepreciationRates", b =>
@@ -1550,7 +1553,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TaxYear")
                         .IsUnique();
 
-                    b.ToTable("BonusDepreciationRates", (string)null);
+                    b.ToTable("BonusDepreciationRates");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Book", b =>
@@ -1685,7 +1688,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TaxJurisdictionLookupValueId");
 
-                    b.ToTable("Books", (string)null);
+                    b.ToTable("Books");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.BookGlAccount", b =>
@@ -1732,7 +1735,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("BookId")
                         .IsUnique();
 
-                    b.ToTable("BookGlAccounts", (string)null);
+                    b.ToTable("BookGlAccounts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.BulkOperation", b =>
@@ -1785,7 +1788,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("BulkOperations", (string)null);
+                    b.ToTable("BulkOperations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CapitalImprovement", b =>
@@ -1840,7 +1843,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ImprovementDate");
 
-                    b.ToTable("CapitalImprovements", (string)null);
+                    b.ToTable("CapitalImprovements");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Carrier", b =>
@@ -1918,7 +1921,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("uq_carriers_company_code");
 
-                    b.ToTable("Carriers", (string)null);
+                    b.ToTable("Carriers");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Catalog.EquipmentClass", b =>
@@ -2148,7 +2151,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("CauseCodes", (string)null);
+                    b.ToTable("CauseCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CcaClass", b =>
@@ -2191,7 +2194,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ClassNumber")
                         .IsUnique();
 
-                    b.ToTable("CcaClasses", (string)null);
+                    b.ToTable("CcaClasses");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CcaClassBalance", b =>
@@ -2261,7 +2264,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "CcaClassId", "FiscalYear")
                         .IsUnique();
 
-                    b.ToTable("CcaClassBalances", (string)null);
+                    b.ToTable("CcaClassBalances");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CcaTransaction", b =>
@@ -2329,7 +2332,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CcaClassId", "FiscalYear");
 
-                    b.ToTable("CcaTransactions", (string)null);
+                    b.ToTable("CcaTransactions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ChainOfCustody.ChainEdge", b =>
@@ -2435,7 +2438,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CipProjectId");
 
-                    b.ToTable("CipBudgetLines", (string)null);
+                    b.ToTable("CipBudgetLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CipCapitalization", b =>
@@ -2473,7 +2476,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("JournalEntryId");
 
-                    b.ToTable("CipCapitalizations", (string)null);
+                    b.ToTable("CipCapitalizations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CipCapitalizationCost", b =>
@@ -2496,7 +2499,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CipCostId");
 
-                    b.ToTable("CipCapitalizationCosts", (string)null);
+                    b.ToTable("CipCapitalizationCosts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CipCost", b =>
@@ -2630,7 +2633,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CipProjectId", "CostTypeLookupValueId");
 
-                    b.ToTable("CipCosts", (string)null);
+                    b.ToTable("CipCosts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CipProject", b =>
@@ -2767,7 +2770,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("StatusLookupValueId");
 
-                    b.ToTable("CipProjects", (string)null);
+                    b.ToTable("CipProjects");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Company", b =>
@@ -2970,7 +2973,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("Companies", (string)null);
+                    b.ToTable("Companies");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CompanyGlAccountConfig", b =>
@@ -3008,7 +3011,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("UX_CompanyGlAccountConfigs_CompanyKind");
 
-                    b.ToTable("CompanyGlAccountConfigs", (string)null);
+                    b.ToTable("CompanyGlAccountConfigs");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.CostCenter", b =>
@@ -3082,7 +3085,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ParentCostCenterId");
 
-                    b.ToTable("CostCenters", (string)null);
+                    b.ToTable("CostCenters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Craft", b =>
@@ -3128,7 +3131,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Crafts", (string)null);
+                    b.ToTable("Crafts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Currency", b =>
@@ -3168,7 +3171,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Currencies", (string)null);
+                    b.ToTable("Currencies");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Customer", b =>
@@ -3480,7 +3483,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CostCenterId");
 
-                    b.ToTable("Departments", (string)null);
+                    b.ToTable("Departments");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.DepreciationPolicy", b =>
@@ -3630,7 +3633,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.ToTable("DepreciationPolicies", (string)null);
+                    b.ToTable("DepreciationPolicies");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.DepreciationRun", b =>
@@ -3695,7 +3698,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("FiscalPeriodId");
 
-                    b.ToTable("DepreciationRuns", (string)null);
+                    b.ToTable("DepreciationRuns");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.DepreciationRunDetail", b =>
@@ -3743,7 +3746,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("DepreciationRunId");
 
-                    b.ToTable("DepreciationRunDetails", (string)null);
+                    b.ToTable("DepreciationRunDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Embeddings.Embedding", b =>
@@ -3890,7 +3893,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ExchangeRates", (string)null);
+                    b.ToTable("ExchangeRates");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.FailureCode", b =>
@@ -3931,7 +3934,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("FailureCodes", (string)null);
+                    b.ToTable("FailureCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.FiscalPeriod", b =>
@@ -3996,7 +3999,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("FiscalYearId");
 
-                    b.ToTable("FiscalPeriods", (string)null);
+                    b.ToTable("FiscalPeriods");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.FiscalYear", b =>
@@ -4053,7 +4056,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CompanyId");
 
-                    b.ToTable("FiscalYears", (string)null);
+                    b.ToTable("FiscalYears");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.GlAccount", b =>
@@ -4136,7 +4139,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ParentAccountId");
 
-                    b.ToTable("GlAccounts", (string)null);
+                    b.ToTable("GlAccounts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.GoodsReceipt", b =>
@@ -4211,7 +4214,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("StatusLookupValueId");
 
-                    b.ToTable("GoodsReceipts", (string)null);
+                    b.ToTable("GoodsReceipts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.GoodsReceiptLine", b =>
@@ -4279,7 +4282,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ReceivingLocationId");
 
-                    b.ToTable("GoodsReceiptLines", (string)null);
+                    b.ToTable("GoodsReceiptLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.InboundEvent", b =>
@@ -4345,7 +4348,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("InboundEvents", (string)null);
+                    b.ToTable("InboundEvents");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Infrastructure.IdempotencyKey", b =>
@@ -4379,7 +4382,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ExpiresAt");
 
-                    b.ToTable("IdempotencyKeys", (string)null);
+                    b.ToTable("IdempotencyKeys");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Infrastructure.VoiceSession", b =>
@@ -4413,7 +4416,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId", "UserId", "LastTurnAt");
 
-                    b.ToTable("VoiceSessions", (string)null);
+                    b.ToTable("VoiceSessions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.IntegrationEndpoint", b =>
@@ -4477,7 +4480,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("IntegrationEndpoints", (string)null);
+                    b.ToTable("IntegrationEndpoints");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.IntegrationMapping", b =>
@@ -4523,7 +4526,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("IntegrationEndpointId");
 
-                    b.ToTable("IntegrationMappings", (string)null);
+                    b.ToTable("IntegrationMappings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.InventoryList", b =>
@@ -4592,7 +4595,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("StatusLookupValueId");
 
-                    b.ToTable("InventoryLists", (string)null);
+                    b.ToTable("InventoryLists");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.InventoryScan", b =>
@@ -4646,7 +4649,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ScanDate");
 
-                    b.ToTable("InventoryScans", (string)null);
+                    b.ToTable("InventoryScans");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.InvoicePayment", b =>
@@ -4698,7 +4701,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("VendorInvoiceId");
 
-                    b.ToTable("InvoicePayments", (string)null);
+                    b.ToTable("InvoicePayments");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Item", b =>
@@ -5134,7 +5137,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TypeLookupValueId");
 
-                    b.ToTable("Items", (string)null);
+                    b.ToTable("Items");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemAlternate", b =>
@@ -5184,7 +5187,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId", "ItemId", "AlternateItemId")
                         .IsUnique();
 
-                    b.ToTable("ItemAlternates", (string)null);
+                    b.ToTable("ItemAlternates");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemApprovedVendor", b =>
@@ -5241,7 +5244,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId", "ItemId", "VendorId")
                         .IsUnique();
 
-                    b.ToTable("ItemApprovedVendors", (string)null);
+                    b.ToTable("ItemApprovedVendors");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemCategory", b =>
@@ -5291,7 +5294,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ParentCategoryId");
 
-                    b.ToTable("ItemCategories", (string)null);
+                    b.ToTable("ItemCategories");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemCompanyStocking", b =>
@@ -5395,7 +5398,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ItemId", "CompanyId")
                         .IsUnique();
 
-                    b.ToTable("ItemCompanyStockings", (string)null);
+                    b.ToTable("ItemCompanyStockings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemImage", b =>
@@ -5459,7 +5462,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ItemId");
 
-                    b.ToTable("ItemImages", (string)null);
+                    b.ToTable("ItemImages");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemInventory", b =>
@@ -5530,7 +5533,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ItemId", "LocationId", "Bin");
 
-                    b.ToTable("ItemInventories2", (string)null);
+                    b.ToTable("ItemInventories2");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemRevision", b =>
@@ -5604,7 +5607,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ItemId", "RevisionCode")
                         .IsUnique();
 
-                    b.ToTable("ItemRevisions", (string)null);
+                    b.ToTable("ItemRevisions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemSupersession", b =>
@@ -5648,7 +5651,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId", "OldItemId")
                         .IsUnique();
 
-                    b.ToTable("ItemSupersessions", (string)null);
+                    b.ToTable("ItemSupersessions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemTransaction", b =>
@@ -5749,7 +5752,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TransactionNumber");
 
-                    b.ToTable("ItemTransactions", (string)null);
+                    b.ToTable("ItemTransactions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ItemVendor", b =>
@@ -5854,7 +5857,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ItemId", "VendorId")
                         .IsUnique();
 
-                    b.ToTable("ItemVendors", (string)null);
+                    b.ToTable("ItemVendors");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.JournalEntry", b =>
@@ -5902,7 +5905,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Period");
 
-                    b.ToTable("JournalEntries", (string)null);
+                    b.ToTable("JournalEntries");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.JournalLine", b =>
@@ -5943,7 +5946,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("JournalEntryId", "LineNo");
 
-                    b.ToTable("JournalLines", (string)null);
+                    b.ToTable("JournalLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Kit", b =>
@@ -5994,7 +5997,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("KitNumber");
 
-                    b.ToTable("Kits", (string)null);
+                    b.ToTable("Kits");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.KitItem", b =>
@@ -6031,7 +6034,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("KitId", "ItemId")
                         .IsUnique();
 
-                    b.ToTable("KitItems", (string)null);
+                    b.ToTable("KitItems");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.LaborRate", b =>
@@ -6089,7 +6092,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SkillId");
 
-                    b.ToTable("LaborRates", (string)null);
+                    b.ToTable("LaborRates");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.LaborType", b =>
@@ -6131,7 +6134,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LaborTypes", (string)null);
+                    b.ToTable("LaborTypes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.LessonLearned", b =>
@@ -6191,7 +6194,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SourceWorkOrderId");
 
-                    b.ToTable("LessonsLearned", (string)null);
+                    b.ToTable("LessonsLearned");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Location", b =>
@@ -6337,7 +6340,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SiteId");
 
-                    b.ToTable("Locations", (string)null);
+                    b.ToTable("Locations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.LookupType", b =>
@@ -6554,7 +6557,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.ToTable("MachineSpecifications", (string)null);
+                    b.ToTable("MachineSpecifications");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceSchedule", b =>
@@ -6617,7 +6620,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("NextDueDate");
 
-                    b.ToTable("MaintenanceSchedules", (string)null);
+                    b.ToTable("MaintenanceSchedules");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.MaintenanceTypeCode", b =>
@@ -6656,7 +6659,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("MaintenanceTypeCodes", (string)null);
+                    b.ToTable("MaintenanceTypeCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Manufacturer", b =>
@@ -6735,7 +6738,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Manufacturers", (string)null);
+                    b.ToTable("Manufacturers");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.AccountingKey", b =>
@@ -6808,7 +6811,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SiteId");
 
-                    b.ToTable("AccountingKeys", (string)null);
+                    b.ToTable("AccountingKeys");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.BinMaster", b =>
@@ -6914,7 +6917,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_bin_masters_company_warehouse_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("BinMasters", (string)null);
+                    b.ToTable("BinMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.Country", b =>
@@ -6979,7 +6982,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("IsActive", "SortOrder")
                         .HasDatabaseName("ix_countries_active_sort");
 
-                    b.ToTable("Countries", (string)null);
+                    b.ToTable("Countries");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.CurrencyMaster", b =>
@@ -7054,7 +7057,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_currency_masters_company_iso")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("CurrencyMasters", (string)null);
+                    b.ToTable("CurrencyMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.DiscountSchema", b =>
@@ -7170,7 +7173,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_discount_schemas_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("DiscountSchemas", (string)null);
+                    b.ToTable("DiscountSchemas");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.Employee", b =>
@@ -7313,7 +7316,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "LastName", "FirstName")
                         .HasDatabaseName("ix_employees_company_name");
 
-                    b.ToTable("Employees", (string)null);
+                    b.ToTable("Employees");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.Holiday", b =>
@@ -7363,7 +7366,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_holidays_calendar_date")
                         .HasFilter("\"IsActive\" = TRUE");
 
-                    b.ToTable("Holidays", (string)null);
+                    b.ToTable("Holidays");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.ItemGroup", b =>
@@ -7465,7 +7468,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_item_groups_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("ItemGroups", (string)null);
+                    b.ToTable("ItemGroups");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.ItemPackHierarchy", b =>
@@ -7574,7 +7577,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_item_pack_hierarchies_company_item_level_gtin")
                         .HasFilter("\"Gtin\" IS NOT NULL");
 
-                    b.ToTable("ItemPackHierarchies", (string)null);
+                    b.ToTable("ItemPackHierarchies");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.LaborRateMaster", b =>
@@ -7658,7 +7661,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_labor_rate_masters_company_wagegroup_effective")
                         .HasFilter("\"EmployeeId\" IS NULL");
 
-                    b.ToTable("LaborRateMasters", (string)null);
+                    b.ToTable("LaborRateMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.LotMaster", b =>
@@ -7759,7 +7762,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_lot_masters_company_item_lot");
 
-                    b.ToTable("LotMasters", (string)null);
+                    b.ToTable("LotMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.PackLevel", b =>
@@ -7831,7 +7834,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_pack_levels_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("PackLevels", (string)null);
+                    b.ToTable("PackLevels");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.PaymentTermMaster", b =>
@@ -7916,7 +7919,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_payment_term_masters_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("PaymentTermMasters", (string)null);
+                    b.ToTable("PaymentTermMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.PostingProfile", b =>
@@ -8004,7 +8007,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_posting_profiles_company_full")
                         .HasFilter("\"CompanyId\" IS NOT NULL AND \"WarehouseId\" IS NOT NULL");
 
-                    b.ToTable("PostingProfiles", (string)null);
+                    b.ToTable("PostingProfiles");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.PriceListLine", b =>
@@ -8084,7 +8087,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("PriceListMasterId", "ItemId", "UomId", "EffectiveFromUtc")
                         .HasDatabaseName("ix_price_list_lines_list_item_uom_effective");
 
-                    b.ToTable("PriceListLines", (string)null);
+                    b.ToTable("PriceListLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.PriceListMaster", b =>
@@ -8182,7 +8185,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_price_list_masters_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("PriceListMasters", (string)null);
+                    b.ToTable("PriceListMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.RebateAgreement", b =>
@@ -8293,7 +8296,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_rebate_agreements_company_code");
 
-                    b.ToTable("RebateAgreements", (string)null);
+                    b.ToTable("RebateAgreements");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.SerialMaster", b =>
@@ -8409,7 +8412,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_serial_masters_company_item_serial");
 
-                    b.ToTable("SerialMasters", (string)null);
+                    b.ToTable("SerialMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.Subdivision", b =>
@@ -8454,7 +8457,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CountryId", "IsActive")
                         .HasDatabaseName("ix_subdivisions_country_active");
 
-                    b.ToTable("Subdivisions", (string)null);
+                    b.ToTable("Subdivisions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.TaxAuthority", b =>
@@ -8535,7 +8538,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_tax_authorities_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("TaxAuthorities", (string)null);
+                    b.ToTable("TaxAuthorities");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.TaxCodeMaster", b =>
@@ -8620,7 +8623,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_tax_code_masters_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("TaxCodeMasters", (string)null);
+                    b.ToTable("TaxCodeMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.TaxRateMaster", b =>
@@ -8753,7 +8756,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CountryCode", "SubdivisionCode", "EffectiveFromUtc")
                         .HasDatabaseName("ix_tax_rate_masters_jurisdiction_effective");
 
-                    b.ToTable("TaxRateMasters", (string)null);
+                    b.ToTable("TaxRateMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.UnitOfMeasureMaster", b =>
@@ -8848,7 +8851,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_units_of_measure_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("UnitsOfMeasure", (string)null);
+                    b.ToTable("UnitsOfMeasure");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.UomCategory", b =>
@@ -8914,7 +8917,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_uom_categories_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("UomCategories", (string)null);
+                    b.ToTable("UomCategories");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.UomConversion", b =>
@@ -8976,7 +8979,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_uom_conversions_per_item")
                         .HasFilter("\"ItemId\" IS NOT NULL");
 
-                    b.ToTable("UomConversions", (string)null);
+                    b.ToTable("UomConversions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.WageGroup", b =>
@@ -9066,7 +9069,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_wage_groups_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("WageGroups", (string)null);
+                    b.ToTable("WageGroups");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.WarehouseMaster", b =>
@@ -9169,7 +9172,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_warehouse_masters_company_code")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("WarehouseMasters", (string)null);
+                    b.ToTable("WarehouseMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Masters.WorkCalendar", b =>
@@ -9228,7 +9231,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "IsActive")
                         .HasDatabaseName("ix_workcalendars_company_active");
 
-                    b.ToTable("WorkCalendars", (string)null);
+                    b.ToTable("WorkCalendars");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.MeterReading", b =>
@@ -9288,7 +9291,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("AssetId", "MeterType", "ReadingDate");
 
-                    b.ToTable("MeterReadings", (string)null);
+                    b.ToTable("MeterReadings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.NumberingSequence", b =>
@@ -9357,7 +9360,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("NumberingSequences", (string)null);
+                    b.ToTable("NumberingSequences");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.OrgNode", b =>
@@ -9513,7 +9516,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Status", "NextAttemptAt");
 
-                    b.ToTable("OutboxEvents", (string)null);
+                    b.ToTable("OutboxEvents");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PMOccurrence", b =>
@@ -9574,7 +9577,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TenantId", "CompanyId", "SiteId", "PMTemplateId", "DueDateUtc")
                         .IsUnique();
 
-                    b.ToTable("PMOccurrences", (string)null);
+                    b.ToTable("PMOccurrences");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PMSchedule", b =>
@@ -9662,7 +9665,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId", "CompanyId", "SiteId", "PMTemplateId", "Active");
 
-                    b.ToTable("PMSchedules", (string)null);
+                    b.ToTable("PMSchedules");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PMTemplate", b =>
@@ -9811,7 +9814,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ManufacturerId");
 
-                    b.ToTable("PMTemplates", (string)null);
+                    b.ToTable("PMTemplates");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PMTemplateAsset", b =>
@@ -9865,7 +9868,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("PMTemplateId", "AssetId")
                         .IsUnique();
 
-                    b.ToTable("PMTemplateAssets", (string)null);
+                    b.ToTable("PMTemplateAssets");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PMTemplateItem", b =>
@@ -9905,7 +9908,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("PMTemplateId", "ItemId")
                         .IsUnique();
 
-                    b.ToTable("PMTemplateItems", (string)null);
+                    b.ToTable("PMTemplateItems");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PartialDisposal", b =>
@@ -9974,7 +9977,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ReasonLookupValueId");
 
-                    b.ToTable("PartialDisposals", (string)null);
+                    b.ToTable("PartialDisposals");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PaymentTerm", b =>
@@ -10019,7 +10022,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PaymentTerms", (string)null);
+                    b.ToTable("PaymentTerms");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PeriodLock", b =>
@@ -10052,7 +10055,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("Period")
                         .IsUnique();
 
-                    b.ToTable("PeriodLocks", (string)null);
+                    b.ToTable("PeriodLocks");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PolicyCategoryDefault", b =>
@@ -10091,7 +10094,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("DepreciationPolicyId");
 
-                    b.ToTable("PolicyCategoryDefaults", (string)null);
+                    b.ToTable("PolicyCategoryDefaults");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PriorityLevel", b =>
@@ -10141,7 +10144,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("PriorityLevels", (string)null);
+                    b.ToTable("PriorityLevels");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ProblemCode", b =>
@@ -10180,7 +10183,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProblemCodes", (string)null);
+                    b.ToTable("ProblemCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.Bom", b =>
@@ -10222,7 +10225,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("MaterialStructureId")
                         .IsUnique();
 
-                    b.ToTable("Boms", (string)null);
+                    b.ToTable("Boms");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.CutListLine", b =>
@@ -10310,7 +10313,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SourceProductionOrderId", "Status");
 
-                    b.ToTable("CutListLines", (string)null);
+                    b.ToTable("CutListLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.LaborEntry", b =>
@@ -10365,7 +10368,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("LaborEntries", (string)null);
+                    b.ToTable("LaborEntries");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialMaster", b =>
@@ -10438,7 +10441,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("IX_MaterialMasters_Company_ShopCode")
                         .HasFilter("\"CompanyId\" IS NOT NULL");
 
-                    b.ToTable("MaterialMasters", (string)null);
+                    b.ToTable("MaterialMasters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructure", b =>
@@ -10550,7 +10553,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("IX_MaterialStructures_Site_StructureNumber_Rev")
                         .HasFilter("\"LocationId\" IS NOT NULL");
 
-                    b.ToTable("MaterialStructures", (string)null);
+                    b.ToTable("MaterialStructures");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.MaterialStructureLine", b =>
@@ -10605,7 +10608,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("MaterialStructureId", "Sequence")
                         .IsUnique();
 
-                    b.ToTable("MaterialStructureLines", (string)null);
+                    b.ToTable("MaterialStructureLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.MrbDisposition", b =>
@@ -10657,7 +10660,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Outcome");
 
-                    b.ToTable("MrbDispositions", (string)null);
+                    b.ToTable("MrbDispositions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.Nest", b =>
@@ -10733,7 +10736,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("StockReceiptId");
 
-                    b.ToTable("Nests", (string)null);
+                    b.ToTable("Nests");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProcessBatch", b =>
@@ -10808,7 +10811,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ProductionBatchId")
                         .IsUnique();
 
-                    b.ToTable("ProcessBatches", (string)null);
+                    b.ToTable("ProcessBatches");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatch", b =>
@@ -10921,7 +10924,7 @@ namespace Abs.FixedAssets.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_ProductionBatches_Company_Location_BatchNumber");
 
-                    b.ToTable("ProductionBatches", (string)null);
+                    b.ToTable("ProductionBatches");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchAllocation", b =>
@@ -10972,7 +10975,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ProductionBatchId", "WorkOrderOperationId")
                         .IsUnique();
 
-                    b.ToTable("ProductionBatchAllocations", (string)null);
+                    b.ToTable("ProductionBatchAllocations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchEquipmentLink", b =>
@@ -11014,7 +11017,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ProductionBatchId", "SequenceNo");
 
-                    b.ToTable("ProductionBatchEquipmentLinks", (string)null);
+                    b.ToTable("ProductionBatchEquipmentLinks");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionBatchStateEvent", b =>
@@ -11054,7 +11057,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ProductionBatchId", "ChangedAt");
 
-                    b.ToTable("ProductionBatchStateEvents", (string)null);
+                    b.ToTable("ProductionBatchStateEvents");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionJobShopDetail", b =>
@@ -11120,7 +11123,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ProductionOrderId")
                         .IsUnique();
 
-                    b.ToTable("ProductionJobShopDetails", (string)null);
+                    b.ToTable("ProductionJobShopDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionOperation", b =>
@@ -11247,7 +11250,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ProductionOperations", (string)null);
+                    b.ToTable("ProductionOperations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ProductionOrder", b =>
@@ -11390,7 +11393,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("MasterProductionOrderId", "Revision");
 
-                    b.ToTable("ProductionOrders", (string)null);
+                    b.ToTable("ProductionOrders");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ReasonCode", b =>
@@ -11439,7 +11442,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ReasonCodes", (string)null);
+                    b.ToTable("ReasonCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.ReceiptProfile", b =>
@@ -11503,7 +11506,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ReceiptProfiles", (string)null);
+                    b.ToTable("ReceiptProfiles");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.Recipe", b =>
@@ -11554,7 +11557,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("RecipeRevisionId");
 
-                    b.ToTable("Recipes", (string)null);
+                    b.ToTable("Recipes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipePhase", b =>
@@ -11622,7 +11625,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("RecipeId", "Sequence")
                         .IsUnique();
 
-                    b.ToTable("RecipePhases", (string)null);
+                    b.ToTable("RecipePhases");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.RecipeRevision", b =>
@@ -11679,7 +11682,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("Name", "Version")
                         .IsUnique();
 
-                    b.ToTable("RecipeRevisions", (string)null);
+                    b.ToTable("RecipeRevisions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.RegulatoryProfile", b =>
@@ -11737,7 +11740,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Regime");
 
-                    b.ToTable("RegulatoryProfiles", (string)null);
+                    b.ToTable("RegulatoryProfiles");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.Remnant", b =>
@@ -11824,7 +11827,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Remnants", (string)null);
+                    b.ToTable("Remnants");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.Routing", b =>
@@ -11921,7 +11924,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Routings", (string)null);
+                    b.ToTable("Routings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.RoutingOperation", b =>
@@ -12012,7 +12015,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("RoutingId");
 
-                    b.ToTable("RoutingOperations", (string)null);
+                    b.ToTable("RoutingOperations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.StockReceipt", b =>
@@ -12127,7 +12130,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("StockReceipts", (string)null);
+                    b.ToTable("StockReceipts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.WorkCenter", b =>
@@ -12227,7 +12230,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkCenters", (string)null);
+                    b.ToTable("WorkCenters");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.WorkCenterAssetLink", b =>
@@ -12264,7 +12267,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkCenterId");
 
-                    b.ToTable("WorkCenterAssetLinks", (string)null);
+                    b.ToTable("WorkCenterAssetLinks");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ProjectManager", b =>
@@ -12322,7 +12325,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Name");
 
-                    b.ToTable("ProjectManagers", (string)null);
+                    b.ToTable("ProjectManagers");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.CustomerProject", b =>
@@ -12478,7 +12481,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "Code")
                         .IsUnique();
 
-                    b.ToTable("CustomerProjects", (string)null);
+                    b.ToTable("CustomerProjects");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.Program", b =>
@@ -12536,7 +12539,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "Code")
                         .IsUnique();
 
-                    b.ToTable("Programs", (string)null);
+                    b.ToTable("Programs");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.ProjectAmendment", b =>
@@ -12630,7 +12633,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CustomerProjectId", "Status", "EffectiveDate")
                         .HasDatabaseName("ix_projectamendments_project_status_date");
 
-                    b.ToTable("ProjectAmendments", (string)null);
+                    b.ToTable("ProjectAmendments");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.ProjectMember", b =>
@@ -12663,7 +12666,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CustomerProjectId", "CustomerId", "Role")
                         .IsUnique();
 
-                    b.ToTable("ProjectMembers", (string)null);
+                    b.ToTable("ProjectMembers");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.ProjectPhase", b =>
@@ -12711,7 +12714,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CustomerProjectId", "Code")
                         .IsUnique();
 
-                    b.ToTable("ProjectPhases", (string)null);
+                    b.ToTable("ProjectPhases");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PurchaseOrder", b =>
@@ -12847,7 +12850,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderId");
 
-                    b.ToTable("PurchaseOrders", (string)null);
+                    b.ToTable("PurchaseOrders");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PurchaseOrderLine", b =>
@@ -12957,7 +12960,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ShipToLocationId");
 
-                    b.ToTable("PurchaseOrderLines", (string)null);
+                    b.ToTable("PurchaseOrderLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PurchaseOrderRelease", b =>
@@ -13002,7 +13005,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("ShipToLocationId");
 
-                    b.ToTable("PurchaseOrderReleases", (string)null);
+                    b.ToTable("PurchaseOrderReleases");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PurchaseRequisition", b =>
@@ -13159,7 +13162,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SuggestedVendorId");
 
-                    b.ToTable("PurchaseRequisitions", (string)null);
+                    b.ToTable("PurchaseRequisitions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.PurchaseRequisitionLine", b =>
@@ -13264,7 +13267,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SuggestedVendorId");
 
-                    b.ToTable("PurchaseRequisitionLines", (string)null);
+                    b.ToTable("PurchaseRequisitionLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Quality.FaiCharacteristic", b =>
@@ -13375,7 +13378,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("FaiReportId", "BalloonNumber")
                         .IsUnique();
 
-                    b.ToTable("FaiCharacteristics", (string)null);
+                    b.ToTable("FaiCharacteristics");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Quality.FaiProductAccountability", b =>
@@ -13459,7 +13462,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("FaiReportId", "EntryType");
 
-                    b.ToTable("FaiProductAccountability", (string)null);
+                    b.ToTable("FaiProductAccountability");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Quality.FaiReport", b =>
@@ -13674,7 +13677,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "FaiNumber")
                         .IsUnique();
 
-                    b.ToTable("FaiReports", (string)null);
+                    b.ToTable("FaiReports");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ReorderAlert", b =>
@@ -13730,7 +13733,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("RequisitionId");
 
-                    b.ToTable("ReorderAlerts", (string)null);
+                    b.ToTable("ReorderAlerts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Revisions.ItemManufacturerPart", b =>
@@ -13786,7 +13789,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("ItemId", "ManufacturerId", "MfrPartNumber")
                         .IsUnique();
 
-                    b.ToTable("ItemManufacturerParts", (string)null);
+                    b.ToTable("ItemManufacturerParts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Revisions.PMTemplateRevision", b =>
@@ -13940,7 +13943,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("PMTemplateId", "RevisionCode")
                         .IsUnique();
 
-                    b.ToTable("PMTemplateRevisions", (string)null);
+                    b.ToTable("PMTemplateRevisions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Revisions.PMTemplateRevisionOperation", b =>
@@ -13983,7 +13986,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("PMTemplateRevisionId", "Sequence");
 
-                    b.ToTable("PMTemplateRevisionOperations", (string)null);
+                    b.ToTable("PMTemplateRevisionOperations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Revisions.VendorItemPart", b =>
@@ -14093,7 +14096,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("VendorId", "VendorPartNumber")
                         .IsUnique();
 
-                    b.ToTable("VendorItemParts", (string)null);
+                    b.ToTable("VendorItemParts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Section179Limits", b =>
@@ -14127,7 +14130,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("TaxYear")
                         .IsUnique();
 
-                    b.ToTable("Section179Limits", (string)null);
+                    b.ToTable("Section179Limits");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.ShippingMethod", b =>
@@ -14180,7 +14183,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_shippingmethods_carrierid")
                         .HasFilter("\"CarrierId\" IS NOT NULL");
 
-                    b.ToTable("ShippingMethods", (string)null);
+                    b.ToTable("ShippingMethods");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Site", b =>
@@ -14353,7 +14356,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TypeLookupValueId");
 
-                    b.ToTable("Sites", (string)null);
+                    b.ToTable("Sites");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Skill", b =>
@@ -14410,7 +14413,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("CraftId");
 
-                    b.ToTable("Skills", (string)null);
+                    b.ToTable("Skills");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.TaxCode", b =>
@@ -14459,7 +14462,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TaxCodes", (string)null);
+                    b.ToTable("TaxCodes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Technician", b =>
@@ -14590,7 +14593,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SupervisorTechnicianId");
 
-                    b.ToTable("Technicians", (string)null);
+                    b.ToTable("Technicians");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.TechnicianCertification", b =>
@@ -14637,7 +14640,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TechnicianId");
 
-                    b.ToTable("TechnicianCertifications", (string)null);
+                    b.ToTable("TechnicianCertifications");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.TechnicianSkill", b =>
@@ -14680,7 +14683,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TechnicianId");
 
-                    b.ToTable("TechnicianSkills", (string)null);
+                    b.ToTable("TechnicianSkills");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AlarmRationalization", b =>
@@ -14753,7 +14756,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("EquipmentClassId", "ReadingType", "Priority", "Active")
                         .HasDatabaseName("ix_alarmrationalization_lookup");
 
-                    b.ToTable("AlarmRationalizations", (string)null);
+                    b.ToTable("AlarmRationalizations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.AssetSensorLatest", b =>
@@ -14789,7 +14792,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("AssetId", "ReadingType");
 
-                    b.ToTable("AssetSensorLatest", (string)null);
+                    b.ToTable("AssetSensorLatest");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorAlarm", b =>
@@ -14876,7 +14879,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("AssetId", "ReadingType", "State")
                         .HasDatabaseName("ix_sensoralarm_asset_type_state");
 
-                    b.ToTable("SensorAlarms", (string)null);
+                    b.ToTable("SensorAlarms");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorEvent", b =>
@@ -14940,7 +14943,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("AssetId", "ReadingType", "ReadingAt")
                         .HasDatabaseName("ix_sensorevent_asset_type_time");
 
-                    b.ToTable("SensorEvents", (string)null);
+                    b.ToTable("SensorEvents");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorRollupDay", b =>
@@ -15114,7 +15117,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Reason", "CapturedAt");
 
-                    b.ToTable("SensorSnapshots", (string)null);
+                    b.ToTable("SensorSnapshots");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.SensorSnapshotValue", b =>
@@ -15158,7 +15161,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("SnapshotId", "AssetId", "ReadingType");
 
-                    b.ToTable("SensorSnapshotValues", (string)null);
+                    b.ToTable("SensorSnapshotValues");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Telemetry.UnitConversion", b =>
@@ -15196,7 +15199,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("FromUnit", "ToUnit", "Active")
                         .HasDatabaseName("ix_unitconversion_lookup");
 
-                    b.ToTable("UnitConversions", (string)null);
+                    b.ToTable("UnitConversions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Tenant", b =>
@@ -15240,7 +15243,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Tenants", (string)null);
+                    b.ToTable("Tenants");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.UOMDefinition", b =>
@@ -15285,7 +15288,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UOMDefinitions", (string)null);
+                    b.ToTable("UOMDefinitions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.UsTaxSettings", b =>
@@ -15350,7 +15353,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("AssetId")
                         .IsUnique();
 
-                    b.ToTable("UsTaxSettings", (string)null);
+                    b.ToTable("UsTaxSettings");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.UsefulLifeEntry", b =>
@@ -15417,7 +15420,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("UsefulLifeTableId");
 
-                    b.ToTable("UsefulLifeEntries", (string)null);
+                    b.ToTable("UsefulLifeEntries");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.UsefulLifeTable", b =>
@@ -15453,7 +15456,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("UsefulLifeTables", (string)null);
+                    b.ToTable("UsefulLifeTables");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.User", b =>
@@ -15531,7 +15534,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Vendor", b =>
@@ -15720,7 +15723,7 @@ namespace Abs.FixedAssets.Migrations
                         .HasDatabaseName("ix_vendors_fda")
                         .HasFilter("\"FdaEstablishmentId\" IS NOT NULL");
 
-                    b.ToTable("Vendors", (string)null);
+                    b.ToTable("Vendors");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.VendorInvoice", b =>
@@ -15822,7 +15825,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("VendorId");
 
-                    b.ToTable("VendorInvoices", (string)null);
+                    b.ToTable("VendorInvoices");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.VendorInvoiceLine", b =>
@@ -15886,7 +15889,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("VendorInvoiceId");
 
-                    b.ToTable("VendorInvoiceLines", (string)null);
+                    b.ToTable("VendorInvoiceLines");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WebhookDeliveryLog", b =>
@@ -15928,7 +15931,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WebhookSubscriptionId");
 
-                    b.ToTable("WebhookDeliveryLogs", (string)null);
+                    b.ToTable("WebhookDeliveryLogs");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WebhookSubscription", b =>
@@ -16000,7 +16003,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.ToTable("WebhookSubscriptions", (string)null);
+                    b.ToTable("WebhookSubscriptions");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrder", b =>
@@ -16265,7 +16268,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("MasterWorkOrderId", "Revision");
 
-                    b.ToTable("WorkOrders", (string)null);
+                    b.ToTable("WorkOrders");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperation", b =>
@@ -16419,7 +16422,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderId");
 
-                    b.ToTable("WorkOrderOperations", (string)null);
+                    b.ToTable("WorkOrderOperations");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperationLabor", b =>
@@ -16478,7 +16481,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderOperationId");
 
-                    b.ToTable("WorkOrderOperationLabors", (string)null);
+                    b.ToTable("WorkOrderOperationLabors");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperationPart", b =>
@@ -16543,7 +16546,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderOperationId");
 
-                    b.ToTable("WorkOrderOperationParts", (string)null);
+                    b.ToTable("WorkOrderOperationParts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderOperationTool", b =>
@@ -16601,7 +16604,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderOperationId");
 
-                    b.ToTable("WorkOrderOperationTools", (string)null);
+                    b.ToTable("WorkOrderOperationTools");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderPart", b =>
@@ -16669,7 +16672,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderId", "ItemId");
 
-                    b.ToTable("WorkOrderParts", (string)null);
+                    b.ToTable("WorkOrderParts");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrderType", b =>
@@ -16714,7 +16717,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkOrderTypes", (string)null);
+                    b.ToTable("WorkOrderTypes");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.CipWorkOrderDetails", b =>
@@ -16791,7 +16794,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WorkOrderId")
                         .IsUnique();
 
-                    b.ToTable("CipWorkOrderDetails", (string)null);
+                    b.ToTable("CipWorkOrderDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.EngineeringWorkOrderDetails", b =>
@@ -16869,7 +16872,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WorkOrderId")
                         .IsUnique();
 
-                    b.ToTable("EngineeringWorkOrderDetails", (string)null);
+                    b.ToTable("EngineeringWorkOrderDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.HseWorkOrderDetails", b =>
@@ -16958,7 +16961,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WorkOrderId")
                         .IsUnique();
 
-                    b.ToTable("HseWorkOrderDetails", (string)null);
+                    b.ToTable("HseWorkOrderDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.NumberSequence", b =>
@@ -17015,7 +17018,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Classification", "Year", "TenantId");
 
-                    b.ToTable("NumberSequence", (string)null);
+                    b.ToTable("NumberSequence");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.QualityWorkOrderDetails", b =>
@@ -17125,7 +17128,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WorkOrderId")
                         .IsUnique();
 
-                    b.ToTable("QualityWorkOrderDetails", (string)null);
+                    b.ToTable("QualityWorkOrderDetails");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderApproval", b =>
@@ -17186,7 +17189,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("WorkOrderId", "Stage", "Decision");
 
-                    b.ToTable("WorkOrderApproval", (string)null);
+                    b.ToTable("WorkOrderApproval");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderFieldVisibility", b =>
@@ -17241,7 +17244,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("Classification", "TenantId");
 
-                    b.ToTable("WorkOrderFieldVisibility", (string)null);
+                    b.ToTable("WorkOrderFieldVisibility");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusLabel", b =>
@@ -17296,7 +17299,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("Classification", "StatusKey")
                         .IsUnique();
 
-                    b.ToTable("WorkOrderStatusLabel", (string)null);
+                    b.ToTable("WorkOrderStatusLabel");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusProfile", b =>
@@ -17327,7 +17330,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Classification");
 
-                    b.ToTable("WorkOrderStatusProfile", (string)null);
+                    b.ToTable("WorkOrderStatusProfile");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkOrders.WorkOrderStatusTransition", b =>
@@ -17378,7 +17381,7 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("Classification", "FromStatusCode", "ToStatusCode")
                         .IsUnique();
 
-                    b.ToTable("WorkOrderStatusTransition", (string)null);
+                    b.ToTable("WorkOrderStatusTransition");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.WorkRequest", b =>
@@ -17481,7 +17484,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("StatusLookupValueId");
 
-                    b.ToTable("WorkRequests", (string)null);
+                    b.ToTable("WorkRequests");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.AdvancedShippingNotice", b =>

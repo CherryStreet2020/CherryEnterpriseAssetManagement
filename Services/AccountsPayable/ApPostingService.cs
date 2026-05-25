@@ -29,7 +29,43 @@ namespace Abs.FixedAssets.Services.AccountsPayable
     public interface IApPostingService
     {
         Task<ApPostingResult> PostApprovalAsync(int invoiceId, bool overrideMatch = false, string approverUsername = "");
-        Task<ApPostingResult> PostPaymentAsync(int invoiceId, decimal amount, DateTime paymentDate, string? paymentReference = null);
+
+        /// <summary>
+        /// Records a vendor invoice payment. Writes the Dr AP / Cr Cash JE
+        /// and (when called from the page model) creates the operational
+        /// <see cref="Models.InvoicePayment"/> row.
+        ///
+        /// PR #336 hardening. Three layers of duplicate-payment protection:
+        /// (1) Server rejects amount > BalanceDue with an explicit message.
+        /// (2) Optional idempotency key — when provided, ADR-014's Stripe-
+        ///     pattern mediator dedupes against the canonical hash of the
+        ///     request payload. A second submission with the same key
+        ///     returns the original posting result instead of creating a
+        ///     duplicate JE + InvoicePayment row.
+        /// (3) UI button disable + aria-busy on click (defense in depth).
+        /// </summary>
+        Task<ApPostingResult> PostPaymentAsync(
+            int invoiceId,
+            decimal amount,
+            DateTime paymentDate,
+            string? paymentReference = null,
+            Guid? idempotencyKey = null,
+            int? actorUserId = null);
+
+        /// <summary>
+        /// Voids a single previously-recorded payment. Writes a contra-
+        /// payment JE (Dr Cash / Cr AP — reversing the original PostPayment
+        /// JE), flips the InvoicePayment row's IsVoided flag with
+        /// <see cref="Models.InvoicePayment.VoidReason"/> + ContraJournalEntryId
+        /// linkage, decrements <see cref="Models.VendorInvoice.AmountPaid"/>
+        /// by the payment amount, and recomputes invoice status.
+        ///
+        /// Use this for single-payment corrections (e.g. duplicate payment
+        /// from accidental double-click). For voiding the entire invoice
+        /// approval + all payments, use <see cref="PostVoidAsync"/>.
+        /// </summary>
+        Task<ApPostingResult> VoidPaymentAsync(int invoiceId, int paymentId, string reason);
+
         Task<ApPostingResult> PostVoidAsync(int invoiceId, string reason);
     }
 
@@ -394,7 +430,42 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             return new ApPostingResult(invoiceId, je.Id, match, totalCredit);
         }
 
-        public async Task<ApPostingResult> PostPaymentAsync(int invoiceId, decimal amount, DateTime paymentDate, string? paymentReference = null)
+        public async Task<ApPostingResult> PostPaymentAsync(
+            int invoiceId,
+            decimal amount,
+            DateTime paymentDate,
+            string? paymentReference = null,
+            Guid? idempotencyKey = null,
+            int? actorUserId = null)
+        {
+            // PR #336. ADR-014 Stripe-pattern idempotency. When the caller
+            // provides a non-empty key (UI form generates one per render
+            // via Guid.NewGuid), the mediator dedupes against the canonical
+            // hash of the request. Double-clicks / browser retries / network
+            // resubmits with the same key return the original
+            // ApPostingResult instead of writing a second JE.
+            if (idempotencyKey.HasValue && idempotencyKey.Value != Guid.Empty)
+            {
+                var request = new { InvoiceId = invoiceId, Amount = amount, PaymentDate = paymentDate, PaymentReference = paymentReference };
+                var idempResult = await _idempotency.ExecuteAsync<object, ApPostingResult>(
+                    actorUserId ?? 0,
+                    idempotencyKey.Value,
+                    request,
+                    async _ => Result.Success(await PostPaymentInternalAsync(invoiceId, amount, paymentDate, paymentReference)),
+                    CancellationToken.None);
+                if (idempResult.IsFailure)
+                    throw new InvalidOperationException(idempResult.Error ?? "Idempotency key conflict.");
+                return idempResult.Value!;
+            }
+
+            return await PostPaymentInternalAsync(invoiceId, amount, paymentDate, paymentReference);
+        }
+
+        // PR #336 — inner non-idempotent payment work, extracted so the
+        // idempotency mediator can wrap it. Keeps the call path readable
+        // and lets tests exercise the work directly without spinning up
+        // the mediator + IdempotencyKeys table machinery.
+        private async Task<ApPostingResult> PostPaymentInternalAsync(int invoiceId, decimal amount, DateTime paymentDate, string? paymentReference)
         {
             var invoice = await LoadInvoiceScopedAsync(invoiceId);
             if (invoice == null)
@@ -405,6 +476,17 @@ namespace Abs.FixedAssets.Services.AccountsPayable
 
             if (amount <= 0)
                 throw new InvalidOperationException("Payment amount must be > 0.");
+
+            // PR #336 — BalanceDue server-side guard. Previously
+            // PostPaymentAsync accepted ANY positive amount, allowing
+            // overpayment (see GD84-1 incident 2026-05-25 where a double
+            // click left invoice with -$99 balance). The UI button disable
+            // + idempotency key are defense-in-depth; this is the floor.
+            var balanceDue = invoice.Total - invoice.AmountPaid;
+            if (balanceDue <= 0m)
+                throw new InvalidOperationException($"Invoice {invoice.InvoiceNumber} is already fully paid. Balance due: {balanceDue:C}.");
+            if (amount > balanceDue)
+                throw new InvalidOperationException($"Payment ${amount:N2} exceeds balance due ${balanceDue:N2} on invoice {invoice.InvoiceNumber}.");
 
             var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
             var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, paymentDate);
@@ -460,6 +542,130 @@ namespace Abs.FixedAssets.Services.AccountsPayable
             );
 
             return new ApPostingResult(invoiceId, je.Id, invoice.MatchStatus, amount);
+        }
+
+        // PR #336 — Void a single previously-recorded payment. Writes a
+        // contra-payment JE (Dr Cash / Cr AP — exact reverse of the original
+        // PostPayment JE), flips InvoicePayment.IsVoided + records the
+        // contra-JE linkage + reason, decrements invoice.AmountPaid, and
+        // recomputes status. Distinct from PostVoidAsync which voids the
+        // ENTIRE invoice (approval + all payments).
+        public async Task<ApPostingResult> VoidPaymentAsync(int invoiceId, int paymentId, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new InvalidOperationException("Void reason is required.");
+
+            var invoice = await LoadInvoiceScopedAsync(invoiceId);
+            if (invoice == null)
+                throw new InvalidOperationException($"Invoice {invoiceId} not found.");
+
+            // Load the payment with tenant scoping (via invoice's FK).
+            var payment = await _db.InvoicePayments
+                .FirstOrDefaultAsync(p => p.Id == paymentId && p.VendorInvoiceId == invoiceId);
+            if (payment == null)
+                throw new InvalidOperationException($"Payment {paymentId} not found on invoice {invoice.InvoiceNumber}.");
+            if (payment.IsVoided)
+                throw new InvalidOperationException($"Payment {paymentId} on invoice {invoice.InvoiceNumber} is already voided.");
+
+            var voidDate = DateTime.UtcNow;
+            var invoiceCompanyId = invoice.CompanyId ?? _tenantContext.CompanyId ?? 0;
+            var periodCheck = await _periodGuard.CanPostAsync(invoiceCompanyId, voidDate);
+            if (!periodCheck.IsAllowed)
+                throw new InvalidOperationException(periodCheck.Reason ?? "Cannot void payment: posting period closed.");
+
+            // Find the original payment JE so we can stamp the contra-JE
+            // lines with the same AccountingKeyId for segment-key continuity
+            // (mirrors the pattern in PostVoidAsync for invoice-level voids).
+            //
+            // The original JE's Reference uses AP-PMT-{InvoiceNumber}-{ref}
+            // pattern. Pin to the payment's ReferenceNumber when provided,
+            // otherwise fall back to JE with matching Batch + AmountPaid.
+            var paymentRefToken = payment.ReferenceNumber ?? payment.PaymentDate.Ticks.ToString();
+            var originalJeRef = $"AP-PMT-{invoice.InvoiceNumber}-{paymentRefToken}";
+            var original = await _db.JournalEntries
+                .Include(j => j.Lines)
+                .FirstOrDefaultAsync(j => j.Reference == originalJeRef && j.Source == "AP");
+
+            int? contraJeId = null;
+            if (original != null)
+            {
+                var contra = new JournalEntry
+                {
+                    BookId = original.BookId,
+                    Batch = $"AP-PMT-VOID-{invoice.InvoiceNumber}",
+                    Period = int.Parse(voidDate.ToString("yyyyMM")),
+                    PostingDate = voidDate.Date,
+                    Source = "AP",
+                    Reference = $"AP-PMT-VOID-{invoice.InvoiceNumber}-{paymentId}",
+                    Description = $"Void payment {paymentId}: {reason}",
+                    CreatedUtc = DateTime.UtcNow,
+                    Lines = original.Lines.Select((l, idx) => new JournalLine
+                    {
+                        LineNo = idx + 1,
+                        Account = l.Account,
+                        AccountingKeyId = l.AccountingKeyId,
+                        Description = $"VOID-PMT: {l.Description}",
+                        Debit = l.Credit,
+                        Credit = l.Debit
+                    }).ToList()
+                };
+                _db.JournalEntries.Add(contra);
+                await _db.SaveChangesAsync();
+                contraJeId = contra.Id;
+            }
+
+            // Mark the payment voided + decrement invoice rollup.
+            payment.IsVoided = true;
+            payment.VoidedAt = voidDate;
+            payment.VoidReason = reason;
+            payment.ContraJournalEntryId = contraJeId;
+
+            invoice.AmountPaid -= payment.Amount;
+            if (invoice.AmountPaid < 0m) invoice.AmountPaid = 0m;
+            // PR #336 (Codex P1 catch). Persisted balance must stay in sync
+            // with AmountPaid — page reads BalanceDue directly, and stale
+            // values mislead the user / block subsequent payment actions.
+            invoice.BalanceDue = invoice.Total - invoice.AmountPaid;
+
+            // Status recompute (Codex P1 catch). Voiding a DUPLICATE payment
+            // can leave AmountPaid == Total (cleanup case: void one of two
+            // identical $99 payments → AmountPaid drops from $198 to $99
+            // which equals Total). In that case the invoice is STILL fully
+            // paid — must not demote to PartiallyPaid. Compare against Total,
+            // not just AmountPaid > 0.
+            if (invoice.Status == InvoiceStatus.Paid)
+            {
+                if (invoice.AmountPaid >= invoice.Total)
+                    invoice.Status = InvoiceStatus.Paid;  // still fully covered (duplicate cleanup)
+                else if (invoice.AmountPaid > 0m)
+                    invoice.Status = InvoiceStatus.PartiallyPaid;
+                else
+                    invoice.Status = InvoiceStatus.Approved;
+            }
+            invoice.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+
+            await _outbox.EnqueueAsync(
+                invoiceCompanyId,
+                siteId: null,
+                new InvoicePaymentVoidedV1(
+                    InvoiceId: invoice.Id,
+                    InvoiceNumber: invoice.InvoiceNumber,
+                    PaymentId: payment.Id,
+                    VendorId: invoice.VendorId,
+                    CompanyId: invoiceCompanyId,
+                    Currency: invoice.Currency,
+                    PaymentAmount: payment.Amount,
+                    RemainingAmountPaid: invoice.AmountPaid,
+                    InvoiceTotal: invoice.Total,
+                    VoidedAt: voidDate,
+                    Reason: reason,
+                    ContraJournalEntryId: contraJeId),
+                correlationId: $"ap-payment-void-{invoice.Id}-{paymentId}"
+            );
+
+            return new ApPostingResult(invoiceId, contraJeId, invoice.MatchStatus, payment.Amount);
         }
 
         public async Task<ApPostingResult> PostVoidAsync(int invoiceId, string reason)

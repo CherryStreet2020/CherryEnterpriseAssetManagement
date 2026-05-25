@@ -477,9 +477,17 @@
     {
         <div class="line-section__add line-section__add--above">
             <div class="line-section__add-label">+ Record Payment</div>
-            <form method="post" asp-page-handler="RecordPayment" class="line-add-form">
+            @* PR #336. Idempotency-key dedup. A fresh Guid is rendered into a
+               hidden field each time the form loads. Double-click / browser
+               retry / network resubmit all carry the SAME key → the server-side
+               IdempotencyMediator (ADR-014) replays the cached result instead
+               of writing a second JE + InvoicePayment. The form also has the
+               on-submit button disable script below, but the key is the
+               authoritative dedup. *@
+            <form method="post" asp-page-handler="RecordPayment" class="line-add-form" data-cherry-once="record-payment">
                 <input type="hidden" name="id" value="@inv.Id" />
                 <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                <input type="hidden" name="idempotencyKey" value="@Guid.NewGuid()" />
                 <div class="line-add-form__row">
                     <div class="line-add-form__field line-add-form__field--narrow">
                         <label class="line-add-form__label">AMOUNT *</label>
@@ -498,7 +506,7 @@
                         <input type="text" name="notes" class="line-add-form__input" placeholder="Optional notes..." />
                     </div>
                     <div class="line-add-form__field line-add-form__field--action">
-                        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm">
+                        <button type="submit" class="ds-btn ds-btn--primary ds-btn--sm" data-cherry-submit-once>
                             <i class="fas fa-plus"></i> Record Payment
                         </button>
                     </div>
@@ -518,17 +526,46 @@
                         <th class="line-table__th" data-csp-style="width: 120px;">METHOD</th>
                         <th class="line-table__th" data-csp-style="width: 150px;">REFERENCE #</th>
                         <th class="line-table__th">NOTES</th>
+                        @* PR #336 — per-row Void action *@
+                        <th class="line-table__th line-table__th--right" data-csp-style="width: 110px;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var payment in inv.Payments.OrderByDescending(p => p.PaymentDate))
                     {
-                        <tr class="line-table__row">
+                        <tr class="line-table__row" data-csp-style="@(payment.IsVoided ? "opacity: 0.55;" : "")">
                             <td class="line-table__td line-table__td--muted">@payment.PaymentDate.ToString("MMM dd, yyyy")</td>
-                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@payment.Amount.ToString("N2")</td>
+                            <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold" data-csp-style="@(payment.IsVoided ? "text-decoration: line-through;" : "")">@payment.Amount.ToString("N2")</td>
                             <td class="line-table__td">@(payment.PaymentMethod ?? "—")</td>
                             <td class="line-table__td line-table__td--mono">@(payment.ReferenceNumber ?? "—")</td>
-                            <td class="line-table__td line-table__td--muted">@(payment.Notes ?? "—")</td>
+                            <td class="line-table__td line-table__td--muted">
+                                @if (payment.IsVoided)
+                                {
+                                    <span data-csp-style="color: var(--status-danger, #ef4444); font-weight: 600;">VOIDED</span>
+                                    @if (!string.IsNullOrWhiteSpace(payment.VoidReason))
+                                    {
+                                        <text> — @payment.VoidReason</text>
+                                    }
+                                }
+                                else
+                                {
+                                    @(payment.Notes ?? "—")
+                                }
+                            </td>
+                            <td class="line-table__td line-table__td--right">
+                                @if (!payment.IsVoided && inv.Status != InvoiceStatus.Voided)
+                                {
+                                    <form method="post" asp-page-handler="VoidPayment" data-cherry-confirm="Void this payment? A contra-JE will be written reversing the original payment. This action is logged in the audit trail." data-csp-style="display: inline;">
+                                        <input type="hidden" name="id" value="@inv.Id" />
+                                        <input type="hidden" name="paymentId" value="@payment.Id" />
+                                        <input type="hidden" name="returnUrl" value="@Model.SafeReturnUrl" />
+                                        <input type="hidden" name="reason" value="Voided by @(User.Identity?.Name ?? "user") on @DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm") UTC" />
+                                        <button type="submit" class="ds-btn ds-btn--ghost ds-btn--xs" data-cherry-submit-once>
+                                            <i class="fas fa-undo"></i> Void
+                                        </button>
+                                    </form>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -536,12 +573,12 @@
                     <tr class="line-table__total-row">
                         <td class="line-table__td line-table__td--right" data-csp-style="font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em;">TOTAL PAID</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono line-table__td--bold">@inv.AmountPaid.ToString("N2")</td>
-                        <td colspan="3"></td>
+                        <td colspan="4"></td>
                     </tr>
                     <tr>
                         <td class="line-table__td line-table__td--right" data-csp-style="font-weight: 700; font-size: 0.8rem;">BALANCE DUE</td>
                         <td class="line-table__td line-table__td--right line-table__td--mono" data-csp-style="font-weight: 700; font-size: 1rem; color: @(inv.BalanceDue > 0 ? "var(--status-danger, #ef4444)" : "var(--status-success, #22c55e)");">@inv.BalanceDue.ToString("N2")</td>
-                        <td colspan="3"></td>
+                        <td colspan="4"></td>
                     </tr>
                 </tfoot>
             </table>
