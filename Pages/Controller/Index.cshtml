@@ -1,0 +1,47 @@
+@page "/Controller"
+@model Abs.FixedAssets.Pages.Controller.IndexModel
+@{
+    ViewData["Title"] = "Controller Control Center";
+    ViewData["TabTitle"] = "Controller";
+    ViewData["BodyClass"] = "is-control-center";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 12.7 PR #1 — Controller Control Center shell (the CFO motion).
+
+    First v1 Control Center on the FINANCE side of the spine. Composes all
+    four Cockpit primitives per Lock 3:
+
+      - _CockpitPageHeader   : anchored title bar with LIVE + Voice button
+      - _CockpitKpiBand      : 4-tile hero (Cash · AR · AP · WIP) — placeholders
+                               this PR; PR #4 wires the real numbers
+      - _CockpitTabShell     : 4 tabs — Books · Drilldown · Close Prep · Audit Trail
+      - _CockpitShell        : per-tab queue+preview canvas, welcome state only
+                               this PR
+
+    Tab state lives in the URL via `?tab=<key>` (default = books). Voice scope
+    propagates active tab via VoiceContextPayload so PR #3's WhyIsNbv intent
+    knows which surface it's on.
+
+    Roadmap:
+      PR #2 — IControllerCockpitService for the Drilldown tab
+      PR #3 — Voice intent WhyIsNbv + LLM narration on Cherry Bar
+      PR #4 — KPI band real-data wire-up (Cash / AR / AP / WIP / open POs / WIP)
+      PR #5 — Demo data + walkthrough page
+*@
+
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", Model.PageHeader)
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+<div role="tabpanel" aria-labelledby="tab-@Model.ActiveTab">
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitShell", Model.TabContent)
+</div>
+
+@section Scripts {
+    @* cockpit.js powers the queue's search input + card click handlers. Loaded
+       for parity with Receiving — PR #2+ populates the queues and the script
+       is already idempotent + safe to load with empty data. *@
+    <script src="~/js/cockpit.js" asp-append-version="true"></script>
+}

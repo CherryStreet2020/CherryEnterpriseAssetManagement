@@ -128,6 +128,12 @@ public static class NavRegistry
             SortOrder: 25,
             Items: new[]
             {
+                // Sprint 12.7 PR #1 — Controller Control Center (the CFO motion).
+                // Placed at the TOP of the Finance group: it's THE landing for
+                // CFO / controller users (Paul Marcotte at ABS Machining is the
+                // demo target). Composes the Cockpit primitives per Lock 3.
+                // Real wire-up across PRs #2-#4; PR #5 ships demo data.
+                new NavItem("Controller",         "/Controller",     "fas fa-user-tie", RoutePrefix: "/Controller"),
                 new NavItem("General Ledger",     "/Books",          "fas fa-book"),
                 new NavItem("Journals",           "/Journals",       "fas fa-pen-to-square"),
                 new NavItem("Accounts Payable",   "/AccountsPayable","fas fa-file-invoice-dollar"),
