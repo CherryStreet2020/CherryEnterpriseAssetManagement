@@ -70,7 +70,10 @@
 
 <div class="grid grid-cols-2 gap-4 mb-4">
     <section class="section-card">
-        <div class="section-card-header"><h3 class="section-card-title">Form 1 — Header</h3></div>
+        @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+            ["Title"] = "Form 1 — Header",
+            ["TitleClass"] = "section-card-title"
+        })
         <div class="section-card-body">
             <dl class="detail-list">
                 <dt>FAI Number</dt><dd><strong>@f.FaiNumber</strong></dd>
@@ -90,7 +93,10 @@
     </section>
 
     <section class="section-card">
-        <div class="section-card-header"><h3 class="section-card-title">Workflow Actions</h3></div>
+        @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+            ["Title"] = "Workflow Actions",
+            ["TitleClass"] = "section-card-title"
+        })
         <div class="section-card-body" data-csp-style="display: flex; flex-direction: column; gap: 0.75rem;">
             @if (f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.Draft
               || f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.InProgress)
