@@ -2198,8 +2198,10 @@ namespace Abs.FixedAssets.Data
             modelBuilder.Entity<ItemCompanyStocking>(e =>
             {
                 e.HasIndex(x => new { x.ItemId, x.CompanyId }).IsUnique();
+                // Drift fix 2026-05-25: name the Item.CompanyStockingSettings collection
+                // so EF doesn't create a shadow ItemId1 FK.
                 e.HasOne(x => x.Item)
-                    .WithMany()
+                    .WithMany(i => i.CompanyStockingSettings)
                     .HasForeignKey(x => x.ItemId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Company)
@@ -2596,6 +2598,21 @@ namespace Abs.FixedAssets.Data
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
+            // PMOccurrence — drift fix 2026-05-25: previously had no explicit
+            // configuration, so EF Convention paired with WorkOrder.PMOccurrenceId
+            // (an intentionally-FK-only int column with no navigation) and created
+            // a shadow PMOccurrence.WorkOrderId1 column. Explicitly anchoring the
+            // PMOccurrence -> WorkOrder relationship here tells EF this is the
+            // ONLY relationship between the two entities; WorkOrder.PMOccurrenceId
+            // remains a convenience lookup column without a navigation.
+            modelBuilder.Entity<PMOccurrence>(e =>
+            {
+                e.HasOne(x => x.WorkOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.WorkOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
             // PartialDisposal
             modelBuilder.Entity<PartialDisposal>(e =>
             {
@@ -2947,8 +2964,10 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.SetNull);
+                // Drift fix 2026-05-25: name the Program.Projects collection
+                // so EF doesn't create a shadow ProgramId1 FK.
                 e.HasOne(x => x.Program)
-                    .WithMany()
+                    .WithMany(p => p.Projects)
                     .HasForeignKey(x => x.ProgramId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.PrimaryCustomer)
@@ -2966,8 +2985,10 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => new { x.CustomerProjectId, x.CustomerId, x.Role }).IsUnique();
                 e.HasIndex(x => x.CustomerId);
+                // Drift fix 2026-05-25: name the CustomerProject.Members collection
+                // so EF doesn't create a shadow CustomerProjectId1 FK.
                 e.HasOne(x => x.Project)
-                    .WithMany()
+                    .WithMany(p => p.Members)
                     .HasForeignKey(x => x.CustomerProjectId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Customer)
@@ -2980,8 +3001,10 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique();
                 e.HasIndex(x => x.ParentPhaseId);
+                // Drift fix 2026-05-25: name the CustomerProject.Phases collection
+                // so EF doesn't create a shadow CustomerProjectId1 FK.
                 e.HasOne(x => x.Project)
-                    .WithMany()
+                    .WithMany(p => p.Phases)
                     .HasForeignKey(x => x.CustomerProjectId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.ParentPhase)
@@ -3033,8 +3056,10 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.Status)
                     .HasDatabaseName("ix_projectamendments_status")
                     .HasFilter("\"Status\" IN (0, 1)");
+                // Drift fix 2026-05-25: name the CustomerProject.Amendments collection
+                // so EF doesn't create a shadow CustomerProjectId1 FK.
                 e.HasOne(x => x.Project)
-                    .WithMany()
+                    .WithMany(p => p.Amendments)
                     .HasForeignKey(x => x.CustomerProjectId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.ApprovedBy)
@@ -3224,8 +3249,11 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.MrbDispositionId)
                     .HasFilter("\"MrbDispositionId\" IS NOT NULL");
 
+                // Drift fix 2026-05-25: name the parent collection so EF
+                // doesn't create a shadow FaiReportId1 for the FaiReport.Characteristics
+                // navigation (otherwise EF treats it as a second, unconfigured relationship).
                 e.HasOne(x => x.FaiReport)
-                    .WithMany()
+                    .WithMany(r => r.Characteristics)
                     .HasForeignKey(x => x.FaiReportId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Inspector)
@@ -3244,8 +3272,11 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.HeatNumber)
                     .HasFilter("\"HeatNumber\" IS NOT NULL");
 
+                // Drift fix 2026-05-25: name the parent collection so EF
+                // doesn't create a shadow FaiReportId1 for the FaiReport.ProductAccountability
+                // navigation.
                 e.HasOne(x => x.FaiReport)
-                    .WithMany()
+                    .WithMany(r => r.ProductAccountability)
                     .HasForeignKey(x => x.FaiReportId)
                     .OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Vendor)
