@@ -1,0 +1,139 @@
+@page
+@model Abs.FixedAssets.Pages.Quality.Fai.IndexModel
+@{
+    ViewData["Title"] = "First Article Inspections";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var subtitle = Model.CustomerProjectId.HasValue
+        ? $"Filtered to Customer Project #{Model.CustomerProjectId}"
+        : "AS9102 Rev C — Form 1 / Form 2 / Form 3";
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Quality" },
+        { "HeaderTitle", "First Article Inspections" },
+        { "Subtitle", subtitle },
+        { "StatusText", $"CompanyId {Model.CompanyId}" },
+        { "StatusTone", "info" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mb-4">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger mb-4">@TempData["Error"]</div>
+}
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Start a new FAI</h3>
+        <span class="status-badge info">AS9102</span>
+    </div>
+    <div class="section-card-body">
+        <p class="text-theme-muted" data-csp-style="margin-bottom: 1rem;">
+            First Article Inspection per AS9102 Rev C. Captures Form 1 header
+            (part / drawing / lot metadata), Form 2 product accountability (material
+            certs, special processes, functional tests), and Form 3 ballooned
+            characteristic measurements.
+        </p>
+        @{
+            var createUrl = Model.CustomerProjectId.HasValue
+                ? $"/Quality/Fai/Create?customerProjectId={Model.CustomerProjectId}"
+                : "/Quality/Fai/Create";
+        }
+        <a href="@createUrl" class="hero-btn hero-btn-primary">
+            + New First Article Inspection
+        </a>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Reports</h3>
+        <span class="status-badge muted">@Model.Reports.Count showing</span>
+    </div>
+    <div class="section-card-body" data-csp-style="padding: 0;">
+        @if (Model.Reports.Count == 0)
+        {
+            <p class="text-theme-muted" data-csp-style="padding: 1.5rem; text-align: center;">
+                No First Article Inspections yet. Use "New First Article Inspection" above to start.
+            </p>
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>FAI #</th>
+                        <th>Part Number</th>
+                        <th>Drawing</th>
+                        <th>Type</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th>Char</th>
+                        <th>NC</th>
+                        <th>Created</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Model.Reports)
+                    {
+                        <tr>
+                            <td><strong>@f.FaiNumber</strong></td>
+                            <td>@f.PartNumberSnapshot</td>
+                            <td>
+                                @f.DrawingNumberSnapshot
+                                @if (!string.IsNullOrEmpty(f.DrawingRevSnapshot))
+                                {
+                                    <span class="text-theme-muted" data-csp-style="font-size: 0.75rem;">Rev @f.DrawingRevSnapshot</span>
+                                }
+                            </td>
+                            <td>@f.Type</td>
+                            <td>@f.Reason</td>
+                            <td>
+                                @switch (f.Status)
+                                {
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Draft:
+                                        <span class="status-badge muted">Draft</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.InProgress:
+                                        <span class="status-badge info">In Progress</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Submitted:
+                                        <span class="status-badge warning">Submitted</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Approved:
+                                        <span class="status-badge success">Approved</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Conditional:
+                                        <span class="status-badge warning">Conditional</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Rejected:
+                                        <span class="status-badge danger">Rejected</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiStatus.Voided:
+                                        <span class="status-badge muted">Voided</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@f.CharacteristicCount</td>
+                            <td class="@(f.NonConformCount > 0 ? "text-danger" : "text-muted")">@f.NonConformCount</td>
+                            <td>@f.CreatedAt.ToString("yyyy-MM-dd")</td>
+                            <td>
+                                <a href="/Quality/Fai/Detail/@f.Id" class="hero-btn hero-btn-ghost" data-csp-style="font-size: 0.8125rem; padding: 0.25rem 0.625rem;">Open</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

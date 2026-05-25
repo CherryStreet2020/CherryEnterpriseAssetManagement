@@ -1,0 +1,257 @@
+@page "{id:long}"
+@model Abs.FixedAssets.Pages.Quality.Fai.DetailModel
+@{
+    var f = Model.Report!;
+    ViewData["Title"] = $"FAI {f.FaiNumber}";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var statusTone = f.Status switch
+    {
+        Abs.FixedAssets.Models.Quality.FaiStatus.Approved => "success",
+        Abs.FixedAssets.Models.Quality.FaiStatus.Rejected => "danger",
+        Abs.FixedAssets.Models.Quality.FaiStatus.Voided => "muted",
+        Abs.FixedAssets.Models.Quality.FaiStatus.Submitted => "warning",
+        Abs.FixedAssets.Models.Quality.FaiStatus.Conditional => "warning",
+        Abs.FixedAssets.Models.Quality.FaiStatus.InProgress => "info",
+        _ => "muted"
+    };
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Quality" },
+        { "HeaderTitle", $"FAI {f.FaiNumber}" },
+        { "Subtitle", $"{f.PartNumberSnapshot} · {f.Type} · {f.PartType}" },
+        { "StatusText", f.Status.ToString() },
+        { "StatusTone", statusTone },
+        { "ShowBackLink", true },
+        { "BackLinkFallback", "/Quality/Fai" },
+        { "BackLinkLabel", "Back to FAI list" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mb-4">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger mb-4">@TempData["Error"]</div>
+}
+
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="kpi-card">
+        <div class="kpi-label">Characteristics</div>
+        <div class="kpi-value">@f.CharacteristicCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Non-Conform</div>
+        <div class="kpi-value @(f.NonConformCount > 0 ? "danger" : "")">@f.NonConformCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Waived / Conditional</div>
+        <div class="kpi-value @(f.WaivedCount > 0 ? "warning" : "")">@f.WaivedCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">AI Risk Score</div>
+        <div class="kpi-value">
+            @(f.AiRiskScore?.ToString() ?? "—")
+            @if (f.AiRiskTone.HasValue)
+            {
+                <span class="risk-dot risk-dot--@f.AiRiskTone.ToString()!.ToLower()"></span>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-2 gap-4 mb-4">
+    <section class="section-card">
+        <div class="section-card-header"><h3 class="section-card-title">Form 1 — Header</h3></div>
+        <div class="section-card-body">
+            <dl class="detail-list">
+                <dt>FAI Number</dt><dd><strong>@f.FaiNumber</strong></dd>
+                <dt>Revision</dt><dd>@f.Revision</dd>
+                <dt>Type · Part Type · Reason</dt><dd>@f.Type · @f.PartType · @f.Reason</dd>
+                <dt>Part Number</dt><dd>@f.PartNumberSnapshot</dd>
+                <dt>Part Name</dt><dd>@(f.PartNameSnapshot ?? "—")</dd>
+                <dt>Drawing</dt><dd>@(f.DrawingNumberSnapshot ?? "—") @(string.IsNullOrEmpty(f.DrawingRevSnapshot) ? "" : "Rev " + f.DrawingRevSnapshot)</dd>
+                <dt>Customer</dt><dd>@(f.Customer != null ? f.Customer.Name : "—")</dd>
+                <dt>Customer Project</dt><dd>@(f.CustomerProject != null ? f.CustomerProject.Code + " — " + f.CustomerProject.Name : "—")</dd>
+                <dt>Item</dt><dd>@(f.Item != null ? f.Item.PartNumber : "—")</dd>
+                <dt>Created</dt><dd>@f.CreatedAt.ToString("yyyy-MM-dd HH:mm") by @(f.CreatedBy ?? "—")</dd>
+                <dt>Submitted</dt><dd>@(f.SubmittedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</dd>
+                <dt>Approved</dt><dd>@(f.ApprovedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—") @(string.IsNullOrEmpty(f.ApprovedByName) ? "" : "by " + f.ApprovedByName)</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="section-card">
+        <div class="section-card-header"><h3 class="section-card-title">Workflow Actions</h3></div>
+        <div class="section-card-body" data-csp-style="display: flex; flex-direction: column; gap: 0.75rem;">
+            @if (f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.Draft
+              || f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.InProgress)
+            {
+                <form method="post" asp-page-handler="Submit">
+                    <button type="submit" class="hero-btn hero-btn-secondary">Submit for approval</button>
+                </form>
+            }
+            @if (f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.Submitted)
+            {
+                <form method="post" asp-page-handler="Approve">
+                    <button type="submit" class="hero-btn hero-btn-primary">Approve (Sign off)</button>
+                </form>
+                <p class="text-theme-muted" data-csp-style="font-size: 0.8125rem;">
+                    AS9102 Rev C requires the approver to differ from the submitter.
+                </p>
+            }
+            @if (f.Status == Abs.FixedAssets.Models.Quality.FaiStatus.Approved)
+            {
+                <span class="status-badge success">Sign-off complete</span>
+                <p class="text-theme-muted" data-csp-style="font-size: 0.8125rem;">
+                    Approved at @f.ApprovedAt?.ToString("yyyy-MM-dd HH:mm") by @(f.ApprovedByName ?? "—").
+                </p>
+            }
+        </div>
+    </section>
+</div>
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Form 3 — Characteristic Accountability</h3>
+        <span class="status-badge muted">@Model.Characteristics.Count of @f.CharacteristicCount</span>
+    </div>
+    <div class="section-card-body" data-csp-style="padding: 0;">
+        @if (Model.Characteristics.Count == 0)
+        {
+            <p class="text-theme-muted" data-csp-style="padding: 1rem; text-align: center;">No characteristics recorded yet. Use the form below to add one.</p>
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Balloon</th>
+                        <th>Description</th>
+                        <th>Nominal</th>
+                        <th>Tol.</th>
+                        <th>Actual</th>
+                        <th>Conform</th>
+                        <th>Instrument</th>
+                        <th>Inspector</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in Model.Characteristics)
+                    {
+                        <tr>
+                            <td><strong>@c.BalloonNumber</strong></td>
+                            <td>@c.CharacteristicDescription</td>
+                            <td>@(c.NominalValue?.ToString() ?? c.RequirementText ?? "—") @c.UnitOfMeasure</td>
+                            <td>
+                                @if (c.UpperToleranceValue.HasValue && c.LowerToleranceValue.HasValue)
+                                {
+                                    @($"{c.LowerToleranceValue:0.###} / +{c.UpperToleranceValue:0.###}")
+                                }
+                                else
+                                {
+                                    @(c.ToleranceText ?? "—")
+                                }
+                            </td>
+                            <td>@(c.ActualResult?.ToString() ?? c.ActualText ?? "—")</td>
+                            <td>
+                                @switch (c.Conformance)
+                                {
+                                    case Abs.FixedAssets.Models.Quality.FaiConformance.Conforms:
+                                        <span class="status-badge success">Conforms</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiConformance.NonConforms:
+                                        <span class="status-badge danger">Non-Conform</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiConformance.Conditional:
+                                        <span class="status-badge warning">Conditional</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiConformance.Waived:
+                                        <span class="status-badge muted">Waived</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.Quality.FaiConformance.NotApplicable:
+                                        <span class="status-badge muted">N/A</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@(c.InstrumentUsed ?? "—")</td>
+                            <td>@(c.InspectorName ?? "—") @(c.InspectionDate?.ToString("yyyy-MM-dd") ?? "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (f.Status != Abs.FixedAssets.Models.Quality.FaiStatus.Approved
+  && f.Status != Abs.FixedAssets.Models.Quality.FaiStatus.Voided
+  && f.Status != Abs.FixedAssets.Models.Quality.FaiStatus.Rejected)
+{
+    <div class="section-card mb-4">
+        <div class="section-card-header"><h3 class="section-card-title">Add a characteristic</h3></div>
+        <div class="section-card-body">
+            <form method="post" asp-page-handler="AddCharacteristic">
+                <div class="grid grid-cols-4 gap-4">
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Balloon # *</label>
+                        <input type="text" name="CharBalloonNumber" required maxlength="20" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div data-csp-style="grid-column: span 3;">
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Description *</label>
+                        <input type="text" name="CharDescription" required maxlength="500" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Nominal</label>
+                        <input type="number" step="0.0001" name="CharNominalValue" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Lower Tol.</label>
+                        <input type="number" step="0.0001" name="CharLowerTolerance" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Upper Tol.</label>
+                        <input type="number" step="0.0001" name="CharUpperTolerance" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">UoM</label>
+                        <input type="text" name="CharUnitOfMeasure" maxlength="20" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Actual</label>
+                        <input type="number" step="0.0001" name="CharActualResult" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Conformance</label>
+                        <select name="CharConformance" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                            <option value="0">Conforms</option>
+                            <option value="1">Non-Conforms</option>
+                            <option value="2">Conditional (waiver)</option>
+                            <option value="3">Waived</option>
+                            <option value="4">Not Applicable</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Instrument</label>
+                        <input type="text" name="CharInstrumentUsed" maxlength="200" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                    </div>
+                    <div data-csp-style="grid-column: span 4;">
+                        <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Non-Conform Notes (if any)</label>
+                        <textarea name="CharNonConformanceNotes" rows="2" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;"></textarea>
+                    </div>
+                </div>
+                <div data-csp-style="margin-top: 1rem;">
+                    <button type="submit" class="hero-btn hero-btn-primary">Record characteristic</button>
+                </div>
+            </form>
+        </div>
+    </div>
+}

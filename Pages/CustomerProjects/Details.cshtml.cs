@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Models.Projects;
+using Abs.FixedAssets.Models.Quality;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +30,11 @@ public class DetailsModel : PageModel
     public IReadOnlyList<ProjectPhase> Phases { get; private set; } = new List<ProjectPhase>();
     public IReadOnlyList<ProjectMember> Members { get; private set; } = new List<ProjectMember>();
     public IReadOnlyList<ProjectAmendment> Amendments { get; private set; } = new List<ProjectAmendment>();
+
+    // Sprint 13.5 PR #338 — FAI section. Read-only projection, same control-plane
+    // exemption as the other child collections. Mutations route through IFaiService
+    // on /Quality/Fai/*.
+    public IReadOnlyList<FaiReport> FaiReports { get; private set; } = new List<FaiReport>();
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
@@ -71,6 +77,14 @@ public class DetailsModel : PageModel
             .AsNoTracking()
             .Where(a => a.CustomerProjectId == id)
             .OrderByDescending(a => a.AmendmentNumber)
+            .Take(50)
+            .ToListAsync();
+
+        // PR #338 — pull recent FAIs scoped to this project.
+        FaiReports = await _db.FaiReports
+            .AsNoTracking()
+            .Where(f => f.CustomerProjectId == id)
+            .OrderByDescending(f => f.CreatedAt)
             .Take(50)
             .ToListAsync();
 
