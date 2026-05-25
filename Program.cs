@@ -693,29 +693,31 @@ builder.Services.AddHostedService<Abs.FixedAssets.Services.Voice.IntentEmbedding
 
 var app = builder.Build();
 
-// Ensure database is created with current model and seed default data
+// Apply EF Core migrations on startup (all environments).
+//
+// Lock 11 (2026-05-25): EnsureCreated() was removed because it silently created
+// missing tables without tracking, masking model-snapshot drift for weeks. With
+// MigrateAsync running everywhere, snapshot drift fails LOUDLY at Publish time
+// via PendingModelChangesWarning — forcing immediate fix. Combined with
+// Lock 12 (raw-SQL migrations must update the snapshot) and the
+// snapshot-drift-check CI gate, this closes the entire drift failure mode.
+//
+// Disabling auto-migrate: set AUTO_MIGRATE_DISABLE=true (escape hatch only —
+// production should always migrate).
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
-    // Use migrations in Development or when AUTO_MIGRATE=true
-    // This ensures schema changes are properly applied and avoids drift
-    var autoMigrate = Environment.GetEnvironmentVariable("AUTO_MIGRATE");
-    var isDev = app.Environment.IsDevelopment();
-    
-    if (isDev || autoMigrate?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
+    var disable = Environment.GetEnvironmentVariable("AUTO_MIGRATE_DISABLE");
+
+    if (disable?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        Console.WriteLine("[Startup] AUTO_MIGRATE_DISABLE=true — skipping migrations (escape hatch active)");
+    }
+    else
     {
         Console.WriteLine("[Startup] Applying database migrations...");
         await db.Database.MigrateAsync();
         Console.WriteLine("[Startup] Database migrations applied successfully");
-    }
-    else
-    {
-        // Production: Only ensure database exists, do not auto-migrate
-        // Migrations should be applied through a controlled deployment process
-        Console.WriteLine("[Startup] Production mode - skipping auto-migration");
-        Console.WriteLine("[Startup] To enable auto-migration, set AUTO_MIGRATE=true");
-        db.Database.EnsureCreated();
     }
     
     // Serialize startup seeding across concurrent app instances. If two

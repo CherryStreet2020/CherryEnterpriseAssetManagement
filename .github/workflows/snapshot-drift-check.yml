@@ -1,0 +1,132 @@
+name: snapshot-drift-check
+
+# Lock 12 gate (2026-05-25). Detects model-snapshot drift before merge.
+#
+# Failure mode this catches: a PR modifies EF entity configuration or adds
+# a migration that uses mb.Sql() for CREATE TABLE / ALTER TABLE / ADD COLUMN
+# without also regenerating Migrations/AppDbContextModelSnapshot.cs. The
+# snapshot silently drifts. Eventually `MigrateAsync()` at production startup
+# throws PendingModelChangesWarning and Replit Publish fails — which is what
+# happened on 2026-05-24 (see discovery_helium_vs_prod_db_2026_05_24 in spaces
+# memory).
+#
+# How it works:
+#   1. Restore + build the solution.
+#   2. Install dotnet-ef.
+#   3. Run `dotnet ef migrations add CIDriftCheck --no-build`.
+#   4. Inspect the generated migration .cs body. If it contains any
+#      migrationBuilder.* operations (i.e. the diff is non-empty), the
+#      snapshot is stale — fail the build with a clear message.
+#   5. Always `dotnet ef migrations remove` to clean up.
+#
+# This gate is REQUIRED on every PR. To avoid deadlocking docs-only / UI-only
+# PRs (which is what happens when GitHub Actions path-filters skip a required
+# workflow — the skipped workflow stays "pending" forever and blocks merge),
+# the trigger has NO paths filter. Instead, the first job-internal step detects
+# whether this PR touches schema-relevant files; if not, the job short-circuits
+# to success and the heavy build/EF steps are skipped. Required-check semantics
+# preserved either way.
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  snapshot-drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to diff against base ref
+
+      - name: Detect schema-relevant changes
+        id: detect
+        run: |
+          # Diff the PR's head against the merge-base with the PR base branch.
+          # Print TRUE iff any changed file matches Data/, Models/, Migrations/,
+          # the csproj, the sln, or this workflow file.
+          BASE_SHA=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          echo "Changed files vs base:"
+          echo "$CHANGED" | sed 's/^/  /'
+          RELEVANT=$(echo "$CHANGED" | grep -E '^(Data/|Models/|Migrations/|Abs\.FixedAssets\.csproj$|Abs\.FixedAssets\.sln$|\.github/workflows/snapshot-drift-check\.yml$)' || true)
+          if [ -n "$RELEVANT" ]; then
+            echo "schema_relevant=true" >> $GITHUB_OUTPUT
+            echo "✓ PR touches schema-relevant files. Running drift check."
+            echo "$RELEVANT" | sed 's/^/  ↪ /'
+          else
+            echo "schema_relevant=false" >> $GITHUB_OUTPUT
+            echo "✓ PR does not touch schema-relevant files. Skipping drift check, reporting success."
+          fi
+
+      - name: Setup .NET
+        if: steps.detect.outputs.schema_relevant == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        if: steps.detect.outputs.schema_relevant == 'true'
+        run: dotnet restore Abs.FixedAssets.sln
+
+      - name: Build
+        if: steps.detect.outputs.schema_relevant == 'true'
+        run: dotnet build Abs.FixedAssets.sln --configuration Release --no-restore --nologo
+
+      - name: Install dotnet-ef
+        if: steps.detect.outputs.schema_relevant == 'true'
+        run: dotnet tool install -g dotnet-ef --version 9.0.0
+
+      - name: Add path
+        if: steps.detect.outputs.schema_relevant == 'true'
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Generate drift-check migration
+        if: steps.detect.outputs.schema_relevant == 'true'
+        id: gen
+        run: |
+          set -e
+          # Generate temp migration. If snapshot is in sync with model the
+          # migration body will only contain empty Up() and Down() methods.
+          dotnet ef migrations add CIDriftCheck --project Abs.FixedAssets.csproj --configuration Release
+          # Locate the generated .cs file (not the .Designer.cs).
+          MIG_FILE=$(ls -1 Migrations/*_CIDriftCheck.cs 2>/dev/null | head -1)
+          if [ -z "$MIG_FILE" ]; then
+            echo "::error::Failed to generate drift-check migration file."
+            exit 1
+          fi
+          echo "migration_file=$MIG_FILE" >> $GITHUB_OUTPUT
+          echo "Generated: $MIG_FILE"
+
+      - name: Inspect drift
+        if: steps.detect.outputs.schema_relevant == 'true'
+        run: |
+          MIG_FILE="${{ steps.gen.outputs.migration_file }}"
+          # Count migrationBuilder.* operations in the file. An empty diff
+          # has zero — anything more is drift.
+          OPS=$(grep -cE 'migrationBuilder\.' "$MIG_FILE" || true)
+          echo "Op count in drift-check migration: $OPS"
+          if [ "$OPS" -gt 0 ]; then
+            echo "::error::Model snapshot is stale by $OPS operations."
+            echo "::error::This PR modified entities or migrations but did not regenerate"
+            echo "::error::Migrations/AppDbContextModelSnapshot.cs to match."
+            echo "::error::"
+            echo "::error::Fix: locally run \`dotnet ef migrations add YourMigrationName\`"
+            echo "::error::and commit BOTH the new migration AND the regenerated snapshot."
+            echo "::error::See Lock 12 (raw-SQL migrations break the snapshot) in spaces memory."
+            echo "::error::"
+            echo "::error::First 40 op lines of the drift diff:"
+            grep -E 'migrationBuilder\.' "$MIG_FILE" | head -40 | sed 's/^/::error::    /'
+            exit 1
+          fi
+          echo "✓ Snapshot is in sync with model. No drift detected."
+
+      - name: Remove drift-check migration
+        # Always-cleanup, but only meaningful if drift check actually ran.
+        if: always() && steps.detect.outputs.schema_relevant == 'true'
+        run: |
+          # Always clean up. The temp migration must not pollute the repo or
+          # leak into the next PR.
+          dotnet ef migrations remove --force --project Abs.FixedAssets.csproj --configuration Release || true
