@@ -19,20 +19,17 @@ name: snapshot-drift-check
 #      snapshot is stale — fail the build with a clear message.
 #   5. Always `dotnet ef migrations remove` to clean up.
 #
-# This gate is REQUIRED on PRs that modify AppDbContext.cs OR add migrations.
-# It's allowed to be skipped (advisory only) on docs-only / Razor-only PRs by
-# the path filter below.
+# This gate is REQUIRED on every PR. To avoid deadlocking docs-only / UI-only
+# PRs (which is what happens when GitHub Actions path-filters skip a required
+# workflow — the skipped workflow stays "pending" forever and blocks merge),
+# the trigger has NO paths filter. Instead, the first job-internal step detects
+# whether this PR touches schema-relevant files; if not, the job short-circuits
+# to success and the heavy build/EF steps are skipped. Required-check semantics
+# preserved either way.
 
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'Data/**'
-      - 'Models/**'
-      - 'Migrations/**'
-      - 'Abs.FixedAssets.csproj'
-      - 'Abs.FixedAssets.sln'
-      - '.github/workflows/snapshot-drift-check.yml'
   workflow_dispatch:
 
 jobs:
@@ -41,25 +38,53 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to diff against base ref
+
+      - name: Detect schema-relevant changes
+        id: detect
+        run: |
+          # Diff the PR's head against the merge-base with the PR base branch.
+          # Print TRUE iff any changed file matches Data/, Models/, Migrations/,
+          # the csproj, the sln, or this workflow file.
+          BASE_SHA=$(git merge-base origin/${{ github.base_ref }} HEAD)
+          CHANGED=$(git diff --name-only "$BASE_SHA" HEAD)
+          echo "Changed files vs base:"
+          echo "$CHANGED" | sed 's/^/  /'
+          RELEVANT=$(echo "$CHANGED" | grep -E '^(Data/|Models/|Migrations/|Abs\.FixedAssets\.csproj$|Abs\.FixedAssets\.sln$|\.github/workflows/snapshot-drift-check\.yml$)' || true)
+          if [ -n "$RELEVANT" ]; then
+            echo "schema_relevant=true" >> $GITHUB_OUTPUT
+            echo "✓ PR touches schema-relevant files. Running drift check."
+            echo "$RELEVANT" | sed 's/^/  ↪ /'
+          else
+            echo "schema_relevant=false" >> $GITHUB_OUTPUT
+            echo "✓ PR does not touch schema-relevant files. Skipping drift check, reporting success."
+          fi
 
       - name: Setup .NET
+        if: steps.detect.outputs.schema_relevant == 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
 
       - name: Restore
+        if: steps.detect.outputs.schema_relevant == 'true'
         run: dotnet restore Abs.FixedAssets.sln
 
       - name: Build
+        if: steps.detect.outputs.schema_relevant == 'true'
         run: dotnet build Abs.FixedAssets.sln --configuration Release --no-restore --nologo
 
       - name: Install dotnet-ef
+        if: steps.detect.outputs.schema_relevant == 'true'
         run: dotnet tool install -g dotnet-ef --version 9.0.0
 
       - name: Add path
+        if: steps.detect.outputs.schema_relevant == 'true'
         run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Generate drift-check migration
+        if: steps.detect.outputs.schema_relevant == 'true'
         id: gen
         run: |
           set -e
@@ -76,6 +101,7 @@ jobs:
           echo "Generated: $MIG_FILE"
 
       - name: Inspect drift
+        if: steps.detect.outputs.schema_relevant == 'true'
         run: |
           MIG_FILE="${{ steps.gen.outputs.migration_file }}"
           # Count migrationBuilder.* operations in the file. An empty diff
@@ -98,7 +124,8 @@ jobs:
           echo "✓ Snapshot is in sync with model. No drift detected."
 
       - name: Remove drift-check migration
-        if: always()
+        # Always-cleanup, but only meaningful if drift check actually ran.
+        if: always() && steps.detect.outputs.schema_relevant == 'true'
         run: |
           # Always clean up. The temp migration must not pollute the repo or
           # leak into the next PR.
