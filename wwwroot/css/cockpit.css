@@ -1257,3 +1257,157 @@ body.is-control-center .app-container {
 }
 .cockpit__ai-card-action:hover { text-decoration: underline; }
 
+/* ============================================================================
+   SPRINT 13.6 PR #3 — FORM DENSITY UTILITIES
+   ----------------------------------------------------------------------------
+   Replaces the most-repeated inline `data-csp-style` overrides surfaced by
+   docs/research/form-density-audit-2026-05-25.md. All values reference
+   wwwroot/css/design-tokens-v2.json (asymmetric scale 4/6/12/20/40/48/96 px;
+   tri-state semantic colors; default radius 4 px on inputs).
+   NO hardcoded hex or rgba — every color resolves through tokens.css v3.0.
+   ============================================================================ */
+
+/* Replaces inline `margin-bottom: 1rem;` on form rows (16 px → 12 px = scale 3,
+   conforms to the asymmetric "form chrome" density). Used across
+   Quality/Fai/Create.cshtml, CIP/Details.cshtml inline forms,
+   StockReceipts/_ReceiptCoreFields.cshtml and ~80 other sites. */
+.form-stack-tight { margin-bottom: 12px; }
+.form-stack-tight:last-child { margin-bottom: 0; }
+
+/* Replaces inline `display: grid; grid-template-columns: repeat(N, 1fr); gap: 16px;`
+   appearing 40+ times in Admin/Items.cshtml inline add form and the FAI
+   AS9102 classification block. Gap = 20 px (scale 5 = asymmetric row gap). */
+.form-grid--2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+.form-grid--3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.form-grid--4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+@media (max-width: 768px) {
+    .form-grid--2, .form-grid--3, .form-grid--4 { grid-template-columns: 1fr; }
+}
+
+/* Replaces ~80 hand-coded `background: rgba(...); border: 1px solid rgba(...);
+   color: ...; padding: 1rem 1.25rem;` callout cards in Periods/Close.cshtml,
+   Help/Index.cshtml, and the "alerts above forms" pattern. Semantic tokens
+   only — no decorative color. (design-tokens-v2.json: color.semantic, tri-state.) */
+.callout {
+    padding: 12px 20px;
+    border-radius: 6px;
+    border: 1px solid var(--color-border-1);
+    background: var(--color-surface-2);
+    color: var(--color-text-1);
+    font-size: 14px;
+    line-height: 1.55;
+}
+.callout--success {
+    background: var(--color-success-50);
+    color: var(--color-success-700);
+    border-color: var(--color-success-400);
+}
+.callout--warning {
+    background: var(--color-warning-50);
+    color: var(--color-warning-700);
+    border-color: var(--color-warning-500);
+}
+.callout--danger {
+    background: var(--color-danger-50);
+    color: var(--color-danger-700);
+    border-color: var(--color-danger-500);
+}
+.callout--info {
+    background: var(--color-info-50);
+    color: var(--color-info-700);
+    border-color: var(--color-info-500);
+}
+
+/* Replaces ad-hoc `width:48-200px; height:48-200px; opacity:0.5`
+   sizing on empty-state SVGs in AccessDenied.cshtml, Webhooks list,
+   Admin/Sites.cshtml. Caps at 96 px (asymmetric scale 24) so wide-viewport
+   illustrations don't overflow their card. */
+.svg-icon--empty-state {
+    max-width: 96px;
+    max-height: 96px;
+    width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto 12px;
+    opacity: 0.5;
+    color: var(--color-text-3);
+}
+
+/* Replaces ~50 inline `width: 100%; padding: 0.5rem; border: 1px solid
+   var(--border-color, #cbd5e1); border-radius: 0.375rem;` overrides on
+   AssetImport/Upload, Quality/Fai/Create, StockReceipts. Radius 4 px
+   (scale "4") per design-tokens-v2.json input default. */
+.form-input,
+.form-select,
+.form-textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--color-border-1);
+    border-radius: 4px;
+    background: var(--color-surface-1);
+    color: var(--color-text-1);
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+    font-size: 14px;
+    line-height: 1.4;
+    box-sizing: border-box;
+}
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-color: var(--color-border-2);
+}
+.form-textarea {
+    min-height: 60px;
+    resize: vertical;
+}
+
+/* Replaces inline `display: block; font-weight: 500; margin-bottom: 0.25rem;`
+   on the 30+ form labels in Quality/Fai/Create, AssetImport/Upload, and other
+   Sprint 13.5/13.6 ships. */
+.form-label-tight {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--color-text-1);
+    font-size: 14px;
+}
+
+/* Replaces inline `display: flex; gap: 0.5rem;` on form button rows
+   in Quality/Fai/Create and AssetImport/Upload. */
+.form-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* Replaces the 76 `data-csp-style="flex: 1;"` instances on
+   .form-group children in Pages/Assets/_AssetMesIotSafetyTabs.cshtml.
+   Scopes to .form-row so we do not affect form-groups outside flex rows. */
+.form-row > .form-group--equal { flex: 1; }
+
+/* Replaces the 30 inline `<th>` width overrides in Pages/Admin/Items.cshtml.
+   Width classes addressable by column index — keep the visual rhythm of
+   the data-table without inline styles. */
+.data-table--items th.col-w-50  { width: 50px; }
+.data-table--items th.col-w-70  { width: 70px; }
+.data-table--items th.col-w-90  { width: 90px; }
+.data-table--items th.col-w-100 { width: 100px; }
+.data-table--items th.col-w-120 { width: 120px; }
+.data-table--items th.col-min-180 { min-width: 180px; }
+.data-table--items th.col-right { text-align: right; }
+.data-table--items td.col-ellipsis { max-width: 220px; }
+.data-table--items td.col-ellipsis > div {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+.data-table--items td.col-num {
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+/* End Sprint 13.6 PR #3 utilities */
+

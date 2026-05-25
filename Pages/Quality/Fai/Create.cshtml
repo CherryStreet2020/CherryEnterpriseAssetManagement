@@ -34,8 +34,8 @@
                 <h3 class="section-card-title">Identity</h3>
             </div>
             <div class="section-card-body">
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Item *</label>
-                <select name="SelectedItemId" required data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                <label class="form-label-tight">Item *</label>
+                <select name="SelectedItemId" required class="form-select form-stack-tight">
                     <option value="">— Select an Item —</option>
                     @foreach (var i in Model.ItemOptions)
                     {
@@ -43,8 +43,8 @@
                     }
                 </select>
 
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Customer</label>
-                <select name="SelectedCustomerId" data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                <label class="form-label-tight">Customer</label>
+                <select name="SelectedCustomerId" class="form-select form-stack-tight">
                     <option value="">— (optional) —</option>
                     @foreach (var c in Model.CustomerOptions)
                     {
@@ -52,8 +52,8 @@
                     }
                 </select>
 
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Customer Project</label>
-                <select name="CustomerProjectId" data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                <label class="form-label-tight">Customer Project</label>
+                <select name="CustomerProjectId" class="form-select form-stack-tight">
                     <option value="">— (optional) —</option>
                     @foreach (var p in Model.CustomerProjectOptions)
                     {
@@ -67,21 +67,17 @@
                 <h3 class="section-card-title">Snapshot fields (audit-legal)</h3>
             </div>
             <div class="section-card-body">
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Number *</label>
-                <input type="text" name="PartNumberSnapshot" required maxlength="100" value="@Model.PartNumberSnapshot"
-                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                <label class="form-label-tight">Part Number *</label>
+                <input type="text" name="PartNumberSnapshot" required maxlength="100" value="@Model.PartNumberSnapshot" class="form-input form-stack-tight" />
 
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Name</label>
-                <input type="text" name="PartNameSnapshot" maxlength="200" value="@Model.PartNameSnapshot"
-                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                <label class="form-label-tight">Part Name</label>
+                <input type="text" name="PartNameSnapshot" maxlength="200" value="@Model.PartNameSnapshot" class="form-input form-stack-tight" />
 
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Drawing Number</label>
-                <input type="text" name="DrawingNumberSnapshot" maxlength="100" value="@Model.DrawingNumberSnapshot"
-                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                <label class="form-label-tight">Drawing Number</label>
+                <input type="text" name="DrawingNumberSnapshot" maxlength="100" value="@Model.DrawingNumberSnapshot" class="form-input form-stack-tight" />
 
-                <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Drawing Rev</label>
-                <input type="text" name="DrawingRevSnapshot" maxlength="20" value="@Model.DrawingRevSnapshot"
-                       data-csp-style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;" />
+                <label class="form-label-tight">Drawing Rev</label>
+                <input type="text" name="DrawingRevSnapshot" maxlength="20" value="@Model.DrawingRevSnapshot" class="form-input form-stack-tight" />
             </div>
         </div>
     </div>
@@ -91,25 +87,25 @@
             <h3 class="section-card-title">AS9102 Classification</h3>
         </div>
         <div class="section-card-body">
-            <div class="grid grid-cols-3 gap-4">
+            <div class="form-grid--3">
                 <div>
-                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Type</label>
-                    <select name="Type" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <label class="form-label-tight">Type</label>
+                    <select name="Type" class="form-select">
                         <option value="0" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Full)">Full</option>
                         <option value="1" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Partial)">Partial</option>
                         <option value="2" selected="@(Model.Type == Abs.FixedAssets.Models.Quality.FaiType.Delta)">Delta</option>
                     </select>
                 </div>
                 <div>
-                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Part Type</label>
-                    <select name="PartType" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <label class="form-label-tight">Part Type</label>
+                    <select name="PartType" class="form-select">
                         <option value="0" selected="@(Model.PartType == Abs.FixedAssets.Models.Quality.FaiPartType.Detail)">Detail</option>
                         <option value="1" selected="@(Model.PartType == Abs.FixedAssets.Models.Quality.FaiPartType.Assembly)">Assembly</option>
                     </select>
                 </div>
                 <div>
-                    <label data-csp-style="display: block; font-weight: 500; margin-bottom: 0.25rem;">Reason</label>
-                    <select name="Reason" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">
+                    <label class="form-label-tight">Reason</label>
+                    <select name="Reason" class="form-select">
                         <option value="0" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.NewPart)">New Part</option>
                         <option value="1" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.DesignChange)">Design Change</option>
                         <option value="2" selected="@(Model.Reason == Abs.FixedAssets.Models.Quality.FaiReason.LocationChange)">Location Change</option>
@@ -121,12 +117,12 @@
                     </select>
                 </div>
             </div>
-            <label data-csp-style="display: block; font-weight: 500; margin-top: 1rem; margin-bottom: 0.25rem;">Reason Text</label>
-            <textarea name="ReasonText" rows="2" data-csp-style="width: 100%; padding: 0.5rem; border: 1px solid var(--border-color, #cbd5e1); border-radius: 0.375rem;">@Model.ReasonText</textarea>
+            <label class="form-label-tight" data-csp-style="margin-top: 12px;">Reason Text</label>
+            <textarea name="ReasonText" rows="2" class="form-textarea">@Model.ReasonText</textarea>
         </div>
     </div>
 
-    <div data-csp-style="display: flex; gap: 0.5rem;">
+    <div class="form-actions">
         <button type="submit" class="hero-btn hero-btn-primary">Create FAI</button>
         <a href="/Quality/Fai" class="hero-btn hero-btn-ghost">Cancel</a>
     </div>
