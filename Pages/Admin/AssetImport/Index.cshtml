@@ -74,15 +74,17 @@
 </div>
 
 <div class="section-card">
-    <div class="section-card-header">
-        <h3 class="section-card-title">Recent batches</h3>
-    </div>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Recent batches",
+        ["Count"] = Model.RecentBatches.Count,
+        ["TitleClass"] = "section-card-title"
+    })
     <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.RecentBatches.Count == 0)
         {
-            <p class="text-theme-muted" data-csp-style="padding: 1.5rem; text-align: center;">
-                No import batches yet. Use "Upload Excel" above to start.
-            </p>
+            @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+                ["Message"] = "No import batches yet. Use \"Upload Excel\" above to start."
+            })
         }
         else
         {

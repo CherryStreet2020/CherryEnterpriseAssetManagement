@@ -94,10 +94,15 @@
 </div>
 
 <section class="detail-card detail-card--full">
-    <h3 class="detail-card-title">Jobs <span class="muted">(@Model.Jobs.Count)</span></h3>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Jobs",
+        ["Count"] = Model.Jobs.Count
+    })
     @if (Model.Jobs.Count == 0)
     {
-        <p class="muted">No jobs linked to this project yet.</p>
+        @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+            ["Message"] = "No jobs linked to this project yet."
+        })
     }
     else
     {
@@ -124,10 +129,15 @@
 </section>
 
 <section class="detail-card detail-card--full">
-    <h3 class="detail-card-title">Phases <span class="muted">(@Model.Phases.Count)</span></h3>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Phases",
+        ["Count"] = Model.Phases.Count
+    })
     @if (Model.Phases.Count == 0)
     {
-        <p class="muted">No phases defined. v1 treats phases as a flat list — sub-phases reserved for v2.</p>
+        @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+            ["Message"] = "No phases defined. v1 treats phases as a flat list — sub-phases reserved for v2."
+        })
     }
     else
     {
@@ -149,10 +159,15 @@
 </section>
 
 <section class="detail-card detail-card--full">
-    <h3 class="detail-card-title">Members <span class="muted">(@Model.Members.Count)</span></h3>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Members",
+        ["Count"] = Model.Members.Count
+    })
     @if (Model.Members.Count == 0)
     {
-        <p class="muted">No members. Most projects have one Primary customer + zero additional members.</p>
+        @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+            ["Message"] = "No members. Most projects have one Primary customer + zero additional members."
+        })
     }
     else
     {
@@ -173,10 +188,15 @@
 </section>
 
 <section class="detail-card detail-card--full">
-    <h3 class="detail-card-title">Amendments <span class="muted">(@Model.Amendments.Count)</span></h3>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Amendments",
+        ["Count"] = Model.Amendments.Count
+    })
     @if (Model.Amendments.Count == 0)
     {
-        <p class="muted">No change orders on this project.</p>
+        @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+            ["Message"] = "No change orders on this project."
+        })
     }
     else
     {
@@ -204,16 +224,20 @@
 
 <section class="detail-card detail-card--full">
     @* PR #338 — First Article Inspections scoped to this project. *@
-    <div data-csp-style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 class="detail-card-title">First Article Inspections (AS9102)</h3>
-        <div data-csp-style="display: flex; gap: 0.5rem;">
-            <a href="/Quality/Fai?customerProjectId=@p.Id" class="btn-secondary">View all</a>
-            <a href="/Quality/Fai/Create?customerProjectId=@p.Id" class="btn-primary">+ New FAI</a>
-        </div>
-    </div>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "First Article Inspections (AS9102)",
+        ["Count"] = Model.FaiReports.Count,
+        ["SecondaryHref"] = $"/Quality/Fai?customerProjectId={p.Id}",
+        ["SecondaryLabel"] = "View all",
+        ["ActionHref"] = $"/Quality/Fai/Create?customerProjectId={p.Id}",
+        ["ActionLabel"] = "+ New FAI"
+    })
     @if (Model.FaiReports.Count == 0)
     {
-        <p class="muted" data-csp-style="margin-top: 0.75rem;">No First Article Inspections recorded for this project yet.</p>
+        @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+            ["Message"] = "No First Article Inspections recorded for this project yet.",
+            ["TopMargin"] = true
+        })
     }
     else
     {

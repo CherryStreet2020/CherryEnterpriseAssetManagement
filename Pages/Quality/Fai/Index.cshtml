@@ -55,16 +55,17 @@
 </div>
 
 <div class="section-card">
-    <div class="section-card-header">
-        <h3 class="section-card-title">Reports</h3>
-        <span class="status-badge muted">@Model.Reports.Count showing</span>
-    </div>
+    @await Html.PartialAsync("_ChildSectionHeader", new ViewDataDictionary(ViewData) {
+        ["Title"] = "Reports",
+        ["Count"] = Model.Reports.Count,
+        ["TitleClass"] = "section-card-title"
+    })
     <div class="section-card-body" data-csp-style="padding: 0;">
         @if (Model.Reports.Count == 0)
         {
-            <p class="text-theme-muted" data-csp-style="padding: 1.5rem; text-align: center;">
-                No First Article Inspections yet. Use "New First Article Inspection" above to start.
-            </p>
+            @await Html.PartialAsync("_ChildTableEmpty", new ViewDataDictionary(ViewData) {
+                ["Message"] = "No First Article Inspections yet. Use \"New First Article Inspection\" above to start."
+            })
         }
         else
         {

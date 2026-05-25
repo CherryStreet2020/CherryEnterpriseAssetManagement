@@ -1,0 +1,42 @@
+@*
+    _ChildTableEmpty.cshtml — Sprint 13.6 PR #4 (Subform consolidation)
+
+    Lightweight empty-state row for child sections inside Detail / Index pages.
+    Replaces inline `<p class="muted">No X yet.</p>` followed by an optional CTA link
+    that today is hand-rolled on ~30 surfaces.
+
+    Distinct from Pages/Shared/_EmptyState.cshtml: that partial renders a full
+    icon + title + body card; this one is a compact paragraph + optional CTA
+    suited for sitting inside an existing detail-card or section-card body.
+
+    ViewData contract:
+      Message    string  required — Empty-state body text
+      CtaHref    string? optional — Optional CTA link URL
+      CtaLabel   string? optional — Optional CTA link label
+      CtaClass   string? optional — Optional CTA CSS class. Defaults to "btn-secondary".
+      TopMargin  bool?   optional — Adds a 0.75rem top margin (used when nested under a
+                                    flex header row). Defaults to false.
+
+    Audit memo: docs/research/subform-redundancy-audit-2026-05-25.md
+*@
+@{
+    var message = ViewData["Message"]?.ToString() ?? "No items to display.";
+    var ctaHref = ViewData["CtaHref"] as string;
+    var ctaLabel = ViewData["CtaLabel"] as string;
+    var ctaClass = (ViewData["CtaClass"] as string) ?? "btn-secondary";
+    var topMargin = (ViewData["TopMargin"] as bool?) ?? false;
+}
+@if (topMargin)
+{
+    <p class="muted" data-csp-style="margin-top: 0.75rem;">@message</p>
+}
+else
+{
+    <p class="muted">@message</p>
+}
+@if (!string.IsNullOrEmpty(ctaHref) && !string.IsNullOrEmpty(ctaLabel))
+{
+    <p data-csp-style="margin-top: 0.5rem;">
+        <a href="@ctaHref" class="@ctaClass">@ctaLabel</a>
+    </p>
+}

@@ -1,0 +1,62 @@
+@*
+    _ChildSectionHeader.cshtml — Sprint 13.6 PR #4 (Subform consolidation)
+
+    Reusable child-section header: title + optional count badge + optional action button.
+    Replaces the ~30 hand-rolled copies of:
+
+        <div data-csp-style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="{titleClass}">{Title} <span class="muted">({Count})</span></h3>
+            <a href="..." class="btn-primary">{ActionLabel}</a>
+        </div>
+
+    ViewData contract:
+      Title         string  required  — Section heading text
+      Count         int?    optional  — Renders "(N)" muted suffix when set
+      TitleClass    string  optional  — CSS class for the <h3>. Defaults to "detail-card-title".
+                                        Use "section-card-title" for section-card surfaces.
+      ActionHref    string? optional  — Primary action URL (renders the action button)
+      ActionLabel   string? optional  — Primary action label
+      ActionClass   string? optional  — Action button CSS class. Defaults to "btn-primary".
+      SecondaryHref  string? optional — Optional secondary action URL (rendered before the primary)
+      SecondaryLabel string? optional — Secondary action label
+      SecondaryClass string? optional — Secondary action button CSS class. Defaults to "btn-secondary".
+
+    Audit memo: docs/research/subform-redundancy-audit-2026-05-25.md
+*@
+@{
+    var title = ViewData["Title"]?.ToString() ?? string.Empty;
+    var count = ViewData["Count"] as int?;
+    var titleClass = (ViewData["TitleClass"] as string) ?? "detail-card-title";
+
+    var actionHref = ViewData["ActionHref"] as string;
+    var actionLabel = ViewData["ActionLabel"] as string;
+    var actionClass = (ViewData["ActionClass"] as string) ?? "btn-primary";
+
+    var secondaryHref = ViewData["SecondaryHref"] as string;
+    var secondaryLabel = ViewData["SecondaryLabel"] as string;
+    var secondaryClass = (ViewData["SecondaryClass"] as string) ?? "btn-secondary";
+
+    var hasAnyAction = !string.IsNullOrEmpty(actionHref) || !string.IsNullOrEmpty(secondaryHref);
+}
+<div class="child-section__header" data-csp-style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+    <h3 class="@titleClass">
+        @title
+        @if (count.HasValue)
+        {
+            <span class="muted">(@count.Value)</span>
+        }
+    </h3>
+    @if (hasAnyAction)
+    {
+        <div class="child-section__actions" data-csp-style="display: flex; gap: 0.5rem;">
+            @if (!string.IsNullOrEmpty(secondaryHref) && !string.IsNullOrEmpty(secondaryLabel))
+            {
+                <a href="@secondaryHref" class="@secondaryClass">@secondaryLabel</a>
+            }
+            @if (!string.IsNullOrEmpty(actionHref) && !string.IsNullOrEmpty(actionLabel))
+            {
+                <a href="@actionHref" class="@actionClass">@actionLabel</a>
+            }
+        </div>
+    }
+</div>
