@@ -1,0 +1,211 @@
+@page "{id:int}/{tab?}"
+@model Abs.FixedAssets.Pages.Admin.AssetImport.PreviewModel
+@{
+    ViewData["Title"] = $"Batch #{Model.Id} preview";
+    ViewData["HasScreenHeader"] = true;
+    Layout = "_ModernLayout";
+
+    var batch = Model.Batch!;
+    var statusText = batch.Status.ToString();
+    var statusTone = batch.Status switch
+    {
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Committed => "success",
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Failed => "danger",
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Discarded => "muted",
+        Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Validated => "warning",
+        _ => "info"
+    };
+
+    var tab = (Model.Tab ?? "all").ToLowerInvariant();
+    var rows = tab switch
+    {
+        "valid" => Model.Rows.Where(r => r.Status == Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Valid).ToList(),
+        "errors" => Model.Rows.Where(r => r.Status == Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Error).ToList(),
+        _ => Model.Rows.ToList()
+    };
+
+    var headerVd = new ViewDataDictionary(ViewData) {
+        { "TypeLabel", "Administration" },
+        { "HeaderTitle", $"Batch #{batch.Id} — {batch.FileName}" },
+        { "Subtitle", $"Parsed {batch.RowCount} rows · {batch.ValidRowCount} valid · {batch.ErrorRowCount} with errors" },
+        { "StatusText", statusText },
+        { "StatusTone", statusTone },
+        { "ShowBackLink", true },
+        { "BackLinkFallback", "/Admin/AssetImport" },
+        { "BackLinkLabel", "Back to Asset Import" },
+        { "PageModel", Model }
+    };
+}
+
+<link rel="stylesheet" href="/css/premium-components.css" />
+
+@await Html.PartialAsync("Shared/_ScreenHeader", headerVd)
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mb-4">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger mb-4">@TempData["Error"]</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(batch.Notes))
+{
+    <div class="alert alert-warning mb-4">
+        <strong>Parse notes:</strong>
+        <pre data-csp-style="margin: 0; white-space: pre-wrap; font-family: inherit;">@batch.Notes</pre>
+    </div>
+}
+
+<div class="grid grid-cols-4 gap-4 mb-4">
+    <div class="kpi-card">
+        <div class="kpi-label">Total rows</div>
+        <div class="kpi-value">@batch.RowCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Valid</div>
+        <div class="kpi-value success">@batch.ValidRowCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Errors</div>
+        <div class="kpi-value @(batch.ErrorRowCount > 0 ? "danger" : "")">@batch.ErrorRowCount</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Status</div>
+        <div class="kpi-value">@statusText</div>
+    </div>
+</div>
+
+<div class="section-card mb-4">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Actions</h3>
+    </div>
+    <div class="section-card-body" data-csp-style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        @{
+            var isTerminal = batch.Status == Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Committed
+                          || batch.Status == Abs.FixedAssets.Models.AssetImport.AssetImportBatchStatus.Discarded;
+            var canCommit = batch.ValidRowCount > 0 && !isTerminal;
+            var canDiscard = !isTerminal;
+        }
+        <form method="post" asp-page-handler="Commit" data-csp-style="display: inline;">
+            <button type="submit" class="hero-btn hero-btn-primary" @(canCommit ? "" : "disabled")>
+                Commit @batch.ValidRowCount valid rows
+            </button>
+        </form>
+        <form method="post" asp-page-handler="Revalidate" data-csp-style="display: inline;">
+            <button type="submit" class="hero-btn hero-btn-secondary" @(isTerminal ? "disabled" : "")>
+                Re-validate
+            </button>
+        </form>
+        <form method="post" asp-page-handler="Discard" data-csp-style="display: inline;"
+              onsubmit="return confirm('Discard this batch? Rows are kept for audit but cannot be committed.');">
+            <button type="submit" class="hero-btn hero-btn-ghost" @(canDiscard ? "" : "disabled")>
+                Discard
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="section-card">
+    <div class="section-card-header">
+        <h3 class="section-card-title">Rows</h3>
+        <div data-csp-style="display: flex; gap: 0.25rem;">
+            <a href="/Admin/AssetImport/Preview/@batch.Id/all" class="hero-btn @(tab == "all" ? "hero-btn-primary" : "hero-btn-ghost")" data-csp-style="font-size: 0.8125rem; padding: 0.25rem 0.625rem;">
+                All (@Model.Rows.Count)
+            </a>
+            <a href="/Admin/AssetImport/Preview/@batch.Id/valid" class="hero-btn @(tab == "valid" ? "hero-btn-primary" : "hero-btn-ghost")" data-csp-style="font-size: 0.8125rem; padding: 0.25rem 0.625rem;">
+                Valid (@batch.ValidRowCount)
+            </a>
+            <a href="/Admin/AssetImport/Preview/@batch.Id/errors" class="hero-btn @(tab == "errors" ? "hero-btn-primary" : "hero-btn-ghost")" data-csp-style="font-size: 0.8125rem; padding: 0.25rem 0.625rem;">
+                Errors (@batch.ErrorRowCount)
+            </a>
+        </div>
+    </div>
+    <div class="section-card-body" data-csp-style="padding: 0;">
+        @if (rows.Count == 0)
+        {
+            <p class="text-theme-muted" data-csp-style="padding: 1.5rem; text-align: center;">No rows match this filter.</p>
+        }
+        else
+        {
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Row</th>
+                        <th>Status</th>
+                        <th>AssetNumber</th>
+                        <th>Description</th>
+                        <th>Manufacturer</th>
+                        <th>Model</th>
+                        <th>Cost</th>
+                        <th>InService</th>
+                        <th>Errors</th>
+                        <th>Committed</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in rows)
+                    {
+                        <tr>
+                            <td>@r.RowNumber</td>
+                            <td>
+                                @switch (r.Status)
+                                {
+                                    case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Valid:
+                                        <span class="status-badge success">Valid</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Error:
+                                        <span class="status-badge danger">Error</span>
+                                        break;
+                                    case Abs.FixedAssets.Models.AssetImport.AssetImportRowStatus.Committed:
+                                        <span class="status-badge info">Committed</span>
+                                        break;
+                                    default:
+                                        <span class="status-badge muted">Pending</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@r.AssetNumber</td>
+                            <td>@r.Description</td>
+                            <td>
+                                @r.ManufacturerName
+                                @if (!string.IsNullOrEmpty(r.ManufacturerName))
+                                {
+                                    if (r.ResolvedManufacturerId.HasValue)
+                                    {
+                                        <span class="status-badge success" data-csp-style="font-size: 0.7rem;">resolved</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge warning" data-csp-style="font-size: 0.7rem;">new</span>
+                                    }
+                                }
+                            </td>
+                            <td>@r.Model</td>
+                            <td>
+                                @if (r.AcquisitionCost.HasValue)
+                                {
+                                    @($"{r.AcquisitionCost.Value:N0} {r.Currency ?? ""}")
+                                }
+                            </td>
+                            <td>@(r.InServiceDate?.ToString("yyyy-MM-dd"))</td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(r.ValidationErrors))
+                                {
+                                    <pre data-csp-style="margin: 0; font-size: 0.75rem; color: #b91c1c; white-space: pre-wrap;">@r.ValidationErrors</pre>
+                                }
+                            </td>
+                            <td>
+                                @if (r.CommittedAssetId.HasValue)
+                                {
+                                    <a href="/Assets/Details/@r.CommittedAssetId">#@r.CommittedAssetId</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>

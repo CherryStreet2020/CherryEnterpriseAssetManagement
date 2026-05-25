@@ -272,6 +272,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Quality.FaiProductAccountability> FaiProductAccountability
             => Set<Abs.FixedAssets.Models.Quality.FaiProductAccountability>();
 
+        // Sprint 13.5 PR #337 — /Admin/AssetImport bulk Excel upload.
+        // AssetImportBatches = header (one per .xlsx upload). AssetImportRows
+        // = per-row staging with raw text + resolved FKs + validation errors
+        // + CommittedAssetId stamped on commit. See
+        // docs/research/asset-import-pr337-spec-2026-05-25.md.
+        public DbSet<Abs.FixedAssets.Models.AssetImport.AssetImportBatch> AssetImportBatches
+            => Set<Abs.FixedAssets.Models.AssetImport.AssetImportBatch>();
+        public DbSet<Abs.FixedAssets.Models.AssetImport.AssetImportRow> AssetImportRows
+            => Set<Abs.FixedAssets.Models.AssetImport.AssetImportRow>();
+
         // Sprint 13.5 PRA-2 — Country / Subdivision / WorkCalendar / Holiday
         // masters. Countries + Subdivisions are system-wide reference data
         // (NULL CompanyId not applicable — they're global). WorkCalendars
@@ -3283,6 +3293,67 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.VendorId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ============================================================
+            // Sprint 13.5 PR #337 — /Admin/AssetImport batch + row tables.
+            // Configures the FK relationships and check constraints. The
+            // typed mb.CreateTable in the migration handles the DDL; the
+            // CHECK constraints are added in this block via HasCheckConstraint
+            // so the snapshot reflects them (Lock 12).
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.AssetImport.AssetImportBatch>(e =>
+            {
+                e.HasOne(b => b.Company)
+                    .WithMany()
+                    .HasForeignKey(b => b.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(b => b.Site)
+                    .WithMany()
+                    .HasForeignKey(b => b.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(b => b.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(b => b.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(b => b.CommittedByUser)
+                    .WithMany()
+                    .HasForeignKey(b => b.CommittedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "ck_assetimportbatches_status_range",
+                        "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint(
+                        "ck_assetimportbatches_rowcounts_nonneg",
+                        "\"RowCount\" >= 0 AND \"ValidRowCount\" >= 0 AND \"ErrorRowCount\" >= 0");
+                    t.HasCheckConstraint(
+                        "ck_assetimportbatches_rowcounts_balanced",
+                        "\"ValidRowCount\" + \"ErrorRowCount\" <= \"RowCount\"");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.AssetImport.AssetImportRow>(e =>
+            {
+                e.HasOne(r => r.Batch)
+                    .WithMany(b => b.Rows)
+                    .HasForeignKey(r => r.BatchId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "ck_assetimportrows_status_range",
+                        "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint(
+                        "ck_assetimportrows_rownumber_pos",
+                        "\"RowNumber\" >= 2");
+                });
             });
 
             // ============================================================
