@@ -37,8 +37,13 @@
     var secondaryClass = (ViewData["SecondaryClass"] as string) ?? "btn-secondary";
 
     var hasAnyAction = !string.IsNullOrEmpty(actionHref) || !string.IsNullOrEmpty(secondaryHref);
+    // Codex P2 catch (PR #342 review) — preserve `section-card-header` class so
+    // partial-using section-card pages keep the shared header styling contract
+    // (padding/border-bottom/background/radius/link styling from premium-components.css
+    // and cherryai-theme.css). Without this, FAI Index/Detail + Asset Import regress.
+    var headerClass = (ViewData["HeaderClass"] as string) ?? "section-card-header child-section__header";
 }
-<div class="child-section__header" data-csp-style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+<div class="@headerClass" data-csp-style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
     <h3 class="@titleClass">
         @title
         @if (count.HasValue)
