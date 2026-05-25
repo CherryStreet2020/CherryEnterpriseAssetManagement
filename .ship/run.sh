@@ -1,52 +1,68 @@
 #!/bin/bash
-# .ship/run.sh — single-command ship harness for CherryAI EAM PRs.
+# .ship/run.sh — portable single-command ship harness.
 #
-# Implements the cowork-github-replit-process workflow as one idempotent,
-# recoverable shell script. Encodes every pitfall we hit on PRs #1 + #2.
+# Implements steps 1-6 of the cowork-github-replit-process skill as one
+# idempotent shell script. Steps 7 (Replit pull) and 8 (E2E verify) stay
+# manual since they involve the browser + the live URL.
 #
 # Usage:
 #   bash .ship/run.sh <subcommand> [args]
 #
 # Subcommands:
-#   full <config>                # end-to-end: build → branch → PR → merge → comment
+#   full <pr-config>             # end-to-end: build → branch → PR → merge → comment
 #   preflight                    # sanity-check env, sync local main
-#   build                        # local dotnet build only
-#   branch-commit-push <config>  # branch + stage + commit + push
-#   open-pr <config>             # open PR + write pr-number to log dir
-#   wait-ci <pr-num>             # poll CI until green/fail
+#   build                        # local build only
+#   branch-commit-push <cfg>     # branch + stage + commit + push
+#   open-pr <cfg>                # open PR + write pr-number to log dir
+#   wait-ci <pr-num> [max-sec]   # poll CI until green/fail (default 600s)
 #   merge <pr-num>               # squash-merge + delete branch
 #   comment <pr-num> <body-file> # post a comment
 #
-# Config file (sourced as bash) — typically .ship/configs/<branch>.sh.
-# Required exports:
-#   BRANCH       feat/sprint-11-pr3-receiving-service
-#   TITLE        feat(sprint-11): ...
-#   COMMIT_MSG   /path/to/commit-msg.txt
-#   PR_BODY      /path/to/pr-body.md
-#   FILES        array of paths to stage  (e.g. FILES=( "Pages/..." "Services/..." ))
-# Optional exports:
-#   SHIP_COMMENT /path/to/ship-comment.md   (skips comment if unset)
-#   SKIP_BUILD   1                          (skip local dotnet build)
+# CONFIG FILES
+# ------------
 #
-# Example .ship/configs/pr3.sh:
-#   #!/bin/bash
-#   BRANCH="feat/sprint-11-pr3-receiving-service"
-#   TITLE="feat(sprint-11): IReceivingControlCenterService + state machine"
-#   COMMIT_MSG="/Users/deandunagan/Documents/Claude/Projects/EnterpriseAssetManagament/.ship/msgs/pr3-commit.txt"
-#   PR_BODY="/Users/deandunagan/Documents/Claude/Projects/EnterpriseAssetManagament/.ship/msgs/pr3-body.md"
-#   SHIP_COMMENT="/Users/deandunagan/Documents/Claude/Projects/EnterpriseAssetManagament/.ship/msgs/pr3-comment.md"
-#   FILES=(
-#     "Services/Receiving/IReceivingControlCenterService.cs"
-#     "Services/Receiving/ReceivingControlCenterService.cs"
-#     "Models/Receiving/...etc"
-#   )
+# Project-level config: ".ship-config.sh" at the repo root.
+# Sourced once at startup. Required exports:
+#
+#   SHIP_REPO_SLUG          e.g. "acme/myrepo"
+#   GH                      absolute path to gh CLI (e.g. "/Users/me/bin/gh")
+#
+# Optional:
+#   SHIP_DEFAULT_BASE_BRANCH  usually "main"
+#   SHIP_BUILD_CMD            shell command for local build
+#   SHIP_BUILD_SUCCESS_RE     regex to verify build success
+#   SHIP_GIT_NAME             commit author name (defaults to git's global)
+#   SHIP_GIT_EMAIL            commit author email
+#
+# Per-PR config: ".ship/configs/<name>.sh". Sourced when needed. Required:
+#
+#   BRANCH        branch name (e.g. "feat/sprint-7-cool-feature")
+#   TITLE         PR title
+#   COMMIT_MSG    path to commit-message file (use -F, never inline)
+#   PR_BODY       path to PR-body markdown file (--body-file)
+#   FILES         array of paths to stage  (e.g. FILES=( "src/foo.cs" "src/bar.cs" ))
+#
+# Optional:
+#   SHIP_COMMENT  path to a ship-comment markdown file
+#   SKIP_BUILD    set to 1 to skip the local build (docs-only PRs)
+#
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SHIP_REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-export SHIP_REPO_SLUG="${SHIP_REPO_SLUG:-CherryStreet2020/CherryEnterpriseAssetManagement}"
-export SHIP_CSPROJ="${SHIP_CSPROJ:-Abs.FixedAssets.csproj}"
-export GH="${GH:-/Users/deandunagan/bin/gh}"
+
+# Load project-level config from the repo root.
+if [ -f "$SHIP_REPO_DIR/.ship-config.sh" ]; then
+  # shellcheck disable=SC1090
+  source "$SHIP_REPO_DIR/.ship-config.sh"
+elif [ -f "$SCRIPT_DIR/.ship-config.sh" ]; then
+  # Alternate placement: inside .ship/ itself
+  # shellcheck disable=SC1090
+  source "$SCRIPT_DIR/.ship-config.sh"
+fi
+
+: "${SHIP_REPO_SLUG:?SHIP_REPO_SLUG must be set in .ship-config.sh — e.g. SHIP_REPO_SLUG=\"acme/myrepo\"}"
+: "${GH:?GH must be set in .ship-config.sh — absolute path to the gh CLI binary}"
 
 # shellcheck disable=SC1090
 source "$SCRIPT_DIR/lib.sh"
@@ -60,19 +76,16 @@ get_token() {
   export SHIP_REPO_URL="https://x-access-token:${SHIP_TOKEN}@github.com/${SHIP_REPO_SLUG}.git"
 }
 
-# Set up SHIP_LOG_DIR for the given branch name.
 init_log_dir() {
-  local branch="${1:-default}"
-  # Hex-sanitize branch for filesystem safety (replace / with _).
-  local safe="${branch//\//_}"
+  local label="${1:-default}"
+  local safe="${label//\//_}"
   export SHIP_LOG_DIR="$SCRIPT_DIR/runs/$safe"
   mkdir -p "$SHIP_LOG_DIR"
 }
 
-# Source a config file and validate its contents.
-load_config() {
+load_pr_config() {
   local cfg="$1"
-  [ -f "$cfg" ] || die "config file not found: $cfg"
+  [ -f "$cfg" ] || die "PR config file not found: $cfg"
   # shellcheck disable=SC1090
   source "$cfg"
   : "${BRANCH:?BRANCH not set in $cfg}"
@@ -81,7 +94,7 @@ load_config() {
   : "${PR_BODY:?PR_BODY not set in $cfg}"
   [ -f "$COMMIT_MSG" ] || die "COMMIT_MSG file not found: $COMMIT_MSG"
   [ -f "$PR_BODY" ]    || die "PR_BODY file not found: $PR_BODY"
-  [ "${#FILES[@]}" -gt 0 ] || die "FILES array is empty"
+  [ "${#FILES[@]}" -gt 0 ] || die "FILES array is empty in $cfg"
 }
 
 # ---------- subcommands ----------------------------------------------
@@ -99,12 +112,12 @@ cmd_preflight() {
 
 cmd_build() {
   init_log_dir "build"
-  log_step "1" "Local dotnet build"
+  log_step "1" "Local build"
   do_local_build
 }
 
 cmd_branch_commit_push() {
-  load_config "$1"
+  load_pr_config "$1"
   init_log_dir "$BRANCH"
   log_step "2" "Branch · commit · push"
   get_token
@@ -116,7 +129,7 @@ cmd_branch_commit_push() {
 }
 
 cmd_open_pr() {
-  load_config "$1"
+  load_pr_config "$1"
   init_log_dir "$BRANCH"
   log_step "3" "Open PR"
   do_pr_create "$BRANCH" "$TITLE" "$PR_BODY"
@@ -150,7 +163,7 @@ cmd_comment() {
 
 cmd_full() {
   local cfg="$1"
-  load_config "$cfg"
+  load_pr_config "$cfg"
   init_log_dir "$BRANCH"
 
   log_step "0" "Preflight"
@@ -161,7 +174,7 @@ cmd_full() {
   reset_local_main
 
   if [ "${SKIP_BUILD:-0}" != "1" ]; then
-    log_step "1" "Local dotnet build"
+    log_step "1" "Local build"
     do_local_build || die "build failed — refusing to ship"
   else
     log_warn "skipping local build (SKIP_BUILD=1)"
@@ -193,6 +206,7 @@ cmd_full() {
 
   log_step "✓" "DONE"
   log_ok "PR #$pr_num shipped — see $SHIP_LOG_DIR for full logs"
+  log_info "NEXT: Step 7 (Replit pull) and Step 8 (E2E verify) are still manual."
 }
 
 # ---------- dispatch ---------------------------------------------------
@@ -210,11 +224,11 @@ main() {
     comment)                cmd_comment "$@" ;;
     full)                   cmd_full "$@" ;;
     help|-h|--help|"")
-      sed -n '2,30p' "${BASH_SOURCE[0]}"
+      sed -n '2,60p' "${BASH_SOURCE[0]}"
       ;;
     *)
       log_err "unknown subcommand: $sub"
-      sed -n '2,30p' "${BASH_SOURCE[0]}"
+      sed -n '2,60p' "${BASH_SOURCE[0]}"
       exit 2
       ;;
   esac

@@ -1,41 +1,30 @@
 #!/bin/bash
-# .ship/lib.sh — helpers for the ship harness. Sourced by run.sh.
+# .ship/lib.sh — helpers for the portable ship harness.
+# Sourced by run.sh. Encodes every pitfall captured in the
+# cowork-github-replit-process skill so subsequent PRs ship without ceremony.
 #
-# These helpers encode every pitfall we hit on Sprint 11 PRs #1 + #2:
-#   - osxkeychain credential helper hangs when invoked from osascript
-#     → we disable it via GIT_CONFIG_COUNT env vars and put the gh token
-#       directly into the remote URL.
-#   - AppleScript `do shell script` mangles backslash continuations
-#     → we pass commit messages and PR bodies via -F / --body-file.
-#   - `dotnet build | tail -N` deadlocks output until stdin closes
-#     → we always redirect dotnet output to a log file directly, never
-#       through a pipe.
-#   - MSBuild --nodereuse=true with stale processes hangs cold builds
-#     → we always pass --nodereuse:false --disable-build-servers.
+# This file is project-agnostic. All project-specific values come from
+# .ship-config.sh (see .ship-config.example.sh in the skill bundle).
 #
-# All log output for a run goes under .ship/runs/<branch>/<step>.log so a
-# resumed run can pick up where the last one died.
-#
-# Conventions:
-#   - All functions return 0 on success, non-zero on failure.
-#   - All functions log to stdout AND to $SHIP_LOG_DIR/<step>.log.
-#   - log_step "N" "label"                      prints + emits step header
-#   - log_info "message"                        prints + emits info line
-#   - log_err "message"                         prints + emits red error
-#   - die "message"                             log_err then exit 1
-#
-# Required env (set by run.sh before sourcing):
+# Required env (set by run.sh before sourcing this file):
 #   SHIP_REPO_DIR        absolute path to the git repo
-#   SHIP_LOG_DIR         absolute path to .ship/runs/<branch>/
+#   SHIP_LOG_DIR         absolute path to .ship/runs/<step>/
+#   SHIP_REPO_SLUG       e.g. acme/myrepo
 #   SHIP_TOKEN           gh token for github.com (from `gh auth token`)
-#   SHIP_REPO_SLUG       e.g. CherryStreet2020/CherryEnterpriseAssetManagement
 #   SHIP_REPO_URL        token-bearing https URL for git ops
+#   GH                   absolute path to gh CLI
+#
+# Optional env (read from .ship-config.sh):
+#   SHIP_GIT_NAME, SHIP_GIT_EMAIL   commit author identity
+#   SHIP_BUILD_CMD                   shell command for the local build
+#                                     (e.g. "$HOME/.dotnet/dotnet build MyApp.csproj")
+#   SHIP_BUILD_SUCCESS_RE            regex to match in build output for success
+#   SHIP_DEFAULT_BASE_BRANCH         usually "main"
 
 set -uo pipefail
 
 # ---------- pretty printing ------------------------------------------
 
-# Colors only if stdout is a tty.
 if [ -t 1 ]; then
   C_RESET="\033[0m"; C_DIM="\033[2m"; C_RED="\033[31m"
   C_GREEN="\033[32m"; C_YELLOW="\033[33m"; C_CYAN="\033[36m"; C_BOLD="\033[1m"
@@ -58,7 +47,8 @@ die() { log_err "$@"; exit 1; }
 # ---------- env --------------------------------------------------------
 
 # Disable osxkeychain credential helper for git ops in this process.
-# Without this, git fetch/push from osascript hangs forever.
+# Without this, git fetch/push from osascript hangs forever waiting on
+# the keychain GUI unlock.
 disable_keychain() {
   export GIT_CONFIG_COUNT=1
   export GIT_CONFIG_KEY_0="credential.helper"
@@ -68,6 +58,7 @@ disable_keychain() {
 
 # Returns 0 if gh CLI exists at the expected path AND is authenticated.
 check_gh() {
+  [ -n "${GH:-}" ] || die "GH is not set. Add gh_path to .ship-config.sh"
   [ -x "$GH" ] || die "gh CLI not found at $GH"
   "$GH" auth status >/dev/null 2>&1 || die "gh CLI is not authenticated. Run: $GH auth login"
   return 0
@@ -75,28 +66,28 @@ check_gh() {
 
 # ---------- git helpers -----------------------------------------------
 
-# Fetch origin/main using token in URL, bypassing credential helper.
 sync_origin_main() {
-  log_info "fetching origin/main with gh token in URL"
+  local base="${SHIP_DEFAULT_BASE_BRANCH:-main}"
+  log_info "fetching origin/$base with gh token in URL"
   cd "$SHIP_REPO_DIR" || die "cannot cd to $SHIP_REPO_DIR"
-  git fetch "$SHIP_REPO_URL" main:refs/remotes/origin/main \
+  git fetch "$SHIP_REPO_URL" "$base:refs/remotes/origin/$base" \
     > "$SHIP_LOG_DIR/fetch.log" 2>&1 \
     || die "git fetch failed — see $SHIP_LOG_DIR/fetch.log"
-  log_ok "origin/main HEAD: $(git log origin/main --oneline -1)"
+  log_ok "origin/$base HEAD: $(git log "origin/$base" --oneline -1)"
 }
 
-# Hard reset local main to origin/main. Destructive — fail-fast guarded.
 reset_local_main() {
+  local base="${SHIP_DEFAULT_BASE_BRANCH:-main}"
   cd "$SHIP_REPO_DIR" || die "cannot cd"
 
   # Fail-fast guard against losing uncommitted tracked work.
   # Pre-guard: this used to call reset --hard blindly, which silently wiped
-  # uncommitted edits on main. Cost a real round of work before the guard
+  # uncommitted edits on $base. Cost a real round of work before the guard
   # landed. Untracked files are fine (the reset doesn't touch them).
   local dirty
   dirty=$(git status --porcelain --untracked-files=no 2>/dev/null)
   if [ -n "$dirty" ]; then
-    log_err "Local main has uncommitted tracked changes — refusing to reset."
+    log_err "Local $base has uncommitted tracked changes — refusing to reset."
     log_err "These files would be wiped:"
     echo "$dirty" | sed 's/^/    /' >&2
     log_err ""
@@ -108,28 +99,26 @@ reset_local_main() {
     exit 1
   fi
 
-  git checkout main >/dev/null 2>&1 || die "cannot checkout main"
-  git reset --hard origin/main > "$SHIP_LOG_DIR/reset.log" 2>&1 \
+  git checkout "$base" >/dev/null 2>&1 || die "cannot checkout $base"
+  git reset --hard "origin/$base" > "$SHIP_LOG_DIR/reset.log" 2>&1 \
     || die "git reset failed — see $SHIP_LOG_DIR/reset.log"
-  log_ok "local main reset to $(git log --oneline -1)"
+  log_ok "local $base reset to $(git log --oneline -1)"
 }
 
-# Create a fresh branch from origin/main. Idempotent — if the branch
-# already exists locally with the right base, reuse it.
 make_branch() {
   local branch="$1"
+  local base="${SHIP_DEFAULT_BASE_BRANCH:-main}"
   cd "$SHIP_REPO_DIR" || die "cannot cd"
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     log_info "branch $branch already exists locally — switching to it"
     git checkout "$branch" >/dev/null 2>&1 || die "cannot checkout $branch"
   else
-    git checkout -b "$branch" origin/main > "$SHIP_LOG_DIR/branch.log" 2>&1 \
+    git checkout -b "$branch" "origin/$base" > "$SHIP_LOG_DIR/branch.log" 2>&1 \
       || die "cannot create branch $branch — see $SHIP_LOG_DIR/branch.log"
-    log_ok "branched off origin/main as $branch"
+    log_ok "branched off origin/$base as $branch"
   fi
 }
 
-# Stage explicit file paths. Refuses to run if any path is missing.
 stage_files() {
   cd "$SHIP_REPO_DIR" || die "cannot cd"
   local missing=0
@@ -146,23 +135,24 @@ stage_files() {
   git status --short | sed 's/^/    /'
 }
 
-# Commit using a message file. Idempotent — if nothing is staged, skip.
 do_commit() {
   local msg_file="$1"
+  local author_name="${SHIP_GIT_NAME:-}"
+  local author_email="${SHIP_GIT_EMAIL:-}"
   cd "$SHIP_REPO_DIR" || die "cannot cd"
   [ -f "$msg_file" ] || die "commit message file not found: $msg_file"
   if git diff --cached --quiet; then
     log_warn "nothing staged — skipping commit"
     return 0
   fi
-  git -c user.name="${SHIP_GIT_NAME:-Dean Dunagan}" \
-      -c user.email="${SHIP_GIT_EMAIL:-dunagan.dean@gmail.com}" \
-      commit -F "$msg_file" > "$SHIP_LOG_DIR/commit.log" 2>&1 \
+  local extra_args=()
+  if [ -n "$author_name" ];  then extra_args+=( -c "user.name=$author_name" );   fi
+  if [ -n "$author_email" ]; then extra_args+=( -c "user.email=$author_email" ); fi
+  git "${extra_args[@]}" commit -F "$msg_file" > "$SHIP_LOG_DIR/commit.log" 2>&1 \
     || die "commit failed — see $SHIP_LOG_DIR/commit.log"
   log_ok "committed: $(git log --oneline -1)"
 }
 
-# Push the named branch via token URL.
 do_push() {
   local branch="$1"
   cd "$SHIP_REPO_DIR" || die "cannot cd"
@@ -173,46 +163,45 @@ do_push() {
 
 # ---------- build ------------------------------------------------------
 
-# Run a local dotnet build of the main app csproj. Returns 0 on success.
-# Output goes to .ship/runs/<branch>/build.log so we can grep for errors.
+# Run the project's local build via SHIP_BUILD_CMD. The harness is
+# framework-agnostic: .NET, Node, Python, Go, Rust all work as long as
+# the build_command in .ship-config.sh emits a single text line that
+# matches build_success_re on success.
 do_local_build() {
-  local csproj="${SHIP_CSPROJ:-Abs.FixedAssets.csproj}"
+  local cmd="${SHIP_BUILD_CMD:-}"
+  local success_re="${SHIP_BUILD_SUCCESS_RE:-Build succeeded}"
+  if [ -z "$cmd" ]; then
+    log_warn "SHIP_BUILD_CMD not set — skipping local build"
+    return 0
+  fi
   cd "$SHIP_REPO_DIR" || die "cannot cd"
-  export PATH="$HOME/.dotnet:$PATH"
-  export DOTNET_CLI_TELEMETRY_OPTOUT=1
-  export DOTNET_NOLOGO=1
-  export DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
   local log="$SHIP_LOG_DIR/build.log"
-  log_info "dotnet build $csproj (output: $log)"
+  log_info "build: $cmd"
+  log_info "log:   $log"
 
   # Direct redirect — NEVER pipe through tail (deadlocks).
-  # --nodereuse:false + --disable-build-servers avoids MSBuild server hangs.
-  "$HOME/.dotnet/dotnet" build "$csproj" \
-    --nologo -c Debug -v m \
-    --nodereuse:false \
-    --disable-build-servers \
-    > "$log" 2>&1
+  bash -c "$cmd" > "$log" 2>&1
   local rc=$?
 
   if [ $rc -ne 0 ]; then
-    log_err "dotnet build FAILED (exit $rc) — see $log"
-    grep -E "error CS|error MSB" "$log" | head -20 | sed 's/^/    /'
+    log_err "build FAILED (exit $rc) — see $log"
+    grep -E "error|Error|FAIL" "$log" | head -20 | sed 's/^/    /'
     return $rc
   fi
 
-  local elapsed
-  elapsed=$(grep "Time Elapsed" "$log" | tail -1 | awk '{print $NF}')
-  local errs warns
-  errs=$(grep -oE '[0-9]+ Error\(s\)' "$log" | tail -1 | awk '{print $1}')
-  warns=$(grep -oE '[0-9]+ Warning\(s\)' "$log" | tail -1 | awk '{print $1}')
-  log_ok "build clean: ${errs:-0} errors, ${warns:-?} warnings, ${elapsed:-?} elapsed"
+  if ! grep -qE "$success_re" "$log"; then
+    log_warn "build exited 0 but success pattern '$success_re' not found in log"
+  fi
+
+  # Try to extract a one-line summary if the build framework emits one.
+  local summary
+  summary=$(grep -E "Build succeeded|Compilation finished|✓|PASS|webpack compiled" "$log" | tail -1)
+  log_ok "build clean${summary:+ — $summary}"
   return 0
 }
 
 # ---------- gh CLI / PR ------------------------------------------------
 
-# Open a PR. Idempotent — if a PR already exists for the head branch,
-# just print its URL.
 do_pr_create() {
   local branch="$1" title="$2" body_file="$3"
   [ -f "$body_file" ] || die "PR body file not found: $body_file"
@@ -230,7 +219,7 @@ do_pr_create() {
 
   "$GH" pr create \
     --repo "$SHIP_REPO_SLUG" \
-    --base main \
+    --base "${SHIP_DEFAULT_BASE_BRANCH:-main}" \
     --head "$branch" \
     --title "$title" \
     --body-file "$body_file" \
@@ -246,21 +235,16 @@ do_pr_create() {
 }
 
 # Poll CI until it passes or fails. Returns 0 only on all-pass.
-#
-# gh pr checks exit codes:
+# `gh pr checks` exit codes:
 #   0  all checks passing
 #   1  one or more checks failed  -- OR  no checks reported yet (race)
 #   8  some checks pending
-#
-# We can't distinguish "1 = no checks yet" from "1 = a check failed"
-# by exit code alone, so we inspect stdout. "no checks reported" is
-# treated as a transient "still scheduling" state for the first
-# `no_checks_grace_seconds` of polling.
+# We tolerate "no checks reported" for the first 90s as a scheduling race.
 wait_ci() {
   local pr_num="$1"
-  local max_wait="${2:-600}"   # 10 minutes default
+  local max_wait="${2:-600}"
   local interval=20
-  local no_checks_grace_seconds=90  # tolerate "no checks" for up to 90s
+  local no_checks_grace_seconds=90
   local elapsed=0
   log_info "polling gh pr checks $pr_num (max ${max_wait}s, interval ${interval}s)"
   while [ "$elapsed" -lt "$max_wait" ]; do
@@ -276,7 +260,6 @@ wait_ci() {
       sleep "$interval"
       elapsed=$((elapsed + interval))
     else
-      # rc=1: either no checks reported yet (transient) or a check failed.
       if echo "$out" | grep -qiE "no checks (reported|found)"; then
         if [ "$elapsed" -lt "$no_checks_grace_seconds" ]; then
           log_info "  no checks reported yet (${elapsed}s/${no_checks_grace_seconds}s grace) — sleeping ${interval}s"
@@ -297,8 +280,6 @@ wait_ci() {
   return 124
 }
 
-# Squash-merge + delete branch. Idempotent — if PR is already merged,
-# just log and return.
 do_merge() {
   local pr_num="$1"
   local state
@@ -320,7 +301,6 @@ do_merge() {
   echo "$commit" > "$SHIP_LOG_DIR/merge-commit"
 }
 
-# Post the ship comment on the PR.
 do_comment() {
   local pr_num="$1" body_file="$2"
   [ -f "$body_file" ] || die "comment body file not found: $body_file"
