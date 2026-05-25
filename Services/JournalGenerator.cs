@@ -123,19 +123,31 @@ namespace Abs.FixedAssets.Services
             // unchanged; AccountingKeyId is stamped IN ADDITION when resolution
             // succeeds. Per the PRA-5c/5d/5e/5f pattern, GlAccountResolutionException
             // is the orphan-fallback path: catch + log + leave AccountingKeyId null
-            // so the JE still balances and posts. First-iteration segment context
-            // is CompanyId-only (empty AccountingKeyResolveContext); future overloads
-            // will enrich Site/CostCenter/Department per posting purpose.
+            // so the JE still balances and posts.
+            //
+            // We pass GlResolveContext(BookId: bookId) so the resolver's cascade
+            // (per-asset → per-book → per-company → industry-default) lands on
+            // the SAME GL account that we read into the legacy `Account` string
+            // above (which comes from Book.GlAccountDepExp / Book.GlAccountAccumDep
+            // via the BookGlAccount overlay). Without BookId in context the cascade
+            // would skip the per-book layer and resolve to the company default —
+            // creating inconsistent dual-write rows on any tenant whose book-level
+            // accounts differ from company defaults (Codex P1 catch on PR #344).
+            //
+            // First-iteration segment context (AccountingKeyResolveContext) is
+            // CompanyId-only; future overloads enrich Site/CostCenter/Department
+            // per posting purpose.
             int? depExpenseKeyId = null;
             int? accumDepKeyId = null;
             var resolveCompanyId = companyId ?? book.CompanyId;
             if (glResolver != null && resolveCompanyId.HasValue)
             {
-                var ctx = new AccountingKeyResolveContext();
+                var keyCtx = new AccountingKeyResolveContext();
+                var glCtx = new GlResolveContext(BookId: bookId);
                 try
                 {
                     depExpenseKeyId = await glResolver.ResolveAccountingKeyAsync(
-                        resolveCompanyId.Value, GlAccountKind.DepreciationExpense, ctx);
+                        resolveCompanyId.Value, GlAccountKind.DepreciationExpense, keyCtx, glCtx);
                 }
                 catch (GlAccountResolutionException ex)
                 {
@@ -147,7 +159,7 @@ namespace Abs.FixedAssets.Services
                 try
                 {
                     accumDepKeyId = await glResolver.ResolveAccountingKeyAsync(
-                        resolveCompanyId.Value, GlAccountKind.AccumulatedDepreciation, ctx);
+                        resolveCompanyId.Value, GlAccountKind.AccumulatedDepreciation, keyCtx, glCtx);
                 }
                 catch (GlAccountResolutionException ex)
                 {
