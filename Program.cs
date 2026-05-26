@@ -302,6 +302,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-4 (2026-05-26) — ICostLayerService.
+// FIFO/LIFO/Average inventory valuation layers. SAP MM "stock with values"
+// equivalent. Each material receipt creates an immutable layer at receipt
+// cost; issues consume per the configured CostMethod. Foundation for
+// Sprint 14.4 cost-rollup engine + purchase-price variance posting (PRA-7).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.ICostLayerService,
+    Abs.FixedAssets.Services.Items.CostLayerService>();
+
 // B6 Foundation Sprint PR-FS-3 (2026-05-26) — IItemStandardCostService.
 // SAP Cost Component Split equivalent. Effective-dated per-Item/per-Site cost
 // element rows. Read API for cascade (per-Site → Item-level → $0) + write API
