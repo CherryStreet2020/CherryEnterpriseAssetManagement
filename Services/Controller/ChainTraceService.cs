@@ -9,6 +9,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Masters;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Services.Controller;
@@ -225,11 +226,36 @@ public sealed class ChainTraceService : IControllerCockpitService
 
         if (depAccounts.Length > 0)
         {
-            var depJEs = await _db.JournalEntries.AsNoTracking()
-                .Where(je => je.Source == "Depreciation"
-                    && je.Lines.Any(l => depAccounts.Contains(l.Account)))
+            // Load top N Depreciation JE headers WITH their lines via Include,
+            // then filter in-memory to those that touch the asset's
+            // depreciation accounts. Two reasons we go this shape rather than
+            // a navigation-projection or two-query JournalLines-first lookup:
+            //
+            //   - `je.Lines.Any(l => ...)` and `je.Lines.Select(l => l.Account)`
+            //     in a server projection silently return 0 through EF Core's
+            //     InMemory provider (per dotnet/efcore#24468 family of issues),
+            //     making the service untestable without Npgsql.
+            //
+            //   - The two-query "JournalLines first → JE Ids → JE headers"
+            //     shape works on Npgsql but lines inserted via the JE.Lines
+            //     navigation collection are not always reachable through the
+            //     JournalLines DbSet under InMemory, so the same untestable
+            //     gap appears.
+            //
+            // .Include is the provider-portable choice. The result set is
+            // bounded by MaxDepreciationJEs * 3 (in-memory headroom for
+            // noisy assets), and Lines per JE is small (~10 lines per dep JE
+            // worst case), so the wire weight is modest.
+            var depCandidates = await _db.JournalEntries.AsNoTracking()
+                .Include(je => je.Lines)
+                .Where(je => je.Source == "Depreciation")
                 .OrderByDescending(je => je.PostingDate)
                 .ThenByDescending(je => je.Id)
+                .Take(MaxDepreciationJEs * 3)
+                .ToListAsync(ct);
+
+            var depJEs = depCandidates
+                .Where(c => c.Lines.Any(l => depAccounts.Contains(l.Account)))
                 .Take(MaxDepreciationJEs)
                 .Select(je => new
                 {
@@ -240,7 +266,7 @@ public sealed class ChainTraceService : IControllerCockpitService
                     je.Description,
                     je.Period,
                 })
-                .ToListAsync(ct);
+                .ToList();
 
             foreach (var je in depJEs)
             {
@@ -256,8 +282,11 @@ public sealed class ChainTraceService : IControllerCockpitService
                 ));
 
                 // Pull the asset-relevant lines from this JE (top N), with
-                // segment chips from AccountingKey when resolved.
+                // segment chips from AccountingKey when resolved. Include
+                // the AccountingKey nav so the segment chips render with
+                // their human-readable AccountingKeyString.
                 var lines = await _db.JournalLines.AsNoTracking()
+                    .Include(l => l.AccountingKey)
                     .Where(l => l.JournalEntryId == je.Id && depAccounts.Contains(l.Account))
                     .OrderBy(l => l.LineNo)
                     .Take(MaxLinesPerJE)
