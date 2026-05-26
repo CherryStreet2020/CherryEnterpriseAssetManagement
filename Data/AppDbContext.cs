@@ -470,6 +470,10 @@ namespace Abs.FixedAssets.Data
         // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site Item override rows.
         public DbSet<Abs.FixedAssets.Models.Masters.ItemSite> ItemSites => Set<Abs.FixedAssets.Models.Masters.ItemSite>();
 
+        // B6 Foundation Sprint PR-FS-3 (2026-05-26) — SAP Cost Component Split.
+        // Per-Item / per-Site cost element breakdown rows, effective-dated.
+        public DbSet<Abs.FixedAssets.Models.Masters.ItemStandardCostElement> ItemStandardCostElements => Set<Abs.FixedAssets.Models.Masters.ItemStandardCostElement>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2248,6 +2252,40 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.DefaultLocationRef)
                     .WithMany()
                     .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B6 Foundation Sprint PR-FS-3 (2026-05-26) — Item Standard Cost Element
+            // (SAP Cost Component Split equivalent). Effective-dated per (Item, optional
+            // Site, ElementType). UNIQUE on (TenantId, ItemId, SiteId, ElementType,
+            // EffectiveFromUtc) + partial UNIQUE for NULL-tenant case (lesson from
+            // PR-FS-2's Codex P1 — Postgres treats NULL as distinct in unique indexes).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemStandardCostElement>(e =>
+            {
+                e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.ElementType, x.EffectiveFromUtc })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ItemStdCost_Tenant_Item_Site_Elem_From");
+                e.HasIndex(x => new { x.ItemId, x.SiteId, x.ElementType, x.EffectiveFromUtc })
+                    .IsUnique()
+                    .HasFilter("\"TenantId\" IS NULL")
+                    .HasDatabaseName("UX_ItemStdCost_Item_Site_Elem_From_NullTenant");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.SiteId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => new { x.ItemId, x.ElementType, x.EffectiveToUtc });
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.StandardCostElements)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
