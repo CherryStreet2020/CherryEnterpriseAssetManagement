@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Abs.FixedAssets.Models.Projects;
+using Abs.FixedAssets.Models.Revisions;
 
 namespace Abs.FixedAssets.Models.Production
 {
@@ -232,8 +234,74 @@ namespace Abs.FixedAssets.Models.Production
         // Which Bom or Recipe is this order producing? SET NULL on
         // structure delete — order history survives administrative
         // structure cleanup (rare; usually Status -> Retired).
+        //
+        // **IMPORTANT — POST Sprint 14.1 PR-1**: this FK points at the
+        // LIVE source MaterialStructure. The FROZEN-AT-RELEASE BOM lines
+        // live on ProductionMaterialStructures via the MaterialSnapshot
+        // nav below. Engineering changes to MaterialStructureLines
+        // post-release do NOT flow into in-flight PROs that have already
+        // captured a snapshot. The cost engine + MES material-issue +
+        // AS9100 §8.3 traceability + ECR-ECO impact analysis read from
+        // the SNAPSHOT, not from this FK. Reads that want the live
+        // engineering view (e.g., "what does the BOM say today?") follow
+        // this FK; reads that want production reality (e.g., "what was
+        // on the floor when we ran this PO?") follow MaterialSnapshot.
         public int? MaterialStructureId { get; set; }
         public MaterialStructure? MaterialStructure { get; set; }
+
+        // ----- Sprint 14.1 PR-1 — per-PO snapshot freeze -----
+        //
+        // The four columns below + the MaterialSnapshot nav collection
+        // capture the "frozen at release" state of the Item revision and
+        // the BOM lines this PRO is executing against. Populated by
+        // IPoSnapshotService.CaptureAsync at release; immutable thereafter
+        // unless an admin explicitly clears the snapshot (recovery only).
+        //
+        // See: Models/Production/ProductionMaterialStructure.cs
+        //      Services/Production/IPoSnapshotService.cs (Sprint 14.1 PR-1)
+        //      memory: reference_master_plan_audit_2026_05_24.md Wave 14.1
+
+        /// <summary>
+        /// Frozen FK to the <see cref="ItemRevision"/> in force when the
+        /// PRO was released. Captured by IPoSnapshotService.CaptureAsync from
+        /// <c>Item.CurrentReleasedRevisionId</c>. SET NULL on revision delete
+        /// so PRO history survives revision archival.
+        /// </summary>
+        [Display(Name = "Source Item Revision (frozen)")]
+        public int? SourceItemRevisionId { get; set; }
+        public ItemRevision? SourceItemRevision { get; set; }
+
+        /// <summary>
+        /// Defensive denormalized copy of <c>MaterialStructure.Revision</c>
+        /// at release. Survives subsequent BOM revisions.
+        /// </summary>
+        [StringLength(16)]
+        [Display(Name = "Source MS Revision (frozen)")]
+        public string? SourceMaterialStructureRevision { get; set; }
+
+        /// <summary>
+        /// When the snapshot was captured (UTC). Null until release-time
+        /// CaptureAsync runs. Reads use this as the "is this PRO snapshotted
+        /// yet?" sentinel.
+        /// </summary>
+        [Display(Name = "Snapshot Captured At")]
+        public DateTime? SnapshotCapturedAtUtc { get; set; }
+
+        /// <summary>
+        /// Who triggered the snapshot capture (release operator, batch job,
+        /// admin recovery). Max 100 chars.
+        /// </summary>
+        [StringLength(100)]
+        [Display(Name = "Snapshot Captured By")]
+        public string? SnapshotCapturedBy { get; set; }
+
+        /// <summary>
+        /// The frozen BOM lines for this PRO. Populated by
+        /// IPoSnapshotService.CaptureAsync at release. Read by the cost
+        /// engine (Sprint 14.4), MES material-issue (B8 PO Cockpit), and
+        /// AS9100 §8.3 traceability + ECR-ECO impact analysis.
+        /// </summary>
+        public ICollection<ProductionMaterialStructure>? MaterialSnapshot { get; set; }
 
         // Sprint 13.5 PR #1 / ADR-026 — Customer-project foundation.
         //

@@ -489,6 +489,15 @@ namespace Abs.FixedAssets.Data
         // customer PN → Item at SO ingest; Item → customer PN at ship/invoice.
         public DbSet<Abs.FixedAssets.Models.Masters.CustomerItemXref> CustomerItemXrefs => Set<Abs.FixedAssets.Models.Masters.CustomerItemXref>();
 
+        // Sprint 14.1 PR-1 (2026-05-26) — per-PO frozen BOM snapshot.
+        // Captured by IPoSnapshotService.CaptureAsync at PRO release. Survives
+        // subsequent engineering changes to the source MaterialStructure /
+        // MaterialStructureLine so cost rollups, MES material-issue, AS9100
+        // §8.3 traceability, and ECR-ECO impact analysis all read from a
+        // deterministic per-PO snapshot rather than the live engineering view.
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionMaterialStructure> ProductionMaterialStructures =>
+            Set<Abs.FixedAssets.Models.Production.ProductionMaterialStructure>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -1777,12 +1786,108 @@ namespace Abs.FixedAssets.Data
             // FK to MaterialStructures. SET NULL on structure delete so the
             // order's history (status, schedule, allocations) survives even
             // if the structure is administratively retired.
+            //
+            // Sprint 14.1 PR-1 — wire ProductionOrder.SourceItemRevisionId FK to
+            // ItemRevisions. SET NULL on revision delete so the snapshot
+            // survives revision archival. Plus the 1:N nav to the frozen BOM
+            // snapshot (ProductionMaterialStructures).
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrder>(e =>
             {
                 e.HasIndex(x => x.MaterialStructureId);
                 e.HasOne(x => x.MaterialStructure)
                     .WithMany()
                     .HasForeignKey(x => x.MaterialStructureId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Sprint 14.1 PR-1 — frozen source revision FK.
+                e.HasIndex(x => x.SourceItemRevisionId)
+                    .HasDatabaseName("IX_ProductionOrders_SourceItemRevisionId");
+                e.HasOne(x => x.SourceItemRevision)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceItemRevisionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Sprint 14.1 PR-1 — partial index on captured snapshots so the
+                // probe + cost engine + MES can quickly find PROs that have
+                // been snapshotted vs those that haven't.
+                e.HasIndex(x => x.SnapshotCapturedAtUtc)
+                    .HasFilter("\"SnapshotCapturedAtUtc\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionOrders_SnapshotCaptured_Partial");
+            });
+
+            // Sprint 14.1 PR-1 (2026-05-26) — ProductionMaterialStructure.
+            // Per-PO frozen BOM snapshot. Tenant trio + RowVersion + enum
+            // HasDefaultValue (BomIssueMethod.Pull) all baked in from day one
+            // per PR-FS-2/4/5/7 lessons (especially the PR #363 enum-default
+            // P1 Codex catch). Service-side NULL-safe uniqueness on
+            // (ProductionOrderId, Sequence) — partial UNIQUE complemented by
+            // service-layer pre-check.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionMaterialStructure>(e =>
+            {
+                // Enum DB default — Pull is the industry-default issue method
+                // (just-in-time per-operation pull). HARD LOCK per
+                // feedback_b6_enum_defaults_must_match_model.md: every new
+                // enum column MUST have HasDefaultValue matching the model
+                // default so legacy backfill + raw-SQL inserts land on
+                // semantic-default Pull (not Push at index 1).
+                e.Property(x => x.IssueMethod)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.BomIssueMethod.Pull);
+
+                // LineKind also gets explicit HasDefaultValue — Component is
+                // the model default (and what the resolver hits 95% of the
+                // time). Without this, a raw-SQL insert with omitted LineKind
+                // would also map to 0 — but Component IS 0, so this is
+                // belt-and-suspenders. Wire it anyway for posterity per the
+                // hard-lock.
+                e.Property(x => x.LineKind)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.LineKind.Component);
+
+                e.Property(x => x.RowVersion).IsRowVersion();
+
+                // Deterministic ordering per PO — UNIQUE on (PO, Sequence).
+                e.HasIndex(x => new { x.ProductionOrderId, x.Sequence })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProdMatStruct_PO_Sequence");
+
+                // Read-path indexes.
+                e.HasIndex(x => x.ProductionOrderId)
+                    .HasDatabaseName("IX_ProdMatStruct_PO");
+                e.HasIndex(x => x.ChildItemId)
+                    .HasDatabaseName("IX_ProdMatStruct_ChildItem");
+                e.HasIndex(x => x.CompanyId)
+                    .HasDatabaseName("IX_ProdMatStruct_Company");
+                e.HasIndex(x => x.SourceMaterialStructureLineId);
+                e.HasIndex(x => x.SourceMaterialStructureId);
+                e.HasIndex(x => x.ChildItemRevisionId);
+
+                // FK config — CASCADE on PO delete (snapshot doesn't outlive
+                // its order); RESTRICT on ChildItem (orphaning a snapshot
+                // would erase the component audit trail); SET NULL on source
+                // structure / line / revision (snapshot survives engineering
+                // archival).
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany(p => p.MaterialSnapshot)
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.ChildItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.ChildItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.SourceMaterialStructureLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceMaterialStructureLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.SourceMaterialStructure)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceMaterialStructureId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.ChildItemRevision)
+                    .WithMany()
+                    .HasForeignKey(x => x.ChildItemRevisionId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
@@ -4403,6 +4508,11 @@ namespace Abs.FixedAssets.Data
                         propertyName.Contains("extendeddescription") ||
                         propertyName.Contains("username") || propertyName.Contains("startedby") ||
                         propertyName.Contains("completedby") || propertyName.Contains("closedby") ||
+                        // Sprint 14.1 PR-1 — case-preserve user identifier on
+                        // ProductionMaterialStructure.CapturedBy +
+                        // ProductionOrder.SnapshotCapturedBy. Same convention as
+                        // CompletedBy/StartedBy/ClosedBy above.
+                        propertyName.Contains("capturedby") ||
                         propertyName.Contains("holdreason") || propertyName.Contains("lessonslearned") ||
                         propertyName.Contains("resolution") || propertyName.Contains("notes") ||
                         propertyName.Contains("entitytype") || propertyName.Contains("action") ||
