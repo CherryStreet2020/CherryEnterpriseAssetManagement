@@ -1264,6 +1264,26 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.MasterProductionOrderId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // Sprint 12.8 PR #1 / ADR-028 — multi-level BOM parent-child FK.
+                // SET NULL on parent delete preserves child cost history.
+                // Indexed for "show me the children of order X" queries.
+                e.HasIndex(x => x.ParentProductionOrderId)
+                    .HasDatabaseName("IX_ProductionOrders_ParentProductionOrderId");
+                e.HasOne(x => x.Parent)
+                    .WithMany(x => x.Children)
+                    .HasForeignKey(x => x.ParentProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                // Sprint 12.8 PR #1 / ADR-028 — no-self-parent CHECK.
+                // A ProductionOrder cannot reference itself as parent.
+                // Enforced at the DB layer; future BOM-explosion service
+                // would never violate this, but seeders + admin tooling
+                // could without the constraint.
+                e.ToTable(t => t.HasCheckConstraint(
+                    "ck_productionorders_no_self_parent",
+                    "\"ParentProductionOrderId\" IS NULL OR \"ParentProductionOrderId\" <> \"Id\""));
+
                 e.HasOne(x => x.Item)
                     .WithMany()
                     .HasForeignKey(x => x.ItemId)

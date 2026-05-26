@@ -116,6 +116,54 @@ namespace Abs.FixedAssets.Models.Production
         [StringLength(16)]
         public string? Uom { get; set; }
 
+        // ----- Sprint 12.8 PR #1 — cost-accumulation columns -----
+        //
+        // Five nullable decimal(18,2) cost buckets per ADR-028 §3.
+        //
+        // NULL semantics: NULL = "not yet populated by the cost engine"
+        // (different from 0, which means "engine ran and found zero").
+        // Sprint 0.5 + Sprint 14 will wire the engines that populate
+        // these on order completion (material issue × unit cost,
+        // LaborEntry.DurationMins × wage rate, OH absorption, vendor
+        // invoice for subcontract). For the Sprint 12.8 demo, the ABS
+        // scenario seeder stamps pre-computed values for the hero
+        // scenario (Rolls-Royce Trent XWB engine bracket assembly).
+        //
+        // Why on the header: cost rollup at the ProductionOrder level
+        // is what the CFO and the cost accountant care about. Per-
+        // operation cost lives on ProductionOperation when that's
+        // wired (Sprint 14). Header totals are the read path for
+        // dashboards + walkthroughs + the eventual child→parent
+        // cost-rollup service.
+        //
+        // CHECK constraints: deferred until the cost engine lands.
+        // Stamping negative values is invalid but the seeder won't
+        // try; tightening later is non-breaking.
+
+        [Display(Name = "Material Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? MaterialCost { get; set; }
+
+        [Display(Name = "Labor Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? LaborCost { get; set; }
+
+        [Display(Name = "Overhead Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? OverheadCost { get; set; }
+
+        [Display(Name = "Subcontract Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? SubcontractCost { get; set; }
+
+        // Sum of the four buckets above. Held explicitly (not computed)
+        // so it can be read in a single column scan and so the rollup
+        // service can stamp it after summing child orders, not just
+        // this order's own four buckets.
+        [Display(Name = "Actual Cost")]
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? ActualCost { get; set; }
+
         [Display(Name = "Scheduled Start")]
         public DateTime? ScheduledStart { get; set; }
 
@@ -137,6 +185,48 @@ namespace Abs.FixedAssets.Models.Production
         public int? MasterProductionOrderId { get; set; }
         public ProductionOrder? MasterProductionOrder { get; set; }
         public int Revision { get; set; } = 0;
+
+        // ----- Sprint 12.8 PR #1 — multi-level BOM parent-child self-FK -----
+        //
+        // ADR-028: parent-child semantics for executing a multi-level
+        // BOM as nested ProductionOrders. INTENTIONALLY SEPARATE from
+        // MasterProductionOrderId above — that one is the revision
+        // chain (PRO v1 → v2 → v3 of the SAME order), this one is
+        // the assembly hierarchy (parent assembly PRO ↔ sub-assembly
+        // child PROs).
+        //
+        // Conflating these is the SAP PP02 trap that the audit doc
+        // warns about: revision and assembly hierarchy have different
+        // cascade semantics, different cost-rollup direction, and
+        // different lifecycle.
+        //
+        // FK behavior: SET NULL on parent delete (the row above does
+        // the same for MasterProductionOrderId). A deleted parent
+        // leaves orphaned children that admin tooling can re-parent
+        // or close out — safer than CASCADE on accumulated cost
+        // history.
+        //
+        // CHECK constraint enforced at the DB layer: a row cannot be
+        // its own parent. See AppDbContext.OnModelCreating.
+        //
+        // For Sprint 12.8 demo: the ABS scenario seeder INSERTs 10
+        // ProductionOrders, sets the 9 children's ParentProductionOrderId
+        // to the parent's Id, and CustomerProjectId on all 10 to the
+        // same project for the visible tree view.
+        //
+        // For Sprint 0.5 + Sprint 14 (post-demo): the future BOM-
+        // explosion service will read MaterialStructure.Lines, recursively
+        // walk into each line's Item.MaterialStructures, and INSERT
+        // child ProductionOrders with this FK populated on parent
+        // release. The seeder hand-crafts the same shape the engine
+        // will eventually produce.
+        public int? ParentProductionOrderId { get; set; }
+        public ProductionOrder? Parent { get; set; }
+
+        // Inverse nav. Sized via EF Core convention. Eagerly loaded
+        // only when the caller explicitly Includes it — most queries
+        // do not need it.
+        public ICollection<ProductionOrder>? Children { get; set; }
 
         // ADR-013 / PR #119.14 — MaterialStructure FK.
         // Which Bom or Recipe is this order producing? SET NULL on
