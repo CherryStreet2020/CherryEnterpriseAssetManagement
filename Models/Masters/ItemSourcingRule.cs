@@ -149,9 +149,11 @@ namespace Abs.FixedAssets.Models.Masters
 
         /// <summary>
         /// For <see cref="SourceMethod.TransferFromSite"/> only — which sibling
-        /// Site's inventory to draw from.
+        /// Site's inventory to draw from. FK to Sites (separate from
+        /// <see cref="SiteId"/> which is the consuming Site).
         /// </summary>
         public int? TransferFromSiteId { get; set; }
+        public Site? TransferFromSite { get; set; }
 
         public int? TenantId { get; set; }
         public int? CompanyId { get; set; }

@@ -2306,6 +2306,13 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.SiteId)
                     .OnDelete(DeleteBehavior.SetNull);
+                // PR-FS-5 P2 fix (Codex on PR #361): TransferFromSiteId was
+                // only an indexed scalar; promote to a real FK so dangling
+                // site IDs can't persist and SetNull cascades on Site delete.
+                e.HasOne(x => x.TransferFromSite)
+                    .WithMany()
+                    .HasForeignKey(x => x.TransferFromSiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Vendor)
                     .WithMany()
                     .HasForeignKey(x => x.VendorId)

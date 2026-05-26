@@ -298,6 +298,30 @@ public class ItemSourcingRuleServiceTests
     }
 
     [Fact]
+    public async Task Duplicate_Active_Rule_With_Null_SiteId_Or_VendorId_Throws()
+    {
+        // PR-FS-5 P1 regression guard on PR #361 — service-side NULL-safe
+        // uniqueness check on (TenantId, ItemId, SiteId, VendorId, Priority).
+        // The DB partial unique index can't enforce this because Postgres treats
+        // NULL as distinct; the service catches it before write.
+        await using var db = NewDb();
+        db.Items.Add(EndMill());
+        await db.SaveChangesAsync();
+
+        var svc = NewService(db);
+
+        // Case 1: two MakeInternal rules at same priority (both have VendorId=null) → second throws.
+        await svc.AddRuleAsync(9302, siteId: 1, vendorId: null, transferFromSiteId: null, SourceMethod.MakeInternal, priority: 1, allocationPercent: null, minOrderQty: null, maxOrderQty: null, leadTimeDaysOverride: null, isCustomerMandated: false, customerId: null, notes: "Internal regrind", createdBy: "engineering", ct: CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await svc.AddRuleAsync(9302, siteId: 1, vendorId: null, transferFromSiteId: null, SourceMethod.MakeInternal, priority: 1, allocationPercent: null, minOrderQty: null, maxOrderQty: null, leadTimeDaysOverride: null, isCustomerMandated: false, customerId: null, notes: "Duplicate internal regrind", createdBy: "engineering", ct: CancellationToken.None));
+
+        // Case 2: two company-wide (SiteId=null) rules with same Vendor + Priority → second throws.
+        await svc.AddRuleAsync(9302, siteId: null, vendorId: 301, transferFromSiteId: null, SourceMethod.BuyFromVendor, priority: 2, allocationPercent: null, minOrderQty: null, maxOrderQty: null, leadTimeDaysOverride: null, isCustomerMandated: false, customerId: null, notes: "Sandvik company-wide", createdBy: "buyer", ct: CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await svc.AddRuleAsync(9302, siteId: null, vendorId: 301, transferFromSiteId: null, SourceMethod.BuyFromVendor, priority: 2, allocationPercent: null, minOrderQty: null, maxOrderQty: null, leadTimeDaysOverride: null, isCustomerMandated: false, customerId: null, notes: "Duplicate Sandvik", createdBy: "buyer", ct: CancellationToken.None));
+    }
+
+    [Fact]
     public async Task MakeInternal_Source_Does_Not_Require_Vendor()
     {
         await using var db = NewDb();

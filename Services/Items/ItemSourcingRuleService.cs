@@ -121,6 +121,27 @@ public sealed class ItemSourcingRuleService : IItemSourcingRuleService
                 break;
         }
 
+        // PR-FS-5 P1 fix (Codex on PR #361): service-side uniqueness enforcement
+        // for (TenantId, ItemId, SiteId, VendorId, Priority) on active rules.
+        // The DB partial unique indexes can't catch this because Postgres treats
+        // NULL as distinct in unique indexes — SiteId NULL (company-wide) or
+        // VendorId NULL (MakeInternal) would slip through the DB-level guard.
+        // Service-side check uses explicit equality (NULL == NULL) on the read,
+        // catches the duplicate before write.
+        var duplicateExists = await _db.ItemSourcingRules
+            .AnyAsync(r => r.ItemId == itemId
+                        && r.SiteId == siteId
+                        && r.VendorId == vendorId
+                        && r.Priority == priority
+                        && r.IsActive, ct);
+        if (duplicateExists)
+        {
+            throw new InvalidOperationException(
+                $"Active sourcing rule already exists for Item={itemId} Site={siteId?.ToString() ?? "(any)"} " +
+                $"Vendor={vendorId?.ToString() ?? "(none)"} Priority={priority}. Suspend or deactivate " +
+                $"the existing rule before adding a new one — or use a different Priority for the alternate.");
+        }
+
         // Allocation-split validation: if AllocationPercent is set, sum across
         // currently-active rules at this same Priority must not exceed 100%
         // (with the new rule added). Service-enforced BEFORE write.
