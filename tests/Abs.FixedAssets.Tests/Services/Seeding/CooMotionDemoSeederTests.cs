@@ -58,16 +58,33 @@ public class CooMotionDemoSeederTests
     }
 
     /// <summary>
-    /// No-op implementation of IProductionOperationService for tests. The
-    /// real service is tested elsewhere; the seeder just needs Result.Success
-    /// to flow through.
+    /// Test impl of IProductionOperationService. Persists ONE ProductionOperation
+    /// row per ReleaseFromRoutingAsync call so the seeder's granular idempotency
+    /// check (which requires both orders AND operations to be present before
+    /// returning AlreadySeeded) sees real rows on the second invocation.
     /// </summary>
     private sealed class StubProductionOperationService : IProductionOperationService
     {
-        public Task<Result<IReadOnlyList<ProductionOperation>>> ReleaseFromRoutingAsync(
-            ReleaseFromRoutingRequest request, CancellationToken ct) =>
-            Task.FromResult(Result.Success<IReadOnlyList<ProductionOperation>>(
-                Array.Empty<ProductionOperation>()));
+        private readonly AppDbContext _db;
+        public StubProductionOperationService(AppDbContext db) { _db = db; }
+
+        public async Task<Result<IReadOnlyList<ProductionOperation>>> ReleaseFromRoutingAsync(
+            ReleaseFromRoutingRequest request, CancellationToken ct)
+        {
+            // Persist one snapshot op so granular idempotency works in tests.
+            var op = new ProductionOperation
+            {
+                ProductionOrderId = request.ProductionOrderId,
+                SequenceNumber = 10,
+                LocationIdSnapshot = 0,
+                CompanyIdSnapshot = 0,
+                WorkCenterId = 1,
+                Description = "Stubbed snapshot op for test",
+            };
+            _db.Set<ProductionOperation>().Add(op);
+            await _db.SaveChangesAsync(ct);
+            return Result.Success<IReadOnlyList<ProductionOperation>>(new[] { op });
+        }
 
         public Task<Result<ProductionOperation>> UpdateStatusAsync(
             UpdateProductionOperationStatusRequest request, CancellationToken ct) =>
@@ -94,7 +111,7 @@ public class CooMotionDemoSeederTests
     }
 
     private static CooMotionDemoSeeder NewSeeder(AppDbContext db) =>
-        new(db, new StubProductionOperationService(), new StubBackwardSchedulingService(),
+        new(db, new StubProductionOperationService(db), new StubBackwardSchedulingService(),
             NullLogger<CooMotionDemoSeeder>.Instance);
 
     /// <summary>
@@ -189,11 +206,11 @@ public class CooMotionDemoSeederTests
         Assert.True(await db.Locations.AnyAsync(l => l.Code == "PWH-CAN-MAIN"));
         Assert.True(await db.Locations.AnyAsync(l => l.Code == "PWH-CAN-NORTH"));
         Assert.True(await db.Set<CustomerProject>().AnyAsync(p => p.Code == "DEMO-COO-PROJ-001"));
-        Assert.Equal(10, await db.Set<ProductionOrder>().CountAsync(p => p.OrderNumber.StartsWith("PRO-2026-")));
+        Assert.Equal(10, await db.Set<ProductionOrder>().CountAsync(p => p.OrderNumber.StartsWith("DEMO-COO-PRO-")));
 
         // Cost stamps populated on every order.
         Assert.True(await db.Set<ProductionOrder>()
-            .Where(p => p.OrderNumber.StartsWith("PRO-2026-"))
+            .Where(p => p.OrderNumber.StartsWith("DEMO-COO-PRO-"))
             .AllAsync(p => p.MaterialCost.HasValue && p.LaborCost.HasValue
                            && p.OverheadCost.HasValue && p.ActualCost.HasValue));
     }
