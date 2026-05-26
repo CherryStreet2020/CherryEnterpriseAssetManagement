@@ -1,0 +1,176 @@
+@page "/Admin/PoSnapshotProbe"
+@model Abs.FixedAssets.Pages.Admin.PoSnapshotProbeModel
+@{
+    ViewData["Title"] = "PRO Snapshot Probe";
+    ViewData["TabTitle"] = "PRO Snapshot";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.1 PR-1 (2026-05-26) — admin probe for IPoSnapshotService.
+    Three operations on the per-PO frozen BOM snapshot:
+      • Get — read-only projection (safe to spam).
+      • Capture — freeze source MaterialStructure into snapshot rows
+        (idempotent — re-click returns existing without rewriting).
+      • Clear — admin-only recovery; deletes snapshot + nulls header
+        timestamps so a subsequent Capture can re-freeze.
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">PRO Snapshot Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Per-PO frozen BOM snapshot (Sprint 14.1). Captures the Item revision +
+            every MaterialStructureLine at release so cost rollups, MES
+            material-issue, and AS9100 §8.3 traceability read from a deterministic
+            view instead of the live engineering BOM.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="snapshot-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="snapshot-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Inspect a Production Order snapshot</h2>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ProductionOrderId">Production Order Id</label>
+                    <input type="number" id="ProductionOrderId" name="ProductionOrderId" value="@Model.ProductionOrderId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="CapturedBy">Captured By (optional)</label>
+                    <input type="text" id="CapturedBy" name="CapturedBy" value="@Model.CapturedBy" placeholder="default: current user" class="ds-input" />
+                </div>
+                <div>
+                    <label for="ClearReason">Clear Reason (required for Clear)</label>
+                    <input type="text" id="ClearReason" name="ClearReason" value="@Model.ClearReason" placeholder="e.g. 'captured against stale BOM by mistake'" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" asp-page-handler="Get" class="ds-btn ds-btn--secondary" data-testid="snapshot-btn-get">Get</button>
+                    <button type="submit" asp-page-handler="Capture" class="ds-btn ds-btn--primary" data-testid="snapshot-btn-capture">Capture (idempotent)</button>
+                    <button type="submit" asp-page-handler="Clear" class="ds-btn ds-btn--ghost" data-testid="snapshot-btn-clear">Clear (admin recovery)</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Snapshot is not null && Model.ProductionOrderId > 0)
+    {
+        var s = Model.Snapshot;
+        var hasSnapshot = s.SnapshotCapturedAtUtc.HasValue;
+        <section class="ds-card ds-mt-4" data-testid="snapshot-header-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Snapshot header for PRO @s.ProductionOrderId (@s.OrderNumber)</h2>
+                <dl class="ds-defs">
+                    <dt>Snapshot status</dt>
+                    <dd>
+                        @if (hasSnapshot)
+                        {
+                            <span class="ds-badge ds-badge--success" data-testid="snapshot-status">Captured</span>
+                            <span class="ds-ml-2">@s.SnapshotCapturedAtUtc!.Value.ToString("u") by @(s.SnapshotCapturedBy ?? "—")</span>
+                        }
+                        else
+                        {
+                            <span class="ds-badge ds-badge--neutral" data-testid="snapshot-status">Not captured</span>
+                        }
+                    </dd>
+                    <dt>Source MaterialStructure</dt>
+                    <dd>
+                        @(s.SourceMaterialStructureId?.ToString() ?? "—")
+                        @if (!string.IsNullOrEmpty(s.SourceMaterialStructureRevision))
+                        {
+                            <span>(Rev @s.SourceMaterialStructureRevision)</span>
+                        }
+                    </dd>
+                    <dt>Source Item Revision</dt>
+                    <dd>
+                        @(s.SourceItemRevisionId?.ToString() ?? "—")
+                        @if (!string.IsNullOrEmpty(s.SourceItemRevisionCode))
+                        {
+                            <span>(@s.SourceItemRevisionCode)</span>
+                        }
+                    </dd>
+                    <dt>Snapshot line count</dt>
+                    <dd data-testid="snapshot-line-count">@s.Lines.Count</dd>
+                </dl>
+            </div>
+        </section>
+
+        <section class="ds-card ds-mt-3" data-testid="snapshot-lines-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Frozen BOM lines</h2>
+                @if (s.Lines.Count == 0)
+                {
+                    @if (hasSnapshot)
+                    {
+                        <p class="ds-text-warning"><em>Snapshotted with zero lines. Source MaterialStructure was empty at release.</em></p>
+                    }
+                    else
+                    {
+                        <p class="ds-text-muted"><em>No snapshot. Click <strong>Capture</strong> to freeze the source MaterialStructure.</em></p>
+                    }
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Seq</th>
+                                <th>Child Item</th>
+                                <th>Part Number (frozen)</th>
+                                <th>Rev</th>
+                                <th>Kind</th>
+                                <th>Issue</th>
+                                <th>Qty / Parent</th>
+                                <th>UoM</th>
+                                <th>Scrap %</th>
+                                <th>Phantom</th>
+                                <th>Frozen Std Cost</th>
+                                <th>Frozen Extended</th>
+                                <th>Fingerprint</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in s.Lines)
+                            {
+                                <tr>
+                                    <td>@line.Sequence</td>
+                                    <td>@line.ChildItemId</td>
+                                    <td><code>@line.ChildPartNumber</code></td>
+                                    <td>@(line.ChildRevision ?? "—")</td>
+                                    <td>@line.LineKind</td>
+                                    <td>@line.IssueMethod</td>
+                                    <td>@line.QuantityPer.ToString("0.####")</td>
+                                    <td>@(line.Uom ?? "—")</td>
+                                    <td>@(line.ScrapPercent.HasValue ? line.ScrapPercent.Value.ToString("0.##") + "%" : "—")</td>
+                                    <td>@(line.IsPhantom ? "Yes" : "No")</td>
+                                    <td>@(line.FrozenStandardCost.HasValue ? "$" + line.FrozenStandardCost.Value.ToString("0.0000") : "—")</td>
+                                    <td>@(line.FrozenExtendedCost.HasValue ? "$" + line.FrozenExtendedCost.Value.ToString("0.0000") : "—")</td>
+                                    <td><code title="@line.ChildItemFingerprintHash">@(line.ChildItemFingerprintHash is null ? "—" : line.ChildItemFingerprintHash.Substring(0, System.Math.Min(8, line.ChildItemFingerprintHash.Length)))…</code></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+</main>

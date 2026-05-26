@@ -309,6 +309,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSe
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterReader,
     Abs.FixedAssets.Services.Items.ItemMasterReader>();
 
+// Sprint 14.1 PR-1 (2026-05-26) — IPoSnapshotService.
+// Per-PO frozen BOM snapshot service. Captures Item revision + every
+// MaterialStructureLine into ProductionMaterialStructures at PRO release so
+// the cost engine, MES material-issue, AS9100 §8.3 traceability, and
+// ECR-ECO impact analysis all read from a deterministic per-PO snapshot
+// instead of the live engineering view. Idempotent; admin-only Clear path.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IPoSnapshotService,
+    Abs.FixedAssets.Services.Production.PoSnapshotService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering
