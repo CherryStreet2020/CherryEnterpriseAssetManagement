@@ -275,6 +275,16 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.BackwardSchedulin
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICfoMotionDemoSeeder,
     Abs.FixedAssets.Services.Seeding.CfoMotionDemoSeeder>();
 
+// Sprint 12.8 PR #5c.1 — ICooMotionDemoSeeder. The production-side sibling
+// to ICfoMotionDemoSeeder. Idempotent demo-data seeder that creates the
+// 10-level precision-machining scenario (Locations + CustomerProject +
+// BOMs + Routings + ProductionOrders + ProductionOperations via Release +
+// status mix + backward-schedule) on the seeded PLACEHOLDER tenant
+// (CompanyCode='PWH-CAN'). NO real customer / OEM / program references
+// anywhere. Triggered from /Admin/SeedCooMotionDemo. Lock 14 — dev only.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICooMotionDemoSeeder,
+    Abs.FixedAssets.Services.Seeding.CooMotionDemoSeeder>();
+
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /
 // Skill / LaborRate are catalog config; LaborService writes execution-time
