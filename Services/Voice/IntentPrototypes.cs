@@ -66,5 +66,17 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.ExplainChainOfCustody, "trace this receipt back to its source"),
         new IntentPrototype(IntentKind.ExplainChainOfCustody, "who supplied this item"),
         new IntentPrototype(IntentKind.ExplainChainOfCustody, "walk me through the audit trail"),
+
+        // ExplainChainTrace — Sprint 12.7 PR #3. Controller-side source-to-GL
+        // chain walks. CFO motion: "why is NBV on asset 4231" or "drill down
+        // on JE 47". The vector prototypes cover paraphrasings the keyword
+        // layer might miss (e.g. business-fluent phrasings without the
+        // verbs "trace" / "drill").
+        new IntentPrototype(IntentKind.ExplainChainTrace, "why is the net book value so high on asset 4231"),
+        new IntentPrototype(IntentKind.ExplainChainTrace, "break down how asset 1116 ended up on the books"),
+        new IntentPrototype(IntentKind.ExplainChainTrace, "trace the depreciation expense for this machine"),
+        new IntentPrototype(IntentKind.ExplainChainTrace, "what fed journal entry 47 in the general ledger"),
+        new IntentPrototype(IntentKind.ExplainChainTrace, "where did this asset's cost come from"),
+        new IntentPrototype(IntentKind.ExplainChainTrace, "walk me through the source to general ledger chain"),
     };
 }

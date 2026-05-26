@@ -27,14 +27,17 @@ namespace Abs.FixedAssets.Pages.Controller;
 //
 // Sprint 12.7 PR boundaries:
 //
-//   - PR #1 (THIS): route + shell + 4 tabs + placeholder KPIs + NavRegistry
-//                   entry under Finance group.
-//   - PR #2:        Source-to-GL drilldown service. Walks JournalLine →
-//                   AccountingKey → SourceDocument → upstream via the AGE
-//                   substrate from Sprint 12D. Hydrates the Drilldown tab.
-//   - PR #3:        Voice intent `WhyIsNbv` + LLM narration on the Cherry Bar
-//                   that drives the Drilldown chain when the controller asks
-//                   "why is NBV $X on Asset Y?".
+//   - PR #1 (shipped 5176a1b): route + shell + 4 tabs + placeholder KPIs +
+//                   NavRegistry entry under Finance group.
+//   - PR #2 (shipped 614a738): Source-to-GL drilldown service. Walks
+//                   Asset → CipCapitalization → CipProject → CipCosts and
+//                   JE → reverse-CIP-origin → lines. Hydrates the Drilldown
+//                   tab via _CockpitChainTrace partial.
+//   - PR #3 (THIS): Voice intent `ExplainChainTrace` on the Cherry Bar — the
+//                   CFO motion. Push-to-talk transcripts like "why is NBV on
+//                   asset 4231" / "drill down on JE 47" route through
+//                   IntentClassifier → IControllerCockpitService.TraceAsync,
+//                   then ChainStep.Narration strings narrate aloud via TTS.
 //   - PR #4:        KPI band real-data wire-up: Cash position · AR aging
 //                   · AP aging · open POs · WIP · unrealized gains.
 //   - PR #5:        Demo data + walkthrough page + Republish-with-Copy box.
@@ -346,9 +349,10 @@ public sealed class IndexModel : ControlCenterPageModel
             EntityId     = ControlCenterCode,
             RelatedIds   = baseCtx.RelatedIds,
             FocusedField = baseCtx.FocusedField,
-            // PR #3 (voice intent WhyIsNbv) will read this to scope the
-            // narration to the active tab — e.g. on Drilldown the voice
-            // payload should propose chain-walks, not period-close prompts.
+            // PR #3 (voice intent ExplainChainTrace, shipped) reads this
+            // to scope the narration to the active tab — e.g. on Drilldown
+            // the voice payload should propose chain-walks, not period-close
+            // prompts. The VoiceInvokeEndpoint receives this on every POST.
             Tab          = ActiveTab,
             BuiltAt      = baseCtx.BuiltAt,
         };
