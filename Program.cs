@@ -293,6 +293,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICooMotionDemoSeeder
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
     Abs.FixedAssets.Services.Items.ItemGroupResolver>();
 
+// B6 Foundation Sprint PR-FS-1.5 (2026-05-26) — IItemGroupBackfillSeeder.
+// One-shot bulk-classification of pre-PR-FS-1 Items via IItemGroupResolver
+// convention map. Idempotent (only touches Items where ItemGroupId IS NULL).
+// Triggered from /Admin/BackfillItemGroups. Lock 14 — runs on dev only.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
+    Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
+
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /
 // Skill / LaborRate are catalog config; LaborService writes execution-time
