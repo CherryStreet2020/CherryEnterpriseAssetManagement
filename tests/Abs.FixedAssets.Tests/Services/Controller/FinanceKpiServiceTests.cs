@@ -86,7 +86,7 @@ public class FinanceKpiServiceTests
     [InlineData(0,           "neutral", "$0")]     // empty bucket
     [InlineData(10_000,      "info",    "$10K")]   // info band
     [InlineData(49_999,      "info",    "$50K")]   // just below warning (rounded)
-    [InlineData(50_001,      "warning", "$50.1K")] // entering warning
+    [InlineData(50_100,      "warning", "$50.1K")] // entering warning (>$50K, formatter "0.#" prints one decimal)
     [InlineData(150_000,     "warning", "$150K")]  // middle of warning
     [InlineData(200_001,     "danger",  "$200K")]  // entering danger
     [InlineData(1_500_000,   "danger",  "$1.5M")]  // big danger
@@ -235,6 +235,120 @@ public class FinanceKpiServiceTests
 
         Assert.Equal("$100K", band.WipBalance.Value);
         Assert.Equal("1 active project", band.WipBalance.SubText);
+    }
+
+    // =====================================================================
+    // Codex P1/P2 regression tests — tenant-scoping discipline
+    // =====================================================================
+
+    /// <summary>
+    /// Codex P1 regression — AP due tile MUST filter by CompanyId.
+    /// Without the fix, tenant 2's CFO would see the $999K tenant-3 invoice
+    /// in their AP-due-this-week total + danger tone.
+    /// </summary>
+    [Fact]
+    public async Task ApDueThisWeek_ScopedToCompanyId()
+    {
+        using var db = NewDb();
+        // Tenant 2 — should count ($75K, info tone)
+        db.Set<VendorInvoice>().Add(new VendorInvoice
+        {
+            InvoiceNumber = "INV-T2",
+            VendorId = 1,
+            Status = InvoiceStatus.Approved,
+            DueDate = DateTime.UtcNow.Date.AddDays(3),
+            Total = 75_000m, AmountPaid = 0m,
+            Currency = "USD",
+            CompanyId = 2,
+        });
+        // Tenant 3 — must NOT leak into tenant 2's tile (would push to danger)
+        db.Set<VendorInvoice>().Add(new VendorInvoice
+        {
+            InvoiceNumber = "INV-T3",
+            VendorId = 2,
+            Status = InvoiceStatus.Approved,
+            DueDate = DateTime.UtcNow.Date.AddDays(3),
+            Total = 999_999m, AmountPaid = 0m,
+            Currency = "USD",
+            CompanyId = 3,
+        });
+        await db.SaveChangesAsync();
+
+        var band = await Build(db).GetBandAsync(companyId: 2, CancellationToken.None);
+
+        // Without the fix this would be "$1.1M" / "danger" / "2 invoices"
+        Assert.Equal("$75K", band.ApDueThisWeek.Value);
+        Assert.Equal("warning", band.ApDueThisWeek.Tone);
+        Assert.Equal("1 invoice", band.ApDueThisWeek.SubText);
+    }
+
+    /// <summary>
+    /// Codex P1 regression — Open POs tile MUST filter by CompanyId.
+    /// Without the fix, count + committed total would include every tenant's
+    /// open POs in the active tenant's hero band.
+    /// </summary>
+    [Fact]
+    public async Task OpenPos_ScopedToCompanyId()
+    {
+        using var db = NewDb();
+        // Tenant 2 — should count (1 PO, $50K committed)
+        db.Set<PurchaseOrder>().Add(new PurchaseOrder { PONumber = "PO-T2", VendorId = 1, Status = POStatus.Approved, Total = 50_000m, Currency = "USD", CompanyId = 2 });
+        // Tenant 3 — must NOT leak into tenant 2's tile
+        db.Set<PurchaseOrder>().Add(new PurchaseOrder { PONumber = "PO-T3-A", VendorId = 2, Status = POStatus.Approved,          Total = 200_000m, Currency = "USD", CompanyId = 3 });
+        db.Set<PurchaseOrder>().Add(new PurchaseOrder { PONumber = "PO-T3-B", VendorId = 2, Status = POStatus.Sent,              Total = 300_000m, Currency = "USD", CompanyId = 3 });
+        db.Set<PurchaseOrder>().Add(new PurchaseOrder { PONumber = "PO-T3-C", VendorId = 2, Status = POStatus.PartiallyReceived, Total = 400_000m, Currency = "USD", CompanyId = 3 });
+        await db.SaveChangesAsync();
+
+        var band = await Build(db).GetBandAsync(companyId: 2, CancellationToken.None);
+
+        // Without the fix this would be "4" / "$950K committed"
+        Assert.Equal("1", band.OpenPos.Value);
+        Assert.Contains("50K", band.OpenPos.SubText);
+    }
+
+    /// <summary>
+    /// Codex P2 regression — admin/aggregate view (companyId = null) MUST
+    /// include tenant-specific cash accounts, not just system templates.
+    /// Without the fix, the previous expression collapsed to
+    /// "g.CompanyId == null" when companyId was null, missing every
+    /// tenant override and undercounting cash position.
+    ///
+    /// The companyId=null branch of BuildCashPositionAsync does NOT traverse
+    /// JournalEntry/Book, so this test sets up only the GlAccount + raw
+    /// JournalLines (Account-string match). JournalLines are added directly
+    /// to the DbSet to avoid the InMemory provider's nav-collection-vs-DbSet
+    /// gotcha documented in the Sprint 12.7 PR #2 ship memory.
+    /// </summary>
+    [Fact]
+    public async Task CashPosition_NullCompanyId_IncludesTenantAccounts()
+    {
+        using var db = NewDb();
+
+        // Tenant 2's cash account (CompanyId set) — must be included in
+        // admin aggregate view (companyId = null).
+        db.Set<GlAccount>().Add(new GlAccount
+        {
+            AccountNumber = "1110",
+            Name = "Tenant 2 Operating Cash",
+            Category = GlAccountCategory.CashAndReceivables,
+            NormalBalance = NormalBalance.Debit,
+            IsActive = true,
+            CompanyId = 2,
+        });
+
+        // Two raw JournalLines whose Account matches the tenant's cash
+        // account. Net position = 250K debit − 50K credit = 200K.
+        db.Set<JournalLine>().Add(new JournalLine { Account = "1110", Debit = 250_000m, Credit = 0m });
+        db.Set<JournalLine>().Add(new JournalLine { Account = "1110", Debit = 0m,        Credit = 50_000m });
+        await db.SaveChangesAsync();
+
+        var band = await Build(db).GetBandAsync(companyId: null, CancellationToken.None);
+
+        // Without the fix, Value would be "—" (no system-template accounts exist
+        // and the old expression filtered out tenant-2's account).
+        // With the fix, admin view picks up tenant-2's "1110" → net $200K.
+        Assert.Equal("$200K", band.CashPosition.Value);
+        Assert.Equal("neutral", band.CashPosition.Tone);
     }
 
     // =====================================================================

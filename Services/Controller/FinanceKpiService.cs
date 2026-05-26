@@ -73,14 +73,24 @@ public sealed class FinanceKpiService : IFinanceKpiService
     {
         try
         {
-            // Step 1 — resolve the set of cash account-number strings for
-            // this tenant. GlAccount rows with CompanyId == NULL are system
-            // templates; rows with CompanyId == <companyId> are tenant
-            // overrides. Both count.
+            // Step 1 — resolve the set of cash account-number strings.
+            // GlAccount rows with CompanyId == NULL are system templates;
+            // rows with CompanyId == <id> are tenant overrides.
+            //
+            // When companyId is supplied: include this tenant's accounts +
+            // the system templates.
+            // When companyId is null (admin / aggregate-across-all-companies
+            // view): include EVERY active CashAndReceivables account regardless
+            // of CompanyId. Codex P2 fix — the previous expression
+            // `(g.CompanyId == companyId || g.CompanyId == null)` collapsed
+            // to `g.CompanyId == null` when companyId was null, missing
+            // every tenant-specific cash account and undercounting.
             var cashAccountNumbers = await _db.GlAccounts.AsNoTracking()
                 .Where(g => g.Category == GlAccountCategory.CashAndReceivables
                             && g.IsActive
-                            && (g.CompanyId == companyId || g.CompanyId == null))
+                            && (companyId == null
+                                || g.CompanyId == companyId
+                                || g.CompanyId == null))
                 .Select(g => g.AccountNumber)
                 .Distinct()
                 .ToListAsync(ct);
@@ -159,12 +169,16 @@ public sealed class FinanceKpiService : IFinanceKpiService
                     && i.DueDate <= horizon
                     && i.Total > i.AmountPaid);
 
-            // VendorInvoice doesn't have CompanyId directly in the model we
-            // read (Vendor relationship carries tenancy in some shapes). For
-            // PR #4 we keep the query company-agnostic and rely on the fact
-            // that a tenant's user only sees their own vendor invoices via
-            // the existing /Invoices page filters. Future PR adds explicit
-            // CompanyId on VendorInvoice once the migration lands.
+            // Tenant scoping. Codex P1 fix — VendorInvoice DOES carry
+            // CompanyId directly on the entity (Models/VendorInvoice.cs).
+            // Without this filter a CFO in CompanyId=2 would see AP totals
+            // and tone escalation influenced by every other tenant's
+            // approved invoices, which is both a data-isolation breach and
+            // a wrong number in the hero KPI band.
+            if (companyId.HasValue)
+            {
+                query = query.Where(i => i.CompanyId == companyId.Value);
+            }
 
             var agg = await query
                 .GroupBy(_ => 1)
@@ -231,6 +245,15 @@ public sealed class FinanceKpiService : IFinanceKpiService
 
             var query = _db.Set<PurchaseOrder>().AsNoTracking()
                 .Where(p => openStatuses.Contains(p.Status));
+
+            // Tenant scoping. Codex P1 fix — PurchaseOrder.CompanyId exists
+            // on the entity (Models/PurchaseOrder.cs). Without this filter,
+            // count + committed-total reflect every tenant's open POs and
+            // both numbers are wrong + leak across tenants in the hero band.
+            if (companyId.HasValue)
+            {
+                query = query.Where(p => p.CompanyId == companyId.Value);
+            }
 
             var agg = await query
                 .GroupBy(_ => 1)
