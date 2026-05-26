@@ -127,7 +127,7 @@ public class CrossTenantLeakageTests
             PackQty: null, StockPolicy: StockPolicy.Stock, LastPrice: null, CurrencyCode: null,
             PriceEffectiveDate: null, ContractFlag: false, ContractRef: null,
             StatusLookupValueId: null, CostMethodLookupValueId: null, TrackingTypeLookupValueId: null,
-            StandardCost: null, DefaultLocationId: null);
+            StandardCost: null, DefaultLocationId: null, ItemGroupId: null);
 
         var result = await svc.UpdateItemAsync(req, CancellationToken.None);
 
@@ -158,7 +158,8 @@ public class CrossTenantLeakageTests
             PackQty: null, StockPolicy: StockPolicy.Stock, LastPrice: null, CurrencyCode: null,
             PriceEffectiveDate: null, ContractFlag: false, ContractRef: null,
             StatusLookupValueId: null, CostMethodLookupValueId: null, TrackingTypeLookupValueId: null,
-            StandardCost: null, DefaultLocationId: null);
+            StandardCost: null, DefaultLocationId: null, ItemGroupId: 1,
+            Source: ItemMasterSource.ExternalERP);  // Bypass B6 ItemGroup gate by using ExternalERP source — test asserts cross-tenant scope, not classification
 
         var result = await svc.CreateItemAsync(req, CancellationToken.None);
 

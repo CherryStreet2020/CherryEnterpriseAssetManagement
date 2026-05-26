@@ -285,6 +285,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICfoMotionDemoSeeder
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICooMotionDemoSeeder,
     Abs.FixedAssets.Services.Seeding.CooMotionDemoSeeder>();
 
+// B6 Foundation Sprint PR-FS-1 (2026-05-26) — IItemGroupResolver.
+// Read-side lookup helper that maps (ItemType → default ItemGroup Code → Id)
+// against the SYSTEM ItemGroups seeded by PRA-7. Used by future backfill
+// seeders + bulk-import flows that don't supply ItemGroupId explicitly.
+// Pure read; no tenant context needed (system ItemGroups are CompanyId=NULL).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
+    Abs.FixedAssets.Services.Items.ItemGroupResolver>();
+
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /
 // Skill / LaborRate are catalog config; LaborService writes execution-time

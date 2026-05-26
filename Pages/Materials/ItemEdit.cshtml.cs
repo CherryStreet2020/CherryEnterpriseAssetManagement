@@ -328,7 +328,8 @@ public class ItemEditModel : PageModel
                 CostMethodLookupValueId: costMethodLookupValueId,
                 TrackingTypeLookupValueId: trackingTypeLookupValueId,
                 StandardCost: standardCost,
-                DefaultLocationId: defaultLocationId), HttpContext.RequestAborted);
+                DefaultLocationId: defaultLocationId,
+                ItemGroupId: null), HttpContext.RequestAborted);  // B6 PR-FS-1 — UI dropdown ships in PR-FS-7; nulled here means "preserve"
 
             if (result.IsFailure)
             {
@@ -365,7 +366,9 @@ public class ItemEditModel : PageModel
                 CostMethodLookupValueId: costMethodLookupValueId,
                 TrackingTypeLookupValueId: trackingTypeLookupValueId,
                 StandardCost: standardCost,
-                DefaultLocationId: defaultLocationId), HttpContext.RequestAborted);
+                DefaultLocationId: defaultLocationId,
+                ItemGroupId: 3,                                // B6 PR-FS-1 — default to ItemGroup 'FG' (Id=3) on UI-side create until PR-FS-7 ships the dropdown
+                Source: ItemMasterSource.Internal), HttpContext.RequestAborted);
 
             if (result.IsFailure)
             {

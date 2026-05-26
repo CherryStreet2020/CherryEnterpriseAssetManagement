@@ -123,7 +123,8 @@ public sealed record UpdateItemRequest(
     int? CostMethodLookupValueId,
     int? TrackingTypeLookupValueId,
     decimal? StandardCost,
-    int? DefaultLocationId);
+    int? DefaultLocationId,
+    int? ItemGroupId);                  // B6 PR-FS-1 — ItemGroup classification
 
 /// <summary>Create-new-Item request. Service performs dup-PartNumber guard within tenant scope.</summary>
 public sealed record CreateItemRequest(
@@ -148,7 +149,9 @@ public sealed record CreateItemRequest(
     int? CostMethodLookupValueId,
     int? TrackingTypeLookupValueId,
     decimal? StandardCost,
-    int? DefaultLocationId);
+    int? DefaultLocationId,
+    int? ItemGroupId,                   // B6 PR-FS-1 — ItemGroup classification
+    ItemMasterSource Source = ItemMasterSource.Internal); // Defaults to Internal; rev-control gate triggers when Source=Internal
 
 /// <summary>Save-Draft-revision request.</summary>
 public sealed record SaveRevisionRequest(
