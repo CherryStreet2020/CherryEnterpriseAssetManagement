@@ -324,6 +324,15 @@ namespace Abs.FixedAssets.Models.Production
         [Display(Name = "Captured By")]
         public string? CapturedBy { get; set; }
 
-        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+        // Concurrency token — mapped to Postgres' built-in `xmin` system
+        // column via MapXminRowVersion in AppDbContext (project convention,
+        // see Data/XminRowVersionExtensions.cs). No real DDL column needed
+        // for this — xmin exists on every PG row by default.
+        //
+        // PR-14.1-1.1 hotfix: switched from a bytea + IsRowVersion() column
+        // (which doesn't get auto-populated by Postgres and threw
+        // 23502 NOT NULL violations on every INSERT) to the xmin pattern
+        // used by 17 other entities in the codebase.
+        public byte[]? RowVersion { get; set; }
     }
 }

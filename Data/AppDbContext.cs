@@ -1842,7 +1842,15 @@ namespace Abs.FixedAssets.Data
                 e.Property(x => x.LineKind)
                     .HasDefaultValue(Abs.FixedAssets.Models.Production.LineKind.Component);
 
-                e.Property(x => x.RowVersion).IsRowVersion();
+                // PR-14.1-1.1 hotfix: concurrency via Postgres xmin (project
+                // convention used by 17 other entities — see
+                // Data/XminRowVersionExtensions.cs). The original
+                // `IsRowVersion()` generated a real `bytea NOT NULL` column
+                // that EF excluded from INSERT (rowVersion annotation =
+                // value-generated-on-add) but Postgres doesn't auto-populate
+                // bytea, so every INSERT threw 23502 NOT NULL violation. The
+                // xmin pattern avoids the bytea column entirely.
+                e.MapXminRowVersion(x => x.RowVersion);
 
                 // Deterministic ordering per PO — UNIQUE on (PO, Sequence).
                 e.HasIndex(x => new { x.ProductionOrderId, x.Sequence })
