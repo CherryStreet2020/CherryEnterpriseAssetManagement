@@ -1,0 +1,115 @@
+@page "/Admin/ItemSiteProbe"
+@model Abs.FixedAssets.Pages.Admin.ItemSiteProbeModel
+@{
+    ViewData["Title"] = "Item Site Resolver Probe";
+    ViewData["TabTitle"] = "ItemSite Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-2 (2026-05-26) — admin probe page for
+    IItemSiteResolver. Enter an ItemId + SiteId, see the cascaded
+    effective values. Audit "Source" column shows whether each field
+    resolved from Item or ItemSite.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Item Site Resolver Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Resolve the effective Item attributes for any (Item × Site) combination.
+            Cascade: <code>ItemSite</code> &rarr; <code>Item</code>. SAP MARC equivalent.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="SiteId">Site Id (leave blank for Item-level only)</label>
+                    <input type="number" id="SiteId" name="SiteId" value="@(Model.SiteId?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Resolve Effective Values</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.NotFound)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-warning">
+                    <strong>Item @Model.ItemId not found.</strong> Try a different Item Id.
+                </p>
+            </div>
+        </section>
+    }
+
+    @if (Model.Effective is not null)
+    {
+        var e = Model.Effective;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Effective values for Item @e.ItemId @(e.SiteId.HasValue ? $"@ Site {e.SiteId}" : "(Item-level)")</h2>
+                <p class="ds-text-muted">
+                    Part Number: <code>@e.PartNumber</code> · Description: @e.Description
+                </p>
+
+                <h3 class="ds-h3 ds-mt-3">Cascade results</h3>
+                <table class="ds-table">
+                    <thead>
+                        <tr><th>Field</th><th>Effective value</th><th>Source</th></tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            string SrcOf(string field) => e.OverrideSource.TryGetValue(field, out var s) ? s : "default";
+                            string SrcBadge(string field) => SrcOf(field) == "ItemSite"
+                                ? "<span class=\"ds-badge ds-badge--accent\">ItemSite override</span>"
+                                : "<span class=\"ds-text-muted\">Item</span>";
+                        }
+                        <tr><td>Status</td><td>@e.Status</td><td>@Html.Raw(SrcBadge("Status"))</td></tr>
+                        <tr><td>IsActive</td><td>@e.IsActive</td><td>@Html.Raw(SrcBadge("IsActive"))</td></tr>
+                        <tr><td>Source (provenance)</td><td>@e.Source</td><td><span class="ds-text-muted">Item</span></td></tr>
+                        <tr><td>ItemGroupId</td><td>@(e.ItemGroupId?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("ItemGroupId"))</td></tr>
+                        <tr><td>IsStocked</td><td>@e.IsStocked</td><td>@Html.Raw(SrcBadge("IsStocked"))</td></tr>
+                        <tr><td>IsPurchasable</td><td>@e.IsPurchasable</td><td>@Html.Raw(SrcBadge("IsPurchasable"))</td></tr>
+                        <tr><td>IsCriticalSpare</td><td>@e.IsCriticalSpare</td><td>@Html.Raw(SrcBadge("IsCriticalSpare"))</td></tr>
+                        <tr><td>StockPolicy</td><td>@e.StockPolicy</td><td>@Html.Raw(SrcBadge("StockPolicy"))</td></tr>
+                        <tr><td>ABCClass</td><td>@e.ABCClass</td><td>@Html.Raw(SrcBadge("ABCClass"))</td></tr>
+                        <tr><td>MinQuantity</td><td>@e.MinQuantity</td><td>@Html.Raw(SrcBadge("MinQuantity"))</td></tr>
+                        <tr><td>MaxQuantity</td><td>@e.MaxQuantity</td><td>@Html.Raw(SrcBadge("MaxQuantity"))</td></tr>
+                        <tr><td>ReorderPoint</td><td>@e.ReorderPoint</td><td>@Html.Raw(SrcBadge("ReorderPoint"))</td></tr>
+                        <tr><td>ReorderQuantity</td><td>@e.ReorderQuantity</td><td>@Html.Raw(SrcBadge("ReorderQuantity"))</td></tr>
+                        <tr><td>SafetyStock</td><td>@e.SafetyStock</td><td>@Html.Raw(SrcBadge("SafetyStock"))</td></tr>
+                        <tr><td>EOQ</td><td>@(e.EOQ?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("EOQ"))</td></tr>
+                        <tr><td>LeadTimeDays</td><td>@e.LeadTimeDays</td><td>@Html.Raw(SrcBadge("LeadTimeDays"))</td></tr>
+                        <tr><td>ReorderMethod</td><td>@e.ReorderMethod</td><td>@Html.Raw(SrcBadge("ReorderMethod"))</td></tr>
+                        <tr><td>AutoReorderEnabled</td><td>@e.AutoReorderEnabled</td><td>@Html.Raw(SrcBadge("AutoReorderEnabled"))</td></tr>
+                        <tr><td>CostMethod</td><td>@e.CostMethod</td><td>@Html.Raw(SrcBadge("CostMethod"))</td></tr>
+                        <tr><td>StandardCost</td><td>@e.StandardCost.ToString("C")</td><td>@Html.Raw(SrcBadge("StandardCost"))</td></tr>
+                        <tr><td>AverageCost</td><td>@e.AverageCost.ToString("C")</td><td>@Html.Raw(SrcBadge("AverageCost"))</td></tr>
+                        <tr><td>LastPurchaseCost</td><td>@e.LastPurchaseCost.ToString("C")</td><td>@Html.Raw(SrcBadge("LastPurchaseCost"))</td></tr>
+                        <tr><td>ListPrice</td><td>@(e.ListPrice?.ToString("C") ?? "—")</td><td>@Html.Raw(SrcBadge("ListPrice"))</td></tr>
+                        <tr><td>PreferredVendorId</td><td>@(e.PreferredVendorId?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("PreferredVendorId"))</td></tr>
+                        <tr><td>DefaultBuyerId</td><td>@(e.DefaultBuyerId?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("DefaultBuyerId"))</td></tr>
+                        <tr><td>DefaultLocationId</td><td>@(e.DefaultLocationId?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("DefaultLocationId"))</td></tr>
+                        <tr><td>DefaultWarehouse</td><td>@(e.DefaultWarehouse ?? "—")</td><td>@Html.Raw(SrcBadge("DefaultWarehouse"))</td></tr>
+                        <tr><td>DefaultBin</td><td>@(e.DefaultBin ?? "—")</td><td>@Html.Raw(SrcBadge("DefaultBin"))</td></tr>
+                        <tr><td>TrackingType</td><td>@e.TrackingType</td><td>@Html.Raw(SrcBadge("TrackingType"))</td></tr>
+                        <tr><td>ShelfLifeDays</td><td>@(e.ShelfLifeDays?.ToString() ?? "—")</td><td>@Html.Raw(SrcBadge("ShelfLifeDays"))</td></tr>
+                        <tr><td>IsHazmat</td><td>@e.IsHazmat</td><td>@Html.Raw(SrcBadge("IsHazmat"))</td></tr>
+                        <tr><td>StorageRequirements</td><td>@(e.StorageRequirements ?? "—")</td><td>@Html.Raw(SrcBadge("StorageRequirements"))</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</main>

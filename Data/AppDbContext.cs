@@ -467,6 +467,9 @@ namespace Abs.FixedAssets.Data
         public DbSet<ItemImage> ItemImages => Set<ItemImage>();
         public DbSet<ItemCompanyStocking> ItemCompanyStockings => Set<ItemCompanyStocking>();
 
+        // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site Item override rows.
+        public DbSet<Abs.FixedAssets.Models.Masters.ItemSite> ItemSites => Set<Abs.FixedAssets.Models.Masters.ItemSite>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2245,6 +2248,46 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.DefaultLocationRef)
                     .WithMany()
                     .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site Item overrides
+            // (SAP MARC equivalent). Unique on (TenantId, ItemId, SiteId). Tenant
+            // trio (TenantId, CompanyId, SiteId) per [[reference_bic_entity_checklist]].
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemSite>(e =>
+            {
+                e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId }).IsUnique();
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.SiteId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.ItemGroupId);
+                e.HasIndex(x => x.PreferredVendorId);
+                e.HasIndex(x => x.DefaultLocationId);
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.SiteOverrides)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PreferredVendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.PreferredVendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.DefaultLocationRef)
+                    .WithMany()
+                    .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ItemGroup)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemGroupId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
