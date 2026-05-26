@@ -1,0 +1,127 @@
+@page "/Admin/SeedCooMotionDemo"
+@model Abs.FixedAssets.Pages.Admin.SeedCooMotionDemoModel
+@{
+    ViewData["Title"] = "Seed COO Motion Demo Data";
+    ViewData["TabTitle"] = "Seed COO Demo";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 12.8 PR #5c.1 — admin trigger for CooMotionDemoSeeder (skeleton).
+
+    Creates the 10-level precision-machining scenario for the COO motion
+    walkthrough ON THE DEMO TENANT ONLY (looked up by CompanyCode='PWH-CAN').
+
+    Idempotent — the whole tree is anchored on a single CustomerProject row
+    (Code='DEMO-COO-PROJ-001'). If that project exists, the seeder reports
+    "already seeded" and exits cleanly.
+
+    Lock 14 — runs on dev only. Republish-with-Copy syncs to prod at end
+    of sprint window.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Seed COO Motion Demo Data</h1>
+        <p class="ds-page-header__subtitle">
+            Create a 10-level precision-machining scenario for the COO motion walkthrough.
+            Targets <code>CompanyCode = "PWH-CAN"</code> (the seeded PWH Manufacturing Canada placeholder).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">What this seeder does (skeleton — PR #5c.1)</h2>
+            <ul class="ds-list">
+                <li><strong>Locations</strong> &rarr; creates 2 sites if missing: <code>PWH-CAN-MAIN</code> (primary) and <code>PWH-CAN-NORTH</code> (cross-plant beat).</li>
+                <li><strong>CustomerProject</strong> &rarr; "Precision Bracket Assembly &mdash; Q3 2026 (Demo)" + 4 ProjectPhases (Engineering / Procurement / Production / Delivery).</li>
+                <li><strong>BOMs</strong> &rarr; 10 MaterialStructures, parent BOM with 9 sub-assembly lines, each child BOM with 1-3 component lines.</li>
+                <li><strong>Routings</strong> &rarr; 10 Routings with 3-5 operations each. One <code>OperationType=Subcontract</code> on PRO-2026-1007 (heat-treat at "Heritage Heat Treat (Demo)").</li>
+                <li><strong>ProductionOrders</strong> &rarr; 10 orders (1 parent + 9 children via ADR-028 ParentProductionOrderId FK). 7 at MAIN, last 3 at NORTH. Pre-stamped cost columns: Material / Labor / Overhead / Subcontract / Actual.</li>
+                <li><strong>ProductionOperations</strong> &rarr; snapshotted from Routings via <code>ReleaseFromRoutingAsync</code>. Status mix: 30% Completed / 40% Running+InSetup / 30% Scheduled.</li>
+                <li><strong>Backward schedule</strong> &rarr; calls <code>IBackwardSchedulingService.BackwardScheduleAsync</code> against the parent to stamp Scheduled/Planned dates on children + operations.</li>
+            </ul>
+            <p class="ds-mt-3">
+                <strong>Idempotency anchor:</strong> <code>CustomerProject.Code = "DEMO-COO-PROJ-001"</code>.
+                If a project with this code already exists on the demo tenant, the seeder reports
+                <em>"already seeded"</em> and exits without touching anything.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy syncs to prod at end of sprint window.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Safety:</strong> the seeder verifies <code>Company.Name</code> starts with <code>PWH</code>
+                before any write. If the demo tenant's name has been changed, the seeder refuses to run
+                rather than write demo rows to a non-placeholder tenant.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>What's NOT in this PR:</strong> LaborEntry rows, WorkOrderPart kits, and facility-scoped
+                JournalEntry postings. Those land in PR #5c.2 (lineage deepening).
+            </p>
+
+            <form method="post" class="ds-mt-4">
+                <button type="submit" class="ds-btn ds-btn--primary">Seed COO motion demo data</button>
+                <a asp-page="/CustomerProjects/Index" class="ds-btn ds-btn--secondary ds-ml-2">Open Customer Projects after seeding</a>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Result</h2>
+                <p>
+                    Demo tenant: <strong>@r.CompanyCode</strong> &mdash; @r.CompanyName (CompanyId=@r.CompanyId)
+                </p>
+
+                @if (r.AlreadySeeded)
+                {
+                    <p class="ds-text-warning">
+                        <strong>Already seeded.</strong> A CustomerProject with code <code>DEMO-COO-PROJ-001</code>
+                        already exists on this tenant. No buckets ran. Delete the project (and let cascade
+                        clean up the tree) to reseed.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Total rows created: <strong>@r.TotalRowsCreated</strong>.
+                    </p>
+                    <table class="ds-table">
+                        <thead>
+                            <tr><th>Bucket</th><th class="ds-text-right">Created</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Locations</td><td class="ds-text-right">@r.LocationsCreated</td></tr>
+                            <tr><td>CustomerProjects</td><td class="ds-text-right">@r.CustomerProjectsCreated</td></tr>
+                            <tr><td>ProjectPhases</td><td class="ds-text-right">@r.ProjectPhasesCreated</td></tr>
+                            <tr><td>MaterialStructures (BOMs)</td><td class="ds-text-right">@r.MaterialStructuresCreated</td></tr>
+                            <tr><td>MaterialStructureLines (BOM lines)</td><td class="ds-text-right">@r.MaterialStructureLinesCreated</td></tr>
+                            <tr><td>Routings</td><td class="ds-text-right">@r.RoutingsCreated</td></tr>
+                            <tr><td>RoutingOperations</td><td class="ds-text-right">@r.RoutingOperationsCreated</td></tr>
+                            <tr><td>ProductionOrders</td><td class="ds-text-right">@r.ProductionOrdersCreated</td></tr>
+                            <tr><td>ProductionOperations (released)</td><td class="ds-text-right">@r.ProductionOperationsCreated</td></tr>
+                            <tr><td>Operations w/ status stamped</td><td class="ds-text-right">@r.OperationsStatusStamped</td></tr>
+                            <tr><td>BackwardSchedule operations stamped</td><td class="ds-text-right">@r.BackwardScheduledOperations</td></tr>
+                        </tbody>
+                    </table>
+                }
+
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3">Warnings</h3>
+                    <ul class="ds-list ds-text-warning">
+                        @foreach (var w in r.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>
