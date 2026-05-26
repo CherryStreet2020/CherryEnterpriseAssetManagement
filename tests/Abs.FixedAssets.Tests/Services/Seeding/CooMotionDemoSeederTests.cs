@@ -127,8 +127,8 @@ public class CooMotionDemoSeederTests
             db.Items.Add(new Item
             {
                 Id = i,
-                ItemNumber = $"ITEM-{i:D3}",
-                Name = $"Item {i}",
+                PartNumber = $"ITEM-{i:D3}",
+                Description = $"Item {i}",
                 CompanyId = 100,
                 IsActive = true,
             });
