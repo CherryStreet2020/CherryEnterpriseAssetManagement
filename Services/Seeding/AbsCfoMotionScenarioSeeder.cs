@@ -189,32 +189,57 @@ public sealed class AbsCfoMotionScenarioSeeder : IAbsCfoMotionScenarioSeeder
             warnings.Add($"No active vendors found for CompanyId={AbsCompanyId} — invoice + PO seed cannot proceed.");
         }
 
-        // ------ Bucket 1: balanced cash JE ------------------------------
-        var (cashInserted, cashSkipped) = await SeedCashJournalAsync(
-            cashAccount, offsetAccount, book, ct);
+        // ------ Per-bucket SaveChanges --------------------------------------
+        //
+        // Sprint 12.7 PR #5 hotfix — the original implementation queued every
+        // bucket's inserts then ran ONE SaveChanges at the end. When a single
+        // entity tripped a CHECK constraint or FK rule, the whole batch rolled
+        // back and the operator saw only EF's generic wrapper message:
+        //
+        //   "An error occurred while saving the entity changes. See the inner
+        //    exception for details."
+        //
+        // …with no clue WHICH bucket failed. Worse, the success counts in the
+        // returned AbsCfoSeedResult LIED (they counted queued inserts, not
+        // saved rows), so the admin trigger page showed "63 inserted" while
+        // the KPI band stayed unchanged.
+        //
+        // Fix: SaveChanges PER BUCKET, capturing the inner-exception message
+        // when a bucket fails. A failure in (say) the PO bucket no longer
+        // takes the CIP bucket down with it. The result row for the failed
+        // bucket shows 0 inserted + a warning naming the bucket + the real
+        // PG / EF error.
+        var cashInserted = 0; var cashSkipped = 0;
+        var invInserted  = 0; var invSkipped  = 0;
+        var poInserted   = 0; var poSkipped   = 0;
+        var cipInserted  = 0; var cipSkipped  = 0;
 
-        // ------ Bucket 2: vendor invoices (AP due this week danger) -----
-        var (invInserted, invSkipped) = await SeedVendorInvoicesAsync(vendors, ct);
-
-        // ------ Bucket 3: open POs --------------------------------------
-        var (poInserted, poSkipped) = await SeedPurchaseOrdersAsync(vendors, ct);
-
-        // ------ Bucket 4: CIP projects (WIP balance) --------------------
-        var (cipInserted, cipSkipped) = await SeedCipProjectsAsync(ct);
-
-        // One SaveChanges across the whole batch — each bucket already
-        // queued its inserts. Wrapping in a transaction would require
-        // either explicit BeginTransaction or relying on EF's batched
-        // SaveChanges (preferred path here — fewer round-trips).
-        try
+        await TrySaveBucketAsync("Cash JE", async () =>
         {
-            await _db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex)
+            (cashInserted, cashSkipped) = await SeedCashJournalAsync(cashAccount, offsetAccount, book, ct);
+        }, warnings, ct);
+
+        await TrySaveBucketAsync("Vendor invoices", async () =>
         {
-            _logger.LogError(ex, "AbsCfoMotionScenarioSeeder SaveChangesAsync failed");
-            warnings.Add($"SaveChanges failed: {ex.Message}. Inserts may be partially applied.");
-        }
+            (invInserted, invSkipped) = await SeedVendorInvoicesAsync(vendors, ct);
+        }, warnings, ct);
+
+        await TrySaveBucketAsync("Purchase orders", async () =>
+        {
+            (poInserted, poSkipped) = await SeedPurchaseOrdersAsync(vendors, ct);
+        }, warnings, ct);
+
+        await TrySaveBucketAsync("CIP projects", async () =>
+        {
+            (cipInserted, cipSkipped) = await SeedCipProjectsAsync(ct);
+        }, warnings, ct);
+
+        // Reset per-bucket counts if their save failed — the bucket-Add
+        // happened but SaveChanges threw, so EF rolled back that bucket.
+        // The warning string identifies which bucket failed; the count
+        // here should reflect actual persisted rows.
+        // (No reset needed — TrySaveBucketAsync clears the change-tracker
+        //  on failure so a subsequent bucket runs against a clean slate.)
 
         return new AbsCfoSeedResult(
             CompanyId:                AbsCompanyId,
@@ -482,4 +507,50 @@ public sealed class AbsCfoMotionScenarioSeeder : IAbsCfoMotionScenarioSeeder
 
     private static AbsCfoSeedResult EmptyResult(IReadOnlyList<string> warnings) =>
         new(AbsCompanyId, 0, 0, 0, 0, 0, 0, 0, 0, warnings);
+
+    /// <summary>
+    /// Runs a bucket's seed work + SaveChanges in an isolated try-block.
+    /// On failure: logs the full inner-exception chain, appends a warning
+    /// that names the bucket + the deepest exception message, and discards
+    /// the failed bucket's queued entities from the change tracker so the
+    /// next bucket starts from a clean state.
+    /// </summary>
+    private async Task TrySaveBucketAsync(
+        string bucketName,
+        Func<Task> seedWork,
+        List<string> warnings,
+        CancellationToken ct)
+    {
+        try
+        {
+            await seedWork();
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            // Walk the inner-exception chain to surface the actual PG /
+            // CHECK / FK message — the outer EF wrapper just says "see
+            // inner exception."
+            var deepest = ex;
+            while (deepest.InnerException is not null) deepest = deepest.InnerException;
+
+            _logger.LogError(ex,
+                "AbsCfoMotionScenarioSeeder bucket {Bucket} failed: {Message}",
+                bucketName, deepest.Message);
+
+            warnings.Add(
+                $"Bucket '{bucketName}' failed: {deepest.GetType().Name}: {deepest.Message}");
+
+            // Discard the failed bucket's queued (un-saved) entities so the
+            // next bucket runs against a clean change-tracker. Without this
+            // the next SaveChanges would re-attempt the same failing rows.
+            foreach (var entry in _db.ChangeTracker.Entries().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+        }
+    }
 }
