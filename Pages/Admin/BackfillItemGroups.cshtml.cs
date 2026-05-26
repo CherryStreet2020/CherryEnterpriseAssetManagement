@@ -33,7 +33,7 @@ public sealed class BackfillItemGroupsModel : PageModel
     public async Task<IActionResult> OnPostAsync(bool reclassify, CancellationToken ct)
     {
         var mode = reclassify
-            ? ItemGroupBackfillMode.Reclassify
+            ? ItemGroupBackfillMode.ReclassifyLegacyBugRows
             : ItemGroupBackfillMode.FillNullsOnly;
 
         _logger.LogInformation(

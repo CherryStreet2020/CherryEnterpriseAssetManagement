@@ -173,12 +173,12 @@ public class ItemGroupBackfillSeederTests
     }
 
     [Fact]
-    public async Task Reclassify_Walks_All_Items_And_Updates_On_Change_Only()
+    public async Task ReclassifyLegacyBugRows_Moves_Bug_Pattern_Items_Only()
     {
         // PR-FS-1.5.1 hotfix scenario — 3 Items currently classified to FG via the
-        // PR-FS-1.5 bug. After flipping their Source to ExternalERP, Reclassify
-        // should move them FG → RAW. A 4th Item that's correctly classified must
-        // be left alone.
+        // PR-FS-1.5 bug. After flipping their Source to ExternalERP, the
+        // ReclassifyLegacyBugRows mode should move them FG → RAW. A 4th Item that's
+        // correctly classified must be left alone.
         await using var db = NewDb();
         await SeedSystemItemGroupsAsync(db);
 
@@ -190,9 +190,9 @@ public class ItemGroupBackfillSeederTests
         await db.SaveChangesAsync();
 
         var seeder = NewSeeder(db);
-        var result = await seeder.BackfillAsync(ItemGroupBackfillMode.Reclassify, CancellationToken.None);
+        var result = await seeder.BackfillAsync(ItemGroupBackfillMode.ReclassifyLegacyBugRows, CancellationToken.None);
 
-        Assert.Equal(ItemGroupBackfillMode.Reclassify, result.Mode);
+        Assert.Equal(ItemGroupBackfillMode.ReclassifyLegacyBugRows, result.Mode);
         Assert.Equal(4, result.TotalItemsScanned);
         Assert.Equal(3, result.ItemsReclassified);
         Assert.Equal(1, result.ItemsUnchanged);
@@ -207,6 +207,47 @@ public class ItemGroupBackfillSeederTests
         Assert.Equal(RawId,     fresh[1].ItemGroupId);
         Assert.Equal(RawId,     fresh[2].ItemGroupId);
         Assert.Equal(ToolingId, fresh[3].ItemGroupId);
+    }
+
+    [Fact]
+    public async Task ReclassifyLegacyBugRows_Preserves_Operator_Set_Classifications()
+    {
+        // Codex P1 #2 regression guard — the SCOPED Reclassify mode must NEVER
+        // overwrite intentional operator-set classifications that fall outside
+        // the bug fingerprint. The fingerprint is:
+        //   Type IN (Part, Kit) AND Source IN (ExternalERP, Synced) AND ItemGroupId == FG
+        // Any row that does NOT match (different Type, different Source, or
+        // different ItemGroup) is left alone — including operator-set FG.
+        await using var db = NewDb();
+        await SeedSystemItemGroupsAsync(db);
+
+        db.Items.AddRange(
+            // Operator intent #1 — Internal FG (truly sellable internal item).
+            // Source=Internal → does NOT match the post-SourceBackfill fingerprint.
+            new Item { Id = 1, PartNumber = "OP-INT-FG",    Description = "Operator-set: Internal sellable FG",       StockUOM = "EA", Type = ItemType.Part, Source = ItemMasterSource.Internal,    ItemGroupId = FgId },
+            // Operator intent #2 — External Part explicitly set to SPAREPART (not FG).
+            // Doesn't match because ItemGroupId != FG.
+            new Item { Id = 2, PartNumber = "OP-EXT-SPARE", Description = "Operator-set: spare-part flag overridden", StockUOM = "EA", Type = ItemType.Part, Source = ItemMasterSource.ExternalERP, ItemGroupId = SpareId },
+            // Operator intent #3 — Tool explicitly set to FG (unusual but allowed).
+            // Doesn't match because Type != Part|Kit.
+            new Item { Id = 3, PartNumber = "OP-TOOL-FG",   Description = "Operator-set: Tool classified as FG",      StockUOM = "EA", Type = ItemType.Tool, Source = ItemMasterSource.ExternalERP, ItemGroupId = FgId },
+            // Bug-fingerprint row — should be the only one touched.
+            new Item { Id = 4, PartNumber = "BUG-MATCH",    Description = "Legacy bug fingerprint",                   StockUOM = "EA", Type = ItemType.Part, Source = ItemMasterSource.ExternalERP, ItemGroupId = FgId });
+        await db.SaveChangesAsync();
+
+        var seeder = NewSeeder(db);
+        var result = await seeder.BackfillAsync(ItemGroupBackfillMode.ReclassifyLegacyBugRows, CancellationToken.None);
+
+        Assert.Equal(1, result.ItemsReclassified);
+        Assert.Single(result.ReclassifyChanges);
+        Assert.Equal("BUG-MATCH", result.ReclassifyChanges[0].PartNumber);
+
+        // Verify operator intent preserved.
+        var fresh = await db.Items.OrderBy(i => i.Id).ToListAsync();
+        Assert.Equal(FgId,    fresh[0].ItemGroupId);   // Operator-set Internal FG preserved
+        Assert.Equal(SpareId, fresh[1].ItemGroupId);   // Operator-set SPAREPART preserved
+        Assert.Equal(FgId,    fresh[2].ItemGroupId);   // Operator-set Tool→FG preserved
+        Assert.Equal(RawId,   fresh[3].ItemGroupId);   // Bug row moved FG → RAW
     }
 
     [Fact]
@@ -228,7 +269,7 @@ public class ItemGroupBackfillSeederTests
         await db.SaveChangesAsync();
 
         var seeder = NewSeeder(db);
-        var result = await seeder.BackfillAsync(ItemGroupBackfillMode.Reclassify, CancellationToken.None);
+        var result = await seeder.BackfillAsync(ItemGroupBackfillMode.ReclassifyLegacyBugRows, CancellationToken.None);
 
         Assert.Single(result.ReclassifyChanges);
         var change = result.ReclassifyChanges[0];
@@ -251,10 +292,10 @@ public class ItemGroupBackfillSeederTests
 
         var seeder = NewSeeder(db);
 
-        var first = await seeder.BackfillAsync(ItemGroupBackfillMode.Reclassify, CancellationToken.None);
+        var first = await seeder.BackfillAsync(ItemGroupBackfillMode.ReclassifyLegacyBugRows, CancellationToken.None);
         Assert.Equal(1, first.ItemsReclassified);  // Just Item #1: FG → RAW
 
-        var second = await seeder.BackfillAsync(ItemGroupBackfillMode.Reclassify, CancellationToken.None);
+        var second = await seeder.BackfillAsync(ItemGroupBackfillMode.ReclassifyLegacyBugRows, CancellationToken.None);
         Assert.Equal(0, second.ItemsReclassified);
         Assert.Equal(2, second.ItemsUnchanged);
         Assert.Empty(second.ReclassifyChanges);

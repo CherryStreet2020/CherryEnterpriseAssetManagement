@@ -57,11 +57,20 @@ public sealed class ItemSourceBackfillSeeder : IItemSourceBackfillSeeder
                 Warnings: warnings);
         }
 
-        // The legacy-bug fingerprint: Source=Internal AND ItemGroupId=FG.Id.
-        // This is the bounded signal — only Items hit by PR-FS-1.5's buggy
-        // Part→FG convention can match.
+        // The legacy-bug fingerprint:
+        //   Type=Part OR Kit   (only Part/Kit had the buggy default — Tools,
+        //                       Fasteners, etc. routed through their own
+        //                       convention branches and never hit the FG bug)
+        //   AND Source=Internal
+        //   AND ItemGroupId=FG.Id
+        //
+        // Restricting to Type=Part|Kit (Codex P1) is what makes this seeder
+        // safe even if an operator has explicitly set ItemGroupId=FG on some
+        // OTHER Item type — those would not be flipped.
         var legacy = await _db.Items
-            .Where(i => i.Source == ItemMasterSource.Internal && i.ItemGroupId == fgId.Value)
+            .Where(i => (i.Type == ItemType.Part || i.Type == ItemType.Kit)
+                     && i.Source == ItemMasterSource.Internal
+                     && i.ItemGroupId == fgId.Value)
             .ToListAsync(ct);
 
         var changes = new List<ItemSourceBackfillChange>(legacy.Count);

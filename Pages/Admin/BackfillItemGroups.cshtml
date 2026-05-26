@@ -54,8 +54,13 @@
                 <code>ItemGroupId IS NULL</code>. Re-running is safe.
             </p>
             <p class="ds-text-muted ds-mt-2">
-                <strong>Reclassify idempotency:</strong> only writes Items whose resolved
-                group changed. Re-running with no upstream changes is a no-op.
+                <strong>ReclassifyLegacyBugRows idempotency:</strong> only walks Items
+                matching the legacy-bug fingerprint
+                (<code>Type IN (Part, Kit) AND Source IN (ExternalERP, Synced) AND
+                ItemGroupId == FG</code>). Operator-set classifications on other
+                Item types or other ItemGroup buckets are <strong>never</strong>
+                touched. Idempotent — re-running matches zero rows after the first
+                sweep.
             </p>
             <p class="ds-text-muted ds-mt-2">
                 <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy syncs to prod.
@@ -65,7 +70,7 @@
                 <div class="ds-mb-3">
                     <label class="ds-checkbox">
                         <input type="checkbox" name="Reclassify" value="true" />
-                        <span>Reclassify mode (PR-FS-1.5.1 hotfix sweep) — walk every Item, update only on change.</span>
+                        <span>ReclassifyLegacyBugRows (PR-FS-1.5.1 hotfix sweep) — scope to legacy-bug fingerprint only, never touch operator-set classifications.</span>
                     </label>
                 </div>
                 <button type="submit" class="ds-btn ds-btn--primary">Backfill Item Groups</button>
@@ -81,7 +86,7 @@
         <section class="ds-card ds-mt-4">
             <div class="ds-card__body">
                 <h2 class="ds-h2">Result (@r.Mode)</h2>
-                @if (r.Mode == Abs.FixedAssets.Services.Seeding.ItemGroupBackfillMode.Reclassify)
+                @if (r.Mode == Abs.FixedAssets.Services.Seeding.ItemGroupBackfillMode.ReclassifyLegacyBugRows)
                 {
                     <p>
                         Items scanned: <strong>@r.TotalItemsScanned</strong> &middot;

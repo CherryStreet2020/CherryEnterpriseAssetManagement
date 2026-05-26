@@ -48,12 +48,22 @@ public enum ItemGroupBackfillMode
     FillNullsOnly = 0,
 
     /// <summary>
-    /// Walk every Item and re-resolve classification per the latest
-    /// convention map. Update Items whose resolved group differs from
-    /// their current <c>ItemGroupId</c>. Used by the PR-FS-1.5.1 hotfix
-    /// sweep.
+    /// SCOPED reclassification — only touch Items matching the PR-FS-1.5
+    /// legacy-bug fingerprint:
+    ///   <c>Type IN (Part, Kit)</c>
+    ///   AND <c>Source IN (ExternalERP, Synced)</c>
+    ///   AND <c>ItemGroupId == FG</c>
+    /// Walks the bug-pattern rows and re-resolves via the new Source-aware
+    /// convention. Operator-set intentional classifications on other Item
+    /// types or other ItemGroup buckets are NEVER touched. This is the
+    /// scope for the PR-FS-1.5.1 hotfix sweep — safe by construction.
+    ///
+    /// (Codex P1 fix on PR #357: the original "unrestricted Reclassify"
+    /// mode would have overwritten operator-set classifications when the
+    /// resolver default differed from the current value. Restricted scope
+    /// eliminates that hazard.)
     /// </summary>
-    Reclassify = 1,
+    ReclassifyLegacyBugRows = 1,
 }
 
 public interface IItemGroupBackfillSeeder

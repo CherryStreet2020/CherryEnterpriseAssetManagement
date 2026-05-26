@@ -178,6 +178,41 @@ public class ItemSourceBackfillSeederTests
     }
 
     [Fact]
+    public async Task Backfill_Restricts_To_Part_And_Kit_Types_Only()
+    {
+        // Codex P1 #1 regression guard — the source flip MUST restrict to
+        // Type IN (Part, Kit). Other Internal+FG rows (Tool, Consumable, etc.)
+        // are not affected by the PR-FS-1.5 bug and must NEVER be touched.
+        await using var db = NewDb();
+        await SeedSystemItemGroupsAsync(db);
+
+        db.Items.AddRange(
+            // Bug-fingerprint matches (Part / Kit + Internal + FG).
+            new Item { Id = 1, PartNumber = "PART-FG", Description = "Part legacy bug",  StockUOM = "EA", Type = ItemType.Part, Source = ItemMasterSource.Internal, ItemGroupId = FgId },
+            new Item { Id = 2, PartNumber = "KIT-FG",  Description = "Kit legacy bug",   StockUOM = "EA", Type = ItemType.Kit,  Source = ItemMasterSource.Internal, ItemGroupId = FgId },
+            // Non-Part/Kit operator-set Internal+FG rows (must NOT be flipped).
+            new Item { Id = 3, PartNumber = "TOOL-FG", Description = "Operator-set Tool→FG",        StockUOM = "EA", Type = ItemType.Tool,       Source = ItemMasterSource.Internal, ItemGroupId = FgId },
+            new Item { Id = 4, PartNumber = "CONS-FG", Description = "Operator-set Consumable→FG", StockUOM = "EA", Type = ItemType.Consumable, Source = ItemMasterSource.Internal, ItemGroupId = FgId },
+            new Item { Id = 5, PartNumber = "SERV-FG", Description = "Operator-set Service→FG",    StockUOM = "EA", Type = ItemType.Service,    Source = ItemMasterSource.Internal, ItemGroupId = FgId });
+        await db.SaveChangesAsync();
+
+        var seeder = NewSeeder(db);
+        var result = await seeder.BackfillAsync(CancellationToken.None);
+
+        Assert.Equal(5, result.TotalItemsScanned);
+        Assert.Equal(2, result.ItemsFlipped);     // Only PART-FG + KIT-FG flipped
+        Assert.Equal(2, result.Changes.Count);
+
+        // Verify DB state — only Part/Kit flipped, others untouched.
+        var fresh = await db.Items.OrderBy(i => i.Id).ToListAsync();
+        Assert.Equal(ItemMasterSource.ExternalERP, fresh[0].Source);  // PART-FG flipped
+        Assert.Equal(ItemMasterSource.ExternalERP, fresh[1].Source);  // KIT-FG  flipped
+        Assert.Equal(ItemMasterSource.Internal,    fresh[2].Source);  // TOOL-FG preserved
+        Assert.Equal(ItemMasterSource.Internal,    fresh[3].Source);  // CONS-FG preserved
+        Assert.Equal(ItemMasterSource.Internal,    fresh[4].Source);  // SERV-FG preserved
+    }
+
+    [Fact]
     public async Task Backfill_Without_System_FG_Returns_Zero_Op_With_Warning()
     {
         await using var db = NewDb();

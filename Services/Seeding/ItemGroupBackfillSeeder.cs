@@ -50,8 +50,8 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
 
         return mode switch
         {
-            ItemGroupBackfillMode.FillNullsOnly => await FillNullsAsync(totalScanned, codeById, warnings, ct),
-            ItemGroupBackfillMode.Reclassify    => await ReclassifyAsync(totalScanned, codeById, warnings, ct),
+            ItemGroupBackfillMode.FillNullsOnly           => await FillNullsAsync(totalScanned, codeById, warnings, ct),
+            ItemGroupBackfillMode.ReclassifyLegacyBugRows => await ReclassifyLegacyBugRowsAsync(totalScanned, codeById, warnings, ct),
             _ => throw new System.ArgumentOutOfRangeException(nameof(mode), mode, "Unknown ItemGroupBackfillMode"),
         };
     }
@@ -126,35 +126,74 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
             Mode: ItemGroupBackfillMode.FillNullsOnly);
     }
 
-    private async Task<ItemGroupBackfillResult> ReclassifyAsync(
+    private async Task<ItemGroupBackfillResult> ReclassifyLegacyBugRowsAsync(
         int totalScanned,
         IReadOnlyDictionary<int, string> codeById,
         List<string> warnings,
         CancellationToken ct)
     {
-        // PR-FS-1.5.1 — walk every Item, re-resolve, update only on change.
+        // PR-FS-1.5.1 — SCOPED reclassification. Only walk Items matching the
+        // legacy-bug fingerprint after the SourceBackfill flip:
+        //   Type IN (Part, Kit)
+        //   AND Source IN (ExternalERP, Synced)
+        //   AND ItemGroupId == FG
+        //
+        // (Codex P1 fix on PR #357: an unrestricted reclassify would
+        // overwrite intentional operator-set classifications. The bug
+        // fingerprint scopes the candidate set to ONLY the rows hit by
+        // PR-FS-1.5's Part→FG default, post-SourceBackfill. Operator-set
+        // FG rows where Source is still Internal are untouched, as are
+        // any non-FG rows.)
+        var fgId = await _resolver.ResolveByCodeAsync("FG", ct);
+        if (!fgId.HasValue)
+        {
+            warnings.Add("System ItemGroup 'FG' not found — cannot identify legacy-bug Items. Aborting with zero-op result.");
+            _logger.LogWarning("ItemGroupBackfillSeeder (ReclassifyLegacyBugRows): system 'FG' ItemGroup not seeded — bailing out.");
+            return new ItemGroupBackfillResult(
+                TotalItemsScanned: totalScanned,
+                ItemsClassified: 0,
+                ItemsAlreadyClassified: 0,
+                ItemsSkippedNoMapping: 0,
+                PerItemGroupClassified: new Dictionary<string, int>(),
+                SkippedItemIds: new List<int>(),
+                Warnings: warnings,
+                ReclassifyChanges: new List<ItemGroupReclassifyChange>(),
+                ItemsReclassified: 0,
+                ItemsUnchanged: totalScanned,
+                Mode: ItemGroupBackfillMode.ReclassifyLegacyBugRows);
+        }
+
         // Tracked load so EF tracks the per-row mutations.
-        var allItems = await _db.Items.ToListAsync(ct);
+        var candidates = await _db.Items
+            .Where(i => (i.Type == ItemType.Part || i.Type == ItemType.Kit)
+                     && (i.Source == ItemMasterSource.ExternalERP || i.Source == ItemMasterSource.Synced)
+                     && i.ItemGroupId == fgId.Value)
+            .ToListAsync(ct);
 
         var perGroup = new Dictionary<string, int>();
         var skipped = new List<int>();
         var changes = new List<ItemGroupReclassifyChange>();
         var classified = 0;
-        var unchanged = 0;
+        // Bug-pattern rows that already resolve to FG (zero in practice, since
+        // the bug fingerprint guarantees they CURRENTLY have FG but the resolver
+        // would never default Part+External → FG) — counted as unchanged anyway.
+        var unchanged = totalScanned - candidates.Count;
 
-        foreach (var item in allItems)
+        foreach (var item in candidates)
         {
             var resolvedId = await _resolver.ResolveDefaultForItemAsync(item.Type, item.Source, ct);
             if (!resolvedId.HasValue)
             {
                 skipped.Add(item.Id);
                 _logger.LogWarning(
-                    "ItemGroupBackfillSeeder (Reclassify): skipped Item {ItemId} ({PartNumber}, Type={Type}, Source={Source}) — no convention-matched ItemGroup.",
+                    "ItemGroupBackfillSeeder (ReclassifyLegacyBugRows): skipped Item {ItemId} ({PartNumber}, Type={Type}, Source={Source}) — no convention-matched ItemGroup.",
                     item.Id, item.PartNumber, item.Type, item.Source);
                 continue;
             }
 
-            // Already-correct → leave alone.
+            // Already-correct → leave alone. (Defensive — for the bug fingerprint
+            // candidate set, resolvedId should never equal FgId, but the guard
+            // makes the seeder idempotent under any DB state.)
             if (item.ItemGroupId == resolvedId.Value)
             {
                 unchanged++;
@@ -180,8 +219,8 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation(
-            "ItemGroupBackfillSeeder (Reclassify) finished — scanned {Total}, reclassified {Reclassified}, unchanged {Unchanged}, skipped {Skipped}.",
-            totalScanned, classified, unchanged, skipped.Count);
+            "ItemGroupBackfillSeeder (ReclassifyLegacyBugRows) finished — scanned {Total}, candidates {Candidates}, reclassified {Reclassified}, unchanged {Unchanged}, skipped {Skipped}.",
+            totalScanned, candidates.Count, classified, unchanged, skipped.Count);
 
         return new ItemGroupBackfillResult(
             TotalItemsScanned: totalScanned,
@@ -194,6 +233,6 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
             ReclassifyChanges: changes,
             ItemsReclassified: classified,
             ItemsUnchanged: unchanged,
-            Mode: ItemGroupBackfillMode.Reclassify);
+            Mode: ItemGroupBackfillMode.ReclassifyLegacyBugRows);
     }
 }
