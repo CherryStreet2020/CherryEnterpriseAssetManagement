@@ -1,0 +1,114 @@
+@page "/Admin/BackfillItemGroups"
+@model Abs.FixedAssets.Pages.Admin.BackfillItemGroupsModel
+@{
+    ViewData["Title"] = "Backfill Item Groups";
+    ViewData["TabTitle"] = "Backfill ItemGroups";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-1.5 (2026-05-26) — admin trigger for
+    ItemGroupBackfillSeeder. Bulk-classifies the 151 pre-PR-FS-1 dev Items
+    via IItemGroupResolver convention map. Idempotent; re-running is safe.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Backfill Item Groups</h1>
+        <p class="ds-page-header__subtitle">
+            Bulk-classify pre-PR-FS-1 Items into ItemGroups via the
+            <code>IItemGroupResolver</code> convention map. Idempotent.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">What this seeder does</h2>
+            <p>
+                Walks every Item where <code>ItemGroupId IS NULL</code> and maps
+                <code>Item.Type</code> to a default <code>ItemGroup.Code</code> via the
+                convention table established in PR-FS-1:
+            </p>
+            <ul class="ds-list">
+                <li><code>Part / Kit</code> &rarr; <code>FG</code></li>
+                <li><code>Tool</code> &rarr; <code>TOOLING</code></li>
+                <li><code>Fastener</code> &rarr; <code>RAW</code></li>
+                <li><code>Electrical / Mechanical / Hydraulic / Pneumatic / Bearing</code> &rarr; <code>SPAREPART</code></li>
+                <li><code>Consumable / Safety / Lubricant / Chemical / Filter / Belt / Seal</code> &rarr; <code>CONSUMABLE</code></li>
+                <li><code>Service</code> &rarr; <code>SERVICE</code></li>
+            </ul>
+            <p class="ds-text-muted ds-mt-3">
+                <strong>Idempotency:</strong> only touches Items where <code>ItemGroupId IS NULL</code>.
+                Re-running is safe.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy syncs the
+                classification to prod when the Foundation Sprint closes.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Skip rule:</strong> Items whose Type has no convention-matched
+                ItemGroup will be listed in the result's Skipped section. Classify those
+                manually before the next sweep.
+            </p>
+
+            <form method="post" class="ds-mt-4">
+                <button type="submit" class="ds-btn ds-btn--primary">Backfill Item Groups</button>
+                <a asp-page="/Materials/Items" class="ds-btn ds-btn--secondary ds-ml-2">Open Items list after backfill</a>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Result</h2>
+                <p>
+                    Items scanned: <strong>@r.TotalItemsScanned</strong> &middot;
+                    classified: <strong>@r.ItemsClassified</strong> &middot;
+                    already-classified: <strong>@r.ItemsAlreadyClassified</strong> &middot;
+                    skipped (no mapping): <strong>@r.ItemsSkippedNoMapping</strong>
+                </p>
+
+                @if (r.PerItemGroupClassified.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3">Per ItemGroup classified</h3>
+                    <table class="ds-table">
+                        <thead>
+                            <tr><th>ItemGroup Code</th><th class="ds-text-right">Classified</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var kv in r.PerItemGroupClassified)
+                            {
+                                <tr><td><code>@kv.Key</code></td><td class="ds-text-right">@kv.Value</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (r.SkippedItemIds.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3 ds-text-warning">Skipped Item Ids (no mapping)</h3>
+                    <p class="ds-text-muted">
+                        These Items must be classified manually. Item Type has no convention-matched ItemGroup.
+                    </p>
+                    <code>@string.Join(", ", r.SkippedItemIds)</code>
+                }
+
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3 ds-text-warning">Warnings</h3>
+                    <ul class="ds-list ds-text-warning">
+                        @foreach (var w in r.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>
