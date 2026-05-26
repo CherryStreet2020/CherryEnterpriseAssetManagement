@@ -297,8 +297,19 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 // One-shot bulk-classification of pre-PR-FS-1 Items via IItemGroupResolver
 // convention map. Idempotent (only touches Items where ItemGroupId IS NULL).
 // Triggered from /Admin/BackfillItemGroups. Lock 14 — runs on dev only.
+// HOTFIX PR-FS-1.5.1 (2026-05-26): seeder now supports Reclassify mode
+// alongside FillNullsOnly for the post-Source-flip sweep.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
+
+// B6 Foundation Sprint PR-FS-1.5.1 (2026-05-26) — IItemSourceBackfillSeeder.
+// One-time data fix that flips Items with Source=Internal AND ItemGroupId=FG
+// (the legacy-bug fingerprint from PR-FS-1.5) to Source=ExternalERP, so the
+// subsequent ItemGroupBackfill Reclassify sweep moves them FG → RAW per the
+// new Source-aware convention. Bounded by the legacy-bug signal so it can
+// safely run on any DB. Triggered from /Admin/BackfillItemSource. Lock 14.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemSourceBackfillSeeder,
+    Abs.FixedAssets.Services.Seeding.ItemSourceBackfillSeeder>();
 
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /

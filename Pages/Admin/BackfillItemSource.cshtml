@@ -1,0 +1,126 @@
+@page "/Admin/BackfillItemSource"
+@model Abs.FixedAssets.Pages.Admin.BackfillItemSourceModel
+@{
+    ViewData["Title"] = "Backfill Item Source";
+    ViewData["TabTitle"] = "Backfill Item Source";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-1.5.1 (2026-05-26) — admin trigger for
+    ItemSourceBackfillSeeder. One-time data fix that flips legacy
+    Source=Internal AND ItemGroupId=FG rows to Source=ExternalERP, so the
+    subsequent ItemGroupBackfill Reclassify sweep moves them FG → RAW per
+    the new Source-aware convention. Bounded + idempotent.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Backfill Item Source</h1>
+        <p class="ds-page-header__subtitle">
+            One-time data fix for legacy <code>Source=Internal &amp;&amp; ItemGroupId=FG</code>
+            rows. Flips them to <code>Source=ExternalERP</code>. Bounded, idempotent.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">What this seeder does</h2>
+            <p>
+                PR-FS-1.5 (the prior ship) backfilled <code>ItemGroupId</code> for the 151
+                pre-PR-FS-1 dev Items using the original PR-FS-1 convention map, which
+                wrongly defaulted <code>Part &rarr; FG</code>. PR-FS-1.5.1 fixed the resolver:
+                <code>Part + Source=ExternalERP &rarr; RAW</code>,
+                <code>Part + Source=Internal &rarr; SUBASSY</code>.
+            </p>
+            <p>
+                But the 151 legacy Items still carry <code>Source=Internal</code> by enum
+                default. Without this seeder, the subsequent ItemGroupBackfill Reclassify
+                sweep would move them <code>FG &rarr; SUBASSY</code> — wrong, since Dean
+                confirmed they're purchased parts and should land in <code>RAW</code>.
+            </p>
+            <p>
+                <strong>Signal (bounded):</strong>
+                <code>Source = Internal</code> AND <code>ItemGroupId = FG.Id</code>.
+                This unique fingerprint only matches Items hit by the PR-FS-1.5 bug. Items
+                explicitly classified to FG by an operator at create time would still
+                match — but operators creating Internal FG items is a valid intentional
+                action that this seeder treats as a re-tag candidate. Run the
+                ItemGroupBackfill Reclassify sweep next; truly intentional FGs will need
+                their ItemGroupId set back to FG after PR-FS-7's IsSellable lands.
+            </p>
+            <p class="ds-text-muted ds-mt-3">
+                <strong>Idempotency:</strong> matches zero Items on a clean DB.
+                Re-running is safe.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy syncs the
+                source flip to prod when the Foundation Sprint closes.
+            </p>
+
+            <form method="post" class="ds-mt-4">
+                <button type="submit" class="ds-btn ds-btn--primary">Flip legacy Source=Internal+FG &rarr; ExternalERP</button>
+                <a asp-page="/Admin/BackfillItemGroups" class="ds-btn ds-btn--secondary ds-ml-2">Go to ItemGroup Backfill next</a>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Result</h2>
+                <p>
+                    Items scanned: <strong>@r.TotalItemsScanned</strong> &middot;
+                    flipped: <strong>@r.ItemsFlipped</strong> &middot;
+                    already external (post-flip): <strong>@r.ItemsAlreadyExternal</strong> &middot;
+                    left internal (post-flip): <strong>@r.ItemsLeftInternal</strong>
+                </p>
+
+                @if (r.Changes.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3">Per-Item flip log (first 50)</h3>
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Item Id</th>
+                                <th>Part Number</th>
+                                <th>From</th>
+                                <th>To</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in r.Changes.Take(50))
+                            {
+                                <tr>
+                                    <td><code>@c.ItemId</code></td>
+                                    <td><code>@c.PartNumber</code></td>
+                                    <td><code>@c.FromSource</code></td>
+                                    <td><code>@c.ToSource</code></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (r.Changes.Count > 50)
+                    {
+                        <p class="ds-text-muted">… and @(r.Changes.Count - 50) more.</p>
+                    }
+                }
+
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3 ds-text-warning">Warnings</h3>
+                    <ul class="ds-list ds-text-warning">
+                        @foreach (var w in r.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>

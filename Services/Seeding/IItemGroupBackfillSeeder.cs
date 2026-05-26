@@ -1,12 +1,24 @@
 // B6 Foundation Sprint PR-FS-1.5 (2026-05-26) — IItemGroupBackfillSeeder.
+// HOTFIX PR-FS-1.5.1 (2026-05-26) — Reclassify mode + Source-aware resolver.
 //
-// Idempotent service-driven backfill of `Item.ItemGroupId` for the 151
-// existing dev Items that pre-date PR-FS-1's gate. Uses IItemGroupResolver
-// to map (Item.Type → conventional ItemGroup Code → Id) per the convention
-// table established in PR-FS-1.
+// Idempotent service-driven backfill of `Item.ItemGroupId`. Two modes:
 //
-// IDEMPOTENCY: only touches Items where ItemGroupId IS NULL. Re-running
-// the backfill on already-classified Items is a no-op.
+//   1. FillNullsOnly (default) — only touches Items where ItemGroupId IS
+//      NULL. Used for incremental backfill of newly-imported Items that
+//      didn't supply ItemGroupId. Re-running is a no-op.
+//
+//   2. Reclassify — walks every Item (regardless of current ItemGroupId)
+//      and re-resolves classification via the latest convention map.
+//      Updates only Items whose resolved group differs from current.
+//      Used for the PR-FS-1.5.1 hotfix sweep: after IItemSourceBackfillSeeder
+//      flips legacy Source=Internal Items to Source=ExternalERP, the
+//      Reclassify mode picks them up and moves them from FG → RAW per the
+//      new Source-aware convention.
+//
+// IDEMPOTENCY:
+//   - FillNullsOnly: only touches NULL rows. Second run is a no-op.
+//   - Reclassify: only writes Items whose resolved group changed. Second
+//     run (with no upstream changes) is a no-op.
 //
 // SAFETY: skips Items whose Type has no convention-matched ItemGroup
 // (resolver returns null) — operator must classify those manually before
@@ -25,22 +37,74 @@ using System.Threading.Tasks;
 
 namespace Abs.FixedAssets.Services.Seeding;
 
+/// <summary>
+/// Mode flag for <see cref="IItemGroupBackfillSeeder.BackfillAsync"/>.
+/// </summary>
+public enum ItemGroupBackfillMode
+{
+    /// <summary>
+    /// Touch only Items where <c>ItemGroupId IS NULL</c>. Default behavior.
+    /// </summary>
+    FillNullsOnly = 0,
+
+    /// <summary>
+    /// SCOPED reclassification — only touch Items matching the PR-FS-1.5
+    /// legacy-bug fingerprint:
+    ///   <c>Type IN (Part, Kit)</c>
+    ///   AND <c>Source IN (ExternalERP, Synced)</c>
+    ///   AND <c>ItemGroupId == FG</c>
+    /// Walks the bug-pattern rows and re-resolves via the new Source-aware
+    /// convention. Operator-set intentional classifications on other Item
+    /// types or other ItemGroup buckets are NEVER touched. This is the
+    /// scope for the PR-FS-1.5.1 hotfix sweep — safe by construction.
+    ///
+    /// (Codex P1 fix on PR #357: the original "unrestricted Reclassify"
+    /// mode would have overwritten operator-set classifications when the
+    /// resolver default differed from the current value. Restricted scope
+    /// eliminates that hazard.)
+    /// </summary>
+    ReclassifyLegacyBugRows = 1,
+}
+
 public interface IItemGroupBackfillSeeder
 {
     /// <summary>
-    /// Backfill <c>Item.ItemGroupId</c> for every Item where it is currently
-    /// NULL. Items are mapped to a default ItemGroup via
-    /// <c>IItemGroupResolver.ResolveDefaultForItemTypeAsync</c>. Idempotent —
-    /// re-running on already-classified Items is a no-op.
+    /// Backfill or reclassify <c>Item.ItemGroupId</c> values per the
+    /// supplied <paramref name="mode"/>. Items are mapped to a default
+    /// ItemGroup via
+    /// <c>IItemGroupResolver.ResolveDefaultForItemAsync(Type, Source)</c>.
+    /// Idempotent — re-running with the same upstream state is a no-op.
     /// </summary>
+    /// <param name="mode">
+    /// <see cref="ItemGroupBackfillMode.FillNullsOnly"/> (default) only
+    /// touches NULL rows. <see cref="ItemGroupBackfillMode.Reclassify"/>
+    /// walks every Item and updates only the ones whose resolved group
+    /// changed.
+    /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>
     /// Result envelope with per-ItemGroup counts (Code → number of Items
     /// classified) + a list of skipped Item Ids (Items whose Type had no
-    /// conventional ItemGroup mapping).
+    /// conventional ItemGroup mapping) + a list of before-after
+    /// reclassification deltas when <paramref name="mode"/> is
+    /// <see cref="ItemGroupBackfillMode.Reclassify"/>.
     /// </returns>
+    Task<ItemGroupBackfillResult> BackfillAsync(ItemGroupBackfillMode mode, CancellationToken ct);
+
+    /// <summary>
+    /// Convenience overload — equivalent to <c>BackfillAsync(FillNullsOnly, ct)</c>.
+    /// </summary>
     Task<ItemGroupBackfillResult> BackfillAsync(CancellationToken ct);
 }
+
+/// <summary>
+/// Single before/after change captured during a reclassify sweep.
+/// </summary>
+public sealed record ItemGroupReclassifyChange(
+    int ItemId,
+    string PartNumber,
+    string? FromCode,
+    string ToCode);
 
 /// <summary>
 /// Result surfaced to the admin trigger page.
@@ -52,4 +116,9 @@ public sealed record ItemGroupBackfillResult(
     int ItemsSkippedNoMapping,
     IReadOnlyDictionary<string, int> PerItemGroupClassified,
     IReadOnlyList<int> SkippedItemIds,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    // PR-FS-1.5.1 — reclassify-mode deltas. Empty for FillNullsOnly mode.
+    IReadOnlyList<ItemGroupReclassifyChange> ReclassifyChanges,
+    int ItemsReclassified,
+    int ItemsUnchanged,
+    ItemGroupBackfillMode Mode);

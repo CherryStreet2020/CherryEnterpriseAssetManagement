@@ -10,6 +10,8 @@ namespace Abs.FixedAssets.Pages.Admin;
 
 // B6 Foundation Sprint PR-FS-1.5 (2026-05-26) — admin trigger for the
 // ItemGroupBackfillSeeder. One-shot button. Idempotent. Lock 14 — dev only.
+//
+// HOTFIX PR-FS-1.5.1 (2026-05-26): added Reclassify-mode toggle.
 [Authorize(Roles = "Admin")]
 public sealed class BackfillItemGroupsModel : PageModel
 {
@@ -28,14 +30,22 @@ public sealed class BackfillItemGroupsModel : PageModel
 
     public void OnGet() { }
 
-    public async Task<IActionResult> OnPostAsync(CancellationToken ct)
+    public async Task<IActionResult> OnPostAsync(bool reclassify, CancellationToken ct)
     {
-        _logger.LogInformation("ItemGroupBackfillSeeder invoked by {User}",
-            User.Identity?.Name ?? "<anonymous>");
-        Result = await _seeder.BackfillAsync(ct);
+        var mode = reclassify
+            ? ItemGroupBackfillMode.ReclassifyLegacyBugRows
+            : ItemGroupBackfillMode.FillNullsOnly;
+
         _logger.LogInformation(
-            "ItemGroupBackfillSeeder finished — scanned {Scanned}, classified {Classified}, skipped {Skipped}.",
-            Result.TotalItemsScanned, Result.ItemsClassified, Result.ItemsSkippedNoMapping);
+            "ItemGroupBackfillSeeder invoked by {User} in mode {Mode}",
+            User.Identity?.Name ?? "<anonymous>", mode);
+
+        Result = await _seeder.BackfillAsync(mode, ct);
+
+        _logger.LogInformation(
+            "ItemGroupBackfillSeeder finished — mode {Mode}, scanned {Scanned}, classified {Classified}, reclassified {Reclassified}, skipped {Skipped}.",
+            Result.Mode, Result.TotalItemsScanned, Result.ItemsClassified, Result.ItemsReclassified, Result.ItemsSkippedNoMapping);
+
         return Page();
     }
 }
