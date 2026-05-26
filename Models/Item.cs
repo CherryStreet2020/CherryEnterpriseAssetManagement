@@ -645,6 +645,11 @@ namespace Abs.FixedAssets.Models
         // (FIFO/LIFO/Average). SAP MM "stock with values" equivalent. See
         // Models/Masters/CostLayer.cs.
         public ICollection<Abs.FixedAssets.Models.Masters.CostLayer>? CostLayers { get; set; }
+
+        // B6 Foundation Sprint PR-FS-5 (2026-05-26) — multi-source AVL rules
+        // (SAP S/4 Source List / Oracle Approved Supplier List equivalent). See
+        // Models/Masters/ItemSourcingRule.cs.
+        public ICollection<Abs.FixedAssets.Models.Masters.ItemSourcingRule>? SourcingRules { get; set; }
     }
 
     /// <summary>

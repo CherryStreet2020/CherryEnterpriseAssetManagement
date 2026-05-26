@@ -4,6 +4,7 @@ using System.Text.Json;
 using Abs.FixedAssets.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -13,9 +14,11 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260526214236_AddItemSourcingRuleFsPr5")]
+    partial class AddItemSourcingRuleFsPr5
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -20094,11 +20097,6 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("SiteId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("Abs.FixedAssets.Models.Site", "TransferFromSite")
-                        .WithMany()
-                        .HasForeignKey("TransferFromSiteId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Abs.FixedAssets.Models.Vendor", "Vendor")
                         .WithMany()
                         .HasForeignKey("VendorId")
@@ -20111,8 +20109,6 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Item");
 
                     b.Navigation("Site");
-
-                    b.Navigation("TransferFromSite");
 
                     b.Navigation("Vendor");
                 });

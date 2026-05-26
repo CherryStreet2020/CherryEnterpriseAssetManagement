@@ -302,6 +302,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-5 (2026-05-26) — IItemSourcingRuleService.
+// Multi-source Approved Vendor List + priority + approval state machine +
+// customer-mandated AS9100 §8.4.1 flagging. SAP S/4 Source List equivalent.
+// Drives MRP + Make-or-Buy decision input (Theme B7) + material-issue
+// routing (Theme B8 PR-PO-3).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemSourcingRuleService,
+    Abs.FixedAssets.Services.Items.ItemSourcingRuleService>();
+
 // B6 Foundation Sprint PR-FS-4 (2026-05-26) — ICostLayerService.
 // FIFO/LIFO/Average inventory valuation layers. SAP MM "stock with values"
 // equivalent. Each material receipt creates an immutable layer at receipt
