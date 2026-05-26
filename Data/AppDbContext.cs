@@ -2218,6 +2218,13 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.MakeBuyCode);
                 e.HasIndex(x => x.LotSizingRule);
                 e.HasIndex(x => x.LifecycleStage);
+                // PR-FS-7 Codex P1: DB-side defaults must match C# model defaults so that
+                // raw-SQL inserts + EF migration backfill land on the documented semantics.
+                // MakeBuyCode.Buy = 1; LifecycleStage.Production = 5. The other two enum
+                // properties (PlanningPolicy.MakeToStock = 0, LotSizingRule.LotForLot = 0)
+                // already align with the EF-auto zero default and need no override.
+                e.Property(x => x.MakeBuyCode).HasDefaultValue(MakeBuyCode.Buy);
+                e.Property(x => x.LifecycleStage).HasDefaultValue(LifecycleStage.Production);
                 e.HasIndex(x => x.ItemFamily);
                 e.HasIndex(x => x.IsSellable);
                 e.HasIndex(x => x.AS9100Critical);

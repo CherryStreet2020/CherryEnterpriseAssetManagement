@@ -85,12 +85,15 @@ namespace Abs.FixedAssets.Migrations
                 nullable: false,
                 defaultValue: false);
 
+            // PR-FS-7 Codex P1: defaultValue must match model default LifecycleStage.Production (5).
+            // Otherwise legacy backfill assigns Concept (0) and breaks lifecycle semantics for
+            // all 151 pre-FS-7 dev Items + any raw-SQL inserts that bypass EF's C# default.
             migrationBuilder.AddColumn<int>(
                 name: "LifecycleStage",
                 table: "Items",
                 type: "integer",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 5);
 
             migrationBuilder.AddColumn<int>(
                 name: "LotSizingRule",
@@ -99,12 +102,16 @@ namespace Abs.FixedAssets.Migrations
                 nullable: false,
                 defaultValue: 0);
 
+            // PR-FS-7 Codex P1: defaultValue must match model default MakeBuyCode.Buy (1).
+            // Otherwise legacy backfill marks every Item as Make (0) — which flips procurement
+            // semantics: an item that should be purchased gets routed through the Make path
+            // (Routing + BOM) on first MRP run instead of through the ItemSourcingRule vendor.
             migrationBuilder.AddColumn<int>(
                 name: "MakeBuyCode",
                 table: "Items",
                 type: "integer",
                 nullable: false,
-                defaultValue: 0);
+                defaultValue: 1);
 
             migrationBuilder.AddColumn<string>(
                 name: "MrpPlannerCode",

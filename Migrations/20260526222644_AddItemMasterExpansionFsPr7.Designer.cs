@@ -5151,7 +5151,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("LifecycleStage")
-                        .HasColumnType("integer");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(5);
 
                     b.Property<decimal?>("ListPrice")
                         .HasColumnType("decimal(18,4)");
@@ -5160,7 +5162,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("MakeBuyCode")
-                        .HasColumnType("integer");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
 
                     b.Property<int?>("ManufacturerId")
                         .HasColumnType("integer");
