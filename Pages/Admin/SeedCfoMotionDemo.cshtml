@@ -1,5 +1,5 @@
-@page "/Admin/SeedCfoMotion"
-@model Abs.FixedAssets.Pages.Admin.SeedCfoMotionModel
+@page "/Admin/SeedCfoMotionDemo"
+@model Abs.FixedAssets.Pages.Admin.SeedCfoMotionDemoModel
 @{
     ViewData["Title"] = "Seed CFO Motion Demo Data";
     ViewData["TabTitle"] = "Seed CFO Demo";
@@ -7,21 +7,25 @@
 }
 
 @*
-    Sprint 12.7 PR #5 — admin trigger for AbsCfoMotionScenarioSeeder.
+    Sprint 12.7 PR #5 — admin trigger for CfoMotionDemoSeeder.
+
+    Pushes the Controller Control Center KPI band to demo-believable
+    numbers ON THE DEMO TENANT ONLY (looked up by CompanyCode='PWH-CAN').
 
     Idempotent — every INSERT guarded by natural-key prefix WHERE NOT EXISTS.
-    Re-clicking the button shows "already seeded N rows / inserted 0 new" per
-    bucket. Lock 14 — runs on dev only; Republish-with-Copy syncs to prod.
+    Re-clicking the button shows "already seeded N rows" per bucket.
 
-    Sibling pages: /Admin/AssetImport for bulk asset upload (PR #337).
+    Lock 14 — runs on dev only. Republish-with-Copy syncs to prod at end
+    of sprint window.
 *@
 
 <header class="ds-page-header">
     <div class="ds-page-header__inner">
         <h1 class="ds-page-header__title">Seed CFO Motion Demo Data</h1>
         <p class="ds-page-header__subtitle">
-            Push the ABS Machining (CompanyId=2) Controller Control Center KPI band to
-            demo-believable numbers for the Thursday Paul Marcotte segment.
+            Push the demo tenant's Controller Control Center KPI band to
+            demo-believable numbers. Targets <code>CompanyCode = "PWH-CAN"</code>
+            (the seeded PWH Manufacturing Canada placeholder).
         </p>
     </div>
 </header>
@@ -31,25 +35,29 @@
         <div class="ds-card__body">
             <h2 class="ds-h2">What this seeder does</h2>
             <ul class="ds-list">
-                <li><strong>Cash position</strong> → adds a balanced JournalEntry on the dev DB that lifts Cash Position to ~$6M.</li>
-                <li><strong>AP due this week</strong> → inserts ~20 VendorInvoices (Approved / PartiallyPaid) due within the next 7 days, summing into the "danger" tone band.</li>
-                <li><strong>Open POs</strong> → adds ~18 PurchaseOrders in Approved / Sent / PartiallyReceived statuses totalling ~$2.5M committed.</li>
-                <li><strong>WIP balance</strong> → creates 5 active CipProjects totalling ~$2.4M in WIP.</li>
+                <li><strong>Cash position</strong> &rarr; adds a balanced JournalEntry that lifts Cash Position to ~$6M.</li>
+                <li><strong>AP due this week</strong> &rarr; inserts ~20 VendorInvoices (Approved / PartiallyPaid) due within the next 7 days, summing into the "danger" tone band.</li>
+                <li><strong>Open POs</strong> &rarr; adds ~18 PurchaseOrders in Approved / Sent / PartiallyReceived statuses totalling ~$2.5M committed.</li>
+                <li><strong>WIP balance</strong> &rarr; creates 5 active CipProjects totalling ~$2.4M in WIP.</li>
             </ul>
             <p class="ds-mt-3">
-                Every INSERT is idempotent &mdash; natural keys are
+                Every INSERT is idempotent. Natural keys:
                 <code>DEMO-CFO-CASH-2026</code>,
                 <code>DEMO-CFO-INV-*</code>,
                 <code>DEMO-CFO-PO-*</code>,
                 <code>DEMO-CFO-CIP-*</code>. Re-clicking the button is safe.
             </p>
             <p class="ds-text-muted ds-mt-2">
-                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy
-                syncs to prod at the end of Sprint 12.7 + 12.8.
+                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy syncs to prod at end of sprint window.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Safety:</strong> the seeder verifies <code>Company.Name</code> starts with <code>PWH</code>
+                before any write. If the demo tenant's name has been changed, the seeder refuses to run
+                rather than write demo rows to a non-placeholder tenant.
             </p>
 
             <form method="post" class="ds-mt-4">
-                <button type="submit" class="ds-btn ds-btn--primary">Seed ABS CFO motion data</button>
+                <button type="submit" class="ds-btn ds-btn--primary">Seed CFO motion demo data</button>
                 <a asp-page="/Controller/Index" class="ds-btn ds-btn--secondary ds-ml-2">Open Controller after seeding</a>
             </form>
         </div>
@@ -62,7 +70,9 @@
             <div class="ds-card__body">
                 <h2 class="ds-h2">Result</h2>
                 <p>
-                    Tenant: <strong>CompanyId @r.CompanyId</strong> (ABS Machining) &middot;
+                    Demo tenant: <strong>@r.CompanyCode</strong> &mdash; @r.CompanyName (CompanyId=@r.CompanyId)
+                </p>
+                <p>
                     Inserted: <strong>@r.TotalInserted</strong> &middot;
                     Skipped (already present): <strong>@r.TotalSkipped</strong>
                 </p>
