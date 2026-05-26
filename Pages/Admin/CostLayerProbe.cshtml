@@ -42,15 +42,6 @@
         </div>
     </section>
 
-    @if (Model.NotFound)
-    {
-        <section class="ds-card ds-mt-4">
-            <div class="ds-card__body">
-                <p class="ds-text-warning"><strong>Item @Model.ItemId not found.</strong></p>
-            </div>
-        </section>
-    }
-
     @if (Model.Summary is not null)
     {
         var s = Model.Summary;
