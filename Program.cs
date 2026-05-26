@@ -302,6 +302,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-7 (2026-05-26) — IItemMasterReader.
+// Read-only projection of the 18-column expansion fields for admin probes.
+// Service-only pattern (CHERRY025-compliant) — page models can use this
+// instead of injecting AppDbContext directly.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterReader,
+    Abs.FixedAssets.Services.Items.ItemMasterReader>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering

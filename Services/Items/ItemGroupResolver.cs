@@ -30,6 +30,42 @@ public sealed class ItemGroupResolver : IItemGroupResolver
         _logger = logger;
     }
 
+    /// <summary>
+    /// Resolves the (Id, Code) for an ItemGroup by its Id. Used by the
+    /// /Admin/ItemMasterExpansionProbe to display the resolved code without
+    /// the page model needing direct DbContext access. Returns (null, null)
+    /// if no match.
+    /// </summary>
+    public async Task<(int? Id, string? Code)> GetByIdAsync(int? itemGroupId, CancellationToken ct)
+    {
+        if (!itemGroupId.HasValue) return (null, null);
+        var hit = await _db.Set<Abs.FixedAssets.Models.Masters.ItemGroup>().AsNoTracking()
+            .Where(g => g.Id == itemGroupId.Value)
+            .Select(g => new { g.Id, g.Code })
+            .FirstOrDefaultAsync(ct);
+        return hit == null ? (null, null) : (hit.Id, hit.Code);
+    }
+
+    public async Task<int?> ResolveDefaultForItemAsync(Item item, CancellationToken ct)
+    {
+        // PR-FS-7 tightening: when Part/Kit + Internal + IsSellable=TRUE,
+        // route to FG (truly sellable internal item). Otherwise fall through
+        // to the Source-aware convention map (PR-FS-1.5.1).
+        if ((item.Type == ItemType.Part || item.Type == ItemType.Kit)
+            && item.Source == ItemMasterSource.Internal
+            && item.IsSellable)
+        {
+            _logger.LogInformation(
+                "ItemGroupResolver: Part/Kit + Internal + IsSellable=TRUE → FG default (PR-FS-7 tightening). Item={ItemId} PartNumber={PN}.",
+                item.Id, item.PartNumber);
+            var fg = await ResolveByCodeAsync("FG", ct);
+            if (fg.HasValue) return fg;
+            _logger.LogWarning(
+                "ItemGroupResolver: FG ItemGroup not found; falling back to Source-aware convention map.");
+        }
+        return await ResolveDefaultForItemAsync(item.Type, item.Source, ct);
+    }
+
     public async Task<int?> ResolveDefaultForItemAsync(ItemType itemType, ItemMasterSource source, CancellationToken ct)
     {
         var code = MapToItemGroupCode(itemType, source);

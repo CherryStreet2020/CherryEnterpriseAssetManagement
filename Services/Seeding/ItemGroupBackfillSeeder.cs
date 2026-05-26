@@ -90,7 +90,7 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
 
         foreach (var item in unclassified)
         {
-            var groupId = await _resolver.ResolveDefaultForItemAsync(item.Type, item.Source, ct);
+            var groupId = await _resolver.ResolveDefaultForItemAsync(item, ct) /* PR-FS-7: now consults Item.IsSellable */;
             if (!groupId.HasValue)
             {
                 skipped.Add(item.Id);
@@ -181,7 +181,7 @@ public sealed class ItemGroupBackfillSeeder : IItemGroupBackfillSeeder
 
         foreach (var item in candidates)
         {
-            var resolvedId = await _resolver.ResolveDefaultForItemAsync(item.Type, item.Source, ct);
+            var resolvedId = await _resolver.ResolveDefaultForItemAsync(item, ct) /* PR-FS-7: now consults Item.IsSellable */;
             if (!resolvedId.HasValue)
             {
                 skipped.Add(item.Id);

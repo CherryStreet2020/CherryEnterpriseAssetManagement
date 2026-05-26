@@ -376,6 +376,108 @@ public class ItemGroupClassificationTests
     }
 
     [Fact]
+    public async Task Resolver_PartInternal_IsSellableTrue_Routes_To_FG_PRFS7_Tightening()
+    {
+        // PR-FS-7 tightening: when Item.IsSellable=true AND Part+Internal,
+        // resolver routes to FG (truly sellable internal item). When IsSellable
+        // is false, the SUBASSY default from PR-FS-1.5.1 still applies.
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        var sellableInternalPart = new Item
+        {
+            Id = 9500,
+            PartNumber = "ASM-TRENT-BRACKET-A",
+            Description = "Precision-machined engine bracket assembly — internally manufactured sellable FG",
+            StockUOM = "EA",
+            Type = ItemType.Part,
+            Source = ItemMasterSource.Internal,
+            IsSellable = true,
+            IsActive = true,
+        };
+
+        var subassemblyInternalPart = new Item
+        {
+            Id = 9501,
+            PartNumber = "SUBASM-TRENT-BRACKET-RIB",
+            Description = "Internally machined rib subassembly consumed by the bracket FG",
+            StockUOM = "EA",
+            Type = ItemType.Part,
+            Source = ItemMasterSource.Internal,
+            IsSellable = false,
+            IsActive = true,
+        };
+
+        var sellableGroup = await resolver.ResolveDefaultForItemAsync(sellableInternalPart, CancellationToken.None);
+        Assert.Equal(FgId, sellableGroup);
+
+        var subassyGroup = await resolver.ResolveDefaultForItemAsync(subassemblyInternalPart, CancellationToken.None);
+        Assert.Equal(SubAssyId, subassyGroup);
+    }
+
+    [Fact]
+    public async Task Resolver_NewOverload_Falls_Through_To_SourceAware_When_Not_PartInternalSellable()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        // BRG-6207-2RS — purchased bearing, Source=ExternalERP, IsSellable=false (default).
+        // New overload should match the old Source-aware path: Part+ExternalERP → RAW.
+        var purchasedPart = new Item
+        {
+            Id = 9245,
+            PartNumber = "BRG-6207-2RS",
+            Description = "Ball Bearing 35x72x17mm Sealed",
+            StockUOM = "EA",
+            Type = ItemType.Part,
+            Source = ItemMasterSource.ExternalERP,
+            IsSellable = false,
+            IsActive = true,
+        };
+        var groupId = await resolver.ResolveDefaultForItemAsync(purchasedPart, CancellationToken.None);
+        Assert.Equal(RawId, groupId);
+
+        // Tool type — IsSellable irrelevant, routes via Type-only branch.
+        var tool = new Item
+        {
+            Id = 9302,
+            PartNumber = "EM-4FL-8MM",
+            Description = "8mm 4-Flute Square End Mill Carbide",
+            StockUOM = "EA",
+            Type = ItemType.Tool,
+            Source = ItemMasterSource.ExternalERP,
+            IsSellable = true, // even with sellable flag, Tool routes to TOOLING
+            IsActive = true,
+        };
+        var toolGroup = await resolver.ResolveDefaultForItemAsync(tool, CancellationToken.None);
+        Assert.Equal(ToolingId, toolGroup);
+    }
+
+    [Fact]
+    public async Task Resolver_GetByIdAsync_Projects_Code()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        var raw = await resolver.GetByIdAsync(RawId, CancellationToken.None);
+        Assert.Equal(RawId, raw.Id);
+        Assert.Equal("RAW", raw.Code);
+
+        var fg = await resolver.GetByIdAsync(FgId, CancellationToken.None);
+        Assert.Equal("FG", fg.Code);
+
+        var none = await resolver.GetByIdAsync(99999, CancellationToken.None);
+        Assert.Null(none.Id);
+        Assert.Null(none.Code);
+
+        var nullArg = await resolver.GetByIdAsync(null, CancellationToken.None);
+        Assert.Null(nullArg.Id);
+    }
+
+    [Fact]
     public async Task Resolver_Never_Defaults_To_FG()
     {
         // FG must never be a DEFAULT — it requires explicit operator classification.

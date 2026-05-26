@@ -119,6 +119,128 @@ namespace Abs.FixedAssets.Models
         CriticalSpare = 2
     }
 
+    // ====================================================================
+    // B6 Foundation Sprint PR-FS-7 (2026-05-26) — Item Master expansion enums.
+    // ====================================================================
+
+    /// <summary>
+    /// MRP planning policy. Drives MRP run mode + acquisition behavior.
+    /// SAP MRP type / Oracle planning code / D365 coverage group equivalent.
+    /// </summary>
+    public enum PlanningPolicy
+    {
+        /// <summary>Make-to-stock — replenish to ROP/EOQ; demand-anonymous.</summary>
+        MakeToStock = 0,
+
+        /// <summary>Make-to-order — production starts only when a SO line lands.</summary>
+        MakeToOrder = 1,
+
+        /// <summary>Engineer-to-order — design + production both demand-triggered.</summary>
+        EngineerToOrder = 2,
+
+        /// <summary>Assemble-to-order — subassemblies kept in stock, final assembly to SO.</summary>
+        AssembleToOrder = 3,
+
+        /// <summary>Configure-to-order — product configurator drives BOM at SO time.</summary>
+        ConfigureToOrder = 4,
+
+        /// <summary>Purchase-to-order — buy externally only when SO/PO demand exists.</summary>
+        PurchaseToOrder = 5,
+
+        /// <summary>Purchase-to-stock — keep stock from blanket vendor agreements.</summary>
+        PurchaseToStock = 6,
+
+        /// <summary>Blanket release — release against a pre-negotiated blanket PO.</summary>
+        BlanketRelease = 7,
+
+        /// <summary>Phantom — exploded through, never actually stocked.</summary>
+        Phantom = 8,
+
+        /// <summary>No-plan — manual replenishment only.</summary>
+        Manual = 99,
+    }
+
+    /// <summary>
+    /// Make-vs-buy preference. Substrate for Theme B7's Make-or-Buy decision
+    /// service. SAP procurement type / Oracle make-or-buy code / D365 make-or-buy.
+    /// </summary>
+    public enum MakeBuyCode
+    {
+        /// <summary>Make internally (use Item's Routing + BOM).</summary>
+        Make = 0,
+
+        /// <summary>Buy externally (use ItemSourcingRule's vendor).</summary>
+        Buy = 1,
+
+        /// <summary>Either Make OR Buy — decision service routes per capacity/cost/lead-time at run time.</summary>
+        MakeOrBuy = 2,
+
+        /// <summary>Phantom — never actually produced or procured; explodes through.</summary>
+        Phantom = 3,
+    }
+
+    /// <summary>
+    /// MRP lot-sizing rule. Determines the qty produced/purchased per supply order.
+    /// SAP lot-size key / Oracle lot-for-lot vs. fixed lot / D365 reorder policy.
+    /// </summary>
+    public enum LotSizingRule
+    {
+        /// <summary>Lot-for-Lot — supply qty matches net requirement exactly.</summary>
+        LotForLot = 0,
+
+        /// <summary>Fixed Order Quantity — every supply order is the same qty.</summary>
+        FixedOrderQuantity = 1,
+
+        /// <summary>Fixed Period Requirements — supply order covers N periods of net demand.</summary>
+        FixedPeriodRequirements = 2,
+
+        /// <summary>Economic Order Quantity — minimize total ordering + carrying cost.</summary>
+        EOQ = 3,
+
+        /// <summary>Min Order Qty — supply qty = MAX(net requirement, MinOrderQty).</summary>
+        MinOrderQty = 4,
+
+        /// <summary>Max Order Qty — supply qty = MIN(net requirement, MaxOrderQty), split if larger.</summary>
+        MaxOrderQty = 5,
+
+        /// <summary>Part Period Balancing — heuristic balancing ordering vs. carrying cost.</summary>
+        PartPeriodBalancing = 6,
+
+        /// <summary>Wagner-Within optimal — dynamic-programming optimal lot sizes.</summary>
+        WagnerWithin = 7,
+    }
+
+    /// <summary>
+    /// Item lifecycle stage. Drives engineering + sales + manufacturing visibility.
+    /// SAP material status / Oracle item lifecycle / D365 lifecycle state.
+    /// </summary>
+    public enum LifecycleStage
+    {
+        /// <summary>Concept — initial proposal, not yet engineered.</summary>
+        Concept = 0,
+
+        /// <summary>Design — engineering in progress.</summary>
+        Design = 1,
+
+        /// <summary>Prototype — first builds for design validation.</summary>
+        Prototype = 2,
+
+        /// <summary>Sample — FAI / customer-evaluation samples.</summary>
+        Sample = 3,
+
+        /// <summary>Released — engineering released to manufacturing.</summary>
+        Released = 4,
+
+        /// <summary>Production — actively manufactured.</summary>
+        Production = 5,
+
+        /// <summary>End of Life — phase-out underway; new orders restricted.</summary>
+        EndOfLife = 6,
+
+        /// <summary>Obsolete — no longer offered; historical record only.</summary>
+        Obsolete = 7,
+    }
+
     public class ItemCategory
     {
         public int Id { get; set; }
@@ -623,6 +745,152 @@ namespace Abs.FixedAssets.Models
 
         [StringLength(50)]
         public string? UpdatedBy { get; set; }
+
+        // ====================================================================
+        // B6 Foundation Sprint PR-FS-7 (2026-05-26) — Item Master 18-column expansion.
+        //
+        // Closes out the Foundation Sprint substrate. Brings the Item Master from
+        // mid-market depth to tier-1 BIC parity across:
+        //   - MRP planning policy + lot sizing + planner code (5 fields)
+        //   - Make-vs-Buy duality + sellable/phantom/kitting flags (5 fields)
+        //   - Quality + AS9100 + InspectionPlan linkage (4 fields)
+        //   - International trade compliance — ECCN / Schedule B / Intrastat / EAR99 (4 fields)
+        //   - Costing freeze + ItemFamily + LifecycleStage (4 fields — 2 are paired)
+        //
+        // The IsSellable flag is the key driver — the ItemGroupResolver consults it
+        // to tighten the Part+Internal default from SUBASSY → FG when IsSellable=true
+        // (closes the loop on the PR-FS-1.5.1 hotfix lesson).
+        //
+        // All fields are NULLABLE / DEFAULT FALSE so the migration is non-breaking.
+        // Existing rows retain semantic defaults; the resolver only changes behavior
+        // when IsSellable is explicitly TRUE.
+        // ====================================================================
+
+        // ----- Planning + Sourcing (5) ----------------------------------
+
+        [Display(Name = "Planning Policy")]
+        public PlanningPolicy PlanningPolicy { get; set; } = PlanningPolicy.MakeToStock;
+
+        [Display(Name = "Make/Buy Code")]
+        public MakeBuyCode MakeBuyCode { get; set; } = MakeBuyCode.Buy;
+
+        [Display(Name = "Lot Sizing Rule")]
+        public LotSizingRule LotSizingRule { get; set; } = LotSizingRule.LotForLot;
+
+        [StringLength(20)]
+        [Display(Name = "MRP Planner Code")]
+        public string? MrpPlannerCode { get; set; }
+
+        /// <summary>
+        /// Sellable Item — appears on customer Sales Orders. Drives the
+        /// ItemGroupResolver default classification: Part+Internal+IsSellable=true
+        /// → FG; else SUBASSY. (Closes the PR-FS-1.5.1 hotfix lesson.)
+        /// </summary>
+        [Display(Name = "Is Sellable")]
+        public bool IsSellable { get; set; } = false;
+
+        // ----- BOM Behavior (2) -----------------------------------------
+
+        /// <summary>
+        /// Phantom assembly — exploded through in MRP, never actually stocked.
+        /// </summary>
+        [Display(Name = "Is Phantom")]
+        public bool IsPhantom { get; set; } = false;
+
+        [Display(Name = "Requires Kitting")]
+        public bool RequiresKitting { get; set; } = false;
+
+        // ----- Quality / Compliance (4) ---------------------------------
+
+        /// <summary>
+        /// AS9100 §8.3 critical characteristic flag — drives 100% inspection
+        /// requirements + FAI re-trigger on engineering change.
+        /// </summary>
+        [Display(Name = "AS9100 Critical")]
+        public bool AS9100Critical { get; set; } = false;
+
+        /// <summary>
+        /// Key Characteristic — measurement-required dimension per AS9145 or
+        /// customer-mandated KC list.
+        /// </summary>
+        [Display(Name = "Key Characteristic")]
+        public bool KeyCharacteristic { get; set; } = false;
+
+        /// <summary>
+        /// Default Inspection Plan for receipts of this Item. FK placeholder
+        /// (the InspectionPlan entity ships in a later sprint; column is in
+        /// place now so service code can pre-wire the reference).
+        /// </summary>
+        [Display(Name = "Inspection Plan Id")]
+        public int? InspectionPlanId { get; set; }
+
+        [Display(Name = "Requires First Article Inspection")]
+        public bool RequiresFai { get; set; } = false;
+
+        // ----- International Trade (4) ----------------------------------
+
+        /// <summary>
+        /// Export Control Classification Number — US BIS regulation. 5-char
+        /// alphanumeric (e.g. "EAR99", "5A992.c"). Drives export-license screening.
+        /// </summary>
+        [StringLength(20)]
+        [Display(Name = "ECCN")]
+        public string? ECCN { get; set; }
+
+        /// <summary>
+        /// US Census Schedule B harmonized code for exports. 10 digits.
+        /// </summary>
+        [StringLength(20)]
+        [Display(Name = "Schedule B Code")]
+        public string? ScheduleB { get; set; }
+
+        /// <summary>
+        /// EU Intrastat reporting code (HS Code for intra-EU trade). 8 digits.
+        /// </summary>
+        [StringLength(20)]
+        [Display(Name = "Intrastat Code")]
+        public string? IntrastatCode { get; set; }
+
+        /// <summary>
+        /// EAR99 catch-all flag — Export Administration Regulations
+        /// "no-license-required" pre-screen. When TRUE, simplified export
+        /// processing applies. False means full ECCN screening required.
+        /// </summary>
+        [Display(Name = "EAR99 No-License")]
+        public bool EAR99 { get; set; } = false;
+
+        // ----- Costing freeze (2) ---------------------------------------
+
+        /// <summary>
+        /// Frozen standard cost — locked value that overrides the
+        /// ItemStandardCostElement rollup (PR-FS-3) when set. Used for
+        /// cost-freeze windows around fiscal close + audit periods.
+        /// </summary>
+        [Display(Name = "Frozen Standard Cost")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal? FrozenStandardCost { get; set; }
+
+        [Display(Name = "Frozen Standard Cost Effective At")]
+        public DateTime? FrozenStandardCostEffectiveAtUtc { get; set; }
+
+        // ----- Lifecycle + Family (2) -----------------------------------
+
+        /// <summary>
+        /// Free-form Item Family tag (e.g., "Bearings", "Cutting Tools",
+        /// "Bar Stock", "Hydraulics"). For analytics + filtering. Will
+        /// promote to a FK entity in a later sprint if/when the family
+        /// catalog needs hierarchy.
+        /// </summary>
+        [StringLength(50)]
+        [Display(Name = "Item Family")]
+        public string? ItemFamily { get; set; }
+
+        [Display(Name = "Lifecycle Stage")]
+        public LifecycleStage LifecycleStage { get; set; } = LifecycleStage.Production;
+
+        // ====================================================================
+        // (end PR-FS-7 expansion)
+        // ====================================================================
 
         public ICollection<ItemVendor>? ItemVendors { get; set; }
         public ICollection<ItemInventory>? Inventory { get; set; }
