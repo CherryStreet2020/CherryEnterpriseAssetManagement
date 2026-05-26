@@ -1,4 +1,5 @@
 // B6 Foundation Sprint PR-FS-1 (2026-05-26) — Tests for Item.ItemGroupId wire-up.
+// HOTFIX PR-FS-1.5.1 (2026-05-26) — Updated to Source-aware resolver assertions.
 //
 // Verifies:
 //   1. Create with Source=Internal AND no ItemGroupId → REJECTS with validation error.
@@ -7,6 +8,10 @@
 //   4. Update with no ItemGroupId provided → preserves existing classification.
 //   5. Update with explicit ItemGroupId → re-classifies the Item.
 //   6. IItemGroupResolver.ResolveByCodeAsync returns the right system Id; unknown code returns null.
+//   7. PR-FS-1.5.1: Source-aware dispatch — Part+ExternalERP→RAW, Part+Internal→SUBASSY,
+//      Part+Synced→RAW, Kit+ExternalERP→RAW, Kit+Internal→SUBASSY.
+//   8. PR-FS-1.5.1: Type-only dispatch — Tool→TOOLING, Fastener→RAW, Consumable→CONSUMABLE
+//      regardless of Source.
 
 using System;
 using System.Linq;
@@ -27,11 +32,20 @@ using Xunit;
 namespace Abs.FixedAssets.Tests.Services.Items;
 
 /// <summary>
-/// Sprint B6 Foundation PR-FS-1 — ItemGroupId classification tests.
+/// Sprint B6 Foundation PR-FS-1 + PR-FS-1.5.1 — ItemGroupId classification tests.
 /// </summary>
 public class ItemGroupClassificationTests
 {
     private const int TenantCompanyId = 100;
+
+    // PR-FS-1.5.1 — SYSTEM ItemGroup Ids used across the assertions.
+    private const int RawId       = 1;
+    private const int FgId        = 3;
+    private const int ConsumeId   = 4;
+    private const int ServiceId   = 5;
+    private const int ToolingId   = 9;
+    private const int SpareId     = 10;
+    private const int SubAssyId   = 11;
 
     private sealed class TestAppDbContext : AppDbContext
     {
@@ -89,13 +103,16 @@ public class ItemGroupClassificationTests
             IsActive = true,
         });
 
-        // Minimal SYSTEM ItemGroups (mirror the 12 PRA-7 seeds — we only seed the ones the tests reference).
+        // SYSTEM ItemGroups mirror the PRA-7 seeds. PR-FS-1.5.1 adds SUBASSY (Id=11)
+        // to support the new Source-aware Internal → SUBASSY dispatch.
         db.Set<ItemGroup>().AddRange(
-            new ItemGroup { Id = 1, Code = "RAW",        Name = "Raw Material",   GroupType = ItemGroupType.RawMaterial,    IsSystem = true, IsActive = true },
-            new ItemGroup { Id = 3, Code = "FG",         Name = "Finished Goods", GroupType = ItemGroupType.FinishedGoods,  IsSystem = true, IsActive = true },
-            new ItemGroup { Id = 4, Code = "CONSUMABLE", Name = "Consumable",     GroupType = ItemGroupType.Consumable,     IsSystem = true, IsActive = true },
-            new ItemGroup { Id = 5, Code = "SERVICE",    Name = "Service",        GroupType = ItemGroupType.Service,        IsSystem = true, IsActive = true },
-            new ItemGroup { Id = 9, Code = "TOOLING",    Name = "Tooling",        GroupType = ItemGroupType.Tooling,        IsSystem = true, IsActive = true }
+            new ItemGroup { Id = RawId,     Code = "RAW",        Name = "Raw Material",   GroupType = ItemGroupType.RawMaterial,    IsSystem = true, IsActive = true },
+            new ItemGroup { Id = FgId,      Code = "FG",         Name = "Finished Goods", GroupType = ItemGroupType.FinishedGoods,  IsSystem = true, IsActive = true },
+            new ItemGroup { Id = ConsumeId, Code = "CONSUMABLE", Name = "Consumable",     GroupType = ItemGroupType.Consumable,     IsSystem = true, IsActive = true },
+            new ItemGroup { Id = ServiceId, Code = "SERVICE",    Name = "Service",        GroupType = ItemGroupType.Service,        IsSystem = true, IsActive = true },
+            new ItemGroup { Id = ToolingId, Code = "TOOLING",    Name = "Tooling",        GroupType = ItemGroupType.Tooling,        IsSystem = true, IsActive = true },
+            new ItemGroup { Id = SpareId,   Code = "SPAREPART",  Name = "Spare Part",     GroupType = ItemGroupType.SparePart,      IsSystem = true, IsActive = true },
+            new ItemGroup { Id = SubAssyId, Code = "SUBASSY",    Name = "Sub-Assembly",   GroupType = ItemGroupType.Subassembly,    IsSystem = true, IsActive = true }
         );
         await db.SaveChangesAsync();
     }
@@ -156,11 +173,11 @@ public class ItemGroupClassificationTests
         await EnsureFixturesAsync(db);
         var svc = NewItemMaster(db);
 
-        var req = BuildCreateRequest(itemGroupId: 3 /* FG */, source: ItemMasterSource.Internal);
+        var req = BuildCreateRequest(itemGroupId: FgId, source: ItemMasterSource.Internal);
         var result = await svc.CreateItemAsync(req, CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error);
-        Assert.Equal(3, result.Value!.ItemGroupId);
+        Assert.Equal(FgId, result.Value!.ItemGroupId);
         Assert.Equal(ItemMasterSource.Internal, result.Value!.Source);
     }
 
@@ -186,13 +203,11 @@ public class ItemGroupClassificationTests
         await EnsureFixturesAsync(db);
         var svc = NewItemMaster(db);
 
-        // Create with ItemGroupId=3.
-        var createReq = BuildCreateRequest(itemGroupId: 3, source: ItemMasterSource.Internal);
+        var createReq = BuildCreateRequest(itemGroupId: FgId, source: ItemMasterSource.Internal);
         var created = await svc.CreateItemAsync(createReq, CancellationToken.None);
         Assert.True(created.IsSuccess);
         var itemId = created.Value!.Id;
 
-        // Update with NO ItemGroupId — must preserve.
         var updateReq = new UpdateItemRequest(
             ItemId: itemId,
             PartNumber: createReq.PartNumber,
@@ -217,11 +232,11 @@ public class ItemGroupClassificationTests
             TrackingTypeLookupValueId: null,
             StandardCost: null,
             DefaultLocationId: null,
-            ItemGroupId: null);  // No change
+            ItemGroupId: null);
 
         var updated = await svc.UpdateItemAsync(updateReq, CancellationToken.None);
         Assert.True(updated.IsSuccess, updated.Error);
-        Assert.Equal(3, updated.Value!.ItemGroupId);  // Preserved
+        Assert.Equal(FgId, updated.Value!.ItemGroupId);
     }
 
     [Fact]
@@ -231,13 +246,11 @@ public class ItemGroupClassificationTests
         await EnsureFixturesAsync(db);
         var svc = NewItemMaster(db);
 
-        // Create with ItemGroupId=3 (FG).
-        var createReq = BuildCreateRequest(itemGroupId: 3, source: ItemMasterSource.Internal);
+        var createReq = BuildCreateRequest(itemGroupId: FgId, source: ItemMasterSource.Internal);
         var created = await svc.CreateItemAsync(createReq, CancellationToken.None);
         Assert.True(created.IsSuccess);
         var itemId = created.Value!.Id;
 
-        // Update with ItemGroupId=1 (RAW) — must re-classify.
         var updateReq = new UpdateItemRequest(
             ItemId: itemId,
             PartNumber: createReq.PartNumber,
@@ -262,11 +275,11 @@ public class ItemGroupClassificationTests
             TrackingTypeLookupValueId: null,
             StandardCost: null,
             DefaultLocationId: null,
-            ItemGroupId: 1);  // Reclassify to RAW
+            ItemGroupId: RawId);
 
         var updated = await svc.UpdateItemAsync(updateReq, CancellationToken.None);
         Assert.True(updated.IsSuccess, updated.Error);
-        Assert.Equal(1, updated.Value!.ItemGroupId);
+        Assert.Equal(RawId, updated.Value!.ItemGroupId);
     }
 
     [Fact]
@@ -277,19 +290,109 @@ public class ItemGroupClassificationTests
         var resolver = NewResolver(db);
 
         // Known codes.
-        Assert.Equal(1, await resolver.ResolveByCodeAsync("RAW", CancellationToken.None));
-        Assert.Equal(3, await resolver.ResolveByCodeAsync("FG", CancellationToken.None));
-        Assert.Equal(3, await resolver.ResolveByCodeAsync("fg", CancellationToken.None));     // case-insensitive
-        Assert.Equal(4, await resolver.ResolveByCodeAsync("CONSUMABLE", CancellationToken.None));
+        Assert.Equal(RawId,     await resolver.ResolveByCodeAsync("RAW", CancellationToken.None));
+        Assert.Equal(FgId,      await resolver.ResolveByCodeAsync("FG", CancellationToken.None));
+        Assert.Equal(FgId,      await resolver.ResolveByCodeAsync("fg", CancellationToken.None));     // case-insensitive
+        Assert.Equal(ConsumeId, await resolver.ResolveByCodeAsync("CONSUMABLE", CancellationToken.None));
+        Assert.Equal(SubAssyId, await resolver.ResolveByCodeAsync("SUBASSY", CancellationToken.None));
 
         // Unknown code.
         Assert.Null(await resolver.ResolveByCodeAsync("DOES-NOT-EXIST", CancellationToken.None));
         Assert.Null(await resolver.ResolveByCodeAsync("", CancellationToken.None));
         Assert.Null(await resolver.ResolveByCodeAsync(null!, CancellationToken.None));
+    }
 
-        // Type-based resolution (Part → FG default).
-        Assert.Equal(3, await resolver.ResolveDefaultForItemTypeAsync(ItemType.Part, CancellationToken.None));
-        Assert.Equal(4, await resolver.ResolveDefaultForItemTypeAsync(ItemType.Consumable, CancellationToken.None));
-        Assert.Equal(9, await resolver.ResolveDefaultForItemTypeAsync(ItemType.Tool, CancellationToken.None));
+    [Fact]
+    public async Task Resolver_Part_ExternalERP_Maps_To_RAW()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        var id = await resolver.ResolveDefaultForItemAsync(
+            ItemType.Part, ItemMasterSource.ExternalERP, CancellationToken.None);
+
+        Assert.Equal(RawId, id);
+    }
+
+    [Fact]
+    public async Task Resolver_Part_Synced_Maps_To_RAW()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        var id = await resolver.ResolveDefaultForItemAsync(
+            ItemType.Part, ItemMasterSource.Synced, CancellationToken.None);
+
+        Assert.Equal(RawId, id);
+    }
+
+    [Fact]
+    public async Task Resolver_Part_Internal_Maps_To_SUBASSY()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        var id = await resolver.ResolveDefaultForItemAsync(
+            ItemType.Part, ItemMasterSource.Internal, CancellationToken.None);
+
+        Assert.Equal(SubAssyId, id);
+    }
+
+    [Fact]
+    public async Task Resolver_Kit_Branches_On_Source()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        Assert.Equal(RawId,     await resolver.ResolveDefaultForItemAsync(ItemType.Kit, ItemMasterSource.ExternalERP, CancellationToken.None));
+        Assert.Equal(SubAssyId, await resolver.ResolveDefaultForItemAsync(ItemType.Kit, ItemMasterSource.Internal,    CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Resolver_Non_Part_Types_Ignore_Source()
+    {
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        // Tool routes to TOOLING regardless of Source.
+        Assert.Equal(ToolingId, await resolver.ResolveDefaultForItemAsync(ItemType.Tool, ItemMasterSource.Internal, CancellationToken.None));
+        Assert.Equal(ToolingId, await resolver.ResolveDefaultForItemAsync(ItemType.Tool, ItemMasterSource.ExternalERP, CancellationToken.None));
+
+        // Fastener routes to RAW regardless of Source.
+        Assert.Equal(RawId, await resolver.ResolveDefaultForItemAsync(ItemType.Fastener, ItemMasterSource.Internal, CancellationToken.None));
+        Assert.Equal(RawId, await resolver.ResolveDefaultForItemAsync(ItemType.Fastener, ItemMasterSource.ExternalERP, CancellationToken.None));
+
+        // Consumable routes to CONSUMABLE.
+        Assert.Equal(ConsumeId, await resolver.ResolveDefaultForItemAsync(ItemType.Consumable, ItemMasterSource.Internal, CancellationToken.None));
+        Assert.Equal(ConsumeId, await resolver.ResolveDefaultForItemAsync(ItemType.Consumable, ItemMasterSource.ExternalERP, CancellationToken.None));
+
+        // Service routes to SERVICE.
+        Assert.Equal(ServiceId, await resolver.ResolveDefaultForItemAsync(ItemType.Service, ItemMasterSource.Internal, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Resolver_Never_Defaults_To_FG()
+    {
+        // FG must never be a DEFAULT — it requires explicit operator classification.
+        // Any (Type, Source) combination resolved through the convention map must
+        // land somewhere other than FG.
+        await using var db = NewDb();
+        await EnsureFixturesAsync(db);
+        var resolver = NewResolver(db);
+
+        foreach (ItemType type in Enum.GetValues(typeof(ItemType)))
+        {
+            foreach (ItemMasterSource source in Enum.GetValues(typeof(ItemMasterSource)))
+            {
+                var id = await resolver.ResolveDefaultForItemAsync(type, source, CancellationToken.None);
+                Assert.True(id != FgId,
+                    $"Resolver default for (Type={type}, Source={source}) was FG ({FgId}) — FG must never be a default classification.");
+            }
+        }
     }
 }

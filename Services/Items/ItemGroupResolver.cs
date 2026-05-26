@@ -1,7 +1,13 @@
 // B6 Foundation Sprint PR-FS-1 (2026-05-26) — ItemGroupResolver impl.
+// HOTFIX PR-FS-1.5.1 (2026-05-26) — Source-aware classification.
 //
 // Pure read-side lookup. No writes. AppDbContext-only injection (no tenant
 // context — system ItemGroups are tenant-agnostic by design).
+//
+// The convention map dispatch is now Source-aware: Part / Kit branch on
+// `ItemMasterSource` (External / Synced → RAW; Internal → SUBASSY-with-
+// warning). All other ItemTypes ignore Source. See IItemGroupResolver.cs
+// for the full convention table.
 
 using System;
 using System.Threading;
@@ -24,16 +30,33 @@ public sealed class ItemGroupResolver : IItemGroupResolver
         _logger = logger;
     }
 
-    public async Task<int?> ResolveDefaultForItemTypeAsync(ItemType itemType, CancellationToken ct)
+    public async Task<int?> ResolveDefaultForItemAsync(ItemType itemType, ItemMasterSource source, CancellationToken ct)
     {
-        var code = MapItemTypeToItemGroupCode(itemType);
+        var code = MapToItemGroupCode(itemType, source);
+
+        // Provisional-classification warning: Internal Part / Kit defaults to
+        // SUBASSY pending PR-FS-7's IsSellable signal. If the Item is actually
+        // a top-level sellable FG, the caller MUST supply an explicit
+        // ItemGroupId at create time (ItemMasterService rejects null-on-create
+        // for Source=Internal — this code path is only hit by backfill and
+        // bulk import seeders).
+        if ((itemType == ItemType.Part || itemType == ItemType.Kit)
+            && source == ItemMasterSource.Internal)
+        {
+            _logger.LogWarning(
+                "ItemGroupResolver: provisional classification — Item.Type={ItemType} + Source=Internal " +
+                "defaulted to '{Code}'. If this is a parent-level SELLABLE item, set ItemGroupId=FG " +
+                "explicitly. PR-FS-7's IsSellable signal will tighten this default.",
+                itemType, code);
+        }
+
         var id = await ResolveByCodeAsync(code, ct);
         if (!id.HasValue)
         {
             _logger.LogWarning(
-                "ItemGroupResolver: no system ItemGroup found for Item.Type={ItemType} → expected Code='{Code}'. " +
-                "Falling back to null — caller must require explicit ItemGroupId.",
-                itemType, code);
+                "ItemGroupResolver: no system ItemGroup found for Item.Type={ItemType}, Source={Source} → " +
+                "expected Code='{Code}'. Falling back to null — caller must require explicit ItemGroupId.",
+                itemType, source, code);
         }
         return id;
     }
@@ -54,10 +77,20 @@ public sealed class ItemGroupResolver : IItemGroupResolver
     // Convention map — kept in code (not config) because the SYSTEM ItemGroup
     // codes are stable seed templates (PRA-7, see Models/Masters/ItemGroup.cs).
     // When new SYSTEM codes are added, extend this method.
-    private static string MapItemTypeToItemGroupCode(ItemType itemType) =>
+    //
+    // PR-FS-1.5.1 hotfix: Part / Kit branch on ItemMasterSource for tier-1
+    // ERP semantics. FG = parent-sellable only. Purchased parts → RAW.
+    // Internal items → SUBASSY (until PR-FS-7's IsSellable lands).
+    private static string MapToItemGroupCode(ItemType itemType, ItemMasterSource source) =>
         itemType switch
         {
-            ItemType.Part        => "FG",         // finished goods default
+            ItemType.Part or ItemType.Kit => source switch
+            {
+                ItemMasterSource.ExternalERP => "RAW",
+                ItemMasterSource.Synced      => "RAW",
+                ItemMasterSource.Internal    => "SUBASSY",
+                _                            => "RAW",
+            },
             ItemType.Consumable  => "CONSUMABLE",
             ItemType.Tool        => "TOOLING",
             ItemType.Safety      => "CONSUMABLE",
@@ -72,8 +105,7 @@ public sealed class ItemGroupResolver : IItemGroupResolver
             ItemType.Belt        => "CONSUMABLE",
             ItemType.Seal        => "CONSUMABLE",
             ItemType.Fastener    => "RAW",
-            ItemType.Kit         => "FG",
             ItemType.Service     => "SERVICE",
-            _                    => "FG"
+            _                    => "RAW",     // safer default than FG (PR-FS-1's bug)
         };
 }
