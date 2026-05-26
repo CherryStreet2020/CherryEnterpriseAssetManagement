@@ -1,0 +1,94 @@
+@page "/Admin/SeedCfoMotion"
+@model Abs.FixedAssets.Pages.Admin.SeedCfoMotionModel
+@{
+    ViewData["Title"] = "Seed CFO Motion Demo Data";
+    ViewData["TabTitle"] = "Seed CFO Demo";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 12.7 PR #5 — admin trigger for AbsCfoMotionScenarioSeeder.
+
+    Idempotent — every INSERT guarded by natural-key prefix WHERE NOT EXISTS.
+    Re-clicking the button shows "already seeded N rows / inserted 0 new" per
+    bucket. Lock 14 — runs on dev only; Republish-with-Copy syncs to prod.
+
+    Sibling pages: /Admin/AssetImport for bulk asset upload (PR #337).
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Seed CFO Motion Demo Data</h1>
+        <p class="ds-page-header__subtitle">
+            Push the ABS Machining (CompanyId=2) Controller Control Center KPI band to
+            demo-believable numbers for the Thursday Paul Marcotte segment.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">What this seeder does</h2>
+            <ul class="ds-list">
+                <li><strong>Cash position</strong> → adds a balanced JournalEntry on the dev DB that lifts Cash Position to ~$6M.</li>
+                <li><strong>AP due this week</strong> → inserts ~20 VendorInvoices (Approved / PartiallyPaid) due within the next 7 days, summing into the "danger" tone band.</li>
+                <li><strong>Open POs</strong> → adds ~18 PurchaseOrders in Approved / Sent / PartiallyReceived statuses totalling ~$2.5M committed.</li>
+                <li><strong>WIP balance</strong> → creates 5 active CipProjects totalling ~$2.4M in WIP.</li>
+            </ul>
+            <p class="ds-mt-3">
+                Every INSERT is idempotent &mdash; natural keys are
+                <code>DEMO-CFO-CASH-2026</code>,
+                <code>DEMO-CFO-INV-*</code>,
+                <code>DEMO-CFO-PO-*</code>,
+                <code>DEMO-CFO-CIP-*</code>. Re-clicking the button is safe.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Lock 14:</strong> runs on dev only. Republish-with-Copy
+                syncs to prod at the end of Sprint 12.7 + 12.8.
+            </p>
+
+            <form method="post" class="ds-mt-4">
+                <button type="submit" class="ds-btn ds-btn--primary">Seed ABS CFO motion data</button>
+                <a asp-page="/Controller/Index" class="ds-btn ds-btn--secondary ds-ml-2">Open Controller after seeding</a>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Result</h2>
+                <p>
+                    Tenant: <strong>CompanyId @r.CompanyId</strong> (ABS Machining) &middot;
+                    Inserted: <strong>@r.TotalInserted</strong> &middot;
+                    Skipped (already present): <strong>@r.TotalSkipped</strong>
+                </p>
+                <table class="ds-table">
+                    <thead>
+                        <tr><th>Bucket</th><th class="ds-text-right">Inserted</th><th class="ds-text-right">Already present</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Cash JE lines</td><td class="ds-text-right">@r.CashLinesInserted</td><td class="ds-text-right">@r.CashLinesSkipped</td></tr>
+                        <tr><td>Vendor invoices</td><td class="ds-text-right">@r.VendorInvoicesInserted</td><td class="ds-text-right">@r.VendorInvoicesSkipped</td></tr>
+                        <tr><td>Purchase orders</td><td class="ds-text-right">@r.PurchaseOrdersInserted</td><td class="ds-text-right">@r.PurchaseOrdersSkipped</td></tr>
+                        <tr><td>CIP projects</td><td class="ds-text-right">@r.CipProjectsInserted</td><td class="ds-text-right">@r.CipProjectsSkipped</td></tr>
+                    </tbody>
+                </table>
+
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3">Warnings</h3>
+                    <ul class="ds-list ds-text-warning">
+                        @foreach (var w in r.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>
