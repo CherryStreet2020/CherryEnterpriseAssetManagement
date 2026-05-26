@@ -1,0 +1,151 @@
+@page "/Admin/ItemStandardCostProbe"
+@model Abs.FixedAssets.Pages.Admin.ItemStandardCostProbeModel
+@{
+    ViewData["Title"] = "Item Standard Cost Probe";
+    ViewData["TabTitle"] = "Std Cost Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-3 (2026-05-26) — admin probe page for
+    IItemStandardCostService. Enter ItemId + optional SiteId + as-of date,
+    see the cascaded cost component split: Material / Labor / OH / Subcontract /
+    Setup / Tooling / Other / Total — with per-element source ("Item" vs.
+    "ItemSite" vs. "default") badges.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Item Standard Cost Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Cost composition for any (Item × Site × as-of date). SAP Cost Component
+            Split equivalent. Cascade: per-Site &rarr; Item-level &rarr; $0.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="SiteId">Site Id (optional — leave blank for Item-level only)</label>
+                    <input type="number" id="SiteId" name="SiteId" value="@(Model.SiteId?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div>
+                    <label for="AsOfUtc">As-of (optional — leave blank for "now")</label>
+                    <input type="datetime-local" id="AsOfUtc" name="AsOfUtc" value="@(Model.AsOfUtc?.ToString("yyyy-MM-ddTHH:mm") ?? string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Resolve Cost Breakdown</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.NotFound)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-warning">
+                    <strong>Item @Model.ItemId not found.</strong>
+                </p>
+            </div>
+        </section>
+    }
+
+    @if (Model.Breakdown is not null)
+    {
+        var b = Model.Breakdown;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">
+                    Cost breakdown for Item @b.ItemId @(b.SiteId.HasValue ? $"@ Site {b.SiteId}" : "(Item-level)")
+                </h2>
+                <p class="ds-text-muted">
+                    As-of: @b.AsOfUtc.ToString("yyyy-MM-dd HH:mm 'UTC'") · Currency: <code>@b.CurrencyCode</code>
+                </p>
+
+                <table class="ds-table">
+                    <thead>
+                        <tr><th>Cost Element</th><th class="ds-text-right">Amount</th><th>Source</th><th class="ds-text-right">% of Total</th></tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            string SrcOf(Abs.FixedAssets.Models.Masters.CostElementType type) =>
+                                b.OverrideSource.TryGetValue(type, out var s) ? s : "default";
+                            string SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType type)
+                            {
+                                var s = SrcOf(type);
+                                return s switch
+                                {
+                                    "ItemSite" => "<span class=\"ds-badge ds-badge--accent\">ItemSite override</span>",
+                                    "Item"     => "<span class=\"ds-text-muted\">Item</span>",
+                                    _          => "<span class=\"ds-text-muted\">default ($0)</span>"
+                                };
+                            }
+                            string Pct(decimal val) => b.Total > 0
+                                ? $"{(val / b.Total * 100m):0.0}%"
+                                : "—";
+                        }
+                        <tr><td>Material</td><td class="ds-text-right">@b.Material.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Material))</td><td class="ds-text-right">@Pct(b.Material)</td></tr>
+                        <tr><td>Labor</td><td class="ds-text-right">@b.Labor.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Labor))</td><td class="ds-text-right">@Pct(b.Labor)</td></tr>
+                        <tr><td>Variable Overhead</td><td class="ds-text-right">@b.VariableOverhead.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.VariableOverhead))</td><td class="ds-text-right">@Pct(b.VariableOverhead)</td></tr>
+                        <tr><td>Fixed Overhead</td><td class="ds-text-right">@b.FixedOverhead.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.FixedOverhead))</td><td class="ds-text-right">@Pct(b.FixedOverhead)</td></tr>
+                        <tr><td>Subcontract</td><td class="ds-text-right">@b.Subcontract.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Subcontract))</td><td class="ds-text-right">@Pct(b.Subcontract)</td></tr>
+                        <tr><td>Setup</td><td class="ds-text-right">@b.Setup.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Setup))</td><td class="ds-text-right">@Pct(b.Setup)</td></tr>
+                        <tr><td>Tooling</td><td class="ds-text-right">@b.Tooling.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Tooling))</td><td class="ds-text-right">@Pct(b.Tooling)</td></tr>
+                        <tr><td>Other</td><td class="ds-text-right">@b.Other.ToString("C")</td><td>@Html.Raw(SrcBadge(Abs.FixedAssets.Models.Masters.CostElementType.Other))</td><td class="ds-text-right">@Pct(b.Other)</td></tr>
+                        <tr class="ds-table-row--total">
+                            <td><strong>Total</strong></td>
+                            <td class="ds-text-right"><strong>@b.Total.ToString("C")</strong></td>
+                            <td></td>
+                            <td class="ds-text-right"><strong>100.0%</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @if (Model.History.Count > 0)
+        {
+            <section class="ds-card ds-mt-4">
+                <div class="ds-card__body">
+                    <h2 class="ds-h2">Cost element history (Item @b.ItemId)</h2>
+                    <p class="ds-text-muted">Newest first per element. Effective-To = null means "current."</p>
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Element</th>
+                                <th>Site</th>
+                                <th class="ds-text-right">Amount</th>
+                                <th>Source</th>
+                                <th>Effective From</th>
+                                <th>Effective To</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in Model.History.Take(50))
+                            {
+                                <tr>
+                                    <td>@row.ElementType</td>
+                                    <td>@(row.SiteId?.ToString() ?? "—")</td>
+                                    <td class="ds-text-right">@row.Amount.ToString("C")</td>
+                                    <td><code>@row.Source</code></td>
+                                    <td>@row.EffectiveFromUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>@(row.EffectiveToUtc?.ToString("yyyy-MM-dd HH:mm") ?? "current")</td>
+                                    <td>@(row.CalculationNotes ?? "")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
+    }
+</main>

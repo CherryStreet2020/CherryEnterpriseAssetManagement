@@ -302,6 +302,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-3 (2026-05-26) — IItemStandardCostService.
+// SAP Cost Component Split equivalent. Effective-dated per-Item/per-Site cost
+// element rows. Read API for cascade (per-Site → Item-level → $0) + write API
+// that closes prior row + inserts new on each amount change. Foundation for
+// Sprint 14.4 cost-rollup engine + CFO cost-composition reporting.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemStandardCostService,
+    Abs.FixedAssets.Services.Items.ItemStandardCostService>();
+
 // B6 Foundation Sprint PR-FS-2 (2026-05-26) — IItemSiteResolver.
 // Read-side cascade ItemSite → Item for per-Site override resolution.
 // SAP MARC equivalent. Used by MRP, cost rollup, procurement defaulting,

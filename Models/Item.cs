@@ -636,6 +636,10 @@ namespace Abs.FixedAssets.Models
         // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site override rows.
         // SAP MARC equivalent. See Models/Masters/ItemSite.cs.
         public ICollection<Abs.FixedAssets.Models.Masters.ItemSite>? SiteOverrides { get; set; }
+
+        // B6 Foundation Sprint PR-FS-3 (2026-05-26) — cost composition split.
+        // SAP Cost Component Split equivalent. See Models/Masters/ItemStandardCostElement.cs.
+        public ICollection<Abs.FixedAssets.Models.Masters.ItemStandardCostElement>? StandardCostElements { get; set; }
     }
 
     /// <summary>
