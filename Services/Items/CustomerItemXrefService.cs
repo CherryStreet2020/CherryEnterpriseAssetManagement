@@ -196,6 +196,12 @@ public sealed class CustomerItemXrefService : ICustomerItemXrefService
                         $"Only Active xrefs can be superseded.");
                 }
 
+                // PR-FS-6 P1 fix (Codex on PR #362): atomic supersede — both
+                // writes (new insert + old row flip) commit in a single
+                // SaveChangesAsync so a concurrency conflict on the flip
+                // doesn't leave the new insert orphaned. EF resolves the
+                // new row's auto-gen Id and stamps it on existing's
+                // SupersededByXref FK as part of the same transaction.
                 var now = DateTime.UtcNow;
                 var newXref = new CustomerItemXref
                 {
@@ -217,13 +223,13 @@ public sealed class CustomerItemXrefService : ICustomerItemXrefService
                     CreatedBy = supersededBy,
                 };
                 _db.CustomerItemXrefs.Add(newXref);
-                await _db.SaveChangesAsync(ct);
 
                 existing.Status = CustomerXrefStatus.Superseded;
-                existing.SupersededByXrefId = newXref.Id;
+                existing.SupersededByXref = newXref;  // nav, not raw FK — EF fixes up the Id at SaveChanges
                 existing.EffectiveToUtc = now;
                 existing.UpdatedAt = now;
                 existing.UpdatedBy = supersededBy;
+
                 await _db.SaveChangesAsync(ct);
 
                 _logger.LogInformation(
