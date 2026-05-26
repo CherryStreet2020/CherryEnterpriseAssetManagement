@@ -13,18 +13,22 @@ using Xunit;
 namespace Abs.FixedAssets.Tests.Services.Seeding;
 
 /// <summary>
-/// Sprint 12.7 PR #5 — AbsCfoMotionScenarioSeeder tests.
+/// Sprint 12.7 PR #5 — CfoMotionDemoSeeder tests.
 ///
-/// Core invariants:
-///   1. Missing fixtures (no company / no vendors / no GL accounts) →
-///      seeder records warnings but does not throw.
-///   2. Happy path — fixtures present → inserts demo rows in all 4 buckets.
-///   3. Idempotency — calling SeedAsync twice yields no net new rows on
-///      the second call. The KPI band shape is stable.
+/// Invariants:
+///   1. No demo-tenant Company row → warning, zero inserts.
+///   2. Company exists but Name doesn't start with "PWH" → safety guard
+///      fires (refusing to write demo data to a non-placeholder tenant).
+///   3. Happy path — placeholder tenant + fixtures → all 4 buckets insert.
+///   4. Idempotency — second SeedAsync inserts 0 net new rows.
+///
+/// The seeder defends in depth: lookup by CompanyCode (not Id), then
+/// verify Company.Name starts with the expected placeholder prefix
+/// before writing.
 /// </summary>
-public class AbsCfoMotionScenarioSeederTests
+public class CfoMotionDemoSeederTests
 {
-    private const int AbsCompanyId = 2;
+    private const string DemoCode = "PWH-CAN";
 
     private sealed class TestAppDbContext : AppDbContext
     {
@@ -42,27 +46,27 @@ public class AbsCfoMotionScenarioSeederTests
     private static AppDbContext NewDb([System.Runtime.CompilerServices.CallerMemberName] string dbName = "")
     {
         var opts = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase($"abs-cfo-seeder-{dbName}-{Guid.NewGuid()}")
+            .UseInMemoryDatabase($"cfo-demo-seeder-{dbName}-{Guid.NewGuid()}")
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         return new TestAppDbContext(opts);
     }
 
-    private static AbsCfoMotionScenarioSeeder NewSeeder(AppDbContext db) =>
-        new(db, NullLogger<AbsCfoMotionScenarioSeeder>.Instance);
+    private static CfoMotionDemoSeeder NewSeeder(AppDbContext db) =>
+        new(db, NullLogger<CfoMotionDemoSeeder>.Instance);
 
     /// <summary>
-    /// Seeds the minimum FK fixtures the service needs: ABS Company,
-    /// 2 GL accounts (one CashAndReceivables + one Other), 1 Book,
-    /// 3 Vendors. Returns the AppDbContext after Save.
+    /// Seed the minimum FK fixtures the service needs against a
+    /// placeholder tenant whose Name starts with "PWH": Company,
+    /// 2 GL accounts, 1 Book, 3 Vendors.
     /// </summary>
-    private static async Task SeedFixturesAsync(AppDbContext db)
+    private static async Task SeedFixturesAsync(AppDbContext db, string companyCode = DemoCode, string companyName = "PWH MANUFACTURING CANADA")
     {
         db.Companies.Add(new Company
         {
-            Id = AbsCompanyId,
-            CompanyCode = "ABS",
-            Name = "ABS Machining",
+            Id = 100,
+            CompanyCode = companyCode,
+            Name = companyName,
             IsActive = true,
         });
         db.GlAccounts.Add(new GlAccount
@@ -70,7 +74,7 @@ public class AbsCfoMotionScenarioSeederTests
             AccountNumber = "1110",
             Name = "Cash on hand",
             Category = GlAccountCategory.CashAndReceivables,
-            CompanyId = AbsCompanyId,
+            CompanyId = 100,
             IsActive = true,
         });
         db.GlAccounts.Add(new GlAccount
@@ -78,7 +82,7 @@ public class AbsCfoMotionScenarioSeederTests
             AccountNumber = "3000",
             Name = "Common stock",
             Category = GlAccountCategory.Equity,
-            CompanyId = AbsCompanyId,
+            CompanyId = 100,
             IsActive = true,
         });
         db.Books.Add(new Book
@@ -86,7 +90,7 @@ public class AbsCfoMotionScenarioSeederTests
             Id = 1,
             Code = "GAAP",
             Name = "GAAP",
-            CompanyId = AbsCompanyId,
+            CompanyId = 100,
             IsActive = true,
         });
         for (int i = 1; i <= 3; i++)
@@ -94,9 +98,9 @@ public class AbsCfoMotionScenarioSeederTests
             db.Vendors.Add(new Vendor
             {
                 Id = i,
-                Code = $"V-ABS-{i:D3}",
-                Name = $"ABS Vendor {i}",
-                CompanyId = AbsCompanyId,
+                Code = $"V-{i:D3}",
+                Name = $"Demo Vendor {i}",
+                CompanyId = 100,
                 IsActive = true,
             });
         }
@@ -104,16 +108,32 @@ public class AbsCfoMotionScenarioSeederTests
     }
 
     [Fact]
-    public async Task SeedAsync_Without_Company_Returns_Warning_And_Zero_Inserts()
+    public async Task SeedAsync_Without_DemoCompany_Returns_Warning_And_Zero_Inserts()
     {
         await using var db = NewDb();
-        // No Company row seeded.
+        // No Company row at all.
         var seeder = NewSeeder(db);
 
         var result = await seeder.SeedAsync(CancellationToken.None);
 
         Assert.Equal(0, result.TotalInserted);
-        Assert.Contains(result.Warnings, w => w.Contains("Company"));
+        Assert.Contains(result.Warnings, w => w.Contains(DemoCode) && w.Contains("not found"));
+    }
+
+    [Fact]
+    public async Task SeedAsync_Refuses_To_Write_When_CompanyName_Does_Not_Match_Placeholder_Prefix()
+    {
+        await using var db = NewDb();
+        // Company exists with the demo CompanyCode but the Name has been
+        // changed away from the PWH-* placeholder shape — perhaps a real
+        // tenant was given this code by mistake. The seeder must refuse.
+        await SeedFixturesAsync(db, companyCode: DemoCode, companyName: "Real Customer Co.");
+        var seeder = NewSeeder(db);
+
+        var result = await seeder.SeedAsync(CancellationToken.None);
+
+        Assert.Equal(0, result.TotalInserted);
+        Assert.Contains(result.Warnings, w => w.Contains("does NOT start with") && w.Contains("PWH"));
     }
 
     [Fact]
@@ -125,13 +145,12 @@ public class AbsCfoMotionScenarioSeederTests
 
         var result = await seeder.SeedAsync(CancellationToken.None);
 
-        Assert.Equal(AbsCompanyId, result.CompanyId);
+        Assert.Equal(DemoCode, result.CompanyCode);
         Assert.True(result.CashLinesInserted > 0, "Cash JE lines should be inserted");
         Assert.True(result.VendorInvoicesInserted > 0, "Vendor invoices should be inserted");
         Assert.True(result.PurchaseOrdersInserted > 0, "Purchase orders should be inserted");
         Assert.True(result.CipProjectsInserted > 0, "CIP projects should be inserted");
 
-        // Confirm rows actually landed in the database (not just queued).
         Assert.Single(await db.JournalEntries.Where(j => j.Batch == "DEMO-CFO-CASH-2026").ToListAsync());
         Assert.True(await db.Set<VendorInvoice>().AnyAsync(i => i.InvoiceNumber.StartsWith("DEMO-CFO-INV-")));
         Assert.True(await db.PurchaseOrders.AnyAsync(p => p.PONumber.StartsWith("DEMO-CFO-PO-")));
@@ -146,24 +165,18 @@ public class AbsCfoMotionScenarioSeederTests
         var seeder = NewSeeder(db);
 
         var first = await seeder.SeedAsync(CancellationToken.None);
-        var afterFirstInvoiceCount = await db.Set<VendorInvoice>().CountAsync();
-        var afterFirstPoCount = await db.PurchaseOrders.CountAsync();
-        var afterFirstCipCount = await db.CipProjects.CountAsync();
-        var afterFirstJeCount = await db.JournalEntries.CountAsync();
+        var afterFirstInvoice = await db.Set<VendorInvoice>().CountAsync();
+        var afterFirstPo      = await db.PurchaseOrders.CountAsync();
+        var afterFirstCip     = await db.CipProjects.CountAsync();
+        var afterFirstJe      = await db.JournalEntries.CountAsync();
 
         var second = await seeder.SeedAsync(CancellationToken.None);
 
-        // Second call inserts zero new rows.
         Assert.Equal(0, second.TotalInserted);
-
-        // Bucket totals stay stable.
-        Assert.Equal(afterFirstInvoiceCount, await db.Set<VendorInvoice>().CountAsync());
-        Assert.Equal(afterFirstPoCount, await db.PurchaseOrders.CountAsync());
-        Assert.Equal(afterFirstCipCount, await db.CipProjects.CountAsync());
-        Assert.Equal(afterFirstJeCount, await db.JournalEntries.CountAsync());
-
-        // Skipped counts on second call reflect the populated state.
-        Assert.True(second.TotalSkipped > 0,
-            $"Second call should mark prior rows as skipped — TotalSkipped={second.TotalSkipped}");
+        Assert.Equal(afterFirstInvoice, await db.Set<VendorInvoice>().CountAsync());
+        Assert.Equal(afterFirstPo,      await db.PurchaseOrders.CountAsync());
+        Assert.Equal(afterFirstCip,     await db.CipProjects.CountAsync());
+        Assert.Equal(afterFirstJe,      await db.JournalEntries.CountAsync());
+        Assert.True(second.TotalSkipped > 0);
     }
 }

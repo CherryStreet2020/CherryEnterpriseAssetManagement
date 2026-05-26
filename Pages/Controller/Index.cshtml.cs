@@ -48,8 +48,8 @@ namespace Abs.FixedAssets.Pages.Controller;
 //                   the Codex P1 pattern).
 //   - PR #5:        Demo data + walkthrough page + Republish-with-Copy box.
 //
-// Demo target: CFO Paul Marcotte (ABS Machining). Headline question:
-//   "Why is NBV $1.2M on Asset #4231?"
+// Demo target: a controller / CFO persona. Headline question:
+//   "Why is NBV $X on Asset #N?"
 // Cherry walks JournalLine → AccountingKey → DepreciationRun → AssetBasis →
 // CapitalProject → WO → PO → Invoice, narrated naturally, every step
 // clickable. PRA-5g (merged `13c05b7`) provided the depreciation half of

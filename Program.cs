@@ -265,14 +265,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.BackwardScheduling.IBackwardSchedulingService,
     Abs.FixedAssets.Services.Production.BackwardScheduling.BackwardSchedulingService>();
 
-// Sprint 12.7 PR #5 — IAbsCfoMotionScenarioSeeder. Idempotent demo-data
-// seeder for ABS Machining (CompanyId=2) CFO motion. Pushes /Controller
-// KPI band (Cash / AP / POs / WIP) to demo-believable numbers for the
-// Thursday Paul Marcotte segment. Triggered from /Admin/Seed/AbsCfoMotionScenario.
-// Lock 14 — runs on dev only; Republish-with-Copy syncs to prod at the
-// end of Sprint 12.7 + 12.8.
-builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IAbsCfoMotionScenarioSeeder,
-    Abs.FixedAssets.Services.Seeding.AbsCfoMotionScenarioSeeder>();
+// Sprint 12.7 PR #5 — ICfoMotionDemoSeeder. Idempotent demo-data seeder
+// for the CFO motion. Pushes /Controller KPI band (Cash / AP / POs / WIP)
+// to demo-believable numbers on the SEEDED PLACEHOLDER tenant (looked up
+// by CompanyCode='PWH-CAN'). NO real customer names anywhere in the
+// implementation, comments, demo prefixes, or display strings. Triggered
+// from /Admin/SeedCfoMotionDemo. Lock 14 — runs on dev only; Republish-
+// with-Copy syncs to prod at end of sprint window.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICfoMotionDemoSeeder,
+    Abs.FixedAssets.Services.Seeding.CfoMotionDemoSeeder>();
 
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /

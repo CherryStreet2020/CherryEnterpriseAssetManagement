@@ -9,23 +9,20 @@
 @*
     Sprint 12.7 PR #5 — CFO motion walkthrough.
 
-    Scripted teleprompter for the Thursday Paul Marcotte demo segment.
-    Split-screen layout: scripted steps on the left, anchor links + open-
-    in-Controller buttons on the right so the presenter can drive the live
-    surface one click at a time.
+    Scripted teleprompter for the demo segment. Split-screen: scripted
+    steps on the left, anchor links + open-in-Controller buttons on the
+    right so the presenter can drive the live surface one click at a time.
 
-    This page is NOT a tutorial for end users — it's the demo script. After
-    the demo it stays in NavRegistry under Finance > Controller as a
-    "Show me the motion" entry. Cherry's voice intent ExplainChainTrace
-    (PR #347) does the live narration; this page is the human teleprompter
-    backup.
+    Content is tenant-generic — no real customer references anywhere.
+    Cherry's voice intent ExplainChainTrace (PR #347) does the live
+    narration; this page is the human teleprompter backup.
 *@
 
 <header class="ds-page-header">
     <div class="ds-page-header__inner">
         <h1 class="ds-page-header__title">Controller — CFO Motion Walkthrough</h1>
         <p class="ds-page-header__subtitle">
-            Paul Marcotte segment script. Each step pairs a presenter action,
+            CFO motion script. Each step pairs a presenter action,
             what the Cockpit surface should show, and Cherry's voice prompt.
         </p>
     </div>
@@ -48,7 +45,7 @@
                                 <h3 class="ds-h3 ds-mb-0">@step.Title</h3>
                             </header>
                             <div class="ds-walkthrough-step__body">
-                                <p><strong>What Paul sees:</strong> @step.WhatPaulSees</p>
+                                <p><strong>What you see:</strong> @step.WhatYouSee</p>
                                 <p><strong>What you click:</strong> @step.WhatYouClick</p>
                                 <p class="ds-walkthrough-step__voice"><strong>Cherry says:</strong> <em>"@step.CherryLine"</em></p>
                                 @if (!string.IsNullOrEmpty(step.OpenUrl))
@@ -64,9 +61,9 @@
 
                 <footer class="ds-walkthrough-footer ds-mt-4">
                     <p class="ds-text-muted">
-                        Demo budget: 12 minutes for this segment within the 120-minute
-                        ABS run-of-show. Paul typically jumps in at Step 4 (drilldown)
-                        if he's already convinced on the KPI band.
+                        Demo budget: ~12 minutes for this CFO segment. The
+                        audience typically jumps in at Step 4 (drilldown)
+                        if they're already convinced on the KPI band.
                     </p>
                 </footer>
             </div>
@@ -89,13 +86,17 @@
                 <ul class="ds-list">
                     <li><a asp-page="/Controller/Index">Controller Control Center →</a></li>
                     <li><a asp-page="/Controller/Index" asp-route-tab="drilldown">… Drilldown tab →</a></li>
-                    <li><a asp-page="/Controller/Index" asp-route-tab="drilldown" asp-route-q="ASSET-1116">… Drilldown ASSET-1116 →</a></li>
                     <li><a asp-page="/Controller/Index" asp-route-tab="audit-trail">… Audit Trail tab →</a></li>
-                    <li><a asp-page="/Admin/SeedCfoMotion">Seed demo data (admin) →</a></li>
+                    <li><a asp-page="/Admin/SeedCfoMotionDemo">Seed demo data (admin) →</a></li>
                 </ul>
 
                 <h2 class="ds-h2 ds-mt-4">Before you start</h2>
-                <p>Make sure the demo data is seeded — open the seed page and click the button. KPI band should read at least <strong>$5M cash</strong>, <strong>danger-tone AP</strong>, <strong>120+ POs</strong>, <strong>$2M+ WIP</strong>. Sanity check the numbers BEFORE walking on stage.</p>
+                <p>Make sure the demo data is seeded on the demo tenant
+                (<code>CompanyCode = "PWH-CAN"</code>) — open the seed
+                page and click the button. KPI band should read at
+                least <strong>$5M cash</strong>, <strong>danger-tone AP</strong>,
+                <strong>120+ POs</strong>, <strong>$2M+ WIP</strong>. Sanity check
+                the numbers BEFORE walking on stage.</p>
             </div>
         </aside>
 
