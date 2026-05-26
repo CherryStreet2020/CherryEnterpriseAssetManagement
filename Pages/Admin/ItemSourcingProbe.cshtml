@@ -1,0 +1,125 @@
+@page "/Admin/ItemSourcingProbe"
+@model Abs.FixedAssets.Pages.Admin.ItemSourcingProbeModel
+@{
+    ViewData["Title"] = "Item Sourcing Probe";
+    ViewData["TabTitle"] = "Sourcing Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-5 (2026-05-26) — admin probe for
+    IItemSourcingRuleService. Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Item Sourcing Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Multi-source AVL + priority for any (Item × Site × as-of). SAP S/4
+            Source List equivalent. Read-only.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="SiteId">Site Id (optional)</label>
+                    <input type="number" id="SiteId" name="SiteId" value="@(Model.SiteId?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div>
+                    <label for="IncludeInactive">
+                        <input type="checkbox" name="IncludeInactive" value="true" @(Model.IncludeInactive ? "checked" : "") />
+                        Include inactive (Suspended / Disqualified / PendingApproval)
+                    </label>
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Resolve Sourcing Rules</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Rules is not null)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Sourcing rules for Item @Model.ItemId @(Model.SiteId.HasValue ? $"@ Site {Model.SiteId}" : "(any Site)")</h2>
+                <p class="ds-text-muted">
+                    @Model.Rules.Count rule(s) returned. Cascade order: per-Site first, then company-wide, within same Priority.
+                </p>
+
+                @if (Model.Rules.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No active rules. MRP + Make-or-Buy will fall back to Item.PrimaryVendorId.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Priority</th>
+                                <th>Source</th>
+                                <th>Vendor / Site</th>
+                                <th>Allocation %</th>
+                                <th>Approval</th>
+                                <th>Cust Mandated</th>
+                                <th>Lead (d)</th>
+                                <th>Min Qty</th>
+                                <th>Effective</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Model.Rules)
+                            {
+                                <tr>
+                                    <td>@r.Priority</td>
+                                    <td><code>@r.SourceMethod</code></td>
+                                    <td>@(r.VendorId?.ToString() ?? (r.TransferFromSiteId?.ToString() ?? "—"))</td>
+                                    <td>@(r.AllocationPercent?.ToString("N1") ?? "—")</td>
+                                    <td>
+                                        @switch (r.ApprovalState)
+                                        {
+                                            case Abs.FixedAssets.Models.Masters.SourcingApprovalState.Approved:
+                                                <span class="ds-badge ds-badge--success">Approved</span>
+                                                break;
+                                            case Abs.FixedAssets.Models.Masters.SourcingApprovalState.Probation:
+                                                <span class="ds-badge ds-badge--warning">Probation</span>
+                                                break;
+                                            case Abs.FixedAssets.Models.Masters.SourcingApprovalState.Suspended:
+                                                <span class="ds-badge ds-badge--danger">Suspended</span>
+                                                break;
+                                            case Abs.FixedAssets.Models.Masters.SourcingApprovalState.Disqualified:
+                                                <span class="ds-badge ds-badge--danger">Disqualified</span>
+                                                break;
+                                            default:
+                                                <span class="ds-badge">Pending</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>@(r.IsCustomerMandated ? $"Customer {r.CustomerId}" : "—")</td>
+                                    <td>@(r.LeadTimeDaysOverride?.ToString() ?? "—")</td>
+                                    <td>@(r.MinOrderQty?.ToString("N4") ?? "—")</td>
+                                    <td>@r.EffectiveFromUtc.ToString("yyyy-MM-dd")@(r.EffectiveToUtc.HasValue ? " → " + r.EffectiveToUtc.Value.ToString("yyyy-MM-dd") : " → current")</td>
+                                    <td>@(r.Notes ?? "")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (Model.Primary is not null)
+                {
+                    <p class="ds-mt-3"><strong>Primary source resolution:</strong> Rule @Model.Primary.Id at Priority @Model.Primary.Priority — <code>@Model.Primary.SourceMethod</code> Vendor=@(Model.Primary.VendorId?.ToString() ?? "n/a").</p>
+                }
+            </div>
+        </section>
+    }
+</main>

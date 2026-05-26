@@ -479,6 +479,11 @@ namespace Abs.FixedAssets.Data
         // equivalent. Immutable receipts; consumption decrements RemainingQuantity.
         public DbSet<Abs.FixedAssets.Models.Masters.CostLayer> CostLayers => Set<Abs.FixedAssets.Models.Masters.CostLayer>();
 
+        // B6 Foundation Sprint PR-FS-5 (2026-05-26) — multi-source AVL + priority
+        // rules per (Item, optional Site, Vendor). SAP S/4 Source List equivalent.
+        // Drives MRP, Make-or-Buy decision input, AS9100 §8.4.1 audit trail.
+        public DbSet<Abs.FixedAssets.Models.Masters.ItemSourcingRule> ItemSourcingRules => Set<Abs.FixedAssets.Models.Masters.ItemSourcingRule>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2257,6 +2262,61 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.DefaultLocationRef)
                     .WithMany()
                     .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B6 Foundation Sprint PR-FS-5 (2026-05-26) — ItemSourcingRule
+            // (SAP S/4 Source List equivalent). Multi-source AVL + priority +
+            // approval state machine + customer-mandated AS9100 §8.4.1 flag.
+            //
+            // Uniqueness: a tenant cannot have two rules with the SAME (Item,
+            // Site, Vendor, Priority) active simultaneously — that's a duplicate.
+            // Apply both the full TenantId-aware UNIQUE and a partial UNIQUE for
+            // NULL-tenant rows (PR-FS-2 lesson, applied prophylactically).
+            //
+            // Concurrency token: RowVersion (PR-FS-4 lesson, applied
+            // prophylactically) — ApprovalState transitions are concurrent-write
+            // hot paths.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemSourcingRule>(e =>
+            {
+                e.Property(x => x.RowVersion).IsRowVersion();
+
+                e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.VendorId, x.Priority })
+                    .IsUnique()
+                    .HasFilter("\"IsActive\" = TRUE")
+                    .HasDatabaseName("UX_ItemSrcRule_Tenant_Item_Site_Vendor_Prio_Active");
+                e.HasIndex(x => new { x.ItemId, x.SiteId, x.VendorId, x.Priority })
+                    .IsUnique()
+                    .HasFilter("\"TenantId\" IS NULL AND \"IsActive\" = TRUE")
+                    .HasDatabaseName("UX_ItemSrcRule_Item_Site_Vendor_Prio_Active_NullTenant");
+
+                e.HasIndex(x => new { x.ItemId, x.SiteId, x.ApprovalState, x.Priority })
+                    .HasDatabaseName("IX_ItemSrcRule_ItemSiteState_Prio");
+                e.HasIndex(x => x.VendorId);
+                e.HasIndex(x => x.TransferFromSiteId);
+                e.HasIndex(x => x.CustomerId);
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.SourcingRules)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
