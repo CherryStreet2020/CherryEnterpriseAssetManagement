@@ -302,6 +302,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-2 (2026-05-26) — IItemSiteResolver.
+// Read-side cascade ItemSite → Item for per-Site override resolution.
+// SAP MARC equivalent. Used by MRP, cost rollup, procurement defaulting,
+// warehouse receive-time defaulting.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemSiteResolver,
+    Abs.FixedAssets.Services.Items.ItemSiteResolver>();
+
 // B6 Foundation Sprint PR-FS-1.5.1 (2026-05-26) — IItemSourceBackfillSeeder.
 // One-time data fix that flips Items with Source=Internal AND ItemGroupId=FG
 // (the legacy-bug fingerprint from PR-FS-1.5) to Source=ExternalERP, so the

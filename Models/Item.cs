@@ -632,6 +632,10 @@ namespace Abs.FixedAssets.Models
         public ICollection<ItemCompanyStocking>? CompanyStockingSettings { get; set; }
         public ICollection<ItemManufacturerPart>? ManufacturerParts { get; set; }
         public ICollection<VendorItemPart>? VendorItemParts { get; set; }
+
+        // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site override rows.
+        // SAP MARC equivalent. See Models/Masters/ItemSite.cs.
+        public ICollection<Abs.FixedAssets.Models.Masters.ItemSite>? SiteOverrides { get; set; }
     }
 
     /// <summary>
