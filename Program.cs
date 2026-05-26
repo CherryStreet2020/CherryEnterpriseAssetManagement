@@ -254,6 +254,17 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IRoutingService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperationService,
     Abs.FixedAssets.Services.Production.ProductionOperationService>();
 
+// Sprint 12.8 PR #2 — IBackwardSchedulingService (STUB of the future Sprint 14
+// engine). Stamps PlannedStart/End on a parent ProductionOrder's children +
+// each child's ProductionOperations, walking BACKWARD from the parent's
+// ScheduledEnd. No calendar, no capacity constraints, no resource leveling —
+// the contract is documented in IBackwardSchedulingService.cs and the Sprint
+// 14 real engine swaps the impl without changing the interface. PR #5c
+// (ABS scenario seeder) is the first caller; PR #5d (/Production/Walkthrough)
+// renders the stamped dates.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.BackwardScheduling.IBackwardSchedulingService,
+    Abs.FixedAssets.Services.Production.BackwardScheduling.BackwardSchedulingService>();
+
 // Sprint 13.5 PR #5d — ILaborService backs the Operator Workbench clock-in/out
 // event writer (distinct from LaborConfig.cs lookup tables: LaborType / Craft /
 // Skill / LaborRate are catalog config; LaborService writes execution-time
