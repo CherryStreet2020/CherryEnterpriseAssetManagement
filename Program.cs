@@ -180,6 +180,15 @@ builder.Services.AddScoped<
     Abs.FixedAssets.Services.Controller.IControllerCockpitService,
     Abs.FixedAssets.Services.Controller.ChainTraceService>();
 
+// Sprint 12.7 PR #4 — Controller Control Center hero KPI band hydration.
+// Scoped for the same reasons as PR #2. Lock 15 compliant: pure
+// AsNoTracking() reads over JournalLines / GlAccounts / VendorInvoices /
+// PurchaseOrders / CipProjects. Computes 4 tiles: Cash position · AP due
+// this week · Open POs · WIP balance.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Controller.IFinanceKpiService,
+    Abs.FixedAssets.Services.Controller.FinanceKpiService>();
+
 // ADR-025 D5 / Sprint 12.9 PR #3 — IWorkOrderService extracts the 17 direct
 // SaveChangesAsync writes off Pages/WorkOrders/Details.cshtml.cs into a typed
 // service. PR #3 v1 covers 5 of 17 (operations CRUD + planned-material add);
