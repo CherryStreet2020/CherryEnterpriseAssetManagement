@@ -221,6 +221,21 @@ namespace Abs.FixedAssets.Models.Masters
         [Display(Name = "Reversal Reason")]
         public string? ReversalReason { get; set; }
 
+        // ===== Concurrency token ===========================================
+        //
+        // PR-FS-4 P1 fix (Codex on PR #360): RemainingQuantity is decremented
+        // by ConsumeQuantityAsync — a classic read-then-write hot path. Two
+        // concurrent consumes for the same (Item, Site) can both pass the
+        // availability check then overwrite each other's decrement (lost
+        // update) without optimistic concurrency.
+        //
+        // RowVersion is EF-managed (IsRowVersion()): EF stamps a value on
+        // insert/update and includes it in the WHERE clause on update; a
+        // mismatch throws DbUpdateConcurrencyException, which CostLayerService
+        // catches + retries (up to 3 times) by re-reading the current layer
+        // state and re-applying the consume math.
+        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+
         // ===== Audit =======================================================
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

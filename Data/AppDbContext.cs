@@ -2271,6 +2271,11 @@ namespace Abs.FixedAssets.Data
             // ReceivedAtUtc); reference resolution on (ReceiptType, ReceiptReferenceId).
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CostLayer>(e =>
             {
+                // PR-FS-4 P1 fix (Codex on PR #360): EF-managed concurrency
+                // token. Prevents lost-update on concurrent ConsumeQuantityAsync
+                // calls for the same (Item, Site) pair.
+                e.Property(x => x.RowVersion).IsRowVersion();
+
                 e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.LayerNumber })
                     .IsUnique()
                     .HasDatabaseName("UX_CostLayer_Tenant_Item_Site_Layer");

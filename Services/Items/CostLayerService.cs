@@ -133,14 +133,61 @@ public sealed class CostLayerService : ICostLayerService
         if (quantity <= 0m)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Consumption quantity must be > 0.");
 
-        // Standard cost: emit a single virtual consumption row at standard cost
-        // — variance vs. actual layer cost is the cost engine's job (Sprint 14.4).
-        // For now Standard means "consume FIFO but tag the method on the result"
-        // so the engine knows to compute variance.
-        var effectiveMethod = costMethod == CostMethod.Standard ? CostMethod.FIFO : costMethod;
+        // PR-FS-4 P1 fix (Codex on PR #360): refuse to consume in Standard mode.
+        // Silently mapping Standard → FIFO at actual layer costs would misstate
+        // the issue valuation AND lose the standard-vs-actual variance signal
+        // that posts to the purchase-price-variance GL account via PRA-7
+        // PostingProfile. The Sprint 14.4 cost-rollup engine will expose a
+        // dedicated standard-cost issue path that consumes layers FIFO (for
+        // physical inventory accuracy) but emits consumption rows at standard
+        // cost and writes a parallel variance row at (actual - standard).
+        // Until that lands, refuse Standard via this entry point.
+        if (costMethod == CostMethod.Standard)
+        {
+            throw new NotSupportedException(
+                "CostMethod.Standard is not supported by CostLayerService.ConsumeQuantityAsync " +
+                "— standard-cost issue valuation requires explicit standard-cost lookup + variance " +
+                "posting which is the Sprint 14.4 cost-rollup engine's responsibility. " +
+                "Use FIFO / LIFO / Average / LastPurchase for direct layer consumption.");
+        }
 
+        // PR-FS-4 P1 fix #2 (Codex on PR #360): retry on DbUpdateConcurrencyException.
+        // EF's IsRowVersion() on CostLayer.RowVersion enforces optimistic concurrency
+        // — concurrent consumes for the same (Item, Site) detect the conflict and
+        // we re-read state + re-apply the consume math. 3 retries handles the
+        // common transient case; persistent contention surfaces as the exception.
+        const int maxRetries = 3;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await ConsumeQuantityInternalAsync(itemId, siteId, quantity, costMethod, consumedBy, consumptionReason, ct);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < maxRetries)
+            {
+                _logger.LogWarning(
+                    "CostLayerService: concurrency conflict on consume Item={ItemId} Site={SiteId} Qty={Qty} attempt={Attempt}/{Max} — retrying.",
+                    itemId, siteId, quantity, attempt, maxRetries);
+                // Reset EF change tracker so the next attempt re-reads layers.
+                foreach (var entry in _db.ChangeTracker.Entries<CostLayer>().ToList())
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+        }
+    }
+
+    private async Task<IReadOnlyList<CostLayerConsumption>> ConsumeQuantityInternalAsync(
+        int itemId,
+        int? siteId,
+        decimal quantity,
+        CostMethod costMethod,
+        string? consumedBy,
+        string? consumptionReason,
+        CancellationToken ct)
+    {
         // Average method: blend across all open layers, decrement proportionally.
-        if (effectiveMethod == CostMethod.Average)
+        if (costMethod == CostMethod.Average)
         {
             return await ConsumeAverageAsync(itemId, siteId, quantity, costMethod, consumedBy, consumptionReason, ct);
         }
@@ -151,7 +198,7 @@ public sealed class CostLayerService : ICostLayerService
                      && l.SiteId == siteId
                      && l.Status == CostLayerStatus.Open
                      && l.RemainingQuantity > 0m);
-        var layers = effectiveMethod switch
+        var layers = costMethod switch
         {
             CostMethod.LIFO         => await layersQuery.OrderByDescending(l => l.ReceivedAtUtc).ThenByDescending(l => l.LayerNumber).ToListAsync(ct),
             CostMethod.LastPurchase => await layersQuery.OrderByDescending(l => l.ReceivedAtUtc).ThenByDescending(l => l.LayerNumber).ToListAsync(ct),

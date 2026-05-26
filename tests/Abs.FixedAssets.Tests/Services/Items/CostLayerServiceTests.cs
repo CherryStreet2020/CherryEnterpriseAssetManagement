@@ -49,6 +49,11 @@ public class CostLayerServiceTests
             base.OnModelCreating(mb);
             mb.Entity<LookupValue>().Ignore(x => x.Metadata);
             mb.Entity<Asset>().Ignore(a => a.RowVersion);
+            // PR-FS-4 P1 fix: CostLayer RowVersion is a Postgres-managed
+            // concurrency token; InMemory provider doesn't support IsRowVersion
+            // semantics, so we ignore it in tests (lost-update behavior is
+            // tested at integration level on real Postgres in a follow-up).
+            mb.Entity<Abs.FixedAssets.Models.Masters.CostLayer>().Ignore(c => c.RowVersion);
         }
     }
 
@@ -351,6 +356,24 @@ public class CostLayerServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await svc.ConsumeQuantityAsync(9245, 1, 25m, CostMethod.FIFO, "operator", null, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CostMethod_Standard_Throws_NotSupported_To_Force_Variance_Path()
+    {
+        // Codex P1 regression guard on PR #360 — silently mapping Standard → FIFO
+        // at actual layer costs would misstate issue valuation AND lose the
+        // standard-vs-actual variance signal. Refuse explicitly until the Sprint
+        // 14.4 cost-rollup engine ships the proper standard-cost issue path.
+        await using var db = NewDb();
+        db.Items.Add(BearingBrg6207());
+        await db.SaveChangesAsync();
+
+        var svc = NewService(db);
+        await svc.RecordReceiptAsync(9245, 1, CostLayerReceiptType.PurchaseOrder, 12001, "PO-12001", 50m, 18.90m, "USD", "BRG-LOT-A", null, null, null, null, "buyer", CancellationToken.None);
+
+        await Assert.ThrowsAsync<NotSupportedException>(async () =>
+            await svc.ConsumeQuantityAsync(9245, 1, 10m, CostMethod.Standard, "operator", null, CancellationToken.None));
     }
 
     [Fact]
