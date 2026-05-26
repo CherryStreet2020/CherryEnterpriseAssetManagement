@@ -171,6 +171,15 @@ builder.Services.AddScoped<DepreciationService>();
 // service is scoped because it consumes the per-request AppDbContext.
 builder.Services.AddScoped<IGlAccountResolver, GlAccountResolver>();
 
+// Sprint 12.7 PR #2 — Controller Control Center source-to-GL drilldown.
+// Scoped because it reads from the per-request AppDbContext. Zero
+// DbContext mutation (Lock 15 compliant): pure AsNoTracking() queries
+// that walk Asset → CipCapitalization → CipProject → CipCosts and recent
+// Depreciation JEs → JournalLines → AccountingKey segment context.
+builder.Services.AddScoped<
+    Abs.FixedAssets.Services.Controller.IControllerCockpitService,
+    Abs.FixedAssets.Services.Controller.ChainTraceService>();
+
 // ADR-025 D5 / Sprint 12.9 PR #3 — IWorkOrderService extracts the 17 direct
 // SaveChangesAsync writes off Pages/WorkOrders/Details.cshtml.cs into a typed
 // service. PR #3 v1 covers 5 of 17 (operations CRUD + planned-material add);
