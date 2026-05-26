@@ -2254,9 +2254,20 @@ namespace Abs.FixedAssets.Data
             // B6 Foundation Sprint PR-FS-2 (2026-05-26) — per-Site Item overrides
             // (SAP MARC equivalent). Unique on (TenantId, ItemId, SiteId). Tenant
             // trio (TenantId, CompanyId, SiteId) per [[reference_bic_entity_checklist]].
+            //
+            // PR-FS-2 P1 fix (Codex on PR #358): TenantId is nullable, and Postgres
+            // treats NULL as distinct in unique indexes — so the
+            // (TenantId, ItemId, SiteId) unique alone permits two rows with
+            // TenantId=NULL for the same (Item, Site) pair. A SECOND partial unique
+            // index closes that hole — when TenantId IS NULL, (ItemId, SiteId) alone
+            // must be unique. Lock 12 satisfied: EF .HasFilter() emits the partial
+            // index via typed migrationBuilder, not raw SQL.
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemSite>(e =>
             {
                 e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId }).IsUnique();
+                e.HasIndex(x => new { x.ItemId, x.SiteId })
+                    .IsUnique()
+                    .HasFilter("\"TenantId\" IS NULL");
                 e.HasIndex(x => x.ItemId);
                 e.HasIndex(x => x.SiteId);
                 e.HasIndex(x => x.CompanyId);

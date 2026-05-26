@@ -299,4 +299,32 @@ public class ItemSiteResolverTests
         Assert.Equal("WH-MAIN", eff!.DefaultWarehouse);
         Assert.Equal("Item", eff.OverrideSource["DefaultWarehouse"]);
     }
+
+    [Fact]
+    public async Task ResolveEffective_EmptyString_Override_Clears_Inherited_Text()
+    {
+        // Codex P2 regression guard on PR #358 — empty string MUST be treated as a
+        // deliberate override (clear the inherited value), NOT as "no override".
+        // Use case: per-Site DefaultWarehouse cleared so receive-flow doesn't default
+        // to the Item-level legacy warehouse code at this specific site.
+        await using var db = NewDb();
+        var item = NewTestItem(100);
+        item.Warehouse = "WH-MAIN";
+        db.Items.Add(item);
+        db.ItemSites.Add(new ItemSite
+        {
+            ItemId = 100,
+            SiteId = 5,
+            IsActive = true,
+            DefaultWarehouse = "",   // explicit empty — must override Item's WH-MAIN
+        });
+        await db.SaveChangesAsync();
+
+        var resolver = NewResolver(db);
+        var eff = await resolver.ResolveEffectiveAsync(100, siteId: 5, CancellationToken.None);
+
+        Assert.NotNull(eff);
+        Assert.Equal("", eff!.DefaultWarehouse);
+        Assert.Equal("ItemSite", eff.OverrideSource["DefaultWarehouse"]);
+    }
 }

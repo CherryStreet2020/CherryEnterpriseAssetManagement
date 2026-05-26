@@ -7938,6 +7938,10 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("TenantId");
 
+                    b.HasIndex("ItemId", "SiteId")
+                        .IsUnique()
+                        .HasFilter("\"TenantId\" IS NULL");
+
                     b.HasIndex("TenantId", "ItemId", "SiteId")
                         .IsUnique();
 

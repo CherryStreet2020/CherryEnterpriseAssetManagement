@@ -14,7 +14,7 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260526201506_AddItemSiteFsPr2")]
+    [Migration("20260526202723_AddItemSiteFsPr2")]
     partial class AddItemSiteFsPr2
     {
         /// <inheritdoc />
@@ -7940,6 +7940,10 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("SiteId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("ItemId", "SiteId")
+                        .IsUnique()
+                        .HasFilter("\"TenantId\" IS NULL");
 
                     b.HasIndex("TenantId", "ItemId", "SiteId")
                         .IsUnique();

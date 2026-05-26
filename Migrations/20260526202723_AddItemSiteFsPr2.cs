@@ -121,6 +121,13 @@ namespace Abs.FixedAssets.Migrations
                 column: "ItemId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ItemSites_ItemId_SiteId",
+                table: "ItemSites",
+                columns: new[] { "ItemId", "SiteId" },
+                unique: true,
+                filter: "\"TenantId\" IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ItemSites_PreferredVendorId",
                 table: "ItemSites",
                 column: "PreferredVendorId");

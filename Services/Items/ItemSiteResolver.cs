@@ -88,7 +88,11 @@ public sealed class ItemSiteResolver : IItemSiteResolver
 
         string? PickString(string field, string? overrideVal, string? itemVal)
         {
-            if (!string.IsNullOrEmpty(overrideVal))
+            // PR-FS-2 P2 fix (Codex on PR #358): use `!= null` not `!IsNullOrEmpty`.
+            // null means "no override"; empty string is a deliberate override that
+            // clears the inherited value (e.g., per-Site DefaultWarehouse blank to
+            // suppress Item-level legacy warehouse default).
+            if (overrideVal is not null)
             {
                 src[field] = "ItemSite";
                 return overrideVal;
