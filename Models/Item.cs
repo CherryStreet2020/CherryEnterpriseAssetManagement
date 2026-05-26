@@ -640,6 +640,11 @@ namespace Abs.FixedAssets.Models
         // B6 Foundation Sprint PR-FS-3 (2026-05-26) — cost composition split.
         // SAP Cost Component Split equivalent. See Models/Masters/ItemStandardCostElement.cs.
         public ICollection<Abs.FixedAssets.Models.Masters.ItemStandardCostElement>? StandardCostElements { get; set; }
+
+        // B6 Foundation Sprint PR-FS-4 (2026-05-26) — inventory valuation layers
+        // (FIFO/LIFO/Average). SAP MM "stock with values" equivalent. See
+        // Models/Masters/CostLayer.cs.
+        public ICollection<Abs.FixedAssets.Models.Masters.CostLayer>? CostLayers { get; set; }
     }
 
     /// <summary>

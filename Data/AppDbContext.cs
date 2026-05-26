@@ -474,6 +474,11 @@ namespace Abs.FixedAssets.Data
         // Per-Item / per-Site cost element breakdown rows, effective-dated.
         public DbSet<Abs.FixedAssets.Models.Masters.ItemStandardCostElement> ItemStandardCostElements => Set<Abs.FixedAssets.Models.Masters.ItemStandardCostElement>();
 
+        // B6 Foundation Sprint PR-FS-4 (2026-05-26) — FIFO/LIFO/Average cost layers.
+        // Per-Item / per-Site inventory valuation layers. SAP MM "stock with values"
+        // equivalent. Immutable receipts; consumption decrements RemainingQuantity.
+        public DbSet<Abs.FixedAssets.Models.Masters.CostLayer> CostLayers => Set<Abs.FixedAssets.Models.Masters.CostLayer>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2252,6 +2257,48 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.DefaultLocationRef)
                     .WithMany()
                     .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B6 Foundation Sprint PR-FS-4 (2026-05-26) — CostLayer (FIFO/LIFO/Average
+            // inventory valuation; SAP MM "stock with values" equivalent). Per
+            // (Item, optional Site) LayerNumber is monotonically increasing.
+            // Null-safe partial UNIQUE on (ItemId, SiteId, LayerNumber) WHERE TenantId
+            // IS NULL — applying the PR-FS-2 Codex P1 lesson prophylactically.
+            //
+            // The non-partial UNIQUE is (TenantId, ItemId, SiteId, LayerNumber).
+            // Secondary lookups: FIFO/LIFO ordering on (ItemId, SiteId, Status,
+            // ReceivedAtUtc); reference resolution on (ReceiptType, ReceiptReferenceId).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CostLayer>(e =>
+            {
+                e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.LayerNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_CostLayer_Tenant_Item_Site_Layer");
+                e.HasIndex(x => new { x.ItemId, x.SiteId, x.LayerNumber })
+                    .IsUnique()
+                    .HasFilter("\"TenantId\" IS NULL")
+                    .HasDatabaseName("UX_CostLayer_Item_Site_Layer_NullTenant");
+                e.HasIndex(x => new { x.ItemId, x.SiteId, x.Status, x.ReceivedAtUtc })
+                    .HasDatabaseName("IX_CostLayer_ItemSiteStatus_ReceivedAt");
+                e.HasIndex(x => new { x.ReceiptType, x.ReceiptReferenceId })
+                    .HasDatabaseName("IX_CostLayer_ReceiptType_Ref");
+                e.HasIndex(x => x.LotNumber);
+                e.HasIndex(x => x.SerialNumber);
+                e.HasIndex(x => x.HeatNumber);
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.CostLayers)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 

@@ -1,0 +1,127 @@
+@page "/Admin/CostLayerProbe"
+@model Abs.FixedAssets.Pages.Admin.CostLayerProbeModel
+@{
+    ViewData["Title"] = "Cost Layer Probe";
+    ViewData["TabTitle"] = "Cost Layer Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-4 (2026-05-26) — admin probe for ICostLayerService.
+    Read-only diagnostic. ItemId + optional SiteId → open layers table + summary
+    (total open qty, weighted-avg cost, FIFO/LIFO unit cost). Foundation for the
+    Sprint 14.4 cost-engine UI.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Cost Layer Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Inspect FIFO/LIFO/Average cost layers for any (Item × Site). SAP MM
+            "stock with values" equivalent. Read-only.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="SiteId">Site Id (optional)</label>
+                    <input type="number" id="SiteId" name="SiteId" value="@(Model.SiteId?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Inspect Cost Layers</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.NotFound)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-warning"><strong>Item @Model.ItemId not found.</strong></p>
+            </div>
+        </section>
+    }
+
+    @if (Model.Summary is not null)
+    {
+        var s = Model.Summary;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Summary for Item @s.ItemId @(s.SiteId.HasValue ? $"@ Site {s.SiteId}" : "(any Site)")</h2>
+                <table class="ds-table">
+                    <thead><tr><th>Metric</th><th class="ds-text-right">Value</th></tr></thead>
+                    <tbody>
+                        <tr><td>Open layer count</td><td class="ds-text-right">@s.OpenLayerCount</td></tr>
+                        <tr><td>Total open quantity</td><td class="ds-text-right">@s.TotalOpenQuantity.ToString("N4")</td></tr>
+                        <tr><td>Weighted-average unit cost</td><td class="ds-text-right">@s.WeightedAverageCost.ToString("C4")</td></tr>
+                        <tr><td>FIFO next unit cost (oldest open layer)</td><td class="ds-text-right">@(s.FifoNextCost?.ToString("C4") ?? "—")</td></tr>
+                        <tr><td>LIFO next unit cost (newest open layer)</td><td class="ds-text-right">@(s.LifoNextCost?.ToString("C4") ?? "—")</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @if (Model.OpenLayers.Count > 0)
+        {
+            <section class="ds-card ds-mt-4">
+                <div class="ds-card__body">
+                    <h2 class="ds-h2">Open Layers (FIFO order, oldest first)</h2>
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Layer #</th>
+                                <th>Received</th>
+                                <th>Receipt</th>
+                                <th>Doc #</th>
+                                <th>Lot</th>
+                                <th>Heat</th>
+                                <th class="ds-text-right">Received Qty</th>
+                                <th class="ds-text-right">Remaining</th>
+                                <th class="ds-text-right">Unit Cost</th>
+                                <th class="ds-text-right">Remaining Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in Model.OpenLayers.Take(50))
+                            {
+                                <tr>
+                                    <td>@l.LayerNumber</td>
+                                    <td>@l.ReceivedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td><code>@l.ReceiptType</code></td>
+                                    <td>@(l.ReceiptDocumentNumber ?? "—")</td>
+                                    <td>@(l.LotNumber ?? "—")</td>
+                                    <td>@(l.HeatNumber ?? "—")</td>
+                                    <td class="ds-text-right">@l.ReceivedQuantity.ToString("N4")</td>
+                                    <td class="ds-text-right">@l.RemainingQuantity.ToString("N4")</td>
+                                    <td class="ds-text-right">@l.UnitCost.ToString("C4")</td>
+                                    <td class="ds-text-right">@((l.RemainingQuantity * l.UnitCost).ToString("C2"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (Model.OpenLayers.Count > 50)
+                    {
+                        <p class="ds-text-muted">… and @(Model.OpenLayers.Count - 50) more.</p>
+                    }
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="ds-card ds-mt-4">
+                <div class="ds-card__body">
+                    <p class="ds-text-muted"><em>No open cost layers for this (Item × Site). Item is at zero inventory cost basis.</em></p>
+                </div>
+            </section>
+        }
+    }
+</main>
