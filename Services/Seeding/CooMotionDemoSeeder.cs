@@ -162,16 +162,16 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         decimal MaterialCost, decimal LaborCost, decimal OverheadCost, decimal SubcontractCost)[]
         OrderTemplates =
     {
-        ("PRO-2026-1000", "Precision Bracket Assembly (parent) (Demo)",         IsParent: true,  IsSecondary: false, 52_000m, 48_000m, 72_000m, 5_000m),
-        ("PRO-2026-1001", "Bracket Body — 5-Axis Milled (Demo)",                IsParent: false, IsSecondary: false, 12_000m, 11_000m, 14_500m, 0m),
-        ("PRO-2026-1002", "Mounting Plate — 3-Axis Milled (Demo)",              IsParent: false, IsSecondary: false,  7_500m,  6_800m,  7_900m, 0m),
-        ("PRO-2026-1003", "Reinforcement Rib (set of 4) (Demo)",                IsParent: false, IsSecondary: false,  6_000m,  5_400m,  6_400m, 0m),
-        ("PRO-2026-1004", "Pivot Sleeve — Turned (Demo)",                       IsParent: false, IsSecondary: false,  4_800m,  4_200m,  4_900m, 0m),
-        ("PRO-2026-1005", "Cap Bolt Subassembly (Demo)",                        IsParent: false, IsSecondary: false,  3_200m,  2_800m,  3_100m, 0m),
-        ("PRO-2026-1006", "Bushing Set — Turned (Demo)",                        IsParent: false, IsSecondary: false,  3_800m,  3_300m,  3_700m, 0m),
-        ("PRO-2026-1007", "Heat-Treated Pivot Pin (subcontract) (Demo)",        IsParent: false, IsSecondary: true,   3_500m,  3_100m,  3_600m, 5_000m),
-        ("PRO-2026-1008", "Welded Stiffener Frame (Demo)",                      IsParent: false, IsSecondary: true,   9_000m,  8_200m,  9_500m, 0m),
-        ("PRO-2026-1009", "Final FAI + Pack (Demo)",                            IsParent: false, IsSecondary: true,   4_500m,  4_100m,  4_800m, 0m),
+        ("DEMO-COO-PRO-1000", "Precision Bracket Assembly (parent) (Demo)",         IsParent: true,  IsSecondary: false, 52_000m, 48_000m, 72_000m, 5_000m),
+        ("DEMO-COO-PRO-1001", "Bracket Body — 5-Axis Milled (Demo)",                IsParent: false, IsSecondary: false, 12_000m, 11_000m, 14_500m, 0m),
+        ("DEMO-COO-PRO-1002", "Mounting Plate — 3-Axis Milled (Demo)",              IsParent: false, IsSecondary: false,  7_500m,  6_800m,  7_900m, 0m),
+        ("DEMO-COO-PRO-1003", "Reinforcement Rib (set of 4) (Demo)",                IsParent: false, IsSecondary: false,  6_000m,  5_400m,  6_400m, 0m),
+        ("DEMO-COO-PRO-1004", "Pivot Sleeve — Turned (Demo)",                       IsParent: false, IsSecondary: false,  4_800m,  4_200m,  4_900m, 0m),
+        ("DEMO-COO-PRO-1005", "Cap Bolt Subassembly (Demo)",                        IsParent: false, IsSecondary: false,  3_200m,  2_800m,  3_100m, 0m),
+        ("DEMO-COO-PRO-1006", "Bushing Set — Turned (Demo)",                        IsParent: false, IsSecondary: false,  3_800m,  3_300m,  3_700m, 0m),
+        ("DEMO-COO-PRO-1007", "Heat-Treated Pivot Pin (subcontract) (Demo)",        IsParent: false, IsSecondary: true,   3_500m,  3_100m,  3_600m, 5_000m),
+        ("DEMO-COO-PRO-1008", "Welded Stiffener Frame (Demo)",                      IsParent: false, IsSecondary: true,   9_000m,  8_200m,  9_500m, 0m),
+        ("DEMO-COO-PRO-1009", "Final FAI + Pack (Demo)",                            IsParent: false, IsSecondary: true,   4_500m,  4_100m,  4_800m, 0m),
     };
 
     // ----- The 4 ProjectPhases -----
@@ -253,20 +253,45 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
 
         var tenantId = company.Id;
 
-        // ---------- Idempotency check ----------
+        // ---------- Granular idempotency check (Codex P1 #1 carry-forward) ----------
+        // Was: "CustomerProject exists → AlreadySeeded" (too coarse — if buckets 6/8
+        // failed mid-flight, the retry would lock at AlreadySeeded leaving the tree
+        // partial). Now: only report AlreadySeeded if BOTH the project exists AND
+        // the expected ProductionOrder + ProductionOperation rows are present.
+        // Otherwise fall through and let each bucket's natural-key check resume the
+        // missing slices.
         var existingProject = await _db.Set<CustomerProject>().AsNoTracking()
             .FirstOrDefaultAsync(p => p.CompanyId == tenantId && p.Code == DemoProjectCode, ct);
         if (existingProject is not null)
         {
-            return new CooMotionDemoSeedResult(
-                tenantId, company.CompanyCode, company.Name,
-                AlreadySeeded: true,
-                LocationsCreated: 0, CustomerProjectsCreated: 0, ProjectPhasesCreated: 0,
-                MaterialStructuresCreated: 0, MaterialStructureLinesCreated: 0,
-                RoutingsCreated: 0, RoutingOperationsCreated: 0,
-                ProductionOrdersCreated: 0, ProductionOperationsCreated: 0,
-                OperationsStatusStamped: 0, BackwardScheduledOperations: 0,
-                Warnings: warnings);
+            var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
+                .CountAsync(o => o.CompanyId == tenantId
+                                  && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
+            var existingOperationCount = await _db.Set<ProductionOperation>().AsNoTracking()
+                .CountAsync(op => _db.Set<ProductionOrder>()
+                                     .Where(o => o.CompanyId == tenantId
+                                                  && o.OrderNumber.StartsWith("DEMO-COO-PRO-"))
+                                     .Select(o => o.Id)
+                                     .Contains(op.ProductionOrderId), ct);
+
+            if (existingOrderCount >= OrderTemplates.Length && existingOperationCount > 0)
+            {
+                return new CooMotionDemoSeedResult(
+                    tenantId, company.CompanyCode, company.Name,
+                    AlreadySeeded: true,
+                    LocationsCreated: 0, CustomerProjectsCreated: 0, ProjectPhasesCreated: 0,
+                    MaterialStructuresCreated: 0, MaterialStructureLinesCreated: 0,
+                    RoutingsCreated: 0, RoutingOperationsCreated: 0,
+                    ProductionOrdersCreated: 0, ProductionOperationsCreated: 0,
+                    OperationsStatusStamped: 0, BackwardScheduledOperations: 0,
+                    Warnings: warnings);
+            }
+            // Project exists but tree is partial — fall through and resume.
+            // Per-bucket natural-key checks below will skip what's already there.
+            warnings.Add(
+                $"CustomerProject '{DemoProjectCode}' exists but ProductionOrder/Operation " +
+                $"counts indicate a partial seed (orders={existingOrderCount}, ops={existingOperationCount}). " +
+                "Resuming missing buckets. Manual cleanup of orphans may still be needed.");
         }
 
         // ---------- Locate prerequisite data ----------

@@ -208,10 +208,10 @@ public class CooMotionDemoSeederTests
         await seeder.SeedAsync(CancellationToken.None);
 
         var parent = await db.Set<ProductionOrder>()
-            .FirstAsync(p => p.OrderNumber == "PRO-2026-1000");
+            .FirstAsync(p => p.OrderNumber == "DEMO-COO-PRO-1000");
         var children = await db.Set<ProductionOrder>()
-            .Where(p => p.OrderNumber.StartsWith("PRO-2026-1")
-                        && p.OrderNumber != "PRO-2026-1000")
+            .Where(p => p.OrderNumber.StartsWith("DEMO-COO-PRO-1")
+                        && p.OrderNumber != "DEMO-COO-PRO-1000")
             .ToListAsync();
 
         Assert.Null(parent.ParentProductionOrderId);
