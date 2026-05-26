@@ -184,6 +184,34 @@ namespace Abs.FixedAssets.Models
         public ItemCategory? Category { get; set; }
 
         // ====================================================================
+        // B6 Foundation Sprint PR-FS-1 (2026-05-26) — ItemGroupId wire-up.
+        //
+        // Foundational classification onto Models/Masters/ItemGroup.cs that
+        // drives the PRA-7 PostingProfile + PRA-5b AccountingKey cascade.
+        // Without this FK the PostingProfile resolution (which keys on
+        // ItemGroupId × TransactionType × Warehouse) has no Item-side
+        // driver — that infrastructure has been shipped since PRA-7 on
+        // 2026-05-24 and unused.
+        //
+        // NULLABLE in this PR. Service-layer requires Source=Internal Items
+        // to supply ItemGroupId on create going forward. Existing 151 Items
+        // on dev have ItemGroupId=NULL until a separate backfill seeder PR
+        // populates them — kept as a separate ship per BIC discipline
+        // (one concern per PR).
+        //
+        // Tightening to NOT NULL is a future cleanup PR after every Item
+        // is classified.
+        //
+        // See:
+        //   docs/research/b6-foundation-sprint-design-2026-05-26.md
+        //   docs/research/item-master-vs-production-order-snapshot-2026-05-26.md
+        //   feedback memory: feedback_b6_go_big_2026_05_26.md
+        // ====================================================================
+        public int? ItemGroupId { get; set; }
+        [Display(Name = "Item Group")]
+        public Abs.FixedAssets.Models.Masters.ItemGroup? ItemGroup { get; set; }
+
+        // ====================================================================
         // LEGACY UOM (pre-Sprint-13.5-PRA-4) — kept for back-compat. New code
         // should READ via the StockUomId / PurchaseUomId / SalesUomId FKs below
         // and the IUomService.ConvertAsync helper. Removal of these legacy

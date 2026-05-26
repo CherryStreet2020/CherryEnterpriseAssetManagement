@@ -90,6 +90,12 @@ public sealed class ItemMasterService : IItemMasterService
         if (request.StandardCost.HasValue)
             existing.StandardCost = request.StandardCost.Value;
 
+        // B6 PR-FS-1 — ItemGroup classification. Allow null preserve when caller
+        // omits; otherwise update. ItemGroup existence + tenant-scope validation
+        // is enforced by the FK at the DB level (SET NULL on ItemGroup delete).
+        if (request.ItemGroupId.HasValue)
+            existing.ItemGroupId = request.ItemGroupId.Value;
+
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Updated item {ItemId} ({PartNumber}).", existing.Id, existing.PartNumber);
         return Result.Success(existing);
@@ -112,6 +118,23 @@ public sealed class ItemMasterService : IItemMasterService
         var resolvedStatus = await ResolveItemStatusAsync(request.StatusLookupValueId, ItemStatus.Active);
         var resolvedCostMethod = await ResolveCostMethodAsync(request.CostMethodLookupValueId, CostMethod.Average);
         var resolvedTracking = await ResolveTrackingTypeAsync(request.TrackingTypeLookupValueId, TrackingType.None);
+
+        // B6 PR-FS-1 — ItemGroup gate. When Source=Internal (i.e. the operator
+        // is creating the Item natively in the app rather than importing from an
+        // ExternalERP), ItemGroupId MUST be supplied. The PostingProfile cascade
+        // (PRA-7) cannot resolve without it, and we never want to land an
+        // unclassified Item via the native create path going forward.
+        //
+        // ExternalERP imports remain allowed to skip ItemGroupId — the legacy
+        // 151 Items on dev are pre-FS-1 and grandfathered as nullable.
+        if (request.Source == ItemMasterSource.Internal && !request.ItemGroupId.HasValue)
+        {
+            return Result.Failure<Item>(
+                "ItemGroupId is required when creating an Item with Source=Internal. " +
+                "Classify the Item into one of the seeded ItemGroups (RAW / WIP / FG / " +
+                "CONSUMABLE / SUBASSY / SUBCONTR / TOOLING / SPAREPART / PACKAGING / " +
+                "ASSET / SERVICE / AS9102-FG) before retrying.");
+        }
 
         var newItem = new Item
         {
@@ -141,12 +164,15 @@ public sealed class ItemMasterService : IItemMasterService
             ContractRef = request.ContractRef,
             StandardCost = request.StandardCost ?? 0m,
             DefaultLocationId = request.DefaultLocationId,
+            ItemGroupId = request.ItemGroupId,            // B6 PR-FS-1
+            Source = request.Source,                       // B6 PR-FS-1 — explicit source
             CompanyId = _tenantContext.CompanyId
         };
 
         _db.Items.Add(newItem);
         await _db.SaveChangesAsync(ct);
-        _logger.LogInformation("Created item {ItemId} ({PartNumber}).", newItem.Id, newItem.PartNumber);
+        _logger.LogInformation("Created item {ItemId} ({PartNumber}) classified into ItemGroup {ItemGroupId}.",
+            newItem.Id, newItem.PartNumber, newItem.ItemGroupId);
         return Result.Success(newItem);
     }
 
