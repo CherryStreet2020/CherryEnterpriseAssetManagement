@@ -216,15 +216,82 @@ public sealed class ChainTraceService : IControllerCockpitService
         }
 
         // ---- Step 3 — recent depreciation JEs -------------------------------
-        // Identify depreciation JEs by JE.Source == "Depreciation" AND any
-        // line whose Account matches the asset's GLAccumDepAccount or
-        // GLDepExpenseAccount. Bounded to MaxDepreciationJEs.
+        // PROVENANCE CONSTRAINT (Codex P1 catch 2026-05-25): a JE whose
+        // Source = "Depreciation" + line on GL accounts X/Y could belong to
+        // ANY asset that posts to those same accounts. Per-tenant defaults
+        // (e.g. "1510 — Accumulated Depreciation", "6500 — Depreciation
+        // Expense") are shared across most assets. Matching on account
+        // strings alone would surface other assets' depreciation JEs as if
+        // they belonged to the queried asset, producing a factually wrong
+        // drilldown.
+        //
+        // Without JournalLine.SourceModule / SourceDocumentId / SourceAssetId
+        // columns (queued as a future ADR-tracked migration — see
+        // AccountingKey.cs §"FORWARD-LOOKING"), the only safe disambiguation
+        // is the per-entity GL account override pattern: when the asset
+        // overrides GLAccumDepAccount or GLDepExpenseAccount with a value
+        // that is NOT the tenant default, that account string uniquely
+        // identifies the asset's depreciation postings.
+        //
+        // For assets WITHOUT overrides (the common case), we skip the
+        // depreciation walk and surface a narration step explaining the
+        // limitation. PR #3+ wires the proper traceability columns +
+        // AccountingKey ProjectId/SiteId segment matching.
+        // Start from any per-entity GL account override stored on the asset.
+        // A stored value on Asset.GLAccumDepAccount / GLDepExpenseAccount is
+        // a CANDIDATE override; the next cross-check (below) drops any
+        // candidate that appears on ≥ 1 OTHER asset in the same tenant
+        // (which would mean it's shared, not asset-specific).
         var depAccounts = new[] { asset.GLAccumDepAccount, asset.GLDepExpenseAccount }
             .Where(a => !string.IsNullOrWhiteSpace(a))
             .Cast<string>()
+            .Distinct()
             .ToArray();
 
-        if (depAccounts.Length > 0)
+        // Cross-check: an account "string survives as override" iff it is
+        // present on FEWER than N assets in this tenant. If it's on ≥ 2
+        // assets, treat it as a shared default (i.e. NOT a per-asset
+        // override) — drop it from disambiguation set.
+        if (depAccounts.Length > 0 && asset.CompanyId.HasValue)
+        {
+            var sharedAccounts = await _db.Assets.AsNoTracking()
+                .Where(a => a.CompanyId == asset.CompanyId
+                    && a.Id != asset.Id
+                    && a.GLAccumDepAccount != null
+                    && depAccounts.Contains(a.GLAccumDepAccount!))
+                .Select(a => a.GLAccumDepAccount!)
+                .Distinct()
+                .ToListAsync(ct);
+
+            var sharedExp = await _db.Assets.AsNoTracking()
+                .Where(a => a.CompanyId == asset.CompanyId
+                    && a.Id != asset.Id
+                    && a.GLDepExpenseAccount != null
+                    && depAccounts.Contains(a.GLDepExpenseAccount!))
+                .Select(a => a.GLDepExpenseAccount!)
+                .Distinct()
+                .ToListAsync(ct);
+
+            depAccounts = depAccounts
+                .Where(a => !sharedAccounts.Contains(a) && !sharedExp.Contains(a))
+                .ToArray();
+        }
+
+        if (depAccounts.Length == 0)
+        {
+            // Provenance limitation — surface a narration step the user can
+            // read, instead of silently returning a wrong walk.
+            steps.Add(new ChainStep(
+                StepType: "JournalEntry",
+                StepKey: $"DEP-UNDISAMBIGUATED-{asset.Id}",
+                Eyebrow: "DEPRECIATION CHAIN",
+                Headline: "Depreciation history not disambiguated for this asset",
+                Subtext: "Asset uses shared default GL accounts for Accumulated Depreciation / Depreciation Expense.",
+                DeepLinkHref: null,
+                Narration: $"Per-asset depreciation JE lookup requires either (a) per-entity GL account overrides on the asset, or (b) JournalLine.SourceDocumentId provenance (queued for a future ADR-tracked migration). Until then the depreciation walk would risk surfacing other assets' JEs that post to the same default accounts. See {asset.Id}'s capitalization + CIP chain above for what we CAN trace today."
+            ));
+        }
+        else
         {
             // Load top N Depreciation JE headers WITH their lines via Include,
             // then filter in-memory to those that touch the asset's
