@@ -2207,6 +2207,24 @@ namespace Abs.FixedAssets.Data
             {
                 e.HasIndex(x => x.PartNumber);
                 e.HasIndex(x => x.CompanyId);
+                // B6 Foundation Sprint PR-FS-7 (2026-05-26) — searchable + filterable
+                // indexes for the new 18-column expansion. Trade compliance fields
+                // (ECCN/ScheduleB/IntrastatCode) are looked up at order-export time;
+                // PlanningPolicy + MakeBuyCode + LotSizingRule + LifecycleStage are
+                // filtered in MRP + Make-or-Buy decision service queries; ItemFamily
+                // is used for analytics rollups; IsSellable + AS9100Critical gate
+                // production routing.
+                e.HasIndex(x => x.PlanningPolicy);
+                e.HasIndex(x => x.MakeBuyCode);
+                e.HasIndex(x => x.LotSizingRule);
+                e.HasIndex(x => x.LifecycleStage);
+                e.HasIndex(x => x.ItemFamily);
+                e.HasIndex(x => x.IsSellable);
+                e.HasIndex(x => x.AS9100Critical);
+                e.HasIndex(x => x.ECCN);
+                e.HasIndex(x => x.ScheduleB);
+                e.HasIndex(x => x.IntrastatCode);
+                e.HasIndex(x => x.MrpPlannerCode);
                 e.HasOne(x => x.Category)
                     .WithMany(c => c.Items)
                     .HasForeignKey(x => x.CategoryId)

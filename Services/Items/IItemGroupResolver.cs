@@ -65,9 +65,31 @@ public interface IItemGroupResolver
     Task<int?> ResolveDefaultForItemAsync(ItemType itemType, ItemMasterSource source, CancellationToken ct);
 
     /// <summary>
+    /// PR-FS-7 (2026-05-26) — preferred overload that consults <c>Item.IsSellable</c>
+    /// to TIGHTEN the Part+Internal default. Resolves:
+    ///   - Part / Kit + Internal + IsSellable=TRUE  → FG (truly sellable internal item)
+    ///   - Part / Kit + Internal + IsSellable=FALSE → SUBASSY (sub-assembly default)
+    ///   - All other (Type, Source) combinations route per the existing convention
+    ///     map (Source-aware dispatch from PR-FS-1.5.1).
+    ///
+    /// Closes the loop on the PR-FS-1.5.1 hotfix lesson: the resolver originally
+    /// defaulted Part+Internal → SUBASSY pending PR-FS-7's IsSellable signal. With
+    /// this overload, the signal is wired and FG-as-default is correctly gated on
+    /// the explicit sellable flag.
+    /// </summary>
+    Task<int?> ResolveDefaultForItemAsync(Item item, CancellationToken ct);
+
+    /// <summary>
     /// Resolve a specific <c>ItemGroup.Id</c> by its <c>Code</c> (e.g.
     /// "RAW", "FG", "CONSUMABLE", "SUBASSY"). Returns <c>null</c> if no
     /// ItemGroup matches. Lookup is case-insensitive.
     /// </summary>
     Task<int?> ResolveByCodeAsync(string code, CancellationToken ct);
+
+    /// <summary>
+    /// Project (Id, Code) for an ItemGroup by Id. Used by admin probes that
+    /// need to display the resolved code without direct DbContext access
+    /// (CHERRY025 compliance).
+    /// </summary>
+    Task<(int? Id, string? Code)> GetByIdAsync(int? itemGroupId, CancellationToken ct);
 }

@@ -1,0 +1,110 @@
+@page "/Admin/ItemMasterExpansionProbe"
+@model Abs.FixedAssets.Pages.Admin.ItemMasterExpansionProbeModel
+@{
+    ViewData["Title"] = "Item Master Expansion Probe";
+    ViewData["TabTitle"] = "ItemMaster Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-7 (2026-05-26) — admin probe for the 18-column
+    Item Master expansion. Reads via the resolver service (no direct DbContext
+    injection per CHERRY025). Renders the PR-FS-7 expansion fields plus the
+    resolved ItemGroup with PR-FS-7 tightening (IsSellable=true now routes to
+    FG when Source=Internal).
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Item Master Expansion Probe</h1>
+        <p class="ds-page-header__subtitle">
+            18-column Item Master expansion fields + resolver IsSellable tightening.
+            Read-only.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Resolve Item Master Expansion</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.NotFound)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-warning"><strong>Item @Model.ItemId not found.</strong></p>
+            </div>
+        </section>
+    }
+
+    @if (Model.View is not null)
+    {
+        var v = Model.View;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Item @v.ItemId · @v.PartNumber</h2>
+                <p class="ds-text-muted">@v.Description · Resolved ItemGroup: <strong>@(v.ResolvedItemGroupCode ?? "—")</strong> (Id=@(v.ResolvedItemGroupId?.ToString() ?? "null"))</p>
+
+                <h3 class="ds-h3 ds-mt-3">Planning + Sourcing</h3>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>Planning Policy</td><td><code>@v.PlanningPolicy</code></td></tr>
+                        <tr><td>Make/Buy Code</td><td><code>@v.MakeBuyCode</code></td></tr>
+                        <tr><td>Lot Sizing Rule</td><td><code>@v.LotSizingRule</code></td></tr>
+                        <tr><td>MRP Planner Code</td><td>@(v.MrpPlannerCode ?? "—")</td></tr>
+                        <tr><td>Is Sellable</td><td>@v.IsSellable @(v.IsSellable ? " — tightens Part+Internal → FG" : "")</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 class="ds-h3 ds-mt-3">BOM Behavior</h3>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>Is Phantom</td><td>@v.IsPhantom</td></tr>
+                        <tr><td>Requires Kitting</td><td>@v.RequiresKitting</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 class="ds-h3 ds-mt-3">Quality / Compliance</h3>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>AS9100 Critical</td><td>@v.AS9100Critical</td></tr>
+                        <tr><td>Key Characteristic</td><td>@v.KeyCharacteristic</td></tr>
+                        <tr><td>Requires FAI</td><td>@v.RequiresFai</td></tr>
+                        <tr><td>Inspection Plan Id</td><td>@(v.InspectionPlanId?.ToString() ?? "—")</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 class="ds-h3 ds-mt-3">International Trade</h3>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>ECCN</td><td>@(v.ECCN ?? "—")</td></tr>
+                        <tr><td>Schedule B</td><td>@(v.ScheduleB ?? "—")</td></tr>
+                        <tr><td>Intrastat Code</td><td>@(v.IntrastatCode ?? "—")</td></tr>
+                        <tr><td>EAR99</td><td>@v.EAR99</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 class="ds-h3 ds-mt-3">Costing + Family + Lifecycle</h3>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>Frozen Standard Cost</td><td>@(v.FrozenStandardCost?.ToString("C4") ?? "—")</td></tr>
+                        <tr><td>Frozen Standard Cost Effective At</td><td>@(v.FrozenStandardCostEffectiveAtUtc?.ToString("yyyy-MM-dd HH:mm 'UTC'") ?? "—")</td></tr>
+                        <tr><td>Item Family</td><td>@(v.ItemFamily ?? "—")</td></tr>
+                        <tr><td>Lifecycle Stage</td><td><code>@v.LifecycleStage</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</main>
