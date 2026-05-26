@@ -154,6 +154,107 @@ public class HybridIntentRouterTests
     }
 
     // ====================================================================
+    // Layer 1 — Sprint 12.7 PR #3 Controller-side chain trace intent.
+    //
+    // The CFO motion: "why is NBV on asset 4231" must route to
+    // ExplainChainTrace (not the receipt-side ExplainException), and the
+    // entity ref must be normalized into a form ChainTraceService can
+    // parse (e.g. "asset 4231").
+    // ====================================================================
+
+    [Fact]
+    public async Task KeywordChainTrace_WhyIsNbvAsset_RoutesToChainTrace()
+    {
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "why is the NBV so high on asset 4231",
+            tenantId: 1,
+            CancellationToken.None);
+
+        Assert.Equal(IntentKind.ExplainChainTrace, result.Intent.Kind);
+        Assert.Equal("asset 4231", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+        Assert.Equal(1.0, result.Confidence);
+        Assert.Equal(0, voyage.EmbedQueryCalls); // Layer 1 win never touches Voyage.
+    }
+
+    [Fact]
+    public async Task KeywordChainTrace_DrillDownOnJe_NormalizesJournalToJe()
+    {
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "drill down on journal entry 47",
+            tenantId: 1,
+            CancellationToken.None);
+
+        Assert.Equal(IntentKind.ExplainChainTrace, result.Intent.Kind);
+        // The classifier normalizes "journal entry"/"journal" prefixes to "je"
+        // so ChainTraceService.ParseEntityRef resolves to EntityKind.JournalEntry.
+        Assert.Equal("je 47", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+    }
+
+    [Fact]
+    public async Task KeywordChainTrace_TraceAsset_RoutesToChainTrace()
+    {
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "trace asset 1116",
+            tenantId: 1,
+            CancellationToken.None);
+
+        Assert.Equal(IntentKind.ExplainChainTrace, result.Intent.Kind);
+        Assert.Equal("asset 1116", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+    }
+
+    [Fact]
+    public async Task KeywordChainTrace_DoesNotCollideWithChainOfCustody()
+    {
+        // "trace this receipt" must still route to ExplainChainOfCustody —
+        // the chain-trace classifier should not steal the receipt verb.
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "trace this receipt back to the source",
+            tenantId: 1,
+            CancellationToken.None);
+
+        Assert.Equal(IntentKind.ExplainChainOfCustody, result.Intent.Kind);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+    }
+
+    [Fact]
+    public async Task KeywordChainTrace_ExplainReceiptStillRoutesToExplainException()
+    {
+        // Defensive: "explain receipt RCPT-..." has "explain" + a receipt
+        // natural key, but contains NO controller subject ("nbv", "asset",
+        // etc.). The chain-trace branch must not fire here.
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "explain receipt RCPT-2026-9999",
+            tenantId: 1,
+            CancellationToken.None);
+
+        Assert.Equal(IntentKind.ExplainException, result.Intent.Kind);
+        Assert.Equal("RCPT-2026-9999", result.Intent.NaturalKey);
+    }
+
+    // ====================================================================
     // Layer 2 — provider guard (InMemory tests → vector layer disabled)
     // ====================================================================
 

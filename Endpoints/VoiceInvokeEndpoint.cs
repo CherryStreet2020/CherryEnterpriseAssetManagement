@@ -66,6 +66,10 @@ public static class VoiceInvokeEndpoint
         ITenantContext tenantContext,
         AppDbContext db,
         Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
+        // Sprint 12.7 PR #3 — Controller-side source-to-GL chain trace service.
+        // Powers the ExplainChainTrace intent (the CFO motion). Reads
+        // AsNoTracking only; zero DbContext mutation.
+        Abs.FixedAssets.Services.Controller.IControllerCockpitService controllerCockpit,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -124,6 +128,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.LookupReceipt         => await HandleLookupReceiptAsync(voiceTools, intent, ct),
                 IntentKind.ExplainException      => await HandleExplainExceptionAsync(voiceTools, intent, ct),
                 IntentKind.ExplainChainOfCustody => await HandleExplainChainOfCustodyAsync(voiceTools, chainOfCustody, intent, ct),
+                IntentKind.ExplainChainTrace     => await HandleExplainChainTraceAsync(controllerCockpit, intent, transcript, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -472,6 +477,160 @@ public static class VoiceInvokeEndpoint
         };
     }
 
+    // Sprint 12.7 PR #3 — Controller-side source-to-GL chain trace handler.
+    //
+    // The CFO motion. Voice query "why is NBV $1.2M on Asset 4231" or
+    // "drill down on JE 47" → AI walks the ChainTraceService trace and
+    // narrates each ChainStep through Cherry's TTS. Display payload
+    // mirrors the on-page Drilldown tab so the controller can flip
+    // back-and-forth between voice and visual without losing context.
+    //
+    // Narration shape:
+    //   - Spoken: the trace-level Narration + the first three step
+    //     Narration sentences, joined with spaces (TTS reads them as one
+    //     paragraph). Each step Narration is already a complete sentence
+    //     thanks to ChainTraceService design.
+    //   - Displayed: title = trace headline, lines = subtitle + step
+    //     headlines (visual queue + preview pattern).
+    //   - ActionLinks: an "Open in Drilldown" link that prefills the
+    //     query so the controller can land on the visual chain rendering.
+    //
+    // Failure modes:
+    //   - No entity ref extracted from utterance → ask for an Asset # / JE #.
+    //   - Asset/JE not found → trace returns NotResolved with helpful
+    //     narration; we surface that verbatim.
+    //   - Codex P1 honest answer (asset uses shared default GL accounts
+    //     so depreciation chain cannot be disambiguated) → the
+    //     trace.Narration explains the limitation; we read it aloud
+    //     unchanged so the CFO hears a truthful answer, not silence.
+    private static async Task<VoiceInvokeResponse> HandleExplainChainTraceAsync(
+        Abs.FixedAssets.Services.Controller.IControllerCockpitService controllerCockpit,
+        ParsedIntent intent,
+        string transcript,
+        CancellationToken ct)
+    {
+        // Fallback: if the keyword classifier didn't store an entity ref,
+        // pass the raw transcript to TraceAsync — ParseEntityRef may still
+        // extract one from a phrasing the classifier missed.
+        var queryToken = !string.IsNullOrWhiteSpace(intent.NaturalKey)
+            ? intent.NaturalKey
+            : transcript;
+
+        if (string.IsNullOrWhiteSpace(queryToken))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "I need an Asset number or Journal Entry number to trace. Try saying \"trace asset 4231\" or \"drill down on JE 47\".",
+                Displayed = new VoiceDisplayed
+                {
+                    Title = "Source-to-GL trace",
+                    Lines = new[]
+                    {
+                        "Say an Asset # — e.g. \"why is NBV on asset 4231\"",
+                        "Or a JE # — e.g. \"drill down on JE 47\"",
+                    },
+                },
+            };
+        }
+
+        var trace = await controllerCockpit.TraceAsync(queryToken, ct);
+
+        if (!trace.IsResolved)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = string.IsNullOrWhiteSpace(trace.Narration)
+                    ? trace.Headline
+                    : $"{trace.Headline}. {trace.Narration}",
+                Displayed = new VoiceDisplayed
+                {
+                    Title = trace.Headline,
+                    Lines = string.IsNullOrWhiteSpace(trace.Narration)
+                        ? new[] { trace.Headline }
+                        : new[] { trace.Narration },
+                },
+            };
+        }
+
+        // Resolved — narrate the chain. Cap at 3 step narrations so the
+        // spoken output stays under ~30 seconds of TTS (which is roughly
+        // the attention budget on a voice round-trip). The display payload
+        // shows the full set of step headlines so the visual surface
+        // remains complete.
+        var spokenParts = new List<string>(capacity: 5);
+        if (!string.IsNullOrWhiteSpace(trace.Subtitle))
+        {
+            spokenParts.Add($"{trace.Headline}. {trace.Subtitle}.");
+        }
+        else
+        {
+            spokenParts.Add($"{trace.Headline}.");
+        }
+        if (!string.IsNullOrWhiteSpace(trace.Narration))
+        {
+            spokenParts.Add(trace.Narration);
+        }
+
+        // Pull the first 3 narration-bearing steps (skip steps whose
+        // Narration is null — usually pure structural nodes).
+        var spokenSteps = trace.Steps
+            .Where(s => !string.IsNullOrWhiteSpace(s.Narration))
+            .Take(3)
+            .Select(s => s.Narration!)
+            .ToList();
+        spokenParts.AddRange(spokenSteps);
+
+        if (trace.Steps.Count > spokenSteps.Count + 1)
+        {
+            spokenParts.Add($"There {(trace.Steps.Count - spokenSteps.Count - 1 == 1 ? "is" : "are")} {trace.Steps.Count - spokenSteps.Count - 1} more step{(trace.Steps.Count - spokenSteps.Count - 1 == 1 ? "" : "s")} in the chain — open the Drilldown tab to see them all.");
+        }
+
+        // Display payload — visually richer than the spoken stream.
+        var displayLines = new List<string>(capacity: trace.Steps.Count + 2);
+        if (!string.IsNullOrWhiteSpace(trace.Subtitle))
+        {
+            displayLines.Add(trace.Subtitle);
+        }
+        if (!string.IsNullOrWhiteSpace(trace.Narration))
+        {
+            displayLines.Add(trace.Narration);
+        }
+        foreach (var step in trace.Steps.Take(8))
+        {
+            var line = step.AmountText is null
+                ? $"  • {step.Eyebrow} — {step.Headline}"
+                : $"  • {step.Eyebrow} — {step.Headline} ({step.AmountText})";
+            displayLines.Add(line);
+        }
+        if (trace.Steps.Count > 8)
+        {
+            displayLines.Add($"  + {trace.Steps.Count - 8} more step{(trace.Steps.Count - 8 == 1 ? "" : "s")}…");
+        }
+
+        // Action link → /Controller drilldown tab with the resolved query
+        // prefilled. Uses Uri.EscapeDataString to keep slashes / spaces
+        // safe in the query string.
+        var encodedQuery = Uri.EscapeDataString(queryToken.Trim());
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = string.Join(" ", spokenParts),
+            Displayed = new VoiceDisplayed
+            {
+                Title = trace.Headline,
+                Lines = displayLines.ToArray(),
+            },
+            ActionLinks = new[]
+            {
+                new VoiceActionLink(
+                    "Open in Drilldown",
+                    $"/Controller?tab=drilldown&q={encodedQuery}"),
+            },
+        };
+    }
+
     private static string NarrateEdge(string? edgeType, string nodeType, string label) =>
         edgeType switch
         {
@@ -495,7 +654,7 @@ public static class VoiceInvokeEndpoint
     private static VoiceInvokeResponse HandleHelp() => new()
     {
         Ok = true,
-        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, explain receipt RCPT-2026-1234, or trace receipt RCPT-2026-1234.",
+        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, explain receipt RCPT-2026-1234, trace receipt RCPT-2026-1234, why is NBV on asset 4231, or drill down on JE 47.",
         Displayed = new VoiceDisplayed
         {
             Title = "Voice commands I understand today",
@@ -505,6 +664,9 @@ public static class VoiceInvokeEndpoint
                 "find receipt RCPT-YYYY-####",
                 "explain receipt RCPT-YYYY-####",
                 "trace receipt RCPT-YYYY-####  (chain of custody)",
+                // Sprint 12.7 PR #3 — Controller-side chain trace.
+                "why is NBV on asset ####  (source-to-GL trace)",
+                "drill down on JE ####  (journal entry trace)",
             },
         },
     };
@@ -512,7 +674,7 @@ public static class VoiceInvokeEndpoint
     private static VoiceInvokeResponse HandleUnknown(string transcript) => new()
     {
         Ok = false,
-        Spoken = "I'm not set up for that yet. Try: what's arriving today, find receipt, explain a receipt, or trace a receipt.",
+        Spoken = "I'm not set up for that yet. Try: what's arriving today, find receipt, explain a receipt, trace a receipt, or ask why NBV is on an asset.",
         Displayed = new VoiceDisplayed
         {
             Title = "I didn't understand that",
@@ -523,6 +685,8 @@ public static class VoiceInvokeEndpoint
                 "Try: find receipt RCPT-...",
                 "Try: explain receipt RCPT-...",
                 "Try: trace receipt RCPT-...",
+                "Try: why is NBV on asset ####",
+                "Try: drill down on JE ####",
             },
         },
     };
