@@ -302,6 +302,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemGroupResolver,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IItemGroupBackfillSeeder,
     Abs.FixedAssets.Services.Seeding.ItemGroupBackfillSeeder>();
 
+// B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
+// Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
+// Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering
+// (our Item → customer's PN). Multi-OEM scoped; effective-dated with
+// supersession audit trail.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Items.ICustomerItemXrefService,
+    Abs.FixedAssets.Services.Items.CustomerItemXrefService>();
+
 // B6 Foundation Sprint PR-FS-5 (2026-05-26) — IItemSourcingRuleService.
 // Multi-source Approved Vendor List + priority + approval state machine +
 // customer-mandated AS9100 §8.4.1 flagging. SAP S/4 Source List equivalent.

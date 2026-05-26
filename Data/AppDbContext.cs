@@ -484,6 +484,11 @@ namespace Abs.FixedAssets.Data
         // Drives MRP, Make-or-Buy decision input, AS9100 §8.4.1 audit trail.
         public DbSet<Abs.FixedAssets.Models.Masters.ItemSourcingRule> ItemSourcingRules => Set<Abs.FixedAssets.Models.Masters.ItemSourcingRule>();
 
+        // B6 Foundation Sprint PR-FS-6 (2026-05-26) — customer-part-number
+        // cross-reference (SAP CMIR equivalent). Bidirectional resolution:
+        // customer PN → Item at SO ingest; Item → customer PN at ship/invoice.
+        public DbSet<Abs.FixedAssets.Models.Masters.CustomerItemXref> CustomerItemXrefs => Set<Abs.FixedAssets.Models.Masters.CustomerItemXref>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2262,6 +2267,53 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.DefaultLocationRef)
                     .WithMany()
                     .HasForeignKey(x => x.DefaultLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B6 Foundation Sprint PR-FS-6 (2026-05-26) — CustomerItemXref
+            // (SAP CMIR / Oracle Customer Item Cross Reference equivalent).
+            // Bidirectional customer-PN ↔ Item resolution. Tenant trio +
+            // RowVersion + null-safe partial UNIQUE all baked in from day one
+            // per PR-FS-2/4/5 lessons. Service-side NULL-safe uniqueness
+            // check on add (PR-FS-5 lesson).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CustomerItemXref>(e =>
+            {
+                e.Property(x => x.RowVersion).IsRowVersion();
+
+                e.HasIndex(x => new { x.TenantId, x.CustomerId, x.CustomerPartNumber, x.CustomerRevision })
+                    .IsUnique()
+                    .HasFilter("\"Status\" = 0 AND \"IsActive\" = TRUE")
+                    .HasDatabaseName("UX_CustItmXref_Tenant_Cust_PN_Rev_Active");
+                e.HasIndex(x => new { x.CustomerId, x.CustomerPartNumber, x.CustomerRevision })
+                    .IsUnique()
+                    .HasFilter("\"TenantId\" IS NULL AND \"Status\" = 0 AND \"IsActive\" = TRUE")
+                    .HasDatabaseName("UX_CustItmXref_Cust_PN_Rev_Active_NullTenant");
+
+                e.HasIndex(x => new { x.CustomerId, x.CustomerPartNumber })
+                    .HasDatabaseName("IX_CustItmXref_Cust_PN");
+                e.HasIndex(x => new { x.ItemId, x.CustomerId })
+                    .HasDatabaseName("IX_CustItmXref_Item_Cust");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.SupersededByXrefId);
+                e.HasIndex(x => x.CustomerDrawingNumber);
+                e.HasIndex(x => x.CustomerSpecificationNumber);
+
+                e.HasOne(x => x.Item)
+                    .WithMany(i => i.CustomerXrefs)
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.SupersededByXref)
+                    .WithMany()
+                    .HasForeignKey(x => x.SupersededByXrefId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
 

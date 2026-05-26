@@ -650,6 +650,11 @@ namespace Abs.FixedAssets.Models
         // (SAP S/4 Source List / Oracle Approved Supplier List equivalent). See
         // Models/Masters/ItemSourcingRule.cs.
         public ICollection<Abs.FixedAssets.Models.Masters.ItemSourcingRule>? SourcingRules { get; set; }
+
+        // B6 Foundation Sprint PR-FS-6 (2026-05-26) — customer-PN cross-references
+        // (SAP CMIR / Oracle Customer Item Cross Reference equivalent). See
+        // Models/Masters/CustomerItemXref.cs.
+        public ICollection<Abs.FixedAssets.Models.Masters.CustomerItemXref>? CustomerXrefs { get; set; }
     }
 
     /// <summary>

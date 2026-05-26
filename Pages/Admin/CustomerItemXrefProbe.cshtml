@@ -1,0 +1,169 @@
+@page "/Admin/CustomerItemXrefProbe"
+@model Abs.FixedAssets.Pages.Admin.CustomerItemXrefProbeModel
+@{
+    ViewData["Title"] = "Customer Item Xref Probe";
+    ViewData["TabTitle"] = "CustItm Xref";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B6 Foundation Sprint PR-FS-6 (2026-05-26) — admin probe for
+    ICustomerItemXrefService. Two lookup modes:
+      • By Item: enter ItemId → list of all customers' part numbers.
+      • By Customer + PN: enter (CustomerId, CustomerPartNumber [, Rev]) →
+        resolved Item.
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Customer Item Xref Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Bidirectional customer-PN ↔ Item resolution. SAP CMIR equivalent. Read-only.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">By Item — list all customers' part numbers for this Item</h2>
+            <form method="post" asp-page-handler="ByItem" class="ds-form-grid">
+                <div>
+                    <label for="ByItemItemId">Item Id</label>
+                    <input type="number" id="ByItemItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label>
+                        <input type="checkbox" name="IncludeObsolete" value="true" @(Model.IncludeObsolete ? "checked" : "") />
+                        Include obsolete
+                    </label>
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">List Customer Xrefs for Item</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">By Customer + PN — resolve to our Item</h2>
+            <form method="post" asp-page-handler="ByCustomerPn" class="ds-form-grid">
+                <div>
+                    <label for="ByCustCustomerId">Customer Id</label>
+                    <input type="number" id="ByCustCustomerId" name="CustomerId" value="@Model.CustomerId" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="ByCustPartNumber">Customer Part Number</label>
+                    <input type="text" id="ByCustPartNumber" name="CustomerPartNumber" value="@Model.CustomerPartNumber" required class="ds-input" />
+                </div>
+                <div>
+                    <label for="ByCustRevision">Customer Revision (optional)</label>
+                    <input type="text" id="ByCustRevision" name="CustomerRevision" value="@Model.CustomerRevision" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary">Resolve Item by Customer PN</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.ResolvedByCustomerPn is not null)
+    {
+        var r = Model.ResolvedByCustomerPn;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Resolved</h2>
+                <p>
+                    Customer @r.CustomerId · <code>@r.CustomerPartNumber</code>
+                    @(string.IsNullOrEmpty(r.CustomerRevision) ? "" : $" Rev {r.CustomerRevision}")
+                    &rarr; <strong>Item @r.ItemId</strong>
+                </p>
+                <p class="ds-text-muted">
+                    Customer Drawing: @(r.CustomerDrawingNumber ?? "—") @(string.IsNullOrEmpty(r.CustomerDrawingRevision) ? "" : "Rev " + r.CustomerDrawingRevision) ·
+                    Spec: @(r.CustomerSpecificationNumber ?? "—") ·
+                    ECO: @(r.CustomerEcoNumber ?? "—")
+                </p>
+                @if (!string.IsNullOrEmpty(r.CustomerPartDescription))
+                {
+                    <p>Description: @r.CustomerPartDescription</p>
+                }
+                @if (!string.IsNullOrEmpty(r.Notes))
+                {
+                    <p class="ds-text-muted">Notes: @r.Notes</p>
+                }
+            </div>
+        </section>
+    }
+    else if (Model.AttemptedByCustomerPn)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-warning">
+                    No active xref for Customer @Model.CustomerId PN <code>@Model.CustomerPartNumber</code> @(string.IsNullOrEmpty(Model.CustomerRevision) ? "(no revision)" : "Rev " + Model.CustomerRevision).
+                </p>
+            </div>
+        </section>
+    }
+
+    @if (Model.XrefsForItem is not null)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">All customer xrefs for Item @Model.ItemId</h2>
+                @if (Model.XrefsForItem.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No customer xrefs for this Item. Ship/invoice will use Item.PartNumber for all customers.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Customer Id</th>
+                                <th>Customer PN</th>
+                                <th>Rev</th>
+                                <th>Drawing</th>
+                                <th>Drawing Rev</th>
+                                <th>Spec</th>
+                                <th>ECO</th>
+                                <th>Status</th>
+                                <th>Effective</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var x in Model.XrefsForItem)
+                            {
+                                <tr>
+                                    <td>@x.CustomerId</td>
+                                    <td><code>@x.CustomerPartNumber</code></td>
+                                    <td>@(x.CustomerRevision ?? "—")</td>
+                                    <td>@(x.CustomerDrawingNumber ?? "—")</td>
+                                    <td>@(x.CustomerDrawingRevision ?? "—")</td>
+                                    <td>@(x.CustomerSpecificationNumber ?? "—")</td>
+                                    <td>@(x.CustomerEcoNumber ?? "—")</td>
+                                    <td>
+                                        @switch (x.Status)
+                                        {
+                                            case Abs.FixedAssets.Models.Masters.CustomerXrefStatus.Active:
+                                                <span class="ds-badge ds-badge--success">Active</span>
+                                                break;
+                                            case Abs.FixedAssets.Models.Masters.CustomerXrefStatus.Superseded:
+                                                <span class="ds-badge ds-badge--warning">Superseded</span>
+                                                break;
+                                            case Abs.FixedAssets.Models.Masters.CustomerXrefStatus.Obsolete:
+                                                <span class="ds-badge ds-badge--danger">Obsolete</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>@x.EffectiveFromUtc.ToString("yyyy-MM-dd")@(x.EffectiveToUtc.HasValue ? " → " + x.EffectiveToUtc.Value.ToString("yyyy-MM-dd") : " → current")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+</main>
