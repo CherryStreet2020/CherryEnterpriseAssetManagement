@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Models;
@@ -33,13 +35,17 @@ namespace Abs.FixedAssets.Pages.Controller;
 //                   Asset → CipCapitalization → CipProject → CipCosts and
 //                   JE → reverse-CIP-origin → lines. Hydrates the Drilldown
 //                   tab via _CockpitChainTrace partial.
-//   - PR #3 (THIS): Voice intent `ExplainChainTrace` on the Cherry Bar — the
-//                   CFO motion. Push-to-talk transcripts like "why is NBV on
-//                   asset 4231" / "drill down on JE 47" route through
-//                   IntentClassifier → IControllerCockpitService.TraceAsync,
+//   - PR #3 (shipped aad2590): Voice intent `ExplainChainTrace` on the Cherry
+//                   Bar — the CFO motion. Push-to-talk transcripts like "why
+//                   is NBV on asset 4231" / "drill down on JE 47" route
+//                   through IntentClassifier → IControllerCockpitService.TraceAsync,
 //                   then ChainStep.Narration strings narrate aloud via TTS.
-//   - PR #4:        KPI band real-data wire-up: Cash position · AR aging
-//                   · AP aging · open POs · WIP · unrealized gains.
+//   - PR #4 (THIS): KPI band real-data wire-up via IFinanceKpiService:
+//                   Cash position · AP due this week · Open POs · WIP balance.
+//                   AR aging + unrealized FX gains from the original PR boundary
+//                   doc are deferred — they need CustomerInvoice + FX
+//                   revaluation engine not in IndustryOS yet (honest scope per
+//                   the Codex P1 pattern).
 //   - PR #5:        Demo data + walkthrough page + Republish-with-Copy box.
 //
 // Demo target: CFO Paul Marcotte (ABS Machining). Headline question:
@@ -63,13 +69,16 @@ public sealed class IndexModel : ControlCenterPageModel
 {
     private readonly ILogger<IndexModel> _logger;
     private readonly IControllerCockpitService _drilldown;
+    private readonly IFinanceKpiService _financeKpi;
 
     public IndexModel(
         ILogger<IndexModel> logger,
-        IControllerCockpitService drilldown)
+        IControllerCockpitService drilldown,
+        IFinanceKpiService financeKpi)
     {
         _logger = logger;
         _drilldown = drilldown;
+        _financeKpi = financeKpi;
     }
 
     public override string ControlCenterCode  => "CONTROLLER";
@@ -117,7 +126,7 @@ public sealed class IndexModel : ControlCenterPageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
         HydratePageHeader();
-        HydrateKpiBand();
+        await HydrateKpiBandAsync(ct);
         HydrateTabShell();
         await HydrateTabContentAsync(ct);
 
@@ -138,48 +147,105 @@ public sealed class IndexModel : ControlCenterPageModel
         };
     }
 
-    private void HydrateKpiBand()
+    private async Task HydrateKpiBandAsync(CancellationToken ct)
     {
-        // PR #1 — 4 placeholder hero tiles. Real numbers ship in PR #4 via a
-        // dedicated Finance KPI read-service. Tone stays "neutral" so the
-        // band reads as informational (work in progress) rather than
-        // alarming (red/amber).
+        // Sprint 12.7 PR #4 — real-data wire-up via IFinanceKpiService.
+        // PR #1 shipped the 4 placeholder tiles; this PR replaces them with
+        // live values from JournalLines / VendorInvoices / PurchaseOrders /
+        // CipProjects.
+        //
+        // Tile selection (Hero mode = 4 wide):
+        //   1. Cash position       — GL sum across CashAndReceivables accounts
+        //   2. AP due this week    — VendorInvoice outstanding ≤ +7d
+        //   3. Open POs            — PurchaseOrder Status IN (Approved/Sent/Partial)
+        //   4. WIP balance         — CipProject.TotalCosts where Status=Active
+        //
+        // AR aging + Unrealized FX gains from the original PR #4 boundary
+        // doc are deferred — they need a CustomerInvoice entity + FX
+        // revaluation engine that don't exist yet. Honest scope per the
+        // Codex P1 / "honest answer" pattern established in PR #346.
+        //
+        // Tenant scoping — read CompanyId from the user's tenant_id claim
+        // when present. Falls back to null (cross-tenant aggregate) for
+        // unauthenticated / admin scenarios. The service itself filters
+        // each query through CompanyId when it has one.
+        var companyId = ResolveCompanyIdFromClaims();
+
+        FinanceKpiBand bandData;
+        try
+        {
+            bandData = await _financeKpi.GetBandAsync(companyId, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FinanceKpiService.GetBandAsync failed for CompanyId={CompanyId}", companyId);
+            KpiBand = new CockpitKpiBandViewModel
+            {
+                HeroMode          = true,
+                ShowLiveIndicator = false,
+                Tiles = new[]
+                {
+                    UnavailableTile("Cash position"),
+                    UnavailableTile("AP due this week"),
+                    UnavailableTile("Open POs"),
+                    UnavailableTile("WIP balance"),
+                },
+            };
+            return;
+        }
+
         KpiBand = new CockpitKpiBandViewModel
         {
             HeroMode          = true,
             ShowLiveIndicator = false, // page header owns the LIVE chip
             Tiles = new[]
             {
-                new CockpitKpiTileViewModel
-                {
-                    Label   = "Cash position",
-                    Value   = "—",
-                    SubText = "PR #4 wire-up",
-                    Tone    = "neutral",
-                },
-                new CockpitKpiTileViewModel
-                {
-                    Label   = "AR aging > 30d",
-                    Value   = "—",
-                    SubText = "PR #4 wire-up",
-                    Tone    = "neutral",
-                },
-                new CockpitKpiTileViewModel
-                {
-                    Label   = "AP due this week",
-                    Value   = "—",
-                    SubText = "PR #4 wire-up",
-                    Tone    = "neutral",
-                },
-                new CockpitKpiTileViewModel
-                {
-                    Label   = "WIP balance",
-                    Value   = "—",
-                    SubText = "PR #4 wire-up",
-                    Tone    = "neutral",
-                },
+                ToTileViewModel(bandData.CashPosition),
+                ToTileViewModel(bandData.ApDueThisWeek),
+                ToTileViewModel(bandData.OpenPos),
+                ToTileViewModel(bandData.WipBalance),
             },
         };
+    }
+
+    /// <summary>
+    /// Map a service-tier <see cref="FinanceKpiTile"/> into the band
+    /// primitive's view-model. Keeps the service domain-agnostic
+    /// (no Razor / view-model dependency) and the page model thin.
+    /// </summary>
+    private static CockpitKpiTileViewModel ToTileViewModel(FinanceKpiTile tile) => new()
+    {
+        Label   = tile.Label,
+        Value   = tile.Value,
+        SubText = tile.SubText,
+        Tone    = tile.Tone,
+    };
+
+    /// <summary>
+    /// Standard "data unavailable" placeholder used when the whole band
+    /// query path throws. Keeps the band renderable on the page so the
+    /// header + tabs still appear instead of NRE-ing in Razor.
+    /// </summary>
+    private static CockpitKpiTileViewModel UnavailableTile(string label) => new()
+    {
+        Label   = label,
+        Value   = "—",
+        SubText = "data unavailable",
+        Tone    = "neutral",
+    };
+
+    /// <summary>
+    /// Resolve the active CompanyId from the signed-in user's
+    /// <c>tenant_id</c> claim. Returns NULL when no claim is present or
+    /// the value isn't parseable — the service interprets NULL as
+    /// "aggregate across all companies" (admin / system view).
+    /// </summary>
+    private int? ResolveCompanyIdFromClaims()
+    {
+        var raw = User?.FindFirstValue("tenant_id");
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        return int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
     }
 
     private void HydrateTabShell()
