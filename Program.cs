@@ -369,6 +369,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
     Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
 
+// B8 PR-PRO-8 (2026-05-27) — IProductionCockpitService.
+// PRO Cockpit Control Center data aggregation. Read-only service composing
+// data from all PRO domain services into the shapes needed by the
+// /Production/Orders/{id}/Cockpit surface. 16-metric summary bar +
+// 24-column BOM grid + 22-column Routing grid + readiness integration.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionCockpitService,
+    Abs.FixedAssets.Services.Production.ProductionCockpitService>();
+
 // B8 PR-PRO-7 (2026-05-27) — IOperationReadinessService.
 // "Can I Run This?" 8-check readiness engine: Materials Ready (supply link),
 // Prior Op Complete, Resource Available, Labor Qualified, Quality Clear,

@@ -1,0 +1,259 @@
+@page "/Production/Orders/{id:int}/Cockpit"
+@model Abs.FixedAssets.Pages.Production.CockpitModel
+@using Abs.FixedAssets.Services.Production
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = Model.Data != null ? $"PRO {Model.Data.Summary.OrderNumber} Cockpit" : "PRO Cockpit";
+    ViewData["TabTitle"] = "PRO Cockpit";
+    ViewData["BodyClass"] = "is-control-center";
+    Layout = "_ModernLayout";
+}
+
+@* B8 PR-PRO-8 — Production Order Cockpit Control Center.
+   12 tabs · 16-metric summary bar · 24-col BOM grid · 22-col Routing grid.
+   THE per-order deep-dive surface. Composes shared Cockpit primitives. *@
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="cockpit__empty" style="padding: 4rem 2rem; text-align: center;">
+        <i class="fas fa-triangle-exclamation cockpit__empty-icon cockpit__empty-icon--danger" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+        <div class="cockpit__empty-message" style="font-size: 1.1rem;">@Model.ErrorMessage</div>
+        <a href="/Production/ControlCenter" class="ds-btn ds-btn--primary" style="margin-top: 1.5rem;">Back to Production Control Center</a>
+    </div>
+    return;
+}
+
+@if (Model.Data == null) { return; }
+
+@* 1) Page header — PRO number + part/rev + description *@
+@if (Model.PageHeader is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", Model.PageHeader)
+}
+
+@* 2) KPI hero band — 4 big tiles: Status / Material Ready / Op Progress / Due Date *@
+@if (Model.KpiBand is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
+}
+
+@* 3) 12-tab shell *@
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+@* 4) Per-tab content *@
+<div class="cockpit-tab-pane" role="tabpanel" style="padding: var(--v2-space-4, 1rem);">
+@switch (Model.ActiveTab)
+{
+    // ================================================================
+    // OVERVIEW — readiness summary + quick stats
+    // ================================================================
+    case CockpitModel.TabOverview:
+        var s = Model.Data.Summary;
+        <div class="ds-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--v2-space-4, 1rem);">
+            <div class="ds-card"><div class="ds-card__body">
+                <h3 class="ds-h3">Order Summary</h3>
+                <table class="ds-table ds-table--compact" style="width: 100%;">
+                    <tr><td>Order</td><td><strong>@s.OrderNumber</strong></td></tr>
+                    <tr><td>Part</td><td>@(s.PartNumber ?? "—") Rev @(s.Revision ?? "—")</td></tr>
+                    <tr><td>Status</td><td><span class="cockpit-status-badge">@s.Status</span></td></tr>
+                    <tr><td>Due</td><td>@(s.DueDate?.ToString("MMM d, yyyy") ?? "—")@(s.DaysLate > 0 ? $" ({s.DaysLate}d late)" : "")</td></tr>
+                    <tr><td>Ordered</td><td>@s.QuantityOrdered</td></tr>
+                    <tr><td>Completed</td><td>@s.QuantityCompleted</td></tr>
+                    <tr><td>Scrap</td><td>@s.QuantityScrapped</td></tr>
+                    <tr><td>Rework</td><td>@s.QuantityRework</td></tr>
+                    <tr><td>Remaining</td><td>@s.QuantityRemaining</td></tr>
+                    <tr><td>WIP Cost</td><td>$@s.WipCost.ToString("N2")</td></tr>
+                </table>
+            </div></div>
+
+            @if (Model.Data.Readiness != null)
+            {
+                var r = Model.Data.Readiness;
+                <div class="ds-card"><div class="ds-card__body">
+                    <h3 class="ds-h3">"Can I Run This?" — @r.Operations.Count operations</h3>
+                    <div style="margin-bottom: 0.75rem;">
+                        <span style="color: var(--v2-status-completed, #22c55e);">@r.PassCount Pass</span> ·
+                        <span style="color: var(--v2-status-onhold, #f59e0b);">@r.WarningCount Warning</span> ·
+                        <span style="color: var(--v2-status-cancelled, #ef4444);">@r.FailCount Fail</span>
+                    </div>
+                    @foreach (var op in r.Operations)
+                    {
+                        var opColor = op.OverallStatus == ReadinessStatus.Pass ? "var(--v2-status-completed, #22c55e)"
+                            : op.OverallStatus == ReadinessStatus.Warning ? "var(--v2-status-onhold, #f59e0b)"
+                            : "var(--v2-status-cancelled, #ef4444)";
+                        <div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0; border-bottom: 1px solid var(--v2-border, #1e293b);">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: @opColor; flex-shrink: 0;"></span>
+                            <span style="font-family: var(--v2-font-mono, 'JetBrains Mono', monospace); font-size: 0.85rem; min-width: 50px;">Op @op.SequenceNumber</span>
+                            <span style="flex: 1; font-size: 0.85rem;">@op.OperationDescription</span>
+                            <span style="font-size: 0.75rem; color: var(--v2-text-muted, #94a3b8);">@op.Checks.Count(c => c.Status == ReadinessStatus.Pass)/8</span>
+                        </div>
+                    }
+                </div></div>
+            }
+
+            <div class="ds-card"><div class="ds-card__body">
+                <h3 class="ds-h3">Active Work</h3>
+                <table class="ds-table ds-table--compact" style="width: 100%;">
+                    <tr><td>Current Op</td><td>@(s.CurrentOperation ?? "None active")</td></tr>
+                    <tr><td>Next Op</td><td>@(s.NextOperation ?? "—")</td></tr>
+                    <tr><td>Active Operators</td><td>@s.ActiveOperators</td></tr>
+                    <tr><td>Quality Holds</td><td>@s.OpenQualityHolds</td></tr>
+                    <tr><td>Material Shortages</td><td>@s.OpenMaterialShortages</td></tr>
+                </table>
+            </div></div>
+        </div>
+        break;
+
+    // ================================================================
+    // BOM — 24-column grid with supply link status
+    // ================================================================
+    case CockpitModel.TabBom:
+        <div class="ds-card"><div class="ds-card__body" style="overflow-x: auto;">
+            <h3 class="ds-h3">BOM / Materials — @Model.Data.BomRows.Count line(s)</h3>
+            @if (Model.Data.BomRows.Count == 0)
+            {
+                <div class="cockpit__empty">
+                    <i class="fas fa-cubes cockpit__empty-icon"></i>
+                    <div class="cockpit__empty-message">No BOM lines snapshotted for this PRO.</div>
+                </div>
+            }
+            else
+            {
+                <table class="ds-table ds-table--compact ds-table--striped" style="font-size: 0.8rem; white-space: nowrap;">
+                    <thead>
+                        <tr>
+                            <th>Line</th><th>Op</th><th>Part #</th><th>Rev</th>
+                            <th>Req Qty</th><th>Req+Scrap</th><th>UoM</th>
+                            <th>Avail</th><th>Rsrvd</th><th>Picked</th><th>Staged</th>
+                            <th>Issued</th><th>Consumed</th><th>Remaining</th><th>Short</th>
+                            <th>Supply</th><th>BF</th><th>Sub?</th><th>Status</th>
+                            <th>Cost</th><th>Supply Link</th><th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Data.BomRows)
+                        {
+                            var riskColor = row.SupplyRisk == "Critical" ? "var(--v2-status-cancelled, #ef4444)"
+                                : row.SupplyRisk == "Warning" ? "var(--v2-status-onhold, #f59e0b)"
+                                : "var(--v2-status-completed, #22c55e)";
+                            <tr>
+                                <td>@row.Line</td>
+                                <td>@(row.OperationSequence?.ToString() ?? "—")</td>
+                                <td><strong>@row.PartNumber</strong></td>
+                                <td>@(row.Revision ?? "—")</td>
+                                <td style="text-align: right;">@row.RequiredQty.ToString("N2")</td>
+                                <td style="text-align: right;">@row.RequiredInclScrap.ToString("N2")</td>
+                                <td>@(row.Uom ?? "EA")</td>
+                                <td style="text-align: right;">@row.Available.ToString("N2")</td>
+                                <td style="text-align: right;">@row.Reserved.ToString("N2")</td>
+                                <td style="text-align: right;">@row.Picked.ToString("N2")</td>
+                                <td style="text-align: right;">@row.Staged.ToString("N2")</td>
+                                <td style="text-align: right;">@row.Issued.ToString("N2")</td>
+                                <td style="text-align: right;">@row.Consumed.ToString("N2")</td>
+                                <td style="text-align: right;">@row.RemainingToIssue.ToString("N2")</td>
+                                <td style="text-align: right; color: @(row.Short > 0 ? "var(--v2-status-cancelled, #ef4444)" : "inherit");">@row.Short.ToString("N2")</td>
+                                <td>@row.SupplyType</td>
+                                <td>@(row.Backflush ? "Y" : "")</td>
+                                <td>@(row.SubstituteAllowed ? "Y" : "")</td>
+                                <td>@row.Status</td>
+                                <td style="text-align: right;">$@row.Cost.ToString("N2")</td>
+                                <td style="font-size: 0.75rem;">@(row.SupplyLinkDescription ?? "—")</td>
+                                <td><span style="color: @riskColor; font-weight: 600;">@row.SupplyRisk</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div></div>
+        break;
+
+    // ================================================================
+    // ROUTING — 22-column grid with readiness checks
+    // ================================================================
+    case CockpitModel.TabRouting:
+        <div class="ds-card"><div class="ds-card__body" style="overflow-x: auto;">
+            <h3 class="ds-h3">Routing / Operations — @Model.Data.RoutingRows.Count operation(s)</h3>
+            @if (Model.Data.RoutingRows.Count == 0)
+            {
+                <div class="cockpit__empty">
+                    <i class="fas fa-route cockpit__empty-icon"></i>
+                    <div class="cockpit__empty-message">No operations for this PRO.</div>
+                </div>
+            }
+            else
+            {
+                <table class="ds-table ds-table--compact ds-table--striped" style="font-size: 0.8rem; white-space: nowrap;">
+                    <thead>
+                        <tr>
+                            <th>Seq</th><th>Type</th><th>Description</th><th>Work Center</th>
+                            <th>Status</th>
+                            <th>Planned Start</th><th>Planned End</th>
+                            <th>Actual Start</th><th>Actual End</th>
+                            <th>Setup Est</th><th>Setup Act</th>
+                            <th>Run Est</th><th>Run Act</th>
+                            <th>Labor Est</th><th>Labor Act</th>
+                            <th>Good</th><th>Scrap</th><th>Rework</th><th>Remain</th>
+                            <th>Mat Ready</th><th>Readiness</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Data.RoutingRows)
+                        {
+                            var readinessColor = row.ReadinessStatus == "Pass" ? "var(--v2-status-completed, #22c55e)"
+                                : row.ReadinessStatus == "Warning" ? "var(--v2-status-onhold, #f59e0b)"
+                                : row.ReadinessStatus == "Fail" ? "var(--v2-status-cancelled, #ef4444)"
+                                : "var(--v2-text-muted, #94a3b8)";
+                            var matColor = row.MaterialReady == "Pass" ? "var(--v2-status-completed, #22c55e)"
+                                : row.MaterialReady == "Warning" ? "var(--v2-status-onhold, #f59e0b)"
+                                : row.MaterialReady == "Fail" ? "var(--v2-status-cancelled, #ef4444)"
+                                : "var(--v2-text-muted, #94a3b8)";
+                            <tr>
+                                <td><strong>@row.Sequence</strong></td>
+                                <td>@row.OperationCode</td>
+                                <td>@row.Description</td>
+                                <td>@(row.WorkCenterName ?? "—")</td>
+                                <td>@row.Status</td>
+                                <td>@(row.PlannedStart?.ToString("MMM d HH:mm") ?? "—")</td>
+                                <td>@(row.PlannedFinish?.ToString("MMM d HH:mm") ?? "—")</td>
+                                <td>@(row.ActualStart?.ToString("MMM d HH:mm") ?? "—")</td>
+                                <td>@(row.ActualFinish?.ToString("MMM d HH:mm") ?? "—")</td>
+                                <td style="text-align: right;">@row.SetupEstimate.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.SetupActual.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.RunEstimate.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.RunActual.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.LaborEstimate.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.LaborActual.ToString("N0")m</td>
+                                <td style="text-align: right;">@row.GoodQty.ToString("N0")</td>
+                                <td style="text-align: right; color: @(row.ScrapQty > 0 ? "var(--v2-status-cancelled, #ef4444)" : "inherit");">@row.ScrapQty.ToString("N0")</td>
+                                <td style="text-align: right;">@row.ReworkQty.ToString("N0")</td>
+                                <td style="text-align: right;">@row.RemainingQty.ToString("N0")</td>
+                                <td><span style="color: @matColor; font-weight: 600;">@row.MaterialReady</span></td>
+                                <td title="@(row.ReadinessSummary ?? "")"><span style="color: @readinessColor; font-weight: 600;">@row.ReadinessStatus</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div></div>
+        break;
+
+    // ================================================================
+    // PLACEHOLDER TABS — future PR ships
+    // ================================================================
+    default:
+        var tabLabel = Model.TabShell.Tabs.FirstOrDefault(t => t.Key == Model.ActiveTab)?.Label ?? Model.ActiveTab;
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 3rem;">
+            <i class="fas fa-hammer" style="font-size: 2.5rem; color: var(--v2-text-muted, #94a3b8); margin-bottom: 1rem;"></i>
+            <h3 class="ds-h3">@tabLabel</h3>
+            <p style="color: var(--v2-text-muted, #94a3b8);">
+                This tab ships in a future PR. The data substrate is already live —
+                the UI surface lands in the PR-PRO-9 through PR-PRO-12 cascade.
+            </p>
+        </div></div>
+        break;
+}
+</div>
+
+@section Scripts {
+<script src="~/js/cockpit.js"></script>
+}
