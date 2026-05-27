@@ -555,6 +555,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest> CorrectiveActionRequests =>
             Set<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest>();
 
+        // B8 PR-PRO-6 — Complete + Scrap + Rework events
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionCompletionEvent> ProductionCompletionEvents =>
+            Set<Abs.FixedAssets.Models.Production.ProductionCompletionEvent>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionScrapEvent> ProductionScrapEvents =>
+            Set<Abs.FixedAssets.Models.Production.ProductionScrapEvent>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionReworkEvent> ProductionReworkEvents =>
+            Set<Abs.FixedAssets.Models.Production.ProductionReworkEvent>();
+
         // B8 PR-PRO-5 — ProductionWipMove (auto-advance + manual moves between operations)
         public DbSet<Abs.FixedAssets.Models.Production.ProductionWipMove> ProductionWipMoves =>
             Set<Abs.FixedAssets.Models.Production.ProductionWipMove>();
@@ -2489,6 +2497,78 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.RelatedConcession).WithMany()
                     .HasForeignKey(x => x.RelatedConcessionId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-6 — ProductionCompletionEvent entity config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionCompletionEvent>(e =>
+            {
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.CompletionNumber })
+                    .IsUnique().HasDatabaseName("UX_CmpEvt_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_CmpEvt_PRO");
+                e.HasIndex(x => x.OperationId).HasDatabaseName("IX_CmpEvt_Op");
+                e.HasIndex(x => x.CompletedAtUtc).HasDatabaseName("IX_CmpEvt_Date");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Operation).WithMany()
+                    .HasForeignKey(x => x.OperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Transaction).WithMany()
+                    .HasForeignKey(x => x.TransactionId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WipMove).WithMany()
+                    .HasForeignKey(x => x.WipMoveId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-6 — ProductionScrapEvent entity config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionScrapEvent>(e =>
+            {
+                e.Property(x => x.ResponsibleArea)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ScrapResponsibleArea.Machine);
+                e.Property(x => x.Disposition)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ScrapDisposition.Scrap);
+                e.Property(x => x.CostTreatment)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostTreatment.AbsorbToJob);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ScrapNumber })
+                    .IsUnique().HasDatabaseName("UX_ScpEvt_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_ScpEvt_PRO");
+                e.HasIndex(x => x.DetectedAtOperationId).HasDatabaseName("IX_ScpEvt_DetOp");
+                e.HasIndex(x => x.Disposition).HasDatabaseName("IX_ScpEvt_Disp");
+                e.HasIndex(x => x.ScrapRecordedAtUtc).HasDatabaseName("IX_ScpEvt_Date");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.DetectedAtOperation).WithMany()
+                    .HasForeignKey(x => x.DetectedAtOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.CausedAtOperation).WithMany()
+                    .HasForeignKey(x => x.CausedAtOperationId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-6 — ProductionReworkEvent entity config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionReworkEvent>(e =>
+            {
+                e.Property(x => x.RoutingType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ReworkRoutingType.ReturnToExistingOp);
+                e.Property(x => x.CostTreatment)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostTreatment.AbsorbToJob);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ReworkNumber })
+                    .IsUnique().HasDatabaseName("UX_RwkEvt_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_RwkEvt_PRO");
+                e.HasIndex(x => x.SourceOperationId).HasDatabaseName("IX_RwkEvt_SrcOp");
+                e.HasIndex(x => x.ReworkDecisionAtUtc).HasDatabaseName("IX_RwkEvt_Date");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.SourceOperation).WithMany()
+                    .HasForeignKey(x => x.SourceOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ReworkOperation).WithMany()
+                    .HasForeignKey(x => x.ReworkOperationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WipMove).WithMany()
+                    .HasForeignKey(x => x.WipMoveId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // B8 PR-PRO-5 — ProductionWipMove entity config.
