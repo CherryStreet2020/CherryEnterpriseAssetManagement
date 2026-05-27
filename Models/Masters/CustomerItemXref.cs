@@ -155,9 +155,12 @@ namespace Abs.FixedAssets.Models.Masters
         [Display(Name = "Effective To")]
         public DateTime? EffectiveToUtc { get; set; }
 
-        // ===== Concurrency token (PR-FS-4 lesson) ===========================
-
-        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+        // ===== Concurrency token (PR-FS-4 lesson, PR-XminBackfill fix) =======
+        // Postgres xmin system column, mapped in AppDbContext via
+        // MapXminRowVersion (project convention, HARD LOCK from PR #365).
+        // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+        // to xmin pattern (was latent 23502 bug on first INSERT).
+        public byte[]? RowVersion { get; set; }
 
         // ===== Audit ========================================================
 

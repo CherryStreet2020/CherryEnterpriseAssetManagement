@@ -254,9 +254,12 @@ namespace Abs.FixedAssets.Models.Masters
         // PR-FS-4 lesson applied prophylactically (Codex P1 on PR #360).
         // ApprovalState transitions are concurrent-write hot paths — two
         // operators flipping Suspended ↔ Approved at the same time would lose
-        // an update. RowVersion + retry in service guards against it.
-
-        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+        // an update. Concurrency token via Postgres xmin system column mapped
+        // in AppDbContext via MapXminRowVersion (project convention, HARD LOCK
+        // from PR #365). NEVER IsRowVersion()+bytea.
+        // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+        // to xmin pattern (was latent 23502 bug on first INSERT).
+        public byte[]? RowVersion { get; set; }
 
         // ===== Audit ========================================================
 

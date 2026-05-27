@@ -2698,7 +2698,12 @@ namespace Abs.FixedAssets.Data
             // check on add (PR-FS-5 lesson).
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CustomerItemXref>(e =>
             {
-                e.Property(x => x.RowVersion).IsRowVersion();
+                // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+                // to xmin pattern. Was latent 23502 bug on first INSERT — the bytea
+                // column had no DB-side default, and IsRowVersion() excluded it from
+                // the INSERT statement. Pattern match: PR #365 hotfix for
+                // ProductionMaterialStructures.
+                e.MapXminRowVersion(x => x.RowVersion);
 
                 e.HasIndex(x => new { x.TenantId, x.CustomerId, x.CustomerPartNumber, x.CustomerRevision })
                     .IsUnique()
@@ -2751,7 +2756,9 @@ namespace Abs.FixedAssets.Data
             // hot paths.
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.ItemSourcingRule>(e =>
             {
-                e.Property(x => x.RowVersion).IsRowVersion();
+                // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+                // to xmin pattern. Same latent 23502 bug as CostLayer + CustomerItemXref.
+                e.MapXminRowVersion(x => x.RowVersion);
 
                 e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.VendorId, x.Priority })
                     .IsUnique()
@@ -2810,10 +2817,11 @@ namespace Abs.FixedAssets.Data
             // ReceivedAtUtc); reference resolution on (ReceiptType, ReceiptReferenceId).
             modelBuilder.Entity<Abs.FixedAssets.Models.Masters.CostLayer>(e =>
             {
-                // PR-FS-4 P1 fix (Codex on PR #360): EF-managed concurrency
-                // token. Prevents lost-update on concurrent ConsumeQuantityAsync
-                // calls for the same (Item, Site) pair.
-                e.Property(x => x.RowVersion).IsRowVersion();
+                // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+                // to xmin pattern. Original Codex P1 fix (PR #360) was correct at
+                // the time — the xmin pattern wasn't discovered until PR #364/365.
+                // Prevents lost-update on concurrent ConsumeQuantityAsync calls.
+                e.MapXminRowVersion(x => x.RowVersion);
 
                 e.HasIndex(x => new { x.TenantId, x.ItemId, x.SiteId, x.LayerNumber })
                     .IsUnique()

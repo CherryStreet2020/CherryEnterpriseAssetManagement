@@ -229,12 +229,15 @@ namespace Abs.FixedAssets.Models.Masters
         // availability check then overwrite each other's decrement (lost
         // update) without optimistic concurrency.
         //
-        // RowVersion is EF-managed (IsRowVersion()): EF stamps a value on
-        // insert/update and includes it in the WHERE clause on update; a
-        // mismatch throws DbUpdateConcurrencyException, which CostLayerService
-        // catches + retries (up to 3 times) by re-reading the current layer
-        // state and re-applying the consume math.
-        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+        // Concurrency token via Postgres xmin system column. Mapped in
+        // AppDbContext via MapXminRowVersion (project convention, HARD LOCK
+        // from PR #365). NEVER IsRowVersion()+bytea — PG can't auto-populate
+        // bytea, every INSERT throws 23502. CostLayerService catches
+        // DbUpdateConcurrencyException + retries (up to 3 times) by
+        // re-reading the current layer state and re-applying the consume math.
+        // PR-XminBackfill 2026-05-27: converted from IsRowVersion()+bytea
+        // to xmin pattern (was latent 23502 bug on first INSERT).
+        public byte[]? RowVersion { get; set; }
 
         // ===== Audit =======================================================
 
