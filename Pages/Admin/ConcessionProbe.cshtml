@@ -58,7 +58,7 @@
                 <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
                 <div><label>Type</label>
                     <select name="CreateType" class="ds-input">
-                        @foreach (var t in System.Enum.GetValues<ConcessionType>()) { <option value="@t" selected="@(t == Model.CreateType)">@t</option> }
+                        @foreach (var t in System.Enum.GetValues<ConcessionType>()) { <option value="@t" @(t == Model.CreateType ? "selected" : "")>@t</option> }
                     </select>
                 </div>
                 <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
@@ -103,7 +103,7 @@
                 <div><label>ConcessionId</label><input type="number" name="RejectConcessionId" value="@Model.RejectConcessionId" required class="ds-input" /></div>
                 <div><label>Rejected Disposition</label>
                     <select name="RejectDisposition" class="ds-input">
-                        @foreach (var d in System.Enum.GetValues<RejectedDisposition>()) { <option value="@d" selected="@(d == Model.RejectDisposition)">@d</option> }
+                        @foreach (var d in System.Enum.GetValues<RejectedDisposition>()) { <option value="@d" @(d == Model.RejectDisposition ? "selected" : "")>@d</option> }
                     </select>
                 </div>
                 <div><label>Reason</label><input type="text" name="RejectReason" value="@Model.RejectReason" placeholder="Surface finish outside customer tolerance — rework to spec required" required class="ds-input" /></div>
