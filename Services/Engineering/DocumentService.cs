@@ -44,13 +44,21 @@ public sealed class DocumentService : IDocumentService
         if (string.IsNullOrWhiteSpace(title)) return Result.Failure<Document>("Title is required.");
         if (string.IsNullOrWhiteSpace(createdBy)) return Result.Failure<Document>("CreatedBy is required.");
 
+        // Codex P1 fix (PR #366): normalize DocumentNumber BEFORE the uniqueness
+        // lookup AND before assigning to the entity. AppDbContext uppercases
+        // string fields on SaveChanges (the global normalizer), so a raw
+        // "dwg-foo" lookup misses the existing "DWG-FOO" row and only fails
+        // at the DB unique constraint as DbUpdateException — surfacing an
+        // exception instead of a controlled Result.Failure.
+        var normalizedDocNumber = documentNumber.Trim().ToUpperInvariant();
+
         // Service-side uniqueness check (DB partial UNIQUE complements).
         var existing = await _db.Documents.AsNoTracking()
-            .FirstOrDefaultAsync(d => d.CompanyId == companyId && d.DocumentNumber == documentNumber, ct);
+            .FirstOrDefaultAsync(d => d.CompanyId == companyId && d.DocumentNumber == normalizedDocNumber, ct);
         if (existing != null)
         {
             return Result.Failure<Document>(
-                $"Document {documentNumber} already exists for CompanyId {companyId} (Id={existing.Id}). " +
+                $"Document {normalizedDocNumber} already exists for CompanyId {companyId} (Id={existing.Id}). " +
                 "Pick a different DocumentNumber.");
         }
 
@@ -58,7 +66,7 @@ public sealed class DocumentService : IDocumentService
         var doc = new Document
         {
             CompanyId = companyId,
-            DocumentNumber = documentNumber,
+            DocumentNumber = normalizedDocNumber,
             Title = title,
             Description = description,
             DocumentType = documentType,
@@ -101,21 +109,29 @@ public sealed class DocumentService : IDocumentService
         var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
         if (doc == null) return Result.Failure<DocumentVersion>($"Document {documentId} not found.");
 
+        // Codex P1 fix (PR #366): normalize RevisionCode BEFORE the
+        // idempotency check AND before assigning to the entity. Same
+        // reason as CreateAsync — AppDbContext uppercases on SaveChanges,
+        // so a raw "a" misses the existing "A" row and hits the
+        // UX_DocVersions_Doc_RevisionCode constraint as DbUpdateException
+        // instead of surfacing a controlled Result.Failure.
+        var normalizedRev = revisionCode.Trim().ToUpperInvariant();
+
         // Idempotency: same RevisionCode + same ContentHash on this Document → return existing.
         var existing = await _db.DocumentVersions.AsNoTracking()
-            .FirstOrDefaultAsync(v => v.DocumentId == documentId && v.RevisionCode == revisionCode, ct);
+            .FirstOrDefaultAsync(v => v.DocumentId == documentId && v.RevisionCode == normalizedRev, ct);
         if (existing != null)
         {
             if (existing.ContentHash == contentHash)
             {
                 _logger.LogInformation(
                     "DocumentService.AddVersionAsync: Document {DocId} RevisionCode '{Rev}' with identical ContentHash exists (VersionId={VId}); returning existing.",
-                    documentId, revisionCode, existing.Id);
+                    documentId, normalizedRev, existing.Id);
                 return Result.Success(existing);
             }
 
             return Result.Failure<DocumentVersion>(
-                $"DocumentVersion for Document {documentId} RevisionCode '{revisionCode}' already exists with a DIFFERENT ContentHash. " +
+                $"DocumentVersion for Document {documentId} RevisionCode '{normalizedRev}' already exists with a DIFFERENT ContentHash. " +
                 "Content has changed — pick a new RevisionCode (bump the revision) instead of re-using.");
         }
 
@@ -131,7 +147,7 @@ public sealed class DocumentService : IDocumentService
             CompanyId = doc.CompanyId,
             LocationId = doc.LocationId,
             VersionNumber = nextVersionNumber,
-            RevisionCode = revisionCode,
+            RevisionCode = normalizedRev,
             Status = DocumentStatus.Draft,
             FileName = fileName,
             ContentType = contentType,
@@ -263,8 +279,27 @@ public sealed class DocumentService : IDocumentService
         var doc = await _db.Documents.FirstOrDefaultAsync(d => d.Id == documentId, ct);
         if (doc == null) return Result.Failure<ItemDocumentLink>($"Document {documentId} not found.");
 
-        var itemExists = await _db.Items.AsNoTracking().AnyAsync(i => i.Id == itemId, ct);
-        if (!itemExists) return Result.Failure<ItemDocumentLink>($"Item {itemId} not found.");
+        // Codex P1 fix (PR #366): verify Item.CompanyId matches Document.CompanyId
+        // before linking. Without this, an Item from Tenant A can be linked to
+        // a Document from Tenant B, and GetDocumentsForItemAsync would surface
+        // cross-tenant data on the Item card — a tenant-leak P0 in disguise.
+        // ItemDocumentLink.CompanyId is denormalized from the Document, so a
+        // mismatched link silently corrupts the tenant-scope index.
+        var item = await _db.Items.AsNoTracking()
+            .Where(i => i.Id == itemId)
+            .Select(i => new { i.Id, i.CompanyId })
+            .FirstOrDefaultAsync(ct);
+        if (item == null) return Result.Failure<ItemDocumentLink>($"Item {itemId} not found.");
+        // Item.CompanyId is nullable in the legacy model — when set, it MUST
+        // match the document's CompanyId. When null (legacy unscoped items),
+        // we allow the link and stamp from the document (which IS scoped).
+        if (item.CompanyId.HasValue && item.CompanyId.Value != doc.CompanyId)
+        {
+            return Result.Failure<ItemDocumentLink>(
+                $"Cross-tenant link refused: Item {itemId} belongs to CompanyId {item.CompanyId.Value} " +
+                $"but Document {documentId} belongs to CompanyId {doc.CompanyId}. " +
+                "Both must belong to the same tenant.");
+        }
 
         // Idempotency: existing link with the same (Item, Doc, Purpose) → return it.
         var existing = await _db.ItemDocumentLinks
