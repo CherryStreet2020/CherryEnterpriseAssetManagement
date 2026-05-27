@@ -1,0 +1,250 @@
+@page "/Admin/DocumentProbe"
+@model Abs.FixedAssets.Pages.Admin.DocumentProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "DMS Probe";
+    ViewData["TabTitle"] = "Document Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.2 PR-1 (2026-05-26 evening) — admin probe for IDocumentService.
+    FIVE WRITE BUTTONS (per the xmin-lock corollary from PR #365):
+      • Create Document
+      • Add Version
+      • Approve Version
+      • Release Version (atomic supersede)
+      • Link to Item
+    Plus one read button: Get for Item.
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">DMS Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Document Management System substrate (Sprint 14.2). Controlled engineering artifacts with
+            revision-managed lifecycle (Draft → InReview → Approved → Released → Superseded → Obsolete),
+            Item linkage by purpose (BillOfDrawing / Specification / InspectionPlan / etc.), and ECN/ECO
+            traceability per AS9100 §7.5.3.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="doc-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="doc-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create Document</h2>
+            <form method="post" asp-page-handler="Create" class="ds-form-grid">
+                <div>
+                    <label>CompanyId</label>
+                    <input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" />
+                </div>
+                <div>
+                    <label>DocumentNumber</label>
+                    <input type="text" name="CreateDocumentNumber" value="@Model.CreateDocumentNumber" placeholder="e.g. DWG-TRENT-BRACKET-A" required class="ds-input" />
+                </div>
+                <div>
+                    <label>Title</label>
+                    <input type="text" name="CreateTitle" value="@Model.CreateTitle" placeholder="e.g. Rolls-Royce Trent XWB Engine Bracket Assy Drawing" required class="ds-input" />
+                </div>
+                <div>
+                    <label>DocumentType</label>
+                    <select name="CreateDocumentType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<DocumentType>())
+                        {
+                            <option value="@t" selected="@(t == Model.CreateDocumentType)">@t</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label><input type="checkbox" name="CreateIsControlled" value="true" @(Model.CreateIsControlled ? "checked" : "") /> Is Controlled (AS9100 §7.5.3)</label>
+                </div>
+                <div>
+                    <label>Description</label>
+                    <input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" />
+                </div>
+                <div>
+                    <label>Owner Name</label>
+                    <input type="text" name="CreateOwnerName" value="@Model.CreateOwnerName" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary" data-testid="doc-btn-create">Create Document</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Add Version to existing Document</h2>
+            <form method="post" asp-page-handler="AddVersion" class="ds-form-grid">
+                <div>
+                    <label>DocumentId</label>
+                    <input type="number" name="AddVerDocumentId" value="@Model.AddVerDocumentId" required class="ds-input" />
+                </div>
+                <div>
+                    <label>RevisionCode</label>
+                    <input type="text" name="AddVerRevisionCode" value="@Model.AddVerRevisionCode" placeholder="A / B / Rev-01 / R3" required class="ds-input" />
+                </div>
+                <div>
+                    <label>FileName</label>
+                    <input type="text" name="AddVerFileName" value="@Model.AddVerFileName" placeholder="trent-bracket-rev-a.pdf" required class="ds-input" />
+                </div>
+                <div>
+                    <label>ContentType</label>
+                    <input type="text" name="AddVerContentType" value="@Model.AddVerContentType" class="ds-input" />
+                </div>
+                <div>
+                    <label>FileSizeBytes</label>
+                    <input type="number" name="AddVerFileSizeBytes" value="@Model.AddVerFileSizeBytes" class="ds-input" />
+                </div>
+                <div>
+                    <label>ContentHash (SHA-256 hex)</label>
+                    <input type="text" name="AddVerContentHash" value="@Model.AddVerContentHash" class="ds-input" />
+                </div>
+                <div>
+                    <label>ContentLocationUri</label>
+                    <input type="text" name="AddVerContentLocationUri" value="@Model.AddVerContentLocationUri" placeholder="s3://bucket/path or sharepoint:// ref" class="ds-input" />
+                </div>
+                <div>
+                    <label>Source ECO/ECN</label>
+                    <input type="text" name="AddVerSourceEcoNumber" value="@Model.AddVerSourceEcoNumber" placeholder="ECO-2026-118" class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary" data-testid="doc-btn-addversion">Add Version</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Approve / 4. Release a Version (atomic supersede)</h2>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label>VersionId</label>
+                    <input type="number" name="LifecycleVersionId" value="@Model.LifecycleVersionId" required class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" asp-page-handler="Approve" class="ds-btn ds-btn--secondary" data-testid="doc-btn-approve">Approve</button>
+                    <button type="submit" asp-page-handler="Release" class="ds-btn ds-btn--primary" data-testid="doc-btn-release">Release (supersedes prior)</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Link Item to Document</h2>
+            <form method="post" asp-page-handler="Link" class="ds-form-grid">
+                <div>
+                    <label>ItemId</label>
+                    <input type="number" name="LinkItemId" value="@Model.LinkItemId" required class="ds-input" />
+                </div>
+                <div>
+                    <label>DocumentId</label>
+                    <input type="number" name="LinkDocumentId" value="@Model.LinkDocumentId" required class="ds-input" />
+                </div>
+                <div>
+                    <label>LinkPurpose</label>
+                    <select name="LinkPurpose" class="ds-input">
+                        @foreach (var p in System.Enum.GetValues<ItemDocumentLinkPurpose>())
+                        {
+                            <option value="@p" selected="@(p == Model.LinkPurpose)">@p</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label><input type="checkbox" name="LinkIsPrimary" value="true" @(Model.LinkIsPrimary ? "checked" : "") /> Is Primary</label>
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--primary" data-testid="doc-btn-link">Link to Item</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Get Documents for an Item</h2>
+            <form method="post" asp-page-handler="GetForItem" class="ds-form-grid">
+                <div>
+                    <label>ItemId</label>
+                    <input type="number" name="GetForItemId" value="@Model.GetForItemId" required class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--secondary" data-testid="doc-btn-getforitem">Get</button>
+                </div>
+            </form>
+
+            @if (Model.Summaries is not null && Model.GetForItemId > 0)
+            {
+                <div class="ds-mt-3" data-testid="doc-summaries-card">
+                    <h3 class="ds-h3">Documents linked to Item @Model.GetForItemId (@Model.Summaries.Count rows)</h3>
+                    @if (Model.Summaries.Count == 0)
+                    {
+                        <p class="ds-text-muted"><em>No documents linked to this Item.</em></p>
+                    }
+                    else
+                    {
+                        <table class="ds-table">
+                            <thead>
+                                <tr>
+                                    <th>LinkId</th>
+                                    <th>DocId</th>
+                                    <th>Doc Number</th>
+                                    <th>Title</th>
+                                    <th>Type</th>
+                                    <th>Doc Status</th>
+                                    <th>Controlled</th>
+                                    <th>Purpose</th>
+                                    <th>Primary</th>
+                                    <th>Current Released VId</th>
+                                    <th>Rev</th>
+                                    <th>Released At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in Model.Summaries)
+                                {
+                                    <tr>
+                                        <td>@s.LinkId</td>
+                                        <td>@s.DocumentId</td>
+                                        <td><code>@s.DocumentNumber</code></td>
+                                        <td>@s.Title</td>
+                                        <td>@s.DocumentType</td>
+                                        <td>@s.DocumentStatus</td>
+                                        <td>@(s.IsControlled ? "Yes" : "No")</td>
+                                        <td>@s.LinkPurpose</td>
+                                        <td>@(s.IsPrimary ? "Yes" : "No")</td>
+                                        <td>@(s.CurrentReleasedVersionId?.ToString() ?? "—")</td>
+                                        <td>@(s.CurrentReleasedRevisionCode ?? "—")</td>
+                                        <td>@(s.CurrentReleasedAtUtc?.ToString("u") ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</main>
