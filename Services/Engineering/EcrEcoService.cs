@@ -105,6 +105,25 @@ public sealed class EcrEcoService : IEcrEcoService
                     $"Cross-tenant link refused: LinkedProductionOrder {linkedProductionOrderId} belongs to CompanyId {pro.CompanyId} but ECR is for CompanyId {companyId}.");
             }
         }
+        // Codex P2 fix (PR #367): validate LinkedCustomer tenant ownership.
+        // Customer rows are company-scoped; without this check an ECR for
+        // tenant 1 could attach a customer from tenant 2, leaking into the
+        // downstream customer-impact/notice workflow when AffectsCustomers=true.
+        // Customer.CompanyId is non-nullable int (not nullable like Item),
+        // so a direct equality check is sufficient.
+        if (linkedCustomerId.HasValue)
+        {
+            var cust = await _db.Customers.AsNoTracking()
+                .Where(c => c.Id == linkedCustomerId.Value)
+                .Select(c => new { c.Id, c.CompanyId })
+                .FirstOrDefaultAsync(ct);
+            if (cust == null) return Result.Failure<EngineeringChangeRequest>($"LinkedCustomer {linkedCustomerId} not found.");
+            if (cust.CompanyId != companyId)
+            {
+                return Result.Failure<EngineeringChangeRequest>(
+                    $"Cross-tenant link refused: LinkedCustomer {linkedCustomerId} belongs to CompanyId {cust.CompanyId} but ECR is for CompanyId {companyId}.");
+            }
+        }
 
         var now = DateTime.UtcNow;
         var ecr = new EngineeringChangeRequest
@@ -308,6 +327,38 @@ public sealed class EcrEcoService : IEcrEcoService
             if (doc.CompanyId != eco.CompanyId)
                 return Result.Failure<EcoLineItem>($"Cross-tenant: AffectedDocument {affectedDocumentId} CompanyId={doc.CompanyId} vs ECO CompanyId={eco.CompanyId}.");
         }
+        // Codex P1 fix (PR #367): validate DocumentVersion tenants by walking
+        // to their parent Document's CompanyId. Without this, an ECO in
+        // tenant 1 can attach a version from tenant 2 via either FK and the
+        // downstream ReleaseEcoAsync flow would supersede the foreign-tenant
+        // version through IDocumentService — a tenant-leak P0 in disguise.
+        if (affectedDocumentVersionId.HasValue)
+        {
+            var ver = await _db.DocumentVersions.AsNoTracking()
+                .Where(v => v.Id == affectedDocumentVersionId.Value)
+                .Select(v => new { v.Id, v.CompanyId, v.DocumentId })
+                .FirstOrDefaultAsync(ct);
+            if (ver == null) return Result.Failure<EcoLineItem>($"AffectedDocumentVersion {affectedDocumentVersionId} not found.");
+            if (ver.CompanyId != eco.CompanyId)
+                return Result.Failure<EcoLineItem>($"Cross-tenant: AffectedDocumentVersion {affectedDocumentVersionId} CompanyId={ver.CompanyId} vs ECO CompanyId={eco.CompanyId}.");
+            // Also enforce that, when AffectedDocumentId is also supplied,
+            // the version belongs to that exact document (catches an attacker
+            // supplying a same-tenant doc id + a foreign version id).
+            if (affectedDocumentId.HasValue && ver.DocumentId != affectedDocumentId.Value)
+                return Result.Failure<EcoLineItem>($"AffectedDocumentVersion {affectedDocumentVersionId} belongs to Document {ver.DocumentId}, not the supplied AffectedDocument {affectedDocumentId}.");
+        }
+        if (newDocumentVersionId.HasValue)
+        {
+            var newVer = await _db.DocumentVersions.AsNoTracking()
+                .Where(v => v.Id == newDocumentVersionId.Value)
+                .Select(v => new { v.Id, v.CompanyId, v.DocumentId })
+                .FirstOrDefaultAsync(ct);
+            if (newVer == null) return Result.Failure<EcoLineItem>($"NewDocumentVersion {newDocumentVersionId} not found.");
+            if (newVer.CompanyId != eco.CompanyId)
+                return Result.Failure<EcoLineItem>($"Cross-tenant: NewDocumentVersion {newDocumentVersionId} CompanyId={newVer.CompanyId} vs ECO CompanyId={eco.CompanyId}.");
+            if (affectedDocumentId.HasValue && newVer.DocumentId != affectedDocumentId.Value)
+                return Result.Failure<EcoLineItem>($"NewDocumentVersion {newDocumentVersionId} belongs to Document {newVer.DocumentId}, not the supplied AffectedDocument {affectedDocumentId}.");
+        }
 
         // Auto-advance Sequence to MAX+10.
         var maxSequence = await _db.EcoLineItems.Where(l => l.EcoId == ecoId).MaxAsync(l => (int?)l.Sequence, ct) ?? 0;
@@ -476,43 +527,65 @@ public sealed class EcrEcoService : IEcrEcoService
         var now = DateTime.UtcNow;
         var effective = effectiveFromUtc ?? now;
 
-        eco.Status = EcoStatus.Released;
-        eco.ReleasedAtUtc = now;
-        eco.ReleasedBy = releasedBy;
-        eco.EffectiveFromUtc = effective;
-        eco.UpdatedAt = now;
-        eco.UpdatedBy = releasedBy;
+        // Codex P1 fix (PR #367): make ECO release ALL-OR-NOTHING via an
+        // explicit DbContextTransaction. The original implementation
+        // delegated to IDocumentService.ReleaseVersionAsync per line item,
+        // and that method internally calls SaveChangesAsync — so partial
+        // commits could land if a later line failed (header + earlier
+        // releases would persist, leaving the system in a half-released
+        // state). Wrapping the whole flow in a transaction makes it true
+        // all-or-nothing on relational providers. On InMemory the
+        // transaction is a no-op (warning suppressed via ConfigureWarnings
+        // in test setup); behavior is best-effort there but PG/MSSQL get
+        // real atomicity.
+        await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        // Atomic DocumentVersion supersede via IDocumentService for each line
-        // item with a NewDocumentVersionId set. This delegates to PR #366's
-        // ReleaseVersionAsync which itself does the atomic supersede of the
-        // prior Released version. All writes commit in a single SaveChanges
-        // at the end (PR-FS-6 atomic lesson).
-        var supersededCount = 0;
-        foreach (var line in eco.LineItems ?? Enumerable.Empty<EcoLineItem>())
+        try
         {
-            if (line.NewDocumentVersionId.HasValue)
+            // First flip the document versions (each ReleaseVersionAsync
+            // calls SaveChanges internally — within the transaction those
+            // become deferred-commit on relational providers).
+            var supersededCount = 0;
+            foreach (var line in eco.LineItems ?? Enumerable.Empty<EcoLineItem>())
             {
-                var releaseResult = await _docSvc.ReleaseVersionAsync(line.NewDocumentVersionId.Value, releasedBy, effective, ct);
-                if (releaseResult.IsFailure)
+                if (line.NewDocumentVersionId.HasValue)
                 {
-                    return Result.Failure<EngineeringChangeOrder>(
-                        $"ECO {ecoId} release blocked: DocumentVersion {line.NewDocumentVersionId.Value} on line {line.Id} failed: {releaseResult.Error}");
+                    var releaseResult = await _docSvc.ReleaseVersionAsync(line.NewDocumentVersionId.Value, releasedBy, effective, ct);
+                    if (releaseResult.IsFailure)
+                    {
+                        // Rollback so no partial DocumentVersion releases land.
+                        await tx.RollbackAsync(ct);
+                        return Result.Failure<EngineeringChangeOrder>(
+                            $"ECO {ecoId} release blocked: DocumentVersion {line.NewDocumentVersionId.Value} on line {line.Id} failed: {releaseResult.Error}");
+                    }
+                    supersededCount++;
                 }
-                supersededCount++;
             }
+
+            // Now mark the ECO Released + stamp metadata.
+            eco.Status = EcoStatus.Released;
+            eco.ReleasedAtUtc = now;
+            eco.ReleasedBy = releasedBy;
+            eco.EffectiveFromUtc = effective;
+            eco.UpdatedAt = now;
+            eco.UpdatedBy = releasedBy;
+            await _db.SaveChangesAsync(ct);
+
+            // Commit the transaction — all DocumentVersion supersedes + ECO
+            // status flip become visible together.
+            await tx.CommitAsync(ct);
+
+            _logger.LogInformation(
+                "EcrEcoService.ReleaseEcoAsync: ECO {EcoId} '{Number}' released by {By} at {EffFrom}. {Count} DocumentVersions superseded atomically.",
+                ecoId, eco.EcoNumber, releasedBy, effective, supersededCount);
+
+            return Result.Success(eco);
         }
-
-        // ReleaseVersionAsync called SaveChangesAsync internally on each call.
-        // The ECO header update (above) needs its own SaveChanges. Since both
-        // are on the same DbContext, this commits the ECO + final state.
-        await _db.SaveChangesAsync(ct);
-
-        _logger.LogInformation(
-            "EcrEcoService.ReleaseEcoAsync: ECO {EcoId} '{Number}' released by {By} at {EffFrom}. {Count} DocumentVersions superseded.",
-            ecoId, eco.EcoNumber, releasedBy, effective, supersededCount);
-
-        return Result.Success(eco);
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task<Result<EngineeringChangeOrder>> ImplementEcoAsync(int ecoId, string implementedBy, CancellationToken ct)
