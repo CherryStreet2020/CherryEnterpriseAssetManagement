@@ -315,6 +315,9 @@
     ));
 
     window.__proId = @Model.Id;
+
+    // Deferred wire-up: cockpit.js exposes __wireTxnDrawer; call after blobs are set
+    if (window.__wireTxnDrawer) window.__wireTxnDrawer();
     </script>
 }
 }
