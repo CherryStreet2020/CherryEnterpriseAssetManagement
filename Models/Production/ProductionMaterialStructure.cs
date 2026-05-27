@@ -113,6 +113,31 @@ namespace Abs.FixedAssets.Models.Production
         Backflush = 2,
     }
 
+    // B8 PR-PRO-2 enums (2026-05-27) — per PRO Cockpit spec §2.
+
+    public enum BomLineStatus
+    {
+        NotRequiredYet = 0, Required = 1, Short = 2, Reserved = 3,
+        Picked = 4, Staged = 5, PartiallyIssued = 6, Issued = 7,
+        OverIssued = 8, Backflushed = 9, Consumed = 10, Returned = 11,
+        Transferred = 12, Substituted = 13, Scrapped = 14, Cancelled = 15, Closed = 16,
+    }
+
+    public enum SupplyType
+    {
+        Pull = 0, Push = 1, Backflush = 2, Bulk = 3, Supplier = 4, Floorstock = 5,
+    }
+
+    public enum IssueTiming
+    {
+        AtOperationStart = 0, AtRelease = 1, AtOperationComplete = 2, AtFinalCompletion = 3,
+    }
+
+    public enum CostBucket
+    {
+        Material = 0, Subcontract = 1, Tooling = 2, Burden = 3,
+    }
+
     /// <summary>
     /// Per-ProductionOrder frozen BOM line. Captured at PO release by
     /// <c>IPoSnapshotService.CaptureAsync</c>. Survives subsequent engineering
@@ -315,6 +340,56 @@ namespace Abs.FixedAssets.Models.Production
 
         [StringLength(500)]
         public string? Notes { get; set; }
+
+        // ===== B8 PR-PRO-2 — Execution quantities (10 cols) ================
+        [Column(TypeName = "decimal(18,4)")] public decimal IssuedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal PickedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal StagedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal ReservedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal ConsumedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal ReturnedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal ScrappedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal ShortQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal OverIssuedQuantity { get; set; }
+        [Column(TypeName = "decimal(18,4)")] public decimal TransferableQuantity { get; set; }
+
+        // ===== BOM line status + flags ======================================
+        public BomLineStatus LineStatus { get; set; } = BomLineStatus.NotRequiredYet;
+        public bool IsCritical { get; set; }
+        public bool IsLongLead { get; set; }
+        public bool IsCustomerSupplied { get; set; }
+        public bool IsConsigned { get; set; }
+        public bool IsHazardous { get; set; }
+        public bool IsLotControlled { get; set; }
+        public bool IsSerialControlled { get; set; }
+        public bool IsHeatCertRequired { get; set; }
+        public bool IsShelfLifeControlled { get; set; }
+
+        // ===== Supply + timing + op linkage =================================
+        public SupplyType SupplyType { get; set; } = SupplyType.Pull;
+        public IssueTiming IssueTiming { get; set; } = IssueTiming.AtOperationStart;
+        public int? ConsumingOperationSequence { get; set; }
+        public int? BackflushOperationSequence { get; set; }
+        [StringLength(32)] public string? KitGroup { get; set; }
+
+        // ===== Lot/serial tracking ==========================================
+        [StringLength(50)] public string? ReservedLotNumber { get; set; }
+        [StringLength(50)] public string? IssuedLotNumber { get; set; }
+        [StringLength(50)] public string? IssuedSerialNumber { get; set; }
+        [StringLength(50)] public string? HeatNumber { get; set; }
+        [StringLength(50)] public string? VendorLot { get; set; }
+        [StringLength(50)] public string? CertificateNumber { get; set; }
+
+        // ===== Substitution =================================================
+        public bool SubstituteAllowed { get; set; }
+        public int? AlternateBomLineId { get; set; }
+        public ProductionMaterialStructure? AlternateBomLine { get; set; }
+        [StringLength(200)] public string? SubstituteReason { get; set; }
+        [StringLength(50)] public string? SubstitutionAuthReference { get; set; }
+
+        // ===== Per-line cost ================================================
+        public CostBucket CostBucket { get; set; } = CostBucket.Material;
+        public bool CustomerChargeable { get; set; }
 
         // ===== Audit + concurrency =========================================
 
