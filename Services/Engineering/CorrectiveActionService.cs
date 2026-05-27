@@ -199,24 +199,33 @@ namespace Abs.FixedAssets.Services.Engineering
             if (car.Status != CarStatus.VerificationPending)
                 return Fail($"Cannot verify — status is {car.Status}, expected VerificationPending.");
 
-            car.Status = CarStatus.Closed;
             car.VerificationMethod = verificationMethod;
             car.VerificationResults = verificationResults;
             car.VerificationEffective = effective;
             car.VerifiedBy = verifiedBy;
             car.VerifiedAtUtc = DateTime.UtcNow;
-            car.ClosedBy = verifiedBy;
-            car.ClosedAtUtc = DateTime.UtcNow;
 
-            // Compute days to close from issue date
-            if (car.IssuedAtUtc.HasValue)
-                car.DaysToClose = (int)(DateTime.UtcNow - car.IssuedAtUtc.Value).TotalDays;
+            if (effective)
+            {
+                // Effective → close the CAR
+                car.Status = CarStatus.Closed;
+                car.ClosedBy = verifiedBy;
+                car.ClosedAtUtc = DateTime.UtcNow;
+                if (car.IssuedAtUtc.HasValue)
+                    car.DaysToClose = (int)(DateTime.UtcNow - car.IssuedAtUtc.Value).TotalDays;
+            }
+            else
+            {
+                // Ineffective → send back to CorrectiveActionPlanned for re-work.
+                // The CAR stays open and visible in default queries.
+                car.Status = CarStatus.CorrectiveActionPlanned;
+            }
 
             Stamp(car, verifiedBy);
             await _db.SaveChangesAsync(ct);
 
-            _log.LogInformation("CAR {Number} closed by {User} — effective={Effective}, days={Days}",
-                car.CarNumber, verifiedBy, effective, car.DaysToClose);
+            _log.LogInformation("CAR {Number} verified by {User} — effective={Effective}, status={Status}, days={Days}",
+                car.CarNumber, verifiedBy, effective, car.Status, car.DaysToClose);
             return Result.Success(car);
         }
 
