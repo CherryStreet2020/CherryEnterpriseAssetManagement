@@ -113,6 +113,74 @@ namespace Abs.FixedAssets.Models.Production
         Backflush = 2,
     }
 
+    // ================================================================
+    // B8 PR-PRO-2 enums (2026-05-27) — per PRO Cockpit spec §2
+    // ================================================================
+
+    /// <summary>
+    /// 17-state BOM line lifecycle status. Drives the cockpit grid's status
+    /// column + color coding + "Problem" indicator. Matches SAP PP BOM line
+    /// status + Oracle WIP component status + D365 SCM pick status.
+    /// </summary>
+    public enum BomLineStatus
+    {
+        NotRequiredYet = 0,
+        Required = 1,
+        Short = 2,
+        Reserved = 3,
+        Picked = 4,
+        Staged = 5,
+        PartiallyIssued = 6,
+        Issued = 7,
+        OverIssued = 8,
+        Backflushed = 9,
+        Consumed = 10,
+        Returned = 11,
+        Transferred = 12,
+        Substituted = 13,
+        Scrapped = 14,
+        Cancelled = 15,
+        Closed = 16,
+    }
+
+    /// <summary>
+    /// How material reaches the production floor. Extends BomIssueMethod
+    /// with additional supply modes for the execution side.
+    /// </summary>
+    public enum SupplyType
+    {
+        Pull = 0,           // Just-in-time per-operation pull from stock
+        Push = 1,           // Kitted at release, pushed to floor
+        Backflush = 2,      // Auto-issued on operation completion
+        Bulk = 3,           // Floor stock — always available, periodic replenishment
+        Supplier = 4,       // Direct-to-line from vendor (vendor-managed inventory)
+        Floorstock = 5,     // Expensed to floor — no per-order tracking
+    }
+
+    /// <summary>
+    /// When during the PRO lifecycle this component should be issued.
+    /// Drives the MES material-issue trigger point.
+    /// </summary>
+    public enum IssueTiming
+    {
+        AtRelease = 0,          // Issue when PRO is released (kit everything up front)
+        AtOperationStart = 1,   // Issue when the consuming operation starts (JIT)
+        AtOperationComplete = 2,// Issue (backflush) when the consuming operation completes
+        AtFinalCompletion = 3,  // Issue on final PRO completion (deferred materials)
+    }
+
+    /// <summary>
+    /// Cost classification bucket for per-line cost allocation.
+    /// Drives the WIP sub-ledger posting via PostingProfile.
+    /// </summary>
+    public enum CostBucket
+    {
+        Material = 0,
+        Subcontract = 1,
+        Tooling = 2,
+        Burden = 3,
+    }
+
     /// <summary>
     /// Per-ProductionOrder frozen BOM line. Captured at PO release by
     /// <c>IPoSnapshotService.CaptureAsync</c>. Survives subsequent engineering
@@ -315,6 +383,171 @@ namespace Abs.FixedAssets.Models.Production
 
         [StringLength(500)]
         public string? Notes { get; set; }
+
+        // ===== B8 PR-PRO-2 (2026-05-27) — Execution-side columns per PRO
+        // Cockpit spec §2. These drive the cockpit grid's "Need / Have /
+        // Pulled / Issued / Used / Still Need / Problem" truth columns.
+        // All nullable decimal(18,4) — NULL = "not yet populated by MES
+        // transaction service" (different from 0 = "engine ran, found zero").
+        // Populated by IProductionMaterialTransactionService (PR-PRO-3).
+
+        // ===== Execution quantities (10 columns) ============================
+
+        [Display(Name = "Issued Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal IssuedQuantity { get; set; } = 0;
+
+        [Display(Name = "Picked Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal PickedQuantity { get; set; } = 0;
+
+        [Display(Name = "Staged Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal StagedQuantity { get; set; } = 0;
+
+        [Display(Name = "Reserved Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal ReservedQuantity { get; set; } = 0;
+
+        [Display(Name = "Consumed Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal ConsumedQuantity { get; set; } = 0;
+
+        [Display(Name = "Returned Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal ReturnedQuantity { get; set; } = 0;
+
+        [Display(Name = "Scrapped Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal ScrappedQuantity { get; set; } = 0;
+
+        [Display(Name = "Short Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal ShortQuantity { get; set; } = 0;
+
+        [Display(Name = "Over-Issued Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal OverIssuedQuantity { get; set; } = 0;
+
+        [Display(Name = "Transferable Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal TransferableQuantity { get; set; } = 0;
+
+        // ===== BOM line status (17-state enum) ==============================
+
+        [Display(Name = "Line Status")]
+        public BomLineStatus LineStatus { get; set; } = BomLineStatus.NotRequiredYet;
+
+        // ===== Component flags (frozen at release + execution-live mix) ======
+
+        [Display(Name = "Critical Component")]
+        public bool IsCritical { get; set; } = false;
+
+        [Display(Name = "Long Lead")]
+        public bool IsLongLead { get; set; } = false;
+
+        [Display(Name = "Customer Supplied")]
+        public bool IsCustomerSupplied { get; set; } = false;
+
+        [Display(Name = "Consigned")]
+        public bool IsConsigned { get; set; } = false;
+
+        [Display(Name = "Hazardous / Controlled")]
+        public bool IsHazardous { get; set; } = false;
+
+        [Display(Name = "Lot Controlled")]
+        public bool IsLotControlled { get; set; } = false;
+
+        [Display(Name = "Serial Controlled")]
+        public bool IsSerialControlled { get; set; } = false;
+
+        [Display(Name = "Heat/Cert Required")]
+        public bool IsHeatCertRequired { get; set; } = false;
+
+        [Display(Name = "Shelf-Life Controlled")]
+        public bool IsShelfLifeControlled { get; set; } = false;
+
+        // ===== Supply Type + Issue Timing ===================================
+
+        [Display(Name = "Supply Type")]
+        public SupplyType SupplyType { get; set; } = SupplyType.Pull;
+
+        [Display(Name = "Issue Timing")]
+        public IssueTiming IssueTiming { get; set; } = IssueTiming.AtOperationStart;
+
+        // ===== Operation linkage (B5a absorption — BOM op-level material) ===
+
+        /// <summary>
+        /// Which operation sequence consumes this component. Links to
+        /// ProductionOperation.Sequence on the same PRO. Null = issued at
+        /// order level (not tied to a specific operation).
+        /// </summary>
+        [Display(Name = "Consuming Op Seq")]
+        public int? ConsumingOperationSequence { get; set; }
+
+        /// <summary>
+        /// Operation that triggers automatic backflush of this component.
+        /// Only meaningful when IssueMethod = Backflush.
+        /// </summary>
+        [Display(Name = "Backflush Op Seq")]
+        public int? BackflushOperationSequence { get; set; }
+
+        /// <summary>Kit group identifier for grouped picking (e.g., "KIT-A").</summary>
+        [StringLength(32)]
+        [Display(Name = "Kit Group")]
+        public string? KitGroup { get; set; }
+
+        // ===== Lot/Serial tracking at the BOM line level ====================
+
+        [StringLength(50)]
+        [Display(Name = "Reserved Lot")]
+        public string? ReservedLotNumber { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Issued Lot")]
+        public string? IssuedLotNumber { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Issued Serial")]
+        public string? IssuedSerialNumber { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Heat Number")]
+        public string? HeatNumber { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Vendor Lot")]
+        public string? VendorLot { get; set; }
+
+        [StringLength(50)]
+        [Display(Name = "Certificate Number")]
+        public string? CertificateNumber { get; set; }
+
+        // ===== Substitution model ===========================================
+
+        [Display(Name = "Substitute Allowed")]
+        public bool SubstituteAllowed { get; set; } = false;
+
+        /// <summary>Self-FK: if this line is a substitute, which original line it replaces.</summary>
+        public int? AlternateBomLineId { get; set; }
+        public ProductionMaterialStructure? AlternateBomLine { get; set; }
+
+        [StringLength(200)]
+        [Display(Name = "Substitute Reason")]
+        public string? SubstituteReason { get; set; }
+
+        /// <summary>ECN/Deviation number authorizing the substitution.</summary>
+        [StringLength(50)]
+        [Display(Name = "Substitution Auth (ECN/DEV)")]
+        public string? SubstitutionAuthReference { get; set; }
+
+        // ===== Per-line cost accounts =======================================
+
+        [Display(Name = "Cost Bucket")]
+        public CostBucket CostBucket { get; set; } = CostBucket.Material;
+
+        [Display(Name = "Customer Chargeable")]
+        public bool CustomerChargeable { get; set; } = false;
 
         // ===== Audit + concurrency =========================================
 

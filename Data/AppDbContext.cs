@@ -1952,6 +1952,29 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ChildItemRevisionId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // B8 PR-PRO-2 (2026-05-27) — execution-side expansion.
+                // 4 new enum defaults per HARD LOCK:
+                e.Property(x => x.LineStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.BomLineStatus.NotRequiredYet);
+                e.Property(x => x.SupplyType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SupplyType.Pull);
+                e.Property(x => x.IssueTiming)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.IssueTiming.AtOperationStart);
+                e.Property(x => x.CostBucket)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostBucket.Material);
+
+                // Cockpit grid indexes for queue filtering:
+                e.HasIndex(x => x.LineStatus)
+                    .HasDatabaseName("IX_ProdMatStruct_LineStatus");
+                e.HasIndex(x => x.ConsumingOperationSequence)
+                    .HasDatabaseName("IX_ProdMatStruct_ConsumingOpSeq");
+
+                // Self-FK: substitute ↔ original line linkage.
+                e.HasOne(x => x.AlternateBomLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.AlternateBomLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Sprint 14.2 PR-1 (2026-05-26 evening) — DMS substrate.
