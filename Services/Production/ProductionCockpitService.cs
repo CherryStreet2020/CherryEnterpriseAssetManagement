@@ -6,6 +6,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Models.Engineering;
+using Abs.FixedAssets.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,15 +16,18 @@ namespace Abs.FixedAssets.Services.Production
     {
         private readonly AppDbContext _db;
         private readonly IOperationReadinessService _readiness;
+        private readonly ITenantContext _tenant;
         private readonly ILogger<ProductionCockpitService> _log;
 
         public ProductionCockpitService(
             AppDbContext db,
             IOperationReadinessService readiness,
+            ITenantContext tenant,
             ILogger<ProductionCockpitService> log)
         {
             _db = db;
             _readiness = readiness;
+            _tenant = tenant;
             _log = log;
         }
 
@@ -36,6 +40,12 @@ namespace Abs.FixedAssets.Services.Production
             if (pro == null)
                 return Result.Failure<CockpitData>(
                     $"Production Order {productionOrderId} not found.");
+
+            // P1 fix (Codex): enforce tenant scope — prevent IDOR across tenants.
+            if (_tenant.VisibleCompanyIds.Count > 0
+                && !_tenant.VisibleCompanyIds.Contains(pro.CompanyId))
+                return Result.Failure<CockpitData>(
+                    $"Production Order {productionOrderId} not accessible for current tenant.");
 
             var summaryResult = await BuildSummaryBarAsync(pro, ct);
             var bomRows = await BuildBomGridAsync(pro, ct);
@@ -53,12 +63,10 @@ namespace Abs.FixedAssets.Services.Production
         public async Task<Result<CockpitSummaryBar>> GetSummaryBarAsync(
             int productionOrderId, CancellationToken ct = default)
         {
-            var pro = await _db.Set<ProductionOrder>()
-                .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
-
+            var pro = await LoadAndValidateAsync(productionOrderId, ct);
             if (pro == null)
                 return Result.Failure<CockpitSummaryBar>(
-                    $"Production Order {productionOrderId} not found.");
+                    $"Production Order {productionOrderId} not found or not accessible.");
 
             return Result.Success(await BuildSummaryBarAsync(pro, ct));
         }
@@ -66,12 +74,10 @@ namespace Abs.FixedAssets.Services.Production
         public async Task<Result<IReadOnlyList<CockpitBomRow>>> GetBomGridAsync(
             int productionOrderId, CancellationToken ct = default)
         {
-            var pro = await _db.Set<ProductionOrder>()
-                .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
-
+            var pro = await LoadAndValidateAsync(productionOrderId, ct);
             if (pro == null)
                 return Result.Failure<IReadOnlyList<CockpitBomRow>>(
-                    $"Production Order {productionOrderId} not found.");
+                    $"Production Order {productionOrderId} not found or not accessible.");
 
             return Result.Success<IReadOnlyList<CockpitBomRow>>(
                 await BuildBomGridAsync(pro, ct));
@@ -80,15 +86,33 @@ namespace Abs.FixedAssets.Services.Production
         public async Task<Result<IReadOnlyList<CockpitRoutingRow>>> GetRoutingGridAsync(
             int productionOrderId, CancellationToken ct = default)
         {
-            var pro = await _db.Set<ProductionOrder>()
-                .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
-
+            var pro = await LoadAndValidateAsync(productionOrderId, ct);
             if (pro == null)
                 return Result.Failure<IReadOnlyList<CockpitRoutingRow>>(
-                    $"Production Order {productionOrderId} not found.");
+                    $"Production Order {productionOrderId} not found or not accessible.");
 
             return Result.Success<IReadOnlyList<CockpitRoutingRow>>(
                 await BuildRoutingGridAsync(pro, ct));
+        }
+
+        // ================================================================
+        // PRIVATE — load + tenant validation (shared across all public methods)
+        // ================================================================
+
+        private async Task<ProductionOrder?> LoadAndValidateAsync(
+            int productionOrderId, CancellationToken ct)
+        {
+            var pro = await _db.Set<ProductionOrder>()
+                .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
+
+            if (pro == null) return null;
+
+            // P1 fix (Codex): enforce tenant scope
+            if (_tenant.VisibleCompanyIds.Count > 0
+                && !_tenant.VisibleCompanyIds.Contains(pro.CompanyId))
+                return null;
+
+            return pro;
         }
 
         // ================================================================
@@ -145,12 +169,12 @@ namespace Abs.FixedAssets.Services.Production
             if (pro.Status == ProductionOrderStatus.OnHold && pro.HoldReason == HoldReason.Quality)
                 qualityHolds++;
 
-            // Active operators (from labor entries clocked in today)
-            var today = DateTime.UtcNow.Date;
+            // P2 fix (Codex): count ALL open labor entries (ClockOutAt == null),
+            // not just today's. Overnight/long-running shifts start before midnight
+            // UTC but are still active. The "clocked in" state is what matters.
             var opIds = ops.Select(o => o.Id).ToList();
             var activeOps = await _db.Set<LaborEntry>()
                 .Where(l => opIds.Contains(l.ProductionOperationId)
-                         && l.ClockInAt >= today
                          && l.ClockOutAt == null)
                 .Select(l => l.OperatorUserId)
                 .Distinct()
