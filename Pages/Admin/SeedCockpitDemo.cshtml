@@ -1,0 +1,100 @@
+@page "/Admin/SeedCockpitDemo"
+@model Abs.FixedAssets.Pages.Admin.SeedCockpitDemoModel
+@{
+    ViewData["Title"] = "Seed PRO Cockpit Demo Data";
+    ViewData["TabTitle"] = "Seed Cockpit Demo";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Seed PRO Cockpit Demo Data</h1>
+        <p class="ds-page-header__subtitle">
+            Create 3 interconnected PRO scenarios with full B8 transaction layers.
+            Targets <code>CompanyCode = "PWH-CAN"</code>.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Three demo scenarios</h2>
+            <ul class="ds-list">
+                <li><strong>S1 &mdash; InProgress:</strong> "5-Axis Bracket Assembly" &mdash; 4/6 ops done, 1 scrap event (bad heat lot), mixed readiness (2 pass / 1 warn / 1 fail). 6 BOM lines, 8 material transactions, 12 operation transactions, 4 WIP moves, 1 drawing.</li>
+                <li><strong>S2 &mdash; Completed:</strong> "Turbine Shaft Support" &mdash; All 5 ops complete, clean cost rollup ($42K planned / $41.8K actual), zero scrap. 4 BOM lines, FAI passed.</li>
+                <li><strong>S3 &mdash; OnHold:</strong> "Valve Body Casting" &mdash; Quality hold at op 30, CAR raised (bore runout), ECO in progress, 2 material reversals. 5 BOM lines.</li>
+            </ul>
+            <p class="ds-mt-3">
+                <strong>Full lineage on every row:</strong> TenantId + CompanyId, CreatedBy/PerformedBy with timestamps,
+                lot/serial/heat/cert numbers on material transactions, realistic shift-time labor entries.
+            </p>
+            <p class="ds-text-muted ds-mt-2">
+                <strong>Idempotency:</strong> anchored on <code>DEMO-COCKPIT-PRO-3001</code>.
+                Re-running skips if already seeded.
+            </p>
+
+            <form method="post" class="ds-mt-4">
+                <button type="submit" class="ds-btn ds-btn--primary">Seed PRO Cockpit demo data</button>
+                <a asp-page="/Production/Index" class="ds-btn ds-btn--secondary ds-ml-2">Open Production Orders after seeding</a>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Result</h2>
+                <p>
+                    Demo tenant: <strong>@r.CompanyCode</strong> (CompanyId=@r.CompanyId)
+                </p>
+
+                @if (r.AlreadySeeded)
+                {
+                    <p class="ds-text-warning">
+                        <strong>Already seeded.</strong> Production orders with DEMO-COCKPIT-PRO-* prefix
+                        and transaction layers already exist. Delete them to reseed.
+                    </p>
+                }
+                else
+                {
+                    <p>
+                        Total rows created: <strong>@r.TotalRowsCreated</strong>.
+                    </p>
+                    <table class="ds-table">
+                        <thead>
+                            <tr><th>Entity</th><th class="ds-text-right">Created</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Production Orders</td><td class="ds-text-right">@r.ProductionOrdersCreated</td></tr>
+                            <tr><td>BOM Lines (ProductionMaterialStructure)</td><td class="ds-text-right">@r.BomLinesCreated</td></tr>
+                            <tr><td>Operations (ProductionOperation)</td><td class="ds-text-right">@r.OperationsCreated</td></tr>
+                            <tr><td>Material Transactions</td><td class="ds-text-right">@r.MaterialTransactionsCreated</td></tr>
+                            <tr><td>Operation Transactions</td><td class="ds-text-right">@r.OperationTransactionsCreated</td></tr>
+                            <tr><td>WIP Moves</td><td class="ds-text-right">@r.WipMovesCreated</td></tr>
+                            <tr><td>Completion Events</td><td class="ds-text-right">@r.CompletionEventsCreated</td></tr>
+                            <tr><td>Scrap Events</td><td class="ds-text-right">@r.ScrapEventsCreated</td></tr>
+                            <tr><td>Documents</td><td class="ds-text-right">@r.DocumentsCreated</td></tr>
+                            <tr><td>ECR / ECO</td><td class="ds-text-right">@r.EcrEcoCreated</td></tr>
+                            <tr><td>Corrective Actions (CAR)</td><td class="ds-text-right">@r.CarsCreated</td></tr>
+                            <tr><td>Labor Entries</td><td class="ds-text-right">@r.LaborEntriesCreated</td></tr>
+                        </tbody>
+                    </table>
+                }
+
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-3">Warnings</h3>
+                    <ul class="ds-list ds-text-warning">
+                        @foreach (var w in r.Warnings)
+                        {
+                            <li>@w</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>
