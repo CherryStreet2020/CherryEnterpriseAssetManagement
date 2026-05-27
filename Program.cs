@@ -369,6 +369,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
     Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
 
+// B8 PR-PRO-5 (2026-05-27) — IProductionWipMoveService.
+// Auto-advance on completion as DEFAULT. Manual moves (send-back, hold,
+// reverse) as the EXCEPTION. Quality hold gating. Full audit trail.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionWipMoveService,
+    Abs.FixedAssets.Services.Production.ProductionWipMoveService>();
+
 // Sprint 14.3 PR-7 (2026-05-27) — IChangeImpactService.
 // ECO blast-radius analysis: walks ECO → affected items → in-flight PROs,
 // deviations, CARs, document versions. Triggers FAI re-qualification per

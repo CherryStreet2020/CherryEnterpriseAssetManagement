@@ -555,6 +555,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest> CorrectiveActionRequests =>
             Set<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest>();
 
+        // B8 PR-PRO-5 — ProductionWipMove (auto-advance + manual moves between operations)
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionWipMove> ProductionWipMoves =>
+            Set<Abs.FixedAssets.Models.Production.ProductionWipMove>();
+
         // Sprint 14.3 PR-7 — ChangeImpactAnalysis (ECO blast-radius analysis + FAI re-trigger)
         public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis> ChangeImpactAnalyses =>
             Set<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>();
@@ -2485,6 +2489,36 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.RelatedConcession).WithMany()
                     .HasForeignKey(x => x.RelatedConcessionId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-5 — ProductionWipMove entity config.
+            // Auto-advance on completion + manual moves. Full audit trail.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionWipMove>(e =>
+            {
+                e.Property(x => x.MoveType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.WipMoveType.AutoAdvance);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.WipMoveStatus.Completed);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.MoveNumber })
+                    .IsUnique().HasDatabaseName("UX_WipMove_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_WipMove_PRO");
+                e.HasIndex(x => x.FromOperationId).HasDatabaseName("IX_WipMove_FromOp");
+                e.HasIndex(x => x.ToOperationId).HasDatabaseName("IX_WipMove_ToOp");
+                e.HasIndex(x => x.MoveType).HasDatabaseName("IX_WipMove_Type");
+                e.HasIndex(x => x.MovedAtUtc).HasDatabaseName("IX_WipMove_Date");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.FromOperation).WithMany()
+                    .HasForeignKey(x => x.FromOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ToOperation).WithMany()
+                    .HasForeignKey(x => x.ToOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.TriggeredByTransaction).WithMany()
+                    .HasForeignKey(x => x.TriggeredByTransactionId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginalMove).WithMany()
+                    .HasForeignKey(x => x.OriginalMoveId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // Sprint 14.3 PR-7 — ChangeImpactAnalysis entity config.
