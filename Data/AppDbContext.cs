@@ -555,6 +555,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest> CorrectiveActionRequests =>
             Set<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest>();
 
+        // B8 PR-PRO-4 — ProductionOperationTransaction (operation state change log)
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionOperationTransaction> ProductionOperationTransactions =>
+            Set<Abs.FixedAssets.Models.Production.ProductionOperationTransaction>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2471,6 +2475,33 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.RelatedConcession).WithMany()
                     .HasForeignKey(x => x.RelatedConcessionId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-4 — ProductionOperationTransaction entity config.
+            // Operation state change log. 19 transaction types.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOperationTransaction>(e =>
+            {
+                e.Property(x => x.TransactionType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.OperationTransactionType.Start);
+                e.Property(x => x.StatusBefore)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionOperationStatus.Scheduled);
+                e.Property(x => x.StatusAfter)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionOperationStatus.Scheduled);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.TransactionNumber })
+                    .IsUnique().HasDatabaseName("UX_OpTxn_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_OpTxn_PRO");
+                e.HasIndex(x => x.OperationId).HasDatabaseName("IX_OpTxn_Op");
+                e.HasIndex(x => x.TransactionType).HasDatabaseName("IX_OpTxn_Type");
+                e.HasIndex(x => x.TransactionDateUtc).HasDatabaseName("IX_OpTxn_Date");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Operation).WithMany()
+                    .HasForeignKey(x => x.OperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.OriginalTransaction).WithMany()
+                    .HasForeignKey(x => x.OriginalTransactionId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with

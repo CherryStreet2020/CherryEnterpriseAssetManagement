@@ -356,6 +356,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IConcessionService,
     Abs.FixedAssets.Services.Engineering.ConcessionService>();
 
+// B8 PR-PRO-4 (2026-05-27) — IProductionOperationTransactionService.
+// 19-action operation state machine: Start/Pause/Resume/Stop/Setup/Run/
+// Complete/PartialComplete/FinalComplete/ReverseCompletion/Skip/AddOp/
+// InsertRework/ChangeResource/AddEmployee/LogTime/EditTime. Absorbs B3+B5b.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperationTransactionService,
+    Abs.FixedAssets.Services.Production.ProductionOperationTransactionService>();
+
 // Sprint 14.3 PR-6 (2026-05-27) — ICorrectiveActionService.
 // CAR/CAPA 8D lifecycle: Draft → Issued → Investigation → RootCause →
 // CorrectiveActionPlanned → Implementation → Verification → Closed. AS9100 §10.2.
