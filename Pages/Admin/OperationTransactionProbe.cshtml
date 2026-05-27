@@ -1,0 +1,108 @@
+@page "/Admin/OperationTransactionProbe"
+@model Abs.FixedAssets.Pages.Admin.OperationTransactionProbeModel
+@{ ViewData["Title"] = "Operation Transaction Probe"; ViewData["TabTitle"] = "Operation Transaction Probe"; Layout = "_ModernLayout"; }
+
+<header class="ds-page-header"><div class="ds-page-header__inner">
+    <h1 class="ds-page-header__title">Operation Transaction Probe</h1>
+    <p class="ds-page-header__subtitle">B8 PRO Cockpit &mdash; 19-action operation transaction service (PR-PRO-4). State machine: Released &rarr; InSetup &rarr; Running &harr; Paused &rarr; Completed. Absorbs B3 + B5b.</p>
+</div></header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    { <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="optxn-outcome-error">@Model.Outcome</p> }
+        else { <p class="ds-text-success" data-testid="optxn-outcome-ok">@Model.Outcome</p> }
+    </div></section> }
+
+    <section class="ds-card"><div class="ds-card__body"><h2 class="ds-h2">1. Start Operation</h2>
+        <form method="post" asp-page-handler="Start" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="StartOpId" value="@Model.StartOpId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="optxn-btn-start">Start</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">2. Pause Operation</h2>
+        <form method="post" asp-page-handler="Pause" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="PauseOpId" value="@Model.PauseOpId" required class="ds-input" /></div>
+            <div><label>Reason</label><input type="text" name="PauseReason" value="@Model.PauseReason" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="optxn-btn-pause">Pause</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">3. Complete Operation</h2>
+        <form method="post" asp-page-handler="Complete" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="CompleteOpId" value="@Model.CompleteOpId" required class="ds-input" /></div>
+            <div><label>Good Qty</label><input type="number" step="0.0001" name="CompleteGoodQty" value="@Model.CompleteGoodQty" required class="ds-input" /></div>
+            <div><label>Scrap Qty</label><input type="number" step="0.0001" name="CompleteScrapQty" value="@Model.CompleteScrapQty" class="ds-input" /></div>
+            <div><label>Scrap Reason</label><input type="text" name="CompleteScrapReason" value="@Model.CompleteScrapReason" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="optxn-btn-complete">Complete</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">4. Skip Operation (Released only)</h2>
+        <form method="post" asp-page-handler="Skip" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="SkipOpId" value="@Model.SkipOpId" required class="ds-input" /></div>
+            <div><label>Skip Reason</label><input type="text" name="SkipReason" value="@Model.SkipReason" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="optxn-btn-skip">Skip</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">5. Log Time</h2>
+        <form method="post" asp-page-handler="LogTime" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="LogTimeOpId" value="@Model.LogTimeOpId" required class="ds-input" /></div>
+            <div><label>Run Minutes</label><input type="number" step="0.01" name="LogRunMins" value="@Model.LogRunMins" class="ds-input" /></div>
+            <div><label>Setup Minutes</label><input type="number" step="0.01" name="LogSetupMins" value="@Model.LogSetupMins" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="optxn-btn-logtime">Log Time</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">6. Change Resource</h2>
+        <form method="post" asp-page-handler="ChangeResource" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="ChangeResOpId" value="@Model.ChangeResOpId" required class="ds-input" /></div>
+            <div><label>New WorkCenter Id</label><input type="number" name="NewWcId" value="@Model.NewWcId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="optxn-btn-changeres">Change Resource</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">7. Reverse Completion</h2>
+        <form method="post" asp-page-handler="Reverse" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="ReverseOpId" value="@Model.ReverseOpId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="optxn-btn-reverse">Reverse Completion</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">8. Add Operation (runtime insert)</h2>
+        <form method="post" asp-page-handler="AddOp" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="AddOpProId" value="@Model.AddOpProId" required class="ds-input" /></div>
+            <div><label>After Sequence</label><input type="number" name="AddOpAfterSeq" value="@Model.AddOpAfterSeq" required class="ds-input" /></div>
+            <div><label>Description</label><input type="text" name="AddOpDesc" value="@Model.AddOpDesc" required class="ds-input" /></div>
+            <div><label>WorkCenter Id</label><input type="number" name="AddOpWcId" value="@Model.AddOpWcId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="optxn-btn-addop">Add Operation</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body"><h2 class="ds-h2">9. Get Transaction by Id</h2>
+        <form method="post" asp-page-handler="GetTxn" class="ds-form-grid">
+            <div><label>Transaction Id</label><input type="number" name="GetTxnId" value="@Model.GetTxnId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="optxn-btn-get">Get Transaction</button></div>
+        </form>
+        @if (Model.TxnView is not null) { var t = Model.TxnView;
+        <div class="ds-mt-3" data-testid="optxn-view-card"><h3 class="ds-h3">Txn @t.Id (@t.TransactionNumber)</h3>
+            <dl class="ds-defs">
+                <dt>Type</dt><dd>@t.TransactionType</dd>
+                <dt>PRO / Op / Seq</dt><dd>@t.ProductionOrderId / @t.OperationId / @t.OperationSequence</dd>
+                <dt>Status</dt><dd>@t.StatusBefore → @t.StatusAfter</dd>
+                <dt>Good / Scrap / Rework / Reject</dt><dd>@t.GoodQuantity.ToString("N0") / @t.ScrapQuantity.ToString("N0") / @t.ReworkQuantity.ToString("N0") / @t.RejectQuantity.ToString("N0")</dd>
+                <dt>Run / Setup / Machine / Labor mins</dt><dd>@t.RunMinutes / @t.SetupMinutes / @t.MachineMinutes / @t.LaborMinutes</dd>
+                <dt>WC / Asset / Operator</dt><dd>@(t.WorkCenterId?.ToString() ?? "—") / @(t.AssetId?.ToString() ?? "—") / @(t.OperatorId ?? "—")</dd>
+                <dt>Costs (L/M/B)</dt><dd>@(t.LaborCost?.ToString("N2") ?? "—") / @(t.MachineCost?.ToString("N2") ?? "—") / @(t.BurdenCost?.ToString("N2") ?? "—")</dd>
+                <dt>Final / Backflush</dt><dd>@t.IsFinalOperation / @t.BackflushMaterials</dd>
+                <dt>Skip Reason</dt><dd>@(t.SkipReason ?? "—")</dd>
+                <dt>New Op / Seq</dt><dd>@(t.NewOperationId?.ToString() ?? "—") / @(t.NewOperationSequence?.ToString() ?? "—")</dd>
+                <dt>Reversal / Original</dt><dd>@t.IsReversal / @(t.OriginalTransactionId?.ToString() ?? "—")</dd>
+                <dt>Performed By</dt><dd>@(t.PerformedBy ?? "—")</dd>
+                <dt>Date</dt><dd>@t.TransactionDateUtc.ToString("u")</dd>
+            </dl>
+        </div> }
+    </div></section>
+</main>
