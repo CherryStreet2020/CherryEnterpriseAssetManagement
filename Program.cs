@@ -443,6 +443,43 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ISupplierNotific
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.ICustomerItemXrefService,
     Abs.FixedAssets.Services.Items.CustomerItemXrefService>();
 
+// B8 PR-PRO-11 (2026-05-28) — 14 Transaction Validation Services.
+// Guards on PRO-3/4/5 transaction pipeline. IEnumerable<IProductionTransactionValidator>
+// discovered by TransactionValidationPipeline for chain-of-responsibility execution.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.ITransactionValidationPipeline,
+    Abs.FixedAssets.Services.Production.Validators.TransactionValidationPipeline>();
+// Material validators (Rules 1-8)
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.RevisionCheckValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.LotSerialRequiredValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.ExpiredMaterialValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.QualityHoldValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.CustomerOwnershipValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.ConsignedMaterialValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.NegativeInventoryValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.OverIssueApprovalValidator>();
+// Operation validators (Rules 9-12)
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.PredecessorOperationValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.LaborCertificationValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.DrawingRevisionValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.MachineStatusValidator>();
+// Completion validators (Rules 13-14)
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.InspectionHoldValidator>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Validators.IProductionTransactionValidator,
+    Abs.FixedAssets.Services.Production.Validators.ScrapThresholdValidator>();
+
 // B6 Foundation Sprint PR-FS-5 (2026-05-26) — IItemSourcingRuleService.
 // Multi-source Approved Vendor List + priority + approval state machine +
 // customer-mandated AS9100 §8.4.1 flagging. SAP S/4 Source List equivalent.
