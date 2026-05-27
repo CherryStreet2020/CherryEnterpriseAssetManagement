@@ -531,6 +531,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.Deviation> Deviations =>
             Set<Abs.FixedAssets.Models.Engineering.Deviation>();
 
+        // Sprint 14.3 PR-3 — Waiver (customer-approved longer-term divergence)
+        public DbSet<Abs.FixedAssets.Models.Engineering.Waiver> Waivers =>
+            Set<Abs.FixedAssets.Models.Engineering.Waiver>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2256,6 +2260,33 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.OriginatingEcrId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-3 — Waiver (customer-approved longer-term divergence).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.Waiver>(e =>
+            {
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.WaiverType.Material);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.WaiverStatus.Draft);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.WaiverNumber })
+                    .IsUnique().HasDatabaseName("UX_Waiver_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_Waiver_Status");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.CustomerId);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingEcr).WithMany()
+                    .HasForeignKey(x => x.OriginatingEcrId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.RelatedDeviation).WithMany()
+                    .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Customer).WithMany()
+                    .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
