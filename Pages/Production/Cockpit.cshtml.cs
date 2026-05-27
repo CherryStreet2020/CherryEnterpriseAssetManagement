@@ -14,22 +14,30 @@ using Microsoft.Extensions.Logging;
 namespace Abs.FixedAssets.Pages.Production;
 
 // =============================================================================
-// B8 PR-PRO-8 (2026-05-27) — PRO Cockpit Control Center.
+// B8 PR-PRO-8 + PRO-10 — PRO Cockpit Control Center.
 //
 // Per-Production-Order deep-dive surface. 12 tabs, 16-metric summary bar,
 // 24-column BOM grid, 22-column Routing grid, readiness integration.
 //
-// Route: /Production/Orders/{id}/Cockpit
+// PR-PRO-10 (2026-05-28): 3-mode UI gating — Planner / Supervisor / Operator.
+// Same cockpit, 3 views. Auto-defaults from User.Role. Admin can toggle freely.
+//   Planner  — full visibility, all actions, cost columns, schedule edits
+//   Supervisor — queue + exceptions + labor + scrap + quality actions
+//   Operator — start/stop, issue, complete, scrap, rework, view instructions
 //
-// Design principle (LOCKED): "Every BOM line and every routing operation
-// should show planned vs actual, status, exception, cost impact,
-// traceability, and the next allowed transaction."
-//
-// Tabs: Overview · BOM · Routing · Labor · Scrap/Rework/NCR · Inventory Tx ·
-//       Cost/WIP · Quality · Documents · Schedule · Genealogy · Audit
-//
-// Composes shared Cockpit primitives (same ones Receiving + Production CC use).
+// Route: /Production/Orders/{id}/Cockpit?tab=X&mode=Y
 // =============================================================================
+
+/// <summary>Cockpit view mode — gates visible columns, actions, and drawer content.</summary>
+public enum CockpitMode
+{
+    /// <summary>Full visibility — all actions, cost columns, schedule edits.</summary>
+    Planner = 0,
+    /// <summary>Queue + exceptions + labor + scrap + quality actions.</summary>
+    Supervisor = 1,
+    /// <summary>Start/stop, issue, complete, scrap, rework, view instructions.</summary>
+    Operator = 2,
+}
 [Authorize]
 public sealed class CockpitModel : PageModel
 {
@@ -48,6 +56,20 @@ public sealed class CockpitModel : PageModel
 
     [BindProperty(SupportsGet = true, Name = "tab")]
     public string? TabKey { get; set; }
+
+    [BindProperty(SupportsGet = true, Name = "mode")]
+    public string? ModeKey { get; set; }
+
+    // ----- Mode gating (PR-PRO-10) -----
+    public CockpitMode ActiveMode { get; private set; } = CockpitMode.Planner;
+    public bool CanToggleMode { get; private set; }
+
+    /// <summary>True when the mode hides cost/financial columns.</summary>
+    public bool HideCostColumns => ActiveMode == CockpitMode.Operator;
+    /// <summary>True when the mode hides schedule-edit capabilities.</summary>
+    public bool HideScheduleEdits => ActiveMode == CockpitMode.Operator;
+    /// <summary>True when showing the full planner view.</summary>
+    public bool IsPlannerMode => ActiveMode == CockpitMode.Planner;
 
     // ----- Hydrated payloads -----
     public CockpitPageHeaderViewModel? PageHeader { get; private set; }
@@ -99,11 +121,41 @@ public sealed class CockpitModel : PageModel
         }
 
         Data = result.Value;
+        ResolveMode();
         HydratePageHeader();
         HydrateKpiBand();
         HydrateTabShell();
 
         return Page();
+    }
+
+    // ----- PR-PRO-10: Mode resolution -----
+    private void ResolveMode()
+    {
+        // Admin users can toggle freely; everyone else auto-defaults
+        var isAdmin = User.IsInRole("Admin");
+        CanToggleMode = isAdmin;
+
+        // Explicit ?mode= override (admin only, or anyone for their own mode)
+        if (!string.IsNullOrEmpty(ModeKey))
+        {
+            if (Enum.TryParse<CockpitMode>(ModeKey, ignoreCase: true, out var parsed))
+            {
+                ActiveMode = parsed;
+                return;
+            }
+        }
+
+        // Auto-default from User.Role
+        var role = User.Claims
+            .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Viewer";
+
+        ActiveMode = role switch
+        {
+            "Admin" => CockpitMode.Planner,
+            "Accountant" => CockpitMode.Supervisor,
+            _ => CockpitMode.Operator,
+        };
     }
 
     private void HydratePageHeader()

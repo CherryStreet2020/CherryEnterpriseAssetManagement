@@ -2,6 +2,7 @@
 @model Abs.FixedAssets.Pages.Production.CockpitModel
 @using Abs.FixedAssets.Services.Production
 @using Abs.FixedAssets.Models.Production
+@using Abs.FixedAssets.Pages.Production
 @{
     ViewData["Title"] = Model.Data != null ? $"PRO {Model.Data.Summary.OrderNumber} Cockpit" : "PRO Cockpit";
     ViewData["TabTitle"] = "PRO Cockpit";
@@ -39,6 +40,29 @@
 
 @* 3) 12-tab shell *@
 @await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+@* 3b) PR-PRO-10: Mode toggle — Planner / Supervisor / Operator *@
+@{
+    var modeBase = $"/Production/Orders/{Model.Id}/Cockpit?tab={Model.ActiveTab}";
+    var modePlanner = Model.ActiveMode == CockpitMode.Planner;
+    var modeSupervisor = Model.ActiveMode == CockpitMode.Supervisor;
+    var modeOperator = Model.ActiveMode == CockpitMode.Operator;
+}
+<div class="cockpit-mode-bar">
+    <span class="cockpit-mode-label">VIEW MODE</span>
+    <div class="cockpit-mode-toggle">
+        <a href="@(modeBase)&mode=planner" class="cockpit-mode-pill @(modePlanner ? "cockpit-mode-pill--active" : "")" title="Full visibility — all actions, cost columns, schedule edits">
+            <i class="fas fa-clipboard-list"></i> Planner
+        </a>
+        <a href="@(modeBase)&mode=supervisor" class="cockpit-mode-pill @(modeSupervisor ? "cockpit-mode-pill--active" : "")" title="Queue + exceptions + labor + scrap + quality actions">
+            <i class="fas fa-user-tie"></i> Supervisor
+        </a>
+        <a href="@(modeBase)&mode=operator" class="cockpit-mode-pill @(modeOperator ? "cockpit-mode-pill--active" : "")" title="Start/stop, issue, complete, scrap, rework, view instructions">
+            <i class="fas fa-hard-hat"></i> Operator
+        </a>
+    </div>
+    <span class="cockpit-mode-hint">@Model.ActiveMode mode — @(modePlanner ? "full access" : modeSupervisor ? "floor management" : "production execution")</span>
+</div>
 
 @* 4) Per-tab content *@
 <div class="cockpit-tab-pane" role="tabpanel" style="padding: var(--v2-space-4, 1rem);">
@@ -315,6 +339,7 @@
     ));
 
     window.__proId = @Model.Id;
+    window.__cockpitMode = '@Model.ActiveMode.ToString().ToLowerInvariant()';
 
     // Deferred wire-up: cockpit.js exposes __wireTxnDrawer; call after blobs are set
     if (window.__wireTxnDrawer) window.__wireTxnDrawer();
