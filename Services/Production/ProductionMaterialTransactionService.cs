@@ -18,14 +18,17 @@ namespace Abs.FixedAssets.Services.Production
     {
         private readonly AppDbContext _db;
         private readonly ITransactionValidationPipeline _pipeline;
+        private readonly ICostTransactionService _costSvc;
         private readonly ILogger<ProductionMaterialTransactionService> _log;
 
         public ProductionMaterialTransactionService(AppDbContext db,
             ITransactionValidationPipeline pipeline,
+            ICostTransactionService costSvc,
             ILogger<ProductionMaterialTransactionService> log)
         {
             _db = db;
             _pipeline = pipeline;
+            _costSvc = costSvc;
             _log = log;
         }
 
@@ -161,6 +164,14 @@ namespace Abs.FixedAssets.Services.Production
                 kitGroup, productionOrderId, transactions.Count,
                 transactions.Sum(t => t.Quantity));
 
+            // ── Cost posting per kit line ──────────────────────────────
+            foreach (var kitTxn in transactions)
+            {
+                var kitBomLine = kitLines.First(l => l.Id == kitTxn.BomLineId);
+                _ = PostMaterialCostSafe(kitBomLine, kitTxn,
+                    CostTransactionType.MaterialIssueKit, ProductionCostBucket.DirectMaterial, ct);
+            }
+
             return Result.Success<IReadOnlyList<ProductionMaterialTransaction>>(transactions);
         }
 
@@ -260,6 +271,11 @@ namespace Abs.FixedAssets.Services.Production
 
             _log.LogInformation("Return {Qty:N4} on BOM line {Line} (PRO {PRO}): returned to {WH}/{Bin}",
                 req.Quantity, req.BomLineId, bomLine.ProductionOrderId, req.ToWarehouse, req.ToBin);
+
+            // ── Cost posting (negative cost — material returned to inventory) ──
+            _ = PostMaterialCostSafe(bomLine, txn,
+                CostTransactionType.MaterialReturn, ProductionCostBucket.DirectMaterial, ct);
+
             return Result.Success(txn);
         }
 
@@ -337,6 +353,11 @@ namespace Abs.FixedAssets.Services.Production
 
             _log.LogInformation("Reversed transaction {OrigId} on BOM line {Line}: {Qty:N4} {Type}",
                 originalTransactionId, original.BomLineId, original.Quantity, original.TransactionType);
+
+            // ── Cost posting (reversal — negative cost to undo original) ──
+            _ = PostMaterialCostSafe(bomLine, reversal,
+                CostTransactionType.MaterialReverseIssue, ProductionCostBucket.DirectMaterial, ct);
+
             return Result.Success(reversal);
         }
 
@@ -536,6 +557,11 @@ namespace Abs.FixedAssets.Services.Production
 
             _log.LogInformation("Substitute on BOM line {Line}: Item {Orig} → Item {Sub}, qty={Qty:N4}",
                 req.BomLineId, bomLine.ChildItemId, req.SubstituteItemId, req.Quantity);
+
+            // ── Cost posting (substitute — new item at substitute cost) ──
+            _ = PostMaterialCostSafe(bomLine, txn,
+                CostTransactionType.MaterialSubstitute, ProductionCostBucket.DirectMaterial, ct);
+
             return Result.Success(txn);
         }
 
@@ -612,6 +638,11 @@ namespace Abs.FixedAssets.Services.Production
 
             _log.LogInformation("Scrap {Qty:N4} on BOM line {Line}: {Code} — {Desc}",
                 req.Quantity, req.BomLineId, req.ReasonCode, req.ReasonDescription);
+
+            // ── Cost posting (scrap — absorb to job) ──
+            _ = PostMaterialCostSafe(bomLine, txn,
+                CostTransactionType.ScrapAbsorbToJob, ProductionCostBucket.Scrap, ct);
+
             return Result.Success(txn);
         }
 
@@ -770,6 +801,11 @@ namespace Abs.FixedAssets.Services.Production
 
             _log.LogInformation("{Type} {Qty:N4} on BOM line {Line} (PRO {PRO}): {Before:N4} → {After:N4}",
                 type, quantity, bomLine.Id, bomLine.ProductionOrderId, before, bomLine.IssuedQuantity);
+
+            // ── Cost posting ───────────────────────────────────────────
+            var (costTxnType, costBucket) = MapMaterialCostType(type);
+            _ = PostMaterialCostSafe(bomLine, txn, costTxnType, costBucket, ct);
+
             return Result.Success(txn);
         }
 
@@ -797,6 +833,55 @@ namespace Abs.FixedAssets.Services.Production
                 line.LineStatus = BomLineStatus.Issued;
             else if (line.IssuedQuantity > 0)
                 line.LineStatus = BomLineStatus.PartiallyIssued;
+        }
+
+        // =====================================================================
+        // COST POSTING HELPERS
+        // =====================================================================
+
+        /// <summary>
+        /// Map material transaction type → cost transaction type + bucket.
+        /// Used by PostTransactionAsync which handles Issue/IssueAll/PartialIssue/OverIssue.
+        /// </summary>
+        private static (CostTransactionType, ProductionCostBucket) MapMaterialCostType(MaterialTransactionType type) => type switch
+        {
+            MaterialTransactionType.Issue => (CostTransactionType.MaterialIssue, ProductionCostBucket.DirectMaterial),
+            MaterialTransactionType.IssueAll => (CostTransactionType.MaterialIssueAll, ProductionCostBucket.DirectMaterial),
+            MaterialTransactionType.IssueKit => (CostTransactionType.MaterialIssueKit, ProductionCostBucket.DirectMaterial),
+            MaterialTransactionType.PartialIssue => (CostTransactionType.MaterialPartialIssue, ProductionCostBucket.DirectMaterial),
+            MaterialTransactionType.OverIssue => (CostTransactionType.MaterialOverIssue, ProductionCostBucket.DirectMaterial),
+            _ => (CostTransactionType.MaterialIssue, ProductionCostBucket.DirectMaterial),
+        };
+
+        /// <summary>
+        /// Fire-and-forget cost posting. Logs warning on failure but never blocks
+        /// the production transaction.
+        /// </summary>
+        private async Task PostMaterialCostSafe(
+            ProductionMaterialStructure bomLine,
+            ProductionMaterialTransaction txn,
+            CostTransactionType costType,
+            ProductionCostBucket bucket,
+            CancellationToken ct)
+        {
+            try
+            {
+                await _costSvc.PostCostAsync(
+                    CostObjectType.ProductionOrder, bomLine.ProductionOrderId,
+                    costType, bucket,
+                    bomLine.CompanyId, null, bomLine.ProductionOrderId,
+                    null, bomLine.Id, txn.ItemId != 0 ? txn.ItemId : bomLine.ChildItemId,
+                    txn.Quantity, txn.Uom, txn.ActualUnitCost ?? 0m,
+                    "MaterialTransaction", txn.Id,
+                    txn.LotNumber, txn.SerialNumber, txn.HeatNumber,
+                    true, null, txn.CreatedBy, ct);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Cost posting failed for material txn {TxnId} ({Type}) on PRO {PRO}. " +
+                    "Production transaction succeeded — cost will need manual reconciliation.",
+                    txn.Id, costType, bomLine.ProductionOrderId);
+            }
         }
     }
 }
