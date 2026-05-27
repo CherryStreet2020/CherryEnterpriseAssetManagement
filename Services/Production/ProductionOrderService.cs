@@ -302,8 +302,16 @@ public sealed class ProductionOrderService : IProductionOrderService
         if (from == to) return true; // idempotent no-op
         return (from, to) switch
         {
+            // B8 PR-PO-1 (2026-05-27): Firmed sits between Planned and Released.
+            // Planned → Firmed: MRP confirms quantities/dates.
+            // Firmed → Released: floor release triggers material reservation + snapshot.
+            // Firmed can also go to Planned (un-firm) or Cancelled.
+            (ProductionOrderStatus.Planned,    ProductionOrderStatus.Firmed)     => true,
             (ProductionOrderStatus.Planned,    ProductionOrderStatus.Released)   => true,
             (ProductionOrderStatus.Planned,    ProductionOrderStatus.Cancelled)  => true,
+            (ProductionOrderStatus.Firmed,     ProductionOrderStatus.Released)   => true,
+            (ProductionOrderStatus.Firmed,     ProductionOrderStatus.Planned)    => true,
+            (ProductionOrderStatus.Firmed,     ProductionOrderStatus.Cancelled)  => true,
             (ProductionOrderStatus.Released,   ProductionOrderStatus.InProgress) => true,
             (ProductionOrderStatus.Released,   ProductionOrderStatus.OnHold)     => true,
             (ProductionOrderStatus.Released,   ProductionOrderStatus.Cancelled)  => true,
@@ -313,7 +321,10 @@ public sealed class ProductionOrderService : IProductionOrderService
             (ProductionOrderStatus.OnHold,     ProductionOrderStatus.Released)   => true,
             (ProductionOrderStatus.OnHold,     ProductionOrderStatus.InProgress) => true,
             (ProductionOrderStatus.OnHold,     ProductionOrderStatus.Cancelled)  => true,
-            // Completed and Cancelled are terminal.
+            // B8 PR-PO-1: Completed → Closed is the financial-close transition.
+            // All costs posted, WIP cleared, variances written off. Immutable after.
+            (ProductionOrderStatus.Completed,  ProductionOrderStatus.Closed)     => true,
+            // Completed, Closed, and Cancelled are terminal (Closed is super-terminal).
             _ => false
         };
     }
