@@ -567,6 +567,15 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionWipMove> ProductionWipMoves =>
             Set<Abs.FixedAssets.Models.Production.ProductionWipMove>();
 
+        // Sprint 14.4 PR-1 — CostTransaction (atomic cost ledger), CostTransfer (inter-object value movement),
+        // ProductionOrderCostSummary (denormalized cockpit cache)
+        public DbSet<Abs.FixedAssets.Models.Production.CostTransaction> CostTransactions =>
+            Set<Abs.FixedAssets.Models.Production.CostTransaction>();
+        public DbSet<Abs.FixedAssets.Models.Production.CostTransfer> CostTransfers =>
+            Set<Abs.FixedAssets.Models.Production.CostTransfer>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary> ProductionOrderCostSummaries =>
+            Set<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary>();
+
         // Sprint 14.3 PR-7 — ChangeImpactAnalysis (ECO blast-radius analysis + FAI re-trigger)
         public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis> ChangeImpactAnalyses =>
             Set<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>();
@@ -2622,6 +2631,64 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.TriggeredByTransactionId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.OriginalMove).WithMany()
                     .HasForeignKey(x => x.OriginalMoveId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.4 PR-1 — CostTransaction entity config.
+            // Atomic cost ledger. Every production cost event creates one row.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CostTransaction>(e =>
+            {
+                e.Property(x => x.TransactionType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostTransactionType.MaterialIssue)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostTransactionType.MaterialIssue);
+                e.Property(x => x.CostBucket)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionCostBucket.DirectMaterial);
+                e.Property(x => x.CostElement)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Masters.CostElementType.Material);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.TransactionNumber })
+                    .IsUnique().HasDatabaseName("UX_CostTxn_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.SiteId).HasDatabaseName("IX_CostTxn_Site");
+                e.HasIndex(x => new { x.CostObjectType, x.CostObjectId })
+                    .HasDatabaseName("IX_CostTxn_CostObject");
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_CostTxn_PRO");
+                e.HasIndex(x => x.TransactionType).HasDatabaseName("IX_CostTxn_Type");
+                e.HasIndex(x => x.CostBucket).HasDatabaseName("IX_CostTxn_Bucket");
+                e.HasIndex(x => x.EffectiveCostDate).HasDatabaseName("IX_CostTxn_Date");
+                e.HasIndex(x => x.RollupAdditiveFlag).HasDatabaseName("IX_CostTxn_Additive");
+            });
+
+            // Sprint 14.4 PR-1 — CostTransfer entity config.
+            // Movement of value between cost objects (Layer B).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CostTransfer>(e =>
+            {
+                e.Property(x => x.TransferType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostTransferType.ChildCompletionToParent);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.TransferNumber })
+                    .IsUnique().HasDatabaseName("UX_CostXfer_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => new { x.SourceCostObjectType, x.SourceCostObjectId })
+                    .HasDatabaseName("IX_CostXfer_Source");
+                e.HasIndex(x => new { x.DestinationCostObjectType, x.DestinationCostObjectId })
+                    .HasDatabaseName("IX_CostXfer_Dest");
+                e.HasIndex(x => x.TransferType).HasDatabaseName("IX_CostXfer_Type");
+            });
+
+            // Sprint 14.4 PR-1 — ProductionOrderCostSummary entity config.
+            // Denormalized cost cache per PRO for cockpit rendering.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary>(e =>
+            {
+                e.Property(x => x.CostStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionCostStatus.Estimated);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ProductionOrderId })
+                    .IsUnique().HasDatabaseName("UX_ProCostSum_Company_PRO");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.CostStatus).HasDatabaseName("IX_ProCostSum_Status");
             });
 
             // Sprint 14.3 PR-7 — ChangeImpactAnalysis entity config.

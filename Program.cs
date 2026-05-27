@@ -443,6 +443,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ISupplierNotific
 builder.Services.AddScoped<Abs.FixedAssets.Services.Items.ICustomerItemXrefService,
     Abs.FixedAssets.Services.Items.CustomerItemXrefService>();
 
+// Sprint 14.4 PR-1 (2026-05-27) — Cost Transaction Service.
+// Production cost sub-ledger: atomic cost posting + transfer + summary refresh.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostTransactionService,
+    Abs.FixedAssets.Services.Production.CostTransactionService>();
+
 // B8 PR-PRO-11 (2026-05-28) — 14 Transaction Validation Services.
 // Guards on PRO-3/4/5 transaction pipeline. IEnumerable<IProductionTransactionValidator>
 // discovered by TransactionValidationPipeline for chain-of-responsibility execution.
