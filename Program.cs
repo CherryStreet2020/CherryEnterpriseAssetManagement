@@ -369,6 +369,19 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
     Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
 
+// Sprint 14.3 PR-7 (2026-05-27) — IChangeImpactService.
+// ECO blast-radius analysis: walks ECO → affected items → in-flight PROs,
+// deviations, CARs, document versions. Triggers FAI re-qualification per
+// AS9102 §3.2 on form/fit/function changes. CLOSES Sprint 14.3.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IChangeImpactService,
+    Abs.FixedAssets.Services.Engineering.ChangeImpactService>();
+
+// Sprint 14.3 PR-7 (2026-05-27) — IDocumentRedlineService.
+// Structured markup annotations on document versions, linked to ECOs.
+// AS9100 §7.5.3 controlled document change management.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDocumentRedlineService,
+    Abs.FixedAssets.Services.Engineering.DocumentRedlineService>();
+
 // B8 PR-PRO-3 (2026-05-27) — IProductionMaterialTransactionService.
 // 12-action material movement service (Issue/IssueAll/IssueKit/PartialIssue/
 // OverIssue/Return/ReverseIssue/TransferToJob/TransferFromJob/Substitute/
