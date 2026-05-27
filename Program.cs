@@ -285,6 +285,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICfoMotionDemoSeeder
 builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.ICooMotionDemoSeeder,
     Abs.FixedAssets.Services.Seeding.CooMotionDemoSeeder>();
 
+// B8 PRO Cockpit Demo Seeder — 3 interconnected PRO scenarios with full B8
+// transaction layers (material tx, op tx, WIP moves, scrap, ECR/ECO, CAR,
+// labor, documents). Triggered from /Admin/SeedCockpitDemo. Lock 14 — dev only.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Seeding.IProductionCockpitDemoSeeder,
+    Abs.FixedAssets.Services.Seeding.ProductionCockpitDemoSeeder>();
+
 // B6 Foundation Sprint PR-FS-1 (2026-05-26) — IItemGroupResolver.
 // Read-side lookup helper that maps (ItemType → default ItemGroup Code → Id)
 // against the SYSTEM ItemGroups seeded by PRA-7. Used by future backfill
