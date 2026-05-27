@@ -448,6 +448,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.ICustomerItemXrefServi
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostTransactionService,
     Abs.FixedAssets.Services.Production.CostTransactionService>();
 
+// Sprint 14.4 PR-3 (2026-05-28) — Cost Rollup Engine.
+// Graph builder + cycle detection + dual-mode rollup (Financial/Exploded) + exception detection.
+// Per Dean's 910-line cost-object graph research spec.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostRollupService,
+    Abs.FixedAssets.Services.Production.CostRollupService>();
+
 // B8 PR-PRO-11 (2026-05-28) — 14 Transaction Validation Services.
 // Guards on PRO-3/4/5 transaction pipeline. IEnumerable<IProductionTransactionValidator>
 // discovered by TransactionValidationPipeline for chain-of-responsibility execution.

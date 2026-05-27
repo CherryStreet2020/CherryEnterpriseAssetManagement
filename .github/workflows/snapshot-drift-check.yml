@@ -92,9 +92,12 @@ jobs:
           # migration body will only contain empty Up() and Down() methods.
           dotnet ef migrations add CIDriftCheck --project Abs.FixedAssets.csproj --configuration Release
           # Locate the generated .cs file (not the .Designer.cs).
-          MIG_FILE=$(ls -1 Migrations/*_CIDriftCheck.cs 2>/dev/null | head -1)
+          # Check both Migrations/ and Data/Migrations/ since EF may use either
+          # depending on which directory already contains migration files.
+          MIG_FILE=$(ls -1 Migrations/*_CIDriftCheck.cs Data/Migrations/*_CIDriftCheck.cs 2>/dev/null | head -1)
           if [ -z "$MIG_FILE" ]; then
             echo "::error::Failed to generate drift-check migration file."
+            echo "::error::Searched: Migrations/*_CIDriftCheck.cs and Data/Migrations/*_CIDriftCheck.cs"
             exit 1
           fi
           echo "migration_file=$MIG_FILE" >> $GITHUB_OUTPUT

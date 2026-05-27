@@ -576,6 +576,15 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary> ProductionOrderCostSummaries =>
             Set<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary>();
 
+        // Sprint 14.4 PR-3 — CostRollupRun (rollup execution header), CostRollupLine (output lines),
+        // CostRollupException (detected issues). The cost rollup engine audit trail.
+        public DbSet<Abs.FixedAssets.Models.Production.CostRollupRun> CostRollupRuns =>
+            Set<Abs.FixedAssets.Models.Production.CostRollupRun>();
+        public DbSet<Abs.FixedAssets.Models.Production.CostRollupLine> CostRollupLines =>
+            Set<Abs.FixedAssets.Models.Production.CostRollupLine>();
+        public DbSet<Abs.FixedAssets.Models.Production.CostRollupException> CostRollupExceptions =>
+            Set<Abs.FixedAssets.Models.Production.CostRollupException>();
+
         // Sprint 14.3 PR-7 — ChangeImpactAnalysis (ECO blast-radius analysis + FAI re-trigger)
         public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis> ChangeImpactAnalyses =>
             Set<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>();
@@ -2689,6 +2698,65 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.TenantId);
                 e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.CostStatus).HasDatabaseName("IX_ProCostSum_Status");
+            });
+
+            // Sprint 14.4 PR-3 — CostRollupRun entity config.
+            // Rollup execution header. Audit trail for "when was cost last rolled up?"
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CostRollupRun>(e =>
+            {
+                e.Property(x => x.Mode)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostRollupMode.Financial)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostRollupMode.Financial);
+                e.Property(x => x.RootCostObjectType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostObjectType.ProductionOrder)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostObjectType.ProductionOrder);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostRollupRunStatus.Running)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostRollupRunStatus.Running);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.RunNumber })
+                    .IsUnique().HasDatabaseName("UX_CostRollup_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_CostRollup_PRO");
+                e.HasIndex(x => x.Mode).HasDatabaseName("IX_CostRollup_Mode");
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_CostRollup_Status");
+                e.HasIndex(x => x.StartedAtUtc).HasDatabaseName("IX_CostRollup_Started");
+            });
+
+            // Sprint 14.4 PR-3 — CostRollupLine entity config.
+            // Each line in rollup output. Tagged with classification for UI rendering.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CostRollupLine>(e =>
+            {
+                e.Property(x => x.Classification)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostRollupLineClassification.Additive)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostRollupLineClassification.Additive);
+                e.Property(x => x.CostBucket)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionCostBucket.DirectMaterial);
+                e.HasIndex(x => x.CostRollupRunId).HasDatabaseName("IX_CostRollupLine_RunId");
+                e.HasIndex(x => new { x.CostObjectType, x.CostObjectId })
+                    .HasDatabaseName("IX_CostRollupLine_CostObject");
+                e.HasIndex(x => x.Classification).HasDatabaseName("IX_CostRollupLine_Classification");
+                e.HasOne(x => x.CostRollupRun).WithMany(r => r.Lines)
+                    .HasForeignKey(x => x.CostRollupRunId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Sprint 14.4 PR-3 — CostRollupException entity config.
+            // Detected issues during rollup. Per §13 — 16+ exception types.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.CostRollupException>(e =>
+            {
+                e.Property(x => x.ExceptionType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostExceptionType.MaterialIssuedZeroCost)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostExceptionType.MaterialIssuedZeroCost);
+                e.Property(x => x.Severity)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostExceptionSeverity.Info)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.CostExceptionSeverity.Info);
+                e.HasIndex(x => x.CostRollupRunId).HasDatabaseName("IX_CostRollupExc_RunId");
+                e.HasIndex(x => x.ExceptionType).HasDatabaseName("IX_CostRollupExc_Type");
+                e.HasIndex(x => x.Severity).HasDatabaseName("IX_CostRollupExc_Severity");
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_CostRollupExc_PRO");
+                e.HasOne(x => x.CostRollupRun).WithMany(r => r.Exceptions)
+                    .HasForeignKey(x => x.CostRollupRunId).OnDelete(DeleteBehavior.Cascade);
             });
 
             // Sprint 14.3 PR-7 — ChangeImpactAnalysis entity config.
