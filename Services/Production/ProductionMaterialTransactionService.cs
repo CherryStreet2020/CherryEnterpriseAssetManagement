@@ -8,6 +8,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.Production.Validators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -16,13 +17,44 @@ namespace Abs.FixedAssets.Services.Production
     public class ProductionMaterialTransactionService : IProductionMaterialTransactionService
     {
         private readonly AppDbContext _db;
+        private readonly ITransactionValidationPipeline _pipeline;
         private readonly ILogger<ProductionMaterialTransactionService> _log;
 
         public ProductionMaterialTransactionService(AppDbContext db,
+            ITransactionValidationPipeline pipeline,
             ILogger<ProductionMaterialTransactionService> log)
         {
             _db = db;
+            _pipeline = pipeline;
             _log = log;
+        }
+
+        // ── Validation helper ───────────────────────────────────────────
+        private async Task<Result<T>?> ValidateOrBlock<T>(
+            string actionType, ProductionMaterialStructure bomLine,
+            decimal? quantity = null, string? performedBy = null,
+            string? lotNumber = null, string? serialNumber = null,
+            string? reasonCode = null, bool supervisorOverride = false,
+            int? targetProductionOrderId = null,
+            CancellationToken ct = default)
+        {
+            var ctx = new TransactionValidationContext
+            {
+                ActionType = actionType,
+                ProductionOrderId = bomLine.ProductionOrderId,
+                BomLineId = bomLine.Id,
+                ItemId = bomLine.ChildItemId,
+                Quantity = quantity,
+                LotNumber = lotNumber,
+                SerialNumber = serialNumber,
+                PerformedBy = performedBy ?? "system",
+                CompanyId = bomLine.CompanyId,
+                ReasonCode = reasonCode,
+                SupervisorOverride = supervisorOverride,
+                TargetProductionOrderId = targetProductionOrderId,
+            };
+            var result = await _pipeline.RunAsync(ctx, ct);
+            return result.IsBlocked ? Result.Failure<T>(result.BlockMessage) : null;
         }
 
         // =====================================================================
@@ -34,6 +66,11 @@ namespace Abs.FixedAssets.Services.Production
         {
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.Issue, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var remaining = ComputeRemainingToIssue(bomLine);
             if (req.Quantity > remaining)
@@ -56,6 +93,11 @@ namespace Abs.FixedAssets.Services.Production
         {
             var bomLine = await GetBomLineAsync(bomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.IssueAll, bomLine, null, performedBy,
+                lotNumber, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var remaining = ComputeRemainingToIssue(bomLine);
             if (remaining <= 0)
@@ -85,6 +127,16 @@ namespace Abs.FixedAssets.Services.Production
             if (kitLines.Count == 0)
                 return Result.Failure<IReadOnlyList<ProductionMaterialTransaction>>(
                     $"No active BOM lines found for kit group '{kitGroup}' on PRO {productionOrderId}.");
+
+            // Validate each kit line before issuing any
+            foreach (var kl in kitLines)
+            {
+                var remaining = ComputeRemainingToIssue(kl);
+                if (remaining <= 0) continue;
+                var blocked = await ValidateOrBlock<IReadOnlyList<ProductionMaterialTransaction>>(
+                    TransactionActions.IssueKit, kl, remaining, performedBy, ct: ct);
+                if (blocked is not null) return blocked.Value;
+            }
 
             var transactions = new List<ProductionMaterialTransaction>();
             foreach (var line in kitLines)
@@ -122,6 +174,11 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.PartialIssue, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             var remaining = ComputeRemainingToIssue(bomLine);
             if (req.Quantity >= remaining)
                 return Result.Failure<ProductionMaterialTransaction>(
@@ -144,6 +201,16 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            // P1 fix (Codex PR #390): OverIssueApprovalValidator requires supervisor
+            // override when reason is present. A valid reason code constitutes implicit
+            // supervisor authorization for over-issue — pass as override so the pipeline
+            // downgrades the blocker to a warning.
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.OverIssue, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, reasonCode,
+                supervisorOverride: !string.IsNullOrWhiteSpace(reasonCode), ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             if (string.IsNullOrWhiteSpace(reasonCode))
                 return Result.Failure<ProductionMaterialTransaction>("Over-issue requires a reason code.");
 
@@ -163,6 +230,11 @@ namespace Abs.FixedAssets.Services.Production
         {
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.Return, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, req.ReasonCode, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             if (req.Quantity <= 0)
                 return Result.Failure<ProductionMaterialTransaction>(
@@ -225,6 +297,11 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(original.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.ReverseIssue, bomLine, original.Quantity, performedBy,
+                original.LotNumber, original.SerialNumber, reason, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             // Mark original as reversed
             original.Status = MaterialTransactionStatus.Reversed;
             original.UpdatedAt = DateTime.UtcNow;
@@ -276,6 +353,12 @@ namespace Abs.FixedAssets.Services.Production
 
             var destLine = await GetBomLineAsync(req.DestinationBomLineId, ct);
             if (destLine is null) return Result.Failure<ProductionMaterialTransaction>("Destination BOM line not found.");
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.TransferToJob, sourceLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, supervisorOverride: req.SupervisorOverride,
+                targetProductionOrderId: req.DestinationProductionOrderId, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             // P1 fix: quantity must be positive and bounded by issued stock.
             if (req.Quantity <= 0)
@@ -381,6 +464,11 @@ namespace Abs.FixedAssets.Services.Production
             var destLine = await GetBomLineAsync(req.DestinationBomLineId, ct);
             if (destLine is null) return Result.Failure<ProductionMaterialTransaction>("Destination BOM line not found.");
 
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.TransferFromJob, destLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, supervisorOverride: req.SupervisorOverride, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             var txn = CreateTransaction(destLine, MaterialTransactionType.TransferFromJob,
                 req.Quantity, req.PerformedBy, req.LotNumber, req.SerialNumber,
                 null, null, null, null, null, null, null, null, null,
@@ -411,6 +499,11 @@ namespace Abs.FixedAssets.Services.Production
         {
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.Substitute, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             if (!bomLine.SubstituteAllowed)
                 return Result.Failure<ProductionMaterialTransaction>(
@@ -457,6 +550,11 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(bomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.Split, bomLine, splitQuantity, performedBy,
+                newLotNumber, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             if (splitQuantity >= bomLine.IssuedQuantity)
                 return Result.Failure<ProductionMaterialTransaction>(
                     $"Split quantity ({splitQuantity:N4}) must be less than issued ({bomLine.IssuedQuantity:N4}).");
@@ -484,6 +582,11 @@ namespace Abs.FixedAssets.Services.Production
         {
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
+
+            var blocked = await ValidateOrBlock<ProductionMaterialTransaction>(
+                TransactionActions.ScrapComponent, bomLine, req.Quantity, req.PerformedBy,
+                req.LotNumber, req.SerialNumber, req.ReasonCode, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             if (req.Quantity <= 0)
                 return Result.Failure<ProductionMaterialTransaction>(

@@ -145,6 +145,9 @@ public static class TransactionActions
     public const string ChangeResource = "ChangeResource";
     public const string AddEmployee = "AddEmployee";
     public const string LogTime = "LogTime";
+    public const string Stop = "Stop";
+    public const string ReverseCompletion = "ReverseCompletion";
+    public const string EditTime = "EditTime";
 
     // WIP Move
     public const string MoveToNext = "MoveToNext";
