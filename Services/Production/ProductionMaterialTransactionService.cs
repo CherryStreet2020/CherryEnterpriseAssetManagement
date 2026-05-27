@@ -164,6 +164,9 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            if (req.Quantity <= 0)
+                return Result.Failure<ProductionMaterialTransaction>(
+                    "Return quantity must be greater than zero.");
             if (req.Quantity > bomLine.IssuedQuantity)
                 return Result.Failure<ProductionMaterialTransaction>(
                     $"Cannot return {req.Quantity:N4} — only {bomLine.IssuedQuantity:N4} has been issued.");
@@ -202,8 +205,22 @@ namespace Abs.FixedAssets.Services.Production
                 return Result.Failure<ProductionMaterialTransaction>("Original transaction not found.");
             if (original.Status == MaterialTransactionStatus.Reversed)
                 return Result.Failure<ProductionMaterialTransaction>("Transaction has already been reversed.");
-            if (original.TransactionType == MaterialTransactionType.ScrapComponent)
-                return Result.Failure<ProductionMaterialTransaction>("Scrap transactions cannot be reversed.");
+
+            // P1 fix: only issue-like and return types can be reversed.
+            // TransferToJob/TransferFromJob must be reversed via a paired
+            // counter-transfer. Split doesn't change issued qty. Scrap is permanent.
+            var reversibleTypes = new[]
+            {
+                MaterialTransactionType.Issue,
+                MaterialTransactionType.IssueAll,
+                MaterialTransactionType.IssueKit,
+                MaterialTransactionType.PartialIssue,
+                MaterialTransactionType.OverIssue,
+                MaterialTransactionType.Return,
+            };
+            if (!reversibleTypes.Contains(original.TransactionType))
+                return Result.Failure<ProductionMaterialTransaction>(
+                    $"Cannot reverse {original.TransactionType} transactions. Only Issue/PartialIssue/OverIssue/IssueAll/IssueKit/Return are reversible.");
 
             var bomLine = await GetBomLineAsync(original.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
@@ -259,6 +276,14 @@ namespace Abs.FixedAssets.Services.Production
 
             var destLine = await GetBomLineAsync(req.DestinationBomLineId, ct);
             if (destLine is null) return Result.Failure<ProductionMaterialTransaction>("Destination BOM line not found.");
+
+            // P1 fix: quantity must be positive and bounded by issued stock.
+            if (req.Quantity <= 0)
+                return Result.Failure<ProductionMaterialTransaction>(
+                    "Transfer quantity must be greater than zero.");
+            if (req.Quantity > sourceLine.IssuedQuantity)
+                return Result.Failure<ProductionMaterialTransaction>(
+                    $"Cannot transfer {req.Quantity:N4} — only {sourceLine.IssuedQuantity:N4} issued on source line.");
 
             // ===== RULE 1: Cannot transfer consumed material =================
             if (sourceLine.ConsumedQuantity > 0 && req.Quantity > (sourceLine.IssuedQuantity - sourceLine.ConsumedQuantity))
@@ -399,7 +424,9 @@ namespace Abs.FixedAssets.Services.Production
             var txn = CreateTransaction(bomLine, MaterialTransactionType.Substitute, req.Quantity,
                 req.PerformedBy, req.LotNumber, req.SerialNumber, null, null, null,
                 null, null, null, null, req.ActualUnitCost, null, null, null, req.Notes);
+            // P2 fix: record both original and substitute item IDs.
             txn.OriginalItemId = bomLine.ChildItemId;
+            txn.ItemId = req.SubstituteItemId; // the substitute item being issued
             txn.SubstitutionReason = req.SubstitutionReason;
             txn.SubstitutionAuthReference = req.SubstitutionAuthReference;
             txn.SubstitutionCustomerApproved = req.CustomerApproved;
@@ -458,6 +485,9 @@ namespace Abs.FixedAssets.Services.Production
             var bomLine = await GetBomLineAsync(req.BomLineId, ct);
             if (bomLine is null) return BomLineNotFound();
 
+            if (req.Quantity <= 0)
+                return Result.Failure<ProductionMaterialTransaction>(
+                    "Scrap quantity must be greater than zero.");
             if (req.Quantity > bomLine.IssuedQuantity)
                 return Result.Failure<ProductionMaterialTransaction>(
                     $"Cannot scrap {req.Quantity:N4} — only {bomLine.IssuedQuantity:N4} issued on this line.");
@@ -557,10 +587,14 @@ namespace Abs.FixedAssets.Services.Production
                 _ => "TXN"
             };
 
+            // P2 fix: collision-resistant — add 6-char random suffix to prevent
+            // same-second duplicates on double-click/retry.
+            var rnd = Guid.NewGuid().ToString("N")[..6];
+
             return new ProductionMaterialTransaction
             {
                 CompanyId = bomLine.CompanyId,
-                TransactionNumber = $"{prefix}-{ts}-{bomLine.Id}",
+                TransactionNumber = $"{prefix}-{ts}-{bomLine.Id}-{rnd}",
                 TransactionType = type,
                 Status = MaterialTransactionStatus.Posted,
                 TransactionDateUtc = DateTime.UtcNow,
@@ -604,6 +638,11 @@ namespace Abs.FixedAssets.Services.Production
             string? notes,
             CancellationToken ct)
         {
+            // P1 fix: reject non-positive quantities before posting.
+            if (quantity <= 0)
+                return Result.Failure<ProductionMaterialTransaction>(
+                    "Quantity must be greater than zero.");
+
             var txn = CreateTransaction(bomLine, type, quantity, performedBy,
                 lotNumber, serialNumber, heatNumber, vendorLot, certNumber,
                 fromWarehouse, fromBin, toWarehouse, toBin,
