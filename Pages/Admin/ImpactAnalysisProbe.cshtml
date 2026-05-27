@@ -1,0 +1,194 @@
+@page "/Admin/ImpactAnalysisProbe"
+@model Abs.FixedAssets.Pages.Admin.ImpactAnalysisProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "Impact Analysis Probe";
+    ViewData["TabTitle"] = "Impact Analysis Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Impact Analysis + Redline Probe</h1>
+        <p class="ds-page-header__subtitle">
+            ECO blast-radius analysis + FAI re-trigger + document redline markup (Sprint 14.3 PR-7 &mdash; CLOSES Sprint 14.3).
+            Chain of custody: ECO &rarr; affected items &rarr; in-flight PROs, deviations, CARs, documents &rarr; FAI re-qualification.
+            AS9100 &sect;8.5.6 + AS9102 &sect;3.2.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="impact-outcome-error">@Model.Outcome</p> }
+            else { <p class="ds-text-success" data-testid="impact-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <!-- ===== IMPACT ANALYSIS SECTION ===== -->
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Analyze ECO Impact</h2>
+        <form method="post" asp-page-handler="Analyze" class="ds-form-grid">
+            <div><label>ECO Id</label><input type="number" name="AnalyzeEcoId" value="@Model.AnalyzeEcoId" required class="ds-input" /></div>
+            <div><label>Analysis Number</label><input type="text" name="AnalysisNumber" value="@Model.AnalysisNumber" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-analyze-eco">Analyze ECO Impact (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Trigger FAI Re-trigger</h2>
+        <form method="post" asp-page-handler="TriggerFai" class="ds-form-grid">
+            <div><label>Analysis Id</label><input type="number" name="TriggerFaiAnalysisId" value="@Model.TriggerFaiAnalysisId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-trigger-fai">Trigger FAI Re-trigger (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Resolve Impact Line</h2>
+        <form method="post" asp-page-handler="ResolveLine" class="ds-form-grid">
+            <div><label>Line Id</label><input type="number" name="ResolveLineId" value="@Model.ResolveLineId" required class="ds-input" /></div>
+            <div><label>Action Taken</label><input type="text" name="ResolveActionTaken" value="@Model.ResolveActionTaken" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-resolve-line">Resolve Impact Line (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <!-- ===== REDLINE SECTION ===== -->
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Create Redline</h2>
+        <form method="post" asp-page-handler="CreateRedline" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="RedlineCompanyId" value="@Model.RedlineCompanyId" required class="ds-input" /></div>
+            <div><label>Redline Number</label><input type="text" name="RedlineNumber" value="@Model.RedlineNumber" required class="ds-input" /></div>
+            <div><label>Document Version Id</label><input type="number" name="RedlineDocVersionId" value="@Model.RedlineDocVersionId" required class="ds-input" /></div>
+            <div><label>ECO Id (optional)</label><input type="number" name="RedlineEcoId" value="@Model.RedlineEcoId" class="ds-input" /></div>
+            <div><label>Item Id (BRG-6207-2RS = 9245)</label><input type="number" name="RedlineItemId" value="@Model.RedlineItemId" class="ds-input" /></div>
+            <div><label>Type</label><select name="RedlineType" class="ds-input">@foreach (var s in System.Enum.GetValues<RedlineType>()) { if (s == Model.RedlineType) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Severity</label><select name="RedlineSeverity" class="ds-input">@foreach (var s in System.Enum.GetValues<RedlineSeverity>()) { if (s == Model.RedlineSeverity) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Affected Area</label><input type="text" name="RedlineAffectedArea" value="@Model.RedlineAffectedArea" required class="ds-input" /></div>
+            <div><label>Original Value</label><input type="text" name="RedlineOriginalValue" value="@Model.RedlineOriginalValue" class="ds-input" /></div>
+            <div><label>New Value</label><input type="text" name="RedlineNewValue" value="@Model.RedlineNewValue" class="ds-input" /></div>
+            <div><label>Markup Description</label><input type="text" name="RedlineMarkupDesc" value="@Model.RedlineMarkupDesc" class="ds-input" /></div>
+            <div><label>Spec Reference</label><input type="text" name="RedlineSpecRef" value="@Model.RedlineSpecRef" class="ds-input" /></div>
+            <div><label>Drawing Zone</label><input type="text" name="RedlineDrawingZone" value="@Model.RedlineDrawingZone" class="ds-input" /></div>
+            <div><label>Drawing View</label><input type="text" name="RedlineDrawingView" value="@Model.RedlineDrawingView" class="ds-input" /></div>
+            <div><label><input type="checkbox" name="RedlineAffectsForm" value="true" @(Model.RedlineAffectsForm ? "checked" : "") /> Affects Form</label></div>
+            <div><label><input type="checkbox" name="RedlineAffectsFit" value="true" @(Model.RedlineAffectsFit ? "checked" : "") /> Affects Fit</label></div>
+            <div><label><input type="checkbox" name="RedlineAffectsFunction" value="true" @(Model.RedlineAffectsFunction ? "checked" : "") /> Affects Function</label></div>
+            <div><label><input type="checkbox" name="RedlineCustApproval" value="true" @(Model.RedlineCustApproval ? "checked" : "") /> Customer Approval Required</label></div>
+            <div><label><input type="checkbox" name="RedlineFaiRequired" value="true" @(Model.RedlineFaiRequired ? "checked" : "") /> FAI Required</label></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-create-redline">Create Redline (INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Submit Redline for Review</h2>
+        <form method="post" asp-page-handler="SubmitRedline" class="ds-form-grid">
+            <div><label>Redline Id</label><input type="number" name="SubmitRedlineId" value="@Model.SubmitRedlineId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-submit-redline">Submit for Review (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Approve Redline</h2>
+        <form method="post" asp-page-handler="ApproveRedline" class="ds-form-grid">
+            <div><label>Redline Id</label><input type="number" name="ApproveRedlineId" value="@Model.ApproveRedlineId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-approve-redline">Approve Redline (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Reject Redline</h2>
+        <form method="post" asp-page-handler="RejectRedline" class="ds-form-grid">
+            <div><label>Redline Id</label><input type="number" name="RejectRedlineId" value="@Model.RejectRedlineId" required class="ds-input" /></div>
+            <div><label>Notes</label><input type="text" name="RejectNotes" value="@Model.RejectNotes" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-reject-redline">Reject Redline (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Supersede Redline</h2>
+        <form method="post" asp-page-handler="SupersedeRedline" class="ds-form-grid">
+            <div><label>Redline Id</label><input type="number" name="SupersedeRedlineId" value="@Model.SupersedeRedlineId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-supersede-redline">Supersede Redline (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <!-- ===== READ SECTION ===== -->
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">9. View Analysis</h2>
+        <form method="post" asp-page-handler="GetAnalysis" class="ds-form-grid">
+            <div><label>Analysis Id</label><input type="number" name="GetAnalysisId" value="@Model.GetAnalysisId" class="ds-input" /></div>
+            <div><label>Or ECO Id</label><input type="number" name="GetEcoId" value="@Model.GetEcoId" class="ds-input" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-get-analysis">Get Analysis (READ)</button>
+        </form>
+    </div></section>
+
+    @if (Model.AnalysisView != null)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h2 class="ds-h2">Analysis: @Model.AnalysisView.AnalysisNumber (Id=@Model.AnalysisView.Id)</h2>
+            <dl class="ds-dl-horizontal">
+                <dt>Status</dt><dd>@Model.AnalysisView.Status</dd>
+                <dt>ECO Id</dt><dd>@Model.AnalysisView.EcoId</dd>
+                <dt>Total Lines</dt><dd>@Model.AnalysisView.TotalImpactLines</dd>
+                <dt>Critical</dt><dd>@Model.AnalysisView.CriticalImpactLines</dd>
+                <dt>Resolved</dt><dd>@Model.AnalysisView.ResolvedImpactLines</dd>
+                <dt>PROs Affected</dt><dd>@Model.AnalysisView.AffectedProductionOrderCount</dd>
+                <dt>Deviations Affected</dt><dd>@Model.AnalysisView.AffectedDeviationCount</dd>
+                <dt>CARs Affected</dt><dd>@Model.AnalysisView.AffectedCarCount</dd>
+                <dt>Documents Affected</dt><dd>@Model.AnalysisView.AffectedDocumentCount</dd>
+                <dt>FAI Required</dt><dd>@Model.AnalysisView.RequiresFaiRetrigger (Triggered=@(Model.AnalysisView.FaiTriggeredAtUtc?.ToString("u") ?? "not yet"), Reports=@Model.AnalysisView.FaiReportsCreated)</dd>
+                <dt>Customer Notice</dt><dd>@Model.AnalysisView.RequiresCustomerNotice</dd>
+                <dt>Analyzed</dt><dd>@Model.AnalysisView.AnalyzedAtUtc.ToString("u") by @Model.AnalysisView.AnalyzedBy</dd>
+            </dl>
+            @if (Model.AnalysisView.Lines?.Any() == true)
+            {
+                <h3 class="ds-h3 ds-mt-3">Impact Lines</h3>
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Type</th><th>Severity</th><th>Description</th><th>Resolved</th><th>Action</th></tr></thead>
+                    <tbody>
+                    @foreach (var line in Model.AnalysisView.Lines.OrderByDescending(l => l.Severity))
+                    {
+                        <tr class="@(line.Severity == ImpactSeverity.Critical ? "ds-row-danger" : line.Severity == ImpactSeverity.Warning ? "ds-row-warning" : "")">
+                            <td>@line.Id</td>
+                            <td>@line.LineType</td>
+                            <td>@line.Severity</td>
+                            <td>@line.AffectedEntityDescription</td>
+                            <td>@(line.IsResolved ? $"Yes — {line.ActionTaken?[..Math.Min(60, line.ActionTaken?.Length ?? 0)]}" : "No")</td>
+                            <td>@line.RecommendedAction</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        </div></section>
+    }
+
+    @if (Model.RedlineListView?.Any() == true)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h3 class="ds-h3">Redlines for ECO</h3>
+            <table class="ds-table">
+                <thead><tr><th>Id</th><th>Number</th><th>Type</th><th>Severity</th><th>Status</th><th>Area</th><th>Old → New</th></tr></thead>
+                <tbody>
+                @foreach (var rl in Model.RedlineListView)
+                {
+                    <tr>
+                        <td>@rl.Id</td>
+                        <td>@rl.RedlineNumber</td>
+                        <td>@rl.Type</td>
+                        <td>@rl.Severity</td>
+                        <td>@rl.Status</td>
+                        <td>@rl.AffectedArea</td>
+                        <td>@rl.OriginalValue → @rl.NewValue</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div></section>
+    }
+</main>

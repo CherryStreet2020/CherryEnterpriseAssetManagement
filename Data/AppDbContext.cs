@@ -555,6 +555,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest> CorrectiveActionRequests =>
             Set<Abs.FixedAssets.Models.Engineering.CorrectiveActionRequest>();
 
+        // Sprint 14.3 PR-7 — ChangeImpactAnalysis (ECO blast-radius analysis + FAI re-trigger)
+        public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis> ChangeImpactAnalyses =>
+            Set<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactLine> ChangeImpactLines =>
+            Set<Abs.FixedAssets.Models.Engineering.ChangeImpactLine>();
+
+        // Sprint 14.3 PR-7 — DocumentRedline (structured markup annotations on document versions)
+        public DbSet<Abs.FixedAssets.Models.Engineering.DocumentRedline> DocumentRedlines =>
+            Set<Abs.FixedAssets.Models.Engineering.DocumentRedline>();
+
         // B8 PR-PRO-4 — ProductionOperationTransaction (operation state change log)
         public DbSet<Abs.FixedAssets.Models.Production.ProductionOperationTransaction> ProductionOperationTransactions =>
             Set<Abs.FixedAssets.Models.Production.ProductionOperationTransaction>();
@@ -2475,6 +2485,67 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.RelatedConcession).WithMany()
                     .HasForeignKey(x => x.RelatedConcessionId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-7 — ChangeImpactAnalysis entity config.
+            // ECO blast-radius analysis. One per ECO (1:1). CLOSES Sprint 14.3.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ImpactAnalysisStatus.Pending);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.AnalysisNumber })
+                    .IsUnique().HasDatabaseName("UX_CIA_Company_Number");
+                e.HasIndex(x => new { x.CompanyId, x.EcoId })
+                    .IsUnique().HasDatabaseName("UX_CIA_Company_Eco");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_CIA_Status");
+                e.HasOne(x => x.Eco).WithMany()
+                    .HasForeignKey(x => x.EcoId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Sprint 14.3 PR-7 — ChangeImpactLine entity config.
+            // Individual impact lines — one per affected entity.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.ChangeImpactLine>(e =>
+            {
+                e.Property(x => x.LineType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ImpactLineType.ProductionOrder);
+                e.Property(x => x.Severity)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ImpactSeverity.Info);
+                e.HasIndex(x => x.ChangeImpactAnalysisId).HasDatabaseName("IX_CIL_Analysis");
+                e.HasIndex(x => x.LineType).HasDatabaseName("IX_CIL_Type");
+                e.HasIndex(x => x.AffectedItemId).HasDatabaseName("IX_CIL_Item");
+                e.HasOne(x => x.Analysis).WithMany(a => a.Lines)
+                    .HasForeignKey(x => x.ChangeImpactAnalysisId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedItem).WithMany()
+                    .HasForeignKey(x => x.AffectedItemId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-7 — DocumentRedline entity config.
+            // Structured markup annotations on document versions.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.DocumentRedline>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.RedlineStatus.Draft);
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.RedlineType.Dimension);
+                e.Property(x => x.Severity)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.RedlineSeverity.Minor);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.RedlineNumber })
+                    .IsUnique().HasDatabaseName("UX_DRL_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.DocumentVersionId).HasDatabaseName("IX_DRL_DocVer");
+                e.HasIndex(x => x.EcoId).HasDatabaseName("IX_DRL_Eco");
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_DRL_Status");
+                e.HasOne(x => x.DocumentVersion).WithMany()
+                    .HasForeignKey(x => x.DocumentVersionId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Eco).WithMany()
+                    .HasForeignKey(x => x.EcoId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // B8 PR-PRO-4 — ProductionOperationTransaction entity config.
