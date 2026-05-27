@@ -163,8 +163,8 @@ namespace Abs.FixedAssets.Models.Production
     /// </summary>
     public enum IssueTiming
     {
-        AtRelease = 0,          // Issue when PRO is released (kit everything up front)
-        AtOperationStart = 1,   // Issue when the consuming operation starts (JIT)
+        AtOperationStart = 0,   // Issue when the consuming operation starts (JIT) — industry default
+        AtRelease = 1,          // Issue when PRO is released (kit everything up front)
         AtOperationComplete = 2,// Issue (backflush) when the consuming operation completes
         AtFinalCompletion = 3,  // Issue on final PRO completion (deferred materials)
     }
