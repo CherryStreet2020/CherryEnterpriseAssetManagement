@@ -65,8 +65,9 @@ namespace Abs.FixedAssets.Models.Engineering
 {
     /// <summary>
     /// What kind of engineering artifact this Document is. Drives display
-    /// + routing + retention rules. SAP DMS document type / Oracle Agile
-    /// item type / Arena PLM category.
+    /// + routing + retention rules. PLM-style document categorization
+    /// (modeled after SAP DMS document type / Oracle Agile item type /
+    /// Arena / Aras / Siemens Teamcenter — NOT a vendor integration).
     /// </summary>
     public enum DocumentType
     {
@@ -326,9 +327,12 @@ namespace Abs.FixedAssets.Models.Engineering
         // ===== Engineering-change linkage =================================
 
         /// <summary>
-        /// ECN/ECO number that triggered this version (Theme B6 Arena PLM
-        /// substrate). Free-form string until Sprint 14.3 introduces a
-        /// formal ECR/ECO entity.
+        /// ECN/ECO number that triggered this version (Theme B6 ECR/ECO
+        /// Change Control substrate). Free-form string in PR #366; with
+        /// Sprint 14.3 PR-1 the EcoLineItem.NewDocumentVersionId FK and
+        /// IEcrEcoService.ReleaseEcoAsync flow now drive the formal
+        /// linkage. This free-form column is retained for back-compat +
+        /// for documents created outside the ECR/ECO flow.
         /// </summary>
         [StringLength(100)]
         [Display(Name = "Source ECO/ECN Number")]
