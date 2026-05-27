@@ -1,0 +1,180 @@
+@page "/Admin/DeviationProbe"
+@model Abs.FixedAssets.Pages.Admin.DeviationProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "Deviation Probe";
+    ViewData["TabTitle"] = "Deviation Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.3 PR-2 (2026-05-27) — admin probe for IDeviationService.
+    SIX WRITE BUTTONS per the Lock 16 corollary from PR #365:
+      1. Create Deviation
+      2. Submit Deviation
+      3. Approve Deviation (auto-activates if no effective date)
+      4. Reject Deviation
+      5. Record Consumption (quantity against Active deviation)
+      6. Close Deviation (manual close before expiry)
+    Plus a Get-by-ID read form.
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Deviation Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Engineering Deviation — short-term exception from released specification (Sprint 14.3).
+            Lifecycle: Draft → Submitted → UnderReview → Approved → Active → Expired/Closed.
+            AS9100 §8.5.6 controlled authorization for non-conforming material, alternate process,
+            or out-of-tolerance condition. Quantity- and date-limited scope.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="dev-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="dev-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create Deviation</h2>
+            <form method="post" asp-page-handler="Create" class="ds-form-grid">
+                <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+                <div><label>DeviationNumber</label><input type="text" name="CreateDeviationNumber" value="@Model.CreateDeviationNumber" placeholder="DEV-2026-TEST-001" required class="ds-input" /></div>
+                <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" placeholder="Dimensional tolerance deviation on bearing inner race" required class="ds-input" /></div>
+                <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+                <div><label>Type</label>
+                    <select name="CreateType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<DeviationType>()) { <option value="@t" selected="@(t == Model.CreateType)">@t</option> }
+                    </select>
+                </div>
+                <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
+                <div><label>ProductionOrderId (optional)</label><input type="number" name="CreateProductionOrderId" value="@Model.CreateProductionOrderId" class="ds-input" /></div>
+                <div><label>OriginatingEcrId (optional)</label><input type="number" name="CreateOriginatingEcrId" value="@Model.CreateOriginatingEcrId" class="ds-input" /></div>
+                <div><label>MaxQuantity</label><input type="number" step="0.0001" name="CreateMaxQuantity" value="@Model.CreateMaxQuantity" placeholder="500" class="ds-input" /></div>
+                <div><label>Effective From (UTC, optional)</label><input type="datetime-local" name="CreateEffectiveFrom" value="@(Model.CreateEffectiveFrom?.ToString("yyyy-MM-ddTHH:mm"))" class="ds-input" /></div>
+                <div><label>Expiration Date (UTC, optional)</label><input type="datetime-local" name="CreateExpirationDate" value="@(Model.CreateExpirationDate?.ToString("yyyy-MM-ddTHH:mm"))" class="ds-input" /></div>
+                <div><label>Max Production Orders (optional)</label><input type="number" name="CreateMaxProductionOrders" value="@Model.CreateMaxProductionOrders" class="ds-input" /></div>
+                <div>
+                    <label><input type="checkbox" name="CreateAffectsForm" value="true" @(Model.CreateAffectsForm ? "checked" : "") /> Affects Form (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsFit" value="true" @(Model.CreateAffectsFit ? "checked" : "") /> Affects Fit (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsFunction" value="true" @(Model.CreateAffectsFunction ? "checked" : "") /> Affects Function (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateSafetyImpact" value="true" @(Model.CreateSafetyImpact ? "checked" : "") /> Safety Impact (AS9100 §8.5.6)</label><br/>
+                    <label><input type="checkbox" name="CreateCustomerApprovalRequired" value="true" @(Model.CreateCustomerApprovalRequired ? "checked" : "") /> Customer Approval Required</label>
+                </div>
+                <div><label>Original Specification</label><input type="text" name="CreateOriginalSpec" value="@Model.CreateOriginalSpec" placeholder="AMS 6520 ±0.002 dia" class="ds-input" /></div>
+                <div><label>Deviated Condition</label><input type="text" name="CreateDeviatedCondition" value="@Model.CreateDeviatedCondition" placeholder="0.498 dia — 0.002 below nominal" class="ds-input" /></div>
+                <div><label>Justification</label><input type="text" name="CreateJustification" value="@Model.CreateJustification" placeholder="Non-critical application, stress analysis confirms adequate margin" class="ds-input" /></div>
+                <div><label>Disposition</label><input type="text" name="CreateDisposition" value="@Model.CreateDisposition" placeholder="Use as-is for non-critical applications only" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="dev-btn-create">Create Deviation</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Submit Deviation (Draft → Submitted)</h2>
+            <form method="post" asp-page-handler="Submit" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="DeviationId" value="@Model.DeviationId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="dev-btn-submit">Submit</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Approve Deviation (auto-activates if no effective date)</h2>
+            <form method="post" asp-page-handler="Approve" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="ApproveDeviationId" value="@Model.ApproveDeviationId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="dev-btn-approve">Approve</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Reject Deviation</h2>
+            <form method="post" asp-page-handler="Reject" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="RejectDeviationId" value="@Model.RejectDeviationId" required class="ds-input" /></div>
+                <div><label>Reason</label><input type="text" name="RejectReason" value="@Model.RejectReason" placeholder="Stress analysis insufficient — requires FEA before re-submission" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="dev-btn-reject">Reject</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Record Consumption (quantity against Active deviation)</h2>
+            <form method="post" asp-page-handler="RecordConsumption" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="ConsumeDeviationId" value="@Model.ConsumeDeviationId" required class="ds-input" /></div>
+                <div><label>Quantity</label><input type="number" step="0.0001" name="ConsumeQuantity" value="@Model.ConsumeQuantity" placeholder="25.0000" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="dev-btn-consume">Record Consumption</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Close Deviation (Active → Closed before expiry)</h2>
+            <form method="post" asp-page-handler="Close" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="CloseDeviationId" value="@Model.CloseDeviationId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="dev-btn-close">Close</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. Get Deviation by Id</h2>
+            <form method="post" asp-page-handler="GetDeviation" class="ds-form-grid">
+                <div><label>DeviationId</label><input type="number" name="GetDeviationId" value="@Model.GetDeviationId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="dev-btn-get">Get Deviation</button></div>
+            </form>
+
+            @if (Model.DeviationView is not null)
+            {
+                var d = Model.DeviationView;
+                <div class="ds-mt-3" data-testid="dev-view-card">
+                    <h3 class="ds-h3">Deviation @d.Id (@d.DeviationNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@d.Title</dd>
+                        <dt>Status / Type</dt><dd>@d.Status / @d.Type</dd>
+                        <dt>Item / PRO / ECR</dt><dd>@(d.ItemId?.ToString() ?? "—") / @(d.ProductionOrderId?.ToString() ?? "—") / @(d.OriginatingEcrId?.ToString() ?? "—")</dd>
+                        <dt>Max Qty / Consumed</dt><dd>@(d.MaxQuantity?.ToString("N4") ?? "unlimited") / @d.ConsumedQuantity.ToString("N4")</dd>
+                        <dt>Max PROs / Consumed PROs</dt><dd>@(d.MaxProductionOrders?.ToString() ?? "unlimited") / @d.ConsumedProductionOrders</dd>
+                        <dt>Effective / Expires</dt><dd>@(d.EffectiveFromUtc?.ToString("u") ?? "immediate") / @(d.ExpirationDateUtc?.ToString("u") ?? "no expiry")</dd>
+                        <dt>F/F/F</dt><dd>Form=@d.AffectsForm Fit=@d.AffectsFit Function=@d.AffectsFunction</dd>
+                        <dt>Safety / CustApproval Req / Received</dt><dd>@d.SafetyImpact / @d.CustomerApprovalRequired / @d.CustomerApprovalReceived</dd>
+                        <dt>Original Spec</dt><dd>@(d.OriginalSpecification ?? "—")</dd>
+                        <dt>Deviated Condition</dt><dd>@(d.DeviatedCondition ?? "—")</dd>
+                        <dt>Justification</dt><dd>@(d.Justification ?? "—")</dd>
+                        <dt>Disposition</dt><dd>@(d.Disposition ?? "—")</dd>
+                        <dt>Requested By / At</dt><dd>@(d.RequestedBy ?? "—") / @(d.RequestedAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>Approved By / At</dt><dd>@(d.ApprovedBy ?? "—") / @(d.ApprovedAtUtc?.ToString("u") ?? "—")</dd>
+                        @if (d.Status == DeviationStatus.Rejected)
+                        {
+                            <dt>Rejected By / At</dt><dd>@(d.RejectedBy ?? "—") / @(d.RejectedAtUtc?.ToString("u") ?? "—")</dd>
+                            <dt>Rejection Reason</dt><dd>@d.RejectionReason</dd>
+                        }
+                        <dt>Created / Updated</dt><dd>@d.CreatedAt.ToString("u") / @(d.UpdatedAt?.ToString("u") ?? "—")</dd>
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+</main>
