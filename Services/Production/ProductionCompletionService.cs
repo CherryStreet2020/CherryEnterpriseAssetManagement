@@ -16,17 +16,20 @@ namespace Abs.FixedAssets.Services.Production
         private readonly AppDbContext _db;
         private readonly ITransactionValidationPipeline _pipeline;
         private readonly IProductionWipMoveService _wipMoveSvc;
+        private readonly ICostTransactionService _costSvc;
         private readonly ILogger<ProductionCompletionService> _log;
 
         public ProductionCompletionService(
             AppDbContext db,
             ITransactionValidationPipeline pipeline,
             IProductionWipMoveService wipMoveSvc,
+            ICostTransactionService costSvc,
             ILogger<ProductionCompletionService> log)
         {
             _db = db;
             _pipeline = pipeline;
             _wipMoveSvc = wipMoveSvc;
+            _costSvc = costSvc;
             _log = log;
         }
 
@@ -146,6 +149,30 @@ namespace Abs.FixedAssets.Services.Production
                 req.GoodQuantity, req.ScrapQuantity, req.ReworkQuantity, req.RejectQuantity,
                 req.IsFinalOperation, req.MoveQuantityToNextOp, req.BackflushMaterials);
 
+            // ── Cost posting — CompletionToFg for good qty ──────────────
+            if (req.GoodQuantity > 0)
+            {
+                _ = PostCompletionCostSafe(
+                    CostTransactionType.CompletionToFg, ProductionCostBucket.DirectMaterial,
+                    req.CompanyId, req.ProductionOrderId, req.OperationId,
+                    req.GoodQuantity, null, 0m, // unit cost determined by cost engine rollup
+                    "CompletionEvent", evt.Id,
+                    req.LotNumbers, req.SerialNumbers,
+                    req.CompletedBy, ct);
+            }
+
+            // ── Child-to-parent transfer (Layer B) ──────────────────────
+            // When this is the final operation on a child PRO that has a parent,
+            // transfer the child's accumulated cost to the parent as a supply
+            // cost transfer. The parent sees this as a component cost; the child's
+            // internal detail becomes drilldown-only (non-additive at parent boundary).
+            if (req.IsFinalOperation && req.GoodQuantity > 0)
+            {
+                _ = PostChildToParentTransferSafe(
+                    req.ProductionOrderId, req.CompanyId, req.GoodQuantity,
+                    req.CompletedBy, ct);
+            }
+
             return Result.Success(evt);
         }
 
@@ -224,6 +251,22 @@ namespace Abs.FixedAssets.Services.Production
                 req.ScrapQuantity, req.ResponsibleArea, req.Disposition,
                 req.DetectedAtOperationId, req.CausedAtOperationId,
                 req.NcrRequired, req.SupervisorApprovalRequired);
+
+            // ── Cost posting — scrap cost treatment determines type ──────
+            var scrapCostType = req.CostTreatment switch
+            {
+                CostTreatment.ScrapAccount => CostTransactionType.ScrapToAccount,
+                CostTreatment.CustomerCharge => CostTransactionType.ScrapCustomerCharge,
+                CostTreatment.VendorChargeback => CostTransactionType.ScrapVendorChargeback,
+                _ => CostTransactionType.ScrapAbsorbToJob, // AbsorbToJob + WarrantyAbsorb
+            };
+            _ = PostCompletionCostSafe(
+                scrapCostType, ProductionCostBucket.Scrap,
+                req.CompanyId, req.ProductionOrderId, req.DetectedAtOperationId,
+                req.ScrapQuantity, req.ScrapUom, 0m, // unit cost resolved by cost engine
+                "ScrapEvent", evt.Id,
+                req.LotNumbers, req.SerialNumbers,
+                req.RecordedBy, ct);
 
             return Result.Success(evt);
         }
@@ -339,7 +382,175 @@ namespace Abs.FixedAssets.Services.Production
                 req.ReworkQuantity, req.RoutingType,
                 req.ReworkOperationId, req.QualityHold, req.ReinspectRequired);
 
+            // ── Cost posting — rework labor + material if applicable ─────
+            if (req.AdditionalLaborPlannedMins > 0)
+            {
+                _ = PostCompletionCostSafe(
+                    CostTransactionType.ReworkLaborCost, ProductionCostBucket.Rework,
+                    req.CompanyId, req.ProductionOrderId, req.SourceOperationId,
+                    req.AdditionalLaborPlannedMins, "MIN", 0m, // rate resolved by cost engine
+                    "ReworkEvent", evt.Id,
+                    null, null, req.DecidedBy, ct);
+            }
+            if (req.ReworkMaterialRequired)
+            {
+                _ = PostCompletionCostSafe(
+                    CostTransactionType.ReworkMaterial, ProductionCostBucket.Rework,
+                    req.CompanyId, req.ProductionOrderId, req.SourceOperationId,
+                    req.ReworkQuantity, null, 0m, // cost resolved when material is actually issued
+                    "ReworkEvent", evt.Id,
+                    null, null, req.DecidedBy, ct);
+            }
+
             return Result.Success(evt);
+        }
+
+        // ================================================================
+        // COST POSTING HELPER
+        // ================================================================
+
+        /// <summary>
+        /// Fire-and-forget cost posting. Logs warning on failure but never blocks
+        /// the production completion/scrap/rework event.
+        /// </summary>
+        private async Task PostCompletionCostSafe(
+            CostTransactionType costType, ProductionCostBucket bucket,
+            int companyId, int productionOrderId, int operationId,
+            decimal quantity, string? uom, decimal unitCost,
+            string sourceType, int sourceId,
+            string? lotNumbers, string? serialNumbers,
+            string postedBy, CancellationToken ct)
+        {
+            try
+            {
+                await _costSvc.PostCostAsync(
+                    CostObjectType.ProductionOrder, productionOrderId,
+                    costType, bucket,
+                    companyId, null, productionOrderId,
+                    operationId, null, null,
+                    quantity, uom, unitCost,
+                    sourceType, sourceId,
+                    lotNumbers, serialNumbers, null,
+                    true, null, postedBy, ct);
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex, "Cost posting failed for {SourceType} {SourceId} ({Type}) on PRO {PRO}. " +
+                    "Event succeeded — cost will need manual reconciliation.",
+                    sourceType, sourceId, costType, productionOrderId);
+            }
+        }
+
+        // ================================================================
+        // CHILD-TO-PARENT COST TRANSFER (Layer B)
+        // ================================================================
+
+        /// <summary>
+        /// When a child PRO's final operation completes, transfer the child's
+        /// accumulated actual cost to the parent PRO as a supply cost transfer.
+        /// This is Layer B in the 3-layer cost-object graph model:
+        ///   - The parent sees the child as a single supply transfer value
+        ///   - The child's internal detail (Layer A) stays visible by drilldown
+        ///   - RollupAdditiveFlag = false on child detail at the parent boundary
+        ///   - The transfer value IS additive at the parent level
+        /// Fire-and-forget: never blocks the completion event.
+        /// </summary>
+        private async Task PostChildToParentTransferSafe(
+            int childProductionOrderId, int companyId, decimal goodQuantity,
+            string postedBy, CancellationToken ct)
+        {
+            try
+            {
+                // Load the child PRO to check for parent link
+                var childPro = await _db.Set<ProductionOrder>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == childProductionOrderId, ct);
+
+                if (childPro?.ParentProductionOrderId is not int parentProId)
+                    return; // No parent — this is a top-level PRO, no transfer needed
+
+                // Refresh the child's cost summary so we have accurate totals
+                var summaryResult = await _costSvc.RefreshSummaryAsync(childProductionOrderId, postedBy, ct);
+                var childSummary = summaryResult.IsSuccess ? summaryResult.Value : null;
+
+                // Get the child's actual cost breakdown (from summary or PRO header)
+                decimal materialCost = childSummary?.ActualMaterialCost ?? childPro.MaterialCost ?? 0m;
+                decimal laborCost = childSummary?.ActualLaborCost ?? childPro.LaborCost ?? 0m;
+                decimal overheadCost = childSummary?.ActualBurdenCost ?? childPro.OverheadCost ?? 0m;
+                decimal subcontractCost = childSummary?.ActualSubcontractCost ?? childPro.SubcontractCost ?? 0m;
+                decimal otherCost = (childSummary?.ActualOutsideProcessingCost ?? 0m)
+                                  + (childSummary?.ActualToolingCost ?? 0m)
+                                  + (childSummary?.ActualFreightLandedCost ?? 0m);
+
+                decimal totalCost = materialCost + laborCost + overheadCost + subcontractCost + otherCost;
+                if (totalCost <= 0 && goodQuantity <= 0)
+                    return; // Nothing to transfer
+
+                decimal unitCost = goodQuantity > 0 ? totalCost / goodQuantity : 0m;
+
+                // Load parent PRO for site info
+                var parentPro = await _db.Set<ProductionOrder>()
+                    .AsNoTracking()
+                    .Select(p => new { p.Id, p.LocationId })
+                    .FirstOrDefaultAsync(p => p.Id == parentProId, ct);
+
+                // Post the transfer: child → parent (Layer B)
+                var transferResult = await _costSvc.PostTransferAsync(
+                    sourceCostObjectType: CostObjectType.ProductionOrder,
+                    sourceCostObjectId: childProductionOrderId,
+                    sourceSiteId: childPro.LocationId,
+                    destCostObjectType: CostObjectType.ProductionOrder,
+                    destCostObjectId: parentProId,
+                    destSiteId: parentPro?.LocationId,
+                    companyId: companyId,
+                    transferType: CostTransferType.ChildCompletionToParent,
+                    quantity: goodQuantity,
+                    uom: null,
+                    unitCost: unitCost,
+                    materialCost: materialCost,
+                    laborCost: laborCost,
+                    overheadCost: overheadCost,
+                    subcontractCost: subcontractCost,
+                    otherCost: otherCost,
+                    isProvisional: false,
+                    notes: $"Child PRO {childProductionOrderId} final completion → Parent PRO {parentProId}. " +
+                           $"{goodQuantity} units at ${unitCost:N4}/unit = ${totalCost:N2} total.",
+                    postedBy: postedBy,
+                    ct: ct);
+
+                if (transferResult.IsSuccess)
+                {
+                    // Also post a CostTransaction on the PARENT side for the supply transfer
+                    // (additive at parent level — this IS the component cost the parent sees)
+                    await _costSvc.PostCostAsync(
+                        CostObjectType.ProductionOrder, parentProId,
+                        CostTransactionType.ChildSupplyTransfer, ProductionCostBucket.ChildSupply,
+                        companyId, parentPro?.LocationId, parentProId,
+                        null, null, null,
+                        goodQuantity, null, unitCost,
+                        "CostTransfer", transferResult.Value!.Id,
+                        null, null, null,
+                        rollupAdditive: true,
+                        $"Supply from child PRO {childProductionOrderId}",
+                        postedBy, ct);
+
+                    // Refresh the parent's cost summary to include the transfer
+                    _ = _costSvc.RefreshSummaryAsync(parentProId, postedBy, ct);
+
+                    _log.LogInformation(
+                        "CHILD-TO-PARENT TRANSFER: PRO {Child} → PRO {Parent}. " +
+                        "{Qty} units, ${Total:N2} (Mat=${Mat:N2} Lab=${Lab:N2} OH=${OH:N2} Sub=${Sub:N2} Other=${Other:N2})",
+                        childProductionOrderId, parentProId, goodQuantity, totalCost,
+                        materialCost, laborCost, overheadCost, subcontractCost, otherCost);
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex,
+                    "Child-to-parent cost transfer failed for PRO {ChildPro}. " +
+                    "Completion succeeded — transfer will need manual reconciliation.",
+                    childProductionOrderId);
+            }
         }
 
         // ================================================================
