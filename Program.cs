@@ -350,6 +350,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDeviationServic
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
     Abs.FixedAssets.Services.Engineering.WaiverService>();
 
+// Sprint 14.3 PR-4 (2026-05-27) — IConcessionService.
+// Retroactive customer acceptance of already-produced non-conforming material.
+// AS9100 §8.7.1. Lifecycle: Draft → Submitted → CustomerReview → Accepted → Closed.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IConcessionService,
+    Abs.FixedAssets.Services.Engineering.ConcessionService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering
