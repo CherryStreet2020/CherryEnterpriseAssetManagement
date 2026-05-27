@@ -1,0 +1,184 @@
+@page "/Admin/WaiverProbe"
+@model Abs.FixedAssets.Pages.Admin.WaiverProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "Waiver Probe";
+    ViewData["TabTitle"] = "Waiver Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.3 PR-3 (2026-05-27) — admin probe for IWaiverService.
+    SEVEN WRITE BUTTONS per the Lock 16 corollary from PR #365:
+      1. Create Waiver
+      2. Submit Waiver (Draft → Submitted)
+      3. Approve Waiver (auto-activates if no effective date)
+      4. Reject Waiver
+      5. Revoke Waiver (customer withdraws — unique to Waiver)
+      6. Record Consumption (quantity against Active waiver)
+      7. Get Waiver (read form)
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Waiver Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Customer-approved longer-term divergence from released specification (Sprint 14.3).
+            Lifecycle: Draft &rarr; Submitted &rarr; CustomerReview &rarr; Approved &rarr; Active &rarr; Expired/Revoked.
+            AS9100 &sect;8.7.1 customer disposition approval.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="waiver-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="waiver-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create Waiver</h2>
+            <form method="post" asp-page-handler="Create" class="ds-form-grid">
+                <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+                <div><label>WaiverNumber</label><input type="text" name="CreateWaiverNumber" value="@Model.CreateWaiverNumber" placeholder="WVR-2026-BRG-001" required class="ds-input" /></div>
+                <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" placeholder="Customer-approved surface finish waiver on bearing outer race" required class="ds-input" /></div>
+                <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+                <div><label>Type</label>
+                    <select name="CreateType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<WaiverType>()) { <option value="@t" selected="@(t == Model.CreateType)">@t</option> }
+                    </select>
+                </div>
+                <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
+                <div><label>CustomerId (optional)</label><input type="number" name="CreateCustomerId" value="@Model.CreateCustomerId" class="ds-input" /></div>
+                <div><label>ProductionOrderId (optional)</label><input type="number" name="CreateProductionOrderId" value="@Model.CreateProductionOrderId" class="ds-input" /></div>
+                <div><label>OriginatingEcrId (optional)</label><input type="number" name="CreateOriginatingEcrId" value="@Model.CreateOriginatingEcrId" class="ds-input" /></div>
+                <div><label>RelatedDeviationId (optional)</label><input type="number" name="CreateRelatedDeviationId" value="@Model.CreateRelatedDeviationId" class="ds-input" /></div>
+                <div><label>Customer Contract Reference</label><input type="text" name="CreateCustomerContractReference" value="@Model.CreateCustomerContractReference" placeholder="PO-2026-4421 §12.3" class="ds-input" /></div>
+                <div><label>MaxQuantity</label><input type="number" step="0.0001" name="CreateMaxQuantity" value="@Model.CreateMaxQuantity" placeholder="1000" class="ds-input" /></div>
+                <div><label>Effective From (UTC, optional)</label><input type="datetime-local" name="CreateEffectiveFrom" value="@(Model.CreateEffectiveFrom?.ToString("yyyy-MM-ddTHH:mm"))" class="ds-input" /></div>
+                <div><label>Expiration Date (UTC, optional)</label><input type="datetime-local" name="CreateExpirationDate" value="@(Model.CreateExpirationDate?.ToString("yyyy-MM-ddTHH:mm"))" class="ds-input" /></div>
+                <div><label>Original Specification</label><input type="text" name="CreateOriginalSpec" value="@Model.CreateOriginalSpec" placeholder="Ra 0.8 um max per BAMS-3320 §4.2" class="ds-input" /></div>
+                <div><label>Waived Condition</label><input type="text" name="CreateWaivedCondition" value="@Model.CreateWaivedCondition" placeholder="Ra 1.2 um measured — customer accepts for non-flight application" class="ds-input" /></div>
+                <div><label>Justification</label><input type="text" name="CreateJustification" value="@Model.CreateJustification" placeholder="Customer accepts for non-flight ground-support equipment" class="ds-input" /></div>
+                <div><label>Disposition</label><input type="text" name="CreateDisposition" value="@Model.CreateDisposition" placeholder="Use as-is per customer approval for non-flight applications" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="waiver-btn-create">Create Waiver</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Submit Waiver (Draft &rarr; Submitted)</h2>
+            <form method="post" asp-page-handler="Submit" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="WaiverId" value="@Model.WaiverId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="waiver-btn-submit">Submit</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Approve Waiver (auto-activates if no effective date)</h2>
+            <form method="post" asp-page-handler="Approve" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="ApproveWaiverId" value="@Model.ApproveWaiverId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="waiver-btn-approve">Approve</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Reject Waiver</h2>
+            <form method="post" asp-page-handler="Reject" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="RejectWaiverId" value="@Model.RejectWaiverId" required class="ds-input" /></div>
+                <div><label>Reason</label><input type="text" name="RejectReason" value="@Model.RejectReason" placeholder="Customer quality representative requires additional test data" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="waiver-btn-reject">Reject</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Revoke Waiver (customer withdraws approval)</h2>
+            <form method="post" asp-page-handler="Revoke" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="RevokeWaiverId" value="@Model.RevokeWaiverId" required class="ds-input" /></div>
+                <div><label>Reason</label><input type="text" name="RevokeReason" value="@Model.RevokeReason" placeholder="Customer revised acceptance criteria — waiver no longer applicable" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="waiver-btn-revoke">Revoke</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Record Consumption (quantity against Active waiver)</h2>
+            <form method="post" asp-page-handler="RecordConsumption" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="ConsumeWaiverId" value="@Model.ConsumeWaiverId" required class="ds-input" /></div>
+                <div><label>Quantity</label><input type="number" step="0.0001" name="ConsumeQuantity" value="@Model.ConsumeQuantity" placeholder="25.0000" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="waiver-btn-consume">Record Consumption</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. Get Waiver by Id</h2>
+            <form method="post" asp-page-handler="GetWaiver" class="ds-form-grid">
+                <div><label>WaiverId</label><input type="number" name="GetWaiverId" value="@Model.GetWaiverId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="waiver-btn-get">Get Waiver</button></div>
+            </form>
+
+            @if (Model.WaiverView is not null)
+            {
+                var w = Model.WaiverView;
+                <div class="ds-mt-3" data-testid="waiver-view-card">
+                    <h3 class="ds-h3">Waiver @w.Id (@w.WaiverNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@w.Title</dd>
+                        <dt>Status / Type</dt><dd>@w.Status / @w.Type</dd>
+                        <dt>Item / PRO / ECR</dt><dd>@(w.ItemId?.ToString() ?? "—") / @(w.ProductionOrderId?.ToString() ?? "—") / @(w.OriginatingEcrId?.ToString() ?? "—")</dd>
+                        <dt>Related Deviation</dt><dd>@(w.RelatedDeviationId?.ToString() ?? "—")</dd>
+                        <dt>Customer / Contract Ref</dt><dd>@(w.CustomerId?.ToString() ?? "—") / @(w.CustomerContractReference ?? "—")</dd>
+                        <dt>Customer Approving Authority</dt><dd>@(w.CustomerApprovingAuthority ?? "—")</dd>
+                        <dt>Customer Approval Date / Doc #</dt><dd>@(w.CustomerApprovalDateUtc?.ToString("u") ?? "—") / @(w.CustomerApprovalDocumentNumber ?? "—")</dd>
+                        <dt>Max Qty / Consumed</dt><dd>@(w.MaxQuantity?.ToString("N4") ?? "unlimited") / @w.ConsumedQuantity.ToString("N4")</dd>
+                        <dt>Max PROs / Consumed PROs</dt><dd>@(w.MaxProductionOrders?.ToString() ?? "unlimited") / @w.ConsumedProductionOrders</dd>
+                        <dt>Effective / Expires</dt><dd>@(w.EffectiveFromUtc?.ToString("u") ?? "immediate") / @(w.ExpirationDateUtc?.ToString("u") ?? "no expiry")</dd>
+                        <dt>F/F/F</dt><dd>Form=@w.AffectsForm Fit=@w.AffectsFit Function=@w.AffectsFunction</dd>
+                        <dt>Safety Impact</dt><dd>@w.SafetyImpact</dd>
+                        <dt>Original Spec</dt><dd>@(w.OriginalSpecification ?? "—")</dd>
+                        <dt>Waived Condition</dt><dd>@(w.WaivedCondition ?? "—")</dd>
+                        <dt>Justification</dt><dd>@(w.Justification ?? "—")</dd>
+                        <dt>Disposition</dt><dd>@(w.Disposition ?? "—")</dd>
+                        <dt>Requested By / At</dt><dd>@(w.RequestedBy ?? "—") / @(w.RequestedAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>Approved By / At</dt><dd>@(w.ApprovedBy ?? "—") / @(w.ApprovedAtUtc?.ToString("u") ?? "—")</dd>
+                        @if (w.Status == WaiverStatus.Rejected)
+                        {
+                            <dt>Rejected By / At</dt><dd>@(w.RejectedBy ?? "—") / @(w.RejectedAtUtc?.ToString("u") ?? "—")</dd>
+                            <dt>Rejection Reason</dt><dd>@w.RejectionReason</dd>
+                        }
+                        @if (w.Status == WaiverStatus.Revoked)
+                        {
+                            <dt>Revoked By / At</dt><dd>@(w.RevokedBy ?? "—") / @(w.RevokedAtUtc?.ToString("u") ?? "—")</dd>
+                            <dt>Revocation Reason</dt><dd>@w.RevocationReason</dd>
+                        }
+                        <dt>Created / Updated</dt><dd>@w.CreatedAt.ToString("u") / @(w.UpdatedAt?.ToString("u") ?? "—")</dd>
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+</main>

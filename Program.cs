@@ -345,6 +345,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IEcrEcoService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDeviationService,
     Abs.FixedAssets.Services.Engineering.DeviationService>();
 
+// Sprint 14.3 PR-3 (2026-05-27) — IWaiverService.
+// Customer-approved longer-term divergence from released spec.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
+    Abs.FixedAssets.Services.Engineering.WaiverService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering
