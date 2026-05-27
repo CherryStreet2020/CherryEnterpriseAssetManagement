@@ -112,11 +112,96 @@ namespace Abs.FixedAssets.Models.Production
         [Column(TypeName = "decimal(18,4)")]
         public decimal QuantityScrapped { get; set; } = 0;
 
+        // B8 PR-PO-1 (2026-05-27) — QuantityReleased + QuantityRework.
+        // QuantityReleased = how many units were formally released to the
+        // floor (may differ from QuantityOrdered if partial release is used).
+        // QuantityRework = how many units were sent through rework operations.
+        [Display(Name = "Quantity Released")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal QuantityReleased { get; set; } = 0;
+
+        [Display(Name = "Quantity Rework")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal QuantityRework { get; set; } = 0;
+
         // Unit of measure for the produced item. Free-text 16 chars to
         // match how Item already represents UoM elsewhere in the model —
         // we'll consolidate to a UoM table in a later sprint.
         [StringLength(16)]
         public string? Uom { get; set; }
+
+        // ----- B8 PR-PO-1 — header field expansion per PO Cockpit spec §1 -----
+        //
+        // Adds: PlannerUserId + SupervisorUserId (FK to Users), HoldReason
+        // enum + notes, 4 freeze flags, PromiseDate, LotSerialRequirement,
+        // WorkInstructionsRevision, DrawingRevision. Together with the
+        // 2 new ProductionOrderStatus states (Firmed + Closed) and 7 new
+        // ProductionType variants, this closes every header-level gap from
+        // the spec. Config ID / Option Set deferred per spec note.
+        //
+        // Matches SAP S/4HANA AUFK / Oracle Fusion WIE_WORK_ORDERS /
+        // D365 SCM ProdTable / Infor CSI ProductionOrder / Epicor Kinetic
+        // JobHead field sets — but with cleaner nullable semantics.
+
+        // Planner responsible for scheduling + material planning. FK to Users.
+        // NULL = unassigned (valid for draft/Planned orders).
+        [Display(Name = "Planner")]
+        public int? PlannerUserId { get; set; }
+        public User? Planner { get; set; }
+
+        // Floor supervisor responsible for execution + labor allocation.
+        [Display(Name = "Supervisor")]
+        public int? SupervisorUserId { get; set; }
+        public User? Supervisor { get; set; }
+
+        // Hold reason — populated when Status transitions to OnHold.
+        // NULL when not on hold. The HoldReason enum categorizes the
+        // constraint; HoldReasonNotes captures the free-text explanation.
+        [Display(Name = "Hold Reason")]
+        public HoldReason? HoldReason { get; set; }
+
+        [Display(Name = "Hold Reason Notes")]
+        [StringLength(1000)]
+        public string? HoldReasonNotes { get; set; }
+
+        // Freeze flags — when TRUE, the corresponding dimension is locked
+        // against edits even by planners. Only admin/supervisor override
+        // can clear a freeze. Matches SAP PP order freeze semantics.
+        [Display(Name = "Freeze BOM")]
+        public bool FreezeBom { get; set; } = false;
+
+        [Display(Name = "Freeze Routing")]
+        public bool FreezeRouting { get; set; } = false;
+
+        [Display(Name = "Freeze Schedule")]
+        public bool FreezeSchedule { get; set; } = false;
+
+        [Display(Name = "Freeze Cost")]
+        public bool FreezeCost { get; set; } = false;
+
+        // Promise date = customer-facing commitment date (may differ from
+        // ScheduledEnd which is the internal production target).
+        [Display(Name = "Promise Date")]
+        public DateTime? PromiseDate { get; set; }
+
+        // Lot/serial tracking requirement for the finished good produced.
+        // Drives whether the completion transaction demands lot assignment,
+        // serial assignment, both, or neither.
+        [Display(Name = "Lot/Serial Requirement")]
+        public LotSerialRequirementType LotSerialRequirement { get; set; }
+            = LotSerialRequirementType.None;
+
+        // Work instructions + drawing revision currently in force for this
+        // order. Populated at release from the Item's current revision or
+        // from the linked DocumentVersion via IDocumentService. Updated
+        // if an ECO mid-flight changes the revision (with audit trail).
+        [Display(Name = "Work Instructions Revision")]
+        [StringLength(32)]
+        public string? WorkInstructionsRevision { get; set; }
+
+        [Display(Name = "Drawing Revision")]
+        [StringLength(32)]
+        public string? DrawingRevision { get; set; }
 
         // ----- Sprint 12.8 PR #1 — cost-accumulation columns -----
         //

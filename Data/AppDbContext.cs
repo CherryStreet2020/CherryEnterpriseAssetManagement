@@ -1356,6 +1356,28 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.CustomerId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // B8 PR-PO-1 (2026-05-27) — header field expansion per PO Cockpit spec §1.
+                // New FKs: PlannerUserId + SupervisorUserId → Users (SET NULL on user delete).
+                // New enum defaults per HARD LOCK (feedback_b6_enum_defaults_must_match_model.md):
+                //   HoldReason is nullable (null = not on hold) — no HasDefaultValue needed.
+                //   LotSerialRequirementType defaults to None (0) — explicit HasDefaultValue.
+                // New indexes: PlannerUserId, SupervisorUserId, PromiseDate for cockpit queue filters.
+                e.HasOne(x => x.Planner)
+                    .WithMany()
+                    .HasForeignKey(x => x.PlannerUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Supervisor)
+                    .WithMany()
+                    .HasForeignKey(x => x.SupervisorUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.PlannerUserId);
+                e.HasIndex(x => x.SupervisorUserId);
+                e.HasIndex(x => x.PromiseDate);
+                e.HasIndex(x => x.HoldReason);
+                e.Property(x => x.LotSerialRequirement)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.LotSerialRequirementType.None);
+
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
