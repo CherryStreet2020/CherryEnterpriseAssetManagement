@@ -123,6 +123,19 @@ public class ProductionOperation
     public decimal ScrappedQty { get; set; } = 0;
     public decimal ReworkQty { get; set; } = 0;
 
+    // B8 PR-PRO-5 — WIP movement fields.
+    /// <summary>Quantity available to start work — fed by incoming WipMoves from prior ops.</summary>
+    public decimal AvailableQty { get; set; } = 0;
+
+    /// <summary>When true (DEFAULT), completing quantity at this op auto-advances it to the next op.
+    /// Set to false for inspection holds, quality gates, or manual-move-required operations.</summary>
+    public bool AutoAdvanceOnCompletion { get; set; } = true;
+
+    /// <summary>When true, a quality hold blocks auto-advance. Quantity stays Pending until released.</summary>
+    public bool QualityHoldActive { get; set; } = false;
+    [MaxLength(500)]
+    public string? QualityHoldReason { get; set; }
+
     // Operators (CSV of usernames — PR #5d adds dedicated Labor table for time stamps).
     [MaxLength(500)]
     public string? OperatorUserIdsCsv { get; set; }

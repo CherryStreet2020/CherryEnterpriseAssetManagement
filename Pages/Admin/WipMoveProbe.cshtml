@@ -1,0 +1,131 @@
+@page "/Admin/WipMoveProbe"
+@model Abs.FixedAssets.Pages.Admin.WipMoveProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "WIP Move Probe";
+    ViewData["TabTitle"] = "WIP Move Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">WIP Move Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Auto-advance on completion (B8 PR-PRO-5). Complete quantity &rarr; instantly available at next op.
+            Manual moves (send-back, hold, reverse) are the EXCEPTION. AS9100 &sect;8.5.1.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="wip-outcome-error">@Model.Outcome</p> }
+            else { <p class="ds-text-success" data-testid="wip-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Auto-Advance on Completion (DEFAULT)</h2>
+        <form method="post" asp-page-handler="AutoAdvance" class="ds-form-grid">
+            <div><label>From Operation Id</label><input type="number" name="AutoFromOpId" value="@Model.AutoFromOpId" required class="ds-input" /></div>
+            <div><label>Quantity</label><input type="number" step="0.01" name="AutoQty" value="@Model.AutoQty" required class="ds-input" /></div>
+            <div><label>Triggering Txn Id (optional)</label><input type="number" name="AutoTriggerTxnId" value="@Model.AutoTriggerTxnId" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-auto-advance">Auto-Advance (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Manual Move to Next</h2>
+        <form method="post" asp-page-handler="ManualMove" class="ds-form-grid">
+            <div><label>From Operation Id</label><input type="number" name="ManualFromOpId" value="@Model.ManualFromOpId" required class="ds-input" /></div>
+            <div><label>Quantity</label><input type="number" step="0.01" name="ManualQty" value="@Model.ManualQty" required class="ds-input" /></div>
+            <div><label>Reason</label><input type="text" name="ManualReason" value="@Model.ManualReason" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-manual-move">Manual Move Next (INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Send Back to Prior (Rework)</h2>
+        <form method="post" asp-page-handler="SendBack" class="ds-form-grid">
+            <div><label>From Operation Id</label><input type="number" name="SendBackFromOpId" value="@Model.SendBackFromOpId" required class="ds-input" /></div>
+            <div><label>To Operation Id (prior)</label><input type="number" name="SendBackToOpId" value="@Model.SendBackToOpId" required class="ds-input" /></div>
+            <div><label>Quantity</label><input type="number" step="0.01" name="SendBackQty" value="@Model.SendBackQty" required class="ds-input" /></div>
+            <div><label>Reason (REQUIRED)</label><input type="text" name="SendBackReason" value="@Model.SendBackReason" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-send-back">Send Back (INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Move to Specific Operation</h2>
+        <form method="post" asp-page-handler="MoveSpecific" class="ds-form-grid">
+            <div><label>From Operation Id</label><input type="number" name="SpecificFromOpId" value="@Model.SpecificFromOpId" required class="ds-input" /></div>
+            <div><label>To Operation Id</label><input type="number" name="SpecificToOpId" value="@Model.SpecificToOpId" required class="ds-input" /></div>
+            <div><label>Quantity</label><input type="number" step="0.01" name="SpecificQty" value="@Model.SpecificQty" required class="ds-input" /></div>
+            <div><label>Reason (REQUIRED)</label><input type="text" name="SpecificReason" value="@Model.SpecificReason" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-move-specific">Move to Specific (INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Hold at Operation (Quality Gate)</h2>
+        <form method="post" asp-page-handler="Hold" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="HoldOpId" value="@Model.HoldOpId" required class="ds-input" /></div>
+            <div><label>Hold Reason (REQUIRED)</label><input type="text" name="HoldReason" value="@Model.HoldReason" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-hold">Place Quality Hold (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Release Hold</h2>
+        <form method="post" asp-page-handler="ReleaseHold" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="ReleaseOpId" value="@Model.ReleaseOpId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-release-hold">Release Hold (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Reverse Move</h2>
+        <form method="post" asp-page-handler="Reverse" class="ds-form-grid">
+            <div><label>Move Id</label><input type="number" name="ReverseMoveId" value="@Model.ReverseMoveId" required class="ds-input" /></div>
+            <div><label>Reason (REQUIRED)</label><input type="text" name="ReverseReason" value="@Model.ReverseReason" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-reverse">Reverse Move (INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">8. View Moves</h2>
+        <form method="post" asp-page-handler="GetMoves" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="ReadOrderId" value="@Model.ReadOrderId" class="ds-input" /></div>
+            <div><label>Or Operation Id</label><input type="number" name="ReadOpId" value="@Model.ReadOpId" class="ds-input" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-get-moves">Get Moves (READ)</button>
+        </form>
+    </div></section>
+
+    @if (Model.MoveListView?.Count > 0)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h3 class="ds-h3">WIP Moves (@Model.MoveListView.Count)</h3>
+            <table class="ds-table">
+                <thead><tr><th>Id</th><th>Number</th><th>Type</th><th>From→To</th><th>Qty</th><th>Status</th><th>QHold</th><th>Reason</th><th>Moved</th></tr></thead>
+                <tbody>
+                @foreach (var m in Model.MoveListView)
+                {
+                    <tr class="@(m.MoveType == WipMoveType.SendBack ? "ds-row-warning" : m.MoveType == WipMoveType.Reversal ? "ds-row-danger" : "")">
+                        <td>@m.Id</td>
+                        <td>@m.MoveNumber</td>
+                        <td>@m.MoveType</td>
+                        <td>Op @m.FromSequenceNumber → @m.ToSequenceNumber</td>
+                        <td>@m.Quantity</td>
+                        <td>@m.Status</td>
+                        <td>@(m.QualityHoldBlocked ? "HELD" : "")</td>
+                        <td>@(m.MoveReason?.Length > 60 ? m.MoveReason[..60] + "..." : m.MoveReason)</td>
+                        <td>@m.MovedAtUtc.ToString("u") by @m.MovedBy</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div></section>
+    }
+</main>
