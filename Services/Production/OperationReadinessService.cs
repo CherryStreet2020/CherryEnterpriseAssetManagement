@@ -178,14 +178,14 @@ namespace Abs.FixedAssets.Services.Production
                 line.SupplyQuantityRemaining = Math.Max(0,
                     line.SupplyQuantityRequired - line.SupplyQuantityReceived);
 
-                // Derive SupplyRisk from status + dates + quantities
-                line.SupplyRisk = DeriveSupplyRisk(line);
-
-                // Derive MaterialSupplyStatus from linked supply state
+                // P2 fix (Codex): derive status FIRST, then risk from the
+                // updated status. Previous order computed risk from stale status.
                 if (line.LinkedSupplyRecordType != LinkedSupplyRecordType.None)
                 {
                     line.MaterialSupplyStatus = DeriveSupplyStatus(line);
                 }
+
+                line.SupplyRisk = DeriveSupplyRisk(line);
 
                 line.LastSupplyRefreshUtc = now;
                 refreshed++;
@@ -214,6 +214,11 @@ namespace Abs.FixedAssets.Services.Production
                 return Result.Failure<ProductionMaterialStructure>(
                     $"BOM line {req.BomLineId} not found.");
 
+            // P1 fix (Codex): enforce company ownership — multi-tenant guard.
+            if (line.CompanyId != req.CompanyId)
+                return Result.Failure<ProductionMaterialStructure>(
+                    $"BOM line {req.BomLineId} belongs to company {line.CompanyId}, not {req.CompanyId}.");
+
             line.MaterialSupplyType = req.SupplyType;
             line.LinkedSupplyRecordType = req.RecordType;
             line.LinkedSupplyRecordId = req.LinkedRecordId;
@@ -229,6 +234,9 @@ namespace Abs.FixedAssets.Services.Production
                 req.QuantityRequired - line.SupplyQuantityReceived);
             line.LateToNeedDate = req.PromisedDate.HasValue && req.RequiredDate.HasValue
                 && req.PromisedDate.Value > req.RequiredDate.Value;
+            // P1 fix (Codex): derive status BEFORE risk so readiness checks
+            // see correct state immediately after linking (not stale Available).
+            line.MaterialSupplyStatus = DeriveSupplyStatus(line);
             line.SupplyRisk = DeriveSupplyRisk(line);
             line.SupplyNotes = req.Notes;
             line.LastSupplyRefreshUtc = DateTime.UtcNow;
@@ -571,15 +579,24 @@ namespace Abs.FixedAssets.Services.Production
             ProductionOperation op, ProductionOrder? pro, CancellationToken ct)
         {
 
+            // P2 fix (Codex): scope ECO check to ECOs that actually affect
+            // this PRO's item via ChangeImpactLine.AffectedItemId, and filter
+            // by CompanyId. Previous unscoped query flagged every PRO for any
+            // unrelated ECO in the system.
             if (pro?.ItemId != null)
             {
-                var impactingEcos = await _db.Set<EngineeringChangeOrder>()
-                    .CountAsync(e => (e.Status == EcoStatus.Approved || e.Status == EcoStatus.Released)
-                                  && e.RequiresFaiRetrigger, ct);
+                var impactingEcos = await _db.Set<ChangeImpactLine>()
+                    .CountAsync(l => l.AffectedItemId == pro.ItemId
+                                  && l.Analysis != null
+                                  && l.Analysis.Eco != null
+                                  && (l.Analysis.Eco.Status == EcoStatus.Approved
+                                      || l.Analysis.Eco.Status == EcoStatus.Released)
+                                  && l.Analysis.Eco.RequiresFaiRetrigger
+                                  && l.Analysis.CompanyId == pro.CompanyId, ct);
 
                 if (impactingEcos > 0)
                     return new ReadinessCheckResult("Documents Current", ReadinessStatus.Warning,
-                        $"{impactingEcos} open ECO(s) with FAI retrigger required. Verify drawings are current revision.");
+                        $"{impactingEcos} open ECO(s) affecting this item require FAI retrigger. Verify drawings are current revision.");
             }
 
             // Check document links for this item — any Superseded or Obsolete?
