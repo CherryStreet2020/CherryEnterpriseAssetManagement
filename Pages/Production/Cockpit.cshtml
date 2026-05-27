@@ -119,7 +119,7 @@
             }
             else
             {
-                <table class="ds-table ds-table--compact ds-table--striped" style="font-size: 0.8rem; white-space: nowrap;">
+                <table class="ds-table ds-table--compact ds-table--striped txn-grid" id="bom-grid" style="font-size: 0.8rem; white-space: nowrap;">
                     <thead>
                         <tr>
                             <th>Line</th><th>Op</th><th>Part #</th><th>Rev</th>
@@ -136,7 +136,7 @@
                             var riskColor = row.SupplyRisk == "Critical" ? "var(--v2-status-cancelled, #ef4444)"
                                 : row.SupplyRisk == "Warning" ? "var(--v2-status-onhold, #f59e0b)"
                                 : "var(--v2-status-completed, #22c55e)";
-                            <tr>
+                            <tr data-bom-id="@row.Id" class="txn-row" title="Click to open transaction drawer">
                                 <td>@row.Line</td>
                                 <td>@(row.OperationSequence?.ToString() ?? "—")</td>
                                 <td><strong>@row.PartNumber</strong></td>
@@ -182,7 +182,7 @@
             }
             else
             {
-                <table class="ds-table ds-table--compact ds-table--striped" style="font-size: 0.8rem; white-space: nowrap;">
+                <table class="ds-table ds-table--compact ds-table--striped txn-grid" id="routing-grid" style="font-size: 0.8rem; white-space: nowrap;">
                     <thead>
                         <tr>
                             <th>Seq</th><th>Type</th><th>Description</th><th>Work Center</th>
@@ -207,7 +207,7 @@
                                 : row.MaterialReady == "Warning" ? "var(--v2-status-onhold, #f59e0b)"
                                 : row.MaterialReady == "Fail" ? "var(--v2-status-cancelled, #ef4444)"
                                 : "var(--v2-text-muted, #94a3b8)";
-                            <tr>
+                            <tr data-op-id="@row.Id" class="txn-row" title="Click to open transaction drawer">
                                 <td><strong>@row.Sequence</strong></td>
                                 <td>@row.OperationCode</td>
                                 <td>@row.Description</td>
@@ -254,6 +254,67 @@
 }
 </div>
 
+@* ================================================================
+   B8 PR-PRO-9 — Transaction Drawer (right-side panel)
+   Click any BOM or Routing row → drawer opens with line detail,
+   live status, suggested action, transaction form, and history.
+   ================================================================ *@
+<div class="ds-drawer" id="txn-drawer" aria-hidden="true" role="dialog" aria-labelledby="txn-drawer-title">
+    <div class="ds-drawer__backdrop" data-drawer-close="txn-drawer"></div>
+    <div class="ds-drawer__panel" style="width: 520px;">
+        <header class="ds-drawer__head">
+            <div>
+                <div class="ds-drawer__title" id="txn-drawer-title"></div>
+                <div class="ds-drawer__subtitle" id="txn-drawer-subtitle"></div>
+            </div>
+            <button class="ds-drawer__close" type="button" data-drawer-close="txn-drawer" aria-label="Close drawer">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4 L12 12 M12 4 L4 12"/></svg>
+            </button>
+        </header>
+        <div class="ds-drawer__body" id="txn-drawer-body">
+            @* Dynamically populated by cockpit.js on row click *@
+        </div>
+        <footer class="ds-drawer__foot" id="txn-drawer-foot">
+            @* Transaction action buttons populated by JS *@
+        </footer>
+    </div>
+</div>
+
 @section Scripts {
 <script src="~/js/cockpit.js"></script>
+@if (Model.Data != null)
+{
+    <script>
+    // B8 PR-PRO-9 — JSON blobs for transaction drawer hydration
+    window.__bomDetails = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Data.BomRows.Select(b => new {
+            b.Id, b.Line, b.OperationSequence, b.PartNumber, b.Description, b.Revision,
+            b.RequiredQty, b.RequiredInclScrap, b.Uom,
+            b.Available, b.Reserved, b.Picked, b.Staged,
+            b.Issued, b.Consumed, b.RemainingToIssue, b.Short,
+            b.SupplyType, b.Backflush, b.SubstituteAllowed,
+            b.Status, b.Cost, b.SupplyLinkDescription, b.SupplyRisk
+        }),
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }
+    ));
+
+    window.__opDetails = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Data.RoutingRows.Select(r => new {
+            r.Id, r.Sequence, r.OperationCode, r.Description, r.WorkCenterName,
+            r.Status,
+            PlannedStart = r.PlannedStart?.ToString("yyyy-MM-ddTHH:mm"),
+            PlannedFinish = r.PlannedFinish?.ToString("yyyy-MM-ddTHH:mm"),
+            ActualStart = r.ActualStart?.ToString("yyyy-MM-ddTHH:mm"),
+            ActualFinish = r.ActualFinish?.ToString("yyyy-MM-ddTHH:mm"),
+            r.SetupEstimate, r.SetupActual, r.RunEstimate, r.RunActual,
+            r.LaborEstimate, r.LaborActual,
+            r.GoodQty, r.ScrapQty, r.ReworkQty, r.RemainingQty,
+            r.MaterialReady, r.ReadinessStatus, r.ReadinessSummary
+        }),
+        new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }
+    ));
+
+    window.__proId = @Model.Id;
+    </script>
+}
 }
