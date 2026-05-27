@@ -356,6 +356,18 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IConcessionService,
     Abs.FixedAssets.Services.Engineering.ConcessionService>();
 
+// Sprint 14.3 PR-5 (2026-05-27) — ICustomerNotificationService.
+// Outbound change notifications to customers. Lifecycle: Draft → Pending → Sent →
+// Acknowledged → Closed, with Dispute/Resolve side-path. AS9100 §8.5.6.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICustomerNotificationService,
+    Abs.FixedAssets.Services.Engineering.CustomerNotificationService>();
+
+// Sprint 14.3 PR-5 (2026-05-27) — ISupplierNotificationService.
+// Supplier Process Change Notifications. Lifecycle: Draft → Pending → Sent →
+// SupplierAcknowledged → ImpactAssessment → Approved → Closed. IATF 16949 §8.5.6.1.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ISupplierNotificationService,
+    Abs.FixedAssets.Services.Engineering.SupplierNotificationService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering

@@ -1,0 +1,191 @@
+@page "/Admin/CustomerNoticeProbe"
+@model Abs.FixedAssets.Pages.Admin.CustomerNoticeProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "Customer Notice Probe";
+    ViewData["TabTitle"] = "Customer Notice Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.3 PR-5 (2026-05-27) — admin probe for ICustomerNotificationService.
+    EIGHT WRITE BUTTONS per Lock 16 corollary:
+      1. Create Customer Notice
+      2. Mark Pending (Draft → Pending)
+      3. Send Notice (Pending → Sent, fires outbox event)
+      4. Record Acknowledgement (Sent → Acknowledged)
+      5. Record Dispute (Sent → Disputed)
+      6. Resolve Dispute (Disputed → Resolved)
+      7. Close Notice (Acknowledged/Resolved → Closed)
+      8. Get Notice (read form)
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Customer Notice Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Outbound engineering change notifications to customers (Sprint 14.3).
+            Lifecycle: Draft &rarr; Pending &rarr; Sent &rarr; Acknowledged &rarr; Closed.
+            Dispute path: Sent &rarr; Disputed &rarr; Resolved &rarr; Closed.
+            AS9100 &sect;8.5.6 customer notification of changes affecting product conformity.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="cn-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="cn-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create Customer Notice</h2>
+            <form method="post" asp-page-handler="Create" class="ds-form-grid">
+                <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+                <div><label>NoticeNumber</label><input type="text" name="CreateNoticeNumber" value="@Model.CreateNoticeNumber" placeholder="CN-2026-BRG-001" required class="ds-input" /></div>
+                <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" required class="ds-input" /></div>
+                <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+                <div><label>Type</label>
+                    <select name="CreateType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<CustomerNoticeType>()) { if (t == Model.CreateType) { <option value="@t" selected>@t</option> } else { <option value="@t">@t</option> } }
+                    </select>
+                </div>
+                <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
+                <div><label>CustomerId (optional)</label><input type="number" name="CreateCustomerId" value="@Model.CreateCustomerId" class="ds-input" /></div>
+                <div><label>Originating ECR Id (optional)</label><input type="number" name="CreateOriginatingEcrId" value="@Model.CreateOriginatingEcrId" class="ds-input" /></div>
+                <div><label>Change Description</label><input type="text" name="CreateChangeDescription" value="@Model.CreateChangeDescription" class="ds-input" /></div>
+                <div><label>Impact Description</label><input type="text" name="CreateImpactDescription" value="@Model.CreateImpactDescription" class="ds-input" /></div>
+                <div><label>Delivery Method</label>
+                    <select name="CreateDeliveryMethod" class="ds-input">
+                        @foreach (var m in System.Enum.GetValues<NotificationDeliveryMethod>()) { if (m == Model.CreateDeliveryMethod) { <option value="@m" selected>@m</option> } else { <option value="@m">@m</option> } }
+                    </select>
+                </div>
+                <div><label>Customer Contact Name</label><input type="text" name="CreateCustomerContactName" value="@Model.CreateCustomerContactName" class="ds-input" /></div>
+                <div><label>Customer Contact Email</label><input type="text" name="CreateCustomerContactEmail" value="@Model.CreateCustomerContactEmail" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="cn-btn-create">Create Customer Notice</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Mark Pending (Draft &rarr; Pending)</h2>
+            <form method="post" asp-page-handler="MarkPending" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="PendingNoticeId" value="@Model.PendingNoticeId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="cn-btn-pending">Mark Pending</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Send Notice (Pending &rarr; Sent)</h2>
+            <form method="post" asp-page-handler="Send" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="SendNoticeId" value="@Model.SendNoticeId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="cn-btn-send">Send Notice</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Record Acknowledgement (Sent &rarr; Acknowledged)</h2>
+            <form method="post" asp-page-handler="Acknowledge" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="AckNoticeId" value="@Model.AckNoticeId" required class="ds-input" /></div>
+                <div><label>Response Text (optional)</label><input type="text" name="AckResponseText" value="@Model.AckResponseText" placeholder="Acknowledged — no impact on current orders" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="cn-btn-ack">Record Acknowledgement</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Record Dispute (Sent &rarr; Disputed)</h2>
+            <form method="post" asp-page-handler="Dispute" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="DisputeNoticeId" value="@Model.DisputeNoticeId" required class="ds-input" /></div>
+                <div><label>Dispute Reason</label><input type="text" name="DisputeReason" value="@Model.DisputeReason" placeholder="Hardness change may affect fatigue life in high-vibration application" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="cn-btn-dispute">Record Dispute</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Resolve Dispute (Disputed &rarr; Resolved)</h2>
+            <form method="post" asp-page-handler="ResolveDispute" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="ResolveNoticeId" value="@Model.ResolveNoticeId" required class="ds-input" /></div>
+                <div><label>Resolution</label><input type="text" name="ResolveResolution" value="@Model.ResolveResolution" placeholder="Additional fatigue testing confirms 2x safety margin — customer agrees to proceed" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="cn-btn-resolve">Resolve Dispute</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. Close Notice (Acknowledged/Resolved &rarr; Closed)</h2>
+            <form method="post" asp-page-handler="Close" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="CloseNoticeId" value="@Model.CloseNoticeId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="cn-btn-close">Close Notice</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">8. Get Customer Notice by Id</h2>
+            <form method="post" asp-page-handler="GetNotice" class="ds-form-grid">
+                <div><label>NoticeId</label><input type="number" name="GetNoticeId" value="@Model.GetNoticeId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="cn-btn-get">Get Notice</button></div>
+            </form>
+
+            @if (Model.NoticeView is not null)
+            {
+                var n = Model.NoticeView;
+                <div class="ds-mt-3" data-testid="cn-view-card">
+                    <h3 class="ds-h3">Customer Notice @n.Id (@n.NoticeNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@n.Title</dd>
+                        <dt>Status / Type</dt><dd>@n.Status / @n.Type</dd>
+                        <dt>Customer</dt><dd>@(n.Customer?.CustomerCode ?? n.CustomerId?.ToString() ?? "—")</dd>
+                        <dt>Customer Contact</dt><dd>@(n.CustomerContactName ?? "—") / @(n.CustomerContactEmail ?? "—")</dd>
+                        <dt>Item</dt><dd>@(n.ItemId?.ToString() ?? "—")</dd>
+                        <dt>ECR / Deviation / Waiver / Concession</dt>
+                        <dd>@(n.OriginatingEcrId?.ToString() ?? "—") / @(n.OriginatingDeviationId?.ToString() ?? "—") / @(n.OriginatingWaiverId?.ToString() ?? "—") / @(n.OriginatingConcessionId?.ToString() ?? "—")</dd>
+                        <dt>Change Description</dt><dd>@(n.ChangeDescription ?? "—")</dd>
+                        <dt>Impact Description</dt><dd>@(n.ImpactDescription ?? "—")</dd>
+                        <dt>Change Effective Date</dt><dd>@(n.ChangeEffectiveDate?.ToString("u") ?? "—")</dd>
+                        <dt>F/F/F</dt><dd>Form=@n.AffectsForm Fit=@n.AffectsFit Function=@n.AffectsFunction</dd>
+                        <dt>Safety Impact</dt><dd>@n.SafetyImpact</dd>
+                        <dt>Delivery Method</dt><dd>@n.DeliveryMethod</dd>
+                        <dt>Sent By / At</dt><dd>@(n.SentBy ?? "—") / @(n.SentAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>Acknowledged By / At</dt><dd>@(n.AcknowledgedBy ?? "—") / @(n.AcknowledgedAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>Customer Response</dt><dd>@(n.CustomerResponseText ?? "—")</dd>
+                        @if (n.Status == CustomerNoticeStatus.Disputed || n.Status == CustomerNoticeStatus.Resolved)
+                        {
+                            <dt>Dispute Reason</dt><dd>@(n.DisputeReason ?? "—")</dd>
+                            <dt>Dispute Resolution</dt><dd>@(n.DisputeResolution ?? "—")</dd>
+                            <dt>Resolved By / At</dt><dd>@(n.DisputeResolvedBy ?? "—") / @(n.DisputeResolvedAtUtc?.ToString("u") ?? "—")</dd>
+                        }
+                        <dt>Outbox Correlation</dt><dd>@(n.OutboxCorrelationId ?? "—")</dd>
+                        <dt>Affected SO Refs</dt><dd>@(n.AffectedSalesOrderReferences ?? "—")</dd>
+                        <dt>Affected Contract Refs</dt><dd>@(n.AffectedContractReferences ?? "—")</dd>
+                        <dt>Created / Updated</dt><dd>@n.CreatedAt.ToString("u") / @(n.UpdatedAt?.ToString("u") ?? "—")</dd>
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+</main>

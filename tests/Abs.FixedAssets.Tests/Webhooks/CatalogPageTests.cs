@@ -26,7 +26,8 @@ public class CatalogPageTests
 
         // 5 baseline + 4 AP + 3 Asset + 3 PO/Receiving + 1 CIP + 1 Depreciation + 1 PM + 1 item.issued = 19.
         // PR #336 added invoice.payment_voided to the AP group (was 3, now 4).
-        Assert.Equal(19, page.Events.Count);
+        // Sprint 14.3 PR-5 added customer.notice.sent + supplier.pcn.sent = 21.
+        Assert.Equal(21, page.Events.Count);
         Assert.Contains(page.Events, e => e.EventType == "invoice.payment_voided" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "workorder.created" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "workorder.closed" && e.Version == 1);
@@ -46,6 +47,8 @@ public class CatalogPageTests
         Assert.Contains(page.Events, e => e.EventType == "depreciation.posted" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "pm.occurrence.generated" && e.Version == 1);
         Assert.Contains(page.Events, e => e.EventType == "item.issued" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "customer.notice.sent" && e.Version == 1);
+        Assert.Contains(page.Events, e => e.EventType == "supplier.pcn.sent" && e.Version == 1);
     }
 
     [Fact]

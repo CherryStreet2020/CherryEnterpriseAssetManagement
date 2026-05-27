@@ -42,6 +42,10 @@ public static class WebhookEventTypes
     // Inventory issuance (WO consumption)
     public const string ItemIssued = "item.issued";
 
+    // Engineering notifications (Sprint 14.3 PR-5)
+    public const string CustomerNoticeSent = "customer.notice.sent";
+    public const string SupplierPcnSent = "supplier.pcn.sent";
+
     public static readonly string[] AllEventTypes = new[]
     {
         WorkRequestCreated,
@@ -61,7 +65,9 @@ public static class WebhookEventTypes
         CipCapitalized,
         DepreciationPosted,
         PmOccurrenceGenerated,
-        ItemIssued
+        ItemIssued,
+        CustomerNoticeSent,
+        SupplierPcnSent
     };
 }
 
