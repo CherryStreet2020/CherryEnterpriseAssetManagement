@@ -1,0 +1,148 @@
+@page "/Admin/CompletionScrapReworkProbe"
+@model Abs.FixedAssets.Pages.Admin.CompletionScrapReworkProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Completion/Scrap/Rework Probe";
+    ViewData["TabTitle"] = "Completion/Scrap/Rework Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Completion / Scrap / Rework Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Atomic completion posting + 5-dimensional scrap analysis + rework routing (B8 PR-PRO-6).
+            One event captures good + scrap + rework + reject. Auto-advance triggers on good qty.
+            AS9100 &sect;8.5.1 + &sect;8.7.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="csr-outcome-error">@Model.Outcome</p> }
+            else { <p class="ds-text-success" data-testid="csr-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Record Completion (atomic good+scrap+rework+reject)</h2>
+        <form method="post" asp-page-handler="RecordCompletion" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="CmpCompanyId" value="@Model.CmpCompanyId" required class="ds-input" /></div>
+            <div><label>PRO Id</label><input type="number" name="CmpProId" value="@Model.CmpProId" required class="ds-input" /></div>
+            <div><label>Operation Id</label><input type="number" name="CmpOpId" value="@Model.CmpOpId" required class="ds-input" /></div>
+            <div><label>Good Qty</label><input type="number" step="0.01" name="CmpGoodQty" value="@Model.CmpGoodQty" required class="ds-input" /></div>
+            <div><label>Scrap Qty</label><input type="number" step="0.01" name="CmpScrapQty" value="@Model.CmpScrapQty" class="ds-input" /></div>
+            <div><label>Rework Qty</label><input type="number" step="0.01" name="CmpReworkQty" value="@Model.CmpReworkQty" class="ds-input" /></div>
+            <div><label>Reject Qty</label><input type="number" step="0.01" name="CmpRejectQty" value="@Model.CmpRejectQty" class="ds-input" /></div>
+            <div><label>Move Qty to Next Op</label><input type="number" step="0.01" name="CmpMoveQty" value="@Model.CmpMoveQty" class="ds-input" /></div>
+            <div><label>Employee</label><input type="text" name="CmpEmployee" value="@Model.CmpEmployee" class="ds-input" /></div>
+            <div><label><input type="checkbox" name="CmpCompleteRemaining" value="true" @(Model.CmpCompleteRemaining ? "checked" : "") /> Complete Remaining</label></div>
+            <div><label><input type="checkbox" name="CmpIsFinal" value="true" @(Model.CmpIsFinal ? "checked" : "") /> Final Operation (FG receipt)</label></div>
+            <div><label><input type="checkbox" name="CmpBackflush" value="true" @(Model.CmpBackflush ? "checked" : "") /> Backflush Materials</label></div>
+            <div><label><input type="checkbox" name="CmpInspection" value="true" @(Model.CmpInspection ? "checked" : "") /> Inspection Required</label></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-record-completion">Record Completion (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Record Scrap (5-dimensional root cause)</h2>
+        <form method="post" asp-page-handler="RecordScrap" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="ScpCompanyId" value="@Model.ScpCompanyId" required class="ds-input" /></div>
+            <div><label>PRO Id</label><input type="number" name="ScpProId" value="@Model.ScpProId" required class="ds-input" /></div>
+            <div><label>Detected at Op Id</label><input type="number" name="ScpDetectedOpId" value="@Model.ScpDetectedOpId" required class="ds-input" /></div>
+            <div><label>Caused at Op Id</label><input type="number" name="ScpCausedOpId" value="@Model.ScpCausedOpId" class="ds-input" /></div>
+            <div><label>Scrap Qty</label><input type="number" step="0.01" name="ScpQty" value="@Model.ScpQty" required class="ds-input" /></div>
+            <div><label>Responsible Area</label><select name="ScpArea" class="ds-input">@foreach (var s in System.Enum.GetValues<ScrapResponsibleArea>()) { if (s == Model.ScpArea) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Disposition</label><select name="ScpDisposition" class="ds-input">@foreach (var s in System.Enum.GetValues<ScrapDisposition>()) { if (s == Model.ScpDisposition) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Cost Treatment</label><select name="ScpCostTreatment" class="ds-input">@foreach (var s in System.Enum.GetValues<CostTreatment>()) { if (s == Model.ScpCostTreatment) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label><input type="checkbox" name="ScpNcr" value="true" @(Model.ScpNcr ? "checked" : "") /> NCR Required</label></div>
+            <div><label><input type="checkbox" name="ScpSupervisor" value="true" @(Model.ScpSupervisor ? "checked" : "") /> Supervisor Approval Required</label></div>
+            <div><label>Notes</label><input type="text" name="ScpNotes" value="@Model.ScpNotes" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-record-scrap">Record Scrap (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Approve Scrap (supervisor sign-off)</h2>
+        <form method="post" asp-page-handler="ApproveScrap" class="ds-form-grid">
+            <div><label>Scrap Event Id</label><input type="number" name="ApproveScpId" value="@Model.ApproveScpId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-approve-scrap">Approve Scrap (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Record Rework (routing + disposition)</h2>
+        <form method="post" asp-page-handler="RecordRework" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="RwkCompanyId" value="@Model.RwkCompanyId" required class="ds-input" /></div>
+            <div><label>PRO Id</label><input type="number" name="RwkProId" value="@Model.RwkProId" required class="ds-input" /></div>
+            <div><label>Source Op Id</label><input type="number" name="RwkSourceOpId" value="@Model.RwkSourceOpId" required class="ds-input" /></div>
+            <div><label>Rework Dest Op Id</label><input type="number" name="RwkDestOpId" value="@Model.RwkDestOpId" class="ds-input" /></div>
+            <div><label>Rework Qty</label><input type="number" step="0.01" name="RwkQty" value="@Model.RwkQty" required class="ds-input" /></div>
+            <div><label>Routing Type</label><select name="RwkRoutingType" class="ds-input">@foreach (var s in System.Enum.GetValues<ReworkRoutingType>()) { if (s == Model.RwkRoutingType) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Instructions</label><input type="text" name="RwkInstructions" value="@Model.RwkInstructions" class="ds-input" /></div>
+            <div><label>Cost Treatment</label><select name="RwkCostTreatment" class="ds-input">@foreach (var s in System.Enum.GetValues<CostTreatment>()) { if (s == Model.RwkCostTreatment) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label><input type="checkbox" name="RwkQualityHold" value="true" @(Model.RwkQualityHold ? "checked" : "") /> Quality Hold</label></div>
+            <div><label><input type="checkbox" name="RwkReinspect" value="true" @(Model.RwkReinspect ? "checked" : "") /> Reinspect Required</label></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-record-rework">Record Rework (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">5. View Events for PRO</h2>
+        <form method="post" asp-page-handler="GetEvents" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="ReadProId" value="@Model.ReadProId" class="ds-input" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-get-events">Get Events (READ)</button>
+        </form>
+    </div></section>
+
+    @if (Model.CompletionList?.Count > 0)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h3 class="ds-h3">Completions (@Model.CompletionList.Count)</h3>
+            <table class="ds-table">
+                <thead><tr><th>Id</th><th>Number</th><th>Op</th><th>Good</th><th>Scrap</th><th>Rework</th><th>Reject</th><th>Move</th><th>When</th></tr></thead>
+                <tbody>
+                @foreach (var c in Model.CompletionList)
+                {
+                    <tr><td>@c.Id</td><td>@c.CompletionNumber</td><td>@c.OperationId</td><td>@c.GoodQuantity</td><td>@c.ScrapQuantity</td><td>@c.ReworkQuantity</td><td>@c.RejectQuantity</td><td>@c.MoveQuantityToNextOp</td><td>@c.CompletedAtUtc.ToString("u")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div></section>
+    }
+
+    @if (Model.ScrapList?.Count > 0)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h3 class="ds-h3">Scrap Events (@Model.ScrapList.Count)</h3>
+            <table class="ds-table">
+                <thead><tr><th>Id</th><th>Number</th><th>Detected</th><th>Caused</th><th>Qty</th><th>Area</th><th>Disposition</th><th>NCR</th><th>Approved</th></tr></thead>
+                <tbody>
+                @foreach (var s in Model.ScrapList)
+                {
+                    <tr class="ds-row-warning"><td>@s.Id</td><td>@s.ScrapNumber</td><td>@s.DetectedAtOperationId</td><td>@s.CausedAtOperationId</td><td>@s.ScrapQuantity</td><td>@s.ResponsibleArea</td><td>@s.Disposition</td><td>@(s.NcrRequired ? "Yes" : "")</td><td>@(s.SupervisorApproved ? $"Yes ({s.ApprovedBy})" : s.SupervisorApprovalRequired ? "PENDING" : "N/A")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div></section>
+    }
+
+    @if (Model.ReworkList?.Count > 0)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h3 class="ds-h3">Rework Events (@Model.ReworkList.Count)</h3>
+            <table class="ds-table">
+                <thead><tr><th>Id</th><th>Number</th><th>Source</th><th>Dest</th><th>Qty</th><th>Routing</th><th>Hold</th><th>Reinspect</th></tr></thead>
+                <tbody>
+                @foreach (var r in Model.ReworkList)
+                {
+                    <tr class="ds-row-danger"><td>@r.Id</td><td>@r.ReworkNumber</td><td>@r.SourceOperationId</td><td>@r.ReworkOperationId</td><td>@r.ReworkQuantity</td><td>@r.RoutingType</td><td>@(r.QualityHold ? "HOLD" : "")</td><td>@(r.ReinspectRequired ? "Yes" : "")</td></tr>
+                }
+                </tbody>
+            </table>
+        </div></section>
+    }
+</main>

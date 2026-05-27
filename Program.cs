@@ -369,6 +369,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
     Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
 
+// B8 PR-PRO-6 (2026-05-27) — IProductionCompletionService.
+// Atomic Complete + Scrap + Rework event posting with auto-advance integration,
+// 5-dimensional scrap analysis, and rework routing. AS9100 §8.5.1 + §8.7.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionCompletionService,
+    Abs.FixedAssets.Services.Production.ProductionCompletionService>();
+
 // B8 PR-PRO-5 (2026-05-27) — IProductionWipMoveService.
 // Auto-advance on completion as DEFAULT. Manual moves (send-back, hold,
 // reverse) as the EXCEPTION. Quality hold gating. Full audit trail.
