@@ -136,26 +136,26 @@ public sealed class CockpitModel : PageModel
         var isAdmin = User.IsInRole("Admin");
         CanToggleMode = isAdmin;
 
-        // Explicit ?mode= override (admin only, or anyone for their own mode)
-        if (!string.IsNullOrEmpty(ModeKey))
-        {
-            if (Enum.TryParse<CockpitMode>(ModeKey, ignoreCase: true, out var parsed))
-            {
-                ActiveMode = parsed;
-                return;
-            }
-        }
-
         // Auto-default from User.Role
         var role = User.Claims
             .FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Viewer";
 
-        ActiveMode = role switch
+        var defaultMode = role switch
         {
             "Admin" => CockpitMode.Planner,
             "Accountant" => CockpitMode.Supervisor,
             _ => CockpitMode.Operator,
         };
+        ActiveMode = defaultMode;
+
+        // Explicit ?mode= override — admin can pick any mode, non-admin can only
+        // stay at their default or go MORE restrictive (never escalate)
+        if (!string.IsNullOrEmpty(ModeKey)
+            && Enum.TryParse<CockpitMode>(ModeKey, ignoreCase: true, out var parsed))
+        {
+            if (isAdmin || parsed >= defaultMode) // higher enum = more restrictive
+                ActiveMode = parsed;
+        }
     }
 
     private void HydratePageHeader()
