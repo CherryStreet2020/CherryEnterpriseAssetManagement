@@ -5,6 +5,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.Production.Validators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,17 +14,42 @@ namespace Abs.FixedAssets.Services.Production
     public class ProductionCompletionService : IProductionCompletionService
     {
         private readonly AppDbContext _db;
+        private readonly ITransactionValidationPipeline _pipeline;
         private readonly IProductionWipMoveService _wipMoveSvc;
         private readonly ILogger<ProductionCompletionService> _log;
 
         public ProductionCompletionService(
             AppDbContext db,
+            ITransactionValidationPipeline pipeline,
             IProductionWipMoveService wipMoveSvc,
             ILogger<ProductionCompletionService> log)
         {
             _db = db;
+            _pipeline = pipeline;
             _wipMoveSvc = wipMoveSvc;
             _log = log;
+        }
+
+        // ── Validation helper ───────────────────────────────────────────
+        private async Task<Result<T>?> ValidateOrBlock<T>(
+            string actionType, int productionOrderId, int operationId,
+            int companyId, decimal? quantity = null, string? performedBy = null,
+            int? resourceId = null, int? employeeUserId = null,
+            CancellationToken ct = default)
+        {
+            var ctx = new TransactionValidationContext
+            {
+                ActionType = actionType,
+                ProductionOrderId = productionOrderId,
+                OperationId = operationId,
+                PerformedBy = performedBy ?? "system",
+                CompanyId = companyId,
+                Quantity = quantity,
+                ResourceId = resourceId,
+                EmployeeUserId = employeeUserId,
+            };
+            var result = await _pipeline.RunAsync(ctx, ct);
+            return result.IsBlocked ? Result.Failure<T>(result.BlockMessage) : null;
         }
 
         // ================================================================
@@ -36,6 +62,12 @@ namespace Abs.FixedAssets.Services.Production
             var totalQty = req.GoodQuantity + req.ScrapQuantity + req.ReworkQuantity + req.RejectQuantity;
             if (totalQty <= 0)
                 return Result.Failure<ProductionCompletionEvent>("Total quantity (good + scrap + rework + reject) must be positive.");
+
+            var blocked = await ValidateOrBlock<ProductionCompletionEvent>(
+                TransactionActions.RecordCompletion, req.ProductionOrderId, req.OperationId,
+                req.CompanyId, req.GoodQuantity, req.CompletedBy,
+                req.ResourceWorkCenterId, req.EmployeeId, ct);
+            if (blocked is not null) return blocked.Value;
 
             var op = await _db.Set<ProductionOperation>()
                 .FirstOrDefaultAsync(o => o.Id == req.OperationId, ct);
@@ -127,6 +159,17 @@ namespace Abs.FixedAssets.Services.Production
             if (req.ScrapQuantity <= 0)
                 return Result.Failure<ProductionScrapEvent>("Scrap quantity must be positive.");
 
+            // P1 fix (Codex PR #390): ScrapThresholdValidator blocks above-threshold
+            // scrap unless SupervisorOverride is true. When the caller already sets
+            // SupervisorApprovalRequired, they've acknowledged the threshold — let the
+            // event through into the approval workflow (ApproveScrapAsync). The pipeline
+            // downgrades the blocker to a warning when override is true.
+            var blocked = await ValidateOrBlock<ProductionScrapEvent>(
+                TransactionActions.RecordScrap, req.ProductionOrderId, req.DetectedAtOperationId,
+                req.CompanyId, req.ScrapQuantity, req.RecordedBy, ct: ct);
+            if (blocked is not null && !req.SupervisorApprovalRequired)
+                return blocked.Value;
+
             var detectedOp = await _db.Set<ProductionOperation>()
                 .FirstOrDefaultAsync(o => o.Id == req.DetectedAtOperationId, ct);
             if (detectedOp == null)
@@ -192,6 +235,12 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(e => e.Id == scrapEventId, ct);
             if (evt == null)
                 return Result.Failure<ProductionScrapEvent>($"Scrap event {scrapEventId} not found.");
+
+            var blocked = await ValidateOrBlock<ProductionScrapEvent>(
+                TransactionActions.ApproveScrap, evt.ProductionOrderId, evt.DetectedAtOperationId,
+                evt.CompanyId, evt.ScrapQuantity, approvedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             if (!evt.SupervisorApprovalRequired)
                 return Result.Failure<ProductionScrapEvent>("This scrap event does not require supervisor approval.");
             if (evt.SupervisorApproved)
@@ -213,6 +262,12 @@ namespace Abs.FixedAssets.Services.Production
         {
             if (req.ReworkQuantity <= 0)
                 return Result.Failure<ProductionReworkEvent>("Rework quantity must be positive.");
+
+            var blocked = await ValidateOrBlock<ProductionReworkEvent>(
+                TransactionActions.RecordRework, req.ProductionOrderId, req.SourceOperationId,
+                req.CompanyId, req.ReworkQuantity, req.DecidedBy,
+                req.AssignedWorkCenterId, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var sourceOp = await _db.Set<ProductionOperation>()
                 .FirstOrDefaultAsync(o => o.Id == req.SourceOperationId, ct);

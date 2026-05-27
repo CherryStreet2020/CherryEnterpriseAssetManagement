@@ -6,6 +6,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.Production.Validators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,10 +15,35 @@ namespace Abs.FixedAssets.Services.Production
     public class ProductionOperationTransactionService : IProductionOperationTransactionService
     {
         private readonly AppDbContext _db;
+        private readonly ITransactionValidationPipeline _pipeline;
         private readonly ILogger<ProductionOperationTransactionService> _log;
 
-        public ProductionOperationTransactionService(AppDbContext db, ILogger<ProductionOperationTransactionService> log)
-        { _db = db; _log = log; }
+        public ProductionOperationTransactionService(AppDbContext db,
+            ITransactionValidationPipeline pipeline,
+            ILogger<ProductionOperationTransactionService> log)
+        { _db = db; _pipeline = pipeline; _log = log; }
+
+        // ── Validation helper ───────────────────────────────────────────
+        private async Task<Result<T>?> ValidateOrBlock<T>(
+            string actionType, ProductionOperation op,
+            decimal? quantity = null, string? performedBy = null,
+            int? resourceId = null, int? employeeUserId = null,
+            CancellationToken ct = default)
+        {
+            var ctx = new TransactionValidationContext
+            {
+                ActionType = actionType,
+                ProductionOrderId = op.ProductionOrderId,
+                OperationId = op.Id,
+                PerformedBy = performedBy ?? "system",
+                CompanyId = op.CompanyIdSnapshot,
+                Quantity = quantity,
+                ResourceId = resourceId,
+                EmployeeUserId = employeeUserId,
+            };
+            var result = await _pipeline.RunAsync(ctx, ct);
+            return result.IsBlocked ? Result.Failure<T>(result.BlockMessage) : null;
+        }
 
         // =====================================================================
         // 1. START — Released → Running (or InSetup if setup required)
@@ -27,6 +53,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Start, op, performedBy: performedBy, resourceId: assetId, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Released)
                 return Fail($"Cannot start — status is {op.Status}, expected Released.");
 
@@ -47,6 +76,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Pause, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running)
                 return Fail($"Cannot pause — status is {op.Status}, expected Running.");
 
@@ -64,6 +96,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Resume, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Paused)
                 return Fail($"Cannot resume — status is {op.Status}, expected Paused.");
 
@@ -81,6 +116,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Stop, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running && op.Status != ProductionOperationStatus.InSetup)
                 return Fail($"Cannot stop — status is {op.Status}, expected Running or InSetup.");
 
@@ -98,6 +136,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.StartSetup, op, performedBy: performedBy, resourceId: assetId, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Released)
                 return Fail($"Cannot start setup — status is {op.Status}, expected Released.");
 
@@ -117,6 +158,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Complete, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.InSetup)
                 return Fail($"Cannot complete setup — status is {op.Status}, expected InSetup.");
 
@@ -136,6 +180,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.StartRun, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.InSetup)
                 return Fail($"Cannot start run — status is {op.Status}, expected InSetup.");
 
@@ -153,6 +200,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Complete, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running)
                 return Fail($"Cannot complete run — status is {op.Status}, expected Running.");
 
@@ -173,6 +223,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(req.OperationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Complete, op, quantity: req.GoodQuantity, performedBy: req.PerformedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running)
                 return Fail($"Cannot complete — status is {op.Status}, expected Running.");
             if (req.GoodQuantity <= 0)
@@ -202,6 +255,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(req.OperationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.PartialComplete, op, quantity: req.GoodQuantity, performedBy: req.PerformedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running)
                 return Fail($"Cannot partial complete — status is {op.Status}, expected Running.");
             if (req.GoodQuantity <= 0)
@@ -227,6 +283,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(req.OperationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.FinalComplete, op, quantity: req.GoodQuantity, performedBy: req.PerformedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Running)
                 return Fail($"Cannot final complete — status is {op.Status}, expected Running.");
             if (req.GoodQuantity <= 0)
@@ -255,6 +314,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.ReverseCompletion, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Completed)
                 return Fail($"Cannot reverse — status is {op.Status}, expected Completed.");
 
@@ -283,6 +345,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.Skip, op, performedBy: performedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
             if (op.Status != ProductionOperationStatus.Released)
                 return Fail($"Cannot skip — status is {op.Status}, expected Released.");
 
@@ -359,6 +424,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var sourceOp = await FindOp(req.OperationId, ct);
             if (sourceOp is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.InsertRework, sourceOp, performedBy: req.PerformedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var reworkSeq = sourceOp.SequenceNumber + 5;
             var reworkOp = new ProductionOperation
@@ -400,6 +468,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.ChangeResource, op, performedBy: performedBy, resourceId: newWorkCenterId, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var before = op.Status;
             var prevWc = op.WorkCenterId;
@@ -432,6 +503,10 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(operationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.AddEmployee, op, performedBy: performedBy,
+                employeeUserId: int.TryParse(employeeId, out var empUid) ? empUid : null, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             var before = op.Status;
             var existing = op.OperatorUserIdsCsv ?? "";
@@ -459,6 +534,9 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(req.OperationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.LogTime, op, performedBy: req.PerformedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             // P2 fix: reject negative time values.
             if (req.RunMinutes < 0 || req.SetupMinutes < 0 || req.MachineMinutes < 0 || req.LaborMinutes < 0)
@@ -491,6 +569,9 @@ namespace Abs.FixedAssets.Services.Production
 
             var op = await FindOp(original.OperationId, ct);
             if (op is null) return OpNotFound();
+            var blocked = await ValidateOrBlock<ProductionOperationTransaction>(
+                TransactionActions.EditTime, op, performedBy: editedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
 
             // Adjust the operation's actual times
             var runDelta = newRunMinutes - original.RunMinutes;

@@ -5,6 +5,7 @@
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
+using Abs.FixedAssets.Services.Production.Validators;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,12 +14,35 @@ namespace Abs.FixedAssets.Services.Production
     public class ProductionWipMoveService : IProductionWipMoveService
     {
         private readonly AppDbContext _db;
+        private readonly ITransactionValidationPipeline _pipeline;
         private readonly ILogger<ProductionWipMoveService> _log;
 
-        public ProductionWipMoveService(AppDbContext db, ILogger<ProductionWipMoveService> log)
+        public ProductionWipMoveService(AppDbContext db,
+            ITransactionValidationPipeline pipeline,
+            ILogger<ProductionWipMoveService> log)
         {
             _db = db;
+            _pipeline = pipeline;
             _log = log;
+        }
+
+        // ── Validation helper ───────────────────────────────────────────
+        private async Task<Result<T>?> ValidateOrBlock<T>(
+            string actionType, ProductionOperation op,
+            decimal? quantity = null, string? performedBy = null,
+            CancellationToken ct = default)
+        {
+            var ctx = new TransactionValidationContext
+            {
+                ActionType = actionType,
+                ProductionOrderId = op.ProductionOrderId,
+                OperationId = op.Id,
+                PerformedBy = performedBy ?? "system",
+                CompanyId = op.CompanyIdSnapshot,
+                Quantity = quantity,
+            };
+            var result = await _pipeline.RunAsync(ctx, ct);
+            return result.IsBlocked ? Result.Failure<T>(result.BlockMessage) : null;
         }
 
         // ================================================================
@@ -36,6 +60,10 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == fromOperationId, ct);
             if (fromOp == null)
                 return Result.Failure<ProductionWipMove>($"Operation {fromOperationId} not found.");
+
+            var blocked = await ValidateOrBlock<ProductionWipMove>(
+                TransactionActions.MoveToNext, fromOp, quantity, movedBy, ct);
+            if (blocked is not null) return blocked.Value;
 
             if (!fromOp.AutoAdvanceOnCompletion)
                 return Result.Failure<ProductionWipMove>(
@@ -113,6 +141,10 @@ namespace Abs.FixedAssets.Services.Production
             if (fromOp == null)
                 return Result.Failure<ProductionWipMove>($"Operation {fromOperationId} not found.");
 
+            var blocked = await ValidateOrBlock<ProductionWipMove>(
+                TransactionActions.MoveToNext, fromOp, quantity, movedBy, ct);
+            if (blocked is not null) return blocked.Value;
+
             var nextOp = await _db.Set<ProductionOperation>()
                 .Where(o => o.ProductionOrderId == fromOp.ProductionOrderId
                     && o.SequenceNumber > fromOp.SequenceNumber
@@ -160,6 +192,10 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == fromOperationId, ct);
             if (fromOp == null)
                 return Result.Failure<ProductionWipMove>($"From operation {fromOperationId} not found.");
+
+            var blocked = await ValidateOrBlock<ProductionWipMove>(
+                TransactionActions.SendBack, fromOp, quantity, movedBy, ct);
+            if (blocked is not null) return blocked.Value;
 
             var toOp = await _db.Set<ProductionOperation>()
                 .FirstOrDefaultAsync(o => o.Id == toOperationId, ct);
@@ -211,6 +247,10 @@ namespace Abs.FixedAssets.Services.Production
             if (fromOp == null)
                 return Result.Failure<ProductionWipMove>($"From operation {fromOperationId} not found.");
 
+            var blocked = await ValidateOrBlock<ProductionWipMove>(
+                TransactionActions.MoveToSpecific, fromOp, quantity, movedBy, ct);
+            if (blocked is not null) return blocked.Value;
+
             var toOp = await _db.Set<ProductionOperation>()
                 .FirstOrDefaultAsync(o => o.Id == toOperationId, ct);
             if (toOp == null)
@@ -255,6 +295,11 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == operationId, ct);
             if (op == null)
                 return Result.Failure<ProductionOperation>($"Operation {operationId} not found.");
+
+            var blocked = await ValidateOrBlock<ProductionOperation>(
+                TransactionActions.HoldAtOp, op, performedBy: heldBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             if (op.QualityHoldActive)
                 return Result.Failure<ProductionOperation>(
                     $"Operation {op.SequenceNumber} already on hold: {op.QualityHoldReason}");
@@ -280,6 +325,11 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == operationId, ct);
             if (op == null)
                 return Result.Failure<ProductionOperation>($"Operation {operationId} not found.");
+
+            var blocked = await ValidateOrBlock<ProductionOperation>(
+                TransactionActions.ReleaseHold, op, performedBy: releasedBy, ct: ct);
+            if (blocked is not null) return blocked.Value;
+
             if (!op.QualityHoldActive)
                 return Result.Failure<ProductionOperation>(
                     $"Operation {op.SequenceNumber} is not on hold.");
@@ -347,6 +397,10 @@ namespace Abs.FixedAssets.Services.Production
 
             if (toOp == null || fromOp == null)
                 return Result.Failure<ProductionWipMove>("Cannot reverse — operation records not found.");
+
+            var blocked = await ValidateOrBlock<ProductionWipMove>(
+                TransactionActions.ReverseMove, fromOp, original.Quantity, reversedBy, ct);
+            if (blocked is not null) return blocked.Value;
 
             var reversal = new ProductionWipMove
             {
