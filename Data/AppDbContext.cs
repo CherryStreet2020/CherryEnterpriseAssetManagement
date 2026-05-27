@@ -547,6 +547,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.SupplierProcessChangeNotification> SupplierProcessChangeNotifications =>
             Set<Abs.FixedAssets.Models.Engineering.SupplierProcessChangeNotification>();
 
+        // B8 PR-PRO-3 — ProductionMaterialTransaction (material movement log)
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionMaterialTransaction> ProductionMaterialTransactions =>
+            Set<Abs.FixedAssets.Models.Production.ProductionMaterialTransaction>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2389,6 +2393,44 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(x => x.OriginatingEcr).WithMany()
                     .HasForeignKey(x => x.OriginatingEcrId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // B8 PR-PRO-3 — ProductionMaterialTransaction entity config.
+            // Material movement log for every Issue/Return/Transfer/Scrap/Substitute
+            // action against frozen BOM lines. 12 transaction types.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionMaterialTransaction>(e =>
+            {
+                e.Property(x => x.TransactionType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.MaterialTransactionType.Issue);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.MaterialTransactionStatus.Posted);
+                e.Property(x => x.CostBucket)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CostBucket.Material);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.TransactionNumber })
+                    .IsUnique().HasDatabaseName("UX_MatTxn_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_MatTxn_PRO");
+                e.HasIndex(x => x.BomLineId).HasDatabaseName("IX_MatTxn_BomLine");
+                e.HasIndex(x => x.ItemId).HasDatabaseName("IX_MatTxn_Item");
+                e.HasIndex(x => x.TransactionType).HasDatabaseName("IX_MatTxn_Type");
+                e.HasIndex(x => x.TransactionDateUtc).HasDatabaseName("IX_MatTxn_Date");
+                e.HasIndex(x => x.TransferPairId).HasDatabaseName("IX_MatTxn_TransferPair");
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.BomLine).WithMany()
+                    .HasForeignKey(x => x.BomLineId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.OriginalTransaction).WithMany()
+                    .HasForeignKey(x => x.OriginalTransactionId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.TransferProductionOrder).WithMany()
+                    .HasForeignKey(x => x.TransferProductionOrderId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.TransferBomLine).WithMany()
+                    .HasForeignKey(x => x.TransferBomLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginalItem).WithMany()
+                    .HasForeignKey(x => x.OriginalItemId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with

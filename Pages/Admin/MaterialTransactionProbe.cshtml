@@ -1,0 +1,190 @@
+@page "/Admin/MaterialTransactionProbe"
+@model Abs.FixedAssets.Pages.Admin.MaterialTransactionProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Material Transaction Probe";
+    ViewData["TabTitle"] = "Material Transaction Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    B8 PR-PRO-3 (2026-05-27) — admin probe for IProductionMaterialTransactionService.
+    EIGHT WRITE BUTTONS + 1 read per Lock 16 corollary:
+      1. Issue Material
+      2. Partial Issue
+      3. Over-Issue (reason required)
+      4. Return Material
+      5. Reverse Issue
+      6. Transfer to Job
+      7. Substitute Component
+      8. Scrap Component
+      9. Get Transaction (read)
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Material Transaction Probe</h1>
+        <p class="ds-page-header__subtitle">
+            B8 PRO Cockpit &mdash; 12-action material transaction service (PR-PRO-3).
+            Issue / Return / Transfer / Substitute / Split / Scrap against frozen BOM lines.
+            6 enforced job-to-job transfer rules. Absorbs B2 (Job Splitting).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="mtxn-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="mtxn-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Issue Material</h2>
+            <form method="post" asp-page-handler="Issue" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="IssueBomLineId" value="@Model.IssueBomLineId" required class="ds-input" /></div>
+                <div><label>Quantity</label><input type="number" step="0.0001" name="IssueQuantity" value="@Model.IssueQuantity" required class="ds-input" /></div>
+                <div><label>Lot Number</label><input type="text" name="IssueLotNumber" value="@Model.IssueLotNumber" placeholder="LOT-2026-SKF-0187" class="ds-input" /></div>
+                <div><label>From Warehouse</label><input type="text" name="IssueFromWarehouse" value="@Model.IssueFromWarehouse" placeholder="WH-MAIN" class="ds-input" /></div>
+                <div><label>From Bin</label><input type="text" name="IssueFromBin" value="@Model.IssueFromBin" placeholder="BIN-A3-12" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="mtxn-btn-issue">Issue Material</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Partial Issue</h2>
+            <form method="post" asp-page-handler="PartialIssue" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="PartialBomLineId" value="@Model.PartialBomLineId" required class="ds-input" /></div>
+                <div><label>Quantity (must be &lt; remaining)</label><input type="number" step="0.0001" name="PartialQuantity" value="@Model.PartialQuantity" required class="ds-input" /></div>
+                <div><label>Lot Number (optional)</label><input type="text" name="PartialLotNumber" value="@Model.PartialLotNumber" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="mtxn-btn-partial">Partial Issue</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Over-Issue (reason required)</h2>
+            <form method="post" asp-page-handler="OverIssue" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="OverIssueBomLineId" value="@Model.OverIssueBomLineId" required class="ds-input" /></div>
+                <div><label>Quantity (exceeds requirement)</label><input type="number" step="0.0001" name="OverIssueQuantity" value="@Model.OverIssueQuantity" required class="ds-input" /></div>
+                <div><label>Reason Code</label><input type="text" name="OverIssueReasonCode" value="@Model.OverIssueReasonCode" placeholder="SCRAP-ALLOWANCE" required class="ds-input" /></div>
+                <div><label>Reason Description</label><input type="text" name="OverIssueReasonDesc" value="@Model.OverIssueReasonDesc" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="mtxn-btn-overissue">Over-Issue</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Return Material</h2>
+            <form method="post" asp-page-handler="Return" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="ReturnBomLineId" value="@Model.ReturnBomLineId" required class="ds-input" /></div>
+                <div><label>Return Quantity</label><input type="number" step="0.0001" name="ReturnQuantity" value="@Model.ReturnQuantity" required class="ds-input" /></div>
+                <div><label>To Warehouse</label><input type="text" name="ReturnToWarehouse" value="@Model.ReturnToWarehouse" placeholder="WH-MAIN" class="ds-input" /></div>
+                <div><label>To Bin</label><input type="text" name="ReturnToBin" value="@Model.ReturnToBin" placeholder="BIN-A3-12" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="mtxn-btn-return">Return Material</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Reverse Issue</h2>
+            <form method="post" asp-page-handler="ReverseIssue" class="ds-form-grid">
+                <div><label>Original Transaction Id</label><input type="number" name="ReverseTransactionId" value="@Model.ReverseTransactionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="mtxn-btn-reverse">Reverse Issue</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Transfer to Job</h2>
+            <form method="post" asp-page-handler="TransferToJob" class="ds-form-grid">
+                <div><label>Source BOM Line Id</label><input type="number" name="TransferSourceBomLineId" value="@Model.TransferSourceBomLineId" required class="ds-input" /></div>
+                <div><label>Destination PRO Id</label><input type="number" name="TransferDestProId" value="@Model.TransferDestProId" required class="ds-input" /></div>
+                <div><label>Destination BOM Line Id</label><input type="number" name="TransferDestBomLineId" value="@Model.TransferDestBomLineId" required class="ds-input" /></div>
+                <div><label>Transfer Quantity</label><input type="number" step="0.0001" name="TransferQuantity" value="@Model.TransferQuantity" required class="ds-input" /></div>
+                <div><label>Transfer Reason</label><input type="text" name="TransferReason" value="@Model.TransferReason" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="mtxn-btn-transfer">Transfer to Job</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. Substitute Component</h2>
+            <form method="post" asp-page-handler="Substitute" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="SubBomLineId" value="@Model.SubBomLineId" required class="ds-input" /></div>
+                <div><label>Substitute Item Id</label><input type="number" name="SubItemId" value="@Model.SubItemId" required class="ds-input" /></div>
+                <div><label>Quantity</label><input type="number" step="0.0001" name="SubQuantity" value="@Model.SubQuantity" required class="ds-input" /></div>
+                <div><label>Substitution Reason</label><input type="text" name="SubReason" value="@Model.SubReason" required class="ds-input" /></div>
+                <div><label>Auth Reference (ECN/Deviation)</label><input type="text" name="SubAuthRef" value="@Model.SubAuthRef" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="mtxn-btn-substitute">Substitute</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">8. Scrap Component</h2>
+            <form method="post" asp-page-handler="Scrap" class="ds-form-grid">
+                <div><label>BOM Line Id</label><input type="number" name="ScrapBomLineId" value="@Model.ScrapBomLineId" required class="ds-input" /></div>
+                <div><label>Scrap Quantity</label><input type="number" step="0.0001" name="ScrapQuantity" value="@Model.ScrapQuantity" required class="ds-input" /></div>
+                <div><label>Reason Code</label><input type="text" name="ScrapReasonCode" value="@Model.ScrapReasonCode" placeholder="MACHINING-DEFECT" required class="ds-input" /></div>
+                <div><label>Reason Description</label><input type="text" name="ScrapReasonDesc" value="@Model.ScrapReasonDesc" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="mtxn-btn-scrap">Scrap Component</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">9. Get Transaction by Id</h2>
+            <form method="post" asp-page-handler="GetTransaction" class="ds-form-grid">
+                <div><label>Transaction Id</label><input type="number" name="GetTransactionId" value="@Model.GetTransactionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="mtxn-btn-get">Get Transaction</button></div>
+            </form>
+
+            @if (Model.TransactionView is not null)
+            {
+                var t = Model.TransactionView;
+                <div class="ds-mt-3" data-testid="mtxn-view-card">
+                    <h3 class="ds-h3">Transaction @t.Id (@t.TransactionNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Type / Status</dt><dd>@t.TransactionType / @t.Status</dd>
+                        <dt>PRO / BOM Line / Item</dt><dd>@t.ProductionOrderId / @t.BomLineId / @t.ItemId</dd>
+                        <dt>Quantity / UoM</dt><dd>@t.Quantity.ToString("N4") @(t.Uom ?? "—")</dd>
+                        <dt>Before / After</dt><dd>@(t.QuantityBeforeTransaction?.ToString("N4") ?? "—") / @(t.QuantityAfterTransaction?.ToString("N4") ?? "—")</dd>
+                        <dt>From WH/Bin</dt><dd>@(t.FromWarehouse ?? "—") / @(t.FromBin ?? "—")</dd>
+                        <dt>To WH/Bin</dt><dd>@(t.ToWarehouse ?? "—") / @(t.ToBin ?? "—")</dd>
+                        <dt>Lot / Serial / Heat</dt><dd>@(t.LotNumber ?? "—") / @(t.SerialNumber ?? "—") / @(t.HeatNumber ?? "—")</dd>
+                        <dt>Unit Cost / Extended</dt><dd>@(t.ActualUnitCost?.ToString("N4") ?? "—") / @(t.ExtendedCost?.ToString("N4") ?? "—")</dd>
+                        <dt>Cost Bucket</dt><dd>@t.CostBucket</dd>
+                        <dt>Reason</dt><dd>@(t.ReasonCode ?? "—") / @(t.ReasonDescription ?? "—")</dd>
+                        <dt>Is Reversal / Original</dt><dd>@t.IsReversal / @(t.OriginalTransactionId?.ToString() ?? "—")</dd>
+                        <dt>Transfer Pair / Dest PRO</dt><dd>@(t.TransferPairId ?? "—") / @(t.TransferProductionOrderId?.ToString() ?? "—")</dd>
+                        <dt>Transfer Reason</dt><dd>@(t.TransferReason ?? "—")</dd>
+                        <dt>Supervisor Override</dt><dd>@t.SupervisorOverride @(t.SupervisorOverrideBy ?? "")</dd>
+                        <dt>Original Item (subst)</dt><dd>@(t.OriginalItemId?.ToString() ?? "—")</dd>
+                        <dt>Substitution</dt><dd>@(t.SubstitutionReason ?? "—") / @(t.SubstitutionAuthReference ?? "—")</dd>
+                        <dt>Performed By</dt><dd>@(t.PerformedBy ?? "—")</dd>
+                        <dt>Transaction Date</dt><dd>@t.TransactionDateUtc.ToString("u")</dd>
+                        <dt>Created / Updated</dt><dd>@t.CreatedAt.ToString("u") / @(t.UpdatedAt?.ToString("u") ?? "—")</dd>
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+</main>
