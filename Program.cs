@@ -369,6 +369,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
     Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
 
+// B8 PR-PRO-7 (2026-05-27) — IOperationReadinessService.
+// "Can I Run This?" 8-check readiness engine: Materials Ready (supply link),
+// Prior Op Complete, Resource Available, Labor Qualified, Quality Clear,
+// Documents Current, Tooling Ready, Maintenance Clear. THE BIC DIFFERENTIATOR.
+// Per docs/research/material-supply-link-spec-2026-05-27.md.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IOperationReadinessService,
+    Abs.FixedAssets.Services.Production.OperationReadinessService>();
+
 // B8 PR-PRO-6 (2026-05-27) — IProductionCompletionService.
 // Atomic Complete + Scrap + Rework event posting with auto-advance integration,
 // 5-dimensional scrap analysis, and rework routing. AS9100 §8.5.1 + §8.7.
