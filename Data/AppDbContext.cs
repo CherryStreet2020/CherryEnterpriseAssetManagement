@@ -539,6 +539,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.Concession> Concessions =>
             Set<Abs.FixedAssets.Models.Engineering.Concession>();
 
+        // Sprint 14.3 PR-5 — Customer Notice (outbound change notification to customers)
+        public DbSet<Abs.FixedAssets.Models.Engineering.CustomerNotice> CustomerNotices =>
+            Set<Abs.FixedAssets.Models.Engineering.CustomerNotice>();
+
+        // Sprint 14.3 PR-5 — Supplier PCN (outbound process change notification to suppliers)
+        public DbSet<Abs.FixedAssets.Models.Engineering.SupplierProcessChangeNotification> SupplierProcessChangeNotifications =>
+            Set<Abs.FixedAssets.Models.Engineering.SupplierProcessChangeNotification>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2318,6 +2326,69 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Customer).WithMany()
                     .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-5 — CustomerNotice entity config.
+            // Outbound notification to customers for engineering changes.
+            // Unique on (CompanyId, NoticeNumber). FKs: Customer (SetNull), Item (Restrict),
+            // OriginatingEcr (SetNull), OriginatingDeviation (SetNull),
+            // OriginatingWaiver (SetNull), OriginatingConcession (SetNull).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.CustomerNotice>(e =>
+            {
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.CustomerNoticeType.EngineeringChange);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.CustomerNoticeStatus.Draft);
+                e.Property(x => x.DeliveryMethod)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.NotificationDeliveryMethod.Email);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.NoticeNumber })
+                    .IsUnique().HasDatabaseName("UX_CustomerNotice_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_CustomerNotice_Status");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.CustomerId);
+                e.HasOne(x => x.Customer).WithMany()
+                    .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.OriginatingEcr).WithMany()
+                    .HasForeignKey(x => x.OriginatingEcrId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingDeviation).WithMany()
+                    .HasForeignKey(x => x.OriginatingDeviationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingWaiver).WithMany()
+                    .HasForeignKey(x => x.OriginatingWaiverId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingConcession).WithMany()
+                    .HasForeignKey(x => x.OriginatingConcessionId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-5 — SupplierProcessChangeNotification entity config.
+            // Outbound PCN to suppliers for process/material/tooling changes.
+            // Unique on (CompanyId, PcnNumber). FKs: Vendor (SetNull), Item (Restrict),
+            // OriginatingEcr (SetNull).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.SupplierProcessChangeNotification>(e =>
+            {
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.PcnType.ProcessChange);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.PcnStatus.Draft);
+                e.Property(x => x.DeliveryMethod)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.NotificationDeliveryMethod.Email);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.PcnNumber })
+                    .IsUnique().HasDatabaseName("UX_SupplierPcn_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_SupplierPcn_Status");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.VendorId);
+                e.HasOne(x => x.Vendor).WithMany()
+                    .HasForeignKey(x => x.VendorId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.OriginatingEcr).WithMany()
+                    .HasForeignKey(x => x.OriginatingEcrId).OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
