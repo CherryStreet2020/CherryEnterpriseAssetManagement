@@ -338,6 +338,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDocumentService
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IEcrEcoService,
     Abs.FixedAssets.Services.Engineering.EcrEcoService>();
 
+// Sprint 14.3 PR-2 (2026-05-27) — IDeviationService.
+// Short-term engineering exceptions (material / process / dimensional /
+// documentation / supplier). Lifecycle: Draft → Submitted → Approved →
+// Active → Expired/Closed. Quantity + date limits with auto-expiry.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDeviationService,
+    Abs.FixedAssets.Services.Engineering.DeviationService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering

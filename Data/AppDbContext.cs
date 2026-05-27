@@ -527,6 +527,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.EcoApproval> EcoApprovals =>
             Set<Abs.FixedAssets.Models.Engineering.EcoApproval>();
 
+        // Sprint 14.3 PR-2 — Deviation (short-term engineering exception)
+        public DbSet<Abs.FixedAssets.Models.Engineering.Deviation> Deviations =>
+            Set<Abs.FixedAssets.Models.Engineering.Deviation>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2201,6 +2205,43 @@ namespace Abs.FixedAssets.Data
                     .WithMany(eco => eco.Approvals)
                     .HasForeignKey(x => x.EcoId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Sprint 14.3 PR-2 (2026-05-27) — Deviation (short-term engineering
+            // exception). Tenant trio + xmin + enum defaults per HARD LOCKS.
+            // Unique on (CompanyId, DeviationNumber). FKs: Item (Restrict),
+            // ProductionOrder (SetNull), OriginatingEcr (SetNull).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.Deviation>(e =>
+            {
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.DeviationType.Material);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.DeviationStatus.Draft);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.CompanyId, x.DeviationNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Deviation_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_Deviation_Status");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.ProductionOrderId);
+                e.HasIndex(x => x.ExpirationDateUtc).HasDatabaseName("IX_Deviation_Expiry");
+
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingEcr)
+                    .WithMany()
+                    .HasForeignKey(x => x.OriginatingEcrId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
