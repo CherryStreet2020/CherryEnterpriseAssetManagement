@@ -535,6 +535,10 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.Waiver> Waivers =>
             Set<Abs.FixedAssets.Models.Engineering.Waiver>();
 
+        // Sprint 14.3 PR-4 — Concession (retroactive customer acceptance of non-conforming material)
+        public DbSet<Abs.FixedAssets.Models.Engineering.Concession> Concessions =>
+            Set<Abs.FixedAssets.Models.Engineering.Concession>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2275,6 +2279,33 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.TenantId);
                 e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.Status).HasDatabaseName("IX_Waiver_Status");
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.CustomerId);
+                e.HasOne(x => x.Item).WithMany()
+                    .HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder).WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.OriginatingEcr).WithMany()
+                    .HasForeignKey(x => x.OriginatingEcrId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.RelatedDeviation).WithMany()
+                    .HasForeignKey(x => x.RelatedDeviationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Customer).WithMany()
+                    .HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.3 PR-4 — Concession entity config.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.Concession>(e =>
+            {
+                e.Property(x => x.Type)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ConcessionType.Material);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ConcessionStatus.Draft);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ConcessionNumber })
+                    .IsUnique().HasDatabaseName("UX_Concession_Company_Number");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_Concession_Status");
                 e.HasIndex(x => x.ItemId);
                 e.HasIndex(x => x.CustomerId);
                 e.HasOne(x => x.Item).WithMany()

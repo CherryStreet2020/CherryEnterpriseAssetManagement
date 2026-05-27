@@ -1,0 +1,170 @@
+@page "/Admin/ConcessionProbe"
+@model Abs.FixedAssets.Pages.Admin.ConcessionProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "Concession Probe";
+    ViewData["TabTitle"] = "Concession Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.3 PR-4 (2026-05-27) — admin probe for IConcessionService.
+    SIX WRITE BUTTONS per the Lock 16 corollary from PR #365:
+      1. Create Concession
+      2. Submit Concession (Draft → Submitted)
+      3. Accept Concession (customer accepts non-conforming material)
+      4. Reject Concession (with RejectedDisposition dropdown + reason)
+      5. Close Concession (Accepted → Closed administrative close)
+      6. Get Concession (read form)
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Concession Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Retroactive customer acceptance of already-produced non-conforming material (Sprint 14.3).
+            Lifecycle: Draft &rarr; Submitted &rarr; CustomerReview &rarr; Accepted &rarr; Closed.
+            AS9100 &sect;8.7.1 customer disposition approval for non-conforming product.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="con-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="con-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create Concession</h2>
+            <form method="post" asp-page-handler="Create" class="ds-form-grid">
+                <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+                <div><label>ConcessionNumber</label><input type="text" name="CreateConcessionNumber" value="@Model.CreateConcessionNumber" placeholder="CON-2026-BRG-001" required class="ds-input" /></div>
+                <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" placeholder="Retroactive acceptance of bearing with non-conforming surface finish" required class="ds-input" /></div>
+                <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+                <div><label>Type</label>
+                    <select name="CreateType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<ConcessionType>()) { <option value="@t" selected="@(t == Model.CreateType)">@t</option> }
+                    </select>
+                </div>
+                <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
+                <div><label>ProductionOrderId (optional)</label><input type="number" name="CreateProductionOrderId" value="@Model.CreateProductionOrderId" class="ds-input" /></div>
+                <div><label>AffectedQuantity</label><input type="number" step="0.0001" name="CreateAffectedQuantity" value="@Model.CreateAffectedQuantity" placeholder="50" required class="ds-input" /></div>
+                <div><label>Affected Lot/Serials (optional)</label><input type="text" name="CreateAffectedLotSerials" value="@Model.CreateAffectedLotSerials" placeholder="LOT-2026-0187, LOT-2026-0188" class="ds-input" /></div>
+                <div><label>CustomerId (optional)</label><input type="number" name="CreateCustomerId" value="@Model.CreateCustomerId" class="ds-input" /></div>
+                <div><label>Original Specification</label><input type="text" name="CreateOriginalSpec" value="@Model.CreateOriginalSpec" placeholder="Ra 0.8 µm max per BAMS-3320 §4.2" class="ds-input" /></div>
+                <div><label>Actual Condition</label><input type="text" name="CreateActualCondition" value="@Model.CreateActualCondition" placeholder="Ra 1.2 µm measured on 3 of 50 bearings" class="ds-input" /></div>
+                <div><label>Justification</label><input type="text" name="CreateJustification" value="@Model.CreateJustification" placeholder="Non-critical ground-support application — stress analysis confirms adequate margin" class="ds-input" /></div>
+                <div><label>Disposition</label><input type="text" name="CreateDisposition" value="@Model.CreateDisposition" placeholder="Use as-is per customer acceptance for non-flight applications" class="ds-input" /></div>
+                <div><label>NCR Reference</label><input type="text" name="CreateNcrReference" value="@Model.CreateNcrReference" placeholder="NCR-2026-0042" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="con-btn-create">Create Concession</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Submit Concession (Draft &rarr; Submitted)</h2>
+            <form method="post" asp-page-handler="Submit" class="ds-form-grid">
+                <div><label>ConcessionId</label><input type="number" name="ConcessionId" value="@Model.ConcessionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="con-btn-submit">Submit</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Accept Concession (customer accepts non-conforming material)</h2>
+            <form method="post" asp-page-handler="Accept" class="ds-form-grid">
+                <div><label>ConcessionId</label><input type="number" name="AcceptConcessionId" value="@Model.AcceptConcessionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="con-btn-accept">Accept</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Reject Concession (with disposition)</h2>
+            <form method="post" asp-page-handler="Reject" class="ds-form-grid">
+                <div><label>ConcessionId</label><input type="number" name="RejectConcessionId" value="@Model.RejectConcessionId" required class="ds-input" /></div>
+                <div><label>Rejected Disposition</label>
+                    <select name="RejectDisposition" class="ds-input">
+                        @foreach (var d in System.Enum.GetValues<RejectedDisposition>()) { <option value="@d" selected="@(d == Model.RejectDisposition)">@d</option> }
+                    </select>
+                </div>
+                <div><label>Reason</label><input type="text" name="RejectReason" value="@Model.RejectReason" placeholder="Surface finish outside customer tolerance — rework to spec required" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="con-btn-reject">Reject</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Close Concession (Accepted &rarr; Closed)</h2>
+            <form method="post" asp-page-handler="Close" class="ds-form-grid">
+                <div><label>ConcessionId</label><input type="number" name="CloseConcessionId" value="@Model.CloseConcessionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="con-btn-close">Close</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Get Concession by Id</h2>
+            <form method="post" asp-page-handler="GetConcession" class="ds-form-grid">
+                <div><label>ConcessionId</label><input type="number" name="GetConcessionId" value="@Model.GetConcessionId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="con-btn-get">Get Concession</button></div>
+            </form>
+
+            @if (Model.ConcessionView is not null)
+            {
+                var c = Model.ConcessionView;
+                <div class="ds-mt-3" data-testid="con-view-card">
+                    <h3 class="ds-h3">Concession @c.Id (@c.ConcessionNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@c.Title</dd>
+                        <dt>Status / Type</dt><dd>@c.Status / @c.Type</dd>
+                        <dt>Item / PRO / ECR</dt><dd>@(c.ItemId?.ToString() ?? "—") / @(c.ProductionOrderId?.ToString() ?? "—") / @(c.OriginatingEcrId?.ToString() ?? "—")</dd>
+                        <dt>Related Deviation</dt><dd>@(c.RelatedDeviationId?.ToString() ?? "—")</dd>
+                        <dt>Customer</dt><dd>@(c.CustomerId?.ToString() ?? "—")</dd>
+                        <dt>Affected Qty</dt><dd>@c.AffectedQuantity.ToString("N4")</dd>
+                        <dt>Affected Lot/Serials</dt><dd>@(c.AffectedLotSerials ?? "—")</dd>
+                        <dt>NCR Reference</dt><dd>@(c.NcrReference ?? "—")</dd>
+                        <dt>F/F/F</dt><dd>Form=@c.AffectsForm Fit=@c.AffectsFit Function=@c.AffectsFunction</dd>
+                        <dt>Safety Impact</dt><dd>@c.SafetyImpact</dd>
+                        <dt>Original Spec</dt><dd>@(c.OriginalSpecification ?? "—")</dd>
+                        <dt>Actual Condition</dt><dd>@(c.ActualCondition ?? "—")</dd>
+                        <dt>Justification</dt><dd>@(c.Justification ?? "—")</dd>
+                        <dt>Disposition</dt><dd>@(c.Disposition ?? "—")</dd>
+                        <dt>Requested By / At</dt><dd>@(c.RequestedBy ?? "—") / @(c.RequestedAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>Accepted By / At</dt><dd>@(c.AcceptedBy ?? "—") / @(c.AcceptedAtUtc?.ToString("u") ?? "—")</dd>
+                        @if (c.Status == ConcessionStatus.Rejected)
+                        {
+                            <dt>Rejected By / At</dt><dd>@(c.RejectedBy ?? "—") / @(c.RejectedAtUtc?.ToString("u") ?? "—")</dd>
+                            <dt>Rejected Disposition</dt><dd>@(c.RejectedDisposition?.ToString() ?? "—")</dd>
+                            <dt>Rejection Reason</dt><dd>@c.RejectionReason</dd>
+                        }
+                        <dt>Customer Contract Ref</dt><dd>@(c.CustomerContractReference ?? "—")</dd>
+                        <dt>Customer Accepting Authority</dt><dd>@(c.CustomerAcceptingAuthority ?? "—")</dd>
+                        <dt>Customer Acceptance Date / Doc #</dt><dd>@(c.CustomerAcceptanceDateUtc?.ToString("u") ?? "—") / @(c.CustomerAcceptanceDocumentNumber ?? "—")</dd>
+                        <dt>Created / Updated</dt><dd>@c.CreatedAt.ToString("u") / @(c.UpdatedAt?.ToString("u") ?? "—")</dd>
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+</main>
