@@ -138,6 +138,90 @@ namespace Abs.FixedAssets.Models.Production
         Material = 0, Subcontract = 1, Tooling = 2, Burden = 3,
     }
 
+    // B8 PR-PRO-7 enums (2026-05-27) — Material Supply Link + "Can I Run This?"
+    // per material-supply-link-spec-2026-05-27.md.
+
+    /// <summary>
+    /// How the material reaches the production floor. Determines the supply
+    /// source type and drives the "Can I Run This?" readiness aggregation.
+    /// SAP PP supply type / Oracle WMS replenishment method / D365 supply policy.
+    /// </summary>
+    public enum MaterialSupplyType
+    {
+        /// <summary>PO line buying specifically for this job.</summary>
+        PurchaseToJob = 0,
+        /// <summary>Open PO line, inventory availability, or planned PO.</summary>
+        PurchaseToInventory = 1,
+        /// <summary>Supplying Work Order / Job making this part.</summary>
+        MakeToJob = 2,
+        /// <summary>Open supply WO or available inventory.</summary>
+        MakeToInventory = 3,
+        /// <summary>Transfer order / inventory movement from another site/WH.</summary>
+        Transfer = 4,
+        /// <summary>Warehouse/bin/lot/serial reservation from on-hand.</summary>
+        ExistingInventory = 5,
+        /// <summary>Floorstock location or kanban source.</summary>
+        Floorstock = 6,
+        /// <summary>PO line or outside-service operation.</summary>
+        Subcontract = 7,
+    }
+
+    /// <summary>
+    /// Current supply status for a BOM line. Drives the readiness traffic-light
+    /// aggregation: Available/Received = green, Ordered/InProcess = yellow,
+    /// Late/Short/OnHold = red. The UI surfaces the "why" behind each status.
+    /// </summary>
+    public enum MaterialSupplyStatus
+    {
+        /// <summary>Material is on hand and reserved/available.</summary>
+        Available = 0,
+        /// <summary>PO or WO created, not yet received/completed.</summary>
+        Ordered = 1,
+        /// <summary>WO in production, PO in transit.</summary>
+        InProcess = 2,
+        /// <summary>PO received or WO completed — material in stock.</summary>
+        Received = 3,
+        /// <summary>Past required date, not yet received.</summary>
+        Late = 4,
+        /// <summary>Insufficient quantity available or ordered.</summary>
+        Short = 5,
+        /// <summary>Quality hold, inspection hold, or credit hold.</summary>
+        OnHold = 6,
+    }
+
+    /// <summary>
+    /// What kind of supply record is linked to this BOM line. Polymorphic FK
+    /// pattern — LinkedSupplyRecordId + LinkedSupplyRecordType resolves to the
+    /// actual PO, WO, reservation, or transfer.
+    /// </summary>
+    public enum LinkedSupplyRecordType
+    {
+        /// <summary>No linked supply record.</summary>
+        None = 0,
+        /// <summary>Purchase Order line.</summary>
+        PurchaseOrder = 1,
+        /// <summary>Work Order / Production Order.</summary>
+        WorkOrder = 2,
+        /// <summary>Inventory reservation.</summary>
+        InventoryReservation = 3,
+        /// <summary>Transfer order from another site/warehouse.</summary>
+        TransferOrder = 4,
+    }
+
+    /// <summary>
+    /// Risk level for the supply to this BOM line. Aggregated at the operation
+    /// level by IOperationReadinessService to drive the "Can I Run This?" indicator.
+    /// </summary>
+    public enum SupplyRisk
+    {
+        /// <summary>No risk — on time and sufficient.</summary>
+        None = 0,
+        /// <summary>At risk — supply is close to need date or partial.</summary>
+        Warning = 1,
+        /// <summary>Blocked — late, short, or on hold.</summary>
+        Critical = 2,
+    }
+
     /// <summary>
     /// Per-ProductionOrder frozen BOM line. Captured at PO release by
     /// <c>IPoSnapshotService.CaptureAsync</c>. Survives subsequent engineering
@@ -390,6 +474,91 @@ namespace Abs.FixedAssets.Models.Production
         // ===== Per-line cost ================================================
         public CostBucket CostBucket { get; set; } = CostBucket.Material;
         public bool CustomerChargeable { get; set; }
+
+        // ===== B8 PR-PRO-7 — Material Supply Link (19 cols) ==================
+        // "Don't say short — say WHY." Each BOM line tracks its actual supply
+        // source (PO, WO, inventory reservation, transfer) with dates, quantities,
+        // and risk scoring. IOperationReadinessService aggregates across all BOM
+        // lines per op to produce the "Can I Run This?" 8-check indicator.
+        // See: docs/research/material-supply-link-spec-2026-05-27.md.
+
+        /// <summary>How this material reaches the floor (PurchaseToJob, MakeToJob, Transfer, etc.).</summary>
+        public MaterialSupplyType MaterialSupplyType { get; set; } = MaterialSupplyType.PurchaseToJob;
+
+        /// <summary>Current supply status — drives traffic-light aggregation.</summary>
+        public MaterialSupplyStatus MaterialSupplyStatus { get; set; } = MaterialSupplyStatus.Available;
+
+        /// <summary>Polymorphic FK discriminator — what kind of supply record is linked.</summary>
+        public LinkedSupplyRecordType LinkedSupplyRecordType { get; set; } = LinkedSupplyRecordType.None;
+
+        /// <summary>FK to the linked supply record (PO Id, WO Id, Transfer Id, Reservation Id).</summary>
+        public int? LinkedSupplyRecordId { get; set; }
+
+        /// <summary>FK to the linked supply record line (PO line Id, Job material line Id, etc.).</summary>
+        public int? LinkedSupplyLineId { get; set; }
+
+        /// <summary>Human-readable supply reference: "PO 45678", "WO 98765", "RES-1234".</summary>
+        [StringLength(48)]
+        [Display(Name = "Supply Record Number")]
+        public string? LinkedSupplyRecordNumber { get; set; }
+
+        /// <summary>Vendor name or internal department supplying this material.</summary>
+        [StringLength(200)]
+        [Display(Name = "Supplier / Department")]
+        public string? SupplierOrDepartment { get; set; }
+
+        /// <summary>Buyer or planner responsible for this supply line.</summary>
+        [StringLength(120)]
+        [Display(Name = "Buyer / Planner")]
+        public string? BuyerOrPlanner { get; set; }
+
+        /// <summary>Date this material is needed for this PRO/operation.</summary>
+        [Display(Name = "Required Date")]
+        public DateTime? SupplyRequiredDate { get; set; }
+
+        /// <summary>Date supply is expected (promised ship/completion date).</summary>
+        [Display(Name = "Promised Date")]
+        public DateTime? SupplyPromisedDate { get; set; }
+
+        /// <summary>Earliest usable date (received + cleared inspection).</summary>
+        [Display(Name = "Available Date")]
+        public DateTime? SupplyAvailableDate { get; set; }
+
+        /// <summary>Total quantity required from the supply source.</summary>
+        [Column(TypeName = "decimal(18,4)")]
+        [Display(Name = "Qty Required")]
+        public decimal SupplyQuantityRequired { get; set; }
+
+        /// <summary>Quantity linked/committed from the supply source.</summary>
+        [Column(TypeName = "decimal(18,4)")]
+        [Display(Name = "Qty Supplied")]
+        public decimal SupplyQuantitySupplied { get; set; }
+
+        /// <summary>Quantity actually received/available for use.</summary>
+        [Column(TypeName = "decimal(18,4)")]
+        [Display(Name = "Qty Received")]
+        public decimal SupplyQuantityReceived { get; set; }
+
+        /// <summary>Quantity still outstanding (Required - Received).</summary>
+        [Column(TypeName = "decimal(18,4)")]
+        [Display(Name = "Qty Remaining")]
+        public decimal SupplyQuantityRemaining { get; set; }
+
+        /// <summary>Computed flag: supply is late to the need date.</summary>
+        [Display(Name = "Late to Need Date")]
+        public bool LateToNeedDate { get; set; }
+
+        /// <summary>Risk level for this supply line — aggregated at op level for readiness check.</summary>
+        public SupplyRisk SupplyRisk { get; set; } = SupplyRisk.None;
+
+        /// <summary>Freeform notes on supply status, exceptions, escalations.</summary>
+        [StringLength(2000)]
+        [Display(Name = "Supply Notes")]
+        public string? SupplyNotes { get; set; }
+
+        /// <summary>Timestamp of last supply status refresh from source system.</summary>
+        [Display(Name = "Last Supply Refresh")]
+        public DateTime? LastSupplyRefreshUtc { get; set; }
 
         // ===== Audit + concurrency =========================================
 

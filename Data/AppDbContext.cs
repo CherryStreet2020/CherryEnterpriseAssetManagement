@@ -2016,6 +2016,29 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.ConsumingOperationSequence).HasDatabaseName("IX_ProdMatStruct_ConsumingOpSeq");
                 e.HasOne(x => x.AlternateBomLine).WithMany()
                     .HasForeignKey(x => x.AlternateBomLineId).OnDelete(DeleteBehavior.SetNull);
+
+                // B8 PR-PRO-7 — Material Supply Link enum defaults + indexes.
+                // HARD LOCK feedback_b6_enum_defaults_must_match_model.md: every
+                // enum column MUST have HasDefaultValue matching the model default
+                // BEFORE migration generation.
+                e.Property(x => x.MaterialSupplyType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.MaterialSupplyType.PurchaseToJob);
+                e.Property(x => x.MaterialSupplyStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.MaterialSupplyStatus.Available);
+                e.Property(x => x.LinkedSupplyRecordType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.LinkedSupplyRecordType.None);
+                e.Property(x => x.SupplyRisk)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SupplyRisk.None);
+
+                // Supply link read-path indexes.
+                e.HasIndex(x => x.MaterialSupplyStatus)
+                    .HasDatabaseName("IX_ProdMatStruct_SupplyStatus");
+                e.HasIndex(x => x.SupplyRisk)
+                    .HasDatabaseName("IX_ProdMatStruct_SupplyRisk");
+                e.HasIndex(x => new { x.LinkedSupplyRecordType, x.LinkedSupplyRecordId })
+                    .HasDatabaseName("IX_ProdMatStruct_LinkedSupply");
+                e.HasIndex(x => x.SupplyRequiredDate)
+                    .HasDatabaseName("IX_ProdMatStruct_SupplyRequiredDate");
             });
 
             // Sprint 14.2 PR-1 (2026-05-26 evening) — DMS substrate.

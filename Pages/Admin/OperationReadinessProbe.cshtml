@@ -1,0 +1,120 @@
+@page "/Admin/OperationReadinessProbe"
+@model Abs.FixedAssets.Pages.Admin.OperationReadinessProbeModel
+@using Abs.FixedAssets.Services.Production
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Operation Readiness Probe";
+    ViewData["TabTitle"] = "Operation Readiness Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Operation Readiness Probe &mdash; &quot;Can I Run This?&quot;</h1>
+        <p class="ds-page-header__subtitle">
+            8-check readiness engine + Material Supply Link management (B8 PR-PRO-7).
+            Don't say "short" &mdash; say WHY: "Waiting on PO 45678, due 6/12, 50 need / 38 recv'd."
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="readiness-outcome-error">@Model.Outcome</p> }
+            else { <p class="ds-text-success" data-testid="readiness-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Check Single Operation Readiness (8 checks)</h2>
+        <form method="post" asp-page-handler="CheckOperation" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="CheckOpId" value="@Model.CheckOpId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-check-op">Check Readiness (READ)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Check Full PRO Readiness (all operations)</h2>
+        <form method="post" asp-page-handler="CheckOrder" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="CheckProId" value="@Model.CheckProId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-check-pro">Check All Operations (READ)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Link Supply to BOM Line (CREATE INSERT)</h2>
+        <form method="post" asp-page-handler="LinkSupply" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="LinkCompanyId" value="@Model.LinkCompanyId" required class="ds-input" /></div>
+            <div><label>BOM Line Id</label><input type="number" name="LinkBomLineId" value="@Model.LinkBomLineId" required class="ds-input" /></div>
+            <div><label>Supply Type</label><select name="LinkSupplyType" class="ds-input">@foreach (var s in System.Enum.GetValues<MaterialSupplyType>()) { if (s == Model.LinkSupplyType) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Record Type</label><select name="LinkRecordType" class="ds-input">@foreach (var s in System.Enum.GetValues<LinkedSupplyRecordType>()) { if (s == Model.LinkRecordType) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Linked Record Id</label><input type="number" name="LinkRecordId" value="@Model.LinkRecordId" class="ds-input" /></div>
+            <div><label>Linked Line Id</label><input type="number" name="LinkLineId" value="@Model.LinkLineId" class="ds-input" /></div>
+            <div><label>Record Number</label><input type="text" name="LinkRecordNumber" value="@Model.LinkRecordNumber" class="ds-input" /></div>
+            <div><label>Supplier / Dept</label><input type="text" name="LinkSupplier" value="@Model.LinkSupplier" class="ds-input" /></div>
+            <div><label>Buyer / Planner</label><input type="text" name="LinkBuyer" value="@Model.LinkBuyer" class="ds-input" /></div>
+            <div><label>Required Date</label><input type="date" name="LinkRequiredDate" value="@Model.LinkRequiredDate?.ToString("yyyy-MM-dd")" class="ds-input" /></div>
+            <div><label>Promised Date</label><input type="date" name="LinkPromisedDate" value="@Model.LinkPromisedDate?.ToString("yyyy-MM-dd")" class="ds-input" /></div>
+            <div><label>Qty Required</label><input type="number" step="0.01" name="LinkQtyRequired" value="@Model.LinkQtyRequired" class="ds-input" /></div>
+            <div><label>Qty Supplied</label><input type="number" step="0.01" name="LinkQtySupplied" value="@Model.LinkQtySupplied" class="ds-input" /></div>
+            <div><label>Notes</label><input type="text" name="LinkNotes" value="@Model.LinkNotes" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-link-supply">Link Supply (CREATE INSERT)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Unlink Supply from BOM Line (UPDATE)</h2>
+        <form method="post" asp-page-handler="UnlinkSupply" class="ds-form-grid">
+            <div><label>BOM Line Id</label><input type="number" name="UnlinkBomLineId" value="@Model.UnlinkBomLineId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-unlink-supply">Unlink Supply (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Update Supply Status (UPDATE)</h2>
+        <form method="post" asp-page-handler="UpdateStatus" class="ds-form-grid">
+            <div><label>BOM Line Id</label><input type="number" name="UpdBomLineId" value="@Model.UpdBomLineId" required class="ds-input" /></div>
+            <div><label>Status</label><select name="UpdStatus" class="ds-input">@foreach (var s in System.Enum.GetValues<MaterialSupplyStatus>()) { if (s == Model.UpdStatus) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Risk</label><select name="UpdRisk" class="ds-input">@foreach (var s in System.Enum.GetValues<SupplyRisk>()) { if (s == Model.UpdRisk) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Qty Received</label><input type="number" step="0.01" name="UpdQtyReceived" value="@Model.UpdQtyReceived" class="ds-input" /></div>
+            <div><label>Qty Remaining</label><input type="number" step="0.01" name="UpdQtyRemaining" value="@Model.UpdQtyRemaining" class="ds-input" /></div>
+            <div><label><input type="checkbox" name="UpdLateToNeed" value="true" @(Model.UpdLateToNeed ? "checked" : "") /> Late to Need Date</label></div>
+            <div><label>Notes</label><input type="text" name="UpdNotes" value="@Model.UpdNotes" class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-update-status">Update Status (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Refresh Supply Links for PRO (UPDATE)</h2>
+        <form method="post" asp-page-handler="RefreshSupply" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="RefreshProId" value="@Model.RefreshProId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-refresh-supply">Refresh Supply Links (UPDATE)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Get Supply Links for Operation (READ)</h2>
+        <form method="post" asp-page-handler="GetOpLinks" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="GetOpLinksId" value="@Model.GetOpLinksId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-get-op-links">Get Supply Links (READ)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Get Supply Links for PRO (READ)</h2>
+        <form method="post" asp-page-handler="GetProLinks" class="ds-form-grid">
+            <div><label>PRO Id</label><input type="number" name="GetProLinksId" value="@Model.GetProLinksId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-get-pro-links">Get Supply Links (READ)</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">9. Check Material Readiness for Operation (READ)</h2>
+        <form method="post" asp-page-handler="CheckMaterials" class="ds-form-grid">
+            <div><label>Operation Id</label><input type="number" name="MatCheckOpId" value="@Model.MatCheckOpId" required class="ds-input" /></div>
+            <button type="submit" class="ds-btn ds-btn--primary" data-testid="btn-check-materials">Check Material Readiness (READ)</button>
+        </form>
+    </div></section>
+</main>
