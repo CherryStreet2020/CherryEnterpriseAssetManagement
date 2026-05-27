@@ -372,6 +372,9 @@ namespace Abs.FixedAssets.Services.Production
             if (original.Status == WipMoveStatus.Completed)
             {
                 toOp.AvailableQty = Math.Max(0, toOp.AvailableQty - original.Quantity);
+                // P2 fix: send-back reversal must also decrement rework qty
+                if (original.MoveType == WipMoveType.SendBack)
+                    toOp.ReworkQty = Math.Max(0, toOp.ReworkQty - original.Quantity);
                 toOp.ModifiedAt = DateTime.UtcNow;
                 toOp.ModifiedBy = reversedBy;
             }
@@ -422,7 +425,7 @@ namespace Abs.FixedAssets.Services.Production
             string? reason, int? triggeringTransactionId, string movedBy)
         {
             var ts = DateTime.UtcNow;
-            var moveNumber = $"WM-{ts:yyyyMMddHHmmss}-{fromOp.ProductionOrderId}-{fromOp.SequenceNumber}-{toOp.SequenceNumber}";
+            var moveNumber = $"WM-{ts:yyyyMMddHHmmssfff}-{fromOp.ProductionOrderId}-{fromOp.SequenceNumber}-{toOp.SequenceNumber}";
 
             return new ProductionWipMove
             {

@@ -17,7 +17,7 @@ namespace Abs.FixedAssets.Migrations
                 table: "ProductionOperations",
                 type: "boolean",
                 nullable: false,
-                defaultValue: false);
+                defaultValue: true);
 
             migrationBuilder.AddColumn<decimal>(
                 name: "AvailableQty",
