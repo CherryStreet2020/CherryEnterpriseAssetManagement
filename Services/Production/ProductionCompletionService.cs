@@ -42,6 +42,14 @@ namespace Abs.FixedAssets.Services.Production
             if (op == null)
                 return Result.Failure<ProductionCompletionEvent>($"Operation {req.OperationId} not found.");
 
+            // P1 fix: validate operation belongs to the posted production order
+            if (op.ProductionOrderId != req.ProductionOrderId)
+                return Result.Failure<ProductionCompletionEvent>(
+                    $"Operation {req.OperationId} belongs to PRO {op.ProductionOrderId}, not PRO {req.ProductionOrderId}.");
+
+            // P1 fix: cap move quantity to good quantity — cannot advance scrap/rework/reject
+            var safeMoveQty = Math.Min(req.MoveQuantityToNextOp, req.GoodQuantity);
+
             var ts = DateTime.UtcNow;
             var completionNumber = $"CMP-{ts:yyyyMMddHHmmssfff}-{req.ProductionOrderId}-{op.SequenceNumber}";
 
@@ -88,10 +96,10 @@ namespace Abs.FixedAssets.Services.Production
             await _db.SaveChangesAsync(ct);
 
             // Trigger auto-advance for good quantity if auto-advance is enabled
-            if (req.MoveQuantityToNextOp > 0 && op.AutoAdvanceOnCompletion && !req.IsFinalOperation)
+            if (safeMoveQty > 0 && op.AutoAdvanceOnCompletion && !req.IsFinalOperation)
             {
                 var moveResult = await _wipMoveSvc.AutoAdvanceOnCompletionAsync(
-                    req.OperationId, req.MoveQuantityToNextOp, null, req.CompletedBy, ct);
+                    req.OperationId, safeMoveQty, null, req.CompletedBy, ct);
                 if (moveResult.IsSuccess)
                 {
                     evt.WipMoveId = moveResult.Value!.Id;
@@ -123,6 +131,9 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == req.DetectedAtOperationId, ct);
             if (detectedOp == null)
                 return Result.Failure<ProductionScrapEvent>($"Detected-at operation {req.DetectedAtOperationId} not found.");
+            if (detectedOp.ProductionOrderId != req.ProductionOrderId)
+                return Result.Failure<ProductionScrapEvent>(
+                    $"Operation {req.DetectedAtOperationId} belongs to PRO {detectedOp.ProductionOrderId}, not PRO {req.ProductionOrderId}.");
 
             var ts = DateTime.UtcNow;
             var scrapNumber = $"SCP-{ts:yyyyMMddHHmmssfff}-{req.ProductionOrderId}-{detectedOp.SequenceNumber}";
@@ -207,6 +218,9 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(o => o.Id == req.SourceOperationId, ct);
             if (sourceOp == null)
                 return Result.Failure<ProductionReworkEvent>($"Source operation {req.SourceOperationId} not found.");
+            if (sourceOp.ProductionOrderId != req.ProductionOrderId)
+                return Result.Failure<ProductionReworkEvent>(
+                    $"Operation {req.SourceOperationId} belongs to PRO {sourceOp.ProductionOrderId}, not PRO {req.ProductionOrderId}.");
 
             var ts = DateTime.UtcNow;
             var reworkNumber = $"RWK-{ts:yyyyMMddHHmmssfff}-{req.ProductionOrderId}-{sourceOp.SequenceNumber}";
