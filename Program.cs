@@ -356,6 +356,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IConcessionService,
     Abs.FixedAssets.Services.Engineering.ConcessionService>();
 
+// Sprint 14.3 PR-6 (2026-05-27) — ICorrectiveActionService.
+// CAR/CAPA 8D lifecycle: Draft → Issued → Investigation → RootCause →
+// CorrectiveActionPlanned → Implementation → Verification → Closed. AS9100 §10.2.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.ICorrectiveActionService,
+    Abs.FixedAssets.Services.Engineering.CorrectiveActionService>();
+
 // B8 PR-PRO-3 (2026-05-27) — IProductionMaterialTransactionService.
 // 12-action material movement service (Issue/IssueAll/IssueKit/PartialIssue/
 // OverIssue/Return/ReverseIssue/TransferToJob/TransferFromJob/Substitute/
