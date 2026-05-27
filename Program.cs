@@ -356,6 +356,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IWaiverService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IConcessionService,
     Abs.FixedAssets.Services.Engineering.ConcessionService>();
 
+// B8 PR-PRO-3 (2026-05-27) — IProductionMaterialTransactionService.
+// 12-action material movement service (Issue/IssueAll/IssueKit/PartialIssue/
+// OverIssue/Return/ReverseIssue/TransferToJob/TransferFromJob/Substitute/
+// Split/ScrapComponent). 6 enforced job-to-job transfer rules. Absorbs B2.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionMaterialTransactionService,
+    Abs.FixedAssets.Services.Production.ProductionMaterialTransactionService>();
+
 // Sprint 14.3 PR-5 (2026-05-27) — ICustomerNotificationService.
 // Outbound change notifications to customers. Lifecycle: Draft → Pending → Sent →
 // Acknowledged → Closed, with Dispute/Resolve side-path. AS9100 §8.5.6.
