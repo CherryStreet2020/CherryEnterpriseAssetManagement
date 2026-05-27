@@ -263,9 +263,16 @@ namespace Abs.FixedAssets.Services.Production
             op.ActualEnd = null; // Clear the end timestamp
             Stamp(op, performedBy);
 
-            var txn = await Post(op, OperationTransactionType.ReverseCompletion, before, performedBy, notes: reason, ct: ct);
-            if (txn.IsSuccess) txn.Value!.IsReversal = true;
-            return txn;
+            // P2 fix: set IsReversal BEFORE Post so it's persisted in the same SaveChanges.
+            var txn = CreateTxn(op, OperationTransactionType.ReverseCompletion, before, performedBy);
+            txn.IsReversal = true;
+            txn.Notes = reason;
+            _db.Set<ProductionOperationTransaction>().Add(txn);
+            await _db.SaveChangesAsync(ct);
+
+            _log.LogInformation("ReverseCompletion op {Seq} (PRO {PRO}): {Before}→{After}",
+                op.SequenceNumber, op.ProductionOrderId, before, op.Status);
+            return Result.Success(txn);
         }
 
         // =====================================================================
@@ -301,9 +308,15 @@ namespace Abs.FixedAssets.Services.Production
         {
             var newSeq = req.AfterOperationSequence + 5; // Insert between existing sequences
 
+            // P2 fix: look up the PRO to copy tenant snapshots (CompanyIdSnapshot + LocationIdSnapshot).
+            var pro = await _db.Set<ProductionOrder>().FindAsync(new object[] { req.ProductionOrderId }, ct);
+            if (pro is null) return Fail("Production order not found.");
+
             var newOp = new ProductionOperation
             {
                 ProductionOrderId = req.ProductionOrderId,
+                CompanyIdSnapshot = pro.CompanyId,
+                LocationIdSnapshot = pro.LocationId ?? 0,
                 SequenceNumber = newSeq,
                 Description = req.Description,
                 WorkCenterId = req.WorkCenterId,
@@ -446,6 +459,10 @@ namespace Abs.FixedAssets.Services.Production
         {
             var op = await FindOp(req.OperationId, ct);
             if (op is null) return OpNotFound();
+
+            // P2 fix: reject negative time values.
+            if (req.RunMinutes < 0 || req.SetupMinutes < 0 || req.MachineMinutes < 0 || req.LaborMinutes < 0)
+                return Fail("Time values must be zero or positive.");
 
             var before = op.Status;
             op.ActualSetupMins += req.SetupMinutes;
