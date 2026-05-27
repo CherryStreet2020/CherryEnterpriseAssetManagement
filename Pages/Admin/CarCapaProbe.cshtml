@@ -1,0 +1,148 @@
+@page "/Admin/CarCapaProbe"
+@model Abs.FixedAssets.Pages.Admin.CarCapaProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "CAR/CAPA Probe";
+    ViewData["TabTitle"] = "CAR/CAPA Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">CAR / CAPA Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Corrective Action Request + Corrective &amp; Preventive Action (Sprint 14.3).
+            8D lifecycle: Draft &rarr; Issued &rarr; UnderInvestigation &rarr; RootCauseIdentified
+            &rarr; CorrectiveActionPlanned &rarr; ImplementationInProgress &rarr; VerificationPending &rarr; Closed.
+            AS9100 &sect;10.2 nonconformity and corrective action.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError) { <p class="ds-text-danger" data-testid="car-outcome-error">@Model.Outcome</p> }
+            else { <p class="ds-text-success" data-testid="car-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Create CAR</h2>
+        <form method="post" asp-page-handler="Create" class="ds-form-grid">
+            <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+            <div><label>CAR Number</label><input type="text" name="CreateCarNumber" value="@Model.CreateCarNumber" required class="ds-input" /></div>
+            <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" required class="ds-input" /></div>
+            <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+            <div><label>Source</label><select name="CreateSource" class="ds-input">@foreach (var s in System.Enum.GetValues<CarSource>()) { if (s == Model.CreateSource) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>Severity</label><select name="CreateSeverity" class="ds-input">@foreach (var s in System.Enum.GetValues<CarSeverity>()) { if (s == Model.CreateSeverity) { <option value="@s" selected>@s</option> } else { <option value="@s">@s</option> } }</select></div>
+            <div><label>ItemId (BRG-6207-2RS = 9245)</label><input type="number" name="CreateItemId" value="@Model.CreateItemId" class="ds-input" /></div>
+            <div><label>NCR Reference</label><input type="text" name="CreateNcrRef" value="@Model.CreateNcrRef" class="ds-input" /></div>
+            <div><label>Non-Conformance Description</label><input type="text" name="CreateNonConformance" value="@Model.CreateNonConformance" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="car-btn-create">Create CAR</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Issue CAR (Draft &rarr; Issued)</h2>
+        <form method="post" asp-page-handler="Issue" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="IssueCarId" value="@Model.IssueCarId" required class="ds-input" /></div>
+            <div><label>Assigned To</label><input type="text" name="IssueAssignedTo" value="@Model.IssueAssignedTo" class="ds-input" /></div>
+            <div><label>Department</label><input type="text" name="IssueDepartment" value="@Model.IssueDepartment" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-issue">Issue CAR</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Begin Investigation (Issued &rarr; UnderInvestigation)</h2>
+        <form method="post" asp-page-handler="Investigate" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="InvestigateCarId" value="@Model.InvestigateCarId" required class="ds-input" /></div>
+            <div><label>Containment Action</label><input type="text" name="ContainmentAction" value="@Model.ContainmentAction" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-investigate">Begin Investigation</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Record Root Cause (UnderInvestigation &rarr; RootCauseIdentified)</h2>
+        <form method="post" asp-page-handler="RootCause" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="RootCauseCarId" value="@Model.RootCauseCarId" required class="ds-input" /></div>
+            <div><label>Root Cause Analysis</label><input type="text" name="RootCauseAnalysis" value="@Model.RootCauseAnalysis" required class="ds-input" /></div>
+            <div><label>Methodology (5-Why, Fishbone, 8D, FMEA)</label><input type="text" name="Methodology" value="@Model.Methodology" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-rootcause">Record Root Cause</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Plan Corrective Action (RootCauseIdentified &rarr; CorrectiveActionPlanned)</h2>
+        <form method="post" asp-page-handler="Plan" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="PlanCarId" value="@Model.PlanCarId" required class="ds-input" /></div>
+            <div><label>Corrective Action Plan</label><input type="text" name="CorrectiveActionPlan" value="@Model.CorrectiveActionPlan" required class="ds-input" /></div>
+            <div><label>Preventive Action Plan (optional)</label><input type="text" name="PreventiveActionPlan" value="@Model.PreventiveActionPlan" class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-plan">Plan Action</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Begin Implementation</h2>
+        <form method="post" asp-page-handler="BeginImpl" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="ImplementCarId" value="@Model.ImplementCarId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-beginimpl">Begin Implementation</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Complete Implementation (ImplementationInProgress &rarr; VerificationPending)</h2>
+        <form method="post" asp-page-handler="CompleteImpl" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="CompleteCarId" value="@Model.CompleteCarId" required class="ds-input" /></div>
+            <div><label>Implementation Notes</label><input type="text" name="ImplNotes" value="@Model.ImplNotes" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-completeimpl">Complete Implementation</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Verify and Close (VerificationPending &rarr; Closed)</h2>
+        <form method="post" asp-page-handler="VerifyClose" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="VerifyCarId" value="@Model.VerifyCarId" required class="ds-input" /></div>
+            <div><label>Verification Method</label><input type="text" name="VerificationMethod" value="@Model.VerificationMethod" required class="ds-input" /></div>
+            <div><label>Verification Results</label><input type="text" name="VerificationResults" value="@Model.VerificationResults" required class="ds-input" /></div>
+            <div><label>Effective?</label><input type="checkbox" name="VerificationEffective" value="true" @(Model.VerificationEffective ? "checked" : "") /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="car-btn-verify">Verify &amp; Close</button></div>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">9. Get CAR by Id</h2>
+        <form method="post" asp-page-handler="GetCar" class="ds-form-grid">
+            <div><label>CAR Id</label><input type="number" name="GetCarId" value="@Model.GetCarId" required class="ds-input" /></div>
+            <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="car-btn-get">Get CAR</button></div>
+        </form>
+        @if (Model.CarView is not null)
+        {
+            var c = Model.CarView;
+            <div class="ds-mt-3" data-testid="car-view-card">
+                <h3 class="ds-h3">CAR @c.Id (@c.CarNumber)</h3>
+                <dl class="ds-defs">
+                    <dt>Title</dt><dd>@c.Title</dd>
+                    <dt>Status / Source / Severity</dt><dd>@c.Status / @c.Source / @c.Severity</dd>
+                    <dt>Item / PRO / Customer / Vendor</dt><dd>@(c.ItemId?.ToString() ?? "—") / @(c.ProductionOrderId?.ToString() ?? "—") / @(c.CustomerId?.ToString() ?? "—") / @(c.VendorId?.ToString() ?? "—")</dd>
+                    <dt>NCR / Complaint / Audit</dt><dd>@(c.NcrReference ?? "—") / @(c.CustomerComplaintReference ?? "—") / @(c.AuditFindingReference ?? "—")</dd>
+                    <dt>Non-Conformance</dt><dd>@(c.NonConformanceDescription ?? "—")</dd>
+                    <dt>F/F/F / Safety / Regulatory</dt><dd>@c.AffectsForm/@c.AffectsFit/@c.AffectsFunction / @c.SafetyImpact / @c.RegulatoryImpact</dd>
+                    <dt>Containment</dt><dd>@(c.ContainmentAction ?? "—")</dd>
+                    <dt>Root Cause</dt><dd>@(c.RootCauseAnalysis ?? "—")</dd>
+                    <dt>Methodology</dt><dd>@(c.RootCauseMethodology ?? "—")</dd>
+                    <dt>Corrective Plan</dt><dd>@(c.CorrectiveActionPlan ?? "—")</dd>
+                    <dt>Preventive Plan</dt><dd>@(c.PreventiveActionPlan ?? "—")</dd>
+                    <dt>Implementation</dt><dd>@(c.ImplementationNotes ?? "—")</dd>
+                    <dt>Verification</dt><dd>@(c.VerificationMethod ?? "—") — @(c.VerificationResults ?? "—")</dd>
+                    <dt>Effective / Days to Close</dt><dd>@(c.VerificationEffective?.ToString() ?? "—") / @(c.DaysToClose?.ToString() ?? "—")</dd>
+                    <dt>Issued By / At</dt><dd>@(c.IssuedBy ?? "—") / @(c.IssuedAtUtc?.ToString("u") ?? "—")</dd>
+                    <dt>Assigned To / Dept</dt><dd>@(c.AssignedTo ?? "—") / @(c.ResponsibleDepartment ?? "—")</dd>
+                    <dt>Closed By / At</dt><dd>@(c.ClosedBy ?? "—") / @(c.ClosedAtUtc?.ToString("u") ?? "—")</dd>
+                    <dt>Created / Updated</dt><dd>@c.CreatedAt.ToString("u") / @(c.UpdatedAt?.ToString("u") ?? "—")</dd>
+                </dl>
+            </div>
+        }
+    </div></section>
+</main>
