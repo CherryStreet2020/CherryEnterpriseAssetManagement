@@ -87,6 +87,13 @@ public class ProductionOperation
     // retroactively change in-flight operations.
     public int CompanyIdSnapshot { get; set; }
 
+    // Sprint 14.4 PR-1 — Site snapshot for cross-site cost dispersal.
+    // When a job starts at Mississippi and finishes at Burlington, each
+    // operation's cost posts to the correct site's GL via AccountingKey
+    // SiteId segment. Snapped at release from the WorkCenter's SiteId
+    // (or from ProductionOrder.LocationId if WorkCenter has no site).
+    public int? SiteIdSnapshot { get; set; }
+
     // WorkCenter — copied at release, the floor can reassign.
     public int WorkCenterId { get; set; }
 

@@ -86,5 +86,29 @@ namespace Abs.FixedAssets.Models
         // against Cash. Added in PR #92 to complete the WO cost-rollup
         // pair with PR #89's materials posting.
         AccruedLabor = 530,
+
+        // Production WIP side (Sprint 14.4 — cost-object graph postings)
+        ProductionWipMaterial = 600,
+        ProductionWipLabor = 601,
+        ProductionWipOverhead = 602,
+        ProductionWipSubcontract = 603,
+        ProductionWipOutsideProcessing = 604,
+        FinishedGoodsInventory = 610,
+        CostOfGoodsSold = 611,
+
+        // Production scrap / rework
+        ScrapExpense = 620,
+        ReworkExpense = 621,
+
+        // Production variances
+        MaterialUsageVariance = 630,
+        LaborRateVariance = 631,
+        LaborEfficiencyVariance = 632,
+        OverheadVolumeVariance = 633,
+        OverheadSpendingVariance = 634,
+
+        // Inter-site WIP transfer
+        InterSiteWipTransferOut = 640,
+        InterSiteWipTransferIn = 641,
     }
 }

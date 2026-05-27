@@ -482,6 +482,26 @@ namespace Abs.FixedAssets.Services
                 // GR-Accrued account (2150) so the trial balance puts the
                 // two accrual liabilities side by side.
                 GlAccountKind.AccruedLabor => "2160",
+                // Sprint 14.4 PR-1: Production WIP, FG, COGS, scrap, rework,
+                // variance, and inter-site transfer defaults. Account numbers
+                // follow the 1400-series (WIP assets), 1500-series (FG assets),
+                // 5000-series (COGS/variance), 6400-series (scrap/rework expense).
+                GlAccountKind.ProductionWipMaterial => "1420",
+                GlAccountKind.ProductionWipLabor => "1421",
+                GlAccountKind.ProductionWipOverhead => "1422",
+                GlAccountKind.ProductionWipSubcontract => "1423",
+                GlAccountKind.ProductionWipOutsideProcessing => "1424",
+                GlAccountKind.FinishedGoodsInventory => "1500",
+                GlAccountKind.CostOfGoodsSold => "5000",
+                GlAccountKind.ScrapExpense => "6400",
+                GlAccountKind.ReworkExpense => "6410",
+                GlAccountKind.MaterialUsageVariance => "5910",
+                GlAccountKind.LaborRateVariance => "5920",
+                GlAccountKind.LaborEfficiencyVariance => "5921",
+                GlAccountKind.OverheadVolumeVariance => "5930",
+                GlAccountKind.OverheadSpendingVariance => "5931",
+                GlAccountKind.InterSiteWipTransferOut => "1430",
+                GlAccountKind.InterSiteWipTransferIn => "1431",
                 _ => null
             };
         }

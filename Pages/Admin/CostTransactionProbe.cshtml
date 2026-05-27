@@ -1,0 +1,322 @@
+@page "/Admin/CostTransactionProbe"
+@model Abs.FixedAssets.Pages.Admin.CostTransactionProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Cost Transaction Probe";
+    ViewData["TabTitle"] = "Cost Transaction Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.4 (2026-05-27) — admin probe for ICostTransactionService.
+    FIVE WRITE/ACTION BUTTONS per Lock 16 corollary:
+      1. Insert Test Cost Transaction (material issue — BRG-6207-2RS)
+      2. Insert Test Cost Transaction (direct labor posting)
+      3. Insert Test Transfer (child WO → parent PRO)
+      4. Refresh Summary for PRO (RefreshSummaryAsync)
+      5. Load Transactions for PRO (read)
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Cost Transaction Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 14.4 &mdash; Production cost sub-ledger diagnostic. Post cost transactions,
+            transfer value between cost objects, refresh denormalized summaries. 3-layer model:
+            Layer A (atomic costs), Layer B (transfers), Layer C (child detail drill-down).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="ctx-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="ctx-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    @* ── Summary Stats ───────────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Summary Stats</h2>
+            <table class="ds-table">
+                <thead><tr><th>Metric</th><th class="ds-text-right">Count</th></tr></thead>
+                <tbody>
+                    <tr><td>CostTransaction rows</td><td class="ds-text-right" data-testid="ctx-count-txn">@Model.TotalCostTransactions</td></tr>
+                    <tr><td>CostTransfer rows</td><td class="ds-text-right" data-testid="ctx-count-xfer">@Model.TotalCostTransfers</td></tr>
+                    <tr><td>ProductionOrderCostSummary rows</td><td class="ds-text-right" data-testid="ctx-count-summary">@Model.TotalCostSummaries</td></tr>
+                </tbody>
+            </table>
+
+            @if (Model.BucketCounts.Count > 0)
+            {
+                <h3 class="ds-h3 ds-mt-3">Per-Bucket Breakdown</h3>
+                <table class="ds-table">
+                    <thead><tr><th>Cost Bucket</th><th class="ds-text-right">Count</th></tr></thead>
+                    <tbody>
+                        @foreach (var kv in Model.BucketCounts.OrderBy(kv => kv.Key))
+                        {
+                            <tr><td>@kv.Key</td><td class="ds-text-right">@kv.Value</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+    @* ── 1. Insert Test Cost Transaction (Material) ───────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Insert Test Cost Transaction &mdash; Material Issue</h2>
+            <p class="ds-text-muted">
+                Posts a DirectMaterial / MaterialIssue for 4x BRG-6207-2RS bearings at $18.90 each.
+                LOT-2026-SKF-0412, heat HT-4140-0891. CompanyId=1, SiteId=1, PRO=1, Op 10.
+            </p>
+            <form method="post" asp-page-handler="InsertTestTransaction">
+                <button type="submit" class="ds-btn ds-btn--primary ds-mt-2" data-testid="ctx-btn-insert-material">
+                    Insert Test Material Cost
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 2. Insert Test Cost Transaction (Labor) ──────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Insert Test Cost Transaction &mdash; Direct Labor</h2>
+            <p class="ds-text-muted">
+                Posts a DirectLabor cost: 2.5 HR at $47.25/hr (journeyman machinist rate).
+                CNC lathe Op 10, spindle bore + face. CompanyId=1, SiteId=1, PRO=1.
+            </p>
+            <form method="post" asp-page-handler="InsertTestLabor">
+                <button type="submit" class="ds-btn ds-btn--primary ds-mt-2" data-testid="ctx-btn-insert-labor">
+                    Insert Test Labor Cost
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 3. Insert Test Transfer ──────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Insert Test Transfer &mdash; Child WO to Parent PRO</h2>
+            <p class="ds-text-muted">
+                Posts a ChildCompletionToParent transfer: child WO #2 (spindle sub-assy) to parent PRO #1.
+                $284.60 total = $142.30 material + $71.10 labor + $42.50 overhead + $28.70 other.
+                Final (non-provisional). Layer B in the 3-layer cost-object graph.
+            </p>
+            <form method="post" asp-page-handler="InsertTestTransfer">
+                <button type="submit" class="ds-btn ds-btn--primary ds-mt-2" data-testid="ctx-btn-insert-transfer">
+                    Insert Test Transfer
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 4. Refresh Summary for PRO ───────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Refresh Summary for Production Order</h2>
+            <p class="ds-text-muted">
+                Rebuilds the denormalized ProductionOrderCostSummary: aggregates all CostTransactions by
+                bucket, sums transfers in/out, recomputes WIP balance and variance, stamps the PRO header.
+            </p>
+            <form method="post" asp-page-handler="RefreshSummary" class="ds-form-grid">
+                <div>
+                    <label>Production Order Id</label>
+                    <input type="number" name="RefreshProId" value="@Model.RefreshProId" required class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--secondary" data-testid="ctx-btn-refresh-summary">
+                        Refresh Summary
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @* ── 5. Load Transactions for PRO ─────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Load Transactions for Production Order</h2>
+            <form method="post" asp-page-handler="LoadTransactions" class="ds-form-grid">
+                <div>
+                    <label>Production Order Id</label>
+                    <input type="number" name="LoadProId" value="@Model.LoadProId" required class="ds-input" />
+                </div>
+                <div class="ds-mt-3">
+                    <button type="submit" class="ds-btn ds-btn--secondary" data-testid="ctx-btn-load-txns">
+                        Load Transactions
+                    </button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @* ── Loaded Summary Card ──────────────────────────────────── *@
+
+    @if (Model.LoadedSummary is not null)
+    {
+        var s = Model.LoadedSummary;
+        var sumLabel = "#" + s.ProductionOrderId;
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Cost Summary for PRO @sumLabel</h2>
+                <table class="ds-table">
+                    <thead><tr><th>Metric</th><th class="ds-text-right">Value</th></tr></thead>
+                    <tbody>
+                        <tr><td>Cost Status</td><td class="ds-text-right">@s.CostStatus</td></tr>
+                        <tr><td>Actual Material</td><td class="ds-text-right">@s.ActualMaterialCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Labor</td><td class="ds-text-right">@s.ActualLaborCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Machine</td><td class="ds-text-right">@s.ActualMachineCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Burden</td><td class="ds-text-right">@s.ActualBurdenCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Outside Processing</td><td class="ds-text-right">@s.ActualOutsideProcessingCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Subcontract</td><td class="ds-text-right">@s.ActualSubcontractCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Freight/Landed</td><td class="ds-text-right">@s.ActualFreightLandedCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Tooling</td><td class="ds-text-right">@s.ActualToolingCost.ToString("C2")</td></tr>
+                        <tr><td>Actual Scrap/Rework</td><td class="ds-text-right">@s.ActualScrapReworkCost.ToString("C2")</td></tr>
+                        <tr class="ds-text-bold"><td>Actual Total</td><td class="ds-text-right">@s.ActualTotalCost.ToString("C2")</td></tr>
+                        <tr><td>WIP Balance</td><td class="ds-text-right">@s.WipBalance.ToString("C2")</td></tr>
+                        <tr><td>Cost Variance (Actual - Estimated)</td><td class="ds-text-right">@s.CostVariance.ToString("C2")</td></tr>
+                        <tr><td>Parent Transfer In</td><td class="ds-text-right">@s.ParentCostTransferIn.ToString("C2")</td></tr>
+                        <tr><td>Child Transfer Out</td><td class="ds-text-right">@s.ChildCostTransferOut.ToString("C2")</td></tr>
+                        <tr><td>EAC (Estimate at Completion)</td><td class="ds-text-right">@s.EstimateAtCompletion.ToString("C2")</td></tr>
+                        <tr><td>Last Rollup</td><td class="ds-text-right">@(s.LastRollupTimestamp?.ToString("u") ?? "Never")</td></tr>
+                        <tr><td>Rollup Status</td><td class="ds-text-right">@(s.RollupStatus ?? "N/A")</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @* ── Recent Cost Transactions Table ───────────────────────── *@
+
+    @if (Model.RecentTransactions.Count > 0)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Recent Cost Transactions (last 20)</h2>
+                <div style="overflow-x: auto;">
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Id</th>
+                                <th>Txn #</th>
+                                <th>Type</th>
+                                <th>Bucket</th>
+                                <th>Cost Object</th>
+                                <th>PRO</th>
+                                <th class="ds-text-right">Qty</th>
+                                <th>UoM</th>
+                                <th class="ds-text-right">Unit Cost</th>
+                                <th class="ds-text-right">Extended</th>
+                                <th>Lot</th>
+                                <th>Additive</th>
+                                <th>Reversal</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in Model.RecentTransactions)
+                            {
+                                var tObj = t.CostObjectType + " #" + t.CostObjectId;
+                                <tr>
+                                    <td>@t.Id</td>
+                                    <td><code>@t.TransactionNumber</code></td>
+                                    <td>@t.TransactionType</td>
+                                    <td>@t.CostBucket</td>
+                                    <td>@tObj</td>
+                                    <td>@(t.ProductionOrderId?.ToString() ?? "—")</td>
+                                    <td class="ds-text-right">@t.Quantity.ToString("N4")</td>
+                                    <td>@(t.Uom ?? "—")</td>
+                                    <td class="ds-text-right">@t.UnitCost.ToString("C4")</td>
+                                    <td class="ds-text-right">@t.ExtendedCost.ToString("C2")</td>
+                                    <td>@(t.LotNumber ?? "—")</td>
+                                    <td>@(t.RollupAdditiveFlag ? "Yes" : "No")</td>
+                                    <td>@(t.IsReversal ? "Yes" : "No")</td>
+                                    <td>@t.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <p class="ds-text-muted"><em>No cost transactions in the database yet. Use the INSERT buttons above to create test data.</em></p>
+            </div>
+        </section>
+    }
+
+    @* ── Recent Cost Transfers Table ──────────────────────────── *@
+
+    @if (Model.RecentTransfers.Count > 0)
+    {
+        <section class="ds-card ds-mt-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Recent Cost Transfers (last 20)</h2>
+                <div style="overflow-x: auto;">
+                    <table class="ds-table">
+                        <thead>
+                            <tr>
+                                <th>Id</th>
+                                <th>Transfer #</th>
+                                <th>Type</th>
+                                <th>Source</th>
+                                <th>Destination</th>
+                                <th class="ds-text-right">Qty</th>
+                                <th class="ds-text-right">Unit Cost</th>
+                                <th class="ds-text-right">Extended</th>
+                                <th class="ds-text-right">Material</th>
+                                <th class="ds-text-right">Labor</th>
+                                <th class="ds-text-right">Overhead</th>
+                                <th>Provisional</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var x in Model.RecentTransfers)
+                            {
+                                var xSrc = x.SourceCostObjectType + " #" + x.SourceCostObjectId;
+                                var xDst = x.DestinationCostObjectType + " #" + x.DestinationCostObjectId;
+                                <tr>
+                                    <td>@x.Id</td>
+                                    <td><code>@x.TransferNumber</code></td>
+                                    <td>@x.TransferType</td>
+                                    <td>@xSrc</td>
+                                    <td>@xDst</td>
+                                    <td class="ds-text-right">@x.TransferQuantity.ToString("N4")</td>
+                                    <td class="ds-text-right">@x.TransferUnitCost.ToString("C4")</td>
+                                    <td class="ds-text-right">@x.TransferExtendedCost.ToString("C2")</td>
+                                    <td class="ds-text-right">@x.MaterialCostTransferred.ToString("C2")</td>
+                                    <td class="ds-text-right">@x.LaborCostTransferred.ToString("C2")</td>
+                                    <td class="ds-text-right">@x.OverheadCostTransferred.ToString("C2")</td>
+                                    <td>@(x.IsProvisional ? "Yes" : "Final")</td>
+                                    <td>@x.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+</main>
