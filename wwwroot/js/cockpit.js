@@ -650,6 +650,10 @@
         });
     }
 
+    // Expose for deferred call from inline script (after JSON blobs are set)
+    window.__wireTxnDrawer = wireTxnDrawer;
+
+    // Also try on DOMContentLoaded as fallback
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', wireTxnDrawer);
     } else {
