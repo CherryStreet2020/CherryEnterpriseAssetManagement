@@ -511,6 +511,22 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Engineering.ItemDocumentLink> ItemDocumentLinks =>
             Set<Abs.FixedAssets.Models.Engineering.ItemDocumentLink>();
 
+        // Sprint 14.3 PR-1 (2026-05-27) — ECR/ECO Change Control substrate.
+        // EngineeringChangeRequest = controlled intake for proposed changes.
+        // EngineeringChangeOrder = approved execution record; drives
+        //   DocumentVersion supersede (via IDocumentService), FAI re-trigger,
+        //   customer/regulatory notice, and in-flight PRO impact.
+        // EcoLineItem = one affected Item/Document/DocumentVersion per ECO row.
+        // EcoApproval = one stage in the ECO's multi-stage approval chain.
+        public DbSet<Abs.FixedAssets.Models.Engineering.EngineeringChangeRequest> EngineeringChangeRequests =>
+            Set<Abs.FixedAssets.Models.Engineering.EngineeringChangeRequest>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.EngineeringChangeOrder> EngineeringChangeOrders =>
+            Set<Abs.FixedAssets.Models.Engineering.EngineeringChangeOrder>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.EcoLineItem> EcoLineItems =>
+            Set<Abs.FixedAssets.Models.Engineering.EcoLineItem>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.EcoApproval> EcoApprovals =>
+            Set<Abs.FixedAssets.Models.Engineering.EcoApproval>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -2001,6 +2017,167 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Document)
                     .WithMany(d => d.ItemLinks)
                     .HasForeignKey(x => x.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Sprint 14.3 PR-1 (2026-05-27) — ECR/ECO Change Control.
+            //
+            // EngineeringChangeRequest — the controlled intake. Tenant trio +
+            // xmin + enum HasDefaultValue + UNIQUE (CompanyId, EcrNumber) +
+            // FKs to affected things (Item / Document / PRO / Customer / ECO).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.EngineeringChangeRequest>(e =>
+            {
+                e.Property(x => x.ChangeReason)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ChangeReason.Other);
+                e.Property(x => x.Urgency)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ChangeUrgency.Routine);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.EcrStatus.Draft);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.CompanyId, x.EcrNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Ecr_Company_Number");
+
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_Ecr_Status");
+                e.HasIndex(x => x.Urgency).HasDatabaseName("IX_Ecr_Urgency");
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.LinkedItemId);
+                e.HasIndex(x => x.LinkedDocumentId);
+                e.HasIndex(x => x.LinkedProductionOrderId);
+                e.HasIndex(x => x.LinkedCustomerId);
+                e.HasIndex(x => x.ResultingEcoId);
+
+                e.HasOne(x => x.LinkedItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedDocument)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedDocumentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedCustomer)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedCustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                // ResultingEco FK: SET NULL — ECR row survives ECO delete
+                // (rare path; closure of the chain requires both sides
+                // normally, but admin cleanup is allowed).
+                e.HasOne(x => x.ResultingEco)
+                    .WithMany()
+                    .HasForeignKey(x => x.ResultingEcoId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // EngineeringChangeOrder — execution record from approved ECR.
+            // RESTRICT on SourceEcrId — an ECO can't outlive the ECR that
+            // created it. Multi-stage approval + effectivity rules wire
+            // through navigation properties.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.EngineeringChangeOrder>(e =>
+            {
+                e.Property(x => x.Urgency)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ChangeUrgency.Routine);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.EcoStatus.Draft);
+                e.Property(x => x.EffectivityType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.EcoEffectivityType.Immediate);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.CompanyId, x.EcoNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Eco_Company_Number");
+
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_Eco_Status");
+                e.HasIndex(x => x.Urgency).HasDatabaseName("IX_Eco_Urgency");
+                e.HasIndex(x => x.EffectivityType).HasDatabaseName("IX_Eco_EffType");
+                e.HasIndex(x => x.SourceEcrId);
+                e.HasIndex(x => x.EffectivityProductionOrderId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.EffectiveFromUtc)
+                    .HasFilter("\"EffectiveFromUtc\" IS NOT NULL")
+                    .HasDatabaseName("IX_Eco_EffectiveFrom_Partial");
+
+                e.HasOne(x => x.SourceEcr)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceEcrId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.EffectivityProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.EffectivityProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // EcoLineItem — one affected thing per ECO row. CASCADE on ECO
+            // delete (rare admin path). RESTRICT on Item/Document/Version
+            // — line preserves the change-record audit trail.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.EcoLineItem>(e =>
+            {
+                e.Property(x => x.Disposition)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.EcoLineItemDisposition.NotApplicable);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.EcoId, x.Sequence })
+                    .IsUnique()
+                    .HasDatabaseName("UX_EcoLineItem_Eco_Sequence");
+
+                e.HasIndex(x => x.EcoId);
+                e.HasIndex(x => x.AffectedItemId);
+                e.HasIndex(x => x.AffectedDocumentId);
+                e.HasIndex(x => x.AffectedDocumentVersionId);
+                e.HasIndex(x => x.NewDocumentVersionId);
+                e.HasIndex(x => x.CompanyId);
+
+                e.HasOne(x => x.Eco)
+                    .WithMany(eco => eco.LineItems)
+                    .HasForeignKey(x => x.EcoId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.AffectedItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.AffectedItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.AffectedDocument)
+                    .WithMany()
+                    .HasForeignKey(x => x.AffectedDocumentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.AffectedDocumentVersion)
+                    .WithMany()
+                    .HasForeignKey(x => x.AffectedDocumentVersionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.NewDocumentVersion)
+                    .WithMany()
+                    .HasForeignKey(x => x.NewDocumentVersionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // EcoApproval — one stage in the multi-stage approval chain.
+            // UNIQUE per (EcoId, StageOrder). Service enforces in-order
+            // approval (earlier stages first).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.EcoApproval>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.EcoApprovalStatus.Pending);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.EcoId, x.StageOrder })
+                    .IsUnique()
+                    .HasDatabaseName("UX_EcoApproval_Eco_Stage");
+
+                e.HasIndex(x => x.EcoId);
+                e.HasIndex(x => x.Status).HasDatabaseName("IX_EcoApproval_Status");
+                e.HasIndex(x => x.CompanyId);
+
+                e.HasOne(x => x.Eco)
+                    .WithMany(eco => eco.Approvals)
+                    .HasForeignKey(x => x.EcoId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -4632,6 +4809,30 @@ namespace Abs.FixedAssets.Data
                         propertyName.Contains("approvedby") ||
                         propertyName.Contains("releasedby") ||
                         propertyName.Contains("linkedby") ||
+                        // Sprint 14.3 PR-1 — case-preserve user identifiers on
+                        // ECR.DecidedBy/ReviewedBy/RequestedBy, ECO.Implemented
+                        // By/ClosedBy, EcoApproval.DecidedBy, EcoApproval.Required
+                        // Approver, ECO.RequiredApprover. Same convention.
+                        propertyName.Contains("decidedby") ||
+                        propertyName.Contains("reviewedby") ||
+                        propertyName.Contains("requestedby") ||
+                        propertyName.Contains("implementedby") ||
+                        propertyName.Contains("closedby") ||
+                        propertyName.Contains("requiredapprover") ||
+                        // Sprint 14.3 PR-1 — case-preserve free-form human-text
+                        // fields on the ECR/ECO substrate. Same convention as
+                        // notes / description / changereason (already in the
+                        // allowlist). These contain sentences like "Rev A → Rev B"
+                        // and "Cost > expected benefit; revisit Q3" that need
+                        // their case preserved for readability.
+                        propertyName.Contains("rejectionreason") ||
+                        propertyName.Contains("beforevalue") ||
+                        propertyName.Contains("aftervalue") ||
+                        propertyName.Contains("decisionnotes") ||
+                        // EcoApproval.ApprovalRole is a human-readable role
+                        // label ("Engineering Lead" / "Quality Manager" /
+                        // "Customer Liaison") — case preserved.
+                        propertyName.Contains("approvalrole") ||
                         propertyName.Contains("holdreason") || propertyName.Contains("lessonslearned") ||
                         propertyName.Contains("resolution") || propertyName.Contains("notes") ||
                         propertyName.Contains("entitytype") || propertyName.Contains("action") ||

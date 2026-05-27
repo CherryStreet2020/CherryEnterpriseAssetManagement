@@ -1,0 +1,296 @@
+@page "/Admin/EcrEcoProbe"
+@model Abs.FixedAssets.Pages.Admin.EcrEcoProbeModel
+@using Abs.FixedAssets.Models.Engineering
+@{
+    ViewData["Title"] = "ECR/ECO Probe";
+    ViewData["TabTitle"] = "ECR/ECO Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.3 PR-1 (2026-05-27) — admin probe for IEcrEcoService.
+    EIGHT WRITE BUTTONS per the Lock 16 corollary from PR #365:
+      1. Create ECR
+      2. Submit ECR
+      3. Approve ECR (atomic ECO creation)
+      4. Reject ECR
+      5. Add ECO Line Item
+      6. Add ECO Approval Stage
+      7. Approve ECO Stage
+      8. Release ECO (atomic DocumentVersion supersede)
+    Plus Implement / Close lifecycle + Get-by-ECR / Get-by-ECO reads.
+    Service-only DI per CHERRY025.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">ECR/ECO Change Control Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Engineering Change Request / Engineering Change Order workflow (Sprint 14.3).
+            ECR: Draft → Submitted → UnderReview → Approved (creates ECO) / Rejected.
+            ECO: Draft → InApproval → Approved → Released → Implemented → Closed.
+            Atomic DocumentVersion supersede on ECO Release via IDocumentService integration.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                {
+                    <p class="ds-text-danger" data-testid="ecr-outcome-error">@Model.Outcome</p>
+                }
+                else
+                {
+                    <p class="ds-text-success" data-testid="ecr-outcome-ok">@Model.Outcome</p>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Create ECR</h2>
+            <form method="post" asp-page-handler="CreateEcr" class="ds-form-grid">
+                <div><label>CompanyId</label><input type="number" name="CreateCompanyId" value="@Model.CreateCompanyId" required class="ds-input" /></div>
+                <div><label>EcrNumber</label><input type="text" name="CreateEcrNumber" value="@Model.CreateEcrNumber" placeholder="ECR-2026-00001" required class="ds-input" /></div>
+                <div><label>Title</label><input type="text" name="CreateTitle" value="@Model.CreateTitle" placeholder="Boeing-mandated dimensional tightening on Trent bracket Rev A" required class="ds-input" /></div>
+                <div><label>Description</label><input type="text" name="CreateDescription" value="@Model.CreateDescription" class="ds-input" /></div>
+                <div><label>ChangeReason</label>
+                    <select name="CreateChangeReason" class="ds-input">
+                        @foreach (var r in System.Enum.GetValues<ChangeReason>()) { <option value="@r" selected="@(r == Model.CreateChangeReason)">@r</option> }
+                    </select>
+                </div>
+                <div><label>Urgency</label>
+                    <select name="CreateUrgency" class="ds-input">
+                        @foreach (var u in System.Enum.GetValues<ChangeUrgency>()) { <option value="@u" selected="@(u == Model.CreateUrgency)">@u</option> }
+                    </select>
+                </div>
+                <div>
+                    <label><input type="checkbox" name="CreateAffectsForm" value="true" @(Model.CreateAffectsForm ? "checked" : "") /> Affects Form (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsFit" value="true" @(Model.CreateAffectsFit ? "checked" : "") /> Affects Fit (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsFunction" value="true" @(Model.CreateAffectsFunction ? "checked" : "") /> Affects Function (FAI re-trigger)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsSafety" value="true" @(Model.CreateAffectsSafety ? "checked" : "") /> Affects Safety (AS9100 §8.3)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsCustomers" value="true" @(Model.CreateAffectsCustomers ? "checked" : "") /> Affects Customers (notice required)</label><br/>
+                    <label><input type="checkbox" name="CreateAffectsRegulatory" value="true" @(Model.CreateAffectsRegulatory ? "checked" : "") /> Affects Regulatory (FAA/EASA notice)</label>
+                </div>
+                <div><label>LinkedItemId (optional)</label><input type="number" name="CreateLinkedItemId" value="@Model.CreateLinkedItemId" class="ds-input" /></div>
+                <div><label>LinkedDocumentId (optional)</label><input type="number" name="CreateLinkedDocumentId" value="@Model.CreateLinkedDocumentId" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="ecr-btn-create">Create ECR</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Submit ECR (Draft → Submitted)</h2>
+            <form method="post" asp-page-handler="SubmitEcr" class="ds-form-grid">
+                <div><label>EcrId</label><input type="number" name="LifecycleEcrId" value="@Model.LifecycleEcrId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="ecr-btn-submit">Submit</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Approve ECR (creates ECO atomically)</h2>
+            <form method="post" asp-page-handler="ApproveEcr" class="ds-form-grid">
+                <div><label>EcrId</label><input type="number" name="ApproveEcrId" value="@Model.ApproveEcrId" required class="ds-input" /></div>
+                <div><label>New EcoNumber</label><input type="text" name="ApproveEcoNumber" value="@Model.ApproveEcoNumber" placeholder="ECO-2026-00001" required class="ds-input" /></div>
+                <div><label>New EcoTitle</label><input type="text" name="ApproveEcoTitle" value="@Model.ApproveEcoTitle" placeholder="Trent bracket Rev B release per BAMS-3320 tightening" required class="ds-input" /></div>
+                <div><label>EffectivityType</label>
+                    <select name="ApproveEffectivityType" class="ds-input">
+                        @foreach (var t in System.Enum.GetValues<EcoEffectivityType>()) { <option value="@t" selected="@(t == Model.ApproveEffectivityType)">@t</option> }
+                    </select>
+                </div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="ecr-btn-approve">Approve ECR + Create ECO</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Reject ECR</h2>
+            <form method="post" asp-page-handler="RejectEcr" class="ds-form-grid">
+                <div><label>EcrId</label><input type="number" name="RejectEcrId" value="@Model.RejectEcrId" required class="ds-input" /></div>
+                <div><label>Reason</label><input type="text" name="RejectReason" value="@Model.RejectReason" placeholder="Cost > expected benefit; revisit in Q3" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--ghost" data-testid="ecr-btn-reject">Reject</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Add ECO Line Item (affected Item / Document / Version)</h2>
+            <form method="post" asp-page-handler="AddLine" class="ds-form-grid">
+                <div><label>EcoId</label><input type="number" name="AddLineEcoId" value="@Model.AddLineEcoId" required class="ds-input" /></div>
+                <div><label>AffectedItemId (opt)</label><input type="number" name="AddLineItemId" value="@Model.AddLineItemId" class="ds-input" /></div>
+                <div><label>AffectedDocumentId (opt)</label><input type="number" name="AddLineDocumentId" value="@Model.AddLineDocumentId" class="ds-input" /></div>
+                <div><label>AffectedDocVersionId (opt)</label><input type="number" name="AddLineAffectedDocVersionId" value="@Model.AddLineAffectedDocVersionId" class="ds-input" /></div>
+                <div><label>NewDocVersionId (opt — atomic supersede on Release)</label><input type="number" name="AddLineNewDocVersionId" value="@Model.AddLineNewDocVersionId" class="ds-input" /></div>
+                <div><label>ChangeDescription</label><input type="text" name="AddLineChangeDescription" value="@Model.AddLineChangeDescription" class="ds-input" /></div>
+                <div><label>Before</label><input type="text" name="AddLineBefore" value="@Model.AddLineBefore" placeholder="35x72x17mm Sealed" class="ds-input" /></div>
+                <div><label>After</label><input type="text" name="AddLineAfter" value="@Model.AddLineAfter" placeholder="35x72x17mm Sealed Rev B w/ AMS6520 heat-treat" class="ds-input" /></div>
+                <div><label>Disposition</label>
+                    <select name="AddLineDisposition" class="ds-input">
+                        @foreach (var d in System.Enum.GetValues<EcoLineItemDisposition>()) { <option value="@d" selected="@(d == Model.AddLineDisposition)">@d</option> }
+                    </select>
+                </div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="ecr-btn-addline">Add Line Item</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Add ECO Approval Stage</h2>
+            <form method="post" asp-page-handler="AddStage" class="ds-form-grid">
+                <div><label>EcoId</label><input type="number" name="AddStageEcoId" value="@Model.AddStageEcoId" required class="ds-input" /></div>
+                <div><label>StageOrder (1-based)</label><input type="number" name="AddStageOrder" value="@Model.AddStageOrder" min="1" required class="ds-input" /></div>
+                <div><label>Role</label><input type="text" name="AddStageRole" value="@Model.AddStageRole" placeholder="Engineering Lead / Quality Manager / Customer Liaison" required class="ds-input" /></div>
+                <div><label>Required Approver (opt)</label><input type="text" name="AddStageRequiredApprover" value="@Model.AddStageRequiredApprover" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--primary" data-testid="ecr-btn-addstage">Add Stage</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. Approve ECO Stage</h2>
+            <form method="post" asp-page-handler="ApproveStage" class="ds-form-grid">
+                <div><label>EcoApprovalId</label><input type="number" name="ApproveStageId" value="@Model.ApproveStageId" required class="ds-input" /></div>
+                <div><label>DecisionNotes</label><input type="text" name="ApproveStageNotes" value="@Model.ApproveStageNotes" class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="ecr-btn-approvestage">Approve Stage</button></div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">8. Release / Implement / Close ECO</h2>
+            <form method="post" class="ds-form-grid">
+                <div><label>EcoId</label><input type="number" name="LifecycleEcoId" value="@Model.LifecycleEcoId" required class="ds-input" /></div>
+                <div class="ds-mt-3">
+                    <button type="submit" asp-page-handler="ReleaseEco" class="ds-btn ds-btn--primary" data-testid="ecr-btn-release">Release (atomic DocVer supersede)</button>
+                    <button type="submit" asp-page-handler="ImplementEco" class="ds-btn ds-btn--secondary" data-testid="ecr-btn-implement">Implement</button>
+                    <button type="submit" asp-page-handler="CloseEco" class="ds-btn ds-btn--ghost" data-testid="ecr-btn-close">Close</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">9. Get ECR by Id</h2>
+            <form method="post" asp-page-handler="GetEcr" class="ds-form-grid">
+                <div><label>EcrId</label><input type="number" name="GetEcrId" value="@Model.GetEcrId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="ecr-btn-getecr">Get ECR</button></div>
+            </form>
+
+            @if (Model.EcrView is not null)
+            {
+                var e = Model.EcrView;
+                <div class="ds-mt-3" data-testid="ecr-view-card">
+                    <h3 class="ds-h3">ECR @e.Id (@e.EcrNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@e.Title</dd>
+                        <dt>Status</dt><dd>@e.Status</dd>
+                        <dt>ChangeReason / Urgency</dt><dd>@e.ChangeReason / @e.Urgency</dd>
+                        <dt>F/F/F</dt><dd>Form=@e.AffectsForm Fit=@e.AffectsFit Function=@e.AffectsFunction</dd>
+                        <dt>Safety / Customers / Regulatory</dt><dd>@e.AffectsSafety / @e.AffectsCustomers / @e.AffectsRegulatory</dd>
+                        <dt>Submitted / Decided</dt><dd>@(e.SubmittedAtUtc?.ToString("u") ?? "—") / @(e.DecidedAtUtc?.ToString("u") ?? "—")</dd>
+                        <dt>RequestedBy / DecidedBy</dt><dd>@(e.RequestedBy ?? "—") / @(e.DecidedBy ?? "—")</dd>
+                        <dt>Linked Item / Doc / PRO / Customer</dt><dd>@(e.LinkedItemId?.ToString() ?? "—") / @(e.LinkedDocumentId?.ToString() ?? "—") / @(e.LinkedProductionOrderId?.ToString() ?? "—") / @(e.LinkedCustomerId?.ToString() ?? "—")</dd>
+                        <dt>Resulting ECO</dt><dd>@(e.ResultingEcoId?.ToString() ?? "—")</dd>
+                        @if (e.Status == EcrStatus.Rejected)
+                        {
+                            <dt>RejectionReason</dt><dd>@e.RejectionReason</dd>
+                        }
+                    </dl>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">10. Get ECO by Id</h2>
+            <form method="post" asp-page-handler="GetEco" class="ds-form-grid">
+                <div><label>EcoId</label><input type="number" name="GetEcoId" value="@Model.GetEcoId" required class="ds-input" /></div>
+                <div class="ds-mt-3"><button type="submit" class="ds-btn ds-btn--secondary" data-testid="ecr-btn-geteco">Get ECO</button></div>
+            </form>
+
+            @if (Model.EcoView is not null)
+            {
+                var o = Model.EcoView;
+                <div class="ds-mt-3" data-testid="eco-view-card">
+                    <h3 class="ds-h3">ECO @o.Id (@o.EcoNumber)</h3>
+                    <dl class="ds-defs">
+                        <dt>Title</dt><dd>@o.Title</dd>
+                        <dt>Status / Urgency</dt><dd>@o.Status / @o.Urgency</dd>
+                        <dt>Source ECR</dt><dd>@o.SourceEcrId (@(o.SourceEcr?.EcrNumber ?? "—"))</dd>
+                        <dt>EffectivityType</dt><dd>@o.EffectivityType</dd>
+                        <dt>RequiresFAI / RequiresCustNotice / RequiresRegNotice</dt><dd>@o.RequiresFaiRetrigger / @o.RequiresCustomerNotice / @o.RequiresRegulatoryNotice</dd>
+                        <dt>Approved / Released / Implemented / Closed</dt><dd>@(o.ApprovedAtUtc?.ToString("u") ?? "—") / @(o.ReleasedAtUtc?.ToString("u") ?? "—") / @(o.ImplementedAtUtc?.ToString("u") ?? "—") / @(o.ClosedAtUtc?.ToString("u") ?? "—")</dd>
+                    </dl>
+
+                    <h3 class="ds-h3 ds-mt-3">Line Items (@(o.LineItems?.Count ?? 0))</h3>
+                    @if (o.LineItems is null || o.LineItems.Count == 0)
+                    {
+                        <p class="ds-text-muted"><em>None.</em></p>
+                    }
+                    else
+                    {
+                        <table class="ds-table">
+                            <thead><tr><th>Id</th><th>Seq</th><th>Item</th><th>Doc</th><th>AffectedVer</th><th>NewVer</th><th>Description</th><th>Before → After</th><th>Disposition</th></tr></thead>
+                            <tbody>
+                                @foreach (var l in o.LineItems.OrderBy(x => x.Sequence))
+                                {
+                                    <tr>
+                                        <td>@l.Id</td><td>@l.Sequence</td>
+                                        <td>@(l.AffectedItemId?.ToString() ?? "—")</td>
+                                        <td>@(l.AffectedDocumentId?.ToString() ?? "—")</td>
+                                        <td>@(l.AffectedDocumentVersionId?.ToString() ?? "—")</td>
+                                        <td>@(l.NewDocumentVersionId?.ToString() ?? "—")</td>
+                                        <td>@(l.ChangeDescription ?? "—")</td>
+                                        <td>@(l.BeforeValue ?? "—") → @(l.AfterValue ?? "—")</td>
+                                        <td>@l.Disposition</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+
+                    <h3 class="ds-h3 ds-mt-3">Approval Stages (@(o.Approvals?.Count ?? 0))</h3>
+                    @if (o.Approvals is null || o.Approvals.Count == 0)
+                    {
+                        <p class="ds-text-muted"><em>None.</em></p>
+                    }
+                    else
+                    {
+                        <table class="ds-table">
+                            <thead><tr><th>Id</th><th>Order</th><th>Role</th><th>Required</th><th>Status</th><th>DecidedAt</th><th>DecidedBy</th><th>Notes</th></tr></thead>
+                            <tbody>
+                                @foreach (var a in o.Approvals.OrderBy(x => x.StageOrder))
+                                {
+                                    <tr>
+                                        <td>@a.Id</td><td>@a.StageOrder</td><td>@a.ApprovalRole</td>
+                                        <td>@(a.RequiredApprover ?? "—")</td>
+                                        <td>@a.Status</td>
+                                        <td>@(a.DecidedAtUtc?.ToString("u") ?? "—")</td>
+                                        <td>@(a.DecidedBy ?? "—")</td>
+                                        <td>@(a.DecisionNotes ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</main>

@@ -324,9 +324,19 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IPoSnapshotServic
 // supersession chain + atomic release. ItemDocumentLink = M:N between
 // Items and Documents by purpose (BillOfDrawing / Specification / etc.).
 // Substrate for drawing-pinning in ProductionMaterialStructure (Sprint
-// 14.3) and Arena PLM ECR/ECO integration.
+// 14.3) and ECR/ECO Change Control integration.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDocumentService,
     Abs.FixedAssets.Services.Engineering.DocumentService>();
+
+// Sprint 14.3 PR-1 (2026-05-27) — IEcrEcoService.
+// ECR/ECO Change Control substrate. Engineering Change Requests intake +
+// Engineering Change Order multi-stage approval + atomic DocumentVersion
+// supersede integration via IDocumentService. Drives FAI re-trigger,
+// customer notice, regulatory notice, and downstream impact analysis.
+// NOT a vendor PLM integration — see
+// memory: reference_sprint_naming_no_vendor_implication.md.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IEcrEcoService,
+    Abs.FixedAssets.Services.Engineering.EcrEcoService>();
 
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
