@@ -427,6 +427,11 @@
     // emitted by Cockpit.cshtml. Opens via CherryDS.drawer.open('txn-drawer').
     // =========================================================================
 
+    function getMode() { return window.__cockpitMode || 'planner'; }
+    function isOperator() { return getMode() === 'operator'; }
+    function isSupervisor() { return getMode() === 'supervisor'; }
+    function isPlanner() { return getMode() === 'planner'; }
+
     function esc(s) { return s == null ? '—' : String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function fmtQty(n) { return n == null ? '—' : Number(n).toFixed(2); }
     function fmtDate(iso) { if (!iso) return '—'; var d = new Date(iso); return d.toLocaleDateString('en-US', {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
@@ -504,13 +509,15 @@
             + buildQtyBar('Short',      row.short, null, row.short > 0 ? 'danger' : null)
             + '</div></div>'
 
-            + '<div class="txn-section"><h4 class="txn-section-title">Cost</h4>'
+            + (isOperator() ? '' :
+              '<div class="txn-section"><h4 class="txn-section-title">Cost</h4>'
             + '<div class="txn-detail-grid">'
             + '<div class="txn-kv"><span class="txn-k">Unit Cost</span><span class="txn-v mono">$' + fmtQty(row.cost) + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Extended</span><span class="txn-v mono">$' + fmtQty(row.cost * row.requiredQty) + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Backflush</span><span class="txn-v">' + (row.backflush ? 'Yes' : 'No') + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Substitute OK</span><span class="txn-v">' + (row.substituteAllowed ? 'Yes' : 'No') + '</span></div>'
             + '</div></div>'
+            )
 
             + '<div class="txn-section"><h4 class="txn-section-title">Transaction History</h4>'
             + '<div class="txn-history-placeholder"><i class="fas fa-clock-rotate-left"></i> Transaction log wires in PR-PRO-12 reporting service.</div>'
@@ -557,13 +564,15 @@
             + '<div class="txn-kv"><span class="txn-k">Material Ready</span><span class="txn-v" style="color: ' + (row.materialReady === 'Pass' ? 'var(--v2-status-completed)' : row.materialReady === 'Fail' ? 'var(--v2-status-cancelled)' : 'var(--v2-status-onhold)') + '; font-weight: 600;">' + esc(row.materialReady) + '</span></div>'
             + '</div></div>'
 
-            + '<div class="txn-section"><h4 class="txn-section-title">Schedule</h4>'
+            + (isOperator() ? '' :
+              '<div class="txn-section"><h4 class="txn-section-title">Schedule</h4>'
             + '<div class="txn-detail-grid">'
             + '<div class="txn-kv"><span class="txn-k">Planned Start</span><span class="txn-v">' + fmtDate(row.plannedStart) + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Planned End</span><span class="txn-v">' + fmtDate(row.plannedFinish) + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Actual Start</span><span class="txn-v">' + fmtDate(row.actualStart) + '</span></div>'
             + '<div class="txn-kv"><span class="txn-k">Actual End</span><span class="txn-v">' + fmtDate(row.actualFinish) + '</span></div>'
             + '</div></div>'
+            )
 
             + '<div class="txn-section"><h4 class="txn-section-title">Time &amp; Output</h4>'
             + '<div class="txn-qty-grid">'

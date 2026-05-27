@@ -1768,3 +1768,64 @@ body.is-control-center .app-container {
     align-items: center;
     gap: 0.5rem;
 }
+
+/* =========================================================================
+   B8 PR-PRO-10 — Mode Toggle Bar (2026-05-28)
+   ========================================================================= */
+
+.cockpit-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--v2-border, rgba(148, 163, 184, 0.15));
+    background: rgba(255,255,255,0.015);
+}
+.cockpit-mode-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--v2-text-muted, #94a3b8);
+}
+.cockpit-mode-toggle {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    padding: 2px;
+}
+.cockpit-mode-pill {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 4px;
+    color: var(--v2-text-muted, #94a3b8);
+    text-decoration: none;
+    transition: all var(--v2-motion-fast, 100ms) ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.cockpit-mode-pill:hover {
+    color: var(--v2-text-primary, #e2e8f0);
+    background: rgba(255,255,255,0.06);
+}
+.cockpit-mode-pill--active {
+    color: #fff;
+    background: var(--v2-brand, #cf3339);
+    font-weight: 600;
+}
+.cockpit-mode-pill--active:hover {
+    background: var(--v2-brand, #cf3339);
+    filter: brightness(1.1);
+}
+.cockpit-mode-pill i {
+    margin-right: 0.3rem;
+    font-size: 0.7rem;
+}
+.cockpit-mode-hint {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: var(--v2-text-muted, #94a3b8);
+    font-style: italic;
+}
