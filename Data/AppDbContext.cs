@@ -498,6 +498,19 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionMaterialStructure> ProductionMaterialStructures =>
             Set<Abs.FixedAssets.Models.Production.ProductionMaterialStructure>();
 
+        // Sprint 14.2 PR-1 (2026-05-26 evening) — DMS substrate.
+        // Document = controlled engineering artifact with lifecycle.
+        // DocumentVersion = monotonic per-revision satellite with content
+        // hash + URI + supersession chain.
+        // ItemDocumentLink = M:N between Items and Documents by purpose
+        // (BillOfDrawing / Specification / InspectionPlan / etc.).
+        public DbSet<Abs.FixedAssets.Models.Engineering.Document> Documents =>
+            Set<Abs.FixedAssets.Models.Engineering.Document>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.DocumentVersion> DocumentVersions =>
+            Set<Abs.FixedAssets.Models.Engineering.DocumentVersion>();
+        public DbSet<Abs.FixedAssets.Models.Engineering.ItemDocumentLink> ItemDocumentLinks =>
+            Set<Abs.FixedAssets.Models.Engineering.ItemDocumentLink>();
+
         // Purchase Requisitions & Reorder Alerts
         public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
         public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
@@ -1897,6 +1910,98 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ChildItemRevisionId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Sprint 14.2 PR-1 (2026-05-26 evening) — DMS substrate.
+            //
+            // Document = controlled artifact header. Tenant trio + xmin
+            // concurrency + UNIQUE on (CompanyId, DocumentNumber) via
+            // partial UNIQUE (null-safe for TenantId per PR-FS-2 lesson).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.Document>(e =>
+            {
+                // Enum DB defaults (HARD LOCK feedback_b6_enum_defaults_must_match_model.md).
+                e.Property(x => x.DocumentType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.DocumentType.Drawing);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.DocumentStatus.Draft);
+
+                // xmin concurrency (HARD LOCK feedback_xmin_pattern_for_concurrency_lock.md).
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.CompanyId, x.DocumentNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Documents_Company_DocNumber");
+
+                e.HasIndex(x => x.DocumentType)
+                    .HasDatabaseName("IX_Documents_Type");
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("IX_Documents_Status");
+                e.HasIndex(x => x.CompanyId);
+            });
+
+            // DocumentVersion = per-revision satellite. Auto-incremented
+            // VersionNumber per Document (service-layer); UNIQUE on
+            // (DocumentId, VersionNumber) and (DocumentId, RevisionCode).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.DocumentVersion>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.DocumentStatus.Draft);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.DocumentId, x.VersionNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_DocVersions_Doc_VersionNumber");
+                e.HasIndex(x => new { x.DocumentId, x.RevisionCode })
+                    .IsUnique()
+                    .HasDatabaseName("UX_DocVersions_Doc_RevisionCode");
+
+                e.HasIndex(x => x.DocumentId);
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Status)
+                    .HasDatabaseName("IX_DocVersions_Status");
+                e.HasIndex(x => x.SupersedesVersionId);
+                e.HasIndex(x => x.ContentHash);
+                e.HasIndex(x => x.SourceEcoNumber);
+
+                e.HasOne(x => x.Document)
+                    .WithMany(d => d.Versions)
+                    .HasForeignKey(x => x.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                e.HasOne(x => x.SupersedesVersion)
+                    .WithMany()
+                    .HasForeignKey(x => x.SupersedesVersionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ItemDocumentLink = M:N Items↔Documents with link purpose +
+            // primary flag. Idempotent per (Item, Document, Purpose) via
+            // UNIQUE; service-layer LinkToItem short-circuits if existing.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Engineering.ItemDocumentLink>(e =>
+            {
+                e.Property(x => x.LinkPurpose)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Engineering.ItemDocumentLinkPurpose.BillOfDrawing);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.HasIndex(x => new { x.ItemId, x.DocumentId, x.LinkPurpose })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ItemDocLinks_Item_Doc_Purpose");
+
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.DocumentId);
+                e.HasIndex(x => x.CompanyId);
+
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.Document)
+                    .WithMany(d => d.ItemLinks)
+                    .HasForeignKey(x => x.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // ADR-013 / PR #119.13a — extend ProductionJobShopDetail with
@@ -4521,6 +4626,12 @@ namespace Abs.FixedAssets.Data
                         // ProductionOrder.SnapshotCapturedBy. Same convention as
                         // CompletedBy/StartedBy/ClosedBy above.
                         propertyName.Contains("capturedby") ||
+                        // Sprint 14.2 PR-1 — case-preserve user identifiers on
+                        // DocumentVersion.ApprovedBy / ReleasedBy and
+                        // ItemDocumentLink.LinkedBy. Same convention.
+                        propertyName.Contains("approvedby") ||
+                        propertyName.Contains("releasedby") ||
+                        propertyName.Contains("linkedby") ||
                         propertyName.Contains("holdreason") || propertyName.Contains("lessonslearned") ||
                         propertyName.Contains("resolution") || propertyName.Contains("notes") ||
                         propertyName.Contains("entitytype") || propertyName.Contains("action") ||

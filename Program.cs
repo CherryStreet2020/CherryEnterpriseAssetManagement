@@ -318,6 +318,16 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterReader,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IPoSnapshotService,
     Abs.FixedAssets.Services.Production.PoSnapshotService>();
 
+// Sprint 14.2 PR-1 (2026-05-26 evening) — IDocumentService.
+// DMS substrate. Document = controlled engineering artifact with lifecycle.
+// DocumentVersion = monotonic per-revision satellite with content hash +
+// supersession chain + atomic release. ItemDocumentLink = M:N between
+// Items and Documents by purpose (BillOfDrawing / Specification / etc.).
+// Substrate for drawing-pinning in ProductionMaterialStructure (Sprint
+// 14.3) and Arena PLM ECR/ECO integration.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Engineering.IDocumentService,
+    Abs.FixedAssets.Services.Engineering.DocumentService>();
+
 // B6 Foundation Sprint PR-FS-6 (2026-05-26) — ICustomerItemXrefService.
 // Customer-PN ↔ Item bidirectional translation (SAP CMIR equivalent).
 // Used at SO ingestion (customer's PN → our Item) and ship/invoice rendering
