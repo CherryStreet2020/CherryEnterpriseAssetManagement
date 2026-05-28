@@ -629,6 +629,18 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractValid
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingControlCenterService,
     Abs.FixedAssets.Services.Purchasing.PurchasingControlCenterService>();
 
+// Sprint 15.3 PR-14 (2026-05-28) — Auto-PO decision engine + Demand-
+// consolidation planner. Both are PURE READ services. §16 evaluates 10
+// trigger rules + 12 blocker rules per demand to decide auto-PO eligibility.
+// §17 plans 6 consolidation modes (StrictJobSpecific / SupplierDate / Project
+// / Inventory / SubcontractBatch / None) preserving per-demand allocations
+// via PurchaseOrderLineDemandLink at execution time (handled by
+// IPurchasingService.AddLineAsync in PR-15).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IAutoPurchaseService,
+    Abs.FixedAssets.Services.Purchasing.AutoPurchaseService>();
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IDemandConsolidationService,
+    Abs.FixedAssets.Services.Purchasing.DemandConsolidationService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios
