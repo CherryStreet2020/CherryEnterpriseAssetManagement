@@ -1,0 +1,269 @@
+@page "/Admin/CostRollupProbe"
+@model Abs.FixedAssets.Pages.Admin.CostRollupProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Cost Rollup Probe";
+    ViewData["TabTitle"] = "Cost Rollup Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 14.4 PR-3 (2026-05-28) — admin probe for ICostRollupService.
+    NINE WRITE/ACTION BUTTONS per Lock 16 corollary:
+      1. Execute Financial Rollup (Financial mode — transfers at parent boundary)
+      2. Execute Exploded Rollup (Exploded mode — originating costs across graph)
+      3. Post Material to Parent PRO (Parker Hannifin O-ring kit)
+      4. Post Labor to Child PRO (CNC 5-axis mill, 2nd shift)
+      5. Post Child→Parent Transfer (child completion at close)
+      6. View Latest Rollup Run
+      7. View Rollup Lines by Run Id
+      8. View Rollup Exceptions by Run Id
+      9. Build Graph (diagnostic — show node structure)
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Cost Rollup Engine Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 14.4 PR-3 &mdash; Graph builder + cycle detection + dual-mode rollup
+            (Financial / Exploded) + exception detection. Per Dean&rsquo;s 910-line
+            cost-object graph research spec &sect;7&ndash;&sect;20. Anti-compounding
+            via 3-layer model (A=originating, B=transfer, C=presentation/drilldown).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="rollup-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="rollup-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    @* ── Summary Stats ───────────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Summary Stats</h2>
+            <table class="ds-table">
+                <tbody>
+                    <tr><th>Total Rollup Runs</th><td data-testid="rollup-total-runs">@Model.TotalRollupRuns</td></tr>
+                    <tr><th>Total Rollup Lines</th><td data-testid="rollup-total-lines">@Model.TotalRollupLines</td></tr>
+                    <tr><th>Total Rollup Exceptions</th><td data-testid="rollup-total-exceptions">@Model.TotalRollupExceptions</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ── Execute Rollup Buttons ──────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Execute Rollup</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <label>PRO Id: <input asp-for="RollupProId" class="ds-input ds-input--sm" style="width:80px" /></label>
+                <button type="submit" asp-page-handler="ExecuteFinancialRollup" class="ds-btn ds-btn--primary" data-testid="btn-financial-rollup">
+                    Execute Financial Rollup
+                </button>
+                <button type="submit" asp-page-handler="ExecuteExplodedRollup" class="ds-btn ds-btn--secondary" data-testid="btn-exploded-rollup">
+                    Execute Exploded Rollup
+                </button>
+                <button type="submit" asp-page-handler="BuildGraph" class="ds-btn ds-btn--outline" data-testid="btn-build-graph">
+                    Build Graph Only
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── Post Cost Data Buttons ──────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Post Cost Data (for Testing)</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <input type="hidden" asp-for="RollupProId" />
+                <button type="submit" asp-page-handler="MaterialToParent" class="ds-btn ds-btn--primary" data-testid="btn-post-material">
+                    Post Material to Parent
+                </button>
+                <button type="submit" asp-page-handler="LaborToChild" class="ds-btn ds-btn--primary" data-testid="btn-post-labor">
+                    Post Labor to Child
+                </button>
+                <button type="submit" asp-page-handler="ChildTransfer" class="ds-btn ds-btn--warning" data-testid="btn-post-transfer">
+                    Post Child→Parent Transfer
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── View Rollup Data Buttons ────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">View Rollup Data</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <input type="hidden" asp-for="RollupProId" />
+                <button type="submit" asp-page-handler="ViewLatestRun" class="ds-btn ds-btn--outline" data-testid="btn-view-latest">
+                    View Latest Run for PRO
+                </button>
+            </form>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2 ds-mt-2">
+                <label>Run Id: <input asp-for="ViewRunId" class="ds-input ds-input--sm" style="width:80px" /></label>
+                <button type="submit" asp-page-handler="ViewRunLines" class="ds-btn ds-btn--outline" data-testid="btn-view-lines">
+                    View Lines
+                </button>
+                <button type="submit" asp-page-handler="ViewRunExceptions" class="ds-btn ds-btn--outline" data-testid="btn-view-exceptions">
+                    View Exceptions
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── Recent Runs Table ───────────────────────────────────── *@
+
+    @if (Model.RecentRuns.Count > 0)
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Recent Rollup Runs</h2>
+                <div class="ds-table-responsive">
+                    <table class="ds-table ds-table--sm" data-testid="recent-runs-table">
+                        <thead>
+                            <tr>
+                                <th>Id</th><th>Run #</th><th>Mode</th><th>PRO</th>
+                                <th>Status</th><th>Nodes</th><th>Depth</th>
+                                <th>Lines</th><th>Exceptions</th>
+                                <th>Additive $</th><th>Transfer $</th><th>Exploded $</th>
+                                <th>Duration</th><th>Started</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var run in Model.RecentRuns)
+                            {
+                                <tr>
+                                    <td>@run.Id</td>
+                                    <td style="font-family:var(--font-mono);font-size:0.75rem">@run.RunNumber</td>
+                                    <td>@run.Mode</td>
+                                    <td>@run.ProductionOrderId</td>
+                                    <td>
+                                        <span class="ds-badge @(run.Status == CostRollupRunStatus.Completed ? "ds-badge--success" : run.Status == CostRollupRunStatus.CompletedWithExceptions ? "ds-badge--warning" : run.Status == CostRollupRunStatus.Failed ? "ds-badge--danger" : "ds-badge--info")">
+                                            @run.Status
+                                        </span>
+                                    </td>
+                                    <td>@run.GraphNodeCount</td>
+                                    <td>@run.GraphMaxDepth</td>
+                                    <td>@run.LineCount</td>
+                                    <td>@run.ExceptionCount</td>
+                                    <td class="ds-text-right">$@run.TotalAdditiveCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@run.TotalTransferCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@run.TotalExplodedCost.ToString("N2")</td>
+                                    <td>@(run.DurationMs.HasValue ? $"{run.DurationMs}ms" : "—")</td>
+                                    <td>@run.StartedAtUtc.ToString("HH:mm:ss")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+    @* ── Loaded Lines Table ──────────────────────────────────── *@
+
+    @if (Model.LoadedLines.Count > 0)
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Rollup Lines (@Model.LoadedLines.Count)</h2>
+                <div class="ds-table-responsive">
+                    <table class="ds-table ds-table--sm" data-testid="rollup-lines-table">
+                        <thead>
+                            <tr>
+                                <th>#</th><th>Depth</th><th>Object</th><th>Classification</th>
+                                <th>Bucket</th><th>Description</th>
+                                <th>Qty</th><th>Unit $</th><th>Extended $</th>
+                                <th>Mat $</th><th>Lab $</th><th>OH $</th><th>Sub $</th><th>Other $</th>
+                                <th>Site</th><th>Additive?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in Model.LoadedLines)
+                            {
+                                var indentPx = line.Depth * 20;
+                                <tr class="@(line.Classification == CostRollupLineClassification.DrilldownOnly ? "ds-text-muted" : line.Classification == CostRollupLineClassification.Transfer ? "ds-bg-info-subtle" : "")">
+                                    <td>@line.SortOrder</td>
+                                    <td>@line.Depth</td>
+                                    <td style="padding-left:@(indentPx)px">@line.CostObjectType #@line.CostObjectId</td>
+                                    <td>
+                                        <span class="ds-badge @(line.Classification == CostRollupLineClassification.Additive ? "ds-badge--success" : line.Classification == CostRollupLineClassification.Transfer ? "ds-badge--info" : line.Classification == CostRollupLineClassification.DrilldownOnly ? "ds-badge--secondary" : "ds-badge--warning")">
+                                            @line.Classification
+                                        </span>
+                                    </td>
+                                    <td>@line.CostBucket</td>
+                                    <td style="font-size:0.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis">@line.Description</td>
+                                    <td class="ds-text-right">@line.Quantity.ToString("N4")</td>
+                                    <td class="ds-text-right">$@line.UnitCost.ToString("N4")</td>
+                                    <td class="ds-text-right ds-text-bold">$@line.ExtendedCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@line.MaterialCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@line.LaborCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@line.OverheadCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@line.SubcontractCost.ToString("N2")</td>
+                                    <td class="ds-text-right">$@line.OtherCost.ToString("N2")</td>
+                                    <td>@line.SiteId</td>
+                                    <td>@(line.IsRollupAdditive ? "✓" : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+    @* ── Loaded Exceptions Table ─────────────────────────────── *@
+
+    @if (Model.LoadedExceptions.Count > 0)
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Rollup Exceptions (@Model.LoadedExceptions.Count)</h2>
+                <div class="ds-table-responsive">
+                    <table class="ds-table ds-table--sm" data-testid="rollup-exceptions-table">
+                        <thead>
+                            <tr>
+                                <th>Severity</th><th>Type</th><th>Object</th><th>PRO</th>
+                                <th>Message</th><th>Resolution</th><th>Impact</th><th>Blocks Close?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var exc in Model.LoadedExceptions)
+                            {
+                                <tr class="@(exc.Severity >= CostExceptionSeverity.Error ? "ds-bg-danger-subtle" : exc.Severity == CostExceptionSeverity.Warning ? "ds-bg-warning-subtle" : "")">
+                                    <td>
+                                        <span class="ds-badge @(exc.Severity == CostExceptionSeverity.Critical ? "ds-badge--danger" : exc.Severity == CostExceptionSeverity.Error ? "ds-badge--danger" : exc.Severity == CostExceptionSeverity.Warning ? "ds-badge--warning" : "ds-badge--info")">
+                                            @exc.Severity
+                                        </span>
+                                    </td>
+                                    <td>@exc.ExceptionType</td>
+                                    <td>@exc.CostObjectType #@exc.CostObjectId</td>
+                                    <td>@exc.ProductionOrderId</td>
+                                    <td style="font-size:0.75rem;max-width:300px">@exc.Message</td>
+                                    <td style="font-size:0.75rem;max-width:200px">@exc.Resolution</td>
+                                    <td class="ds-text-right">@(exc.EstimatedImpact.HasValue ? $"${exc.EstimatedImpact:N2}" : "—")</td>
+                                    <td>@(exc.BlocksClose ? "YES" : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+</main>
