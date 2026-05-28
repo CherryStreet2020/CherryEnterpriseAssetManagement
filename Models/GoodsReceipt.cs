@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Abs.FixedAssets.Models.Production;
 
 namespace Abs.FixedAssets.Models
 {
@@ -125,5 +126,50 @@ namespace Abs.FixedAssets.Models
         public CipProject? CipProject { get; set; }
 
         public bool IsInvoiced { get; set; } = false;
+
+        // ===== Sprint 15.1 PR-1 — Receipt-to-Job Direct Posting =============
+        // Buy-to-job material flows PO Receipt → direct charge to PRO BOM line,
+        // skipping inventory entirely. THE foundational ETO/MTO architectural
+        // change. See docs/research/purchasing-cascade-design-2026-05-28.md PR-1.
+
+        /// <summary>
+        /// When true, this receipt line bypasses inventory and posts cost directly
+        /// to a Production Order BOM line. The ETO/MTO default — bought-to-job
+        /// material never touches inventory valuation layers.
+        /// </summary>
+        [Display(Name = "Direct to Job")]
+        public bool IsDirectToJob { get; set; } = false;
+
+        /// <summary>
+        /// FK to the target Production Order for direct-to-job receipts.
+        /// Null for standard inventory receipts.
+        /// </summary>
+        [Display(Name = "Production Order (Direct)")]
+        public int? DirectToJobProductionOrderId { get; set; }
+        public ProductionOrder? DirectToJobProductionOrder { get; set; }
+
+        /// <summary>
+        /// FK to the specific BOM line on the PRO that this receipt satisfies.
+        /// Links GR line → frozen BOM snapshot row for cost allocation + supply
+        /// status update. Null for standard inventory receipts.
+        /// </summary>
+        [Display(Name = "BOM Line (Direct)")]
+        public int? DirectToJobBomLineId { get; set; }
+        public ProductionMaterialStructure? DirectToJobBomLine { get; set; }
+
+        /// <summary>
+        /// When true, this receipt line requires incoming inspection before cost
+        /// is posted to the PRO. Inspection hold prevents premature material
+        /// availability claims on the BOM line supply link.
+        /// </summary>
+        [Display(Name = "Inspection Required")]
+        public bool InspectionRequired { get; set; } = false;
+
+        /// <summary>
+        /// Timestamp when the direct-to-job cost was posted to the PRO.
+        /// Null = not yet posted (pending inspection or processing).
+        /// </summary>
+        [Display(Name = "Direct Post Date")]
+        public DateTime? DirectToJobPostedUtc { get; set; }
     }
 }

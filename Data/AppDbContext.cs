@@ -4070,6 +4070,24 @@ namespace Abs.FixedAssets.Data
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
+            // GoodsReceiptLine — Sprint 15.1 PR-1 Receipt-to-Job FKs.
+            // Direct-to-job receipt lines bypass inventory and post cost directly
+            // to a Production Order BOM line. RESTRICT on PRO FK (don't orphan
+            // receipt audit trail). SetNull on BOM line FK (snapshot line may be
+            // re-captured on PRO revision — receipt history survives).
+            modelBuilder.Entity<GoodsReceiptLine>(e =>
+            {
+                e.HasOne(x => x.DirectToJobProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.DirectToJobProductionOrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.DirectToJobBomLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.DirectToJobBomLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
             // VendorInvoice
             modelBuilder.Entity<VendorInvoice>(e =>
             {

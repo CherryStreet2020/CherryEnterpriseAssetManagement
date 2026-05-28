@@ -570,6 +570,12 @@ builder.Services.AddScoped<
     Abs.FixedAssets.Services.Posting.IPostingService<Abs.FixedAssets.Services.Posting.ReceiveGoodsRequest>>(
     sp => sp.GetRequiredService<Abs.FixedAssets.Services.Receiving.ReceivingPostingService>());
 
+// Sprint 15.1 PR-1 (2026-05-28) — Receipt-to-Job Direct Posting Service.
+// THE foundational ETO/MTO change: buy-to-job material flows PO Receipt →
+// direct charge to PRO BOM line, bypassing inventory entirely.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceiptToJobService,
+    Abs.FixedAssets.Services.Receiving.ReceiptToJobService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
