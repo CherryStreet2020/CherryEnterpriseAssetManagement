@@ -319,20 +319,15 @@ namespace Abs.FixedAssets.Migrations
                 column: "BuyerUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ProductionSupplyDemands_CompanyId",
+                name: "IX_ProductionSupplyDemands_CompanyId_DemandNumber",
                 table: "ProductionSupplyDemands",
-                column: "CompanyId");
+                columns: new[] { "CompanyId", "DemandNumber" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProductionSupplyDemands_CustomerId",
                 table: "ProductionSupplyDemands",
                 column: "CustomerId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ProductionSupplyDemands_DemandNumber",
-                table: "ProductionSupplyDemands",
-                column: "DemandNumber",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ProductionSupplyDemands_ItemId",

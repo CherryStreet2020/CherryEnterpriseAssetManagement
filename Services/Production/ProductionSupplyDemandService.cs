@@ -354,8 +354,12 @@ public class ProductionSupplyDemandService : IProductionSupplyDemandService
                 SupplyType = request.SupplyType,
                 SupplyRecordId = request.SupplyRecordId,
                 SupplyRecordLineId = request.SupplyRecordLineId,
+                // Codex P2 fix: when SupplyType == PurchaseOrderLine, the supply
+                // RECORD itself is the PO line — SupplyRecordId is the
+                // PurchaseOrderLine.Id. SupplyRecordLineId would be an optional
+                // sub-line (PO release) when relevant, not the PO line FK.
                 PurchaseOrderLineId = request.SupplyType == AllocationSupplyType.PurchaseOrderLine
-                    ? request.SupplyRecordLineId : null,
+                    ? request.SupplyRecordId : null,
                 ChildProductionOrderId = request.SupplyType == AllocationSupplyType.ChildProductionOrder
                     ? request.SupplyRecordId : null,
                 AllocatedQuantity = request.Quantity,
@@ -372,17 +376,29 @@ public class ProductionSupplyDemandService : IProductionSupplyDemandService
 
         await _db.SaveChangesAsync(ct);
 
-        // Refresh demand roll-ups
+        // Refresh demand roll-ups (recomputes SuppliedQuantity, RemainingQuantity,
+        // status quartet from ALL allocations — not just this one).
         await RefreshSupplyStatusAsync(demand.Id, ct);
 
+        // Codex P2 fix: reload demand after refresh so the caller gets the
+        // aggregate remaining quantity (across all active allocations), not
+        // just remaining vs. this allocation. A demand with 100 required and
+        // 60 prior + 30 new allocated should report 10 remaining, not 70.
+        var refreshed = await _db.Set<ProductionSupplyDemand>()
+            .Where(d => d.Id == demand.Id)
+            .Select(d => new { d.RequiredQuantity, d.SuppliedQuantity, d.RemainingQuantity })
+            .FirstOrDefaultAsync(ct);
+        var aggregateRemaining = refreshed?.RemainingQuantity
+            ?? Math.Max(0m, demand.RequiredQuantity - allocation.AllocatedQuantity);
+
         _logger.LogInformation(
-            "ProductionSupplyDemand: allocated {Qty} of {SupplyType}:{RecId}/{LineId} to demand {DmdId}",
-            request.Quantity, request.SupplyType, request.SupplyRecordId, request.SupplyRecordLineId, demand.Id);
+            "ProductionSupplyDemand: allocated {Qty} of {SupplyType}:{RecId}/{LineId} to demand {DmdId}. Aggregate remaining: {Remaining}",
+            request.Quantity, request.SupplyType, request.SupplyRecordId, request.SupplyRecordLineId, demand.Id, aggregateRemaining);
 
         return Result.Success(new AllocateSupplyResult(
             allocation.Id, demand.Id, allocation.AllocatedQuantity,
-            Math.Max(0m, demand.RequiredQuantity - allocation.AllocatedQuantity),
-            $"Allocated {request.Quantity:N4} via allocation #{allocation.Id}"));
+            aggregateRemaining,
+            $"Allocated {request.Quantity:N4} via allocation #{allocation.Id}. Aggregate remaining: {aggregateRemaining:N4}"));
     }
 
     // ═══════════════════════════════════════════════════════════════════

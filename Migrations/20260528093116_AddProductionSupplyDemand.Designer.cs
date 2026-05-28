@@ -14,7 +14,7 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260528092117_AddProductionSupplyDemand")]
+    [Migration("20260528093116_AddProductionSupplyDemand")]
     partial class AddProductionSupplyDemand
     {
         /// <inheritdoc />
@@ -17242,12 +17242,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("BuyerUserId");
 
-                    b.HasIndex("CompanyId");
-
                     b.HasIndex("CustomerId");
-
-                    b.HasIndex("DemandNumber")
-                        .IsUnique();
 
                     b.HasIndex("ItemId");
 
@@ -17278,6 +17273,9 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WarehouseId");
 
                     b.HasIndex("WorkCenterId");
+
+                    b.HasIndex("CompanyId", "DemandNumber")
+                        .IsUnique();
 
                     b.HasIndex("ProductionOrderId", "BomLineId");
 

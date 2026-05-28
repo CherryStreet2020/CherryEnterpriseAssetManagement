@@ -5413,7 +5413,11 @@ namespace Abs.FixedAssets.Data
                 e.Property(x => x.AlertStatus)
                     .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandAlertStatus.None);
 
-                e.HasIndex(x => x.DemandNumber).IsUnique();
+                // Codex P1 fix: scope demand-number uniqueness by tenant. PRO
+                // OrderNumber is only unique per company, so a global unique
+                // index would block two tenants who happen to use the same
+                // production order number.
+                e.HasIndex(x => new { x.CompanyId, x.DemandNumber }).IsUnique();
                 e.HasIndex(x => new { x.ProductionOrderId, x.BomLineId });
                 e.HasIndex(x => x.SupplyStatus);
                 e.HasIndex(x => x.ShortageStatus);

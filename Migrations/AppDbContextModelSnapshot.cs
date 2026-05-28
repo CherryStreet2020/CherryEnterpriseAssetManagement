@@ -17239,12 +17239,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasIndex("BuyerUserId");
 
-                    b.HasIndex("CompanyId");
-
                     b.HasIndex("CustomerId");
-
-                    b.HasIndex("DemandNumber")
-                        .IsUnique();
 
                     b.HasIndex("ItemId");
 
@@ -17275,6 +17270,9 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("WarehouseId");
 
                     b.HasIndex("WorkCenterId");
+
+                    b.HasIndex("CompanyId", "DemandNumber")
+                        .IsUnique();
 
                     b.HasIndex("ProductionOrderId", "BomLineId");
 
