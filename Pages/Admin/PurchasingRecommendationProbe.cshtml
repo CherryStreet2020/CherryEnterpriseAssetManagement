@@ -1,0 +1,131 @@
+@page "/Admin/PurchasingRecommendationProbe"
+@model Abs.FixedAssets.Pages.Admin.PurchasingRecommendationProbeModel
+@using Abs.FixedAssets.Services.Purchasing
+@{
+    ViewData["Title"] = "Purchasing Recommendation Probe";
+    ViewData["TabTitle"] = "Buyer Recommendation Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Buyer Recommendation Probe (§18)</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.3 PR-15 — <strong>CLOSES Wave 3</strong>. Exercises
+            <code>IPurchasingRecommendationService</code> — the §18 buyer recommendation
+            engine. 11 RecommendedAction patterns × 4 RecommendationRisk levels per
+            demand. Composes PR-14 <code>IAutoPurchaseService</code> for §16 context.
+            Wired into <code>PurchasingControlCenterService.GetSupplyDemandQueueAsync</code>
+            so the Purchasing CC "Suggested Action" column shows real §18 hints.
+        </p>
+        <p class="ds-page-header__subtitle">
+            Tenant scope: @Model.DemandTotalInTenant ProductionSupplyDemand row(s) visible.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="rec-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="rec-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    @* ─── §18 Recommendation Engine — single + PRO + scan ──────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1 · §18 Recommendation Engine</h2>
+        <p class="ds-text-muted">
+            Each recommendation includes: action label, reason, suggested vendor,
+            recommended qty, required date, suggested order date, existing supply
+            pointers (linked PO / child WO / inventory reservation), and a risk
+            classification (Low / Medium / High / Critical).
+        </p>
+        <form method="post">
+            <div class="ds-form-row"><label class="ds-label">Demand ID</label><input type="number" class="ds-input" asp-for="DemandId" /></div>
+            <div class="ds-form-row"><label class="ds-label">PRO ID</label><input type="number" class="ds-input" asp-for="ProductionOrderId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Site (for tenant-wide scan)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <div class="ds-form-row">
+                <label class="ds-label">Only Action (optional filter for tenant scan)</label>
+                <select class="ds-input" asp-for="OnlyAction">
+                    <option value="">(any)</option>
+                    @foreach (var a in Model.AllActions)
+                    {
+                        <option value="@a">@a</option>
+                    }
+                </select>
+            </div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="RecommendDemand" data-testid="btn-rec-demand">Recommend single demand</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="RecommendForPro" data-testid="btn-rec-pro">Recommend PRO (all demands)</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="ScanTenant" data-testid="btn-scan-tenant">Tenant-wide scan</button>
+            </div>
+        </form>
+
+        @if (Model.Single is { } s)
+        {
+            <h3 class="ds-h3 ds-mt-3">Single-demand recommendation</h3>
+            <ul>
+                <li><strong>Demand #@s.DemandId</strong> (@s.DemandNumber) — PRO @(s.ProductionOrderNumber ?? s.ProductionOrderId.ToString()), seq @(s.OperationSequence?.ToString() ?? "—")</li>
+                <li>Action: <strong>@s.Action — @s.ActionLabel</strong></li>
+                <li>Reason: <em>@s.Reason</em></li>
+                <li>Risk: <strong>@s.Risk</strong></li>
+                <li>Days until required: @(s.DaysUntilRequired?.ToString() ?? "—") · Required: @(s.RequiredDate?.ToString("yyyy-MM-dd") ?? "—") · Suggested order: @(s.SuggestedOrderDate?.ToString("yyyy-MM-dd") ?? "—")</li>
+                <li>Suggested vendor: @(s.SuggestedVendorName ?? s.SuggestedVendorId?.ToString() ?? "—")</li>
+                <li>Recommended qty: @s.RecommendedQuantity.ToString("N2")</li>
+                <li>Existing supply: PO=@(s.ExistingPurchaseOrderId?.ToString() ?? "—"), child WO=@(s.ExistingChildProductionOrderId?.ToString() ?? "—"), inventory=@(s.ExistingInventoryHint ?? "—")</li>
+            </ul>
+        }
+
+        @if (Model.ProRecs is { } pr && pr.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">PRO scan — @pr.Count recommendation(s)</h3>
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>Demand</th><th>Part</th><th>Action</th><th>Risk</th><th>Days</th><th>Reason</th></tr></thead>
+                <tbody>
+                @foreach (var rec in pr.Take(20))
+                {
+                    <tr>
+                        <td>@rec.DemandNumber</td>
+                        <td>@(rec.PartNumber ?? "—")</td>
+                        <td>@rec.ActionLabel</td>
+                        <td>@rec.Risk</td>
+                        <td>@(rec.DaysUntilRequired?.ToString() ?? "—")</td>
+                        <td>@rec.Reason</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+
+        @if (Model.Scan is { } sc)
+        {
+            <h3 class="ds-h3 ds-mt-3">Tenant scan — @sc.TotalCount total · @sc.CriticalRiskCount critical · @sc.HighRiskCount high · showing @sc.Recommendations.Count</h3>
+            @if (sc.Recommendations.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Demand</th><th>PRO</th><th>Part</th><th>Action</th><th>Risk</th><th>Vendor</th><th>Reason</th></tr></thead>
+                    <tbody>
+                    @foreach (var rec in sc.Recommendations.Take(20))
+                    {
+                        <tr>
+                            <td>@rec.DemandNumber</td>
+                            <td>@(rec.ProductionOrderNumber ?? rec.ProductionOrderId.ToString())</td>
+                            <td>@(rec.PartNumber ?? "—")</td>
+                            <td>@rec.ActionLabel</td>
+                            <td>@rec.Risk</td>
+                            <td>@(rec.SuggestedVendorName ?? "—")</td>
+                            <td>@rec.Reason</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+</main>
