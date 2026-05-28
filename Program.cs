@@ -576,6 +576,12 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceiptToJobService,
     Abs.FixedAssets.Services.Receiving.ReceiptToJobService>();
 
+// Sprint 15.1 PR-2 (2026-05-28) — Production Supply Demand orchestration service.
+// Generates unified demand records from PRO BOM snapshots, resolves supply,
+// allocates supply to demand, refreshes status quartet.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionSupplyDemandService,
+    Abs.FixedAssets.Services.Production.ProductionSupplyDemandService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
