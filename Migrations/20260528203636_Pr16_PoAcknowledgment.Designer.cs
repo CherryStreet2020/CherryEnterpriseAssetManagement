@@ -4,6 +4,7 @@ using System.Text.Json;
 using Abs.FixedAssets.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -13,9 +14,11 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260528203636_Pr16_PoAcknowledgment")]
+    partial class Pr16_PoAcknowledgment
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -13266,10 +13269,7 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PurchaseOrderId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_POAcknowledgments_PurchaseOrderId_IsCurrent")
-                        .HasFilter("\"IsCurrent\" = TRUE");
+                    b.HasIndex("PurchaseOrderId");
 
                     b.HasIndex("RequestedByUserId");
 
@@ -13280,6 +13280,8 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("CompanyId", "AcknowledgmentNumber")
                         .IsUnique()
                         .HasFilter("\"CompanyId\" IS NOT NULL");
+
+                    b.HasIndex("PurchaseOrderId", "IsCurrent");
 
                     b.ToTable("POAcknowledgments");
                 });
