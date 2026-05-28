@@ -181,7 +181,11 @@ public sealed class ControlCenterModel : PageModel
                     Value = k.OpenDemandCount.ToString("N0"),
                     SubText = $"committed supply ${k.CommittedSupplyValueUsd:N0}",
                     Tone = k.OpenDemandCount > 0 ? "warning" : "neutral",
-                    DrillScroll = "supply-demand",
+                    // Codex thread #1 (P2): DrillScroll targets .cockpit__group
+                    // on the current tab; since each tab only renders one
+                    // group, switch to DrillHref so the tile navigates to the
+                    // intended tab even if not currently active.
+                    DrillHref = "?tab=" + TabSupplyDemand,
                 },
                 new CockpitKpiTileViewModel
                 {
@@ -213,7 +217,10 @@ public sealed class ControlCenterModel : PageModel
                     Value = k.MissingSupplyDemandCount.ToString("N0"),
                     SubText = "demand with no supply record",
                     Tone = k.MissingSupplyDemandCount > 0 ? "danger" : "success",
-                    DrillScroll = "buy-to-job",
+                    // Codex thread #1 (P2) — navigate to Buy-to-Job tab
+                    // rather than scroll to a group that may not be on the
+                    // current tab's rendered DOM.
+                    DrillHref = "?tab=" + TabBuyToJob,
                 },
             },
         };

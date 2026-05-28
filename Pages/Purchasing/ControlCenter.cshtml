@@ -157,11 +157,18 @@
                                                 <a class="ds-btn" href="@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.ActionLink_ViewPro(row)" data-testid="action-view-pro-@row.DemandId">
                                                     <i class="fas fa-eye"></i> View PRO
                                                 </a>
+                                                @* Codex thread #2 (P2): preserve tab + filter state across the
+                                                   POST→redirect cycle. Hidden inputs mirror the bound props so
+                                                   RedirectToPage rebuilds the same query the user was on. *@
                                                 @if (row.BuyerActionState == BuyerActionState.Open)
                                                 {
                                                     <form method="post" asp-page-handler="AssignSelf" style="display:inline;">
                                                         <input type="hidden" name="TransitionDemandId" value="@row.DemandId" />
                                                         <input type="hidden" name="TransitionNotes" value="Self-assigned from Purchasing CC" />
+                                                        <input type="hidden" name="TabKey" value="@Model.ActiveTab" />
+                                                        @if (Model.SiteId.HasValue) { <input type="hidden" name="SiteId" value="@Model.SiteId" /> }
+                                                        @if (Model.BuyerUserId.HasValue) { <input type="hidden" name="BuyerUserId" value="@Model.BuyerUserId" /> }
+                                                        <input type="hidden" name="Skip" value="@Model.Skip" />
                                                         <button type="submit" class="ds-btn" data-testid="action-assign-@row.DemandId">
                                                             <i class="fas fa-user-check"></i> Assign me
                                                         </button>
@@ -172,6 +179,10 @@
                                                     <form method="post" asp-page-handler="StartWork" style="display:inline;">
                                                         <input type="hidden" name="TransitionDemandId" value="@row.DemandId" />
                                                         <input type="hidden" name="TransitionNotes" value="Started from Purchasing CC" />
+                                                        <input type="hidden" name="TabKey" value="@Model.ActiveTab" />
+                                                        @if (Model.SiteId.HasValue) { <input type="hidden" name="SiteId" value="@Model.SiteId" /> }
+                                                        @if (Model.BuyerUserId.HasValue) { <input type="hidden" name="BuyerUserId" value="@Model.BuyerUserId" /> }
+                                                        <input type="hidden" name="Skip" value="@Model.Skip" />
                                                         <button type="submit" class="ds-btn" data-testid="action-startwork-@row.DemandId">
                                                             <i class="fas fa-play"></i> Start work
                                                         </button>
