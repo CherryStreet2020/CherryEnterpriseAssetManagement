@@ -352,24 +352,52 @@ public class SubcontractFlowService : ISubcontractFlowService
                 $"Step 5a CreateShipment failed: {createShip.Error}");
         var shipmentId = createShip.Value!.SubcontractShipmentId;
 
-        // 5b — Add the (single) line
-        var addLine = await _shipRcptSvc.AddShipmentLineAsync(
-            new AddShipmentLineRequest(
-                SubcontractShipmentId: shipmentId,
-                ItemId: r.WipItemId,
-                PartNumber: r.PartNumber,
-                Description: r.Description,
-                DrawingRevision: r.DrawingRevision,
-                LotNumber: r.LotNumber,
-                SerialNumber: r.SerialNumber,
-                QuantityShipped: r.QuantityShipped,
-                Uom: r.Uom ?? "EA",
-                UnitCostSnapshot: r.UnitCostSnapshot,
-                Notes: r.Notes),
-            ct);
-        if (!addLine.IsSuccess)
+        // 5b — Add the (single) line, OR reuse an existing line on retry.
+        // Codex P1: CreateShipment is idempotent per (op, supplier, required-date)
+        // but AddShipmentLine appends unconditionally. A retry after 5a+5b
+        // succeeded but 5c failed would append a 2nd line → MarkInTransit
+        // would ship every line → double-post vendor WIP. Defense: re-load
+        // the shipment with its Lines collection; reuse the first line on
+        // retry, only add if there are zero lines.
+        var shipmentWithLines = await _db.Set<SubcontractShipment>()
+            .Include(s => s.Lines)
+            .Where(s => s.Id == shipmentId &&
+                        _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+            .FirstOrDefaultAsync(ct);
+        if (shipmentWithLines == null)
             return Result.Failure<Step5ShipResult>(
-                $"Step 5b AddShipmentLine failed: {addLine.Error}");
+                $"Step 5b internal: just-created shipment #{shipmentId} not loadable.");
+
+        int shipmentLineId;
+        if (shipmentWithLines.Lines.Any())
+        {
+            shipmentLineId = shipmentWithLines.Lines
+                .OrderBy(l => l.LineNumber).First().Id;
+            _log.LogInformation(
+                "SubcontractFlow Step 5 retry-safe path: reusing existing line #{LineId} on shipment {Num} (had {Count} line(s)).",
+                shipmentLineId, createShip.Value.ShipmentNumber, shipmentWithLines.Lines.Count);
+        }
+        else
+        {
+            var addLine = await _shipRcptSvc.AddShipmentLineAsync(
+                new AddShipmentLineRequest(
+                    SubcontractShipmentId: shipmentId,
+                    ItemId: r.WipItemId,
+                    PartNumber: r.PartNumber,
+                    Description: r.Description,
+                    DrawingRevision: r.DrawingRevision,
+                    LotNumber: r.LotNumber,
+                    SerialNumber: r.SerialNumber,
+                    QuantityShipped: r.QuantityShipped,
+                    Uom: r.Uom ?? "EA",
+                    UnitCostSnapshot: r.UnitCostSnapshot,
+                    Notes: r.Notes),
+                ct);
+            if (!addLine.IsSuccess)
+                return Result.Failure<Step5ShipResult>(
+                    $"Step 5b AddShipmentLine failed: {addLine.Error}");
+            shipmentLineId = addLine.Value!.SubcontractShipmentLineId;
+        }
 
         // 5c — Mark InTransit (creates VendorWipTransaction per line, rolls op qty)
         var inTransit = await _shipRcptSvc.MarkShipmentInTransitAsync(
@@ -386,7 +414,7 @@ public class SubcontractFlowService : ISubcontractFlowService
         return Result.Success(new Step5ShipResult(
             shipmentId,
             createShip.Value.ShipmentNumber,
-            addLine.Value!.SubcontractShipmentLineId,
+            shipmentLineId,
             inTransit.Value!.Status,
             opAfter?.Status ?? op.Status,
             $"Step 5 complete: shipment {createShip.Value.ShipmentNumber} in transit with {r.QuantityShipped:N4} {r.Uom}."));
@@ -487,32 +515,59 @@ public class SubcontractFlowService : ISubcontractFlowService
                 $"Step 7a CreateReceipt failed: {createRcpt.Error}");
         var receiptId = createRcpt.Value!.SubcontractReceiptId;
 
-        // 7b — Add the (single) line with §11 scenario + disposition
-        var addLine = await _shipRcptSvc.AddReceiptLineAsync(
-            new AddReceiptLineRequest(
-                SubcontractReceiptId: receiptId,
-                SubcontractShipmentLineId: null,
-                ItemId: r.WipItemId,
-                PartNumber: r.PartNumber,
-                Description: r.Description,
-                DrawingRevision: r.DrawingRevision,
-                LotNumber: r.LotNumber,
-                SerialNumber: r.SerialNumber,
-                QuantityReceived: r.QuantityReceived,
-                QuantityAccepted: r.QuantityAccepted,
-                QuantityRejected: r.QuantityRejected,
-                QuantityScrappedAtVendor: r.QuantityScrappedAtVendor,
-                QuantityShort: r.QuantityShort,
-                Uom: r.Uom ?? "EA",
-                Scenario: r.Scenario,
-                Disposition: r.Disposition,
-                RejectReason: r.RejectReason,
-                NcrReference: r.NcrReference,
-                Notes: r.Notes),
-            ct);
-        if (!addLine.IsSuccess)
+        // 7b — Add the (single) line, OR reuse an existing line on retry.
+        // Codex P1 (twin of Step 5): CreateReceipt is idempotent per (op,
+        // packing slip) but AddReceiptLine appends unconditionally. A retry
+        // after 7a+7b succeeded but 7c failed would append a 2nd line →
+        // PostReceipt would post every line → double-receive vendor WIP +
+        // overstate op accepted/rejected qtys.
+        var receiptWithLines = await _db.Set<SubcontractReceipt>()
+            .Include(rc => rc.Lines)
+            .Where(rc => rc.Id == receiptId &&
+                         _tenant.VisibleCompanyIds.Contains(rc.CompanyId))
+            .FirstOrDefaultAsync(ct);
+        if (receiptWithLines == null)
             return Result.Failure<Step7ReceiveResult>(
-                $"Step 7b AddReceiptLine failed: {addLine.Error}");
+                $"Step 7b internal: just-created receipt #{receiptId} not loadable.");
+
+        int receiptLineId;
+        if (receiptWithLines.Lines.Any())
+        {
+            receiptLineId = receiptWithLines.Lines
+                .OrderBy(l => l.LineNumber).First().Id;
+            _log.LogInformation(
+                "SubcontractFlow Step 7 retry-safe path: reusing existing line #{LineId} on receipt {Num} (had {Count} line(s)).",
+                receiptLineId, createRcpt.Value.ReceiptNumber, receiptWithLines.Lines.Count);
+        }
+        else
+        {
+            var addLine = await _shipRcptSvc.AddReceiptLineAsync(
+                new AddReceiptLineRequest(
+                    SubcontractReceiptId: receiptId,
+                    SubcontractShipmentLineId: null,
+                    ItemId: r.WipItemId,
+                    PartNumber: r.PartNumber,
+                    Description: r.Description,
+                    DrawingRevision: r.DrawingRevision,
+                    LotNumber: r.LotNumber,
+                    SerialNumber: r.SerialNumber,
+                    QuantityReceived: r.QuantityReceived,
+                    QuantityAccepted: r.QuantityAccepted,
+                    QuantityRejected: r.QuantityRejected,
+                    QuantityScrappedAtVendor: r.QuantityScrappedAtVendor,
+                    QuantityShort: r.QuantityShort,
+                    Uom: r.Uom ?? "EA",
+                    Scenario: r.Scenario,
+                    Disposition: r.Disposition,
+                    RejectReason: r.RejectReason,
+                    NcrReference: r.NcrReference,
+                    Notes: r.Notes),
+                ct);
+            if (!addLine.IsSuccess)
+                return Result.Failure<Step7ReceiveResult>(
+                    $"Step 7b AddReceiptLine failed: {addLine.Error}");
+            receiptLineId = addLine.Value!.SubcontractReceiptLineId;
+        }
 
         // 7c — Post atomically
         var post = await _shipRcptSvc.PostReceiptAsync(receiptId,
@@ -528,7 +583,7 @@ public class SubcontractFlowService : ISubcontractFlowService
         return Result.Success(new Step7ReceiveResult(
             receiptId,
             createRcpt.Value.ReceiptNumber,
-            addLine.Value!.SubcontractReceiptLineId,
+            receiptLineId,
             post.Value!.Status,
             opAfter?.Status ?? op.Status,
             post.Value.RequiresApproval,
