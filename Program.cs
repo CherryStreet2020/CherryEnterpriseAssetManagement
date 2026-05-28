@@ -650,6 +650,18 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IDemandConsolidat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingRecommendationService,
     Abs.FixedAssets.Services.Purchasing.PurchasingRecommendationService>();
 
+// Sprint 15.4 PR-16 (2026-05-28) — PO Acknowledgment / Vendor Confirmation.
+// Vendor confirmation of PO with per-line confirmed qty / price / promise
+// date + 7-state header lifecycle (Requested → Acknowledged → Confirmed |
+// ConfirmedWithExceptions → Rejected | Expired | Cancelled) + 8 line
+// exception types (None / QuantityShort / QuantityOver / PriceDifference /
+// DatePushOut / DatePullIn / PartialReject / FullReject). One IsCurrent ack
+// per PO at a time; history preserved for PR-17 vendor re-ack loop on
+// amendments. Two-phase numbering for POACK-YYYY-NNNNNN (eliminates
+// CountAsync race on tenant-unique constraint).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAcknowledgmentService,
+    Abs.FixedAssets.Services.Purchasing.PoAcknowledgmentService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

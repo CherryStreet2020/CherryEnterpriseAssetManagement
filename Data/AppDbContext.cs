@@ -480,6 +480,14 @@ namespace Abs.FixedAssets.Data
             => Set<Abs.FixedAssets.Models.Production.SubcontractReceipt>();
         public DbSet<Abs.FixedAssets.Models.Production.SubcontractReceiptLine> SubcontractReceiptLines
             => Set<Abs.FixedAssets.Models.Production.SubcontractReceiptLine>();
+
+        // Sprint 15.4 PR-16 — PO Acknowledgment / Vendor Confirmation.
+        // Header + per-line vendor confirmation with 7-state lifecycle, 5
+        // delivery methods, 8 line-exception types. One IsCurrent ack per PO
+        // at a time; history preserved for PR-17 vendor re-ack loop.
+        public DbSet<POAcknowledgment> POAcknowledgments => Set<POAcknowledgment>();
+        public DbSet<POAcknowledgmentLine> POAcknowledgmentLines => Set<POAcknowledgmentLine>();
+
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5843,6 +5851,76 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
 
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ─── Sprint 15.4 PR-16 — POAcknowledgment + POAcknowledgmentLine ────
+            // Vendor confirmation of Purchase Orders. One IsCurrent ack per PO at
+            // a time; history preserved for PR-17 vendor re-acknowledgment loop.
+            modelBuilder.Entity<POAcknowledgment>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(POAcknowledgmentStatus.Requested);
+                e.Property(x => x.Method)
+                    .HasDefaultValue(POAcknowledgmentMethod.VendorPortal);
+                e.Property(x => x.IsCurrent).HasDefaultValue(true);
+                e.Property(x => x.AllLinesAcceptedAsOrdered).HasDefaultValue(false);
+
+                // Tenant-unique acknowledgment number (POACK-YYYY-NNNNNN).
+                // Two-phase numbering pattern means the placeholder Guid lives
+                // here briefly during the first SaveChanges — the unique index
+                // still holds because Guids never collide.
+                // P2-5: filter on CompanyId IS NOT NULL since Postgres treats
+                // NULLs as distinct in unique indexes (a null-CompanyId ack is
+                // service-rejected anyway, but defensive on the schema).
+                e.HasIndex(x => new { x.CompanyId, x.AcknowledgmentNumber })
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NOT NULL");
+                e.HasIndex(x => x.PurchaseOrderId);
+                e.HasIndex(x => new { x.PurchaseOrderId, x.IsCurrent });
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.ResponseDueByUtc);
+
+                e.HasOne(x => x.PurchaseOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.RequestedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.RequestedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<POAcknowledgmentLine>(e =>
+            {
+                e.Property(x => x.ExceptionType)
+                    .HasDefaultValue(PoAckLineExceptionType.None);
+                e.Property(x => x.IsAccepted).HasDefaultValue(false);
+                e.Property(x => x.ExceptionApproved).HasDefaultValue(false);
+
+                e.HasIndex(x => x.POAcknowledgmentId);
+                e.HasIndex(x => x.PurchaseOrderLineId);
+                e.HasIndex(x => x.ExceptionType);
+                e.HasIndex(x => new { x.POAcknowledgmentId, x.PurchaseOrderLineId })
+                    .IsUnique();
+
+                e.HasOne(x => x.POAcknowledgment)
+                    .WithMany(a => a.Lines)
+                    .HasForeignKey(x => x.POAcknowledgmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.PurchaseOrderLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderLineId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ExceptionApprovedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.ExceptionApprovedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
 

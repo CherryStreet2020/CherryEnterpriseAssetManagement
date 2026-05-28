@@ -1,0 +1,221 @@
+@page "/Admin/PoAcknowledgmentProbe"
+@model Abs.FixedAssets.Pages.Admin.PoAcknowledgmentProbeModel
+@{
+    ViewData["Title"] = "PO Acknowledgment / Vendor Confirmation Probe";
+    ViewData["TabTitle"] = "PO Acknowledgment Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">PO Acknowledgment / Vendor Confirmation Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.4 PR-16 — vendor confirms PO with per-line confirmed qty / price /
+            promise date. 7-state header lifecycle (Requested → Acknowledged →
+            Confirmed | ConfirmedWithExceptions → Rejected | Expired | Cancelled).
+            8 line exception types. One IsCurrent ack per PO; history preserved for
+            PR-17 vendor re-ack loop on amendments. Two-phase numbering for
+            POACK-YYYY-NNNNNN (zero CountAsync race).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="poack-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="poack-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total POAcknowledgments</td><td data-testid="poack-total">@Model.TotalAcknowledgments</td></tr>
+                <tr><td>Requested</td><td data-testid="poack-requested">@Model.RequestedCount</td></tr>
+                <tr><td>Acknowledged (header only)</td><td data-testid="poack-acked">@Model.AcknowledgedCount</td></tr>
+                <tr><td>Confirmed</td><td data-testid="poack-confirmed">@Model.ConfirmedCount</td></tr>
+                <tr><td>Confirmed With Exceptions</td><td data-testid="poack-confirmed-exc">@Model.ConfirmedWithExceptionsCount</td></tr>
+                <tr><td>Rejected</td><td data-testid="poack-rejected">@Model.RejectedCount</td></tr>
+                <tr><td>Expired</td><td data-testid="poack-expired">@Model.ExpiredCount</td></tr>
+                <tr><td>Cancelled</td><td data-testid="poack-cancelled">@Model.CancelledCount</td></tr>
+                <tr><td><strong>Current Overdue (open + past SLA)</strong></td><td data-testid="poack-overdue"><strong>@Model.CurrentOverdueCount</strong></td></tr>
+                <tr><td><strong>Open Line Exceptions (unapproved)</strong></td><td data-testid="poack-exc-open"><strong>@Model.LineExceptionsOpenCount</strong></td></tr>
+            </tbody>
+        </table>
+        @if (Model.EligiblePos.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">Eligible POs (Approved / Sent / PartiallyReceived — top 20)</h3>
+            <ul>
+                @foreach (var po in Model.EligiblePos)
+                {
+                    <li>@po.Display</li>
+                }
+            </ul>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Request Acknowledgment (open ack cycle on a PO)</h2>
+        <p class="ds-text-muted">Creates header + initializes one line per active PO line with snapshots. Two-phase numbering assigns POACK-YYYY-NNNNNN post-save.</p>
+        <form method="post" asp-page-handler="Request">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="RequestPurchaseOrderId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Requested Method</label>
+                <select class="ds-input" asp-for="RequestMethod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.POAcknowledgmentMethod>()"></select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Response Due In (days)</label><input type="number" class="ds-input" asp-for="RequestDueInDays" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-request">Request Acknowledgment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Record Header Acknowledgment (vendor confirms receipt)</h2>
+        <p class="ds-text-muted">Status: Requested → Acknowledged. Captures vendor contact + overall confirmed promise date.</p>
+        <form method="post" asp-page-handler="RecordAck">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgment ID</label><input type="number" class="ds-input" asp-for="RecordAckId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Method</label>
+                <select class="ds-input" asp-for="RecordMethod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.POAcknowledgmentMethod>()"></select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Vendor Contact</label><input class="ds-input" asp-for="RecordVendorContact" /></div>
+            <div class="ds-form-row"><label class="ds-label">Overall Confirmed Promise Date</label><input type="date" class="ds-input" asp-for="RecordOverallPromiseDate" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-record-ack">Record Acknowledgment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Record Line Confirmation — accepted as-ordered</h2>
+        <p class="ds-text-muted">Mirrors line snapshots — IsAccepted should become true (no exception, exact match).</p>
+        <form method="post" asp-page-handler="LineAccepted">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgmentLine ID</label><input type="number" class="ds-input" asp-for="LineConfirmLineId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-line-accepted">Confirm Line As-Ordered</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Record Line Confirmation — with exception</h2>
+        <p class="ds-text-muted">Defaults: DatePushOut by 5 days. IsAccepted=false, awaiting buyer ApproveLineException.</p>
+        <form method="post" asp-page-handler="LineException">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgmentLine ID</label><input type="number" class="ds-input" asp-for="LineExceptionLineId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Exception Type</label>
+                <select class="ds-input" asp-for="LineExceptionType" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.PoAckLineExceptionType>()"></select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Confirmed Quantity</label><input type="number" step="0.0001" class="ds-input" asp-for="LineExceptionQty" /></div>
+            <div class="ds-form-row"><label class="ds-label">Confirmed Unit Price</label><input type="number" step="0.0001" class="ds-input" asp-for="LineExceptionPrice" /></div>
+            <div class="ds-form-row"><label class="ds-label">Confirmed Promise Date</label><input type="date" class="ds-input" asp-for="LineExceptionPromise" /></div>
+            <div class="ds-form-row"><label class="ds-label">Exception Reason</label><input class="ds-input" asp-for="LineExceptionReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-line-exception">Confirm Line With Exception</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Approve Line Exception</h2>
+        <p class="ds-text-muted">Buyer approves vendor's exception. PR-17 will couple approval to an automatic PO amendment.</p>
+        <form method="post" asp-page-handler="ApproveException">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgmentLine ID</label><input type="number" class="ds-input" asp-for="ApproveLineId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Approver User ID</label><input type="number" class="ds-input" asp-for="ApproverUserId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Approval Note</label><input class="ds-input" asp-for="ApprovalNote" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-approve-exception">Approve Exception</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Confirm Acknowledgment (terminal)</h2>
+        <p class="ds-text-muted">Rolls up: all IsAccepted &amp; no exceptions → Confirmed. Any exception → ConfirmedWithExceptions. Blocks if unapproved exceptions remain.</p>
+        <form method="post" asp-page-handler="Confirm">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgment ID</label><input type="number" class="ds-input" asp-for="ConfirmAckId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-confirm">Confirm Acknowledgment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Reject Acknowledgment</h2>
+        <p class="ds-text-muted">Vendor refuses PO. Closes ack as Rejected with reason.</p>
+        <form method="post" asp-page-handler="Reject">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgment ID</label><input type="number" class="ds-input" asp-for="RejectAckId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Reason</label><input class="ds-input" asp-for="RejectReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-danger" data-testid="btn-reject">Reject Acknowledgment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Cancel Acknowledgment</h2>
+        <p class="ds-text-muted">Buyer cancels open ack cycle (e.g., PO being amended). Status → Cancelled, IsCurrent=false.</p>
+        <form method="post" asp-page-handler="Cancel">
+            <div class="ds-form-row"><label class="ds-label">POAcknowledgment ID</label><input type="number" class="ds-input" asp-for="CancelAckId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Cancel Reason</label><input class="ds-input" asp-for="CancelReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-cancel">Cancel Acknowledgment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">9. Mark Expired (SLA scan)</h2>
+        <p class="ds-text-muted">Scans all IsCurrent Requested / Acknowledged acks past ResponseDueByUtc and moves to Expired.</p>
+        <form method="post" asp-page-handler="MarkExpired">
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-mark-expired">Run SLA Scan</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R1. Load Summary (read)</h2>
+        <form method="post" asp-page-handler="LoadSummary">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="SummaryPoId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-summary">Load Summary</button>
+        </form>
+        @if (Model.LastSummary != null)
+        {
+            <table class="ds-table ds-mt-3">
+                <tbody>
+                    <tr><td>Current Ack #</td><td data-testid="summary-ack-id">@(Model.LastSummary.CurrentAcknowledgmentId?.ToString() ?? "(none)")</td></tr>
+                    <tr><td>Ack Number</td><td>@(Model.LastSummary.CurrentAcknowledgmentNumber ?? "(none)")</td></tr>
+                    <tr><td>Status</td><td>@(Model.LastSummary.CurrentStatus?.ToString() ?? "(none)")</td></tr>
+                    <tr><td>Requested At (UTC)</td><td>@(Model.LastSummary.RequestedAtUtc?.ToString("u") ?? "(none)")</td></tr>
+                    <tr><td>Acknowledged At (UTC)</td><td>@(Model.LastSummary.AcknowledgedAtUtc?.ToString("u") ?? "(none)")</td></tr>
+                    <tr><td>Closed At (UTC)</td><td>@(Model.LastSummary.ClosedAtUtc?.ToString("u") ?? "(none)")</td></tr>
+                    <tr><td>Response Due By (UTC)</td><td>@(Model.LastSummary.ResponseDueByUtc?.ToString("u") ?? "(none)")</td></tr>
+                    <tr><td>History Count</td><td>@Model.LastSummary.TotalAcknowledgmentsInHistory</td></tr>
+                    <tr><td>Lines Total</td><td>@Model.LastSummary.LinesTotal</td></tr>
+                    <tr><td>Lines Accepted</td><td data-testid="summary-accepted">@Model.LastSummary.LinesAccepted</td></tr>
+                    <tr><td>Lines With Exceptions</td><td>@Model.LastSummary.LinesWithExceptions</td></tr>
+                    <tr><td>Lines Exceptions Approved</td><td>@Model.LastSummary.LinesExceptionsApproved</td></tr>
+                    <tr><td>Is Overdue</td><td>@Model.LastSummary.IsOverdue</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R2. Load History (read)</h2>
+        <form method="post" asp-page-handler="LoadHistory">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="HistoryPoId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-history">Load History</button>
+        </form>
+        @if (Model.LastHistory != null && Model.LastHistory.Count > 0)
+        {
+            <table class="ds-table ds-mt-3">
+                <thead>
+                    <tr><th>Ack #</th><th>Number</th><th>Status</th><th>Method</th><th>Current</th><th>Requested</th><th>Closed</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.LastHistory)
+                    {
+                        <tr>
+                            <td>@a.Id</td>
+                            <td>@a.AcknowledgmentNumber</td>
+                            <td>@a.Status</td>
+                            <td>@a.Method</td>
+                            <td>@a.IsCurrent</td>
+                            <td>@a.RequestedAtUtc.ToString("u")</td>
+                            <td>@(a.ClosedAtUtc?.ToString("u") ?? "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>
