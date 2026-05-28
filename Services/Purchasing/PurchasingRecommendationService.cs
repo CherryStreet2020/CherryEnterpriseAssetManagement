@@ -144,10 +144,18 @@ public class PurchasingRecommendationService : IPurchasingRecommendationService
         if (filter.BuyerUserId.HasValue)
             q = q.Where(d => d.BuyerUserId == filter.BuyerUserId);
 
-        // Materialise enough demands to cover skip + take *plus* a buffer so
-        // the optional OnlyAction post-filter can still satisfy the page
-        // without re-querying. Hard-cap at 500 to bound the loop.
-        var fetchTake = Math.Min(500, skip + take * (filter.OnlyAction.HasValue ? 4 : 1));
+        // (Codex thread 2 fix) When OnlyAction is set, the post-filter ratio
+        // is unknowable up front. Earlier `take * 4 + skip` cap meant a
+        // tenant with matching rows past the first 100 due-date-sorted
+        // demands would see TotalCount=0 from the API even though matching
+        // rows existed deeper. Materialise the full 500-row ceiling for
+        // filtered scans so the "all items for an action" interface keeps
+        // its contract within reasonable bounds. Demands beyond the 500
+        // ceiling still need a streaming or two-pass implementation —
+        // documented Wave 4 polish.
+        var fetchTake = filter.OnlyAction.HasValue
+            ? 500
+            : Math.Min(500, skip + take);
         var demandSlice = await q
             .OrderBy(d => d.RequiredDate ?? DateTime.MaxValue)
             .ThenBy(d => d.Id)
@@ -277,6 +285,17 @@ public class PurchasingRecommendationService : IPurchasingRecommendationService
                 "Demand is blocked — clear the gating issue (drawing / supplier / approval) before next step.");
         }
 
+        // ─── Awaiting approval → wait (Codex thread 1 fix) ──────────────
+        // A buy demand with vendor + no linked PO would otherwise fall
+        // through to CreatePo and tell the buyer to act before the approval
+        // gate has cleared. Surface the approval-pending state explicitly so
+        // it survives the rest of the pattern dispatch.
+        if (d.BuyerActionState == BuyerActionState.AwaitingApproval)
+        {
+            return (RecommendedAction.Wait,
+                "Demand is awaiting approval — clear the approval gate before next purchasing action.");
+        }
+
         // ─── Cost-variance review (§18 pattern 11) ──────────────────────
         if (d.CostStatus == DemandCostStatus.VariancePending)
         {
@@ -347,19 +366,24 @@ public class PurchasingRecommendationService : IPurchasingRecommendationService
                 "Child work order is supplying this demand — track its completion.");
         }
 
-        // ─── No supplier (§18 pattern 6) ────────────────────────────────
-        if (d.VendorId == null && d.SourceStatus == DemandSourceStatus.NotDetermined)
-        {
-            return (RecommendedAction.RequestSourcing,
-                "No supplier resolved — request sourcing or AVL update.");
-        }
-
         // ─── Transfer recommended (§18 pattern 3) ───────────────────────
+        // (Codex thread 0 fix) Internal-transfer demands typically have no
+        // VendorId — they're satisfied by inventory motion, not a supplier.
+        // Match the policy BEFORE the "no supplier" check below so a transfer
+        // demand never gets misrouted as RequestSourcing and stays visible
+        // under OnlyAction = CreateTransfer scans.
         if (d.SupplyPolicy == SupplyPolicy.TransferFromWarehouse
             || d.SupplyPolicy == SupplyPolicy.TransferFromJob)
         {
             return (RecommendedAction.CreateTransfer,
                 "Demand resolves via internal transfer — create the transfer order.");
+        }
+
+        // ─── No supplier (§18 pattern 6) ────────────────────────────────
+        if (d.VendorId == null && d.SourceStatus == DemandSourceStatus.NotDetermined)
+        {
+            return (RecommendedAction.RequestSourcing,
+                "No supplier resolved — request sourcing or AVL update.");
         }
 
         // ─── Inventory-first policy with available stock (§18 pattern 2) ──
