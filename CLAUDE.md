@@ -50,6 +50,63 @@ Dean explicitly asks for more detail.
 - Strategic architecture decisions (Dean wants the reasoning).
 - When Dean explicitly asks "explain X" or "walk me through Y".
 
+## Pre-PR self-review (Superpowers-style)
+
+Inspired by Superpowers' `subagent-driven-development` pattern. Codex caught 12
+real bugs across Wave 1 (4 P1 + 8 P2) AFTER PRs opened, costing a second CI
+round-trip every time. A pre-PR subagent review catches those bugs before the
+PR opens.
+
+**The rule:** For every non-trivial PR (entity/service/migration changes —
+NOT docs-only, NOT typo fixes), before the `gh pr create` call, dispatch
+the `code-reviewer` Agent subagent with:
+
+- The diff scope (which files changed, why)
+- The spec reference (which §-section of which research doc drives this)
+- A specific ask: "Audit for spec-compliance bugs AND code-quality bugs.
+  Flag any null-handling, FK direction, tenant-scope, idempotency, or
+  enum-default issues. Return a punch list, severity-labeled (P1/P2/P3).
+  Under 300 words."
+
+If the subagent returns P1s: fix them. THEN open the PR.
+If only P2/P3: judgment call — fix obvious ones, file the rest as known
+trade-offs in the PR body.
+
+**When to skip the pre-PR review:**
+- Docs-only changes (CLAUDE.md, README, comment-only edits)
+- Pure migration scaffolding (no service logic)
+- Codex-fix follow-up commits (already reviewed once)
+
+**Cost vs. savings:** A subagent review burns ~3-5K tokens. A wasted CI
+round-trip burns 4-5 minutes + similar tokens for the re-fix commit. Break-even
+at one P1 caught; net positive at two. Wave 1's record was 2.4 bugs/PR average.
+
+## Parallel PRs via git worktrees
+
+Inspired by Superpowers' `using-git-worktrees` skill. We currently sit idle
+4-5 min × multiple PRs/session waiting on CI. Worktrees let us prep PR #N+1
+while PR #N is in CI.
+
+**The pattern:**
+```
+git worktree add ../<repo>-pr<N+1> -b <next-branch> main
+cd ../<repo>-pr<N+1>
+# … work on PR #N+1 here while PR #N is in CI in the main clone …
+```
+
+**When to use:**
+- Multi-PR sessions (3+ PRs planned). Skip for single-PR work.
+- After a PR is pushed and CI is running — that's the cue to switch to the
+  worktree and start the next one.
+
+**Discipline:**
+- One worktree per PR. Delete with `git worktree remove ../<repo>-prN`
+  after the PR merges.
+- Never push from a worktree to `main` directly (the pre-push hook applies
+  to all worktrees anyway).
+- The ship harness (`.ship/run.sh`) works from any worktree as long as
+  `.ship-config.sh` is present at the repo root of that worktree.
+
 ## The git workflow (non-negotiable)
 
 CherryAI EAM runs on Replit. **One-way sync from GitHub to Replit.** Every change
