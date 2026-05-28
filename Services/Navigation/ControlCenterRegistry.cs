@@ -71,14 +71,18 @@ public static class ControlCenterRegistry
             IsLive: true,
             StatusChip: "live"),
 
+        // Sprint 15.3 PR-11 (2026-05-28) — Purchasing Control Center goes LIVE.
+        // Wave 3 page surface opens. Composes _CockpitPageHeader + _CockpitKpiBand +
+        // _CockpitTabShell over IPurchasingControlCenterService. Tabs 1-2 (Supply
+        // Demand + Buy-to-Job) live in this PR; tabs 3-10 wire in PR-12 / PR-13.
         new ControlCenterDescriptor(
             Code: "PURCHASING",
             Title: "Purchasing",
             Route: "/Purchasing/ControlCenter",
             IconClass: "fas fa-file-invoice",
-            SprintNumber: 13,
-            IsLive: false,
-            StatusChip: "soon · Sprint 13"),
+            SprintNumber: 153,
+            IsLive: true,
+            StatusChip: "live"),
 
         new ControlCenterDescriptor(
             Code: "MAINTENANCE",

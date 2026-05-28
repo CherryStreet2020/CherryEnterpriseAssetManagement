@@ -1,0 +1,258 @@
+@page "/Purchasing/ControlCenter"
+@model Abs.FixedAssets.Pages.Purchasing.ControlCenterModel
+@using Abs.FixedAssets.Services.Purchasing
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Purchasing Control Center";
+    ViewData["TabTitle"] = "Purchasing";
+    ViewData["BodyClass"] = "is-control-center";
+    Layout = "_ModernLayout";
+
+    string BadgeStyle(string tone) => tone switch
+    {
+        "danger" => "background:var(--danger-soft);color:var(--danger);",
+        "warning" => "background:var(--warning-soft);color:var(--warning);",
+        "success" => "background:var(--success-soft);color:var(--success);",
+        "info" => "background:var(--info-soft,#dbeafe);color:var(--info,#0c4a6e);",
+        "muted" => "background:rgba(0,0,0,0.04);color:var(--text-muted);",
+        _ => "background:rgba(0,0,0,0.04);color:var(--text-muted);",
+    };
+}
+
+@* Sprint 15.3 PR-11 — anchored page header (Cockpit primitive). *@
+@if (Model.PageHeader is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitPageHeader", Model.PageHeader)
+}
+
+@* Sprint 15.3 PR-11 — 5-tile hero KPI band (Cockpit primitive). *@
+@if (Model.KpiBand is not null)
+{
+    @await Html.PartialAsync("Primitives/Cockpit/_CockpitKpiBand", Model.KpiBand)
+}
+
+@* Sprint 15.3 PR-11 — 10-tab shell. Tabs 1-2 live; tabs 3-10 register the §21
+   IA and render a "coming soon" panel until PR-12 / PR-13. *@
+@await Html.PartialAsync("Primitives/Cockpit/_CockpitTabShell", Model.TabShell)
+
+<div style="padding:16px 24px 48px 24px;">
+
+    @if (TempData["pcc-flash"] is string flash)
+    {
+        <div class="ds-card" style="margin-bottom:16px;">
+            <div class="ds-card__body">
+                <p data-testid="pcc-flash">@flash</p>
+            </div>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="ds-card" style="margin-bottom:16px;border-left:3px solid var(--danger);">
+            <div class="ds-card__body">
+                <p style="color:var(--danger);" data-testid="pcc-error">@Model.ErrorMessage</p>
+            </div>
+        </div>
+    }
+
+    @if (Model.ActiveTabIsLive && Model.Queue is { } pq)
+    {
+        var queueLabel = Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob
+            ? "Buy-to-Job demand"
+            : "Supply Demand";
+        var emptyCopy = Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob
+            ? "When a Production Order is released, its BOM lines materialize as buy-to-job demand rows here."
+            : "Open demand from Production Orders, projects, and MRP surfaces here as it appears.";
+
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;">@queueLabel
+                        <span style="color:var(--text-muted);font-weight:400;">· @pq.TotalCount row(s)</span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (Model.Queue.Rows.Count == 0) { <text>No matching demand right now</text> }
+                        else { <text>Showing @(Model.Skip + 1)–@(Model.Skip + Model.Queue.Rows.Count) of @pq.TotalCount</text> }
+                    </span>
+                </div>
+
+                @if (Model.Queue.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-check-circle" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No unresolved @queueLabel.ToLower() in scope.</p>
+                        <p style="color:var(--text-muted);">@emptyCopy</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Demand</th>
+                                        <th>PRO</th>
+                                        <th>Op</th>
+                                        <th>Part / Rev</th>
+                                        <th>Open qty</th>
+                                        <th>Required</th>
+                                        <th>Supply</th>
+                                        <th>Buyer state</th>
+                                        <th>Next action</th>
+                                        <th style="text-align:right;">Row actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var row in Model.Queue.Rows)
+                                {
+                                    <tr data-testid="pcc-row-@row.DemandId">
+                                        <td>@row.DemandId</td>
+                                        <td><strong>@row.DemandNumber</strong></td>
+                                        <td>
+                                            <a href="@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.ActionLink_ViewPro(row)">
+                                                @(row.ProductionOrderNumber ?? $"#{row.ProductionOrderId}")
+                                            </a>
+                                        </td>
+                                        <td>@(row.OperationSequence?.ToString() ?? "—")</td>
+                                        <td>
+                                            <span style="font-family:var(--font-mono,monospace);">@(row.PartNumber ?? "—")</span>
+                                            @if (!string.IsNullOrEmpty(row.Revision))
+                                            {
+                                                <span style="color:var(--text-muted);"> @row.Revision</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @row.OpenQuantity.ToString("N2")
+                                            @if (!string.IsNullOrEmpty(row.Uom))
+                                            {
+                                                <span style="color:var(--text-muted);"> @row.Uom</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (row.RequiredDate.HasValue)
+                                            {
+                                                <span style="@(row.DaysLate > 0 ? "color:var(--danger);" : "")">@row.RequiredDate.Value.ToString("yyyy-MM-dd")</span>
+                                                @if (row.DaysLate > 0)
+                                                {
+                                                    <span style="color:var(--danger);"> (@row.DaysLate d late)</span>
+                                                }
+                                            }
+                                            else { <text>—</text> }
+                                        </td>
+                                        <td>
+                                            <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.SupplyStatusTone(row.SupplyStatus)))">
+                                                @row.SupplyStatus
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.BuyerActionStateTone(row.BuyerActionState)))">
+                                                @row.BuyerActionState
+                                            </span>
+                                        </td>
+                                        <td><em style="color:var(--text-muted);">@row.NextActionHint</em></td>
+                                        <td style="text-align:right;">
+                                            <div class="ds-btn-group ds-btn-group--end">
+                                                <a class="ds-btn" href="@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.ActionLink_ViewPro(row)" data-testid="action-view-pro-@row.DemandId">
+                                                    <i class="fas fa-eye"></i> View PRO
+                                                </a>
+                                                @* Codex thread #2 (P2): preserve tab + filter state across the
+                                                   POST→redirect cycle. Hidden inputs mirror the bound props so
+                                                   RedirectToPage rebuilds the same query the user was on. *@
+                                                @if (row.BuyerActionState == BuyerActionState.Open)
+                                                {
+                                                    <form method="post" asp-page-handler="AssignSelf" style="display:inline;">
+                                                        <input type="hidden" name="TransitionDemandId" value="@row.DemandId" />
+                                                        <input type="hidden" name="TransitionNotes" value="Self-assigned from Purchasing CC" />
+                                                        <input type="hidden" name="TabKey" value="@Model.ActiveTab" />
+                                                        @if (Model.SiteId.HasValue) { <input type="hidden" name="SiteId" value="@Model.SiteId" /> }
+                                                        @if (Model.BuyerUserId.HasValue) { <input type="hidden" name="BuyerUserId" value="@Model.BuyerUserId" /> }
+                                                        <input type="hidden" name="Skip" value="@Model.Skip" />
+                                                        <button type="submit" class="ds-btn" data-testid="action-assign-@row.DemandId">
+                                                            <i class="fas fa-user-check"></i> Assign me
+                                                        </button>
+                                                    </form>
+                                                }
+                                                else if (row.BuyerActionState == BuyerActionState.Assigned)
+                                                {
+                                                    <form method="post" asp-page-handler="StartWork" style="display:inline;">
+                                                        <input type="hidden" name="TransitionDemandId" value="@row.DemandId" />
+                                                        <input type="hidden" name="TransitionNotes" value="Started from Purchasing CC" />
+                                                        <input type="hidden" name="TabKey" value="@Model.ActiveTab" />
+                                                        @if (Model.SiteId.HasValue) { <input type="hidden" name="SiteId" value="@Model.SiteId" /> }
+                                                        @if (Model.BuyerUserId.HasValue) { <input type="hidden" name="BuyerUserId" value="@Model.BuyerUserId" /> }
+                                                        <input type="hidden" name="Skip" value="@Model.Skip" />
+                                                        <button type="submit" class="ds-btn" data-testid="action-startwork-@row.DemandId">
+                                                            <i class="fas fa-play"></i> Start work
+                                                        </button>
+                                                    </form>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    @* Pagination (P2.1 fix) *@
+                    @if (Model.HasPrev || Model.HasNext)
+                    {
+                        <div style="display:flex;justify-content:space-between;margin-top:16px;">
+                            <span>
+                                @if (Model.HasPrev)
+                                {
+                                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.PrevSkip" data-testid="pcc-prev">
+                                        <i class="fas fa-chevron-left"></i> Previous
+                                    </a>
+                                }
+                            </span>
+                            <span>
+                                @if (Model.HasNext)
+                                {
+                                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.NextSkip" data-testid="pcc-next">
+                                        Next <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                }
+                            </span>
+                        </div>
+                    }
+                }
+            </div>
+        </section>
+    }
+    else if (!Model.ActiveTabIsLive)
+    {
+        @* Soon-state — surfaces the §21 IA so users see the roadmap. *@
+        string tabName = Model.ActiveTab switch
+        {
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSubcontract => "Subcontract",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabVendorWip => "Vendor WIP",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabReceipts => "Receipts",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabInspectionHolds => "Inspection Holds",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabPos => "POs",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabExpedites => "Expedites",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabApprovals => "Approvals",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabCostExceptions => "Cost Exceptions",
+            _ => Model.ActiveTab,
+        };
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <div style="text-align:center;padding:48px 24px;">
+                    <i class="fas fa-road" style="font-size:48px;color:var(--info,#0c4a6e);"></i>
+                    <h3 style="font-size:1.2rem;margin-top:12px;">@tabName tab coming soon</h3>
+                    <p style="color:var(--text-muted);">
+                        The <strong>@tabName</strong> tab ships in PR-12 or PR-13 of the Wave 3 cascade — the §21 IA is locked in but the canvas isn't wired yet.
+                    </p>
+                    <p style="margin-top:12px;">
+                        Meanwhile, <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplyDemand">Supply Demand</a>
+                        and <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob">Buy-to-Job</a> are live.
+                    </p>
+                </div>
+            </div>
+        </section>
+    }
+
+</div>
