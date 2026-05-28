@@ -102,11 +102,15 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var openPoCount = await poQ.CountAsync(ct);
         var openPoValueUsd = await poQ.SumAsync(p => (decimal?)p.Total, ct) ?? 0m;
 
-        // Vendor WIP value
+        // Vendor WIP value — honor siteId per Codex thread #1 (P2). VendorWipBalance
+        // has SiteId; without this filter a site-scoped KPI request shows WIP from
+        // other sites and the tile becomes inconsistent with the rest of the band.
         var wipQ = _db.Set<VendorWipBalance>()
             .AsNoTracking()
             .Where(w => visible.Contains(w.CompanyId)
                         && w.QuantityAtVendor > 0);
+        if (siteId.HasValue)
+            wipQ = wipQ.Where(w => w.SiteId == siteId);
         var vendorWipValueUsd = await wipQ.SumAsync(w => (decimal?)w.TotalValueAtVendor, ct) ?? 0m;
 
         // Late POs — PromiseDate or RequiredDate in past AND still open
@@ -347,6 +351,8 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
                         && w.RequiredReturnDate < today);
         if (filter.CompanyId.HasValue)
             lateWipQ = lateWipQ.Where(w => w.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) // Codex thread #2 (P2) — VendorWipBalance has SiteId; respect it.
+            lateWipQ = lateWipQ.Where(w => w.SiteId == filter.SiteId);
         if (filter.VendorId.HasValue)
             lateWipQ = lateWipQ.Where(w => w.SupplierId == filter.VendorId);
 
@@ -432,11 +438,29 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         d.BuyerActionStateUpdatedBy = request.UserName;
         if (!string.IsNullOrWhiteSpace(request.Notes))
         {
-            // Append rather than overwrite for audit trail.
-            var stamp = $"[{nowUtc:yyyy-MM-dd HH:mm}Z {request.UserName ?? "system"}] {previous}->{newState}: {request.Notes}";
-            d.BuyerActionNotes = string.IsNullOrEmpty(d.BuyerActionNotes)
+            // Append rather than overwrite for audit trail. Codex thread #3 (P2):
+            // BuyerActionNotes column is StringLength(2000). Without a bound, the
+            // append loop eventually hits the DB constraint and SaveChanges throws
+            // — violating Result<T> "never throws on expected failures".
+            // Cap a single inbound note at 800 chars (defensive); roll the joined
+            // buffer back to keep the newest entries when it would exceed 2000.
+            const int columnCap = 2000;
+            const int noteCap = 800;
+            var truncatedIn = request.Notes!.Length > noteCap
+                ? request.Notes.Substring(0, noteCap) + "…"
+                : request.Notes;
+            var stamp = $"[{nowUtc:yyyy-MM-dd HH:mm}Z {request.UserName ?? "system"}] {previous}->{newState}: {truncatedIn}";
+            var joined = string.IsNullOrEmpty(d.BuyerActionNotes)
                 ? stamp
                 : d.BuyerActionNotes + "\n" + stamp;
+            if (joined.Length > columnCap)
+            {
+                // Keep the tail (newest entries) up to the cap.
+                joined = "…(audit truncated)\n" + joined.Substring(joined.Length - columnCap + 20);
+                if (joined.Length > columnCap)
+                    joined = joined.Substring(0, columnCap);
+            }
+            d.BuyerActionNotes = joined;
         }
 
         try
