@@ -190,6 +190,13 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             return Result.Failure<POAcknowledgment>(
                 $"Cannot record vendor ack from status {ack.Status} — must be Requested.");
 
+        // Codex P2 (PRRT_kwDOSSj3Wc6Fg48K): reject writes on non-current acks.
+        // A vendor response that arrives after a fresh cycle was opened would
+        // otherwise mutate the historical row and corrupt the audit trail.
+        if (!ack.IsCurrent)
+            return Result.Failure<POAcknowledgment>(
+                $"Ack #{ack.Id} is no longer the current cycle for its PO — refusing to mutate a historical record.");
+
         var nowUtc = DateTime.UtcNow;
         ack.Status = POAcknowledgmentStatus.Acknowledged;
         ack.Method = request.Method;
@@ -235,6 +242,11 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             ack.Status != POAcknowledgmentStatus.Acknowledged)
             return Result.Failure<POAcknowledgmentLine>(
                 $"Cannot record line confirmation in ack status {ack.Status}.");
+
+        // Codex P2: refuse writes on non-current acks (PRRT_kwDOSSj3Wc6Fg48K).
+        if (!ack.IsCurrent)
+            return Result.Failure<POAcknowledgmentLine>(
+                $"Ack #{ack.Id} is no longer the current cycle for its PO — refusing to mutate a historical record.");
 
         // P1-3 / P2-11: snapshot-vs-confirmed mismatch must require an
         // explicit ExceptionType. Vendor cannot pass ExceptionType=None with
@@ -302,6 +314,11 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             return Result.Failure<POAcknowledgmentLine>(
                 "Line exception already approved (idempotency guard).");
 
+        // Codex P2: refuse writes on non-current acks (PRRT_kwDOSSj3Wc6Fg48K).
+        if (!line.POAcknowledgment.IsCurrent)
+            return Result.Failure<POAcknowledgmentLine>(
+                $"Ack #{line.POAcknowledgment.Id} is no longer the current cycle for its PO — refusing to approve exception on a historical record.");
+
         var nowUtc = DateTime.UtcNow;
         line.ExceptionApproved = true;
         line.ExceptionApprovedByUserId = request.ApproverUserId;
@@ -330,6 +347,11 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             ack.Status != POAcknowledgmentStatus.Acknowledged)
             return Result.Failure<ConfirmAcknowledgmentResult>(
                 $"Cannot confirm from status {ack.Status} — must be Requested or Acknowledged.");
+
+        // Codex P2: refuse confirm on non-current acks (PRRT_kwDOSSj3Wc6Fg48K).
+        if (!ack.IsCurrent)
+            return Result.Failure<ConfirmAcknowledgmentResult>(
+                $"Ack #{ack.Id} is no longer the current cycle for its PO — refusing to confirm a historical record.");
 
         if (ack.Lines == null || ack.Lines.Count == 0)
             return Result.Failure<ConfirmAcknowledgmentResult>(
@@ -396,6 +418,11 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             ack.Status != POAcknowledgmentStatus.Acknowledged)
             return Result.Failure<POAcknowledgment>(
                 $"Cannot reject from status {ack.Status} — only Requested or Acknowledged are rejectable.");
+
+        // Codex P2: refuse reject on non-current acks (PRRT_kwDOSSj3Wc6Fg48K).
+        if (!ack.IsCurrent)
+            return Result.Failure<POAcknowledgment>(
+                $"Ack #{ack.Id} is no longer the current cycle for its PO — refusing to reject a historical record.");
 
         var nowUtc = DateTime.UtcNow;
         ack.Status = POAcknowledgmentStatus.Rejected;
@@ -467,6 +494,11 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             ack.Status != POAcknowledgmentStatus.Acknowledged)
             return Result.Failure<POAcknowledgment>(
                 $"Cannot cancel from status {ack.Status}.");
+
+        // Codex P2: refuse cancel on non-current acks (PRRT_kwDOSSj3Wc6Fg48K).
+        if (!ack.IsCurrent)
+            return Result.Failure<POAcknowledgment>(
+                $"Ack #{ack.Id} is no longer the current cycle for its PO — refusing to cancel a historical record.");
 
         // P2-9: IsCurrent semantic is "most recent ack record for this PO".
         // It stays true on Cancelled / Confirmed / Rejected — the next

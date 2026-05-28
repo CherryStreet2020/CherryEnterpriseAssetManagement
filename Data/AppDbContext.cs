@@ -5876,7 +5876,17 @@ namespace Abs.FixedAssets.Data
                     .IsUnique()
                     .HasFilter("\"CompanyId\" IS NOT NULL");
                 e.HasIndex(x => x.PurchaseOrderId);
-                e.HasIndex(x => new { x.PurchaseOrderId, x.IsCurrent });
+
+                // Codex P2 (PRRT_kwDOSSj3Wc6Fg48N): enforce the "one IsCurrent
+                // ack per PO" invariant at the DB level. Two concurrent
+                // RequestAcknowledgmentAsync calls would otherwise race and
+                // both insert IsCurrent=true. Filtered unique index makes the
+                // second commit fail with a 23505 unique violation, which the
+                // service can surface to the caller for retry.
+                e.HasIndex(x => x.PurchaseOrderId)
+                    .HasDatabaseName("UX_POAcknowledgments_PurchaseOrderId_IsCurrent")
+                    .IsUnique()
+                    .HasFilter("\"IsCurrent\" = TRUE");
                 e.HasIndex(x => x.Status);
                 e.HasIndex(x => x.ResponseDueByUtc);
 
