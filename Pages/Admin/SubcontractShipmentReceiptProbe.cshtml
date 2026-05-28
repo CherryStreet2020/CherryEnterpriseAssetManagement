@@ -1,0 +1,218 @@
+@page "/Admin/SubcontractShipmentReceiptProbe"
+@model Abs.FixedAssets.Pages.Admin.SubcontractShipmentReceiptProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Subcontract Shipment + Receipt Probe";
+    ViewData["TabTitle"] = "Subcontract Shipment + Receipt Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Subcontract Shipment + Receipt Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.2 PR-6 — Wave 2 opens. Physical WIP-to-vendor shipment events
+            + vendor-to-us return receipts with lot/serial/revision traceability.
+            10 §11 receipt scenarios. Auto-approval gating on OverReceipt + WrongJobOrPo.
+            7-state shipment lifecycle, 7-state receipt lifecycle. Calls IVendorWipService
+            for inventory-grain ledger; ISubcontractOperationService for op-level rollup.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="ssrp-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="ssrp-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total Subcontract Shipments</td><td data-testid="ssrp-total-ship">@Model.TotalShipments</td></tr>
+                <tr><td>In Transit</td><td>@Model.ShipmentsInTransit</td></tr>
+                <tr><td>Delivered / Reconciled</td><td>@Model.ShipmentsDelivered</td></tr>
+                <tr><td>Shipment Lines (total)</td><td>@Model.TotalShipmentLines</td></tr>
+                <tr><td>Total Subcontract Receipts</td><td data-testid="ssrp-total-recv">@Model.TotalReceipts</td></tr>
+                <tr><td>Posted / Approved</td><td>@Model.ReceiptsPosted</td></tr>
+                <tr><td>Pending Approval (OverReceipt + WrongJobOrPo)</td><td>@Model.ReceiptsPendingApproval</td></tr>
+                <tr><td>Receipt Lines (total)</td><td>@Model.TotalReceiptLines</td></tr>
+            </tbody>
+        </table>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Create Shipment (Draft)</h2>
+        <p class="ds-text-muted">Header only — add lines next. Idempotent per (op, supplier, required-date).</p>
+        <form method="post" asp-page-handler="CreateShipment">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="CreateShipmentOpId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Supplier ID</label><input type="number" class="ds-input" asp-for="CreateShipmentSupplierId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Carrier</label><input class="ds-input" asp-for="CreateShipmentCarrier" /></div>
+            <div class="ds-form-row"><label class="ds-label">Required Ship Date</label><input type="datetime-local" class="ds-input" asp-for="CreateShipmentRequiredDate" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-create-shipment">Create Shipment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Add Shipment Line (with lot/serial/revision)</h2>
+        <form method="post" asp-page-handler="AddShipLine">
+            <div class="ds-form-row"><label class="ds-label">Shipment ID</label><input type="number" class="ds-input" asp-for="AddShipLineShipmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Item ID</label><input type="number" class="ds-input" asp-for="AddShipLineItemId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Part Number</label><input class="ds-input" asp-for="AddShipLinePartNumber" /></div>
+            <div class="ds-form-row"><label class="ds-label">Lot Number</label><input class="ds-input" asp-for="AddShipLineLotNumber" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Shipped</label><input type="number" step="0.0001" class="ds-input" asp-for="AddShipLineQty" /></div>
+            <div class="ds-form-row"><label class="ds-label">Unit Cost Snapshot</label><input type="number" step="0.0001" class="ds-input" asp-for="AddShipLineUnitCost" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-add-ship-line">Add Shipment Line</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3a. Mark Picked (lock lines after pick)</h2>
+        <form method="post" asp-page-handler="MarkPicked">
+            <div class="ds-form-row"><label class="ds-label">Shipment ID</label><input type="number" class="ds-input" asp-for="PickedShipmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-mark-picked">Mark Picked</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3b. Mark In Transit (ship to vendor)</h2>
+        <p class="ds-text-muted">For every line, calls IVendorWipService.ShipToVendorAsync → creates VendorWipBalance + VendorWipTransaction. Rolls total qty onto subcontract op.</p>
+        <form method="post" asp-page-handler="MarkInTransit">
+            <div class="ds-form-row"><label class="ds-label">Shipment ID</label><input type="number" class="ds-input" asp-for="InTransitShipmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-mark-in-transit">Mark In Transit</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Mark Delivered (vendor confirms)</h2>
+        <form method="post" asp-page-handler="MarkDelivered">
+            <div class="ds-form-row"><label class="ds-label">Shipment ID</label><input type="number" class="ds-input" asp-for="DeliveredShipmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-success" data-testid="btn-mark-delivered">Mark Delivered</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4b. Cancel Shipment (Draft/Picked/Staged/InTransit only)</h2>
+        <form method="post" asp-page-handler="CancelShipment">
+            <div class="ds-form-row"><label class="ds-label">Shipment ID</label><input type="number" class="ds-input" asp-for="CancelShipmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Reason</label><input class="ds-input" asp-for="CancelShipmentReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-warning" data-testid="btn-cancel-shipment">Cancel Shipment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Create Receipt (Draft)</h2>
+        <p class="ds-text-muted">Header only — add lines next. Idempotent per (op, vendor packing slip).</p>
+        <form method="post" asp-page-handler="CreateReceipt">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="CreateReceiptOpId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Supplier ID</label><input type="number" class="ds-input" asp-for="CreateReceiptSupplierId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Vendor Packing Slip</label><input class="ds-input" asp-for="CreateReceiptPackingSlip" /></div>
+            <div class="ds-form-row"><label class="ds-label">Linked Shipment ID (optional)</label><input type="number" class="ds-input" asp-for="CreateReceiptShipmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-create-receipt">Create Receipt</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Add Receipt Line (§11 scenario + disposition)</h2>
+        <p class="ds-text-muted">10 scenarios from §11. Try OverReceipt or WrongJobOrPo to trigger PendingApproval gating on Post.</p>
+        <form method="post" asp-page-handler="AddRecvLine">
+            <div class="ds-form-row"><label class="ds-label">Receipt ID</label><input type="number" class="ds-input" asp-for="AddRecvLineReceiptId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Item ID</label><input type="number" class="ds-input" asp-for="AddRecvLineItemId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Part Number</label><input class="ds-input" asp-for="AddRecvLinePartNumber" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Received</label><input type="number" step="0.0001" class="ds-input" asp-for="AddRecvLineReceived" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Accepted</label><input type="number" step="0.0001" class="ds-input" asp-for="AddRecvLineAccepted" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Rejected</label><input type="number" step="0.0001" class="ds-input" asp-for="AddRecvLineRejected" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Scrapped at Vendor</label><input type="number" step="0.0001" class="ds-input" asp-for="AddRecvLineScrapped" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Short</label><input type="number" step="0.0001" class="ds-input" asp-for="AddRecvLineShort" /></div>
+            <div class="ds-form-row"><label class="ds-label">Scenario (§11)</label>
+                <select class="ds-input" asp-for="AddRecvLineScenario" asp-items="Html.GetEnumSelectList<SubcontractReceiptScenario>()"></select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Disposition</label>
+                <select class="ds-input" asp-for="AddRecvLineDisposition" asp-items="Html.GetEnumSelectList<SubcontractReceiptDisposition>()"></select>
+            </div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-add-recv-line">Add Receipt Line</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Post Receipt (atomic: vendor-WIP ledger + op rollup)</h2>
+        <form method="post" asp-page-handler="PostReceipt">
+            <div class="ds-form-row"><label class="ds-label">Receipt ID</label><input type="number" class="ds-input" asp-for="PostReceiptId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-post-receipt">Post Receipt</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Approve Receipt (clears PendingApproval gate)</h2>
+        <form method="post" asp-page-handler="ApproveReceipt">
+            <div class="ds-form-row"><label class="ds-label">Receipt ID</label><input type="number" class="ds-input" asp-for="ApproveReceiptId" /></div>
+            <button type="submit" class="ds-btn ds-btn-success" data-testid="btn-approve-receipt">Approve Receipt</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">8b. Reverse Receipt (PendingApproval only in PR-6)</h2>
+        <p class="ds-text-muted">Posted/Approved reversal requires PR-8 (full vendor-WIP ledger backout + op-qty rollback).</p>
+        <form method="post" asp-page-handler="ReverseReceipt">
+            <div class="ds-form-row"><label class="ds-label">Receipt ID</label><input type="number" class="ds-input" asp-for="ReverseReceiptId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Reason</label><input class="ds-input" asp-for="ReverseReceiptReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-warning" data-testid="btn-reverse-receipt">Reverse Receipt</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">9. Load Shipments for Op</h2>
+        <form method="post" asp-page-handler="LoadShipments">
+            <div class="ds-form-row"><label class="ds-label">Op ID</label><input type="number" class="ds-input" asp-for="LoadShipmentsOpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-shipments">Load Shipments</button>
+        </form>
+        @if (Model.LoadedShipments.Any())
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>ID</th><th>Number</th><th>Status</th><th>Lines</th><th>Supplier</th><th>Shipped</th></tr></thead>
+                <tbody>
+                    @foreach (var s in Model.LoadedShipments)
+                    {
+                        <tr>
+                            <td>@s.Id</td><td>@s.ShipmentNumber</td><td>@s.Status</td>
+                            <td>@s.Lines.Count</td><td>@s.SupplierId</td>
+                            <td>@(s.ActualShipDate?.ToString("u") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">10. Load Receipts for Op</h2>
+        <form method="post" asp-page-handler="LoadReceipts">
+            <div class="ds-form-row"><label class="ds-label">Op ID</label><input type="number" class="ds-input" asp-for="LoadReceiptsOpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-receipts">Load Receipts</button>
+        </form>
+        @if (Model.LoadedReceipts.Any())
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>ID</th><th>Number</th><th>Status</th><th>Lines</th><th>Approval?</th><th>Posted</th></tr></thead>
+                <tbody>
+                    @foreach (var r in Model.LoadedReceipts)
+                    {
+                        <tr>
+                            <td>@r.Id</td><td>@r.ReceiptNumber</td><td>@r.Status</td>
+                            <td>@r.Lines.Count</td><td>@(r.ApprovalRequired ? "Required" : "—")</td>
+                            <td>@(r.PostedUtc?.ToString("u") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>

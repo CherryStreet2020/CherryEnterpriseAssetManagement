@@ -600,6 +600,17 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractOpera
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IVendorWipService,
     Abs.FixedAssets.Services.Purchasing.VendorWipService>();
 
+// Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
+// Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
+// lot/serial/revision traceability. Implements 10 §11 receipt scenarios
+// (FullGoodReceipt, PartialReceipt, ReceiptWithInspection, RejectedReceipt,
+// VendorScrap, ShortReceipt, OverReceipt, CertMissing, WrongRevision,
+// WrongJobOrPo). Auto-approval gating for OverReceipt + WrongJobOrPo.
+// Calls into IVendorWipService for inventory-grain ledger + ISubcontractOperationService
+// to roll quantities back to the subcontract op.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractShipmentReceiptService,
+    Abs.FixedAssets.Services.Production.SubcontractShipmentReceiptService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
