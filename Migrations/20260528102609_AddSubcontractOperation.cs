@@ -49,6 +49,8 @@ namespace Abs.FixedAssets.Migrations
                     ShippingMethod = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     FreightResponsibility = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     CostMethod = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    ServiceUnitCost = table.Column<decimal>(type: "numeric(18,4)", nullable: false),
+                    WipItemId = table.Column<int>(type: "integer", nullable: true),
                     Status = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     PoCreationStatus = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     ShipmentStatus = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
@@ -84,6 +86,12 @@ namespace Abs.FixedAssets.Migrations
                     table.ForeignKey(
                         name: "FK_SubcontractOperations_Items_ServiceItemId",
                         column: x => x.ServiceItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SubcontractOperations_Items_WipItemId",
+                        column: x => x.WipItemId,
                         principalTable: "Items",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -299,6 +307,11 @@ namespace Abs.FixedAssets.Migrations
                 name: "IX_SubcontractOperations_VendorWipWarehouseId",
                 table: "SubcontractOperations",
                 column: "VendorWipWarehouseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SubcontractOperations_WipItemId",
+                table: "SubcontractOperations",
+                column: "WipItemId");
         }
 
         /// <inheritdoc />

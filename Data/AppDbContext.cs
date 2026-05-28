@@ -5584,6 +5584,7 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.ServiceItem).WithMany().HasForeignKey(x => x.ServiceItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.WipItem).WithMany().HasForeignKey(x => x.WipItemId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(x => x.VendorWipWarehouse).WithMany().HasForeignKey(x => x.VendorWipWarehouseId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.ShipFromLocation).WithMany().HasForeignKey(x => x.ShipFromLocationId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.ReturnToLocation).WithMany().HasForeignKey(x => x.ReturnToLocationId).OnDelete(DeleteBehavior.SetNull);

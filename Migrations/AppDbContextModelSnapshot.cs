@@ -18513,6 +18513,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<decimal>("ServiceUnitCost")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<string>("ServiceUom")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
@@ -18565,6 +18568,9 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int?>("VendorWipWarehouseId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("WipItemId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProductionOrderId");
@@ -18584,6 +18590,8 @@ namespace Abs.FixedAssets.Migrations
                     b.HasIndex("SupplierId");
 
                     b.HasIndex("VendorWipWarehouseId");
+
+                    b.HasIndex("WipItemId");
 
                     b.HasIndex("CompanyId", "ProductionOrderId", "OperationSequence")
                         .IsUnique();
@@ -27815,6 +27823,11 @@ namespace Abs.FixedAssets.Migrations
                         .HasForeignKey("VendorWipWarehouseId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Abs.FixedAssets.Models.Item", "WipItem")
+                        .WithMany()
+                        .HasForeignKey("WipItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Company");
 
                     b.Navigation("ProductionOrder");
@@ -27832,6 +27845,8 @@ namespace Abs.FixedAssets.Migrations
                     b.Navigation("Supplier");
 
                     b.Navigation("VendorWipWarehouse");
+
+                    b.Navigation("WipItem");
                 });
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Production.WorkCenterAssetLink", b =>

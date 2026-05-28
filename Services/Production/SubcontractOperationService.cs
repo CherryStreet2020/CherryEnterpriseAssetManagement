@@ -68,6 +68,8 @@ public class SubcontractOperationService : ISubcontractOperationService
             OperationDescription = request.OperationDescription,
             SupplierId = request.SupplierId,
             ServiceItemId = request.ServiceItemId,
+            ServiceUnitCost = request.ServiceUnitCost,   // Codex P2 fix
+            WipItemId = request.WipItemId,               // Codex P2 fix
             QuantityToShip = request.QuantityToShip,
             PriorOperationSequence = request.PriorOperationSequence,
             ReturnOperationSequence = request.ReturnOperationSequence,
@@ -164,7 +166,7 @@ public class SubcontractOperationService : ISubcontractOperationService
             ProductionOrderId = op.ProductionOrderId,
             BomLineId = null,
             OperationSequence = op.OperationSequence,
-            ItemId = null, // physical part is set per PRO BOM
+            ItemId = op.WipItemId, // Codex P2 fix: carry WIP item into movement demand
             PartNumber = null,
             Description = $"WIP movement to vendor: {op.OperationCode}",
             Uom = "EA",
@@ -199,8 +201,9 @@ public class SubcontractOperationService : ISubcontractOperationService
             OperationSequence = op.OperationSequence,
             ServicePurchaseDemandId = serviceDemand.Id,
             ServiceQuantity = op.QuantityToShip,
-            ServiceUnitCost = 0m,
+            ServiceUnitCost = op.ServiceUnitCost,   // Codex P2 fix
             WipMovementDemandId = wipDemand.Id,
+            WipItemId = op.WipItemId,               // Codex P2 fix
             WipQuantityToSend = op.QuantityToShip,
             WipQuantityReturned = 0m,
             FromOperationSequence = op.PriorOperationSequence,

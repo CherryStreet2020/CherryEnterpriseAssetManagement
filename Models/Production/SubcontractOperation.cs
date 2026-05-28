@@ -265,6 +265,23 @@ namespace Abs.FixedAssets.Models.Production
 
         public SubcontractCostMethod CostMethod { get; set; } = SubcontractCostMethod.FixedPriceFromPo;
 
+        /// <summary>
+        /// Unit cost of the vendor service (e.g., $X per part heat-treated).
+        /// Drives the service-purchase demand cost on the dual-demand binding.
+        /// Codex P2 fix: was previously dropped on create.
+        /// </summary>
+        [Column(TypeName = "decimal(18,4)")]
+        [Display(Name = "Service Unit Cost")]
+        public decimal ServiceUnitCost { get; set; }
+
+        /// <summary>
+        /// FK to the physical item being shipped out and back. Drives the WIP
+        /// movement demand's ItemId. Codex P2 fix: was previously dropped.
+        /// </summary>
+        [Display(Name = "WIP Item")]
+        public int? WipItemId { get; set; }
+        public Item? WipItem { get; set; }
+
         // ──────────────────────── §6B: Status quartet ────────────────────────
 
         public SubcontractOperationStatus Status { get; set; } = SubcontractOperationStatus.NotReady;
