@@ -1118,4 +1118,161 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
             OldHoldsCount: oldCount,
             Rows: sorted));
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PR-13 TAB READS — POs / Cost Exceptions
+    //
+    // Expedites + Approvals reuse GetSupplyDemandQueueAsync with the matching
+    // PurchasingQueueType (already implemented in the 13-way dispatch above).
+    // The page model just routes those tabs through the existing Queue path
+    // — no service additions needed.
+    // ════════════════════════════════════════════════════════════════════════
+
+    public async Task<Result<PosTabPage>> GetPosTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        var visible = _tenant.VisibleCompanyIds;
+        var today = DateTime.UtcNow.Date;
+        var take = Math.Clamp(filter.Take, 1, 500);
+        var skip = Math.Max(0, filter.Skip);
+
+        // Base query: open lifecycle states only. Closed + Cancelled are
+        // terminal and excluded from the active tab. Draft is included so
+        // buyers can see in-flight work even before approval.
+        var q = _db.Set<PurchaseOrder>()
+            .AsNoTracking()
+            .Where(p => p.CompanyId != null
+                        && visible.Contains(p.CompanyId.Value)
+                        && p.Status != POStatus.Closed
+                        && p.Status != POStatus.Cancelled);
+
+        if (filter.CompanyId.HasValue) q = q.Where(p => p.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) q = q.Where(p => p.ShipToSiteId == filter.SiteId);
+        if (filter.VendorId.HasValue) q = q.Where(p => p.VendorId == filter.VendorId);
+        if (filter.RequiredBefore.HasValue)
+            q = q.Where(p => p.RequiredDate != null && p.RequiredDate < filter.RequiredBefore);
+
+        var totalCount = await q.CountAsync(ct);
+
+        // Page-level summaries — across the full filtered set.
+        // Open value = sum of Total for non-terminal POs. Currency-agnostic
+        // (per IPurchasingControlCenterService.PosTabPage.OpenTotalValue
+        // XML doc — multi-currency tenants get a mixed-ccy sum; FX
+        // conversion is a Wave-4 polish item). PendingApproval + late
+        // counts feed the tab header chips.
+        var openTotalValue = await q.SumAsync(p => (decimal?)p.Total, ct) ?? 0m;
+        var pendingApprovalCount = await q
+            .Where(p => p.Status == POStatus.PendingApproval)
+            .CountAsync(ct);
+        // P2.1 fix — match the per-row DaysLate semantics so the header
+        // chip and the in-table column don't disagree. Received/Invoiced
+        // POs whose promise dates have passed are NOT counted as late.
+        var lateCount = await q
+            .Where(p => p.Status != POStatus.Received
+                        && p.Status != POStatus.Invoiced
+                        && ((p.PromiseDate != null && p.PromiseDate < today)
+                            || (p.PromiseDate == null && p.RequiredDate != null && p.RequiredDate < today)))
+            .CountAsync(ct);
+
+        var paged = await q
+            .OrderByDescending(p => p.OrderDate)
+            .ThenByDescending(p => p.Id)
+            .Skip(skip).Take(take)
+            .Select(p => new
+            {
+                Po = p,
+                VendorName = p.Vendor != null ? p.Vendor.Name : null,
+                LineCount = p.Lines.Count,
+            })
+            .ToListAsync(ct);
+
+        var rows = paged.Select(x =>
+        {
+            var p = x.Po;
+            int? daysLate = null;
+            var effectiveDate = p.PromiseDate ?? p.RequiredDate;
+            if (effectiveDate.HasValue
+                && effectiveDate.Value.Date < today
+                && p.Status != POStatus.Received
+                && p.Status != POStatus.Invoiced)
+            {
+                daysLate = (today - effectiveDate.Value.Date).Days;
+            }
+            return new PosTabRow(
+                PurchaseOrderId: p.Id,
+                PoNumber: p.PONumber,
+                Status: p.Status,
+                VendorId: p.VendorId,
+                VendorName: x.VendorName,
+                OrderDate: p.OrderDate,
+                RequiredDate: p.RequiredDate,
+                PromiseDate: p.PromiseDate,
+                DaysLate: daysLate,
+                LineCount: x.LineCount,
+                Subtotal: p.Subtotal,
+                Total: p.Total,
+                Currency: p.Currency,
+                ShipToSiteId: p.ShipToSiteId,
+                RequestedById: p.RequestedById,
+                ApprovedById: p.ApprovedById,
+                ApprovedAt: p.ApprovedAt,
+                CipProjectId: p.CipProjectId,
+                Notes: p.Notes,
+                NextActionHint: SuggestPoAction(p, daysLate));
+        }).ToList();
+
+        return Result.Success(new PosTabPage(
+            TotalCount: totalCount,
+            OpenTotalValue: openTotalValue,
+            LateCount: lateCount,
+            PendingApprovalCount: pendingApprovalCount,
+            Rows: rows));
+    }
+
+    private static string SuggestPoAction(PurchaseOrder p, int? daysLate)
+    {
+        if (p.Status == POStatus.Draft) return "Submit for approval";
+        if (p.Status == POStatus.PendingApproval) return "Awaiting approval — escalate if past SLA";
+        if (p.Status == POStatus.Approved) return "Send to vendor";
+        if (p.Status == POStatus.Sent && daysLate.HasValue) return "Expedite — past promise/required date";
+        if (p.Status == POStatus.Sent) return "Awaiting acknowledgment / first receipt";
+        if (p.Status == POStatus.PartiallyReceived && daysLate.HasValue) return "Expedite balance — past due";
+        if (p.Status == POStatus.PartiallyReceived) return "Track remaining receipts";
+        if (p.Status == POStatus.Received) return "Match invoice / close";
+        if (p.Status == POStatus.Invoiced) return "Verify match + close";
+        return "Review";
+    }
+
+    public async Task<Result<CostExceptionsTabPage>> GetCostExceptionsTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        // Reuse the existing exception lane read (the diagonal stripe on
+        // the §21 layout). Wrap with severity-bucketed counters for the
+        // tab header. We don't add a new entity scan — exception-lane
+        // semantics are exactly what tab 10 is supposed to surface.
+        var laneResult = await GetExceptionLaneAsync(filter, ct);
+        if (!laneResult.IsSuccess || laneResult.Value is null)
+            return Result.Failure<CostExceptionsTabPage>(
+                laneResult.Error ?? "Failed to read exception lane.");
+
+        var lane = laneResult.Value;
+        var high = lane.Rows.Count(r => r.Severity == "High");
+        var med = lane.Rows.Count(r => r.Severity == "Medium");
+        var low = lane.Rows.Count(r => r.Severity == "Low");
+
+        // P2.2 fix — clip TotalCount to reachable row count so HasNext
+        // returns false. GetExceptionLaneAsync doesn't honor filter.Skip
+        // (the underlying lane is a UNION of cost-variance + late vendor-WIP
+        // rows; same UNION-pagination limit as InspectionHolds in PR-12).
+        // Severity counters above are computed over the visible rows, which
+        // is the honest scope the buyer can act on right now.
+        return Result.Success(new CostExceptionsTabPage(
+            TotalCount: lane.Rows.Count,
+            HighSeverityCount: high,
+            MediumSeverityCount: med,
+            LowSeverityCount: low,
+            Rows: lane.Rows));
+    }
 }

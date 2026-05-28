@@ -315,6 +315,98 @@
         }
     </div></section>
 
+    @* ─── PR-13 TAB PROBES (POs / Cost Exceptions / Expedites / Approvals) ─ *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5b · PR-13 Tab Probes</h2>
+        <p class="ds-text-muted">
+            Exercises the PR-13 reads: <code>GetPosTabAsync</code> (new POs read against PurchaseOrder),
+            <code>GetCostExceptionsTabAsync</code> (severity-bucketed wrapper around the exception lane),
+            and the existing <code>GetSupplyDemandQueueAsync</code> dispatched with ExpediteRequired and
+            ApprovalRequired (the two PR-13 tabs that reuse the demand grid).
+        </p>
+        <form method="post">
+            <div class="ds-form-row"><label class="ds-label">Site (optional)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadPosTab" data-testid="btn-load-pos-tab">Load POs Tab</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadCostExceptionsTab" data-testid="btn-load-cost-exceptions-tab">Load Cost Exceptions Tab</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadExpediteQueue" data-testid="btn-load-expedite-queue">Load Expedite Queue</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadApprovalQueue" data-testid="btn-load-approval-queue">Load Approval Queue</button>
+            </div>
+        </form>
+
+        @if (Model.PosTab is { } postab)
+        {
+            <h3 class="ds-h3 ds-mt-3">POs Tab — @postab.TotalCount active · @postab.OpenTotalValue.ToString("N2") (mixed-ccy) · @postab.PendingApprovalCount pending · @postab.LateCount late</h3>
+            @if (postab.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>PO#</th><th>Number</th><th>Vendor</th><th>Status</th><th>Order</th><th>Required/Promise</th><th>Days Late</th><th>Lines</th><th>Total</th><th>Hint</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in postab.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.PurchaseOrderId</td>
+                            <td>@r.PoNumber</td>
+                            <td>@(r.VendorName ?? r.VendorId.ToString())</td>
+                            <td>@r.Status</td>
+                            <td>@r.OrderDate.ToString("yyyy-MM-dd")</td>
+                            <td>@(r.PromiseDate?.ToString("yyyy-MM-dd") ?? r.RequiredDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>@(r.DaysLate?.ToString() ?? "—")</td>
+                            <td>@r.LineCount</td>
+                            <td>@r.Currency $@r.Total.ToString("N2")</td>
+                            <td>@r.NextActionHint</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+
+        @if (Model.CostExceptionsTab is { } cetab)
+        {
+            <h3 class="ds-h3 ds-mt-3">Cost Exceptions Tab — @cetab.TotalCount total · @cetab.HighSeverityCount high · @cetab.MediumSeverityCount medium · @cetab.LowSeverityCount low</h3>
+            @if (cetab.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Kind</th><th>Severity</th><th>Demand</th><th>PO</th><th>Vendor</th><th>Description</th><th>Detected</th><th>Cost impact</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in cetab.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.ExceptionKind</td>
+                            <td>@r.Severity</td>
+                            <td>@(r.DemandId?.ToString() ?? "—")</td>
+                            <td>@(r.PurchaseOrderId?.ToString() ?? "—")</td>
+                            <td>@(r.VendorId?.ToString() ?? "—")</td>
+                            <td>@r.Description</td>
+                            <td>@r.DetectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@(r.CostImpactUsd.HasValue ? $"${r.CostImpactUsd.Value:N2}" : "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+
+        @if (Model.ExpediteQueue is { } eq)
+        {
+            <h3 class="ds-h3 ds-mt-3">Expedite Queue — @eq.TotalCount demand row(s), showing @eq.Rows.Count</h3>
+            @if (eq.Rows.Count > 0)
+            {
+                <p class="ds-text-muted">Top row: demand #@eq.Rows[0].DemandId (@eq.Rows[0].DemandNumber) shortage=@eq.Rows[0].ShortageStatus days late=@(eq.Rows[0].DaysLate?.ToString() ?? "—")</p>
+            }
+        }
+
+        @if (Model.ApprovalQueue is { } aq)
+        {
+            <h3 class="ds-h3 ds-mt-3">Approval Queue — @aq.TotalCount demand row(s), showing @aq.Rows.Count</h3>
+            @if (aq.Rows.Count > 0)
+            {
+                <p class="ds-text-muted">Top row: demand #@aq.Rows[0].DemandId (@aq.Rows[0].DemandNumber) state=@aq.Rows[0].BuyerActionState</p>
+            }
+        }
+    </div></section>
+
     @* ─── TENANT-SCOPED RECENT DEMANDS (sanity) ────────────────────── *@
     <section class="ds-card ds-mt-3"><div class="ds-card__body">
         <h2 class="ds-h2">6 · Recent Demands (last 10, this tenant)</h2>
