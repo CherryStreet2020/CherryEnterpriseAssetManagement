@@ -110,6 +110,20 @@ public class PoAmendmentService : IPoAmendmentService
             var draftedLines = 0;
             foreach (var draft in request.Lines)
             {
+                // Codex P2 (PRRT_kwDOSSj3Wc6Fi9FQ): NewLine drafts allow null
+                // PurchaseOrderLineId but Apply doesn't yet create a fresh
+                // PurchaseOrderLine on commit (would require Description /
+                // UOM / ItemId / GLAccountId etc. on the DTO). Reject NewLine
+                // at Draft time so the buyer gets a clean message instead of
+                // a silent no-op at Apply. Tracked for a v2 enhancement that
+                // accepts a richer AmendmentNewLineDraft DTO.
+                if (draft.ChangeType == POAmendmentLineChangeType.NewLine)
+                    return await FailureAsync(tx, ct,
+                        "NewLine amendments are not supported in this revision " +
+                        "(requires v2 DTO with Description/UOM/ItemId). Use a " +
+                        "separate PurchasingService.AddLineAsync call to add the " +
+                        "line first, then amend its qty/price/date.");
+
                 PurchaseOrderLine? poLine = null;
                 if (draft.PurchaseOrderLineId.HasValue)
                 {
@@ -118,10 +132,10 @@ public class PoAmendmentService : IPoAmendmentService
                         return await FailureAsync(tx, ct,
                             $"PO line {draft.PurchaseOrderLineId.Value} not on PO #{po.Id}.");
                 }
-                else if (draft.ChangeType != POAmendmentLineChangeType.NewLine)
+                else
                 {
                     return await FailureAsync(tx, ct,
-                        "Lines without PurchaseOrderLineId must have ChangeType = NewLine.");
+                        "Amendment lines must include a PurchaseOrderLineId.");
                 }
 
                 // P2-5 fix: snapshot OriginalPromiseDate from PO header (which
@@ -549,7 +563,34 @@ public class PoAmendmentService : IPoAmendmentService
 
                 if (amLine.ChangeType == POAmendmentLineChangeType.RemovedLine)
                 {
+                    // Codex P2 (PRRT_kwDOSSj3Wc6Fi9FO): close the PO line AND
+                    // release any unreceived demand links. Otherwise the
+                    // links continue pointing at a closed PO line with stale
+                    // AllocatedQuantity, lying about supply state.
                     poLine.IsClosed = true;
+                    var orphanedLinks = await _db.Set<PurchaseOrderLineDemandLink>()
+                        .Where(d => d.PurchaseOrderLineId == poLine.Id &&
+                                    d.Status != PoDemandLinkStatus.Released &&
+                                    d.Status != PoDemandLinkStatus.Cancelled)
+                        .ToListAsync(ct);
+                    foreach (var orphan in orphanedLinks)
+                    {
+                        // Unreceived → release; partially received → keep
+                        // received qty so receipt history isn't lost.
+                        if (orphan.ReceivedQuantity == 0m)
+                        {
+                            orphan.AllocatedQuantity = 0m;
+                            orphan.RemainingQuantity = 0m;
+                            orphan.Status = PoDemandLinkStatus.Released;
+                            orphan.ReleasedUtc = nowUtc;
+                        }
+                        else
+                        {
+                            orphan.AllocatedQuantity = orphan.ReceivedQuantity;
+                            orphan.RemainingQuantity = 0m;
+                        }
+                        demandLinksResynced++;
+                    }
                     poLinesUpdated++;
                     continue;
                 }
