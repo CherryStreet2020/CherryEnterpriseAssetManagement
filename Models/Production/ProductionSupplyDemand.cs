@@ -168,6 +168,45 @@ namespace Abs.FixedAssets.Models.Production
         Critical = 3,
     }
 
+    /// <summary>
+    /// Sprint 15.3 PR-10 (2026-05-28) — buyer-workflow state machine.
+    ///
+    /// Distinct from the supply quartet (SourceStatus/SupplyStatus/ShortageStatus/
+    /// CostStatus) which describe WHAT THE SUPPLY IS DOING. BuyerActionState
+    /// describes WHERE THE BUYER IS IN THEIR WORKFLOW. Both axes exist because
+    /// a buyer can be actively working a demand (Assigned/InProgress) before
+    /// any supply record exists (SupplyStatus=NotSupplied), and supply can be
+    /// AtVendor while the buyer has already moved on to the next problem
+    /// (BuyerActionState=Resolved).
+    ///
+    /// Lifecycle: Open → Assigned → InProgress → AwaitingVendor / AwaitingApproval
+    ///         → Resolved → Closed (with Blocked + Cancelled as off-ramp states).
+    ///
+    /// Drives the Purchasing CC §7 main queue ordering and the §18 Buyer
+    /// Cockpit recommendations.
+    /// </summary>
+    public enum BuyerActionState
+    {
+        /// <summary>No buyer assigned, no action taken. Default for fresh demands.</summary>
+        Open = 0,
+        /// <summary>Buyer assigned but work not yet started.</summary>
+        Assigned = 1,
+        /// <summary>Buyer is actively sourcing/quoting/PO-drafting.</summary>
+        InProgress = 2,
+        /// <summary>PO/SC sent; awaiting vendor acknowledgment, ship, or receipt.</summary>
+        AwaitingVendor = 3,
+        /// <summary>Buyer action awaiting management/quality/engineering approval.</summary>
+        AwaitingApproval = 4,
+        /// <summary>Demand has reached committed supply state — buyer disengaged.</summary>
+        Resolved = 5,
+        /// <summary>Demand is closed (received + inspected + costed) — terminal.</summary>
+        Closed = 6,
+        /// <summary>Demand blocked (drawing not released, supplier not approved, etc.).</summary>
+        Blocked = 7,
+        /// <summary>Demand cancelled (engineering removed BOM line, PRO cancelled).</summary>
+        Cancelled = 8,
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // ProductionSupplyDemand — THE unified demand record
     // ═══════════════════════════════════════════════════════════════════════
@@ -350,6 +389,26 @@ namespace Abs.FixedAssets.Models.Production
         public DemandCostStatus CostStatus { get; set; } = DemandCostStatus.NotCommitted;
 
         public DemandAlertStatus AlertStatus { get; set; } = DemandAlertStatus.None;
+
+        // ─────────── Sprint 15.3 PR-10 — buyer-workflow state machine ───────
+
+        /// <summary>
+        /// Where the buyer is in their workflow on this demand. Distinct from
+        /// SupplyStatus (what the supply is doing) — both axes are tracked
+        /// independently. See <see cref="BuyerActionState"/>.
+        /// </summary>
+        public BuyerActionState BuyerActionState { get; set; } = BuyerActionState.Open;
+
+        /// <summary>Timestamp of the last buyer-state transition (audit + freshness gating).</summary>
+        public DateTime? BuyerActionStateUpdatedUtc { get; set; }
+
+        /// <summary>User who triggered the most recent buyer-state transition.</summary>
+        [StringLength(120)]
+        public string? BuyerActionStateUpdatedBy { get; set; }
+
+        /// <summary>Free-text annotation from the buyer (audit + queue ribbon).</summary>
+        [StringLength(2000)]
+        public string? BuyerActionNotes { get; set; }
 
         // ──────────────────────── Linked supply records ─────────────────────
 

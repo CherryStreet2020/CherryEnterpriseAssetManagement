@@ -620,6 +620,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractCosti
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractValidationService,
     Abs.FixedAssets.Services.Production.SubcontractValidationService>();
 
+// Sprint 15.3 PR-10 (2026-05-28) — Purchasing Control Center service.
+// Opens the §21 Purchasing Command Center surface — KPI band (5 tiles),
+// 13-type Supply Demand queue dispatch from §7, cost + supplier-WIP
+// exception lane, and a guarded BuyerActionState lifecycle state machine.
+// Reads ProductionSupplyDemand + PurchaseOrder + VendorWipBalance; writes
+// BuyerActionState only. Backs the Wave 3 PR-11/12/13 page surfaces.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingControlCenterService,
+    Abs.FixedAssets.Services.Purchasing.PurchasingControlCenterService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios
