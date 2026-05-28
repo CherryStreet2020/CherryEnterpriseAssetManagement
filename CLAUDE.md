@@ -5,6 +5,51 @@ Read it first. It is the single source of truth for *how we work in this repo*; 
 the app is* lives in [`replit.md`](replit.md), and the *current state of the codebase* lives
 in [`HANDOFF_STATUS.md`](HANDOFF_STATUS.md) and [`docs/audit-2026-05-07/`](docs/audit-2026-05-07/00_AUDIT_INDEX.md).
 
+## How Claude communicates in this repo (token-efficiency rules)
+
+Dean is paying for every token. Default to concise. These rules are mandatory unless
+Dean explicitly asks for more detail.
+
+**Response style:**
+- Skip preamble. No "Great question!", "I'll help you with that", "Certainly!", "Let me…".
+- Lead with the result, not the runway. Code/diff first, brief explanation after.
+- Bullets over paragraphs when listing 3+ items.
+- One-sentence acknowledgments only when needed ("On it.", "Got it.", "Doing great, Dean.").
+- No "what I did" summaries after edits — Dean can see the diff. A summary is only
+  warranted at the end of a multi-PR sequence or when the user explicitly asks.
+- No verbose confirmation chains ("Now I'll…", "Next I'll…"). Just do the next step.
+
+**File reading discipline:**
+- Don't `Read` entire migration files (300+ lines of designer dump) to verify one index
+  name — `Grep "IX_..."` with `-C 2` is enough.
+- Don't re-read a file you just edited. Edit/Write would have errored if it failed.
+- When auditing the codebase, prefer surgical Grep + Read with line offsets over
+  whole-file dumps. Delegate broad investigations to the Agent tool so the raw
+  output stays out of the main conversation.
+
+**Tool result reuse:**
+- CI polling: fetch `gh pr checks` once, sleep 60–90s between fetches, not 30–40s.
+  Don't re-fetch identical "all pending" results for 4 rounds in a row.
+- Codex GraphQL: fetch review threads once at green-CI time. Hold the thread IDs in
+  the response; don't re-query.
+- Build logs: trust `Build succeeded` the first time. Don't re-tail the same log
+  after an osascript timeout if the command already completed.
+- Replit screenshots: use `mcp__Claude_in_Chrome__javascript_tool` for DOM
+  assertions ("did the write outcome render", count sections + buttons + testids)
+  when text is enough. Reserve screenshots for layout/visual verification.
+
+**Output volume:**
+- After a successful ship: one short summary table + "next up" line. NOT a celebration
+  paragraph + bullet list of every step + cumulative count + recap of cumulative count
+  + another recap.
+- Don't repeat what Dean just said back to him as confirmation.
+
+**When verbose IS warranted:**
+- Closing a Sprint / Wave / multi-PR sequence (proportional to the milestone).
+- Codex bug analysis (need to quote the bug + show the fix).
+- Strategic architecture decisions (Dean wants the reasoning).
+- When Dean explicitly asks "explain X" or "walk me through Y".
+
 ## The git workflow (non-negotiable)
 
 CherryAI EAM runs on Replit. **One-way sync from GitHub to Replit.** Every change
