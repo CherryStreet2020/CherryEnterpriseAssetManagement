@@ -457,13 +457,18 @@ public class SubcontractValidationService : ISubcontractValidationService
         results.Add((await CanReleaseAsync(op.Id, ct)).Value!);
         results.Add((await CanShipAsync(op.Id, op.QuantityToShip, ct)).Value!);
 
-        // Codex pre-PR P2 #3: aggregate Rule 3 call would Block with
-        // "must be > 0" if op is fully received (remaining ≤ 0). That's a
-        // false-positive in the panel. Substitute an N/A Pass when nothing
-        // is left to receive.
-        var remaining = op.QuantityToShip - op.QuantityReceivedBack;
-        if (remaining > 0m)
-            results.Add((await CanReceiveAsync(op.Id, remaining, ct)).Value!);
+        // Codex P2 (pre-PR + post-PR): use SHIPPED qty, not ToShip qty.
+        // CanReceiveAsync validates against (QuantityShipped - QuantityReceivedBack);
+        // for partially-shipped ops (e.g. 100 ToShip / 50 Shipped / 0 Received),
+        // passing ToShip-Received=100 would trigger a false §11 OverReceipt
+        // warning even though only 50 is actually at vendor.
+        var remainingAtVendor = op.QuantityShipped - op.QuantityReceivedBack;
+        if (remainingAtVendor > 0m)
+            results.Add((await CanReceiveAsync(op.Id, remainingAtVendor, ct)).Value!);
+        else if (op.QuantityShipped == 0m)
+            results.Add(new SubcontractValidationResult("3", "CanReceive",
+                SubcontractValidationOutcome.Pass,
+                "Nothing shipped yet — rule N/A.", null));
         else
             results.Add(new SubcontractValidationResult("3", "CanReceive",
                 SubcontractValidationOutcome.Pass,
