@@ -488,6 +488,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<POAcknowledgment> POAcknowledgments => Set<POAcknowledgment>();
         public DbSet<POAcknowledgmentLine> POAcknowledgmentLines => Set<POAcknowledgmentLine>();
 
+        // Sprint 15.4 PR-17 — PO Amendment / Change Order (POChangeHistory).
+        // Header + per-line snapshot for post-approval PO modifications with
+        // 7-state lifecycle (Draft → Previewed → PendingApproval → Approved
+        // → Applied | Rejected | Cancelled), 10-value ChangeReason enum, and
+        // 7-value LineChangeType enum. THE BIC differentiator caches impact
+        // preview counts on the header so the Razor partial can render the
+        // affected-demand-link table without re-walking the graph.
+        public DbSet<POChangeHistory> POChangeHistories => Set<POChangeHistory>();
+        public DbSet<POChangeHistoryLine> POChangeHistoryLines => Set<POChangeHistoryLine>();
+
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5930,6 +5940,73 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.ExceptionApprovedByUser)
                     .WithMany()
                     .HasForeignKey(x => x.ExceptionApprovedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ─── Sprint 15.4 PR-17 — POChangeHistory + POChangeHistoryLine ──────
+            // PO Amendment / Change Order entity. Header + per-line snapshot;
+            // demand-link impact preview cached on the header; vendor re-ack
+            // loop coupled via IPoAcknowledgmentService.
+            modelBuilder.Entity<POChangeHistory>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(POAmendmentStatus.Draft);
+                e.Property(x => x.Reason)
+                    .HasDefaultValue(POChangeReason.BuyerRequested);
+                e.Property(x => x.IsCurrent).HasDefaultValue(true);
+                e.Property(x => x.VendorReAcknowledgmentRequired).HasDefaultValue(true);
+
+                // Tenant-unique amendment number (POAMD-YYYY-NNNNNN).
+                e.HasIndex(x => new { x.CompanyId, x.AmendmentNumber })
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NOT NULL");
+                e.HasIndex(x => x.PurchaseOrderId);
+
+                // One IsCurrent amendment per PO at the DB level
+                // (mirrors the PR-16 Codex P2 fix pattern).
+                e.HasIndex(x => x.PurchaseOrderId)
+                    .HasDatabaseName("UX_POChangeHistories_PurchaseOrderId_IsCurrent")
+                    .IsUnique()
+                    .HasFilter("\"IsCurrent\" = TRUE");
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.Reason);
+
+                e.HasOne(x => x.PurchaseOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.DraftedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.DraftedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ApprovedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.ApprovedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<POChangeHistoryLine>(e =>
+            {
+                e.Property(x => x.ChangeType)
+                    .HasDefaultValue(POAmendmentLineChangeType.Unchanged);
+
+                e.HasIndex(x => x.POChangeHistoryId);
+                e.HasIndex(x => x.PurchaseOrderLineId);
+                e.HasIndex(x => x.ChangeType);
+
+                e.HasOne(x => x.POChangeHistory)
+                    .WithMany(a => a.Lines)
+                    .HasForeignKey(x => x.POChangeHistoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.PurchaseOrderLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderLineId)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }
