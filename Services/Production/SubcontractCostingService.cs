@@ -242,14 +242,20 @@ public class SubcontractCostingService : ISubcontractCostingService
             return Result.Failure<SubcontractCostPostResult>(
                 $"InvoiceNumber length {r.InvoiceNumber.Length} exceeds 40 chars (SourceTransactionType column is 64; prefix consumes 22-24).");
 
-        // Find the existing provisional SubcontractService cost transactions for this op.
-        var existingService = await _db.Set<CostTransaction>()
-            .Where(t => t.CostObjectType == CostObjectType.ProductionOrder &&
-                        t.ProductionOrderId == op.ProductionOrderId &&
-                        t.OperationId == null && // op-level subcontract service posting (operation-routing-op may differ)
-                        t.TransactionType == CostTransactionType.SubcontractService &&
-                        _tenant.VisibleCompanyIds.Contains(t.CompanyId))
-            .ToListAsync(ct);
+        // Codex P2: scope service-cost lookup to THIS subcontract op, not the
+        // whole PRO. A PRO with multiple subcontract operations would otherwise
+        // pull every op's provisional service cost and miscompute the variance.
+        // Join through SubcontractReceipt to filter by SubcontractOperationId.
+        var existingService = await (
+            from t in _db.Set<CostTransaction>()
+            join rc in _db.Set<SubcontractReceipt>()
+                on t.SourceTransactionId equals rc.Id
+            where t.SourceTransactionType == "SubcontractReceipt" &&
+                  t.TransactionType == CostTransactionType.SubcontractService &&
+                  rc.SubcontractOperationId == op.Id &&
+                  _tenant.VisibleCompanyIds.Contains(t.CompanyId) &&
+                  _tenant.VisibleCompanyIds.Contains(rc.CompanyId)
+            select t).ToListAsync(ct);
 
         var provisionalExt = existingService.Sum(t => t.ExtendedCost);
         var invoiceExt = r.InvoicedAmount;
@@ -335,39 +341,63 @@ public class SubcontractCostingService : ISubcontractCostingService
                 op.Id, 0, 0m, "USD", Array.Empty<int>(),
                 "Already settled — idempotent return."));
 
-        // Pre-PR P3 #5: include EVERY bucket this service posts into, not just
-        // Subcontract + OutsideProcessing. Otherwise the close-time note
-        // misreports the open balance.
-        var openBalance = await _db.Set<CostTransaction>()
-            .Where(t => t.ProductionOrderId == op.ProductionOrderId &&
-                        (t.CostBucket == ProductionCostBucket.Subcontract ||
-                         t.CostBucket == ProductionCostBucket.OutsideProcessing ||
-                         t.CostBucket == ProductionCostBucket.LandedCost ||
-                         t.CostBucket == ProductionCostBucket.Quality ||
-                         t.CostBucket == ProductionCostBucket.Packaging ||
-                         t.CostBucket == ProductionCostBucket.Scrap ||
-                         t.CostBucket == ProductionCostBucket.Variance) &&
-                        (t.SourceTransactionType == "SubcontractShipment" ||
-                         t.SourceTransactionType == "SubcontractReceipt" ||
-                         (t.SourceTransactionType != null && t.SourceTransactionType.StartsWith("SubcontractInvoice"))) &&
+        // Codex P2 #3 + P3 #5: scope open-balance to THIS op only (not PRO-wide),
+        // and include every bucket this service touches.
+        // Approach: collect SubcontractShipment + SubcontractReceipt ids for the
+        // op, then sum CostTransactions whose SourceTransactionId is in that set
+        // (sourceType-prefixed appropriately).
+        var opShipmentIds = await _db.Set<SubcontractShipment>()
+            .Where(s => s.SubcontractOperationId == op.Id &&
+                        _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+        var opReceiptIds = await _db.Set<SubcontractReceipt>()
+            .Where(rc => rc.SubcontractOperationId == op.Id &&
+                         _tenant.VisibleCompanyIds.Contains(rc.CompanyId))
+            .Select(rc => rc.Id)
+            .ToListAsync(ct);
+
+        var shipmentCosts = await _db.Set<CostTransaction>()
+            .Where(t => t.SourceTransactionType == "SubcontractShipment" &&
+                        opShipmentIds.Contains(t.SourceTransactionId ?? -1) &&
                         _tenant.VisibleCompanyIds.Contains(t.CompanyId))
             .SumAsync(t => (decimal?)t.ExtendedCost, ct) ?? 0m;
+        var receiptCosts = await _db.Set<CostTransaction>()
+            .Where(t => t.SourceTransactionType == "SubcontractReceipt" &&
+                        opReceiptIds.Contains(t.SourceTransactionId ?? -1) &&
+                        _tenant.VisibleCompanyIds.Contains(t.CompanyId))
+            .SumAsync(t => (decimal?)t.ExtendedCost, ct) ?? 0m;
+        // Invoice variance is sourced to op.Id directly (per PostInvoiceTrueUp impl).
+        var invoiceCosts = await _db.Set<CostTransaction>()
+            .Where(t => t.SourceTransactionType != null &&
+                        t.SourceTransactionType.StartsWith("SubcontractInvoice") &&
+                        t.SourceTransactionId == op.Id &&
+                        _tenant.VisibleCompanyIds.Contains(t.CompanyId))
+            .SumAsync(t => (decimal?)t.ExtendedCost, ct) ?? 0m;
+        var openBalance = shipmentCosts + receiptCosts + invoiceCosts;
 
-        // Post a VarianceSettlement for any residual; if zero, still post a
-        // marker row at qty=0 to record the close act (idempotent guard above
+        // Codex P1: actually settle the open balance. Post a VarianceSettlement
+        // with a negative offset so the residual subcontract WIP is cleared.
+        // ExtendedCost = -openBalance. After the settlement entry, the sum of
+        // subcontract-sourced cost transactions for this op is 0.
+        // If openBalance is 0, still post a marker row (idempotency guard above
         // prevents duplicates).
+        var settlementUnitCost = openBalance != 0m ? -openBalance : 0m;
+
         var posted = await _costSvc.PostCostAsync(
             CostObjectType.ProductionOrder, op.ProductionOrderId,
             CostTransactionType.VarianceSettlement,
             ProductionCostBucket.Variance,
             op.CompanyId, op.SiteId, op.ProductionOrderId,
             null, null, null,
-            quantity: 1m, uom: "EA", unitCost: 0m,
+            quantity: 1m, uom: "EA", unitCost: settlementUnitCost,
             sourceTransactionType: "SubcontractClose",
             sourceTransactionId: op.Id,
             lotNumber: null, serialNumber: null, heatNumber: null,
             rollupAdditive: false,
-            notes: $"Subcontract close — op #{op.Id} on PRO #{op.ProductionOrderId}. Open balance at close: {openBalance:N4}",
+            notes: $"Subcontract close — op #{op.Id} on PRO #{op.ProductionOrderId}. " +
+                   $"Open balance cleared: {openBalance:N4} " +
+                   $"(ship={shipmentCosts:N4}, recv={receiptCosts:N4}, inv={invoiceCosts:N4}).",
             postedBy: r.PostedBy ?? "subcontract-close", ct: ct);
 
         if (!posted.IsSuccess)
@@ -375,8 +405,8 @@ public class SubcontractCostingService : ISubcontractCostingService
                 $"Settlement post failed: {posted.Error}");
 
         return Result.Success(new SubcontractCostPostResult(
-            op.Id, 1, 0m, "USD", new[] { posted.Value!.Id },
-            $"Settled subcontract op #{op.Id}. Open subcontract+OP bucket at close: {openBalance:N4}."));
+            op.Id, 1, posted.Value!.ExtendedCost, "USD", new[] { posted.Value.Id },
+            $"Settled subcontract op #{op.Id}. Cleared open balance of {openBalance:N4} (ship={shipmentCosts:N4}, recv={receiptCosts:N4}, inv={invoiceCosts:N4})."));
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -391,15 +421,34 @@ public class SubcontractCostingService : ISubcontractCostingService
             return Result.Failure<SubcontractCostSummary>(
                 $"SubcontractOperation {subcontractOperationId} not found or out of tenant scope.");
 
-        // Pull every CT that belongs to this op's PRO and is sourced from a
-        // subcontract event. Aggregate by §12 element via TransactionType.
+        // Codex P2: scope summary to THIS op only (not the whole PRO).
+        // For multi-subcontract-op PROs, summing PRO-wide would inflate totals
+        // across ops. Filter CostTransactions whose SourceTransactionId resolves
+        // to the requested SubcontractOperationId.
+        var opShipmentIds = await _db.Set<SubcontractShipment>()
+            .Where(s => s.SubcontractOperationId == op.Id &&
+                        _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+            .Select(s => s.Id)
+            .ToListAsync(ct);
+        var opReceiptIds = await _db.Set<SubcontractReceipt>()
+            .Where(rc => rc.SubcontractOperationId == op.Id &&
+                         _tenant.VisibleCompanyIds.Contains(rc.CompanyId))
+            .Select(rc => rc.Id)
+            .ToListAsync(ct);
+
         var txns = await _db.Set<CostTransaction>()
-            .Where(t => t.ProductionOrderId == op.ProductionOrderId &&
-                        _tenant.VisibleCompanyIds.Contains(t.CompanyId) &&
-                        (t.SourceTransactionType == "SubcontractShipment" ||
-                         t.SourceTransactionType == "SubcontractReceipt" ||
-                         t.SourceTransactionType == "SubcontractClose" ||
-                         (t.SourceTransactionType != null && t.SourceTransactionType.StartsWith("SubcontractInvoice"))))
+            .Where(t => _tenant.VisibleCompanyIds.Contains(t.CompanyId) &&
+                        (
+                            (t.SourceTransactionType == "SubcontractShipment" &&
+                                opShipmentIds.Contains(t.SourceTransactionId ?? -1))
+                         || (t.SourceTransactionType == "SubcontractReceipt" &&
+                                opReceiptIds.Contains(t.SourceTransactionId ?? -1))
+                         || (t.SourceTransactionType == "SubcontractClose" &&
+                                t.SourceTransactionId == op.Id)
+                         || (t.SourceTransactionType != null &&
+                                t.SourceTransactionType.StartsWith("SubcontractInvoice") &&
+                                t.SourceTransactionId == op.Id)
+                        ))
             .ToListAsync(ct);
 
         decimal SumOf(CostTransactionType type) =>
