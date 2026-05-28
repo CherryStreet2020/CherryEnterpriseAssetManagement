@@ -1,0 +1,49 @@
+@page "/Admin/SubcontractCockpitPanelProbe"
+@model Abs.FixedAssets.Pages.Admin.SubcontractCockpitPanelProbeModel
+@{
+    ViewData["Title"] = "Subcontract Cockpit Panel Probe";
+    ViewData["TabTitle"] = "Subcontract Cockpit Panel";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Subcontract Cockpit Panel Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.2 PR-9 — Wave 2 closer. The BIC differentiator UX layer. Renders
+            <code>_CockpitSubcontractPanel</code> partial for a single subcontract op with §22 qty grid,
+            §5 flow state, §12 cost breakdown, and all 15 §24 non-negotiable validations as live
+            green/yellow/red badges. This partial wires into the PRO Cockpit routing-row drawer in a
+            future follow-up.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="sccp-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="sccp-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Load Subcontract Cockpit Panel</h2>
+        <form method="post" asp-page-handler="Load">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="OpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-load-panel">Load Panel</button>
+        </form>
+    </div></section>
+
+    @if (Model.PanelData != null)
+    {
+        <div class="ds-mt-3">
+            <partial name="../Production/_CockpitSubcontractPanel.cshtml" model="Model.PanelData" />
+        </div>
+    }
+
+</main>

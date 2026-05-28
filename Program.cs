@@ -614,6 +614,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractFlowS
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractCostingService,
     Abs.FixedAssets.Services.Production.SubcontractCostingService>();
 
+// Sprint 15.2 PR-9 (2026-05-28) — Subcontract Validation Service.
+// 15 §24 non-negotiable validation rules as guard methods used by the
+// Cockpit subcontract panel (and, in a follow-up, by the 8-step orchestrator).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractValidationService,
+    Abs.FixedAssets.Services.Production.SubcontractValidationService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

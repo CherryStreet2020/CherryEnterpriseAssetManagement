@@ -1,0 +1,181 @@
+@* Sprint 15.2 PR-9 — Subcontract Panel for the PRO Cockpit (THE BIC DIFFERENTIATOR UX).
+
+   Per-operation subcontract view per Dean's spec §22. Renders:
+     * Header: supplier name, PO #, op status, ship/receipt status
+     * Quantity grid: shipped / at-vendor / received / accepted / rejected / scrapped
+     * Schedule grid: required ship/back dates, actual ship/back dates, days late
+     * Compliance: cert required + received, inspection required + cleared
+     * Cost ribbon: §12 breakdown (service / freight / cert / inspection / scrap / variance / total)
+     * 15 §24 validation rules: green/yellow/red badges + override hints
+     * Flow state: which of the 8 steps the op is at + next-action hint
+
+   Input model: SubcontractCockpitPanelData (defined in Pages/Shared/Models or computed in the
+   loading PageModel). For PR-9 we render from the admin probe; PR-9 follow-up wires this
+   partial into the Cockpit.cshtml routing-row click drawer.
+
+   Sources:
+     - docs/research/purchasing-subcontracting-supply-demand-dean-research.txt §22 + §24
+     - docs/research/purchasing-cascade-design-2026-05-28.md Wave 2 PR-9
+     - ISubcontractFlowService.GetFlowStateAsync (FlowStateSummary)
+     - ISubcontractCostingService.GetCostSummaryAsync (SubcontractCostSummary)
+     - ISubcontractValidationService.RunAllAsync (15 §24 rules)
+*@
+@using Abs.FixedAssets.Models.Production
+@using Abs.FixedAssets.Services.Production
+@model Abs.FixedAssets.Pages.Production.SubcontractCockpitPanelModel
+@{
+    var op = Model.Op;
+    var supplier = Model.SupplierName;
+    var flow = Model.FlowState;
+    var costs = Model.CostSummary;
+    var rules = Model.Validations;
+
+    int? daysLate = null;
+    if (op.RequiredBackDate.HasValue && op.QuantityReceivedBack < op.QuantityToShip)
+    {
+        var diff = (DateTime.UtcNow - op.RequiredBackDate.Value).TotalDays;
+        if (diff > 0) daysLate = (int)Math.Ceiling(diff);
+    }
+}
+
+<section class="ds-card" data-testid="cockpit-subcontract-panel">
+    <div class="ds-card__body">
+
+        @* ── §22 Header ─────────────────────────────────────────── *@
+        <header style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div>
+                <h3 style="font-size: 1.1rem; font-weight: 600; margin: 0;">
+                    Subcontract Op #@op.Id — Seq @op.OperationSequence (@op.OperationCode)
+                </h3>
+                <p style="margin: 0.25rem 0 0; color: var(--v2-text-muted, #94a3b8); font-size: 0.85rem;">
+                    @op.OperationDescription · Supplier: <strong>@supplier</strong>
+                    @if (op.ServicePurchaseOrderLineId.HasValue)
+                    {
+                        <text> · Service PO Line: <code>#@op.ServicePurchaseOrderLineId</code></text>
+                    }
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <span class="ds-badge ds-badge--info" data-testid="cockpit-subcontract-op-status">@op.Status</span>
+                @if (daysLate.HasValue)
+                {
+                    <div style="margin-top: 0.25rem;">
+                        <span class="ds-badge ds-badge--danger" data-testid="cockpit-subcontract-days-late">@daysLate days late</span>
+                    </div>
+                }
+            </div>
+        </header>
+
+        @* ── §22 Quantity grid ─────────────────────────────────── *@
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;" data-testid="cockpit-subcontract-qty-grid">
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">To Ship</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">@op.QuantityToShip.ToString("N4")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">Shipped</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);" data-testid="cockpit-subcontract-qty-shipped">@op.QuantityShipped.ToString("N4")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">Received</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">@op.QuantityReceivedBack.ToString("N4")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">Accepted</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace); color: var(--v2-status-completed, #22c55e);">@op.QuantityAccepted.ToString("N4")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">Rejected</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace); color: var(--v2-status-cancelled, #ef4444);">@op.QuantityRejected.ToString("N4")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding: 0.5rem; text-align: center;">
+                <div style="font-size: 0.65rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">Scrap @@ Vendor</div>
+                <div style="font-size: 1.1rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">@op.QuantityScrappedAtVendor.ToString("N4")</div>
+            </div></div>
+        </div>
+
+        @* ── Flow state (Step N — name) ─────────────────────────── *@
+        @if (flow != null)
+        {
+            <div class="ds-card" style="margin-bottom: 1rem; background: var(--v2-surface-2, #1e293b);">
+                <div class="ds-card__body" style="padding: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="font-size: 0.7rem; color: var(--v2-text-muted, #94a3b8); text-transform: uppercase;">§5 Flow State</span>
+                            <div style="font-size: 1rem; font-weight: 600;" data-testid="cockpit-subcontract-flow-step">Step @flow.CurrentStep — @flow.CurrentStepName</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(flow.NextActionHint))
+                        {
+                            <div style="text-align: right; font-size: 0.85rem; color: var(--v2-text-muted, #94a3b8); max-width: 400px;">
+                                <strong>Next:</strong> @flow.NextActionHint
+                            </div>
+                        }
+                    </div>
+                    @if (flow.CompletedStepNames.Length > 0)
+                    {
+                        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--v2-text-muted, #94a3b8);">
+                            <strong>Done:</strong> @string.Join(" · ", flow.CompletedStepNames)
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ── §12 Cost ribbon ────────────────────────────────────── *@
+        @if (costs != null)
+        {
+            <h4 style="font-size: 0.95rem; margin: 1rem 0 0.5rem;">§12 Cost Breakdown (@costs.TotalTransactionCount txns)</h4>
+            <table class="ds-table" data-testid="cockpit-subcontract-cost-table">
+                <tbody>
+                    <tr><td>Service Cost (vendor processing)</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@costs.ServiceCostPosted.ToString("N4")</td></tr>
+                    <tr><td>Freight Out + Return</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@((costs.FreightOutPosted + costs.FreightReturnPosted).ToString("N4"))</td></tr>
+                    <tr><td>Packaging / Expedite</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@((costs.PackagingPosted + costs.ExpeditePosted).ToString("N4"))</td></tr>
+                    <tr><td>Cert + Inspection Fees</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@((costs.CertFeesPosted + costs.InspectionFeesPosted).ToString("N4"))</td></tr>
+                    <tr><td>Vendor Scrap + Credit (net)</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@((costs.ScrapChargePosted + costs.VendorCreditPosted).ToString("N4"))</td></tr>
+                    <tr><td>PPV + Invoice Variance</td><td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@((costs.PpvPosted + costs.InvoiceVariancePosted).ToString("N4"))</td></tr>
+                    <tr style="border-top: 2px solid var(--v2-border, #334155);">
+                        <td><strong>Total Subcontract Cost</strong></td>
+                        <td style="text-align: right; font-family: var(--font-mono, 'JetBrains Mono', monospace); font-weight: 600;" data-testid="cockpit-subcontract-cost-total">$@costs.TotalSubcontractCost.ToString("N4")</td>
+                    </tr>
+                </tbody>
+            </table>
+        }
+
+        @* ── §24 Non-negotiable validations (15 rules) ──────────── *@
+        @if (rules != null && rules.Count > 0)
+        {
+            var passCount = rules.Count(r => r.Outcome == SubcontractValidationOutcome.Pass);
+            var warnCount = rules.Count(r => r.Outcome == SubcontractValidationOutcome.Warn);
+            var blockCount = rules.Count(r => r.Outcome == SubcontractValidationOutcome.Block);
+
+            <h4 style="font-size: 0.95rem; margin: 1rem 0 0.5rem;" data-testid="cockpit-subcontract-rules-header">
+                §24 Validations:
+                <span class="ds-badge ds-badge--success">@passCount Pass</span>
+                <span class="ds-badge ds-badge--warning">@warnCount Warn</span>
+                <span class="ds-badge ds-badge--danger">@blockCount Block</span>
+            </h4>
+            <table class="ds-table" data-testid="cockpit-subcontract-rules-table">
+                <thead><tr><th>#</th><th>Rule</th><th>Outcome</th><th>Description</th></tr></thead>
+                <tbody>
+                @foreach (var rule in rules)
+                {
+                    var badge = rule.Outcome switch
+                    {
+                        SubcontractValidationOutcome.Pass => "ds-badge--success",
+                        SubcontractValidationOutcome.Warn => "ds-badge--warning",
+                        SubcontractValidationOutcome.Block => "ds-badge--danger",
+                        _ => "ds-badge--secondary",
+                    };
+                    <tr>
+                        <td><code>@rule.RuleNumber</code></td>
+                        <td>@rule.RuleName</td>
+                        <td><span class="ds-badge @badge">@rule.Outcome</span></td>
+                        <td>@rule.Description@if (!string.IsNullOrEmpty(rule.OverrideHint)) { <text> </text><em style="color: var(--v2-text-muted, #94a3b8); font-size: 0.85rem;">— @rule.OverrideHint</em> }</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+
+    </div>
+</section>
