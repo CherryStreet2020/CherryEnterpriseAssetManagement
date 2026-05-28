@@ -157,7 +157,12 @@ public class VendorWipService : IVendorWipService
         var txn = new VendorWipTransaction
         {
             CompanyId = pro.CompanyId,
-            TransactionNumber = $"VWT-{pro.OrderNumber ?? pro.Id.ToString()}-{nowUtc:yyyyMMddHHmmss}-{req.OperationSequence:000}",
+            // Codex P2 fix: bound under 48 chars. Was previously using
+            // OrderNumber (≤32 chars) + 14-char timestamp + 3-char op seq +
+            // 4-char "VWT-" + separators → up to 56 chars, blowing past the
+            // VendorWipTransaction.TransactionNumber varchar(48). Compact
+            // format: VWT-{ProId}-{op:000}-{epochSeconds:x} ≤ ~32 chars.
+            TransactionNumber = $"VWT-{pro.Id}-{req.OperationSequence:000}-{((DateTimeOffset)nowUtc).ToUnixTimeSeconds():x}",
             TransactionType = VendorWipTransactionType.ShipToVendor,
             ProductionOrderId = pro.Id,
             OperationSequence = req.OperationSequence,
@@ -204,6 +209,12 @@ public class VendorWipService : IVendorWipService
     {
         if (req.QuantityReceived <= 0m)
             return Result.Failure<VendorWipMovementResult>("QuantityReceived must be > 0.");
+        // Codex P2 fix: validate each inspection qty individually so a caller
+        // can't pass -1 and trigger negative accept/reject buckets on the balance.
+        if (req.QuantityAccepted < 0m)
+            return Result.Failure<VendorWipMovementResult>("QuantityAccepted must be >= 0.");
+        if (req.QuantityRejected < 0m)
+            return Result.Failure<VendorWipMovementResult>("QuantityRejected must be >= 0.");
         if (req.QuantityAccepted + req.QuantityRejected > req.QuantityReceived)
             return Result.Failure<VendorWipMovementResult>(
                 "Accepted + rejected cannot exceed received.");
@@ -236,7 +247,8 @@ public class VendorWipService : IVendorWipService
             ? VendorWipInventoryStatus.ReceivedBack
             : VendorWipInventoryStatus.InTransitFromVendor;
 
-        var txnNumber = $"VWT-RCV-{balance.ProductionOrderId}-{nowUtc:yyyyMMddHHmmss}-{balance.OperationSequence:000}";
+        // Compact + bounded (≤48). PRO Id is int, op is :000.
+        var txnNumber = $"VWT-RCV-{balance.ProductionOrderId}-{balance.OperationSequence:000}-{((DateTimeOffset)nowUtc).ToUnixTimeSeconds():x}";
 
         // Main receipt transaction
         var receiptTxn = new VendorWipTransaction
@@ -355,7 +367,7 @@ public class VendorWipService : IVendorWipService
         var txn = new VendorWipTransaction
         {
             CompanyId = balance.CompanyId,
-            TransactionNumber = $"VWT-SCR-{balance.ProductionOrderId}-{nowUtc:yyyyMMddHHmmss}",
+            TransactionNumber = $"VWT-SCR-{balance.ProductionOrderId}-{((DateTimeOffset)nowUtc).ToUnixTimeSeconds():x}",
             TransactionType = VendorWipTransactionType.ScrappedAtVendor,
             ProductionOrderId = balance.ProductionOrderId,
             OperationSequence = balance.OperationSequence,
