@@ -1,0 +1,209 @@
+@page "/Admin/PurchasingControlCenterProbe"
+@model Abs.FixedAssets.Pages.Admin.PurchasingControlCenterProbeModel
+@using Abs.FixedAssets.Services.Purchasing
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Purchasing Control Center Probe";
+    ViewData["TabTitle"] = "Purchasing CC Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Purchasing Control Center Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.3 PR-10 — Wave 3 opens. Exercises
+            <code>IPurchasingControlCenterService</code> end-to-end: 5-tile KPI band,
+            13-type Supply Demand queue dispatch (§7), cost + supplier-WIP exception
+            lane, and the new <code>BuyerActionState</code> lifecycle state machine
+            (12-transition guarded surface, see §24 rule 9).
+        </p>
+        <p class="ds-page-header__subtitle">
+            Tenant scope: @Model.DemandTotalInTenant ProductionSupplyDemand row(s)
+            visible in current tenant.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="pcc-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="pcc-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    @* ─── KPI BAND ─────────────────────────────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1 · KPI Band (5 tiles)</h2>
+        <form method="post" asp-page-handler="LoadKpi">
+            <div class="ds-form-row"><label class="ds-label">Site (optional)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-load-kpi">Load KPI Band</button>
+        </form>
+        @if (Model.Kpi is { } k)
+        {
+            <ul class="ds-mt-2">
+                <li>Open demand: <strong>@k.OpenDemandCount</strong> (committed supply value $@k.CommittedSupplyValueUsd.ToString("N2"))</li>
+                <li>Open POs: <strong>@k.OpenPoCount</strong> ($@k.OpenPoTotalValueUsd.ToString("N2"))</li>
+                <li>Vendor WIP value: <strong>$@k.VendorWipTotalValueUsd.ToString("N2")</strong></li>
+                <li>Late POs: <strong>@k.LatePoCount</strong></li>
+                <li>Missing supply: <strong>@k.MissingSupplyDemandCount</strong></li>
+                <li class="ds-text-muted">snapshot: @k.SnapshotUtc.ToString("O")</li>
+            </ul>
+        }
+    </div></section>
+
+    @* ─── QUEUE DISPATCH (13 types) ────────────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2 · Supply Demand Queue (13-way §7 dispatch)</h2>
+        <form method="post" asp-page-handler="LoadQueue">
+            <div class="ds-form-row">
+                <label class="ds-label">Queue Type</label>
+                <select class="ds-input" asp-for="QueueType">
+                    @foreach (var qt in Model.AllQueueTypes)
+                    {
+                        <option value="@qt">@qt</option>
+                    }
+                </select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Site (optional)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-load-queue">Load Queue</button>
+        </form>
+        @if (Model.Queue is { } pq)
+        {
+            <p class="ds-mt-2">Queue <strong>@pq.QueueType</strong>: <strong>@pq.TotalCount</strong> matching demand(s) · showing @pq.Rows.Count.</p>
+            @if (pq.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr>
+                        <th>#</th><th>Demand</th><th>PRO</th><th>Part</th><th>Req Qty</th>
+                        <th>Open</th><th>Required</th><th>State</th><th>Next Action</th>
+                    </tr></thead>
+                    <tbody>
+                    @foreach (var row in pq.Rows.Take(15))
+                    {
+                        <tr>
+                            <td>@row.DemandId</td>
+                            <td>@row.DemandNumber</td>
+                            <td>@(row.ProductionOrderNumber ?? "—")</td>
+                            <td>@(row.PartNumber ?? "—") @(row.Revision ?? "")</td>
+                            <td>@row.RequiredQuantity.ToString("N2")</td>
+                            <td>@row.OpenQuantity.ToString("N2")</td>
+                            <td>@(row.RequiredDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>@row.BuyerActionState</td>
+                            <td>@row.NextActionHint</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+    @* ─── EXCEPTION LANE ───────────────────────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3 · Exception Lane (cost + supplier WIP)</h2>
+        <form method="post" asp-page-handler="LoadExceptions">
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-load-exceptions">Load Exception Lane</button>
+        </form>
+        @if (Model.Exceptions is { } ex)
+        {
+            <p class="ds-mt-2">Total exceptions: <strong>@ex.TotalCount</strong></p>
+            @if (ex.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Kind</th><th>Severity</th><th>Demand</th><th>PO</th><th>Vendor</th><th>Description</th><th>Detected</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in ex.Rows.Take(20))
+                    {
+                        <tr>
+                            <td>@r.ExceptionKind</td>
+                            <td>@r.Severity</td>
+                            <td>@(r.DemandId?.ToString() ?? "—")</td>
+                            <td>@(r.PurchaseOrderId?.ToString() ?? "—")</td>
+                            <td>@(r.VendorId?.ToString() ?? "—")</td>
+                            <td>@r.Description</td>
+                            <td>@r.DetectedUtc.ToString("yyyy-MM-dd")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+    @* ─── LIFECYCLE — READ ─────────────────────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4 · Lifecycle State (read)</h2>
+        <form method="post" asp-page-handler="LoadLifecycle">
+            <div class="ds-form-row"><label class="ds-label">Demand ID</label><input type="number" class="ds-input" asp-for="DemandId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-lifecycle">Get Lifecycle</button>
+        </form>
+        @if (Model.Lifecycle is { } lc)
+        {
+            <p class="ds-mt-2">Demand #@lc.DemandId · State: <strong>@lc.StateLabel</strong> (@lc.State)</p>
+            <p>Allowed transitions: <code>@string.Join(", ", lc.AllowedTransitions)</code></p>
+            <p>Next-action hint: <em>@lc.NextActionHint</em></p>
+        }
+    </div></section>
+
+    @* ─── LIFECYCLE — TRANSITIONS (12 write buttons — every transition) ──── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5 · Lifecycle Transitions (12 write buttons — every transition)</h2>
+        <form method="post">
+            <div class="ds-form-row"><label class="ds-label">Demand ID</label><input type="number" class="ds-input" asp-for="DemandId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Notes (optional)</label><input type="text" class="ds-input" asp-for="TransitionNotes" /></div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn" asp-page-handler="Assign" data-testid="btn-tx-assign">Assign</button>
+                <button type="submit" class="ds-btn" asp-page-handler="StartWork" data-testid="btn-tx-start">Start Work</button>
+                <button type="submit" class="ds-btn" asp-page-handler="SendToVendor" data-testid="btn-tx-send">Send to Vendor</button>
+                <button type="submit" class="ds-btn" asp-page-handler="RequestApproval" data-testid="btn-tx-request-approval">Request Approval</button>
+                <button type="submit" class="ds-btn ds-btn-success" asp-page-handler="ApprovalGranted" data-testid="btn-tx-approval-granted">Approval Granted</button>
+                <button type="submit" class="ds-btn ds-btn-warning" asp-page-handler="ApprovalDenied" data-testid="btn-tx-approval-denied">Approval Denied</button>
+                <button type="submit" class="ds-btn ds-btn-success" asp-page-handler="MarkResolved" data-testid="btn-tx-resolved">Mark Resolved</button>
+                <button type="submit" class="ds-btn ds-btn-success" asp-page-handler="Close" data-testid="btn-tx-close">Close</button>
+                <button type="submit" class="ds-btn ds-btn-warning" asp-page-handler="Block" data-testid="btn-tx-block">Block</button>
+                <button type="submit" class="ds-btn" asp-page-handler="Unblock" data-testid="btn-tx-unblock">Unblock</button>
+                <button type="submit" class="ds-btn ds-btn-danger" asp-page-handler="Cancel" data-testid="btn-tx-cancel">Cancel</button>
+                <button type="submit" class="ds-btn ds-btn-danger" asp-page-handler="Reopen" data-testid="btn-tx-reopen">Reopen</button>
+            </div>
+            <p class="ds-text-muted ds-mt-2">
+                Service rejects illegal transitions (e.g., Open → Close goes through Failure). Watch the Outcome banner above.
+            </p>
+        </form>
+    </div></section>
+
+    @* ─── TENANT-SCOPED RECENT DEMANDS (sanity) ────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">6 · Recent Demands (last 10, this tenant)</h2>
+        @if (Model.RecentDemands.Count == 0)
+        {
+            <p class="ds-text-muted">No demands in this tenant yet. Generate from a PRO via /Admin/ProductionSupplyDemandProbe to populate this surface.</p>
+        }
+        else
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>#</th><th>Demand</th><th>PRO</th><th>Part</th><th>Buyer State</th><th>Supply</th><th>Created</th></tr></thead>
+                <tbody>
+                @foreach (var d in Model.RecentDemands)
+                {
+                    <tr>
+                        <td>@d.Id</td>
+                        <td>@d.DemandNumber</td>
+                        <td>@d.ProductionOrderId</td>
+                        <td>@(d.PartNumber ?? "—")</td>
+                        <td>@d.BuyerActionState</td>
+                        <td>@d.SupplyStatus</td>
+                        <td>@d.CreatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>

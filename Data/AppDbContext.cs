@@ -5439,6 +5439,9 @@ namespace Abs.FixedAssets.Data
                     .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandCostStatus.NotCommitted);
                 e.Property(x => x.AlertStatus)
                     .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandAlertStatus.None);
+                // Sprint 15.3 PR-10 — buyer-workflow state machine default
+                e.Property(x => x.BuyerActionState)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.BuyerActionState.Open);
 
                 // Codex P1 fix: scope demand-number uniqueness by tenant. PRO
                 // OrderNumber is only unique per company, so a global unique
@@ -5449,6 +5452,9 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.SupplyStatus);
                 e.HasIndex(x => x.ShortageStatus);
                 e.HasIndex(x => x.AlertStatus);
+                // Sprint 15.3 PR-10 — buyer-workflow queue indexing
+                e.HasIndex(x => x.BuyerActionState);
+                e.HasIndex(x => new { x.CompanyId, x.BuyerUserId, x.BuyerActionState });
 
                 e.HasOne(x => x.ProductionOrder)
                     .WithMany()
