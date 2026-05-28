@@ -1,0 +1,177 @@
+@page "/Admin/AutoPurchaseAndConsolidationProbe"
+@model Abs.FixedAssets.Pages.Admin.AutoPurchaseAndConsolidationProbeModel
+@using Abs.FixedAssets.Services.Purchasing
+@{
+    ViewData["Title"] = "Auto-PO + Demand Consolidation Probe";
+    ViewData["TabTitle"] = "Auto-PO Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Auto-PO + Demand Consolidation Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.3 PR-14 — exercises <code>IAutoPurchaseService</code> (§16 — 10
+            triggers / 12 blockers) and <code>IDemandConsolidationService</code>
+            (§17 — 6 modes). Pure read services; <strong>no PO writes</strong>. PR-15
+            wires both into the buyer recommendation engine.
+        </p>
+        <p class="ds-page-header__subtitle">
+            Tenant scope: @Model.DemandTotalInTenant ProductionSupplyDemand row(s) visible.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="apc-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="apc-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    @* ─── §16 AUTO-PO DECISION ENGINE ──────────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1 · §16 Auto-PO Decision Engine</h2>
+        <p class="ds-text-muted">
+            Per-demand evaluation of 10 trigger rules + 12 blocker rules. Decision is one of
+            Eligible / BlockedReviewRequired / NotEligible / AlreadySatisfied.
+        </p>
+        <form method="post">
+            <div class="ds-form-row"><label class="ds-label">Demand ID</label><input type="number" class="ds-input" asp-for="DemandId" /></div>
+            <div class="ds-form-row"><label class="ds-label">PRO ID</label><input type="number" class="ds-input" asp-for="ProductionOrderId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Site (for tenant-wide scan)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="EvaluateDemand" data-testid="btn-eval-demand">Evaluate single demand</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="EvaluatePro" data-testid="btn-eval-pro">Evaluate PRO (all demands)</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadCandidates" data-testid="btn-load-candidates">Tenant-wide candidate scan</button>
+            </div>
+        </form>
+
+        @if (Model.EvalResult is { } er)
+        {
+            <h3 class="ds-h3 ds-mt-3">Single-demand result</h3>
+            <ul>
+                <li>Demand <strong>#@er.DemandId</strong> (@er.DemandNumber) — PRO @(er.ProductionOrderNumber ?? er.ProductionOrderId.ToString()), seq @(er.OperationSequence?.ToString() ?? "—")</li>
+                <li>Decision: <strong>@er.Decision</strong></li>
+                <li>Suggested vendor: @(er.SuggestedVendorName ?? er.SuggestedVendorId?.ToString() ?? "—")</li>
+                <li>Triggers (@er.Triggers.Count): @string.Join(", ", er.Triggers)</li>
+                <li>Blockers (@er.Blockers.Count): @string.Join(", ", er.Blockers)</li>
+                <li class="ds-text-muted">@er.Summary</li>
+            </ul>
+        }
+
+        @if (Model.ProEvalResults is { } pe && pe.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">PRO scan — @pe.Count demand(s)</h3>
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>Demand</th><th>Part</th><th>Qty</th><th>Decision</th><th>Triggers</th><th>Blockers</th><th>Summary</th></tr></thead>
+                <tbody>
+                @foreach (var c in pe.Take(20))
+                {
+                    <tr>
+                        <td>@c.DemandNumber</td>
+                        <td>@(c.PartNumber ?? "—")</td>
+                        <td>@c.RequiredQuantity.ToString("N2")</td>
+                        <td>@c.Decision</td>
+                        <td>@c.Triggers.Count</td>
+                        <td>@c.Blockers.Count</td>
+                        <td>@c.Summary</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+
+        @if (Model.Candidates is { } cand)
+        {
+            <h3 class="ds-h3 ds-mt-3">Tenant-wide scan — @cand.TotalCount considered · @cand.EligibleCount eligible · @cand.BlockedCount blocked-review</h3>
+            @if (cand.Candidates.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Demand</th><th>PRO</th><th>Part</th><th>Decision</th><th>Triggers</th><th>Blockers</th><th>Vendor</th></tr></thead>
+                    <tbody>
+                    @foreach (var c in cand.Candidates.Take(20))
+                    {
+                        <tr>
+                            <td>@c.DemandNumber</td>
+                            <td>@(c.ProductionOrderNumber ?? c.ProductionOrderId.ToString())</td>
+                            <td>@(c.PartNumber ?? "—")</td>
+                            <td>@c.Decision</td>
+                            <td>@c.Triggers.Count</td>
+                            <td>@c.Blockers.Count</td>
+                            <td>@(c.SuggestedVendorName ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+    @* ─── §17 DEMAND CONSOLIDATION PLANNER ─────────────────────────── *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2 · §17 Demand Consolidation Planner</h2>
+        <p class="ds-text-muted">
+            6 modes. Output is a planning record; no PO writes. Caller passes the plan to
+            <code>IPurchasingService.AddLineAsync</code> (existing) to execute.
+        </p>
+        <form method="post">
+            <div class="ds-form-row">
+                <label class="ds-label">Mode</label>
+                <select class="ds-input" asp-for="Mode">
+                    @foreach (var m in Model.AllModes)
+                    {
+                        <option value="@m">@m</option>
+                    }
+                </select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label">Demand IDs (comma-separated)</label><input type="text" class="ds-input" asp-for="DemandIdsCsv" placeholder="1,2,3" /></div>
+            <div class="ds-form-row"><label class="ds-label">PRO ID (for PlanForPro)</label><input type="number" class="ds-input" asp-for="ProductionOrderId" /></div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="SuggestMode" data-testid="btn-suggest-mode">Suggest mode</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="Plan" data-testid="btn-plan">Plan with explicit mode</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="PlanForPro" data-testid="btn-plan-for-pro">Plan for PRO (all demands)</button>
+            </div>
+        </form>
+
+        @if (Model.Suggestion is { } sg)
+        {
+            <p class="ds-mt-2"><strong>Suggested mode:</strong> @sg.Mode — <em>@sg.Reason</em></p>
+        }
+
+        @if (Model.Plan is { } pl)
+        {
+            <h3 class="ds-h3 ds-mt-3">Plan — mode=@pl.Mode · @pl.InputDemandCount in · @pl.PlannedLineCount line(s) out · @pl.SkippedDemandCount skipped</h3>
+            @if (pl.Lines.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Line#</th><th>Part</th><th>Vendor</th><th>Qty</th><th>Required</th><th>Allocations</th><th>Notes</th></tr></thead>
+                    <tbody>
+                    @foreach (var ln in pl.Lines.Take(20))
+                    {
+                        <tr>
+                            <td>@ln.LineNumber</td>
+                            <td>@(ln.PartNumber ?? ln.ItemId?.ToString() ?? "—")</td>
+                            <td>@(ln.VendorName ?? ln.VendorId.ToString())</td>
+                            <td>@ln.PlannedQuantity.ToString("N2") @(ln.Uom ?? "")</td>
+                            <td>@(ln.RequiredDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>@ln.Allocations.Count alloc(s): @string.Join(", ", ln.Allocations.Select(a => $"{a.DemandNumber}→{a.AllocatedQuantity:N2}"))</td>
+                            <td>@(ln.Notes ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+            @if (pl.SkippedDemandIds.Count > 0)
+            {
+                <p class="ds-text-muted ds-mt-2">Skipped demand IDs: @string.Join(", ", pl.SkippedDemandIds)</p>
+            }
+        }
+    </div></section>
+
+</main>
