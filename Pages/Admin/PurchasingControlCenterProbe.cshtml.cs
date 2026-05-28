@@ -67,6 +67,10 @@ public sealed class PurchasingControlCenterProbeModel : PageModel
     public VendorWipTabPage? VendorWipTab { get; private set; }
     public ReceiptsTabPage? ReceiptsTab { get; private set; }
     public InspectionHoldsTabPage? InspectionHoldsTab { get; private set; }
+    public PosTabPage? PosTab { get; private set; }
+    public CostExceptionsTabPage? CostExceptionsTab { get; private set; }
+    public PurchasingQueuePage? ExpediteQueue { get; private set; }
+    public PurchasingQueuePage? ApprovalQueue { get; private set; }
     public int DemandTotalInTenant { get; private set; }
     public IReadOnlyList<ProductionSupplyDemand> RecentDemands { get; private set; } = Array.Empty<ProductionSupplyDemand>();
 
@@ -243,6 +247,78 @@ public sealed class PurchasingControlCenterProbeModel : PageModel
                 $"Inspection Holds tab: {InspectionHoldsTab.TotalCount} hold(s); " +
                 $"{InspectionHoldsTab.OldHoldsCount} aged 7+ days; " +
                 $"showing {InspectionHoldsTab.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    // ── PR-13 tab probes ────────────────────────────────────────────────
+
+    public async Task<IActionResult> OnPostLoadPosTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetPosTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            PosTab = r.Value;
+            var first = PosTab.Rows.FirstOrDefault();
+            Set(true,
+                $"POs tab: {PosTab.TotalCount} active; " +
+                $"{PosTab.OpenTotalValue:N2} open value (currency-agnostic); " +
+                $"{PosTab.PendingApprovalCount} pending approval; " +
+                $"{PosTab.LateCount} late; showing {PosTab.Rows.Count}. " +
+                (first is null
+                    ? "(empty)"
+                    : $"Top: {first.PoNumber} status={first.Status} vendor={first.VendorName ?? "?"} total=${first.Total:N2}."));
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadCostExceptionsTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetCostExceptionsTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 50), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            CostExceptionsTab = r.Value;
+            Set(true,
+                $"Cost Exceptions tab: {CostExceptionsTab.TotalCount} total; " +
+                $"{CostExceptionsTab.HighSeverityCount} high, " +
+                $"{CostExceptionsTab.MediumSeverityCount} medium, " +
+                $"{CostExceptionsTab.LowSeverityCount} low; showing {CostExceptionsTab.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadExpediteQueueAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetSupplyDemandQueueAsync(
+            PurchasingQueueType.ExpediteRequired,
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            ExpediteQueue = r.Value;
+            Set(true, $"Expedite queue: {ExpediteQueue.TotalCount} demand row(s); showing {ExpediteQueue.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadApprovalQueueAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetSupplyDemandQueueAsync(
+            PurchasingQueueType.ApprovalRequired,
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            ApprovalQueue = r.Value;
+            Set(true, $"Approval queue: {ApprovalQueue.TotalCount} demand row(s); showing {ApprovalQueue.Rows.Count}.");
         }
         else Set(false, r.Error);
         await LoadCommonAsync(ct);

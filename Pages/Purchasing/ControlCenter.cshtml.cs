@@ -84,10 +84,13 @@ public sealed class ControlCenterModel : PageModel
     public const string TabApprovals = "approvals";              // PR-13
     public const string TabCostExceptions = "cost-exceptions";   // PR-13
 
-    // PR-12 ships 4 more live tabs: Subcontract / Vendor WIP / Receipts / Inspection Holds.
+    // PR-12 ships 4 more live tabs: Subcontract / Vendor WIP / Receipts /
+    // Inspection Holds. PR-13 ships the final 4: POs / Expedites / Approvals /
+    // Cost Exceptions — completing the §21 10-tab IA.
     private static readonly string[] LiveTabs = {
         TabSupplyDemand, TabBuyToJob,
         TabSubcontract, TabVendorWip, TabReceipts, TabInspectionHolds,
+        TabPos, TabExpedites, TabApprovals, TabCostExceptions,
     };
     private static readonly string[] AllTabs = {
         TabSupplyDemand, TabBuyToJob, TabSubcontract, TabVendorWip,
@@ -114,6 +117,10 @@ public sealed class ControlCenterModel : PageModel
     public VendorWipTabPage? VendorWipTab { get; private set; }
     public ReceiptsTabPage? ReceiptsTab { get; private set; }
     public InspectionHoldsTabPage? InspectionHoldsTab { get; private set; }
+
+    // PR-13 tab payloads. Expedites + Approvals reuse Queue (demand grid).
+    public PosTabPage? PosTab { get; private set; }
+    public CostExceptionsTabPage? CostExceptionsTab { get; private set; }
 
     public string? ErrorMessage { get; private set; }
 
@@ -153,17 +160,26 @@ public sealed class ControlCenterModel : PageModel
                 Skip: Math.Max(0, Skip),
                 Take: PageSize);
 
-            // PR-11 + PR-12 dispatch — Supply Demand + Buy-to-Job route through
-            // GetSupplyDemandQueueAsync (demand grid). PR-12 routes Subcontract /
-            // VendorWip / Receipts / InspectionHolds through tab-specific reads.
+            // PR-11 + PR-12 + PR-13 dispatch:
+            //  * Supply Demand / Buy-to-Job / Expedites / Approvals → demand-grid
+            //    via GetSupplyDemandQueueAsync (they all share the same row shape;
+            //    only the filter changes).
+            //  * Subcontract / VendorWip / Receipts / InspectionHolds (PR-12) and
+            //    POs / CostExceptions (PR-13) → tab-specific shapes.
             switch (ActiveTab)
             {
                 case TabSupplyDemand:
                 case TabBuyToJob:
+                case TabExpedites:
+                case TabApprovals:
                 {
-                    var queueType = ActiveTab == TabBuyToJob
-                        ? PurchasingQueueType.BuyToJob
-                        : PurchasingQueueType.SupplyDemand;
+                    var queueType = ActiveTab switch
+                    {
+                        TabBuyToJob => PurchasingQueueType.BuyToJob,
+                        TabExpedites => PurchasingQueueType.ExpediteRequired,
+                        TabApprovals => PurchasingQueueType.ApprovalRequired,
+                        _ => PurchasingQueueType.SupplyDemand,
+                    };
                     var qResult = await _svc.GetSupplyDemandQueueAsync(queueType, filter, ct);
                     if (qResult.IsSuccess && qResult.Value is not null)
                     {
@@ -207,6 +223,20 @@ public sealed class ControlCenterModel : PageModel
                     else { ErrorMessage = r.Error; InspectionHoldsTab = new InspectionHoldsTabPage(0, 0, Array.Empty<InspectionHoldRow>()); }
                     break;
                 }
+                case TabPos:
+                {
+                    var r = await _svc.GetPosTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) PosTab = r.Value;
+                    else { ErrorMessage = r.Error; PosTab = new PosTabPage(0, 0m, 0, 0, Array.Empty<PosTabRow>()); }
+                    break;
+                }
+                case TabCostExceptions:
+                {
+                    var r = await _svc.GetCostExceptionsTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) CostExceptionsTab = r.Value;
+                    else { ErrorMessage = r.Error; CostExceptionsTab = new CostExceptionsTabPage(0, 0, 0, 0, Array.Empty<PurchasingExceptionRow>()); }
+                    break;
+                }
             }
         }
 
@@ -221,21 +251,28 @@ public sealed class ControlCenterModel : PageModel
 
     public int ActiveTabTotalCount => ActiveTab switch
     {
-        TabSupplyDemand or TabBuyToJob => Queue?.TotalCount ?? 0,
+        TabSupplyDemand or TabBuyToJob or TabExpedites or TabApprovals => Queue?.TotalCount ?? 0,
         TabSubcontract => SubcontractTab?.TotalCount ?? 0,
         TabVendorWip => VendorWipTab?.TotalCount ?? 0,
         TabReceipts => ReceiptsTab?.TotalCount ?? 0,
         TabInspectionHolds => InspectionHoldsTab?.TotalCount ?? 0,
+        TabPos => PosTab?.TotalCount ?? 0,
+        TabCostExceptions => CostExceptionsTab?.TotalCount ?? 0,
         _ => 0,
     };
 
     public int ActiveTabRowCount => ActiveTab switch
     {
-        TabSupplyDemand or TabBuyToJob => Queue?.Rows.Count ?? 0,
+        TabSupplyDemand or TabBuyToJob or TabExpedites or TabApprovals => Queue?.Rows.Count ?? 0,
         TabSubcontract => SubcontractTab?.Rows.Count ?? 0,
         TabVendorWip => VendorWipTab?.Rows.Count ?? 0,
         TabReceipts => ReceiptsTab?.Rows.Count ?? 0,
         TabInspectionHolds => InspectionHoldsTab?.Rows.Count ?? 0,
+        TabPos => PosTab?.Rows.Count ?? 0,
+        // Cost Exceptions: GetExceptionLaneAsync returns merged rows clipped
+        // to Take, no Skip support. HasNext returns false because RowCount
+        // equals TotalCount when clipped that way.
+        TabCostExceptions => CostExceptionsTab?.Rows.Count ?? 0,
         _ => 0,
     };
 
@@ -440,6 +477,33 @@ public sealed class ControlCenterModel : PageModel
         SubcontractReceiptLifecycle.Reversed => "danger",
         SubcontractReceiptLifecycle.Closed => "muted",
         _ => "info",
+    };
+
+    public static string PoStatusTone(POStatus s) => s switch
+    {
+        // P2.4 fix — map Draft to "info" so in-flight pre-approval POs are
+        // visually distinct from terminal Closed/Cancelled states (both of
+        // which fall through to "muted" gray). "neutral" isn't a BadgeStyle
+        // case; it would fall through to the same gray, conflating Draft
+        // with Closed.
+        POStatus.Draft => "info",
+        POStatus.PendingApproval => "warning",
+        POStatus.Approved => "info",
+        POStatus.Sent => "info",
+        POStatus.PartiallyReceived => "warning",
+        POStatus.Received => "success",
+        POStatus.Invoiced => "success",
+        POStatus.Closed => "muted",
+        POStatus.Cancelled => "muted",
+        _ => "info",
+    };
+
+    public static string ExceptionSeverityTone(string severity) => severity switch
+    {
+        "High" => "danger",
+        "Medium" => "warning",
+        "Low" => "info",
+        _ => "muted",
     };
 
     // Pagination helpers — tab-aware via ActiveTabTotalCount / ActiveTabRowCount.

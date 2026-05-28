@@ -388,15 +388,192 @@
         </section>
     }
 
-    @* ─── Supply Demand / Buy-to-Job grid (PR-11) ────────────────────── *@
+    @* ─── PR-13 POs tab body ─────────────────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabPos
+             && Model.PosTab is { } pos)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-pos">Purchase orders
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @pos.TotalCount active · <strong style="color:var(--text-primary);">@pos.OpenTotalValue.ToString("N0") PO value</strong>
+                            @if (pos.PendingApprovalCount > 0)
+                            { <text> · <span style="color:var(--warning);">@pos.PendingApprovalCount pending approval</span></text> }
+                            @if (pos.LateCount > 0)
+                            { <text> · <span style="color:var(--danger);">@pos.LateCount late</span></text> }
+                        </span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (pos.Rows.Count == 0) { <text>No active POs</text> }
+                        else { <text>Showing @(Model.Skip + 1)–@(Model.Skip + pos.Rows.Count) of @pos.TotalCount</text> }
+                    </span>
+                </div>
+                @if (pos.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-file-invoice" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No active purchase orders.</p>
+                        <p style="color:var(--text-muted);">POs surface here while they're in any open lifecycle state — Draft, PendingApproval, Approved, Sent, PartiallyReceived, Received, Invoiced.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>PO #</th>
+                                        <th>Vendor</th>
+                                        <th>Status</th>
+                                        <th>Order date</th>
+                                        <th>Required / Promise</th>
+                                        <th>Days late</th>
+                                        <th>Lines</th>
+                                        <th>Total</th>
+                                        <th>Approved</th>
+                                        <th>Next action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in pos.Rows)
+                                {
+                                    <tr data-testid="pcc-pos-row-@r.PurchaseOrderId">
+                                        <td><a href="/Purchasing/Details/@r.PurchaseOrderId"><strong>@r.PoNumber</strong></a></td>
+                                        <td>@(r.VendorName ?? $"#{r.VendorId}")</td>
+                                        <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.PoStatusTone(r.Status)))">@r.Status</span></td>
+                                        <td>@r.OrderDate.ToString("yyyy-MM-dd")</td>
+                                        <td>
+                                            @if (r.PromiseDate.HasValue)
+                                            { <text>P: @r.PromiseDate.Value.ToString("yyyy-MM-dd")</text> }
+                                            else if (r.RequiredDate.HasValue)
+                                            { <text>R: @r.RequiredDate.Value.ToString("yyyy-MM-dd")</text> }
+                                            else
+                                            { <text>—</text> }
+                                        </td>
+                                        <td>
+                                            @if (r.DaysLate.HasValue)
+                                            { <span style="color:var(--danger);">@r.DaysLate d</span> }
+                                            else { <text>—</text> }
+                                        </td>
+                                        <td>@r.LineCount</td>
+                                        <td>@r.Currency $@r.Total.ToString("N2")</td>
+                                        <td>
+                                            @if (r.ApprovedAt.HasValue)
+                                            { <text>@r.ApprovedAt.Value.ToString("yyyy-MM-dd")</text> }
+                                            else { <text>—</text> }
+                                        </td>
+                                        <td><em style="color:var(--text-muted);">@r.NextActionHint</em></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── PR-13 Cost Exceptions tab body ─────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabCostExceptions
+             && Model.CostExceptionsTab is { } cet)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-cost-exceptions">Cost exceptions
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @cet.TotalCount total
+                            @if (cet.HighSeverityCount > 0)
+                            { <text> · <span style="color:var(--danger);">@cet.HighSeverityCount high</span></text> }
+                            @if (cet.MediumSeverityCount > 0)
+                            { <text> · <span style="color:var(--warning);">@cet.MediumSeverityCount medium</span></text> }
+                            @if (cet.LowSeverityCount > 0)
+                            { <text> · @cet.LowSeverityCount low</text> }
+                        </span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (cet.Rows.Count == 0) { <text>No cost exceptions in scope</text> }
+                        else { <text>Showing 1–@cet.Rows.Count of @cet.TotalCount</text> }
+                    </span>
+                </div>
+                @if (cet.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-check-circle" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No cost exceptions.</p>
+                        <p style="color:var(--text-muted);">Variance pending, late vendor WIP, and supplier-performance alerts surface here as they arise.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Kind</th>
+                                        <th>Severity</th>
+                                        <th>Demand</th>
+                                        <th>PO / PO Line</th>
+                                        <th>Vendor</th>
+                                        <th>Description</th>
+                                        <th>Detected</th>
+                                        <th>Cost impact</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in cet.Rows)
+                                {
+                                    <tr data-testid="pcc-cost-exception-@r.ExceptionKind-@(r.DemandId ?? r.PurchaseOrderId ?? 0)">
+                                        <td>@r.ExceptionKind</td>
+                                        <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.ExceptionSeverityTone(r.Severity)))">@r.Severity</span></td>
+                                        <td>@(r.DemandId?.ToString() ?? "—")</td>
+                                        <td>
+                                            @if (r.PurchaseOrderId.HasValue)
+                                            { <text>PO #@r.PurchaseOrderId</text> }
+                                            @if (r.PurchaseOrderLineId.HasValue)
+                                            { <text> · L#@r.PurchaseOrderLineId</text> }
+                                            @if (!r.PurchaseOrderId.HasValue && !r.PurchaseOrderLineId.HasValue)
+                                            { <text>—</text> }
+                                        </td>
+                                        <td>@(r.VendorId?.ToString() ?? "—")</td>
+                                        <td>@r.Description</td>
+                                        <td>@r.DetectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                        <td>@(r.CostImpactUsd.HasValue ? $"${r.CostImpactUsd.Value:N2}" : "—")</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── Supply Demand / Buy-to-Job / Expedites / Approvals grid (PR-11/PR-13) ─ *@
     else if (Model.ActiveTabIsLive && Model.Queue is { } pq)
     {
-        var queueLabel = Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob
-            ? "Buy-to-Job demand"
-            : "Supply Demand";
-        var emptyCopy = Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob
-            ? "When a Production Order is released, its BOM lines materialize as buy-to-job demand rows here."
-            : "Open demand from Production Orders, projects, and MRP surfaces here as it appears.";
+        var queueLabel = Model.ActiveTab switch
+        {
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob => "Buy-to-Job demand",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabExpedites => "Expedite queue",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabApprovals => "Awaiting approval",
+            _ => "Supply Demand",
+        };
+        var emptyCopy = Model.ActiveTab switch
+        {
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob =>
+                "When a Production Order is released, its BOM lines materialize as buy-to-job demand rows here.",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabExpedites =>
+                "Demand lines with shortage Late or Critical surface here — late or at-risk supply ready to expedite.",
+            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabApprovals =>
+                "PO/requisition lines waiting on approval show here — clear them or escalate.",
+            _ => "Open demand from Production Orders, projects, and MRP surfaces here as it appears.",
+        };
 
         <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
             <div class="ds-card__body">
@@ -540,35 +717,18 @@
             </div>
         </section>
     }
+    @* PR-13 closes the soon-state — all 10 §21 tabs are now live. The
+       !ActiveTabIsLive branch is kept as a defensive fallback for unknown
+       tab keys (URL typos) but renders a neutral "not found" canvas. *@
     else if (!Model.ActiveTabIsLive)
     {
-        @* Soon-state — PR-12 closed Subcontract/Vendor WIP/Receipts/Inspection Holds.
-           Remaining soon tabs: POs / Expedites / Approvals / Cost Exceptions (PR-13). *@
-        string tabName = Model.ActiveTab switch
-        {
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabPos => "POs",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabExpedites => "Expedites",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabApprovals => "Approvals",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabCostExceptions => "Cost Exceptions",
-            _ => Model.ActiveTab,
-        };
         <section class="ds-card">
             <div class="ds-card__body">
                 <div style="text-align:center;padding:48px 24px;">
-                    <i class="fas fa-road" style="font-size:48px;color:var(--info,#0c4a6e);"></i>
-                    <h3 style="font-size:1.2rem;margin-top:12px;">@tabName tab coming soon</h3>
+                    <i class="fas fa-circle-question" style="font-size:48px;color:var(--text-muted);"></i>
+                    <h3 style="font-size:1.2rem;margin-top:12px;">Unknown tab</h3>
                     <p style="color:var(--text-muted);">
-                        The <strong>@tabName</strong> tab ships in PR-13 of the Wave 3 cascade — the §21 IA is locked in but the canvas isn't wired yet.
-                    </p>
-                    <p style="margin-top:12px;">
-                        Meanwhile,
-                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplyDemand">Supply Demand</a>,
-                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob">Buy-to-Job</a>,
-                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSubcontract">Subcontract</a>,
-                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabVendorWip">Vendor WIP</a>,
-                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabReceipts">Receipts</a>,
-                        and <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabInspectionHolds">Inspection Holds</a>
-                        are live.
+                        The tab key <code>@Model.ActiveTab</code> isn't recognized. Pick one from the strip above.
                     </p>
                 </div>
             </div>

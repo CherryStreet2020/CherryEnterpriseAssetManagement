@@ -359,6 +359,56 @@ public sealed record InspectionHoldsTabPage(
     IReadOnlyList<InspectionHoldRow> Rows);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PR-13 TAB RECORDS — POs tab + Cost Exceptions tab. Expedites + Approvals
+// reuse the existing PurchasingQueuePage shape (they dispatch through
+// GetSupplyDemandQueueAsync with PurchasingQueueType.ExpediteRequired /
+// .ApprovalRequired respectively, so they share the demand-grid UI).
+// ═══════════════════════════════════════════════════════════════════════════
+
+public sealed record PosTabRow(
+    int PurchaseOrderId,
+    string PoNumber,
+    POStatus Status,
+    int VendorId,
+    string? VendorName,
+    DateTime OrderDate,
+    DateTime? RequiredDate,
+    DateTime? PromiseDate,
+    int? DaysLate,
+    int LineCount,
+    decimal Subtotal,
+    decimal Total,
+    string Currency,
+    int? ShipToSiteId,
+    int? RequestedById,
+    int? ApprovedById,
+    DateTime? ApprovedAt,
+    int? CipProjectId,
+    string? Notes,
+    string NextActionHint);
+
+public sealed record PosTabPage(
+    int TotalCount,
+    /// <summary>
+    /// Currency-agnostic sum of PurchaseOrder.Total across visible POs in
+    /// the filtered set. Multi-currency tenants will get a mixed-currency
+    /// number — the page header should label "PO value" not "$ USD". When
+    /// FX conversion is added (Wave 4 polish or beyond), this becomes a
+    /// per-currency dictionary.
+    /// </summary>
+    decimal OpenTotalValue,
+    int LateCount,
+    int PendingApprovalCount,
+    IReadOnlyList<PosTabRow> Rows);
+
+public sealed record CostExceptionsTabPage(
+    int TotalCount,
+    int HighSeverityCount,
+    int MediumSeverityCount,
+    int LowSeverityCount,
+    IReadOnlyList<PurchasingExceptionRow> Rows);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SERVICE INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -456,6 +506,34 @@ public interface IPurchasingControlCenterService
     /// (Skip/2 + Take/2 each) and merged before sorting by days-on-hold desc.
     /// </summary>
     Task<Result<InspectionHoldsTabPage>> GetInspectionHoldsTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PR-13 TAB READS — §21 tabs 7-10 (POs / Cost Exceptions)
+    //
+    // Expedites (tab 8) + Approvals (tab 9) reuse GetSupplyDemandQueueAsync
+    // with PurchasingQueueType.ExpediteRequired / .ApprovalRequired — they
+    // are demand-grid views, no dedicated read needed.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// §21 tab 7 — POs. PurchaseOrder headers across active lifecycle states
+    /// (excludes Closed + Cancelled). Includes page-level summaries: total
+    /// open value, late count (PromiseDate or RequiredDate past today),
+    /// pending-approval count.
+    /// </summary>
+    Task<Result<PosTabPage>> GetPosTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 10 — Cost Exceptions. Re-uses GetExceptionLaneAsync but
+    /// wraps the result with severity-bucketed counters so the tab header
+    /// can show "X total · Y high / Z medium / W low". The Rows payload is
+    /// identical to the exception lane the §21 diagonal stripe consumes.
+    /// </summary>
+    Task<Result<CostExceptionsTabPage>> GetCostExceptionsTabAsync(
         PurchasingQueueFilter filter,
         CancellationToken ct = default);
 }
