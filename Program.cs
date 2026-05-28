@@ -600,6 +600,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractOpera
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IVendorWipService,
     Abs.FixedAssets.Services.Purchasing.VendorWipService>();
 
+// Sprint 15.2 PR-7 (2026-05-28) — Subcontract Flow Orchestrator (§5 8-step).
+// Wires PR-4/5/6 + B8 PR-PRO-7 readiness into a single business-flow API.
+// Pure glue — no new entities. Provides per-step + aggregate FlowStateSummary.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractFlowService,
+    Abs.FixedAssets.Services.Production.SubcontractFlowService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

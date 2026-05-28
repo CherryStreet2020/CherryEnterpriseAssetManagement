@@ -1,0 +1,189 @@
+@page "/Admin/SubcontractFlowProbe"
+@model Abs.FixedAssets.Pages.Admin.SubcontractFlowProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Subcontract Flow Orchestrator Probe";
+    ViewData["TabTitle"] = "Subcontract Flow Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Subcontract Flow Orchestrator Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.2 PR-7 — §5 eight-step subcontract flow orchestrator. Wires PR-4 (ops + dual-demand)
+            + PR-5 (vendor WIP) + PR-6 (shipment + receipt) + B8 PR-PRO-7 (operation readiness) into one
+            cohesive business-flow API. Pure glue, no new entities. Aggregate FlowStateSummary answers
+            "where is this op in the 8 steps right now?" for the Cockpit panel (PR-9).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="sfp-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="sfp-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total Production Orders</td><td data-testid="sfp-total-pro">@Model.TotalProductionOrders</td></tr>
+                <tr><td>Total Subcontract Ops</td><td data-testid="sfp-total-ops">@Model.TotalSubcontractOps</td></tr>
+                <tr><td>Ready to Ship</td><td>@Model.OpsReadyToShip</td></tr>
+                <tr><td>At Vendor / Shipped / Partial</td><td>@Model.OpsAtVendor</td></tr>
+                <tr><td>Complete / Closed</td><td>@Model.OpsComplete</td></tr>
+            </tbody>
+        </table>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 1 — Evaluate Routing (read-only scan)</h2>
+        <form method="post" asp-page-handler="Step1">
+            <div class="ds-form-row"><label class="ds-label">PRO ID</label><input type="number" class="ds-input" asp-for="Step1ProId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-step1">Run Step 1</button>
+        </form>
+        @if (Model.Step1Result != null && Model.Step1Result.Candidates.Count > 0)
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>OpSeq</th><th>Code</th><th>Supplier</th><th>Service Item</th><th>Qty</th><th>Reason</th></tr></thead>
+                <tbody>
+                    @foreach (var c in Model.Step1Result.Candidates)
+                    {
+                        <tr>
+                            <td>@c.OperationSequence</td><td>@c.OperationCode</td>
+                            <td>@(c.SupplierId?.ToString() ?? "—")</td>
+                            <td>@(c.ServiceItemId?.ToString() ?? "—")</td>
+                            <td>@c.QuantityRequired.ToString("N4")</td>
+                            <td>@c.Reason</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 2 — Ensure Ops + Dual-Demands</h2>
+        <p class="ds-text-muted">Idempotent. Materializes a SubcontractOperation + §9 dual-demand binding.</p>
+        <form method="post" asp-page-handler="Step2">
+            <div class="ds-form-row"><label class="ds-label">PRO ID</label><input type="number" class="ds-input" asp-for="Step2ProId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Op Sequence</label><input type="number" class="ds-input" asp-for="Step2OpSeq" /></div>
+            <div class="ds-form-row"><label class="ds-label">Op Code</label><input class="ds-input" asp-for="Step2OpCode" /></div>
+            <div class="ds-form-row"><label class="ds-label">Op Description</label><input class="ds-input" asp-for="Step2OpDesc" /></div>
+            <div class="ds-form-row"><label class="ds-label">Supplier ID</label><input type="number" class="ds-input" asp-for="Step2SupplierId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Service Item ID (optional)</label><input type="number" class="ds-input" asp-for="Step2ServiceItemId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty to Ship</label><input type="number" step="0.0001" class="ds-input" asp-for="Step2Qty" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-step2">Run Step 2</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 3 — Link Service PO Line</h2>
+        <form method="post" asp-page-handler="Step3">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step3OpId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Service PO Line ID</label><input type="number" class="ds-input" asp-for="Step3PoLineId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-step3">Run Step 3</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 4 — Readiness Gate (prior-op complete + PO created)</h2>
+        <form method="post" asp-page-handler="Step4">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step4OpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-step4">Run Step 4</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 5 — Ship to Vendor (atomic)</h2>
+        <p class="ds-text-muted">One call: CreateShipment + AddShipmentLine + MarkShipmentInTransit. Vendor-WIP ledger updated atomically per PR-6 transaction wrap.</p>
+        <form method="post" asp-page-handler="Step5">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step5OpId" /></div>
+            <div class="ds-form-row"><label class="ds-label">WIP Item ID</label><input type="number" class="ds-input" asp-for="Step5WipItemId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Shipped</label><input type="number" step="0.0001" class="ds-input" asp-for="Step5Qty" /></div>
+            <div class="ds-form-row"><label class="ds-label">Lot Number</label><input class="ds-input" asp-for="Step5LotNumber" /></div>
+            <div class="ds-form-row"><label class="ds-label">Unit Cost Snapshot</label><input type="number" step="0.0001" class="ds-input" asp-for="Step5UnitCost" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-step5">Run Step 5</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 6 — Vendor Processing Status (aggregate read)</h2>
+        <form method="post" asp-page-handler="Step6">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step6OpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-step6">Run Step 6</button>
+        </form>
+        @if (Model.Step6Result != null)
+        {
+            <table class="ds-table ds-mt-2">
+                <tbody>
+                    <tr><td>Op Status</td><td>@Model.Step6Result.OpStatus</td></tr>
+                    <tr><td>Shipment Status</td><td>@Model.Step6Result.ShipmentStatus</td></tr>
+                    <tr><td>Receipt Status</td><td>@Model.Step6Result.ReceiptStatus</td></tr>
+                    <tr><td>Qty Shipped / At Vendor / Returned</td><td>@Model.Step6Result.QuantityShipped / @Model.Step6Result.QuantityAtVendor / @Model.Step6Result.QuantityReceivedBack</td></tr>
+                    <tr><td>Accepted / Rejected / Scrapped@Vendor</td><td>@Model.Step6Result.QuantityAccepted / @Model.Step6Result.QuantityRejected / @Model.Step6Result.QuantityScrappedAtVendor</td></tr>
+                    <tr><td>Open Shipments / Receipts</td><td>@Model.Step6Result.OpenShipmentCount / @Model.Step6Result.OpenReceiptCount</td></tr>
+                    <tr><td>Days Late</td><td>@(Model.Step6Result.DaysLate?.ToString() ?? "—")</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 7 — Receive from Vendor (atomic)</h2>
+        <p class="ds-text-muted">One call: CreateReceipt + AddReceiptLine + PostReceipt. §11 scenario drives auto-approval gating.</p>
+        <form method="post" asp-page-handler="Step7">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step7OpId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Linked Shipment ID (optional)</label><input type="number" class="ds-input" asp-for="Step7ShipmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">WIP Item ID</label><input type="number" class="ds-input" asp-for="Step7WipItemId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Received</label><input type="number" step="0.0001" class="ds-input" asp-for="Step7Received" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Accepted</label><input type="number" step="0.0001" class="ds-input" asp-for="Step7Accepted" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Rejected</label><input type="number" step="0.0001" class="ds-input" asp-for="Step7Rejected" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty Scrapped At Vendor</label><input type="number" step="0.0001" class="ds-input" asp-for="Step7Scrapped" /></div>
+            <div class="ds-form-row"><label class="ds-label">§11 Scenario</label>
+                <select class="ds-input" asp-for="Step7Scenario" asp-items="Html.GetEnumSelectList<SubcontractReceiptScenario>()"></select>
+            </div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-step7">Run Step 7</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Step 8 — Advance to Next Op + Readiness Check</h2>
+        <p class="ds-text-muted">Marks op Complete + runs B8 PR-PRO-7 8-check readiness on the next routing operation.</p>
+        <form method="post" asp-page-handler="Step8">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="Step8OpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-success" data-testid="btn-step8">Run Step 8</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Aggregate — Flow State Summary</h2>
+        <p class="ds-text-muted">"Where is this op in the 8 steps right now?" The BIC differentiator read.</p>
+        <form method="post" asp-page-handler="FlowState">
+            <div class="ds-form-row"><label class="ds-label">Subcontract Op ID</label><input type="number" class="ds-input" asp-for="FlowStateOpId" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-flow-state">Get Flow State</button>
+        </form>
+        @if (Model.FlowState != null)
+        {
+            <table class="ds-table ds-mt-2">
+                <tbody>
+                    <tr><td>Current Step</td><td><strong data-testid="sfp-flow-step">@Model.FlowState.CurrentStep</strong> — @Model.FlowState.CurrentStepName</td></tr>
+                    <tr><td>Op Status</td><td>@Model.FlowState.OpStatus</td></tr>
+                    <tr><td>Demand / Latest Shipment / Latest Receipt</td><td>@(Model.FlowState.DemandBindingStatus?.ToString() ?? "—") / @(Model.FlowState.LatestShipmentStatus?.ToString() ?? "—") / @(Model.FlowState.LatestReceiptStatus?.ToString() ?? "—")</td></tr>
+                    <tr><td>Shipped / Received / Accepted</td><td>@Model.FlowState.QuantityShipped / @Model.FlowState.QuantityReceivedBack / @Model.FlowState.QuantityAccepted</td></tr>
+                    <tr><td>Completed Steps</td><td>@string.Join(" · ", Model.FlowState.CompletedStepNames)</td></tr>
+                    <tr><td>Next Action Hint</td><td>@Model.FlowState.NextActionHint</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>
