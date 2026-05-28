@@ -42,11 +42,22 @@ public enum CockpitMode
 public sealed class CockpitModel : PageModel
 {
     private readonly IProductionCockpitService _cockpit;
+    private readonly ICostRollupService _rollupSvc;
+    private readonly ICostTransactionService _costTxnSvc;
+    private readonly IProductionVarianceCloseService _varianceSvc;
     private readonly ILogger<CockpitModel> _logger;
 
-    public CockpitModel(IProductionCockpitService cockpit, ILogger<CockpitModel> logger)
+    public CockpitModel(
+        IProductionCockpitService cockpit,
+        ICostRollupService rollupSvc,
+        ICostTransactionService costTxnSvc,
+        IProductionVarianceCloseService varianceSvc,
+        ILogger<CockpitModel> logger)
     {
         _cockpit = cockpit;
+        _rollupSvc = rollupSvc;
+        _costTxnSvc = costTxnSvc;
+        _varianceSvc = varianceSvc;
         _logger = logger;
     }
 
@@ -77,6 +88,12 @@ public sealed class CockpitModel : PageModel
     public CockpitTabShellModel TabShell { get; private set; } = new();
     public CockpitData? Data { get; private set; }
     public string? ErrorMessage { get; private set; }
+
+    // ----- Sprint 14.4 PR-5: Cost Cockpit View data -----
+    public ProductionOrderCostSummary? CostSummary { get; private set; }
+    public CostRollupResult? CostRollupData { get; private set; }
+    public IReadOnlyList<ProductionVariance> CostVariances { get; private set; } = Array.Empty<ProductionVariance>();
+    public string CostViewMode { get; set; } = "financial"; // "financial" or "exploded"
 
     // ----- Tab keys -----
     public const string TabOverview   = "overview";
@@ -125,6 +142,10 @@ public sealed class CockpitModel : PageModel
         HydratePageHeader();
         HydrateKpiBand();
         HydrateTabShell();
+
+        // Sprint 14.4 PR-5: Lazy-load cost data only when cost tab is active
+        if (ActiveTab == TabCost && !HideCostColumns)
+            await LoadCostDataAsync(ct);
 
         return Page();
     }
@@ -258,5 +279,44 @@ public sealed class CockpitModel : PageModel
                 new(TabAudit,     "Audit Trail", "fas fa-clock-rotate-left"),
             },
         };
+    }
+
+    // ----- Sprint 14.4 PR-5: Cost data lazy-loading -----
+    private async Task LoadCostDataAsync(CancellationToken ct)
+    {
+        try
+        {
+            // Load cost summary
+            CostSummary = await _costTxnSvc.GetSummaryAsync(Id, ct);
+
+            // Determine rollup mode from query string
+            if (Request.Query.TryGetValue("costview", out var cv)
+                && string.Equals(cv.FirstOrDefault(), "exploded", StringComparison.OrdinalIgnoreCase))
+            {
+                CostViewMode = "exploded";
+            }
+
+            // Execute rollup (or load latest run)
+            var latestRun = await _rollupSvc.GetLatestRunAsync(Id, ct);
+            if (latestRun != null)
+            {
+                var lines = await _rollupSvc.GetLinesAsync(latestRun.Id, ct);
+                var exceptions = await _rollupSvc.GetExceptionsAsync(latestRun.Id, ct);
+                CostRollupData = new CostRollupResult
+                {
+                    Run = latestRun,
+                    Lines = lines,
+                    Exceptions = exceptions,
+                };
+            }
+
+            // Load variances
+            CostVariances = await _varianceSvc.GetVariancesAsync(Id, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load cost data for PRO {ProId}", Id);
+            // Non-fatal — cost tab shows "no data" instead of crashing
+        }
     }
 }

@@ -1,0 +1,228 @@
+@* Sprint 14.4 PR-5 — Cost Cockpit View (THE BIC differentiator).
+   Cost tree with additive/drilldown/transfer/provisional tags.
+   Financial vs Exploded toggle per Dean's spec §9/§17.
+   Variance summary, exception flags, close readiness.
+
+   Rendered inside the Cockpit.cshtml tab switch for TabCost. *@
+
+@model Abs.FixedAssets.Pages.Production.CockpitModel
+@using Abs.FixedAssets.Models.Production
+
+@{
+    var summary = Model.CostSummary;
+    var rollup = Model.CostRollupData;
+    var variances = Model.CostVariances;
+    var isFinancial = Model.CostViewMode == "financial";
+    var costBase = $"/Production/Orders/{Model.Id}/Cockpit?tab=cost";
+}
+
+@* ── Cost KPI Strip ──────────────────────────────────────── *@
+@if (summary != null)
+{
+    <div class="ds-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--v2-space-3, 0.75rem); margin-bottom: var(--v2-space-4, 1rem);">
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">Estimated</div>
+            <div style="font-size: 1.3rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@summary.EstimatedTotalCost.ToString("N0")</div>
+        </div></div>
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">Actual</div>
+            <div style="font-size: 1.3rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@summary.ActualTotalCost.ToString("N0")</div>
+        </div></div>
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">Variance</div>
+            @{ var varColor = summary.CostVariance > 0 ? "var(--v2-status-cancelled, #ef4444)" : summary.CostVariance < 0 ? "var(--v2-status-completed, #22c55e)" : "inherit"; }
+            <div style="font-size: 1.3rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace); color: @varColor;">$@summary.CostVariance.ToString("N0")</div>
+        </div></div>
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">WIP Balance</div>
+            <div style="font-size: 1.3rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@summary.WipBalance.ToString("N0")</div>
+        </div></div>
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">EAC</div>
+            <div style="font-size: 1.3rem; font-weight: 600; font-family: var(--font-mono, 'JetBrains Mono', monospace);">$@summary.EstimateAtCompletion.ToString("N0")</div>
+        </div></div>
+        <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 0.75rem;">
+            <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">Cost Status</div>
+            @{
+                var statusColor = summary.CostStatus switch
+                {
+                    ProductionCostStatus.ClosedSettled => "ds-badge--success",
+                    ProductionCostStatus.ReadyToClose => "ds-badge--info",
+                    ProductionCostStatus.CostExceptions => "ds-badge--danger",
+                    ProductionCostStatus.InWip => "ds-badge--warning",
+                    _ => "ds-badge--secondary",
+                };
+            }
+            <span class="ds-badge @statusColor" style="font-size: 0.85rem; margin-top: 0.25rem;">@summary.CostStatus</span>
+        </div></div>
+    </div>
+}
+
+@* ── Financial vs Exploded Toggle ────────────────────────── *@
+<div style="display: flex; align-items: center; gap: var(--v2-space-3, 0.75rem); margin-bottom: var(--v2-space-3, 0.75rem);">
+    <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); letter-spacing: 0.05em;">COST VIEW</span>
+    <div style="display: flex; border-radius: 6px; overflow: hidden; border: 1px solid var(--v2-border, #334155);">
+        <a href="@(costBase)&costview=financial" class="cockpit-mode-pill @(isFinancial ? "cockpit-mode-pill--active" : "")" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; text-decoration: none;">
+            <i class="fas fa-landmark"></i> Financial
+        </a>
+        <a href="@(costBase)&costview=exploded" class="cockpit-mode-pill @(!isFinancial ? "cockpit-mode-pill--active" : "")" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; text-decoration: none;">
+            <i class="fas fa-sitemap"></i> Exploded
+        </a>
+    </div>
+    <span style="font-size: 0.75rem; color: var(--v2-text-muted, #94a3b8);">
+        @(isFinancial ? "Parent total = own costs + child transfer values (ties to WIP/GL)" : "Ignores transfers, sums ALL originating costs across graph (analysis)")
+    </span>
+</div>
+
+@* ── 5-Element Cost Breakdown (horizontal bar) ──────────── *@
+@if (summary != null && summary.ActualTotalCost > 0)
+{
+    var total = summary.ActualTotalCost;
+    var matPct = total > 0 ? (summary.ActualMaterialCost / total * 100m) : 0;
+    var labPct = total > 0 ? (summary.ActualLaborCost / total * 100m) : 0;
+    var burPct = total > 0 ? (summary.ActualBurdenCost / total * 100m) : 0;
+    var subPct = total > 0 ? ((summary.ActualOutsideProcessingCost + summary.ActualSubcontractCost) / total * 100m) : 0;
+    var othPct = total > 0 ? ((summary.ActualToolingCost + summary.ActualFreightLandedCost + summary.ActualScrapReworkCost) / total * 100m) : 0;
+
+    <div class="ds-card" style="margin-bottom: var(--v2-space-3, 0.75rem);"><div class="ds-card__body" style="padding: 0.75rem;">
+        <div style="font-size: 0.7rem; text-transform: uppercase; color: var(--v2-text-muted, #94a3b8); margin-bottom: 0.5rem;">COST COMPOSITION</div>
+        <div style="display: flex; height: 24px; border-radius: 4px; overflow: hidden; background: var(--v2-bg-secondary, #1e293b);">
+            @if (matPct > 0) { <div style="width: @(matPct)%; background: #3b82f6;" title="Material $@summary.ActualMaterialCost.ToString("N0") (@matPct.ToString("N0")%)"></div> }
+            @if (labPct > 0) { <div style="width: @(labPct)%; background: #22c55e;" title="Labor $@summary.ActualLaborCost.ToString("N0") (@labPct.ToString("N0")%)"></div> }
+            @if (burPct > 0) { <div style="width: @(burPct)%; background: #f59e0b;" title="Burden $@summary.ActualBurdenCost.ToString("N0") (@burPct.ToString("N0")%)"></div> }
+            @if (subPct > 0) { <div style="width: @(subPct)%; background: #a855f7;" title="Subcontract $@(summary.ActualOutsideProcessingCost + summary.ActualSubcontractCost).ToString("N0") (@subPct.ToString("N0")%)"></div> }
+            @if (othPct > 0) { <div style="width: @(othPct)%; background: #64748b;" title="Other $@(summary.ActualToolingCost + summary.ActualFreightLandedCost + summary.ActualScrapReworkCost).ToString("N0") (@othPct.ToString("N0")%)"></div> }
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.75rem;">
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: #3b82f6; border-radius: 2px; margin-right: 4px;"></span>Material $@summary.ActualMaterialCost.ToString("N0")</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: #22c55e; border-radius: 2px; margin-right: 4px;"></span>Labor $@summary.ActualLaborCost.ToString("N0")</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: #f59e0b; border-radius: 2px; margin-right: 4px;"></span>Burden $@summary.ActualBurdenCost.ToString("N0")</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: #a855f7; border-radius: 2px; margin-right: 4px;"></span>Subcontract $@(summary.ActualOutsideProcessingCost + summary.ActualSubcontractCost).ToString("N0")</span>
+            <span><span style="display: inline-block; width: 10px; height: 10px; background: #64748b; border-radius: 2px; margin-right: 4px;"></span>Other $@(summary.ActualToolingCost + summary.ActualFreightLandedCost + summary.ActualScrapReworkCost).ToString("N0")</span>
+        </div>
+    </div></div>
+}
+
+@* ── Cost Rollup Tree ────────────────────────────────────── *@
+@if (rollup != null && rollup.Lines.Count > 0)
+{
+    <div class="ds-card" style="margin-bottom: var(--v2-space-3, 0.75rem);"><div class="ds-card__body" style="padding: 0;">
+        <div style="padding: 0.75rem; border-bottom: 1px solid var(--v2-border, #334155);">
+            <h3 class="ds-h3" style="margin: 0;">Cost Rollup Tree</h3>
+            <span style="font-size: 0.75rem; color: var(--v2-text-muted, #94a3b8);">
+                Run #@rollup.Run.Id (@rollup.Run.Mode) &mdash; @rollup.Lines.Count lines, @rollup.Exceptions.Count exceptions
+                @if (rollup.Run.DurationMs.HasValue) { <text>&mdash; @(rollup.Run.DurationMs)ms</text> }
+            </span>
+        </div>
+        <div class="ds-table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="ds-table ds-table--sm" data-testid="cost-tree-table">
+                <thead style="position: sticky; top: 0; z-index: 1;">
+                    <tr>
+                        <th style="min-width: 200px;">Cost Item</th>
+                        <th>Tag</th>
+                        <th>Bucket</th>
+                        <th style="text-align: right;">Qty</th>
+                        <th style="text-align: right;">Unit $</th>
+                        <th style="text-align: right;">Extended $</th>
+                        <th>Site</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in rollup.Lines)
+                    {
+                        var indent = line.Depth * 20;
+                        var isAdditive = line.Classification == CostRollupLineClassification.Additive;
+                        var isTransfer = line.Classification == CostRollupLineClassification.Transfer;
+                        var isDrilldown = line.Classification == CostRollupLineClassification.DrilldownOnly;
+                        var rowStyle = isDrilldown ? "opacity: 0.6;" : isTransfer ? "background: rgba(59, 130, 246, 0.08);" : "";
+                        var tagClass = isAdditive ? "ds-badge--success" : isTransfer ? "ds-badge--info" : isDrilldown ? "ds-badge--secondary" : "ds-badge--warning";
+                        <tr style="@rowStyle">
+                            <td style="padding-left: @(indent + 8)px; font-size: 0.8rem;">
+                                @if (isDrilldown) { <i class="fas fa-level-down-alt" style="font-size: 0.65rem; margin-right: 4px; color: var(--v2-text-muted, #94a3b8);"></i> }
+                                @if (isTransfer) { <i class="fas fa-arrow-right" style="font-size: 0.65rem; margin-right: 4px; color: #3b82f6;"></i> }
+                                @line.Description
+                            </td>
+                            <td><span class="ds-badge @tagClass" style="font-size: 0.65rem;">@line.Classification</span>
+                                @if (line.IsProvisional) { <span class="ds-badge ds-badge--warning" style="font-size: 0.6rem; margin-left: 2px;">Provisional</span> }
+                            </td>
+                            <td style="font-size: 0.75rem;">@line.CostBucket</td>
+                            <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">@line.Quantity.ToString("N2")</td>
+                            <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">$@line.UnitCost.ToString("N2")</td>
+                            <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem; font-weight: @(isAdditive || isTransfer ? "600" : "400");">$@line.ExtendedCost.ToString("N2")</td>
+                            <td style="font-size: 0.75rem;">@line.SiteId</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div></div>
+}
+
+@* ── Variance Table ──────────────────────────────────────── *@
+@if (variances.Count > 0)
+{
+    <div class="ds-card" style="margin-bottom: var(--v2-space-3, 0.75rem);"><div class="ds-card__body" style="padding: 0;">
+        <div style="padding: 0.75rem; border-bottom: 1px solid var(--v2-border, #334155);">
+            <h3 class="ds-h3" style="margin: 0;">Variance Analysis</h3>
+        </div>
+        <table class="ds-table ds-table--sm" data-testid="variance-table">
+            <thead>
+                <tr><th>Type</th><th style="text-align: right;">Estimated</th><th style="text-align: right;">Actual</th><th style="text-align: right;">Variance</th><th style="text-align: right;">%</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var v in variances)
+                {
+                    var favStyle = v.IsFavorable ? "color: var(--v2-status-completed, #22c55e);" : v.VarianceAmount != 0 ? "color: var(--v2-status-cancelled, #ef4444);" : "";
+                    <tr>
+                        <td>@v.VarianceType</td>
+                        <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">$@v.EstimatedAmount.ToString("N2")</td>
+                        <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">$@v.ActualAmount.ToString("N2")</td>
+                        <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem; font-weight: 600; @favStyle">$@v.VarianceAmount.ToString("N2")</td>
+                        <td style="text-align: right; font-family: var(--font-mono); font-size: 0.8rem;">@(v.VariancePercent.HasValue ? $"{v.VariancePercent:N1}%" : "—")</td>
+                        <td>@(v.IsFavorable ? "Favorable" : v.VarianceAmount != 0 ? "Unfavorable" : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div></div>
+}
+
+@* ── Exceptions ──────────────────────────────────────────── *@
+@if (rollup != null && rollup.Exceptions.Count > 0)
+{
+    <div class="ds-card"><div class="ds-card__body" style="padding: 0;">
+        <div style="padding: 0.75rem; border-bottom: 1px solid var(--v2-border, #334155);">
+            <h3 class="ds-h3" style="margin: 0; color: var(--v2-status-cancelled, #ef4444);">
+                <i class="fas fa-triangle-exclamation"></i> Cost Exceptions (@rollup.Exceptions.Count)
+            </h3>
+        </div>
+        <table class="ds-table ds-table--sm">
+            <thead><tr><th>Severity</th><th>Type</th><th>Message</th><th>Blocks Close?</th></tr></thead>
+            <tbody>
+                @foreach (var exc in rollup.Exceptions)
+                {
+                    var sevClass = exc.Severity >= CostExceptionSeverity.Error ? "ds-badge--danger" : exc.Severity == CostExceptionSeverity.Warning ? "ds-badge--warning" : "ds-badge--info";
+                    <tr class="@(exc.Severity >= CostExceptionSeverity.Error ? "ds-bg-danger-subtle" : "")">
+                        <td><span class="ds-badge @sevClass">@exc.Severity</span></td>
+                        <td style="font-size: 0.8rem;">@exc.ExceptionType</td>
+                        <td style="font-size: 0.75rem; max-width: 400px;">@exc.Message</td>
+                        <td>@(exc.BlocksClose ? "YES" : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div></div>
+}
+
+@* ── Empty state ─────────────────────────────────────────── *@
+@if (summary == null && (rollup == null || rollup.Lines.Count == 0))
+{
+    <div class="ds-card"><div class="ds-card__body" style="text-align: center; padding: 3rem;">
+        <i class="fas fa-coins" style="font-size: 2.5rem; color: var(--v2-text-muted, #94a3b8); margin-bottom: 1rem;"></i>
+        <h3 class="ds-h3">No Cost Data</h3>
+        <p style="color: var(--v2-text-muted, #94a3b8);">
+            Post material issues, labor entries, and overhead applications to this PRO
+            to see cost rollup here. Run a rollup from /Admin/CostRollupProbe to populate.
+        </p>
+    </div></div>
+}

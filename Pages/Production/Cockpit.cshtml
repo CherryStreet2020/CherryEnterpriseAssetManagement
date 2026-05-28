@@ -262,6 +262,13 @@
         break;
 
     // ================================================================
+    // COST/WIP — Sprint 14.4 PR-5 Cost Cockpit View
+    // ================================================================
+    case CockpitModel.TabCost:
+        @await Html.PartialAsync("_CockpitCostTab", Model)
+        break;
+
+    // ================================================================
     // PLACEHOLDER TABS — future PR ships
     // ================================================================
     default:
