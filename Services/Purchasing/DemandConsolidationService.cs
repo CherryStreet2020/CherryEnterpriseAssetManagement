@@ -195,12 +195,20 @@ public class DemandConsolidationService : IDemandConsolidationService
                 (DemandConsolidationMode.SubcontractBatch,
                  "All demands are subcontract operations — batch by vendor + service item."));
 
-        var distinctVendors = demands.Select(d => d.VendorId).Where(v => v.HasValue).Distinct().Count();
+        // (Codex thread 1 fix) Include nulls in the distinct-vendor count
+        // when deciding SupplierDate. A mixed selection (one demand with
+        // VendorId=123 + one with null) used to filter the null out, yielding
+        // distinctVendors=1 and a "SupplierDate" recommendation — but the
+        // null-vendor demand then drops out of the plan as VendorId=0. The
+        // suggestion was misleading unless every demand had the same
+        // non-null resolved vendor.
+        var allDemandsHaveVendor = demands.All(d => d.VendorId.HasValue);
+        var distinctVendors = demands.Select(d => d.VendorId).Distinct().Count();
         var datesWithin = demands.Where(d => d.RequiredDate.HasValue)
             .Select(d => d.RequiredDate!.Value.Date).ToList();
         bool dateBucketTight = datesWithin.Count >= 2
             && (datesWithin.Max() - datesWithin.Min()).TotalDays <= DefaultRequiredDateBucketDays;
-        if (distinctVendors == 1 && dateBucketTight)
+        if (allDemandsHaveVendor && distinctVendors == 1 && dateBucketTight)
             return Result.Success<(DemandConsolidationMode, string)>(
                 (DemandConsolidationMode.SupplierDate,
                  $"All demands target the same vendor and required dates are within {DefaultRequiredDateBucketDays} days."));
@@ -320,8 +328,22 @@ public class DemandConsolidationService : IDemandConsolidationService
         var withProject = demands.Where(d => d.ProjectId.HasValue).ToList();
         var without = demands.Where(d => !d.ProjectId.HasValue).ToList();
 
+        // (Codex thread 0 fix) Include the resolved vendor in the group key.
+        // Without it, same-project + same-item demands from different
+        // suppliers collapsed into one PO line attached to the first
+        // demand's vendor — allocations for the other suppliers were
+        // routed to the wrong vendor when the plan executed. Resolve each
+        // demand's vendor via `VendorId ?? defaultVendorId ?? 0` BEFORE
+        // grouping so demands without a vendor still bucket together
+        // (and then get caught by the vendor-zero guard in PlanAsync).
         var groups = withProject
-            .GroupBy(d => new { Project = d.ProjectId!.Value, Item = d.ItemId, Rev = d.Revision })
+            .GroupBy(d => new
+            {
+                Project = d.ProjectId!.Value,
+                Item = d.ItemId,
+                Rev = d.Revision,
+                ResolvedVendor = d.VendorId ?? defaultVendorId ?? 0,
+            })
             .ToList();
 
         var lines = new List<ConsolidationPlanLine>();
@@ -332,7 +354,6 @@ public class DemandConsolidationService : IDemandConsolidationService
             var earliestDate = g.Where(d => d.RequiredDate.HasValue)
                 .Min(d => (DateTime?)d.RequiredDate!.Value);
             var totalQty = g.Sum(d => d.RemainingQuantity);
-            var vendorId = first.VendorId ?? defaultVendorId ?? 0;
             var allocs = g.Select(d => Alloc(d, d.RemainingQuantity)).ToList();
 
             lines.Add(new ConsolidationPlanLine(
@@ -340,7 +361,7 @@ public class DemandConsolidationService : IDemandConsolidationService
                 ItemId: first.ItemId,
                 PartNumber: first.PartNumber,
                 Revision: first.Revision,
-                VendorId: vendorId,
+                VendorId: g.Key.ResolvedVendor,
                 VendorName: null,
                 PlannedQuantity: totalQty,
                 Uom: first.Uom,
