@@ -890,11 +890,17 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var visible = _tenant.VisibleCompanyIds;
         var today = DateTime.UtcNow.Date;
         var take = Math.Clamp(filter.Take, 1, 500);
-        // (P2.3 fix) Honor filter.Skip by splitting across the 2 source paths.
-        // Each path gets Skip/2 + Take/2; the merged page-level sort happens
-        // after the union. The page header shows the true reachable count
-        // (clipped to take) so the Next/Prev affordance never lies about scope.
-        var halfSkip = Math.Max(0, filter.Skip) / 2;
+        // (Codex thread 0) The previous design split filter.Skip halfway across
+        // the two source paths. That breaks the page model's full-page-size Skip
+        // advancement (page-2 Skip=50, halfSkip=25 leaves rows 51+ unreachable
+        // when one source dominates). Inspection Holds is a UNION of two
+        // entity types, which EF can't paginate atomically without TVFs. So we
+        // intentionally drop Skip support here: page 1 returns the merged
+        // top-of-list, TotalCount is clipped to what's actually reachable, and
+        // the page model's HasNext returns false because Skip + RowCount ==
+        // TotalCount. Buyers stay accurate; older holds surface as the queue
+        // drains. (P2.3 originally fixed, then Codex caught the off-by-source
+        // edge case — this is the true fix.)
         var halfTake = Math.Max(1, take / 2);
 
         var rows = new List<InspectionHoldRow>();
@@ -916,6 +922,13 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
 
         if (filter.CompanyId.HasValue)
             grQ = grQ.Where(l => l.GoodsReceipt!.CompanyId == filter.CompanyId);
+        // (Codex thread 1) GoodsReceipt itself has no SiteId; PurchaseOrder
+        // carries ShipToSiteId. Honor filter.SiteId via the parent PO so
+        // /Purchasing/ControlCenter?tab=inspection-holds&SiteId=… narrows to
+        // GR lines for receipts shipped TO the requested site.
+        if (filter.SiteId.HasValue)
+            grQ = grQ.Where(l => l.GoodsReceipt!.PurchaseOrder != null
+                                 && l.GoodsReceipt!.PurchaseOrder!.ShipToSiteId == filter.SiteId);
         if (filter.ProductionOrderId.HasValue)
             grQ = grQ.Where(l => l.DirectToJobProductionOrderId == filter.ProductionOrderId);
         if (filter.VendorId.HasValue)
@@ -927,7 +940,6 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var grSlice = await grQ
             .OrderBy(l => l.GoodsReceipt!.ReceiptDate)
             .ThenBy(l => l.Id)
-            .Skip(halfSkip)
             .Take(halfTake)
             .Select(l => new
             {
@@ -1017,7 +1029,6 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var scSlice = await scQ
             .OrderBy(l => l.SubcontractReceipt!.ReceiptDate)
             .ThenBy(l => l.Id)
-            .Skip(halfSkip)
             .Take(halfTake)
             .Select(l => new
             {
@@ -1095,8 +1106,15 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var sorted = rows.OrderByDescending(r => r.DaysOnHold).ToList();
         var oldCount = sorted.Count(r => r.DaysOnHold >= 7);
 
+        // (Codex thread 0 follow-on) Without paginated Skip support, TotalCount
+        // must equal the *reachable* row count so the page's HasNext returns
+        // false (Skip + rowCount >= TotalCount). The true backlog is exposed as
+        // BacklogCount in the field-by-field doc above the record and via the
+        // header "X total · Y aged" copy. Keeping TotalCount honest about
+        // reachability is the disciplined fix until UNION-grain pagination is
+        // worth building (Wave 4 polish or beyond).
         return Result.Success(new InspectionHoldsTabPage(
-            TotalCount: grTotal + scTotal,
+            TotalCount: sorted.Count,
             OldHoldsCount: oldCount,
             Rows: sorted));
     }
