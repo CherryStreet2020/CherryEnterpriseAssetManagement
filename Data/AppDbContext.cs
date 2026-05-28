@@ -468,6 +468,18 @@ namespace Abs.FixedAssets.Data
         public DbSet<VendorLocation> VendorLocations => Set<VendorLocation>();
         public DbSet<VendorWipBalance> VendorWipBalances => Set<VendorWipBalance>();
         public DbSet<VendorWipTransaction> VendorWipTransactions => Set<VendorWipTransaction>();
+
+        // Sprint 15.2 PR-6 — SubcontractShipment + SubcontractReceipt (physical
+        // WIP-to-vendor / vendor-to-us events with lot/serial/revision tracking +
+        // 10 §11 receipt scenarios).
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractShipment> SubcontractShipments
+            => Set<Abs.FixedAssets.Models.Production.SubcontractShipment>();
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractShipmentLine> SubcontractShipmentLines
+            => Set<Abs.FixedAssets.Models.Production.SubcontractShipmentLine>();
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractReceipt> SubcontractReceipts
+            => Set<Abs.FixedAssets.Models.Production.SubcontractReceipt>();
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractReceiptLine> SubcontractReceiptLines
+            => Set<Abs.FixedAssets.Models.Production.SubcontractReceiptLine>();
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5728,6 +5740,101 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.SiteId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ──────────────────────────────────────────────────────────────
+            // Sprint 15.2 PR-6 — SubcontractShipment + SubcontractReceipt
+            //   Headers + lines for physical WIP shipment to vendor and
+            //   receive-back. 10 §11 receipt scenarios captured per receipt
+            //   line via the Scenario + Disposition enums.
+            // ──────────────────────────────────────────────────────────────
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractShipment>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractShipmentLifecycle.Draft);
+
+                e.HasIndex(x => new { x.CompanyId, x.ShipmentNumber }).IsUnique();
+                e.HasIndex(x => x.SubcontractOperationId);
+                e.HasIndex(x => new { x.ProductionOrderId, x.OperationSequence });
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.SupplierId);
+
+                e.HasOne(x => x.SubcontractOperation).WithMany().HasForeignKey(x => x.SubcontractOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.SubcontractDemand).WithMany().HasForeignKey(x => x.SubcontractDemandId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ServicePurchaseOrderLine).WithMany().HasForeignKey(x => x.ServicePurchaseOrderLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorLocation).WithMany().HasForeignKey(x => x.VendorLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ShipFromLocation).WithMany().HasForeignKey(x => x.ShipFromLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractShipmentLine>(e =>
+            {
+                e.HasIndex(x => x.SubcontractShipmentId);
+                e.HasIndex(x => new { x.SubcontractShipmentId, x.LineNumber }).IsUnique();
+                e.HasIndex(x => x.ItemId);
+
+                e.HasOne(x => x.SubcontractShipment).WithMany(s => s.Lines)
+                    .HasForeignKey(x => x.SubcontractShipmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorWipTransaction).WithMany().HasForeignKey(x => x.VendorWipTransactionId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractReceipt>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractReceiptLifecycle.Draft);
+
+                e.HasIndex(x => new { x.CompanyId, x.ReceiptNumber }).IsUnique();
+                e.HasIndex(x => x.SubcontractOperationId);
+                e.HasIndex(x => new { x.ProductionOrderId, x.OperationSequence });
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.SupplierId);
+
+                e.HasOne(x => x.SubcontractOperation).WithMany().HasForeignKey(x => x.SubcontractOperationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.SubcontractShipment).WithMany().HasForeignKey(x => x.SubcontractShipmentId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ServicePurchaseOrderLine).WithMany().HasForeignKey(x => x.ServicePurchaseOrderLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorLocation).WithMany().HasForeignKey(x => x.VendorLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ReceivingLocation).WithMany().HasForeignKey(x => x.ReceivingLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractReceiptLine>(e =>
+            {
+                e.Property(x => x.Scenario)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractReceiptScenario.FullGoodReceipt);
+                e.Property(x => x.Disposition)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractReceiptDisposition.ReleaseToNextOp);
+
+                e.HasIndex(x => x.SubcontractReceiptId);
+                e.HasIndex(x => new { x.SubcontractReceiptId, x.LineNumber }).IsUnique();
+                e.HasIndex(x => x.ItemId);
+                e.HasIndex(x => x.Scenario);
+
+                e.HasOne(x => x.SubcontractReceipt).WithMany(r => r.Lines)
+                    .HasForeignKey(x => x.SubcontractReceiptId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.SubcontractShipmentLine).WithMany().HasForeignKey(x => x.SubcontractShipmentLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorWipTransaction).WithMany().HasForeignKey(x => x.VendorWipTransactionId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
 
                 e.MapXminRowVersion(x => x.RowVersion);
             });
