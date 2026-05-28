@@ -582,6 +582,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Receiving.IReceiptToJobServi
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionSupplyDemandService,
     Abs.FixedAssets.Services.Production.ProductionSupplyDemandService>();
 
+// Sprint 15.1 PR-3 (2026-05-28) — PO Line ↔ Demand consolidation link service.
+// Preserves per-demand traceability when PO lines are consolidated across
+// multiple production-order BOM lines.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoLineDemandLinkService,
+    Abs.FixedAssets.Services.Purchasing.PoLineDemandLinkService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();

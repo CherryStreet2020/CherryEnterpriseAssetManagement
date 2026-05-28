@@ -453,6 +453,10 @@ namespace Abs.FixedAssets.Data
             => Set<Abs.FixedAssets.Models.Production.ProductionSupplyDemand>();
         public DbSet<Abs.FixedAssets.Models.Production.ProductionSupplyAllocation> ProductionSupplyAllocations
             => Set<Abs.FixedAssets.Models.Production.ProductionSupplyAllocation>();
+
+        // Sprint 15.1 PR-3 — PO line ↔ Demand consolidation traceability link.
+        public DbSet<PurchaseOrderLineDemandLink> PurchaseOrderLineDemandLinks
+            => Set<PurchaseOrderLineDemandLink>();
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5525,6 +5529,69 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.ChildProductionOrder)
                     .WithMany()
                     .HasForeignKey(x => x.ChildProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ──────────────────────────────────────────────────────────────
+            // Sprint 15.1 PR-3 — PurchaseOrderLine PRO/demand expansion + link
+            // ──────────────────────────────────────────────────────────────
+
+            // Add the new FKs on PurchaseOrderLine itself.
+            modelBuilder.Entity<PurchaseOrderLine>(e =>
+            {
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.BomLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.BomLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<PurchaseOrderLineDemandLink>(e =>
+            {
+                e.Property(x => x.Status)
+                    .HasDefaultValue(PoDemandLinkStatus.Proposed);
+
+                e.HasIndex(x => x.PurchaseOrderLineId);
+                e.HasIndex(x => x.ProductionSupplyDemandId);
+                e.HasIndex(x => x.ProductionOrderId);
+                e.HasIndex(x => x.Status);
+                // Tenant-scoped uniqueness: same PO line + demand + release tuple,
+                // active or not — duplicate guard. Allow re-creation after release
+                // by including Status implicitly via service-layer idempotency.
+                e.HasIndex(x => new { x.PurchaseOrderLineId, x.ProductionSupplyDemandId, x.PurchaseOrderReleaseId, x.Status });
+
+                e.HasOne(x => x.PurchaseOrderLine)
+                    .WithMany(p => p.DemandLinks)
+                    .HasForeignKey(x => x.PurchaseOrderLineId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.PurchaseOrderRelease)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderReleaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProductionSupplyDemand)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionSupplyDemandId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.BomLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.BomLineId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Company)
                     .WithMany()

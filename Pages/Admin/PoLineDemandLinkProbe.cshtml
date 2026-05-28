@@ -1,0 +1,161 @@
+@page "/Admin/PoLineDemandLinkProbe"
+@model Abs.FixedAssets.Pages.Admin.PoLineDemandLinkProbeModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "PO Line ↔ Demand Link Probe";
+    ViewData["TabTitle"] = "PO Line ↔ Demand Link Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">PO Line ↔ Demand Link Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.1 PR-3 — Per-demand traceability when PO lines consolidate
+            across many production-order BOM lines. One PO line covers many demands;
+            one demand drawn from many PO lines. AS9100 §8.3 traceability survives consolidation.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="link-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="link-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Summary Stats</h2>
+            <table class="ds-table">
+                <tbody>
+                    <tr><td>Total Links</td><td data-testid="link-total">@Model.TotalLinks</td></tr>
+                    <tr><td>Active</td><td>@Model.LinksActive</td></tr>
+                    <tr><td>Partially Received</td><td>@Model.LinksPartiallyReceived</td></tr>
+                    <tr><td>Fully Received</td><td>@Model.LinksFullyReceived</td></tr>
+                    <tr><td>Released</td><td>@Model.LinksReleased</td></tr>
+                    <tr><td>PO Lines DirectToJob</td><td>@Model.PoLinesDirectToJob</td></tr>
+                    <tr><td>PO Lines Subcontract</td><td>@Model.PoLinesSubcontract</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Link PO Line → Demand</h2>
+            <p class="ds-text-muted">Creates a M:M link with allocated qty. Mirrored into ProductionSupplyAllocation.</p>
+            <form method="post" asp-page-handler="Link">
+                <div class="ds-form-row"><label class="ds-label">PO Line ID</label>
+                    <input type="number" class="ds-input" asp-for="LinkPoLineId" /></div>
+                <div class="ds-form-row"><label class="ds-label">Demand ID</label>
+                    <input type="number" class="ds-input" asp-for="LinkDemandId" /></div>
+                <div class="ds-form-row"><label class="ds-label">Quantity</label>
+                    <input type="number" step="0.0001" class="ds-input" asp-for="LinkQuantity" /></div>
+                <div class="ds-form-row"><label class="ds-label">PO Release ID (optional)</label>
+                    <input type="number" class="ds-input" asp-for="LinkReleaseId" /></div>
+                <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-link">Link PO ↔ Demand</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Record Receipt Against Link</h2>
+            <form method="post" asp-page-handler="RecordReceipt">
+                <div class="ds-form-row"><label class="ds-label">Link ID</label>
+                    <input type="number" class="ds-input" asp-for="ReceiptLinkId" /></div>
+                <div class="ds-form-row"><label class="ds-label">Quantity Received</label>
+                    <input type="number" step="0.0001" class="ds-input" asp-for="ReceiptQuantity" /></div>
+                <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-receipt">Record Receipt</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Release Link</h2>
+            <form method="post" asp-page-handler="Release">
+                <div class="ds-form-row"><label class="ds-label">Link ID</label>
+                    <input type="number" class="ds-input" asp-for="ReleaseLinkId" /></div>
+                <button type="submit" class="ds-btn ds-btn-warning" data-testid="btn-release">Release Link</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Mark PO Line Direct-to-Job</h2>
+            <form method="post" asp-page-handler="MarkDtj">
+                <div class="ds-form-row"><label class="ds-label">PO Line ID</label>
+                    <input type="number" class="ds-input" asp-for="MarkPoLineId" /></div>
+                <div class="ds-form-row"><label class="ds-label">IsDirectToJob</label>
+                    <input type="checkbox" asp-for="MarkAsDirectToJob" /></div>
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-mark-dtj">Apply DTJ Flag</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Mark PO Line Subcontract</h2>
+            <form method="post" asp-page-handler="MarkSubcontract">
+                <div class="ds-form-row"><label class="ds-label">PO Line ID</label>
+                    <input type="number" class="ds-input" asp-for="MarkScPoLineId" /></div>
+                <div class="ds-form-row"><label class="ds-label">IsSubcontract</label>
+                    <input type="checkbox" asp-for="MarkAsSubcontract" /></div>
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-mark-sc">Apply Subcontract Flag</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6/7. Load Links</h2>
+            <form method="post" asp-page-handler="LoadByPoLine" style="display:inline-block;">
+                <input type="number" class="ds-input" asp-for="LoadByPoLineId" style="width:120px"/>
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-poline">By PO Line</button>
+            </form>
+            <form method="post" asp-page-handler="LoadByDemand" style="display:inline-block; margin-left:.5rem;">
+                <input type="number" class="ds-input" asp-for="LoadByDemandId" style="width:120px"/>
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-demand">By Demand</button>
+            </form>
+            @if (Model.LoadedLinks.Any())
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead>
+                        <tr>
+                            <th>ID</th><th>PO Line</th><th>Demand</th><th>PRO</th><th>BOM</th>
+                            <th>Allocated</th><th>Received</th><th>Remaining</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model.LoadedLinks)
+                        {
+                            <tr>
+                                <td>@l.Id</td>
+                                <td>@l.PurchaseOrderLineId</td>
+                                <td>@l.ProductionSupplyDemandId</td>
+                                <td>@l.ProductionOrderId</td>
+                                <td>@(l.BomLineId?.ToString() ?? "—")</td>
+                                <td>@l.AllocatedQuantity.ToString("N4")</td>
+                                <td>@l.ReceivedQuantity.ToString("N4")</td>
+                                <td>@l.RemainingQuantity.ToString("N4")</td>
+                                <td>@l.Status</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+</main>
