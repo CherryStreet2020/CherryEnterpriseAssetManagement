@@ -36,15 +36,18 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IPurchasingRecommendationService? _recommendations;
     private readonly ILogger<PurchasingControlCenterService> _log;
 
     public PurchasingControlCenterService(
         AppDbContext db,
         ITenantContext tenant,
-        ILogger<PurchasingControlCenterService> log)
+        ILogger<PurchasingControlCenterService> log,
+        IPurchasingRecommendationService? recommendations = null)
     {
         _db = db;
         _tenant = tenant;
+        _recommendations = recommendations;
         _log = log;
     }
 
@@ -256,6 +259,30 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
             int? daysLate = null;
             if (d.RequiredDate.HasValue && d.RequiredDate.Value.Date < today)
                 daysLate = (today - d.RequiredDate.Value.Date).Days;
+
+            // (Sprint 15.3 PR-15) Real §18 recommendation hint when the
+            // recommendation service is registered. Falls back to the
+            // PR-10 placeholder when running in legacy/test composition.
+            //
+            // The Supply Demand queue doesn't separately hydrate the linked
+            // PO number per row (the page only renders LinkedPurchaseOrderId
+            // as a chip). Pass null for linkedPoNumber; the recommendation
+            // reason strings reference the PO by status, not by number.
+            string hint;
+            if (_recommendations != null)
+            {
+                var rec = _recommendations.BuildFromDemand(
+                    d,
+                    productionOrderNumber: p.ProNumber,
+                    linkedPoNumber: null,
+                    suggestedVendorName: null);
+                hint = $"{rec.ActionLabel}: {rec.Reason}";
+            }
+            else
+            {
+                hint = SuggestNextAction(d, queueType);
+            }
+
             return new PurchasingQueueRow(
                 DemandId: d.Id,
                 DemandNumber: d.DemandNumber,
@@ -285,7 +312,7 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
                 CostStatus: d.CostStatus,
                 AlertStatus: d.AlertStatus,
                 BuyerActionState: d.BuyerActionState,
-                NextActionHint: SuggestNextAction(d, queueType));
+                NextActionHint: hint);
         }).ToList();
 
         return Result.Success(new PurchasingQueuePage(queueType, totalCount, rows));

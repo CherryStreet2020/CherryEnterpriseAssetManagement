@@ -641,6 +641,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IAutoPurchaseServ
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IDemandConsolidationService,
     Abs.FixedAssets.Services.Purchasing.DemandConsolidationService>();
 
+// Sprint 15.3 PR-15 (2026-05-28) — CLOSES Wave 3 — Buyer recommendation
+// engine (§18). Composes IAutoPurchaseService + demand state to pick from
+// 11 §18 RecommendedAction patterns per demand, plus a RecommendationRisk
+// classification. Wires into PurchasingControlCenterService.GetSupplyDemand
+// QueueAsync so the Purchasing CC "Suggested Action" column shows real §18
+// hints instead of the PR-10 placeholder mapping.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingRecommendationService,
+    Abs.FixedAssets.Services.Purchasing.PurchasingRecommendationService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios
