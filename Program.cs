@@ -594,6 +594,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoLineDemandLink
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractOperationService,
     Abs.FixedAssets.Services.Production.SubcontractOperationService>();
 
+// Sprint 15.1 PR-5 (2026-05-28) — Vendor WIP physical-lot tracking service.
+// Tracks material at vendor: ship-to-vendor, receive-from-vendor, accept/reject,
+// vendor process scrap. Balance + transaction history per (PRO+op+supplier+lot).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IVendorWipService,
+    Abs.FixedAssets.Services.Purchasing.VendorWipService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
