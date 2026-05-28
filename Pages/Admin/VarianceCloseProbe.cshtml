@@ -1,0 +1,158 @@
+@page "/Admin/VarianceCloseProbe"
+@model Abs.FixedAssets.Pages.Admin.VarianceCloseProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Variance + Close Probe";
+    ViewData["TabTitle"] = "Variance + Close Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Variance + Close Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 14.4 PR-4 &mdash; 5+ variance computations (material usage, labor rate, labor efficiency,
+            overhead volume, overhead spending) + atomic PRO close workflow + controlled reopening.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="vc-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="vc-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Summary Stats</h2>
+            <table class="ds-table">
+                <tbody>
+                    <tr><th>Total Variance Records</th><td data-testid="vc-total-variances">@Model.TotalVariances</td></tr>
+                    <tr><th>Total Close Events</th><td data-testid="vc-total-close-events">@Model.TotalCloseEvents</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Variance + Close Operations</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <label>PRO Id: <input asp-for="ProId" class="ds-input ds-input--sm" style="width:80px" /></label>
+                <button type="submit" asp-page-handler="ComputeVariances" class="ds-btn ds-btn--primary" data-testid="btn-compute-variances">Compute Variances</button>
+                <button type="submit" asp-page-handler="CheckReadiness" class="ds-btn ds-btn--outline" data-testid="btn-check-readiness">Check Close Readiness</button>
+                <button type="submit" asp-page-handler="ClosePro" class="ds-btn ds-btn--warning" data-testid="btn-close-pro">Close PRO</button>
+            </form>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2 ds-mt-2">
+                <input type="hidden" asp-for="ProId" />
+                <label>Reopen reason: <input asp-for="ReopenReason" class="ds-input ds-input--sm" style="width:300px" /></label>
+                <button type="submit" asp-page-handler="ReopenPro" class="ds-btn ds-btn--secondary" data-testid="btn-reopen-pro">Reopen PRO</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Seed Test Data</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <input type="hidden" asp-for="ProId" />
+                <button type="submit" asp-page-handler="SeedEstimated" class="ds-btn ds-btn--primary" data-testid="btn-seed-estimated">Seed Estimated Costs</button>
+                <button type="submit" asp-page-handler="SeedActual" class="ds-btn ds-btn--primary" data-testid="btn-seed-actual">Seed Actual Costs</button>
+                <button type="submit" asp-page-handler="RefreshSummary" class="ds-btn ds-btn--outline" data-testid="btn-refresh-summary">Refresh Summary</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">View Data</h2>
+            <form method="post" class="ds-form ds-form--inline ds-gap-2">
+                <input type="hidden" asp-for="ProId" />
+                <button type="submit" asp-page-handler="ViewVariances" class="ds-btn ds-btn--outline" data-testid="btn-view-variances">View Variances</button>
+                <button type="submit" asp-page-handler="ViewCloseEvents" class="ds-btn ds-btn--outline" data-testid="btn-view-close-events">View Close Events</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.LoadedVariances.Count > 0)
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Variances (@Model.LoadedVariances.Count)</h2>
+                <div class="ds-table-responsive">
+                    <table class="ds-table ds-table--sm" data-testid="variances-table">
+                        <thead>
+                            <tr>
+                                <th>Type</th><th>Estimated</th><th>Actual</th>
+                                <th>Variance</th><th>%</th><th>Favorable?</th><th>Posted?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var v in Model.LoadedVariances)
+                            {
+                                <tr class="@(v.IsFavorable ? "ds-bg-success-subtle" : v.VarianceAmount != 0 ? "ds-bg-danger-subtle" : "")">
+                                    <td>@v.VarianceType</td>
+                                    <td class="ds-text-right">$@v.EstimatedAmount.ToString("N2")</td>
+                                    <td class="ds-text-right">$@v.ActualAmount.ToString("N2")</td>
+                                    <td class="ds-text-right ds-text-bold">$@v.VarianceAmount.ToString("N2")</td>
+                                    <td class="ds-text-right">@(v.VariancePercent.HasValue ? $"{v.VariancePercent:N1}%" : "—")</td>
+                                    <td>@(v.IsFavorable ? "Favorable" : v.VarianceAmount != 0 ? "Unfavorable" : "—")</td>
+                                    <td>@(v.IsPosted ? "Yes" : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (Model.LoadedCloseEvents.Count > 0)
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Close Events (@Model.LoadedCloseEvents.Count)</h2>
+                <div class="ds-table-responsive">
+                    <table class="ds-table ds-table--sm" data-testid="close-events-table">
+                        <thead>
+                            <tr>
+                                <th>Id</th><th>Step</th><th>Est $</th><th>Act $</th>
+                                <th>Var $</th><th>WIP $</th><th>Var Lines</th>
+                                <th>JEs</th><th>Success?</th><th>Reversal?</th><th>By</th><th>When</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var e in Model.LoadedCloseEvents)
+                            {
+                                <tr class="@(e.IsReversal ? "ds-bg-warning-subtle" : "")">
+                                    <td>@e.Id</td>
+                                    <td><span class="ds-badge ds-badge--info">@e.Step</span></td>
+                                    <td class="ds-text-right">$@e.EstimatedTotalAtClose.ToString("N2")</td>
+                                    <td class="ds-text-right">$@e.ActualTotalAtClose.ToString("N2")</td>
+                                    <td class="ds-text-right">$@e.TotalVarianceAtClose.ToString("N2")</td>
+                                    <td class="ds-text-right">$@e.WipBalanceAtClose.ToString("N2")</td>
+                                    <td>@e.VarianceLineCount</td>
+                                    <td>@e.VarianceJeCount</td>
+                                    <td>@(e.CloseSuccessful ? "Yes" : "No")</td>
+                                    <td>@(e.IsReversal ? "REVERSAL" : "—")</td>
+                                    <td>@e.ClosedBy</td>
+                                    <td>@e.CreatedAtUtc.ToString("HH:mm:ss")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    }
+
+</main>

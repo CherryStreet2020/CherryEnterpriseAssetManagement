@@ -585,6 +585,13 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.CostRollupException> CostRollupExceptions =>
             Set<Abs.FixedAssets.Models.Production.CostRollupException>();
 
+        // Sprint 14.4 PR-4 — ProductionVariance (5+ variance computations per PRO),
+        // ProductionCloseEvent (close workflow audit trail with reversal support).
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionVariance> ProductionVariances =>
+            Set<Abs.FixedAssets.Models.Production.ProductionVariance>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionCloseEvent> ProductionCloseEvents =>
+            Set<Abs.FixedAssets.Models.Production.ProductionCloseEvent>();
+
         // Sprint 14.3 PR-7 — ChangeImpactAnalysis (ECO blast-radius analysis + FAI re-trigger)
         public DbSet<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis> ChangeImpactAnalyses =>
             Set<Abs.FixedAssets.Models.Engineering.ChangeImpactAnalysis>();
@@ -2757,6 +2764,36 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_CostRollupExc_PRO");
                 e.HasOne(x => x.CostRollupRun).WithMany(r => r.Exceptions)
                     .HasForeignKey(x => x.CostRollupRunId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Sprint 14.4 PR-4 — ProductionVariance entity config.
+            // Variance computation per PRO. 5+ variance types.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionVariance>(e =>
+            {
+                e.Property(x => x.VarianceType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionVarianceType.MaterialUsage)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.ProductionVarianceType.MaterialUsage);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ProductionOrderId })
+                    .HasDatabaseName("IX_ProdVar_Company_PRO");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.VarianceType).HasDatabaseName("IX_ProdVar_Type");
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_ProdVar_PRO");
+            });
+
+            // Sprint 14.4 PR-4 — ProductionCloseEvent entity config.
+            // Close workflow audit trail with reversal support.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionCloseEvent>(e =>
+            {
+                e.Property(x => x.Step)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionCloseStep.VarianceComputed)
+                    .HasSentinel(Abs.FixedAssets.Models.Production.ProductionCloseStep.VarianceComputed);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.HasIndex(x => new { x.CompanyId, x.ProductionOrderId })
+                    .HasDatabaseName("IX_ProdClose_Company_PRO");
+                e.HasIndex(x => x.TenantId);
+                e.HasIndex(x => x.ProductionOrderId).HasDatabaseName("IX_ProdClose_PRO");
+                e.HasIndex(x => x.Step).HasDatabaseName("IX_ProdClose_Step");
             });
 
             // Sprint 14.3 PR-7 — ChangeImpactAnalysis entity config.
