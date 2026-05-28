@@ -662,6 +662,20 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPurchasingRecomm
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAcknowledgmentService,
     Abs.FixedAssets.Services.Purchasing.PoAcknowledgmentService>();
 
+// Sprint 15.4 PR-17 (2026-05-28) — PO Amendment / Change Order service.
+// Post-approval PO modifications with the BIC-differentiator enhancement:
+// demand-link impact preview + atomic auto-resync (Dean's locked Wave 4
+// enhancement). 7-state lifecycle Draft → Previewed → PendingApproval →
+// Approved → Applied | Rejected | Cancelled. ApplyAmendmentAsync atomically
+// updates PO lines + recomputes header totals + resyncs
+// PurchaseOrderLineDemandLink + mirrors ProductionSupplyAllocation + flips
+// current POAcknowledgment IsCurrent and opens a new Requested ack via
+// IPoAcknowledgmentService (PR-16 ↔ PR-17 integration). Two-phase numbering
+// for POAMD-YYYY-NNNNNN. One IsCurrent amendment per PO enforced at DB level
+// via filtered unique index.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAmendmentService,
+    Abs.FixedAssets.Services.Purchasing.PoAmendmentService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

@@ -1,0 +1,261 @@
+@page "/Admin/PoAmendmentProbe"
+@model Abs.FixedAssets.Pages.Admin.PoAmendmentProbeModel
+@{
+    ViewData["Title"] = "PO Amendment / Change Order Probe";
+    ViewData["TabTitle"] = "PO Amendment Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">PO Amendment / Change Order Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.4 PR-17 (Wave 4 2/5) — post-approval PO modifications with
+            the BIC differentiator: <strong>demand-link impact preview + atomic
+            auto-resync</strong>. Before approval, the system surfaces every
+            PurchaseOrderLineDemandLink / ProductionSupplyAllocation / PRO
+            operation affected by qty/date/price changes. On Apply, the
+            amendment atomically updates PO lines, recomputes header totals,
+            resyncs demand-link allocations, mirrors to ProductionSupplyAllocation,
+            and (when required) flips the current POAcknowledgment IsCurrent +
+            opens a new Requested vendor ack via IPoAcknowledgmentService.
+            7-state lifecycle. Two-phase numbering POAMD-YYYY-NNNNNN.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="poamd-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="poamd-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total POChangeHistories</td><td data-testid="poamd-total">@Model.TotalAmendments</td></tr>
+                <tr><td>Draft</td><td data-testid="poamd-draft">@Model.DraftCount</td></tr>
+                <tr><td>Previewed</td><td data-testid="poamd-previewed">@Model.PreviewedCount</td></tr>
+                <tr><td>Pending Approval</td><td data-testid="poamd-pending">@Model.PendingApprovalCount</td></tr>
+                <tr><td>Approved</td><td data-testid="poamd-approved">@Model.ApprovedCount</td></tr>
+                <tr><td>Applied</td><td data-testid="poamd-applied">@Model.AppliedCount</td></tr>
+                <tr><td>Rejected</td><td data-testid="poamd-rejected">@Model.RejectedCount</td></tr>
+                <tr><td>Cancelled</td><td data-testid="poamd-cancelled">@Model.CancelledCount</td></tr>
+                <tr><td><strong>Current Ship-Date Risk</strong></td><td data-testid="poamd-risk"><strong>@Model.CurrentShipDateRiskCount</strong></td></tr>
+                <tr><td><strong>Vendor Acks Auto-Opened by Apply</strong></td><td data-testid="poamd-acks-opened"><strong>@Model.CurrentAppliedAcksOpened</strong></td></tr>
+            </tbody>
+        </table>
+        @if (Model.EligiblePos.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">Eligible POs (Approved / Sent / PartiallyReceived — top 20)</h3>
+            <ul>
+                @foreach (var po in Model.EligiblePos)
+                {
+                    <li>@po.Display</li>
+                }
+            </ul>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">1. Draft Amendment (open cycle on a PO)</h2>
+        <p class="ds-text-muted">Creates header + per-line snapshot with proposed new qty / price / promise date. Two-phase numbering assigns POAMD-YYYY-NNNNNN post-save.</p>
+        <form method="post" asp-page-handler="Draft">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="DraftPurchaseOrderId" /></div>
+            <div class="ds-form-row"><label class="ds-label">PO Line ID to change</label><input type="number" class="ds-input" asp-for="DraftPoLineId" /></div>
+            <div class="ds-form-row"><label class="ds-label">New Quantity</label><input type="number" step="0.0001" class="ds-input" asp-for="DraftNewQty" /></div>
+            <div class="ds-form-row"><label class="ds-label">New Unit Price</label><input type="number" step="0.0001" class="ds-input" asp-for="DraftNewPrice" /></div>
+            <div class="ds-form-row"><label class="ds-label">Promise Push-Out (days)</label><input type="number" class="ds-input" asp-for="DraftPromisePushDays" /></div>
+            <div class="ds-form-row"><label class="ds-label">Change Reason</label>
+                <select class="ds-input" asp-for="DraftReason" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.POChangeReason>()"></select>
+            </div>
+            <div class="ds-form-row"><label class="ds-label"><input type="checkbox" asp-for="DraftRequireReAck" /> Require Vendor Re-Acknowledgment on Apply</label></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-draft">Draft Amendment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">2. Preview Impact ⭐ (BIC differentiator)</h2>
+        <p class="ds-text-muted">Walks the demand-link graph — counts affected demand links / PROs / operations and computes ship-date push-out. Caches counts on the header + per-line rows. Status moves to Previewed (idempotent on re-run).</p>
+        <form method="post" asp-page-handler="Preview">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="PreviewAmendmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-preview">Preview Impact</button>
+        </form>
+        @if (Model.LastImpactReport != null)
+        {
+            var r = Model.LastImpactReport;
+            <table class="ds-table ds-mt-3">
+                <tbody>
+                    <tr><td>Amendment</td><td data-testid="impact-amendment-number">@r.AmendmentNumber</td></tr>
+                    <tr><td>PO</td><td>#@r.PurchaseOrderId (@r.PurchaseOrderNumber)</td></tr>
+                    <tr><td>Lines Changed</td><td>@r.LinesChanged</td></tr>
+                    <tr><td>Affected Demand Links</td><td data-testid="impact-demand-links">@r.AffectedDemandLinks</td></tr>
+                    <tr><td>Affected Production Orders</td><td data-testid="impact-pros">@r.AffectedProductionOrders</td></tr>
+                    <tr><td>Affected Operations</td><td>@r.AffectedOperations</td></tr>
+                    <tr><td><strong>Ship-Date Risk</strong></td><td data-testid="impact-risk"><strong>@(r.ShipDateRiskFlag ? "⚠ YES" : "no")</strong></td></tr>
+                    <tr><td>Total Quantity Δ</td><td>@r.TotalQuantityDelta.ToString("N4")</td></tr>
+                    <tr><td>Total Value Δ</td><td>@r.TotalValueDelta.ToString("N4")</td></tr>
+                </tbody>
+            </table>
+            @if (r.Rows.Count > 0)
+            {
+                <h3 class="ds-h3 ds-mt-3">Per-Link Impact Rows</h3>
+                <table class="ds-table">
+                    <thead>
+                        <tr><th>PO Line</th><th>Demand</th><th>PRO</th><th>Op</th><th>Allocated</th><th>Remaining</th><th>Current Promise</th><th>New Promise</th><th>Need By</th><th>Push (d)</th><th>Risk</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in r.Rows)
+                        {
+                            <tr>
+                                <td>#@row.PurchaseOrderLineId</td>
+                                <td>@row.ProductionSupplyDemandId</td>
+                                <td>@row.ProductionOrderNumber</td>
+                                <td>@row.OperationSequence</td>
+                                <td>@row.AllocatedQuantity.ToString("N4")</td>
+                                <td>@row.RemainingQuantity.ToString("N4")</td>
+                                <td>@(row.CurrentPromiseDate?.ToString("yyyy-MM-dd") ?? "")</td>
+                                <td>@(row.NewPromiseDate?.ToString("yyyy-MM-dd") ?? "")</td>
+                                <td>@(row.NeedByDate?.ToString("yyyy-MM-dd") ?? "")</td>
+                                <td>@(row.PushOutDays?.ToString() ?? "")</td>
+                                <td>@(row.ShipDateAtRisk ? "⚠" : "")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">3. Submit for Approval</h2>
+        <p class="ds-text-muted">Previewed → PendingApproval. Optional — buyers can Approve directly from Previewed.</p>
+        <form method="post" asp-page-handler="Submit">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="SubmitAmendmentId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-submit">Submit For Approval</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">4. Approve</h2>
+        <p class="ds-text-muted">Stamps approver + timestamp. PO lines NOT yet mutated — that happens at Apply.</p>
+        <form method="post" asp-page-handler="Approve">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="ApproveAmendmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Approver User ID</label><input type="number" class="ds-input" asp-for="ApproveUserId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Approval Note</label><input class="ds-input" asp-for="ApproveNote" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-approve">Approve Amendment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5. Apply ⭐ (atomic + auto-resync + vendor re-ack hook)</h2>
+        <p class="ds-text-muted">Single transaction: updates PO line qty / price / dates → recomputes header totals → resyncs PurchaseOrderLineDemandLink → mirrors to ProductionSupplyAllocation → if VendorReAckRequired, flips current POAcknowledgment IsCurrent and opens a new Requested ack via IPoAcknowledgmentService. Any failure rolls back the entire amendment.</p>
+        <form method="post" asp-page-handler="Apply">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="ApplyAmendmentId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-apply">Apply Amendment</button>
+        </form>
+        @if (Model.LastApplyResult != null)
+        {
+            var ar = Model.LastApplyResult;
+            <table class="ds-table ds-mt-3">
+                <tbody>
+                    <tr><td>Amendment ID</td><td data-testid="apply-amendment-id">@ar.POChangeHistoryId</td></tr>
+                    <tr><td>PO Lines Updated</td><td data-testid="apply-lines-updated">@ar.PoLinesUpdated</td></tr>
+                    <tr><td><strong>Demand Links Resynced</strong></td><td data-testid="apply-links-resynced"><strong>@ar.DemandLinksResynced</strong></td></tr>
+                    <tr><td>Production Supply Allocations Resynced</td><td data-testid="apply-allocations-resynced">@ar.ProductionSupplyAllocationsResynced</td></tr>
+                    <tr><td><strong>Vendor Ack Auto-Opened</strong></td><td data-testid="apply-ack-flipped"><strong>@ar.VendorAckFlipped</strong></td></tr>
+                    @if (ar.NewVendorAcknowledgmentNumber != null)
+                    { <tr><td>New Ack Number</td><td data-testid="apply-new-ack-number">@ar.NewVendorAcknowledgmentNumber</td></tr> }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">6. Reject</h2>
+        <form method="post" asp-page-handler="Reject">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="RejectAmendmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Reason</label><input class="ds-input" asp-for="RejectReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-danger" data-testid="btn-reject">Reject Amendment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">7. Cancel</h2>
+        <form method="post" asp-page-handler="Cancel">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="CancelAmendmentId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Cancel Reason</label><input class="ds-input" asp-for="CancelReason" /></div>
+            <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-cancel">Cancel Amendment</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">8. Re-Preview (idempotency)</h2>
+        <p class="ds-text-muted">Re-runs PreviewAmendmentImpactAsync — counts should be identical to the first preview. Demonstrates that preview never double-counts demand links.</p>
+        <form method="post" asp-page-handler="RePreview">
+            <div class="ds-form-row"><label class="ds-label">POChangeHistory ID</label><input type="number" class="ds-input" asp-for="RePreviewAmendmentId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-re-preview">Re-Preview</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R1. Load Summary</h2>
+        <form method="post" asp-page-handler="LoadSummary">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="SummaryPoId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-summary">Load Summary</button>
+        </form>
+        @if (Model.LastSummary != null)
+        {
+            <table class="ds-table ds-mt-3">
+                <tbody>
+                    <tr><td>Current Amendment</td><td>@(Model.LastSummary.CurrentAmendmentNumber ?? "(none)")</td></tr>
+                    <tr><td>Status</td><td>@(Model.LastSummary.CurrentStatus?.ToString() ?? "(none)")</td></tr>
+                    <tr><td>Reason</td><td>@(Model.LastSummary.CurrentReason?.ToString() ?? "(none)")</td></tr>
+                    <tr><td>History Count</td><td>@Model.LastSummary.TotalAmendmentsInHistory</td></tr>
+                    <tr><td>Demand Links Affected</td><td>@Model.LastSummary.AffectedDemandLinksInCurrent</td></tr>
+                    <tr><td>Production Orders Affected</td><td>@Model.LastSummary.AffectedProductionOrdersInCurrent</td></tr>
+                    <tr><td>Ship-Date Risk</td><td>@Model.LastSummary.ShipDateRiskFlag</td></tr>
+                    <tr><td>Total Value Δ</td><td>@Model.LastSummary.TotalValueDelta.ToString("N4")</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R2. Load History</h2>
+        <form method="post" asp-page-handler="LoadHistory">
+            <div class="ds-form-row"><label class="ds-label">PurchaseOrder ID</label><input type="number" class="ds-input" asp-for="HistoryPoId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-history">Load History</button>
+        </form>
+        @if (Model.LastHistory != null && Model.LastHistory.Count > 0)
+        {
+            <table class="ds-table ds-mt-3">
+                <thead>
+                    <tr><th>ID</th><th>Number</th><th>Status</th><th>Reason</th><th>Current</th><th>Created</th><th>Closed</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in Model.LastHistory)
+                    {
+                        <tr>
+                            <td>@a.Id</td>
+                            <td>@a.AmendmentNumber</td>
+                            <td>@a.Status</td>
+                            <td>@a.Reason</td>
+                            <td>@a.IsCurrent</td>
+                            <td>@a.CreatedAt.ToString("u")</td>
+                            <td>@(a.ClosedAtUtc?.ToString("u") ?? "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>

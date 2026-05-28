@@ -82,7 +82,14 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
                 "(must be Approved, Sent, or PartiallyReceived).");
         }
 
-        await using var tx = await _db.Database.BeginTransactionAsync(ct);
+        // PR-17 P1 fix: when called inside an outer transaction (e.g., from
+        // PoAmendmentService.ApplyAmendmentAsync), enlist in it rather than
+        // starting a nested transaction. EF Core / Npgsql does not support
+        // nested transactions on the same connection, and a self-commit here
+        // would split-brain a rollback of the outer scope.
+        var existingTx = _db.Database.CurrentTransaction;
+        var tx = existingTx ?? await _db.Database.BeginTransactionAsync(ct);
+        var ownsTx = existingTx == null;
         try
         {
             var nowUtc = DateTime.UtcNow;
@@ -150,7 +157,10 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
             header.AcknowledgmentNumber = BuildAckNumber(nowUtc.Year, header.Id);
             await _db.SaveChangesAsync(ct);
 
-            await tx.CommitAsync(ct);
+            // Only commit if we own the transaction. When the caller owns it
+            // (e.g., PoAmendmentService.ApplyAmendmentAsync), the outer scope
+            // decides whether to commit or roll back the entire compound op.
+            if (ownsTx) await tx.CommitAsync(ct);
 
             return Result.Success(new RequestAcknowledgmentResult(
                 header.Id,
@@ -162,12 +172,19 @@ public class PoAcknowledgmentService : IPoAcknowledgmentService
         }
         catch (Exception ex)
         {
-            await tx.RollbackAsync(ct);
+            // Only roll back if we own the transaction; let the outer scope
+            // decide when the caller owns it (enlisted-transaction pattern).
+            if (ownsTx) await tx.RollbackAsync(ct);
             _logger.LogError(ex,
                 "RequestAcknowledgmentAsync failed for PO {PurchaseOrderId}",
                 request.PurchaseOrderId);
             return Result.Failure<RequestAcknowledgmentResult>(
                 $"Failed to create acknowledgment: {ex.Message}");
+        }
+        finally
+        {
+            // Dispose the transaction we started; do nothing if it's the outer scope's.
+            if (ownsTx) await tx.DisposeAsync();
         }
     }
 
