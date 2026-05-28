@@ -447,6 +447,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<PurchaseOrderRelease> PurchaseOrderReleases => Set<PurchaseOrderRelease>();
         public DbSet<GoodsReceipt> GoodsReceipts => Set<GoodsReceipt>();
         public DbSet<GoodsReceiptLine> GoodsReceiptLines => Set<GoodsReceiptLine>();
+
+        // Sprint 15.1 PR-2 — Production Supply Demand unified demand record + M:M allocation.
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionSupplyDemand> ProductionSupplyDemands
+            => Set<Abs.FixedAssets.Models.Production.ProductionSupplyDemand>();
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionSupplyAllocation> ProductionSupplyAllocations
+            => Set<Abs.FixedAssets.Models.Production.ProductionSupplyAllocation>();
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5384,6 +5390,148 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.PackLevelId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ──────────────────────────────────────────────────────────────
+            // Sprint 15.1 PR-2 — ProductionSupplyDemand + ProductionSupplyAllocation
+            // ──────────────────────────────────────────────────────────────
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionSupplyDemand>(e =>
+            {
+                // Enum defaults per HARD LOCK feedback_b6_enum_defaults_must_match_model.md
+                e.Property(x => x.SourceType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandSourceType.BomLine);
+                e.Property(x => x.SupplyPolicy)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.SupplyPolicy.BuyDirectToJob);
+                e.Property(x => x.SourceStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandSourceStatus.NotDetermined);
+                e.Property(x => x.SupplyStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandSupplyStatus.NotSupplied);
+                e.Property(x => x.ShortageStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandShortageStatus.NoShortage);
+                e.Property(x => x.CostStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandCostStatus.NotCommitted);
+                e.Property(x => x.AlertStatus)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.DemandAlertStatus.None);
+
+                e.HasIndex(x => x.DemandNumber).IsUnique();
+                e.HasIndex(x => new { x.ProductionOrderId, x.BomLineId });
+                e.HasIndex(x => x.SupplyStatus);
+                e.HasIndex(x => x.ShortageStatus);
+                e.HasIndex(x => x.AlertStatus);
+
+                e.HasOne(x => x.ProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProductionOrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.BomLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.BomLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ParentDemand)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentDemandId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Customer)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.BuyerUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.BuyerUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PlannerUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.PlannerUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WorkCenter)
+                    .WithMany()
+                    .HasForeignKey(x => x.WorkCenterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Warehouse)
+                    .WithMany()
+                    .HasForeignKey(x => x.WarehouseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.BinLocation)
+                    .WithMany()
+                    .HasForeignKey(x => x.BinLocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.LinkedPurchaseOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedPurchaseOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedPurchaseOrderLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedPurchaseOrderLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedChildProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedChildProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedGoodsReceipt)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedGoodsReceiptId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedVendorInvoice)
+                    .WithMany()
+                    .HasForeignKey(x => x.LinkedVendorInvoiceId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionSupplyAllocation>(e =>
+            {
+                e.Property(x => x.SupplyType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.AllocationSupplyType.PurchaseOrderLine);
+                e.Property(x => x.Status)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.AllocationStatus.Proposed);
+
+                e.HasIndex(x => x.ProductionSupplyDemandId);
+                e.HasIndex(x => new { x.SupplyType, x.SupplyRecordId, x.SupplyRecordLineId });
+                e.HasIndex(x => x.Status);
+
+                e.HasOne(x => x.ProductionSupplyDemand)
+                    .WithMany(d => d.Allocations)
+                    .HasForeignKey(x => x.ProductionSupplyDemandId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.PurchaseOrderLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ChildProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.ChildProductionOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
             });
         }
 
