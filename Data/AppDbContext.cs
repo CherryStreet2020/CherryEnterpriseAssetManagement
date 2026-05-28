@@ -457,6 +457,12 @@ namespace Abs.FixedAssets.Data
         // Sprint 15.1 PR-3 — PO line ↔ Demand consolidation traceability link.
         public DbSet<PurchaseOrderLineDemandLink> PurchaseOrderLineDemandLinks
             => Set<PurchaseOrderLineDemandLink>();
+
+        // Sprint 15.1 PR-4 — Subcontract Operation + Dual Demand binding.
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractOperation> SubcontractOperations
+            => Set<Abs.FixedAssets.Models.Production.SubcontractOperation>();
+        public DbSet<Abs.FixedAssets.Models.Production.SubcontractDemand> SubcontractDemands
+            => Set<Abs.FixedAssets.Models.Production.SubcontractDemand>();
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5557,6 +5563,55 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.BomLineId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ──────────────────────────────────────────────────────────────
+            // Sprint 15.1 PR-4 — SubcontractOperation + SubcontractDemand
+            // ──────────────────────────────────────────────────────────────
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractOperation>(e =>
+            {
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractOperationStatus.NotReady);
+                e.Property(x => x.PoCreationStatus).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractPoCreationStatus.NotCreated);
+                e.Property(x => x.ShipmentStatus).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractShipmentStatus.NotShipped);
+                e.Property(x => x.ReceiptStatus).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractReceiptStatus.NotReceived);
+                e.Property(x => x.CostMethod).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractCostMethod.FixedPriceFromPo);
+                e.Property(x => x.FreightResponsibility).HasDefaultValue(Abs.FixedAssets.Models.Production.FreightResponsibility.Us);
+
+                e.HasIndex(x => new { x.CompanyId, x.ProductionOrderId, x.OperationSequence }).IsUnique();
+                e.HasIndex(x => x.Status);
+                e.HasIndex(x => x.SupplierId);
+
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ServiceItem).WithMany().HasForeignKey(x => x.ServiceItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorWipWarehouse).WithMany().HasForeignKey(x => x.VendorWipWarehouseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ShipFromLocation).WithMany().HasForeignKey(x => x.ShipFromLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ReturnToLocation).WithMany().HasForeignKey(x => x.ReturnToLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ServicePurchaseOrderLine).WithMany().HasForeignKey(x => x.ServicePurchaseOrderLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.SubcontractDemand>(e =>
+            {
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Production.SubcontractDemandStatus.Open);
+
+                e.HasIndex(x => x.SubcontractOperationId).IsUnique();
+                e.HasIndex(x => x.ProductionOrderId);
+                e.HasIndex(x => x.Status);
+
+                e.HasOne(x => x.SubcontractOperation).WithMany(s => s.Demands)
+                    .HasForeignKey(x => x.SubcontractOperationId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ServicePurchaseDemand).WithMany().HasForeignKey(x => x.ServicePurchaseDemandId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WipMovementDemand).WithMany().HasForeignKey(x => x.WipMovementDemandId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WipItem).WithMany().HasForeignKey(x => x.WipItemId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
             });
 
             modelBuilder.Entity<PurchaseOrderLineDemandLink>(e =>

@@ -588,6 +588,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionSupply
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoLineDemandLinkService,
     Abs.FixedAssets.Services.Purchasing.PoLineDemandLinkService>();
 
+// Sprint 15.1 PR-4 (2026-05-28) — Subcontract Operation service.
+// Creates subcontract ops, generates dual-demand pattern (service + WIP),
+// transitions 12-state lifecycle, records shipment/receipt back from vendor.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractOperationService,
+    Abs.FixedAssets.Services.Production.SubcontractOperationService>();
+
 // ADR-002 / S1-5: AP posting (approve / payment / void) with three-way
 // match gate via InvoiceMatchingService.
 builder.Services.AddScoped<Abs.FixedAssets.Services.AccountsPayable.ApPostingService>();
