@@ -463,6 +463,11 @@ namespace Abs.FixedAssets.Data
             => Set<Abs.FixedAssets.Models.Production.SubcontractOperation>();
         public DbSet<Abs.FixedAssets.Models.Production.SubcontractDemand> SubcontractDemands
             => Set<Abs.FixedAssets.Models.Production.SubcontractDemand>();
+
+        // Sprint 15.1 PR-5 — Vendor WIP physical-lot tracking (3 entities).
+        public DbSet<VendorLocation> VendorLocations => Set<VendorLocation>();
+        public DbSet<VendorWipBalance> VendorWipBalances => Set<VendorWipBalance>();
+        public DbSet<VendorWipTransaction> VendorWipTransactions => Set<VendorWipTransaction>();
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -5609,6 +5614,72 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.ServicePurchaseDemand).WithMany().HasForeignKey(x => x.ServicePurchaseDemandId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.WipMovementDemand).WithMany().HasForeignKey(x => x.WipMovementDemandId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.WipItem).WithMany().HasForeignKey(x => x.WipItemId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ──────────────────────────────────────────────────────────────
+            // Sprint 15.1 PR-5 — Vendor WIP tracking (3 entities)
+            // ──────────────────────────────────────────────────────────────
+            modelBuilder.Entity<VendorLocation>(e =>
+            {
+                e.Property(x => x.LocationType).HasDefaultValue(VendorLocationType.ProcessingPlant);
+
+                e.HasIndex(x => new { x.CompanyId, x.SupplierId, x.LocationCode }).IsUnique();
+                e.HasIndex(x => x.SupplierId);
+
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.LinkedWarehouse).WithMany().HasForeignKey(x => x.LinkedWarehouseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedBinLocation).WithMany().HasForeignKey(x => x.LinkedBinLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.DefaultReceivingLocation).WithMany().HasForeignKey(x => x.DefaultReceivingLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<VendorWipBalance>(e =>
+            {
+                e.Property(x => x.InventoryStatus).HasDefaultValue(VendorWipInventoryStatus.InTransitToVendor);
+                e.Property(x => x.Ownership).HasDefaultValue(VendorWipOwnership.Us);
+                e.Property(x => x.ValuationStatus).HasDefaultValue(VendorWipValuationStatus.Valued);
+                e.Property(x => x.QualityStatus).HasDefaultValue(VendorWipQualityStatus.Unknown);
+
+                e.HasIndex(x => new { x.ProductionOrderId, x.OperationSequence, x.SupplierId });
+                e.HasIndex(x => x.SupplierId);
+                e.HasIndex(x => x.InventoryStatus);
+
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.VendorLocation).WithMany(l => l.Balances).HasForeignKey(x => x.VendorLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.VendorWipWarehouse).WithMany().HasForeignKey(x => x.VendorWipWarehouseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.SubcontractOperation).WithMany().HasForeignKey(x => x.SubcontractOperationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<VendorWipTransaction>(e =>
+            {
+                e.Property(x => x.TransactionType).HasDefaultValue(VendorWipTransactionType.ShipToVendor);
+
+                e.HasIndex(x => new { x.CompanyId, x.TransactionNumber }).IsUnique();
+                e.HasIndex(x => x.VendorWipBalanceId);
+                e.HasIndex(x => new { x.ProductionOrderId, x.OperationSequence });
+                e.HasIndex(x => x.TransactionType);
+
+                e.HasOne(x => x.VendorWipBalance).WithMany(b => b.Transactions).HasForeignKey(x => x.VendorWipBalanceId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProductionOrder).WithMany().HasForeignKey(x => x.ProductionOrderId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.SubcontractOperation).WithMany().HasForeignKey(x => x.SubcontractOperationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.VendorLocation).WithMany().HasForeignKey(x => x.VendorLocationId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PurchaseOrderLine).WithMany().HasForeignKey(x => x.PurchaseOrderLineId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item).WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.ReverseOfTransaction).WithMany().HasForeignKey(x => x.ReverseOfTransactionId).OnDelete(DeleteBehavior.SetNull);
                 e.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(x => x.Site).WithMany().HasForeignKey(x => x.SiteId).OnDelete(DeleteBehavior.SetNull);
 
