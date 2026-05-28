@@ -454,6 +454,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostTransactionS
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostRollupService,
     Abs.FixedAssets.Services.Production.CostRollupService>();
 
+// Sprint 14.4 PR-4 (2026-05-28) — Variance + Close Service.
+// 5+ variance computations + atomic PRO close workflow + reopening.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionVarianceCloseService,
+    Abs.FixedAssets.Services.Production.ProductionVarianceCloseService>();
+
 // B8 PR-PRO-11 (2026-05-28) — 14 Transaction Validation Services.
 // Guards on PRO-3/4/5 transaction pipeline. IEnumerable<IProductionTransactionValidator>
 // discovered by TransactionValidationPipeline for chain-of-responsibility execution.
