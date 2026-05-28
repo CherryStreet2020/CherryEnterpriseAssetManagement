@@ -216,6 +216,35 @@ public class PoLineDemandLinkService : IPoLineDemandLinkService
                 : $"{link.Notes}\n[receipt {DateTime.UtcNow:O}: {request.Notes}]";
         }
 
+        // Codex P1 fix: keep the mirrored ProductionSupplyAllocation in sync.
+        // Without this, RefreshSupplyStatusAsync rolls up ConsumedQuantity
+        // from allocations (which we never touched) and the demand stays
+        // "unfulfilled" even after the link is FullyReceived.
+        var mirror = await _db.Set<ProductionSupplyAllocation>()
+            .Where(a => a.ProductionSupplyDemandId == link.ProductionSupplyDemandId &&
+                        a.SupplyType == AllocationSupplyType.PurchaseOrderLine &&
+                        a.SupplyRecordId == link.PurchaseOrderLineId &&
+                        a.SupplyRecordLineId == link.PurchaseOrderReleaseId &&
+                        a.Status != AllocationStatus.Released &&
+                        a.Status != AllocationStatus.Cancelled)
+            .FirstOrDefaultAsync(ct);
+        if (mirror != null)
+        {
+            mirror.ConsumedQuantity += request.QuantityReceived;
+            mirror.RemainingQuantity = Math.Max(0m, mirror.AllocatedQuantity - mirror.ConsumedQuantity);
+            if (mirror.FirstConsumedAtUtc == null)
+                mirror.FirstConsumedAtUtc = request.ReceivedAtUtc ?? DateTime.UtcNow;
+            if (mirror.ConsumedQuantity >= mirror.AllocatedQuantity)
+            {
+                mirror.Status = AllocationStatus.FullyConsumed;
+                mirror.FullyConsumedAtUtc = request.ReceivedAtUtc ?? DateTime.UtcNow;
+            }
+            else
+            {
+                mirror.Status = AllocationStatus.PartiallyConsumed;
+            }
+        }
+
         await _db.SaveChangesAsync(ct);
         await _demandService.RefreshSupplyStatusAsync(link.ProductionSupplyDemandId, ct);
 
@@ -250,6 +279,27 @@ public class PoLineDemandLinkService : IPoLineDemandLinkService
         link.Notes = string.IsNullOrEmpty(link.Notes)
             ? $"Released by {releasedBy ?? "system"}: {reasonNotes}"
             : $"{link.Notes}\n[Released by {releasedBy ?? "system"}: {reasonNotes}]";
+
+        // Codex P1 fix: release the mirrored ProductionSupplyAllocation too.
+        // Without this, RefreshSupplyStatusAsync still sees the allocation as
+        // Active and the demand stays "supplied" even though the buyer released
+        // the link — shortages and remaining demand never reopen.
+        var mirror = await _db.Set<ProductionSupplyAllocation>()
+            .Where(a => a.ProductionSupplyDemandId == link.ProductionSupplyDemandId &&
+                        a.SupplyType == AllocationSupplyType.PurchaseOrderLine &&
+                        a.SupplyRecordId == link.PurchaseOrderLineId &&
+                        a.SupplyRecordLineId == link.PurchaseOrderReleaseId &&
+                        a.Status != AllocationStatus.Released &&
+                        a.Status != AllocationStatus.Cancelled)
+            .FirstOrDefaultAsync(ct);
+        if (mirror != null)
+        {
+            mirror.Status = AllocationStatus.Released;
+            mirror.ReleasedAtUtc = DateTime.UtcNow;
+            mirror.Notes = string.IsNullOrEmpty(mirror.Notes)
+                ? $"Released via PoLineDemandLink #{link.Id}: {reasonNotes}"
+                : $"{mirror.Notes}\n[Released via PoLineDemandLink #{link.Id}: {reasonNotes}]";
+        }
 
         await _db.SaveChangesAsync(ct);
         await _demandService.RefreshSupplyStatusAsync(link.ProductionSupplyDemandId, ct);
