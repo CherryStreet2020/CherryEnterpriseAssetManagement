@@ -218,6 +218,147 @@ public sealed record TransitionLifecycleResult(
     string? Notes);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PR-12 TAB RECORDS — 4 tab-specific row shapes
+//
+// Each PR-12 tab renders data the generic 13-type ProductionSupplyDemand grid
+// can't represent well — subcontract op lifecycle quartet, vendor-WIP qty
+// buckets + aging, receipt lifecycle, and inspection-disposition holds across
+// two heterogeneous receipt models. Each has its own row record + page record.
+// ═══════════════════════════════════════════════════════════════════════════
+
+public sealed record SubcontractTabRow(
+    int SubcontractOperationId,
+    int ProductionOrderId,
+    string? ProductionOrderNumber,
+    int OperationSequence,
+    string OperationCode,
+    string OperationDescription,
+    int? SupplierId,
+    string? SupplierName,
+    int? ServicePurchaseOrderLineId,
+    SubcontractOperationStatus OpStatus,
+    SubcontractPoCreationStatus PoStatus,
+    SubcontractShipmentStatus ShipmentStatus,
+    SubcontractReceiptStatus ReceiptStatusForOp,
+    decimal QuantityToShip,
+    decimal QuantityShipped,
+    decimal QuantityReceivedBack,
+    decimal QuantityAccepted,
+    decimal QuantityRejected,
+    decimal QuantityScrappedAtVendor,
+    DateTime? RequiredShipDate,
+    DateTime? RequiredBackDate,
+    int? DaysLateBack,
+    bool CertRequired,
+    bool InspectionOnReturn,
+    string NextActionHint);
+
+public sealed record SubcontractTabPage(
+    int TotalCount,
+    IReadOnlyList<SubcontractTabRow> Rows);
+
+public sealed record VendorWipTabRow(
+    int VendorWipBalanceId,
+    int ProductionOrderId,
+    string? ProductionOrderNumber,
+    int OperationSequence,
+    int SupplierId,
+    string? SupplierName,
+    int? VendorLocationId,
+    string? VendorLocationDescription,
+    string? PartNumber,
+    string? Revision,
+    string? LotNumber,
+    decimal QuantityShipped,
+    decimal QuantityAtVendor,
+    decimal QuantityReceivedBack,
+    decimal QuantityAccepted,
+    decimal QuantityRejected,
+    decimal QuantityScrappedAtVendor,
+    decimal UnitValue,
+    decimal TotalValueAtVendor,
+    VendorWipInventoryStatus InventoryStatus,
+    VendorWipQualityStatus QualityStatus,
+    VendorWipOwnership Ownership,
+    int AgingDaysAtVendor,
+    DateTime? RequiredReturnDate,
+    int? DaysLateReturn,
+    DateTime? LastTransactionUtc);
+
+public sealed record VendorWipTabPage(
+    int TotalCount,
+    decimal TotalValueAtVendorUsd,
+    int OverdueReturnCount,
+    IReadOnlyList<VendorWipTabRow> Rows);
+
+public sealed record ReceiptsTabRow(
+    int SubcontractReceiptId,
+    string ReceiptNumber,
+    int SubcontractOperationId,
+    int ProductionOrderId,
+    string? ProductionOrderNumber,
+    int OperationSequence,
+    int SupplierId,
+    string? SupplierName,
+    string? VendorPackingSlip,
+    DateTime ReceiptDate,
+    SubcontractReceiptLifecycle Status,
+    bool CertReceived,
+    bool InspectionRequired,
+    bool ApprovalRequired,
+    int LineCount,
+    decimal TotalReceived,
+    decimal TotalAccepted,
+    decimal TotalRejected,
+    decimal TotalScrappedAtVendor,
+    DateTime? PostedUtc,
+    string? ApprovedBy);
+
+public sealed record ReceiptsTabPage(
+    int TotalCount,
+    int OpenDraftCount,
+    int PendingApprovalCount,
+    IReadOnlyList<ReceiptsTabRow> Rows);
+
+public enum InspectionHoldSourceKind
+{
+    /// <summary>Standard incoming inspection (GoodsReceipt path).</summary>
+    PurchaseOrderReceipt = 0,
+    /// <summary>Subcontract receipt held pending inspection/cert/quality review.</summary>
+    SubcontractReceipt = 1,
+}
+
+public sealed record InspectionHoldRow(
+    InspectionHoldSourceKind SourceKind,
+    int SourceLineId,
+    int SourceHeaderId,
+    string SourceHeaderNumber,
+    int? PurchaseOrderId,
+    string? PurchaseOrderNumber,
+    int? ProductionOrderId,
+    string? ProductionOrderNumber,
+    int? OperationSequence,
+    int? SupplierId,
+    string? SupplierName,
+    string? PartNumber,
+    string? Revision,
+    string? LotNumber,
+    decimal QuantityReceived,
+    decimal QuantityAccepted,
+    decimal QuantityRejected,
+    decimal QuantityOnHold,
+    string HoldReason,
+    DateTime ReceiptDate,
+    int DaysOnHold,
+    string? NcrReference,
+    string NextActionHint);
+
+public sealed record InspectionHoldsTabPage(
+    int TotalCount,
+    int OldHoldsCount,
+    IReadOnlyList<InspectionHoldRow> Rows);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SERVICE INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -267,5 +408,54 @@ public interface IPurchasingControlCenterService
     /// </summary>
     Task<Result<TransitionLifecycleResult>> TransitionLifecycleAsync(
         TransitionLifecycleRequest request,
+        CancellationToken ct = default);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PR-12 TAB READS — 4 tab-specific reads (§21 tabs 3-6)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// §21 tab 3 — Subcontract. List of active SubcontractOperations across
+    /// PROs. Reads SubcontractOperation + Supplier + ProductionOrder. Filters
+    /// out Closed ops. Used by the Subcontract tab on /Purchasing/ControlCenter.
+    /// </summary>
+    Task<Result<SubcontractTabPage>> GetSubcontractTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 4 — Vendor WIP. VendorWipBalance rows with QuantityAtVendor &gt; 0
+    /// (i.e., material currently outside at a supplier). Includes aging +
+    /// total value summaries used by the page header/footer.
+    /// </summary>
+    Task<Result<VendorWipTabPage>> GetVendorWipTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 5 — Receipts. SubcontractReceipt headers across all lifecycle
+    /// states (Draft / Posting / Posted / PendingApproval / Approved /
+    /// Reversed / Closed). Includes line aggregates per receipt.
+    /// </summary>
+    Task<Result<ReceiptsTabPage>> GetReceiptsTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 6 — Inspection Holds. Heterogeneous list of:
+    ///   (a) GoodsReceiptLine rows with InspectionRequired = true AND any of:
+    ///       direct-to-job awaiting post (DirectToJobPostedUtc IS NULL while
+    ///       IsDirectToJob), parent receipt status Inspecting, or partial
+    ///       inspection (QuantityReceived &gt; 0 and accepted+rejected &lt; received);
+    ///   (b) SubcontractReceiptLine rows with disposition HoldForInspection /
+    ///       HoldForDocs / HoldForQuality (PendingApproval lives on Receipts
+    ///       tab via its own header counter, deliberately excluded here so a
+    ///       row never counts on two tabs with conflicting next-action hints).
+    /// Each row has a SourceKind discriminator so the UI can route detail
+    /// links correctly. Skip/Take is split across the two source paths
+    /// (Skip/2 + Take/2 each) and merged before sorting by days-on-hold desc.
+    /// </summary>
+    Task<Result<InspectionHoldsTabPage>> GetInspectionHoldsTabAsync(
+        PurchasingQueueFilter filter,
         CancellationToken ct = default);
 }

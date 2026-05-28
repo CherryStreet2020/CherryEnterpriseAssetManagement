@@ -63,6 +63,10 @@ public sealed class PurchasingControlCenterProbeModel : PageModel
     public PurchasingQueuePage? Queue { get; private set; }
     public PurchasingExceptionLane? Exceptions { get; private set; }
     public PurchasingLifecycleState? Lifecycle { get; private set; }
+    public SubcontractTabPage? SubcontractTab { get; private set; }
+    public VendorWipTabPage? VendorWipTab { get; private set; }
+    public ReceiptsTabPage? ReceiptsTab { get; private set; }
+    public InspectionHoldsTabPage? InspectionHoldsTab { get; private set; }
     public int DemandTotalInTenant { get; private set; }
     public IReadOnlyList<ProductionSupplyDemand> RecentDemands { get; private set; } = Array.Empty<ProductionSupplyDemand>();
 
@@ -168,6 +172,82 @@ public sealed class PurchasingControlCenterProbeModel : PageModel
         => RunTransitionAsync(BuyerActionTransition.Cancel, ct);
     public Task<IActionResult> OnPostReopenAsync(CancellationToken ct)
         => RunTransitionAsync(BuyerActionTransition.Reopen, ct);
+
+    // ── PR-12 tab probes ────────────────────────────────────────────────
+
+    public async Task<IActionResult> OnPostLoadSubcontractTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetSubcontractTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            SubcontractTab = r.Value;
+            var first = SubcontractTab.Rows.FirstOrDefault();
+            Set(true,
+                $"Subcontract tab: {SubcontractTab.TotalCount} active op(s); showing {SubcontractTab.Rows.Count}. " +
+                (first is null
+                    ? "No active subcontract operations in scope."
+                    : $"Top row: op #{first.SubcontractOperationId} ({first.OperationCode}) " +
+                      $"status={first.OpStatus}, supplier={first.SupplierName ?? "?"} " +
+                      $"days late={first.DaysLateBack?.ToString() ?? "-"}."));
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadVendorWipTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetVendorWipTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            VendorWipTab = r.Value;
+            Set(true,
+                $"Vendor WIP tab: {VendorWipTab.TotalCount} balance(s) at supplier; " +
+                $"${VendorWipTab.TotalValueAtVendorUsd:N2} total value; " +
+                $"{VendorWipTab.OverdueReturnCount} overdue return(s); " +
+                $"showing {VendorWipTab.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadReceiptsTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetReceiptsTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            ReceiptsTab = r.Value;
+            Set(true,
+                $"Receipts tab: {ReceiptsTab.TotalCount} active receipt(s); " +
+                $"{ReceiptsTab.OpenDraftCount} draft(s); " +
+                $"{ReceiptsTab.PendingApprovalCount} pending approval; " +
+                $"showing {ReceiptsTab.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostLoadInspectionHoldsTabAsync(CancellationToken ct)
+    {
+        var r = await _svc.GetInspectionHoldsTabAsync(
+            new PurchasingQueueFilter(SiteId: SiteId, Take: 25), ct);
+        if (r.IsSuccess && r.Value is not null)
+        {
+            InspectionHoldsTab = r.Value;
+            Set(true,
+                $"Inspection Holds tab: {InspectionHoldsTab.TotalCount} hold(s); " +
+                $"{InspectionHoldsTab.OldHoldsCount} aged 7+ days; " +
+                $"showing {InspectionHoldsTab.Rows.Count}.");
+        }
+        else Set(false, r.Error);
+        await LoadCommonAsync(ct);
+        return Page();
+    }
 
     private async Task<IActionResult> RunTransitionAsync(BuyerActionTransition action, CancellationToken ct)
     {

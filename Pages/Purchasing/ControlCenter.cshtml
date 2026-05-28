@@ -54,7 +54,342 @@
         </div>
     }
 
-    @if (Model.ActiveTabIsLive && Model.Queue is { } pq)
+    @* ─── PR-12 Subcontract tab body ─────────────────────────────────── *@
+    @if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSubcontract
+         && Model.SubcontractTab is { } sct)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-subcontract">Subcontract operations
+                        <span style="color:var(--text-muted);font-weight:400;">· @sct.TotalCount active op(s)</span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (sct.Rows.Count == 0) { <text>No active subcontract ops in scope</text> }
+                        else { <text>Showing @(Model.Skip + 1)–@(Model.Skip + sct.Rows.Count) of @sct.TotalCount</text> }
+                    </span>
+                </div>
+                @if (sct.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-handshake" style="font-size:48px;color:var(--info,#0c4a6e);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No active subcontract operations.</p>
+                        <p style="color:var(--text-muted);">Subcontract ops appear here as PROs are released with outside-processing routing steps.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Op #</th>
+                                        <th>PRO</th>
+                                        <th>Seq · Code</th>
+                                        <th>Supplier</th>
+                                        <th>Op status</th>
+                                        <th>Ship</th>
+                                        <th>Receive</th>
+                                        <th>To ship / Recv</th>
+                                        <th>Required back</th>
+                                        <th>Days late</th>
+                                        <th>Flags</th>
+                                        <th>Next action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in sct.Rows)
+                                {
+                                    <tr data-testid="pcc-subcontract-row-@r.SubcontractOperationId">
+                                        <td><strong>#@r.SubcontractOperationId</strong></td>
+                                        <td><a href="/Production/Details/@r.ProductionOrderId">@(r.ProductionOrderNumber ?? $"#{r.ProductionOrderId}")</a></td>
+                                        <td>@r.OperationSequence · <span style="font-family:var(--font-mono,monospace);">@r.OperationCode</span></td>
+                                        <td>@(r.SupplierName ?? "—")</td>
+                                        <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.SubcontractOpStatusTone(r.OpStatus)))">@r.OpStatus</span></td>
+                                        <td>@r.ShipmentStatus</td>
+                                        <td>@r.ReceiptStatusForOp</td>
+                                        <td>@r.QuantityToShip.ToString("N2") / @r.QuantityReceivedBack.ToString("N2")</td>
+                                        <td>@(r.RequiredBackDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                        <td>
+                                            @if (r.DaysLateBack.HasValue)
+                                            { <span style="color:var(--danger);">@r.DaysLateBack d</span> }
+                                            else { <text>—</text> }
+                                        </td>
+                                        <td>
+                                            @if (r.CertRequired) { <span title="Cert required" style="color:var(--warning);">C</span> }
+                                            @if (r.InspectionOnReturn) { <span title="Inspection on return" style="color:var(--info,#0c4a6e);">I</span> }
+                                        </td>
+                                        <td><em style="color:var(--text-muted);">@r.NextActionHint</em></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── PR-12 Vendor WIP tab body ──────────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabVendorWip
+             && Model.VendorWipTab is { } vwt)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-vendor-wip">Vendor WIP
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @vwt.TotalCount balance(s) · <strong style="color:var(--text-primary);">$@vwt.TotalValueAtVendorUsd.ToString("N0")</strong>
+                            @if (vwt.OverdueReturnCount > 0)
+                            { <text> · <span style="color:var(--danger);">@vwt.OverdueReturnCount overdue</span></text> }
+                        </span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (vwt.Rows.Count == 0) { <text>No material at suppliers right now</text> }
+                        else { <text>Showing @(Model.Skip + 1)–@(Model.Skip + vwt.Rows.Count) of @vwt.TotalCount</text> }
+                    </span>
+                </div>
+                @if (vwt.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-warehouse" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No material currently at supplier locations.</p>
+                        <p style="color:var(--text-muted);">VendorWIP balances appear when WIP is shipped out for outside processing.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Bal #</th>
+                                        <th>PRO</th>
+                                        <th>Seq</th>
+                                        <th>Supplier</th>
+                                        <th>Location</th>
+                                        <th>Part · Rev</th>
+                                        <th>Lot</th>
+                                        <th>At vendor</th>
+                                        <th>Value</th>
+                                        <th>Status</th>
+                                        <th>Quality</th>
+                                        <th>Aging</th>
+                                        <th>Required back</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in vwt.Rows)
+                                {
+                                    <tr data-testid="pcc-vendor-wip-row-@r.VendorWipBalanceId">
+                                        <td><strong>#@r.VendorWipBalanceId</strong></td>
+                                        <td><a href="/Production/Details/@r.ProductionOrderId">@(r.ProductionOrderNumber ?? $"#{r.ProductionOrderId}")</a></td>
+                                        <td>@r.OperationSequence</td>
+                                        <td>@(r.SupplierName ?? "—")</td>
+                                        <td>@(r.VendorLocationDescription ?? "—")</td>
+                                        <td><span style="font-family:var(--font-mono,monospace);">@(r.PartNumber ?? "—")</span> @r.Revision</td>
+                                        <td>@(r.LotNumber ?? "—")</td>
+                                        <td>@r.QuantityAtVendor.ToString("N2")</td>
+                                        <td>$@r.TotalValueAtVendor.ToString("N2")</td>
+                                        <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.VendorWipInventoryTone(r.InventoryStatus)))">@r.InventoryStatus</span></td>
+                                        <td>@r.QualityStatus</td>
+                                        <td>@r.AgingDaysAtVendor d</td>
+                                        <td>
+                                            @if (r.RequiredReturnDate.HasValue)
+                                            {
+                                                var d = r.RequiredReturnDate.Value.ToString("yyyy-MM-dd");
+                                                if (r.DaysLateReturn.HasValue)
+                                                { <span style="color:var(--danger);">@d (@r.DaysLateReturn d late)</span> }
+                                                else
+                                                { <text>@d</text> }
+                                            }
+                                            else { <text>—</text> }
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── PR-12 Receipts tab body ────────────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabReceipts
+             && Model.ReceiptsTab is { } rct)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-receipts">Subcontract receipts
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @rct.TotalCount active
+                            @if (rct.OpenDraftCount > 0) { <text> · @rct.OpenDraftCount draft</text> }
+                            @if (rct.PendingApprovalCount > 0)
+                            { <text> · <span style="color:var(--warning);">@rct.PendingApprovalCount pending approval</span></text> }
+                        </span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (rct.Rows.Count == 0) { <text>No active receipts</text> }
+                        else { <text>Showing @(Model.Skip + 1)–@(Model.Skip + rct.Rows.Count) of @rct.TotalCount</text> }
+                    </span>
+                </div>
+                @if (rct.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-box-open" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No active subcontract receipts.</p>
+                        <p style="color:var(--text-muted);">Receipts appear here as vendors return processed WIP — drafted, posting, posted, or pending approval.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Receipt #</th>
+                                        <th>PRO</th>
+                                        <th>Seq</th>
+                                        <th>Supplier</th>
+                                        <th>Packing slip</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Lines</th>
+                                        <th>Received</th>
+                                        <th>Accepted</th>
+                                        <th>Rejected</th>
+                                        <th>Cert / Insp</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in rct.Rows)
+                                {
+                                    <tr data-testid="pcc-receipt-row-@r.SubcontractReceiptId">
+                                        <td><strong>@r.ReceiptNumber</strong></td>
+                                        <td><a href="/Production/Details/@r.ProductionOrderId">@(r.ProductionOrderNumber ?? $"#{r.ProductionOrderId}")</a></td>
+                                        <td>@r.OperationSequence</td>
+                                        <td>@(r.SupplierName ?? "—")</td>
+                                        <td>@(r.VendorPackingSlip ?? "—")</td>
+                                        <td>@r.ReceiptDate.ToString("yyyy-MM-dd")</td>
+                                        <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75rem;font-weight:600;@(BadgeStyle(Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.ReceiptLifecycleTone(r.Status)))">@r.Status</span></td>
+                                        <td>@r.LineCount</td>
+                                        <td>@r.TotalReceived.ToString("N2")</td>
+                                        <td>@r.TotalAccepted.ToString("N2")</td>
+                                        <td>@r.TotalRejected.ToString("N2")</td>
+                                        <td>
+                                            @if (r.CertReceived) { <span title="Cert received" style="color:var(--success);">C✓</span> }
+                                            else if (r.InspectionRequired) { <span title="Inspection required" style="color:var(--warning);">I</span> }
+                                            else { <text>—</text> }
+                                        </td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── PR-12 Inspection Holds tab body ────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabInspectionHolds
+             && Model.InspectionHoldsTab is { } iht)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-inspection-holds">Inspection holds
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @iht.TotalCount hold(s)
+                            @if (iht.OldHoldsCount > 0)
+                            { <text> · <span style="color:var(--danger);">@iht.OldHoldsCount aged 7+ days</span></text> }
+                        </span>
+                    </h2>
+                    <span style="color:var(--text-muted);font-size:0.875rem;">
+                        @if (iht.Rows.Count == 0) { <text>No inspection holds in scope</text> }
+                        else { <text>Showing 1–@iht.Rows.Count of @iht.TotalCount</text> }
+                    </span>
+                </div>
+                @if (iht.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;">
+                        <i class="fas fa-flask" style="font-size:48px;color:var(--success);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No material on inspection hold.</p>
+                        <p style="color:var(--text-muted);">Lines from goods receipts and subcontract receipts that need inspection, cert, or quality review surface here.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Header</th>
+                                        <th>PO / PRO</th>
+                                        <th>Seq</th>
+                                        <th>Supplier</th>
+                                        <th>Part · Rev</th>
+                                        <th>Lot</th>
+                                        <th>Received</th>
+                                        <th>On hold</th>
+                                        <th>Reason</th>
+                                        <th>Aged</th>
+                                        <th>Next action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in iht.Rows)
+                                {
+                                    <tr data-testid="pcc-inspection-hold-@r.SourceKind-@r.SourceLineId">
+                                        <td>
+                                            <span style="font-size:0.75rem;color:var(--text-muted);">@(r.SourceKind == Abs.FixedAssets.Services.Purchasing.InspectionHoldSourceKind.PurchaseOrderReceipt ? "PO Receipt" : "Subcontract")</span>
+                                        </td>
+                                        <td><strong>@r.SourceHeaderNumber</strong></td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(r.PurchaseOrderNumber))
+                                            { <text>PO @r.PurchaseOrderNumber</text> }
+                                            @if (r.ProductionOrderId.HasValue)
+                                            {
+                                                if (!string.IsNullOrEmpty(r.PurchaseOrderNumber)) { <br /> }
+                                                <a href="/Production/Details/@r.ProductionOrderId">@(r.ProductionOrderNumber ?? $"PRO #{r.ProductionOrderId}")</a>
+                                            }
+                                            @if (string.IsNullOrEmpty(r.PurchaseOrderNumber) && !r.ProductionOrderId.HasValue)
+                                            { <text>—</text> }
+                                        </td>
+                                        <td>@(r.OperationSequence?.ToString() ?? "—")</td>
+                                        <td>@(r.SupplierName ?? "—")</td>
+                                        <td><span style="font-family:var(--font-mono,monospace);">@(r.PartNumber ?? "—")</span> @r.Revision</td>
+                                        <td>@(r.LotNumber ?? "—")</td>
+                                        <td>@r.QuantityReceived.ToString("N2")</td>
+                                        <td><strong>@r.QuantityOnHold.ToString("N2")</strong></td>
+                                        <td>@r.HoldReason</td>
+                                        <td>@(r.DaysOnHold >= 7
+                                                ? Html.Raw($"<span style=\"color:var(--danger);\">{r.DaysOnHold} d</span>")
+                                                : Html.Raw($"{r.DaysOnHold} d"))</td>
+                                        <td><em style="color:var(--text-muted);">@r.NextActionHint</em></td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
+    @* ─── Supply Demand / Buy-to-Job grid (PR-11) ────────────────────── *@
+    else if (Model.ActiveTabIsLive && Model.Queue is { } pq)
     {
         var queueLabel = Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob
             ? "Buy-to-Job demand"
@@ -197,41 +532,20 @@
                         </div>
                     </div>
 
-                    @* Pagination (P2.1 fix) *@
-                    @if (Model.HasPrev || Model.HasNext)
-                    {
-                        <div style="display:flex;justify-content:space-between;margin-top:16px;">
-                            <span>
-                                @if (Model.HasPrev)
-                                {
-                                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.PrevSkip" data-testid="pcc-prev">
-                                        <i class="fas fa-chevron-left"></i> Previous
-                                    </a>
-                                }
-                            </span>
-                            <span>
-                                @if (Model.HasNext)
-                                {
-                                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.NextSkip" data-testid="pcc-next">
-                                        Next <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                }
-                            </span>
-                        </div>
-                    }
+                    @* Pagination moved to a single block after the if-else chain
+                       so PR-12 tabs (Subcontract / Vendor WIP / Receipts /
+                       Inspection Holds) get the same Previous/Next affordance
+                       as Supply Demand / Buy-to-Job. *@
                 }
             </div>
         </section>
     }
     else if (!Model.ActiveTabIsLive)
     {
-        @* Soon-state — surfaces the §21 IA so users see the roadmap. *@
+        @* Soon-state — PR-12 closed Subcontract/Vendor WIP/Receipts/Inspection Holds.
+           Remaining soon tabs: POs / Expedites / Approvals / Cost Exceptions (PR-13). *@
         string tabName = Model.ActiveTab switch
         {
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSubcontract => "Subcontract",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabVendorWip => "Vendor WIP",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabReceipts => "Receipts",
-            Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabInspectionHolds => "Inspection Holds",
             Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabPos => "POs",
             Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabExpedites => "Expedites",
             Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabApprovals => "Approvals",
@@ -244,15 +558,47 @@
                     <i class="fas fa-road" style="font-size:48px;color:var(--info,#0c4a6e);"></i>
                     <h3 style="font-size:1.2rem;margin-top:12px;">@tabName tab coming soon</h3>
                     <p style="color:var(--text-muted);">
-                        The <strong>@tabName</strong> tab ships in PR-12 or PR-13 of the Wave 3 cascade — the §21 IA is locked in but the canvas isn't wired yet.
+                        The <strong>@tabName</strong> tab ships in PR-13 of the Wave 3 cascade — the §21 IA is locked in but the canvas isn't wired yet.
                     </p>
                     <p style="margin-top:12px;">
-                        Meanwhile, <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplyDemand">Supply Demand</a>
-                        and <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob">Buy-to-Job</a> are live.
+                        Meanwhile,
+                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplyDemand">Supply Demand</a>,
+                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabBuyToJob">Buy-to-Job</a>,
+                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSubcontract">Subcontract</a>,
+                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabVendorWip">Vendor WIP</a>,
+                        <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabReceipts">Receipts</a>,
+                        and <a href="?tab=@Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabInspectionHolds">Inspection Holds</a>
+                        are live.
                     </p>
                 </div>
             </div>
         </section>
+    }
+
+    @* Unified pagination for every live tab (P2.1 fix — PR-12 tabs also need
+       Previous/Next so a tenant with >50 active rows can reach the older
+       entries). HasPrev / HasNext / PrevSkip / NextSkip are tab-aware on the
+       page model so this single block serves all 6 live tabs. *@
+    @if (Model.ActiveTabIsLive && (Model.HasPrev || Model.HasNext))
+    {
+        <div style="display:flex;justify-content:space-between;margin-top:16px;" data-testid="pcc-pagination">
+            <span>
+                @if (Model.HasPrev)
+                {
+                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.PrevSkip" data-testid="pcc-prev">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                }
+            </span>
+            <span>
+                @if (Model.HasNext)
+                {
+                    <a class="ds-btn" href="?tab=@Model.ActiveTab&SiteId=@Model.SiteId&BuyerUserId=@Model.BuyerUserId&Skip=@Model.NextSkip" data-testid="pcc-next">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                }
+            </span>
+        </div>
     }
 
 </div>

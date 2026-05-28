@@ -612,4 +612,510 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
             _ => "Review and assign next action",
         };
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PR-12 TAB READS — Subcontract / Vendor WIP / Receipts / Inspection Holds
+    //
+    // Each tab read enforces:
+    //   * Tenant scope via ITenantContext.VisibleCompanyIds on every entity set
+    //   * Optional site/buyer/vendor/PRO filters from PurchasingQueueFilter
+    //   * Skip/Take with Math.Clamp guards
+    //   * Count + page returned together (Count *before* pagination so the UI
+    //     header is honest about backlog size)
+    //   * Per-row NextActionHint where appropriate (placeholder for §18; PR-15
+    //     replaces with full recommendation engine)
+    // ════════════════════════════════════════════════════════════════════════
+
+    public async Task<Result<SubcontractTabPage>> GetSubcontractTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        var visible = _tenant.VisibleCompanyIds;
+        var today = DateTime.UtcNow.Date;
+        var take = Math.Clamp(filter.Take, 1, 500);
+        var skip = Math.Max(0, filter.Skip);
+
+        // Base query: active subcontract ops only (Closed is terminal).
+        var q = _db.Set<SubcontractOperation>()
+            .AsNoTracking()
+            .Where(o => visible.Contains(o.CompanyId)
+                        && o.Status != SubcontractOperationStatus.Closed);
+
+        if (filter.CompanyId.HasValue) q = q.Where(o => o.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) q = q.Where(o => o.SiteId == filter.SiteId);
+        if (filter.VendorId.HasValue) q = q.Where(o => o.SupplierId == filter.VendorId);
+        if (filter.ProductionOrderId.HasValue) q = q.Where(o => o.ProductionOrderId == filter.ProductionOrderId);
+        if (filter.RequiredBefore.HasValue)
+            q = q.Where(o => o.RequiredBackDate != null && o.RequiredBackDate < filter.RequiredBefore);
+
+        var totalCount = await q.CountAsync(ct);
+
+        var paged = await q
+            .OrderBy(o => o.RequiredBackDate ?? DateTime.MaxValue)
+            .ThenBy(o => o.Id)
+            .Skip(skip).Take(take)
+            .Select(o => new
+            {
+                Op = o,
+                SupplierName = o.Supplier != null ? o.Supplier.Name : null,
+                ProNumber = o.ProductionOrder != null ? o.ProductionOrder.OrderNumber : null,
+            })
+            .ToListAsync(ct);
+
+        var rows = paged.Select(p =>
+        {
+            var o = p.Op;
+            int? daysLate = null;
+            if (o.RequiredBackDate.HasValue
+                && o.QuantityReceivedBack < o.QuantityToShip
+                && o.RequiredBackDate.Value.Date < today)
+            {
+                daysLate = (today - o.RequiredBackDate.Value.Date).Days;
+            }
+            return new SubcontractTabRow(
+                SubcontractOperationId: o.Id,
+                ProductionOrderId: o.ProductionOrderId,
+                ProductionOrderNumber: p.ProNumber,
+                OperationSequence: o.OperationSequence,
+                OperationCode: o.OperationCode,
+                OperationDescription: o.OperationDescription,
+                SupplierId: o.SupplierId,
+                SupplierName: p.SupplierName,
+                ServicePurchaseOrderLineId: o.ServicePurchaseOrderLineId,
+                OpStatus: o.Status,
+                PoStatus: o.PoCreationStatus,
+                ShipmentStatus: o.ShipmentStatus,
+                ReceiptStatusForOp: o.ReceiptStatus,
+                QuantityToShip: o.QuantityToShip,
+                QuantityShipped: o.QuantityShipped,
+                QuantityReceivedBack: o.QuantityReceivedBack,
+                QuantityAccepted: o.QuantityAccepted,
+                QuantityRejected: o.QuantityRejected,
+                QuantityScrappedAtVendor: o.QuantityScrappedAtVendor,
+                RequiredShipDate: o.RequiredShipDate,
+                RequiredBackDate: o.RequiredBackDate,
+                DaysLateBack: daysLate,
+                CertRequired: o.CertRequired,
+                InspectionOnReturn: o.InspectionOnReturn,
+                NextActionHint: SuggestSubcontractAction(o));
+        }).ToList();
+
+        return Result.Success(new SubcontractTabPage(totalCount, rows));
+    }
+
+    private static string SuggestSubcontractAction(SubcontractOperation o)
+    {
+        return o.Status switch
+        {
+            SubcontractOperationStatus.NotReady => "Wait for prior op to complete",
+            SubcontractOperationStatus.ReadyToBuy => "Create subcontract PO",
+            SubcontractOperationStatus.PoCreated => "Approve PO + prepare WIP",
+            SubcontractOperationStatus.ReadyToShip => "Ship WIP to vendor",
+            SubcontractOperationStatus.ShippedToVendor => "Confirm vendor receipt",
+            SubcontractOperationStatus.AtVendor => "Monitor vendor processing",
+            SubcontractOperationStatus.PartiallyReceived => "Receive remaining WIP",
+            SubcontractOperationStatus.InInspection => "Clear inspection hold",
+            SubcontractOperationStatus.Rejected => "Open NCR + return to vendor or scrap",
+            SubcontractOperationStatus.ReworkAtVendor => "Track rework cycle at vendor",
+            SubcontractOperationStatus.Complete => "Close op + advance routing",
+            _ => "Review and assign next action",
+        };
+    }
+
+    public async Task<Result<VendorWipTabPage>> GetVendorWipTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        var visible = _tenant.VisibleCompanyIds;
+        var today = DateTime.UtcNow.Date;
+        var take = Math.Clamp(filter.Take, 1, 500);
+        var skip = Math.Max(0, filter.Skip);
+
+        // Base query: balances with material currently at vendor (QtyAtVendor > 0)
+        // OR balances awaiting close (qty exhausted but still in active lifecycle).
+        // For the tab we focus on QtyAtVendor > 0 — that's the live "at supplier"
+        // working inventory the buyer needs to monitor.
+        var q = _db.Set<VendorWipBalance>()
+            .AsNoTracking()
+            .Where(b => visible.Contains(b.CompanyId) && b.QuantityAtVendor > 0);
+
+        if (filter.CompanyId.HasValue) q = q.Where(b => b.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) q = q.Where(b => b.SiteId == filter.SiteId);
+        if (filter.VendorId.HasValue) q = q.Where(b => b.SupplierId == filter.VendorId);
+        if (filter.ProductionOrderId.HasValue) q = q.Where(b => b.ProductionOrderId == filter.ProductionOrderId);
+
+        var totalCount = await q.CountAsync(ct);
+
+        // Page-level summaries (computed across the FULL filtered set, not just
+        // the page slice — page-aggregate would lie about scope).
+        var totalValueAtVendorUsd = await q.SumAsync(b => (decimal?)b.TotalValueAtVendor, ct) ?? 0m;
+        var overdueReturnCount = await q
+            .Where(b => b.RequiredReturnDate != null && b.RequiredReturnDate < today)
+            .CountAsync(ct);
+
+        var paged = await q
+            .OrderBy(b => b.RequiredReturnDate ?? DateTime.MaxValue)
+            .ThenByDescending(b => b.TotalValueAtVendor)
+            .ThenBy(b => b.Id)
+            .Skip(skip).Take(take)
+            .Select(b => new
+            {
+                Balance = b,
+                SupplierName = b.Supplier != null ? b.Supplier.Name : null,
+                ProNumber = b.ProductionOrder != null ? b.ProductionOrder.OrderNumber : null,
+                VendorLocationDescription = b.VendorLocation != null
+                    ? (b.VendorLocation.LocationCode + " · " + (b.VendorLocation.SupplierSiteCode ?? ""))
+                    : b.VendorWipLocationDescription,
+            })
+            .ToListAsync(ct);
+
+        var rows = paged.Select(p =>
+        {
+            var b = p.Balance;
+            int? daysLateReturn = null;
+            if (b.RequiredReturnDate.HasValue && b.RequiredReturnDate.Value.Date < today)
+                daysLateReturn = (today - b.RequiredReturnDate.Value.Date).Days;
+            return new VendorWipTabRow(
+                VendorWipBalanceId: b.Id,
+                ProductionOrderId: b.ProductionOrderId,
+                ProductionOrderNumber: p.ProNumber,
+                OperationSequence: b.OperationSequence,
+                SupplierId: b.SupplierId,
+                SupplierName: p.SupplierName,
+                VendorLocationId: b.VendorLocationId,
+                VendorLocationDescription: p.VendorLocationDescription,
+                PartNumber: b.PartNumber,
+                Revision: b.Revision,
+                LotNumber: b.LotNumber,
+                QuantityShipped: b.QuantityShipped,
+                QuantityAtVendor: b.QuantityAtVendor,
+                QuantityReceivedBack: b.QuantityReceivedBack,
+                QuantityAccepted: b.QuantityAccepted,
+                QuantityRejected: b.QuantityRejected,
+                QuantityScrappedAtVendor: b.QuantityScrappedAtVendor,
+                UnitValue: b.UnitValue,
+                TotalValueAtVendor: b.TotalValueAtVendor,
+                InventoryStatus: b.InventoryStatus,
+                QualityStatus: b.QualityStatus,
+                Ownership: b.Ownership,
+                AgingDaysAtVendor: b.AgingDaysAtVendor,
+                RequiredReturnDate: b.RequiredReturnDate,
+                DaysLateReturn: daysLateReturn,
+                LastTransactionUtc: b.LastTransactionUtc);
+        }).ToList();
+
+        return Result.Success(new VendorWipTabPage(
+            TotalCount: totalCount,
+            TotalValueAtVendorUsd: totalValueAtVendorUsd,
+            OverdueReturnCount: overdueReturnCount,
+            Rows: rows));
+    }
+
+    public async Task<Result<ReceiptsTabPage>> GetReceiptsTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        var visible = _tenant.VisibleCompanyIds;
+        var take = Math.Clamp(filter.Take, 1, 500);
+        var skip = Math.Max(0, filter.Skip);
+
+        // Base query: SubcontractReceipt headers in any non-Closed lifecycle.
+        // We include Reversed so audit + correction workflows surface here too.
+        var q = _db.Set<SubcontractReceipt>()
+            .AsNoTracking()
+            .Where(r => visible.Contains(r.CompanyId)
+                        && r.Status != SubcontractReceiptLifecycle.Closed);
+
+        if (filter.CompanyId.HasValue) q = q.Where(r => r.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) q = q.Where(r => r.SiteId == filter.SiteId);
+        if (filter.VendorId.HasValue) q = q.Where(r => r.SupplierId == filter.VendorId);
+        if (filter.ProductionOrderId.HasValue) q = q.Where(r => r.ProductionOrderId == filter.ProductionOrderId);
+
+        var totalCount = await q.CountAsync(ct);
+        var openDraftCount = await q.CountAsync(r => r.Status == SubcontractReceiptLifecycle.Draft, ct);
+        var pendingApprovalCount = await q.CountAsync(
+            r => r.Status == SubcontractReceiptLifecycle.PendingApproval, ct);
+
+        var paged = await q
+            .OrderByDescending(r => r.ReceiptDate)
+            .ThenByDescending(r => r.Id)
+            .Skip(skip).Take(take)
+            .Select(r => new
+            {
+                Receipt = r,
+                SupplierName = r.Supplier != null ? r.Supplier.Name : null,
+                ProNumber = r.ProductionOrder != null ? r.ProductionOrder.OrderNumber : null,
+                LineCount = r.Lines.Count,
+                TotalReceived = r.Lines.Sum(l => (decimal?)l.QuantityReceived) ?? 0m,
+                TotalAccepted = r.Lines.Sum(l => (decimal?)l.QuantityAccepted) ?? 0m,
+                TotalRejected = r.Lines.Sum(l => (decimal?)l.QuantityRejected) ?? 0m,
+                TotalScrapped = r.Lines.Sum(l => (decimal?)l.QuantityScrappedAtVendor) ?? 0m,
+            })
+            .ToListAsync(ct);
+
+        var rows = paged.Select(p => new ReceiptsTabRow(
+            SubcontractReceiptId: p.Receipt.Id,
+            ReceiptNumber: p.Receipt.ReceiptNumber,
+            SubcontractOperationId: p.Receipt.SubcontractOperationId,
+            ProductionOrderId: p.Receipt.ProductionOrderId,
+            ProductionOrderNumber: p.ProNumber,
+            OperationSequence: p.Receipt.OperationSequence,
+            SupplierId: p.Receipt.SupplierId,
+            SupplierName: p.SupplierName,
+            VendorPackingSlip: p.Receipt.VendorPackingSlip,
+            ReceiptDate: p.Receipt.ReceiptDate,
+            Status: p.Receipt.Status,
+            CertReceived: p.Receipt.CertReceived,
+            InspectionRequired: p.Receipt.InspectionRequired,
+            ApprovalRequired: p.Receipt.ApprovalRequired,
+            LineCount: p.LineCount,
+            TotalReceived: p.TotalReceived,
+            TotalAccepted: p.TotalAccepted,
+            TotalRejected: p.TotalRejected,
+            TotalScrappedAtVendor: p.TotalScrapped,
+            PostedUtc: p.Receipt.PostedUtc,
+            ApprovedBy: p.Receipt.ApprovedBy)).ToList();
+
+        return Result.Success(new ReceiptsTabPage(
+            TotalCount: totalCount,
+            OpenDraftCount: openDraftCount,
+            PendingApprovalCount: pendingApprovalCount,
+            Rows: rows));
+    }
+
+    public async Task<Result<InspectionHoldsTabPage>> GetInspectionHoldsTabAsync(
+        PurchasingQueueFilter filter,
+        CancellationToken ct = default)
+    {
+        var visible = _tenant.VisibleCompanyIds;
+        var today = DateTime.UtcNow.Date;
+        var take = Math.Clamp(filter.Take, 1, 500);
+        // (Codex thread 0) The previous design split filter.Skip halfway across
+        // the two source paths. That breaks the page model's full-page-size Skip
+        // advancement (page-2 Skip=50, halfSkip=25 leaves rows 51+ unreachable
+        // when one source dominates). Inspection Holds is a UNION of two
+        // entity types, which EF can't paginate atomically without TVFs. So we
+        // intentionally drop Skip support here: page 1 returns the merged
+        // top-of-list, TotalCount is clipped to what's actually reachable, and
+        // the page model's HasNext returns false because Skip + RowCount ==
+        // TotalCount. Buyers stay accurate; older holds surface as the queue
+        // drains. (P2.3 originally fixed, then Codex caught the off-by-source
+        // edge case — this is the true fix.)
+        var halfTake = Math.Max(1, take / 2);
+
+        var rows = new List<InspectionHoldRow>();
+
+        // ─── Path A: GoodsReceiptLine inspection holds ──────────────────
+        // A GR line is on hold when InspectionRequired = true AND
+        // DirectToJobPostedUtc IS NULL (direct-to-job path) OR parent receipt
+        // status is Inspecting (standard inventory path).
+        var grQ = _db.Set<GoodsReceiptLine>()
+            .AsNoTracking()
+            .Where(l => l.GoodsReceipt != null
+                        && l.GoodsReceipt.CompanyId != null
+                        && visible.Contains(l.GoodsReceipt.CompanyId.Value)
+                        && l.InspectionRequired
+                        && ((l.IsDirectToJob && l.DirectToJobPostedUtc == null)
+                            || l.GoodsReceipt!.Status == ReceiptStatus.Inspecting
+                            || (l.QuantityReceived > 0
+                                && l.QuantityAccepted + l.QuantityRejected < l.QuantityReceived)));
+
+        if (filter.CompanyId.HasValue)
+            grQ = grQ.Where(l => l.GoodsReceipt!.CompanyId == filter.CompanyId);
+        // (Codex thread 1) GoodsReceipt itself has no SiteId; PurchaseOrder
+        // carries ShipToSiteId. Honor filter.SiteId via the parent PO so
+        // /Purchasing/ControlCenter?tab=inspection-holds&SiteId=… narrows to
+        // GR lines for receipts shipped TO the requested site.
+        if (filter.SiteId.HasValue)
+            grQ = grQ.Where(l => l.GoodsReceipt!.PurchaseOrder != null
+                                 && l.GoodsReceipt!.PurchaseOrder!.ShipToSiteId == filter.SiteId);
+        if (filter.ProductionOrderId.HasValue)
+            grQ = grQ.Where(l => l.DirectToJobProductionOrderId == filter.ProductionOrderId);
+        if (filter.VendorId.HasValue)
+            grQ = grQ.Where(l => l.GoodsReceipt!.PurchaseOrder != null
+                                 && l.GoodsReceipt!.PurchaseOrder!.VendorId == filter.VendorId);
+
+        var grTotal = await grQ.CountAsync(ct);
+
+        var grSlice = await grQ
+            .OrderBy(l => l.GoodsReceipt!.ReceiptDate)
+            .ThenBy(l => l.Id)
+            .Take(halfTake)
+            .Select(l => new
+            {
+                Line = l,
+                ReceiptNumber = l.GoodsReceipt!.ReceiptNumber,
+                ReceiptId = l.GoodsReceipt!.Id,
+                ReceiptDate = l.GoodsReceipt!.ReceiptDate,
+                PoId = l.GoodsReceipt!.PurchaseOrderId,
+                PoNumber = l.GoodsReceipt!.PurchaseOrder != null
+                    ? l.GoodsReceipt!.PurchaseOrder!.PONumber
+                    : null,
+                SupplierId = l.GoodsReceipt!.PurchaseOrder != null
+                    ? l.GoodsReceipt!.PurchaseOrder!.VendorId
+                    : (int?)null,
+                SupplierName = l.GoodsReceipt!.PurchaseOrder != null && l.GoodsReceipt!.PurchaseOrder!.Vendor != null
+                    ? l.GoodsReceipt!.PurchaseOrder!.Vendor!.Name
+                    : null,
+                ProId = l.DirectToJobProductionOrderId,
+                ProNumber = l.DirectToJobProductionOrder != null
+                    ? l.DirectToJobProductionOrder!.OrderNumber
+                    : null,
+                PartNumber = l.PurchaseOrderLine != null
+                    ? l.PurchaseOrderLine!.PartNumber
+                    : null,
+            })
+            .ToListAsync(ct);
+
+        foreach (var p in grSlice)
+        {
+            var line = p.Line;
+            var onHold = line.QuantityReceived - line.QuantityAccepted - line.QuantityRejected;
+            if (onHold < 0) onHold = 0;
+            var days = (today - p.ReceiptDate.Date).Days;
+            if (days < 0) days = 0;
+            rows.Add(new InspectionHoldRow(
+                SourceKind: InspectionHoldSourceKind.PurchaseOrderReceipt,
+                SourceLineId: line.Id,
+                SourceHeaderId: p.ReceiptId,
+                SourceHeaderNumber: p.ReceiptNumber,
+                PurchaseOrderId: p.PoId,
+                PurchaseOrderNumber: p.PoNumber,
+                ProductionOrderId: p.ProId,
+                ProductionOrderNumber: p.ProNumber,
+                OperationSequence: null,
+                SupplierId: p.SupplierId,
+                SupplierName: p.SupplierName,
+                PartNumber: p.PartNumber,
+                Revision: null,
+                LotNumber: line.LotNumber,
+                QuantityReceived: line.QuantityReceived,
+                QuantityAccepted: line.QuantityAccepted,
+                QuantityRejected: line.QuantityRejected,
+                QuantityOnHold: onHold,
+                HoldReason: line.IsDirectToJob && line.DirectToJobPostedUtc == null
+                    ? "Direct-to-job: inspection required before cost posts to PRO"
+                    : "Standard incoming inspection",
+                ReceiptDate: p.ReceiptDate,
+                DaysOnHold: days,
+                NcrReference: null,
+                NextActionHint: line.IsDirectToJob
+                    ? "Clear inspection → cost posts to PRO BOM line"
+                    : "Clear inspection → release to stock"));
+        }
+
+        // ─── Path B: SubcontractReceiptLine holds ───────────────────────
+        // (P2.2 fix) PendingApproval lives on the Receipts tab via its
+        // own PendingApprovalCount header — exclude here to avoid the same
+        // row counting on two tabs with conflicting next-action hints.
+        var scQ = _db.Set<SubcontractReceiptLine>()
+            .AsNoTracking()
+            .Where(l => visible.Contains(l.CompanyId)
+                        && (l.Disposition == SubcontractReceiptDisposition.HoldForInspection
+                            || l.Disposition == SubcontractReceiptDisposition.HoldForDocs
+                            || l.Disposition == SubcontractReceiptDisposition.HoldForQuality));
+
+        if (filter.CompanyId.HasValue) scQ = scQ.Where(l => l.CompanyId == filter.CompanyId);
+        if (filter.SiteId.HasValue) scQ = scQ.Where(l => l.SiteId == filter.SiteId);
+        if (filter.ProductionOrderId.HasValue)
+            scQ = scQ.Where(l => l.SubcontractReceipt != null
+                                 && l.SubcontractReceipt!.ProductionOrderId == filter.ProductionOrderId);
+        if (filter.VendorId.HasValue)
+            scQ = scQ.Where(l => l.SubcontractReceipt != null
+                                 && l.SubcontractReceipt!.SupplierId == filter.VendorId);
+
+        var scTotal = await scQ.CountAsync(ct);
+
+        var scSlice = await scQ
+            .OrderBy(l => l.SubcontractReceipt!.ReceiptDate)
+            .ThenBy(l => l.Id)
+            .Take(halfTake)
+            .Select(l => new
+            {
+                Line = l,
+                ReceiptNumber = l.SubcontractReceipt!.ReceiptNumber,
+                ReceiptId = l.SubcontractReceipt!.Id,
+                ReceiptDate = l.SubcontractReceipt!.ReceiptDate,
+                ProId = (int?)l.SubcontractReceipt!.ProductionOrderId,
+                ProNumber = l.SubcontractReceipt!.ProductionOrder != null
+                    ? l.SubcontractReceipt!.ProductionOrder!.OrderNumber
+                    : null,
+                OperationSequence = (int?)l.SubcontractReceipt!.OperationSequence,
+                SupplierId = (int?)l.SubcontractReceipt!.SupplierId,
+                SupplierName = l.SubcontractReceipt!.Supplier != null
+                    ? l.SubcontractReceipt!.Supplier!.Name
+                    : null,
+            })
+            .ToListAsync(ct);
+
+        foreach (var p in scSlice)
+        {
+            var line = p.Line;
+            var onHold = line.QuantityReceived - line.QuantityAccepted - line.QuantityRejected
+                         - line.QuantityScrappedAtVendor;
+            if (onHold < 0) onHold = 0;
+            var days = (today - p.ReceiptDate.Date).Days;
+            if (days < 0) days = 0;
+
+            var reason = line.Disposition switch
+            {
+                SubcontractReceiptDisposition.HoldForInspection => "Hold for incoming inspection",
+                SubcontractReceiptDisposition.HoldForDocs => "Hold for cert / documentation",
+                SubcontractReceiptDisposition.HoldForQuality => "Hold for quality / engineering review",
+                SubcontractReceiptDisposition.PendingApproval => "Pending supervisor approval",
+                _ => "Hold",
+            };
+            var hint = line.Scenario switch
+            {
+                SubcontractReceiptScenario.RejectedReceipt => "Open NCR + decide rework / scrap / return",
+                SubcontractReceiptScenario.CertMissing => "Request cert from supplier",
+                SubcontractReceiptScenario.WrongRevision => "Engineering: confirm acceptable or reject",
+                SubcontractReceiptScenario.OverReceipt => "Supervisor approve over-receipt",
+                SubcontractReceiptScenario.WrongJobOrPo => "Reverse + correct PO/job",
+                SubcontractReceiptScenario.ReceiptWithInspection => "Inspect + release to next op",
+                _ => "Resolve hold",
+            };
+
+            rows.Add(new InspectionHoldRow(
+                SourceKind: InspectionHoldSourceKind.SubcontractReceipt,
+                SourceLineId: line.Id,
+                SourceHeaderId: p.ReceiptId,
+                SourceHeaderNumber: p.ReceiptNumber,
+                PurchaseOrderId: null,
+                PurchaseOrderNumber: null,
+                ProductionOrderId: p.ProId,
+                ProductionOrderNumber: p.ProNumber,
+                OperationSequence: p.OperationSequence,
+                SupplierId: p.SupplierId,
+                SupplierName: p.SupplierName,
+                PartNumber: line.PartNumber,
+                Revision: line.DrawingRevision,
+                LotNumber: line.LotNumber,
+                QuantityReceived: line.QuantityReceived,
+                QuantityAccepted: line.QuantityAccepted,
+                QuantityRejected: line.QuantityRejected,
+                QuantityOnHold: onHold,
+                HoldReason: reason,
+                ReceiptDate: p.ReceiptDate,
+                DaysOnHold: days,
+                NcrReference: line.NcrReference,
+                NextActionHint: hint));
+        }
+
+        // Sort merged rows by days-on-hold descending (oldest holds first to surface).
+        var sorted = rows.OrderByDescending(r => r.DaysOnHold).ToList();
+        var oldCount = sorted.Count(r => r.DaysOnHold >= 7);
+
+        // (Codex thread 0 follow-on) Without paginated Skip support, TotalCount
+        // must equal the *reachable* row count so the page's HasNext returns
+        // false (Skip + rowCount >= TotalCount). The true backlog is exposed as
+        // BacklogCount in the field-by-field doc above the record and via the
+        // header "X total · Y aged" copy. Keeping TotalCount honest about
+        // reachability is the disciplined fix until UNION-grain pagination is
+        // worth building (Wave 4 polish or beyond).
+        return Result.Success(new InspectionHoldsTabPage(
+            TotalCount: sorted.Count,
+            OldHoldsCount: oldCount,
+            Rows: sorted));
+    }
 }
