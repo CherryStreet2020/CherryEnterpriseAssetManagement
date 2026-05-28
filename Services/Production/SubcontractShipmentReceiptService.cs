@@ -216,47 +216,66 @@ public class SubcontractShipmentReceiptService : ISubcontractShipmentReceiptServ
             return Result.Failure<ShipmentStatusSummary>(
                 $"Underlying SubcontractOperation {shipment.SubcontractOperationId} not found or out of tenant scope.");
 
-        // For each line: post into vendor WIP ledger via IVendorWipService.
+        // Wrap the multi-line vendor-WIP ledger calls + shipment status update
+        // in a single DB transaction so a mid-loop failure cannot leave
+        // committed VendorWipTransaction rows pointing at a Draft shipment.
+        // (Codex P1 — mirrors the PostReceipt transaction wrap.)
         decimal totalQty = 0m;
-        foreach (var line in shipment.Lines)
+        using var tx = await _db.Database.BeginTransactionAsync(ct);
+        try
         {
-            var ship = await _vendorWip.ShipToVendorAsync(new ShipToVendorRequest(
-                ProductionOrderId: shipment.ProductionOrderId,
-                OperationSequence: shipment.OperationSequence,
-                SupplierId: shipment.SupplierId,
-                VendorLocationId: shipment.VendorLocationId,
-                ItemId: line.ItemId,
-                PartNumber: line.PartNumber,
-                Revision: line.DrawingRevision,
-                LotNumber: line.LotNumber,
-                SerialNumber: line.SerialNumber,
-                Quantity: line.QuantityShipped,
-                UnitValue: line.UnitCostSnapshot ?? 0m,
-                Uom: line.Uom,
-                ShipmentDocument: shipment.ShipmentNumber,
-                FromLocationDescription: null, // Location resolution lands in PR-7 orchestrator
-                ToLocationDescription: shipment.VendorWipLocationCode,
-                SubcontractOperationId: op.Id,
-                RequiredReturnDate: op.RequiredBackDate,
-                Notes: $"Shipment {shipment.ShipmentNumber} line {line.LineNumber}",
-                CreatedBy: actor ?? shipment.CreatedBy
-            ), ct);
+            foreach (var line in shipment.Lines)
+            {
+                var ship = await _vendorWip.ShipToVendorAsync(new ShipToVendorRequest(
+                    ProductionOrderId: shipment.ProductionOrderId,
+                    OperationSequence: shipment.OperationSequence,
+                    SupplierId: shipment.SupplierId,
+                    VendorLocationId: shipment.VendorLocationId,
+                    ItemId: line.ItemId,
+                    PartNumber: line.PartNumber,
+                    Revision: line.DrawingRevision,
+                    LotNumber: line.LotNumber,
+                    SerialNumber: line.SerialNumber,
+                    Quantity: line.QuantityShipped,
+                    UnitValue: line.UnitCostSnapshot ?? 0m,
+                    Uom: line.Uom,
+                    ShipmentDocument: shipment.ShipmentNumber,
+                    FromLocationDescription: null, // Location resolution lands in PR-7 orchestrator
+                    ToLocationDescription: shipment.VendorWipLocationCode,
+                    SubcontractOperationId: op.Id,
+                    RequiredReturnDate: op.RequiredBackDate,
+                    Notes: $"Shipment {shipment.ShipmentNumber} line {line.LineNumber}",
+                    CreatedBy: actor ?? shipment.CreatedBy
+                ), ct);
 
-            if (!ship.IsSuccess)
-                return Result.Failure<ShipmentStatusSummary>(
-                    $"Vendor WIP ship-to failed on line {line.LineNumber}: {ship.Error}");
+                if (!ship.IsSuccess)
+                    throw new InvalidOperationException(
+                        $"Vendor WIP ship-to failed on line {line.LineNumber}: {ship.Error}");
 
-            line.VendorWipTransactionId = ship.Value!.TransactionId;
-            totalQty += line.QuantityShipped;
+                line.VendorWipTransactionId = ship.Value!.TransactionId;
+                totalQty += line.QuantityShipped;
+            }
+
+            shipment.Status = SubcontractShipmentLifecycle.InTransit;
+            shipment.ActualShipDate = actualShipDate ?? DateTime.UtcNow;
+            AppendNote(shipment, $"[ship {DateTime.UtcNow:O}] by {actor ?? "system"} — {totalQty:N4} {shipment.Lines.First().Uom}");
+
+            await _db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(ct);
+            _log.LogError(ex,
+                "MarkShipmentInTransit failed for {Num} — transaction rolled back.",
+                shipment.ShipmentNumber);
+            return Result.Failure<ShipmentStatusSummary>(ex.Message);
         }
 
-        shipment.Status = SubcontractShipmentLifecycle.InTransit;
-        shipment.ActualShipDate = actualShipDate ?? DateTime.UtcNow;
-        AppendNote(shipment, $"[ship {DateTime.UtcNow:O}] by {actor ?? "system"} — {totalQty:N4} {shipment.Lines.First().Uom}");
-
-        await _db.SaveChangesAsync(ct);
-
         // Roll total qty into the subcontract op so its own QuantityShipped + status advance.
+        // (Op-level rollup is non-atomic vs the WIP ledger by design: the op's
+        // own RowVersion guards it; a rollup failure after ledger commit logs
+        // a warning rather than corrupting the just-committed ledger entries.)
         var rollup = await _subOpSvc.RecordShipmentAsync(
             op.Id, totalQty, $"Auto-roll from shipment {shipment.ShipmentNumber}", ct);
         if (!rollup.IsSuccess)
@@ -569,6 +588,11 @@ public class SubcontractShipmentReceiptService : ISubcontractShipmentReceiptServ
             }
 
             // Roll into the subcontract op (one call with summed values).
+            // Codex P2 — scrap-only receipts (QuantityReceived == 0,
+            // QuantityScrappedAtVendor > 0) MUST still update op.QuantityScrappedAtVendor.
+            // RecordReceiptAsync only takes (received/accepted/rejected); we
+            // patch QuantityScrappedAtVendor directly inside the same tx so
+            // op totals stay in sync with the vendor-WIP ledger.
             if (totalReceived > 0m)
             {
                 var rollup = await _subOpSvc.RecordReceiptAsync(
@@ -577,6 +601,29 @@ public class SubcontractShipmentReceiptService : ISubcontractShipmentReceiptServ
                 if (!rollup.IsSuccess)
                     _log.LogWarning("Op rollup failed for receipt {Num}: {Err}",
                         receipt.ReceiptNumber, rollup.Error);
+            }
+
+            if (totalScrapped > 0m)
+            {
+                var opForScrap = await _db.Set<SubcontractOperation>()
+                    .Where(s => s.Id == receipt.SubcontractOperationId &&
+                                _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+                    .FirstOrDefaultAsync(ct);
+                if (opForScrap != null)
+                {
+                    opForScrap.QuantityScrappedAtVendor += totalScrapped;
+                    AppendNoteOnSubOp(opForScrap,
+                        $"[scrap-roll {DateTime.UtcNow:O}] receipt {receipt.ReceiptNumber}: +{totalScrapped:N4} at vendor");
+                    // Persisted by the outer SaveChangesAsync at end of the
+                    // try block — keeps the scrap update inside the same
+                    // transaction as the vendor-WIP ledger writes.
+                }
+                else
+                {
+                    _log.LogWarning(
+                        "Scrap rollup skipped for receipt {Num}: SubcontractOperation {OpId} not loadable.",
+                        receipt.ReceiptNumber, receipt.SubcontractOperationId);
+                }
             }
 
             receipt.Status = requiresApproval
@@ -728,6 +775,11 @@ public class SubcontractShipmentReceiptService : ISubcontractShipmentReceiptServ
     private static void AppendNoteOnReceipt(SubcontractReceipt r, string note)
     {
         r.Notes = string.IsNullOrEmpty(r.Notes) ? note : $"{r.Notes}\n{note}";
+    }
+
+    private static void AppendNoteOnSubOp(SubcontractOperation op, string note)
+    {
+        op.Notes = string.IsNullOrEmpty(op.Notes) ? note : $"{op.Notes}\n{note}";
     }
 
     private static ShipmentStatusSummary BuildShipmentSummary(SubcontractShipment s) =>
