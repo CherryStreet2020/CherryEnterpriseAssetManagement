@@ -231,6 +231,57 @@ namespace Abs.FixedAssets.Models
         public string? Notes { get; set; }
 
         public ICollection<PurchaseOrderRelease> Releases { get; set; } = new List<PurchaseOrderRelease>();
+
+        // ===== Sprint 15.1 PR-3 — PRO/demand linkage fields =================
+        // For buy-to-job PO lines, these fields denormalize the linkage from
+        // the (preferred) PurchaseOrderLineDemandLink rows so simple queries
+        // don't have to join. When a PO line is consolidated across multiple
+        // demands, these fields hold the PRIMARY/dominant assignment and the
+        // full breakdown lives in the link table.
+
+        /// <summary>
+        /// Primary Production Order this PO line serves (null for stocking buys).
+        /// For consolidated lines this is the dominant PRO; full breakdown via
+        /// PurchaseOrderLineDemandLink rows.
+        /// </summary>
+        [Display(Name = "Production Order")]
+        public int? ProductionOrderId { get; set; }
+        public Abs.FixedAssets.Models.Production.ProductionOrder? ProductionOrder { get; set; }
+
+        /// <summary>Primary BOM line this PO line satisfies.</summary>
+        [Display(Name = "BOM Line")]
+        public int? BomLineId { get; set; }
+        public Abs.FixedAssets.Models.Production.ProductionMaterialStructure? BomLine { get; set; }
+
+        /// <summary>Routing operation sequence this PO line serves (frozen).</summary>
+        [Display(Name = "Operation Sequence")]
+        public int? OperationSequence { get; set; }
+
+        /// <summary>Project Id (when buying to a project).</summary>
+        [Display(Name = "Project Id")]
+        public int? ProjectId { get; set; }
+
+        /// <summary>
+        /// True when this PO line bypasses inventory and posts cost directly
+        /// to the linked PRO BOM line at receipt. Mirrors the
+        /// GoodsReceiptLine.IsDirectToJob flag at the PO side.
+        /// </summary>
+        [Display(Name = "Direct to Job")]
+        public bool IsDirectToJob { get; set; } = false;
+
+        /// <summary>
+        /// True when this PO line is for a subcontract operation (the service
+        /// purchase part of the two-demand subcontract pattern from §9).
+        /// </summary>
+        [Display(Name = "Subcontract Line")]
+        public bool IsSubcontract { get; set; } = false;
+
+        /// <summary>
+        /// Demand link collection — many demands can be served by this PO line
+        /// (consolidation) and one demand can be drawn from many PO lines.
+        /// </summary>
+        public ICollection<PurchaseOrderLineDemandLink> DemandLinks { get; set; }
+            = new List<PurchaseOrderLineDemandLink>();
     }
 
     public enum ReleaseStatus
