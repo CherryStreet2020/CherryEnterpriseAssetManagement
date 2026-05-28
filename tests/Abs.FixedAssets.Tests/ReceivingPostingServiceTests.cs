@@ -71,6 +71,7 @@ public class ReceivingPostingServiceTests
         return new ReceivingPostingService(db, tenant, resolver, outbox,
             new PassthroughIdempotencyMediator(),
             new Abs.FixedAssets.Tests.TestHelpers.NullChainOfCustodyService(),
+            new Abs.FixedAssets.Tests.TestHelpers.NullReceiptToJobService(),
             NullLogger<ReceivingPostingService>.Instance);
     }
 

@@ -1,0 +1,282 @@
+@page "/Admin/ReceiptToJobProbe"
+@model Abs.FixedAssets.Pages.Admin.ReceiptToJobProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Receipt-to-Job Probe";
+    ViewData["TabTitle"] = "Receipt-to-Job Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Sprint 15.1 PR-1 (2026-05-28) — admin probe for IReceiptToJobService.
+    SEVEN WRITE/ACTION BUTTONS per Lock 16 corollary:
+      1. Receive To Job (direct-charge receipt to PRO BOM line)
+      2. Reverse Receipt (undo DTJ posting)
+      3. Complete Inspection (release inspection hold)
+      4. Batch Process DTJ Lines (process all DTJ lines on a receipt)
+      5. Create Test GR Line (seed a test IsDirectToJob line)
+      6. Load DTJ Lines (read — list all direct-to-job receipt lines)
+      7. Load BOM Supply Links (read — show supply status on BOM lines)
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Receipt-to-Job Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.1 &mdash; THE foundational ETO/MTO change. Buy-to-job material
+            flows PO Receipt &rarr; direct charge to Production Order BOM line,
+            bypassing inventory entirely. Dr WIP-Material / Cr GR-Accrued.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3">
+            <div class="ds-card__body">
+                @if (Model.OutcomeIsError)
+                { <p class="ds-text-danger" data-testid="dtj-outcome-error">@Model.Outcome</p> }
+                else
+                { <p class="ds-text-success" data-testid="dtj-outcome-ok">@Model.Outcome</p> }
+            </div>
+        </section>
+    }
+
+    @* ── Summary Stats ───────────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Summary Stats</h2>
+            <table class="ds-table">
+                <tbody>
+                    <tr><td>Total DTJ Lines</td><td data-testid="dtj-total">@Model.TotalDtjLines</td></tr>
+                    <tr><td>DTJ Posted</td><td data-testid="dtj-posted">@Model.TotalDtjPosted</td></tr>
+                    <tr><td>DTJ Inspection Held</td><td data-testid="dtj-held">@Model.TotalDtjHeld</td></tr>
+                    <tr><td>Total Goods Receipts</td><td>@Model.TotalGoodsReceipts</td></tr>
+                    <tr><td>Total BOM Lines</td><td>@Model.TotalBomLines</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    @* ── 1. Receive To Job ───────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">1. Receive To Job</h2>
+            <p class="ds-text-muted">
+                Direct-charge receipt: PO Receipt &rarr; CostTransaction(PurchasedToJobReceipt) &rarr; PRO BOM line.
+                Skips inventory. Posts JE: Dr WIP-Material / Cr GR-Accrued.
+            </p>
+            <form method="post" asp-page-handler="ReceiveToJob">
+                <div class="ds-form-row">
+                    <label class="ds-label">GR Line ID</label>
+                    <input type="number" class="ds-input" asp-for="ReceiveGrLineId" />
+                </div>
+                <div class="ds-form-row">
+                    <label class="ds-label">Production Order ID</label>
+                    <input type="number" class="ds-input" asp-for="ReceiveProId" />
+                </div>
+                <div class="ds-form-row">
+                    <label class="ds-label">BOM Line ID</label>
+                    <input type="number" class="ds-input" asp-for="ReceiveBomLineId" />
+                </div>
+                <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-receive-to-job">
+                    Receive To Job
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 2. Reverse Receipt ──────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">2. Reverse Receipt</h2>
+            <p class="ds-text-muted">
+                Undo a direct-to-job posting. Reverses cost transaction + JE, restores BOM line supply quantities.
+            </p>
+            <form method="post" asp-page-handler="ReverseReceipt">
+                <div class="ds-form-row">
+                    <label class="ds-label">GR Line ID (DTJ)</label>
+                    <input type="number" class="ds-input" asp-for="ReverseGrLineId" />
+                </div>
+                <button type="submit" class="ds-btn ds-btn-warning" data-testid="btn-reverse-dtj">
+                    Reverse DTJ Receipt
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 3. Complete Inspection ──────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">3. Complete Inspection</h2>
+            <p class="ds-text-muted">
+                Release an inspection hold on a DTJ line. Accepted quantity gets posted; rejected goes to Short status.
+            </p>
+            <form method="post" asp-page-handler="CompleteInspection">
+                <div class="ds-form-row">
+                    <label class="ds-label">GR Line ID (held)</label>
+                    <input type="number" class="ds-input" asp-for="InspectGrLineId" />
+                </div>
+                <div class="ds-form-row">
+                    <label class="ds-label">Qty Accepted</label>
+                    <input type="number" step="0.0001" class="ds-input" asp-for="InspectQtyAccepted" />
+                </div>
+                <div class="ds-form-row">
+                    <label class="ds-label">Qty Rejected</label>
+                    <input type="number" step="0.0001" class="ds-input" asp-for="InspectQtyRejected" />
+                </div>
+                <button type="submit" class="ds-btn ds-btn-success" data-testid="btn-complete-inspection">
+                    Complete Inspection &amp; Post
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 4. Batch Process DTJ Lines ──────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">4. Batch Process DTJ Lines</h2>
+            <p class="ds-text-muted">
+                Process all IsDirectToJob lines on a specific GoodsReceipt that haven't been posted yet.
+            </p>
+            <form method="post" asp-page-handler="BatchProcess">
+                <div class="ds-form-row">
+                    <label class="ds-label">Goods Receipt ID</label>
+                    <input type="number" class="ds-input" asp-for="BatchReceiptId" />
+                </div>
+                <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-batch-process">
+                    Batch Process DTJ
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 5. Create Test GR Line ──────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">5. Create Test DTJ Line</h2>
+            <p class="ds-text-muted">
+                Seed a test GoodsReceiptLine with IsDirectToJob=true, linked to the most recent GR, PO line, PRO, and BOM line.
+            </p>
+            <form method="post" asp-page-handler="CreateTestLine">
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-create-test">
+                    Create Test DTJ Line
+                </button>
+            </form>
+        </div>
+    </section>
+
+    @* ── 6. Load DTJ Lines ───────────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">6. Recent Direct-to-Job Lines</h2>
+            <form method="post" asp-page-handler="LoadDtjLines">
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-dtj">
+                    Refresh DTJ Lines
+                </button>
+            </form>
+            @if (Model.RecentDtjLines.Any())
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>GR#</th>
+                            <th>PO Line</th>
+                            <th>PRO</th>
+                            <th>BOM Line</th>
+                            <th>Qty Rcvd</th>
+                            <th>Qty Accepted</th>
+                            <th>Inspection</th>
+                            <th>Posted UTC</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model.RecentDtjLines)
+                        {
+                            <tr>
+                                <td>@l.Id</td>
+                                <td>@(l.GoodsReceipt?.ReceiptNumber ?? "?")</td>
+                                <td>@l.PurchaseOrderLineId</td>
+                                <td>@(l.DirectToJobProductionOrder?.OrderNumber ?? l.DirectToJobProductionOrderId?.ToString() ?? "—")</td>
+                                <td>@(l.DirectToJobBomLineId?.ToString() ?? "—")</td>
+                                <td>@l.QuantityReceived.ToString("N4")</td>
+                                <td>@l.QuantityAccepted.ToString("N4")</td>
+                                <td>@(l.InspectionRequired ? "Yes" : "No")</td>
+                                <td>@(l.DirectToJobPostedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <p class="ds-text-muted ds-mt-2">No direct-to-job receipt lines found.</p>
+            }
+        </div>
+    </section>
+
+    @* ── 7. Load BOM Supply Links ────────────────────────────── *@
+
+    <section class="ds-card ds-mt-3">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">7. BOM Supply Links</h2>
+            <p class="ds-text-muted">
+                Show supply status on BOM lines for a production order — the supply link fields populated by Receipt-to-Job.
+            </p>
+            <form method="post" asp-page-handler="LoadBomSupply">
+                <div class="ds-form-row">
+                    <label class="ds-label">Production Order ID</label>
+                    <input type="number" class="ds-input" asp-for="LoadProId" />
+                </div>
+                <button type="submit" class="ds-btn ds-btn-secondary" data-testid="btn-load-bom">
+                    Load BOM Supply
+                </button>
+            </form>
+            @if (Model.BomSupplyLinks.Any())
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead>
+                        <tr>
+                            <th>Seq</th>
+                            <th>Part#</th>
+                            <th>Supply Type</th>
+                            <th>Supply Status</th>
+                            <th>Qty Required</th>
+                            <th>Qty Received</th>
+                            <th>Qty Remaining</th>
+                            <th>Supply Ref</th>
+                            <th>Risk</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model.BomSupplyLinks)
+                        {
+                            <tr>
+                                <td>@b.Sequence</td>
+                                <td>@(b.ChildPartNumber ?? "?")</td>
+                                <td>@b.MaterialSupplyType</td>
+                                <td>@b.MaterialSupplyStatus</td>
+                                <td>@b.SupplyQuantityRequired.ToString("N4")</td>
+                                <td>@b.SupplyQuantityReceived.ToString("N4")</td>
+                                <td>@b.SupplyQuantityRemaining.ToString("N4")</td>
+                                <td>@(b.LinkedSupplyRecordNumber ?? "—")</td>
+                                <td>@b.SupplyRisk</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+</main>

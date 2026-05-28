@@ -63,6 +63,7 @@ namespace Abs.FixedAssets.Services.Receiving
         private readonly IOutboxWriter _outbox;
         private readonly IIdempotencyMediator _idempotency;
         private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
+        private readonly IReceiptToJobService _receiptToJob;
         private readonly ILogger<ReceivingPostingService> _logger;
 
         public ReceivingPostingService(
@@ -72,6 +73,7 @@ namespace Abs.FixedAssets.Services.Receiving
             IOutboxWriter outbox,
             IIdempotencyMediator idempotency,
             Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
+            IReceiptToJobService receiptToJob,
             ILogger<ReceivingPostingService> logger)
         {
             _db = db;
@@ -80,6 +82,7 @@ namespace Abs.FixedAssets.Services.Receiving
             _outbox = outbox;
             _idempotency = idempotency;
             _chainOfCustody = chainOfCustody;
+            _receiptToJob = receiptToJob;
             _logger = logger;
         }
 
@@ -222,6 +225,42 @@ namespace Abs.FixedAssets.Services.Receiving
                     // by CipAutoCostPostingService.PostFromReceiptLineAsync (PR #37).
                     // Per ADR-001 D-2: CIP-tagged stock receipts don't move
                     // inventory either; they go straight to CIP basis.
+                    continue;
+                }
+                else if (line.IsDirectToJob)
+                {
+                    // Sprint 15.1 PR-1 — Direct-to-job receipt line. Bypass
+                    // inventory entirely; IReceiptToJobService handles:
+                    //   - CostTransaction(PurchasedToJobReceipt) → PRO
+                    //   - JE: Dr WIP-Material, Cr GR-Accrued
+                    //   - BOM line supply link update
+                    // Delegation is fire-and-forget safe — errors are logged
+                    // but don't block the remaining standard inventory lines.
+                    if (line.DirectToJobProductionOrderId.HasValue && line.DirectToJobBomLineId.HasValue)
+                    {
+                        try
+                        {
+                            await _receiptToJob.ReceiveToJobAsync(
+                                new ReceiveToJobRequest(
+                                    line.Id,
+                                    line.DirectToJobProductionOrderId.Value,
+                                    line.DirectToJobBomLineId.Value));
+                        }
+                        catch (Exception dtjEx)
+                        {
+                            _logger.LogWarning(dtjEx,
+                                "ReceivingPostingService: DTJ delegation failed for GR line {LineId}; " +
+                                "standard inventory path not applied either. Manual intervention needed.",
+                                line.Id);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "ReceivingPostingService: GR line {LineId} is IsDirectToJob but missing " +
+                            "PRO/BOM linkage. Skipping — no inventory or DTJ posting.",
+                            line.Id);
+                    }
                     continue;
                 }
                 else if (isStock)
