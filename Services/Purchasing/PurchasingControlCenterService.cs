@@ -1252,27 +1252,42 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         // the §21 layout). Wrap with severity-bucketed counters for the
         // tab header. We don't add a new entity scan — exception-lane
         // semantics are exactly what tab 10 is supposed to surface.
-        var laneResult = await GetExceptionLaneAsync(filter, ct);
+        //
+        // (Codex review) GetExceptionLaneAsync already computes the TRUE
+        // backlog (costExceptionTotal + lateWipTotal) before per-source
+        // Take. The pre-PR P2.2 fix that clipped TotalCount to Rows.Count
+        // threw away that signal and made remaining exceptions unreachable.
+        // True fix: fetch with Take = Skip + Take from the lane so the
+        // merged returned set is large enough, then slice in memory with
+        // Skip + Take. Preserves lane.TotalCount as the honest backlog
+        // signal AND lets pagination advance.
+        var skip = Math.Max(0, filter.Skip);
+        var take = Math.Clamp(filter.Take, 1, 500);
+        // The lane is currently uncapped beyond its per-source Take=500.
+        // Cap our overshoot at 500 too — tenants with >500 exceptions hit
+        // a known ceiling (documented in the page-level pagination note),
+        // worth revisiting in Wave 4 polish via real cross-source skip.
+        var laneTake = Math.Clamp(skip + take, take, 500);
+        var laneFilter = filter with { Skip = 0, Take = laneTake };
+
+        var laneResult = await GetExceptionLaneAsync(laneFilter, ct);
         if (!laneResult.IsSuccess || laneResult.Value is null)
             return Result.Failure<CostExceptionsTabPage>(
                 laneResult.Error ?? "Failed to read exception lane.");
 
         var lane = laneResult.Value;
-        var high = lane.Rows.Count(r => r.Severity == "High");
-        var med = lane.Rows.Count(r => r.Severity == "Medium");
-        var low = lane.Rows.Count(r => r.Severity == "Low");
+        // Apply in-memory skip+take to the merged list so the visible rows
+        // match the page the user requested.
+        var pagedRows = lane.Rows.Skip(skip).Take(take).ToList();
+        var high = pagedRows.Count(r => r.Severity == "High");
+        var med = pagedRows.Count(r => r.Severity == "Medium");
+        var low = pagedRows.Count(r => r.Severity == "Low");
 
-        // P2.2 fix — clip TotalCount to reachable row count so HasNext
-        // returns false. GetExceptionLaneAsync doesn't honor filter.Skip
-        // (the underlying lane is a UNION of cost-variance + late vendor-WIP
-        // rows; same UNION-pagination limit as InspectionHolds in PR-12).
-        // Severity counters above are computed over the visible rows, which
-        // is the honest scope the buyer can act on right now.
         return Result.Success(new CostExceptionsTabPage(
-            TotalCount: lane.Rows.Count,
+            TotalCount: lane.TotalCount,
             HighSeverityCount: high,
             MediumSeverityCount: med,
             LowSeverityCount: low,
-            Rows: lane.Rows));
+            Rows: pagedRows));
     }
 }
