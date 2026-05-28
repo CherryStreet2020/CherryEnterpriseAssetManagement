@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Abs.FixedAssets.Models;             // VendorWipInventoryStatus etc.
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Pages.Shared.Primitives.Cockpit;
 using Abs.FixedAssets.Services.Purchasing;
@@ -83,7 +84,11 @@ public sealed class ControlCenterModel : PageModel
     public const string TabApprovals = "approvals";              // PR-13
     public const string TabCostExceptions = "cost-exceptions";   // PR-13
 
-    private static readonly string[] LiveTabs = { TabSupplyDemand, TabBuyToJob };
+    // PR-12 ships 4 more live tabs: Subcontract / Vendor WIP / Receipts / Inspection Holds.
+    private static readonly string[] LiveTabs = {
+        TabSupplyDemand, TabBuyToJob,
+        TabSubcontract, TabVendorWip, TabReceipts, TabInspectionHolds,
+    };
     private static readonly string[] AllTabs = {
         TabSupplyDemand, TabBuyToJob, TabSubcontract, TabVendorWip,
         TabReceipts, TabInspectionHolds, TabPos, TabExpedites, TabApprovals,
@@ -103,6 +108,13 @@ public sealed class ControlCenterModel : PageModel
     public CockpitKpiBandViewModel? KpiBand { get; private set; }
     public CockpitTabShellModel TabShell { get; private set; } = new();
     public PurchasingQueuePage? Queue { get; private set; }
+
+    // PR-12 tab payloads — only the active tab is loaded.
+    public SubcontractTabPage? SubcontractTab { get; private set; }
+    public VendorWipTabPage? VendorWipTab { get; private set; }
+    public ReceiptsTabPage? ReceiptsTab { get; private set; }
+    public InspectionHoldsTabPage? InspectionHoldsTab { get; private set; }
+
     public string? ErrorMessage { get; private set; }
 
     // ── Handler ─────────────────────────────────────────────────────────
@@ -135,33 +147,97 @@ public sealed class ControlCenterModel : PageModel
 
         if (ActiveTabIsLive)
         {
-            var queueType = ActiveTab switch
-            {
-                TabBuyToJob => PurchasingQueueType.BuyToJob,
-                _ => PurchasingQueueType.SupplyDemand,
-            };
             var filter = new PurchasingQueueFilter(
                 SiteId: SiteId,
                 BuyerUserId: BuyerUserId,
                 Skip: Math.Max(0, Skip),
                 Take: PageSize);
-            var qResult = await _svc.GetSupplyDemandQueueAsync(queueType, filter, ct);
-            if (qResult.IsSuccess && qResult.Value is not null)
+
+            // PR-11 + PR-12 dispatch — Supply Demand + Buy-to-Job route through
+            // GetSupplyDemandQueueAsync (demand grid). PR-12 routes Subcontract /
+            // VendorWip / Receipts / InspectionHolds through tab-specific reads.
+            switch (ActiveTab)
             {
-                Queue = qResult.Value;
-            }
-            else
-            {
-                ErrorMessage = qResult.Error;
-                // P2.6 fix — hydrate empty page so the empty-state branch
-                // still renders the canvas instead of leaving a blank below
-                // the error banner.
-                Queue = new PurchasingQueuePage(queueType, 0, Array.Empty<PurchasingQueueRow>());
+                case TabSupplyDemand:
+                case TabBuyToJob:
+                {
+                    var queueType = ActiveTab == TabBuyToJob
+                        ? PurchasingQueueType.BuyToJob
+                        : PurchasingQueueType.SupplyDemand;
+                    var qResult = await _svc.GetSupplyDemandQueueAsync(queueType, filter, ct);
+                    if (qResult.IsSuccess && qResult.Value is not null)
+                    {
+                        Queue = qResult.Value;
+                    }
+                    else
+                    {
+                        ErrorMessage = qResult.Error;
+                        // P2.6 fix — hydrate empty page so the empty-state branch
+                        // still renders the canvas instead of leaving a blank below
+                        // the error banner.
+                        Queue = new PurchasingQueuePage(queueType, 0, Array.Empty<PurchasingQueueRow>());
+                    }
+                    break;
+                }
+                case TabSubcontract:
+                {
+                    var r = await _svc.GetSubcontractTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) SubcontractTab = r.Value;
+                    else { ErrorMessage = r.Error; SubcontractTab = new SubcontractTabPage(0, Array.Empty<SubcontractTabRow>()); }
+                    break;
+                }
+                case TabVendorWip:
+                {
+                    var r = await _svc.GetVendorWipTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) VendorWipTab = r.Value;
+                    else { ErrorMessage = r.Error; VendorWipTab = new VendorWipTabPage(0, 0m, 0, Array.Empty<VendorWipTabRow>()); }
+                    break;
+                }
+                case TabReceipts:
+                {
+                    var r = await _svc.GetReceiptsTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) ReceiptsTab = r.Value;
+                    else { ErrorMessage = r.Error; ReceiptsTab = new ReceiptsTabPage(0, 0, 0, Array.Empty<ReceiptsTabRow>()); }
+                    break;
+                }
+                case TabInspectionHolds:
+                {
+                    var r = await _svc.GetInspectionHoldsTabAsync(filter, ct);
+                    if (r.IsSuccess && r.Value is not null) InspectionHoldsTab = r.Value;
+                    else { ErrorMessage = r.Error; InspectionHoldsTab = new InspectionHoldsTabPage(0, 0, Array.Empty<InspectionHoldRow>()); }
+                    break;
+                }
             }
         }
 
         return Page();
     }
+
+    // ── Pagination helpers — tab-aware Has-Next/Prev resolver ─────────────
+    //
+    // The supply-demand / buy-to-job tabs page through PurchasingQueuePage.
+    // PR-12 tabs page through their own *TabPage records. Centralise the
+    // "is there more" decision so the Razor doesn't have to switch on tab.
+
+    public int ActiveTabTotalCount => ActiveTab switch
+    {
+        TabSupplyDemand or TabBuyToJob => Queue?.TotalCount ?? 0,
+        TabSubcontract => SubcontractTab?.TotalCount ?? 0,
+        TabVendorWip => VendorWipTab?.TotalCount ?? 0,
+        TabReceipts => ReceiptsTab?.TotalCount ?? 0,
+        TabInspectionHolds => InspectionHoldsTab?.TotalCount ?? 0,
+        _ => 0,
+    };
+
+    public int ActiveTabRowCount => ActiveTab switch
+    {
+        TabSupplyDemand or TabBuyToJob => Queue?.Rows.Count ?? 0,
+        TabSubcontract => SubcontractTab?.Rows.Count ?? 0,
+        TabVendorWip => VendorWipTab?.Rows.Count ?? 0,
+        TabReceipts => ReceiptsTab?.Rows.Count ?? 0,
+        TabInspectionHolds => InspectionHoldsTab?.Rows.Count ?? 0,
+        _ => 0,
+    };
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -321,9 +397,54 @@ public sealed class ControlCenterModel : PageModel
         _ => "info",
     };
 
-    // Pagination helpers
+    public static string SubcontractOpStatusTone(SubcontractOperationStatus s) => s switch
+    {
+        SubcontractOperationStatus.NotReady => "muted",
+        SubcontractOperationStatus.ReadyToBuy
+            or SubcontractOperationStatus.PoCreated
+            or SubcontractOperationStatus.ReadyToShip => "info",
+        SubcontractOperationStatus.ShippedToVendor
+            or SubcontractOperationStatus.AtVendor
+            or SubcontractOperationStatus.PartiallyReceived
+            or SubcontractOperationStatus.InInspection => "warning",
+        SubcontractOperationStatus.Rejected
+            or SubcontractOperationStatus.ReworkAtVendor => "danger",
+        SubcontractOperationStatus.Complete
+            or SubcontractOperationStatus.Closed => "success",
+        _ => "info",
+    };
+
+    public static string VendorWipInventoryTone(VendorWipInventoryStatus s) => s switch
+    {
+        VendorWipInventoryStatus.InTransitToVendor
+            or VendorWipInventoryStatus.InTransitFromVendor => "info",
+        VendorWipInventoryStatus.AtVendorAvailable
+            or VendorWipInventoryStatus.AtVendorAssignedToJob
+            or VendorWipInventoryStatus.AtVendorInProcess
+            or VendorWipInventoryStatus.AtVendorAwaitingReturn => "warning",
+        VendorWipInventoryStatus.AtVendorOnHold => "warning",
+        VendorWipInventoryStatus.AtVendorRejected
+            or VendorWipInventoryStatus.AtVendorScrap => "danger",
+        VendorWipInventoryStatus.ReceivedBack
+            or VendorWipInventoryStatus.Closed => "success",
+        _ => "info",
+    };
+
+    public static string ReceiptLifecycleTone(SubcontractReceiptLifecycle s) => s switch
+    {
+        SubcontractReceiptLifecycle.Draft => "neutral",
+        SubcontractReceiptLifecycle.Posting => "info",
+        SubcontractReceiptLifecycle.Posted
+            or SubcontractReceiptLifecycle.Approved => "success",
+        SubcontractReceiptLifecycle.PendingApproval => "warning",
+        SubcontractReceiptLifecycle.Reversed => "danger",
+        SubcontractReceiptLifecycle.Closed => "muted",
+        _ => "info",
+    };
+
+    // Pagination helpers — tab-aware via ActiveTabTotalCount / ActiveTabRowCount.
     public bool HasPrev => Skip > 0;
-    public bool HasNext => Queue is not null && (Skip + Queue.Rows.Count) < Queue.TotalCount;
+    public bool HasNext => (Skip + ActiveTabRowCount) < ActiveTabTotalCount;
     public int PrevSkip => Math.Max(0, Skip - PageSize);
     public int NextSkip => Skip + PageSize;
 }

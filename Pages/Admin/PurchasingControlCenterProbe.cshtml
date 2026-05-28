@@ -177,6 +177,144 @@
         </form>
     </div></section>
 
+    @* ─── PR-12 TAB PROBES (Subcontract / Vendor WIP / Receipts / Inspection Holds) ─ *@
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">5 · PR-12 Tab Probes</h2>
+        <p class="ds-text-muted">
+            Exercises the 4 PR-12 tab reads on <code>IPurchasingControlCenterService</code>:
+            Subcontract / Vendor WIP / Receipts / Inspection Holds. Each fires a real
+            tenant-scoped query against the substrate shipped in Waves 1–2. Outcome banner
+            reports counts + a one-row summary so the probe can be screenshot-verified.
+        </p>
+        <form method="post">
+            <div class="ds-form-row"><label class="ds-label">Site (optional)</label><input type="number" class="ds-input" asp-for="SiteId" /></div>
+            <div class="ds-mt-2">
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadSubcontractTab" data-testid="btn-load-subcontract-tab">Load Subcontract Tab</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadVendorWipTab" data-testid="btn-load-vendorwip-tab">Load Vendor WIP Tab</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadReceiptsTab" data-testid="btn-load-receipts-tab">Load Receipts Tab</button>
+                <button type="submit" class="ds-btn ds-btn-primary" asp-page-handler="LoadInspectionHoldsTab" data-testid="btn-load-inspection-holds-tab">Load Inspection Holds Tab</button>
+            </div>
+        </form>
+
+        @if (Model.SubcontractTab is { } sct)
+        {
+            <h3 class="ds-h3 ds-mt-3">Subcontract Tab — @sct.TotalCount op(s), showing @sct.Rows.Count</h3>
+            @if (sct.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Op#</th><th>PRO</th><th>Seq</th><th>Code</th><th>Supplier</th><th>OpStatus</th><th>Ship</th><th>Receipt</th><th>To Ship</th><th>Received</th><th>Days Late</th><th>Hint</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in sct.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.SubcontractOperationId</td>
+                            <td>@(r.ProductionOrderNumber ?? r.ProductionOrderId.ToString())</td>
+                            <td>@r.OperationSequence</td>
+                            <td>@r.OperationCode</td>
+                            <td>@(r.SupplierName ?? "—")</td>
+                            <td>@r.OpStatus</td>
+                            <td>@r.ShipmentStatus</td>
+                            <td>@r.ReceiptStatusForOp</td>
+                            <td>@r.QuantityToShip.ToString("N2")</td>
+                            <td>@r.QuantityReceivedBack.ToString("N2")</td>
+                            <td>@(r.DaysLateBack?.ToString() ?? "—")</td>
+                            <td>@r.NextActionHint</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+
+        @if (Model.VendorWipTab is { } vwt)
+        {
+            <h3 class="ds-h3 ds-mt-3">Vendor WIP Tab — @vwt.TotalCount balance(s) · $@vwt.TotalValueAtVendorUsd.ToString("N2") · @vwt.OverdueReturnCount overdue</h3>
+            @if (vwt.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Bal#</th><th>PRO</th><th>Seq</th><th>Supplier</th><th>Part</th><th>At Vendor</th><th>Value</th><th>Status</th><th>Quality</th><th>Aging</th><th>Days Late</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in vwt.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.VendorWipBalanceId</td>
+                            <td>@(r.ProductionOrderNumber ?? r.ProductionOrderId.ToString())</td>
+                            <td>@r.OperationSequence</td>
+                            <td>@(r.SupplierName ?? "—")</td>
+                            <td>@(r.PartNumber ?? "—")</td>
+                            <td>@r.QuantityAtVendor.ToString("N2")</td>
+                            <td>$@r.TotalValueAtVendor.ToString("N2")</td>
+                            <td>@r.InventoryStatus</td>
+                            <td>@r.QualityStatus</td>
+                            <td>@r.AgingDaysAtVendor</td>
+                            <td>@(r.DaysLateReturn?.ToString() ?? "—")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+
+        @if (Model.ReceiptsTab is { } rct)
+        {
+            <h3 class="ds-h3 ds-mt-3">Receipts Tab — @rct.TotalCount active · @rct.OpenDraftCount draft · @rct.PendingApprovalCount pending approval</h3>
+            @if (rct.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Rec#</th><th>Number</th><th>PRO</th><th>Seq</th><th>Supplier</th><th>Date</th><th>Status</th><th>Lines</th><th>Received</th><th>Accepted</th><th>Rejected</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in rct.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.SubcontractReceiptId</td>
+                            <td>@r.ReceiptNumber</td>
+                            <td>@(r.ProductionOrderNumber ?? r.ProductionOrderId.ToString())</td>
+                            <td>@r.OperationSequence</td>
+                            <td>@(r.SupplierName ?? "—")</td>
+                            <td>@r.ReceiptDate.ToString("yyyy-MM-dd")</td>
+                            <td>@r.Status</td>
+                            <td>@r.LineCount</td>
+                            <td>@r.TotalReceived.ToString("N2")</td>
+                            <td>@r.TotalAccepted.ToString("N2")</td>
+                            <td>@r.TotalRejected.ToString("N2")</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+
+        @if (Model.InspectionHoldsTab is { } iht)
+        {
+            <h3 class="ds-h3 ds-mt-3">Inspection Holds Tab — @iht.TotalCount hold(s) · @iht.OldHoldsCount aged 7+ days</h3>
+            @if (iht.Rows.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Source</th><th>Line#</th><th>Header</th><th>PO</th><th>PRO</th><th>Supplier</th><th>Part</th><th>Received</th><th>On Hold</th><th>Reason</th><th>Days</th><th>Hint</th></tr></thead>
+                    <tbody>
+                    @foreach (var r in iht.Rows.Take(10))
+                    {
+                        <tr>
+                            <td>@r.SourceKind</td>
+                            <td>@r.SourceLineId</td>
+                            <td>@r.SourceHeaderNumber</td>
+                            <td>@(r.PurchaseOrderNumber ?? (r.PurchaseOrderId?.ToString() ?? "—"))</td>
+                            <td>@(r.ProductionOrderNumber ?? (r.ProductionOrderId?.ToString() ?? "—"))</td>
+                            <td>@(r.SupplierName ?? "—")</td>
+                            <td>@(r.PartNumber ?? "—")</td>
+                            <td>@r.QuantityReceived.ToString("N2")</td>
+                            <td>@r.QuantityOnHold.ToString("N2")</td>
+                            <td>@r.HoldReason</td>
+                            <td>@r.DaysOnHold</td>
+                            <td>@r.NextActionHint</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
     @* ─── TENANT-SCOPED RECENT DEMANDS (sanity) ────────────────────── *@
     <section class="ds-card ds-mt-3"><div class="ds-card__body">
         <h2 class="ds-h2">6 · Recent Demands (last 10, this tenant)</h2>
