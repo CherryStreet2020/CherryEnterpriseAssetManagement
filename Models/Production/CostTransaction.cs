@@ -82,6 +82,13 @@ public enum CostTransactionType
     // Outside processing (50-series)
     OutsideProcessing = 50,
     SubcontractService = 51,
+    // Sprint 15.2 PR-8 — §12 subcontract cost elements
+    SubcontractFreightOut = 52,
+    SubcontractFreightReturn = 53,
+    SubcontractExpedite = 54,
+    SubcontractScrapCharge = 55,
+    SubcontractVendorCredit = 56,
+    SubcontractOverhead = 57,
 
     // Landed cost (60-series)
     FreightIn = 60,

@@ -606,6 +606,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IVendorWipService
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractFlowService,
     Abs.FixedAssets.Services.Production.SubcontractFlowService>();
 
+// Sprint 15.2 PR-8 (2026-05-28) — Subcontract Costing Integration.
+// Wires §12 cost elements into Sprint 14.4 CostTransaction engine. 6 new
+// CostTransactionType values (SubcontractFreightOut/Return/Expedite/
+// ScrapCharge/VendorCredit/Overhead). Posts at ship + receive + invoice +
+// close. Idempotent per (sourceType, sourceId, transactionType).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ISubcontractCostingService,
+    Abs.FixedAssets.Services.Production.SubcontractCostingService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios
