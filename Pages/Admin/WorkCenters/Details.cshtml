@@ -1,0 +1,155 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.Admin.WorkCenters.DetailsModel
+@{
+    ViewData["Title"] = Model.WC == null ? "Work Center" : $"{Model.WC.Code} — Work Center";
+    Layout = "_ModernLayout";
+}
+
+@if (Model.WC is null)
+{
+    <div class="page-header">
+        <div class="page-header-titles">
+            <h1 class="page-title">Work Center not found</h1>
+            <p class="page-subtitle"><a href="/Admin/WorkCenters">← Back to Work Centers</a></p>
+        </div>
+    </div>
+}
+else
+{
+    var w = Model.WC;
+    <div class="page-header">
+        <div class="page-header-titles">
+            <nav aria-label="breadcrumb" class="breadcrumb-trail">
+                <a href="/">Home</a>
+                <span class="breadcrumb-sep">/</span>
+                <a href="/Admin">Admin</a>
+                <span class="breadcrumb-sep">/</span>
+                <a href="/Admin/WorkCenters">Work Centers</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">@w.Code</span>
+            </nav>
+            <h1 class="page-title">@w.Code — @w.Name</h1>
+            <p class="page-subtitle">
+                <span class="status-chip status-chip--@w.StatusTone()">@w.Status</span> ·
+                @w.Type · @w.CapacityModel · @w.SiteName@(string.IsNullOrEmpty(w.Description) ? "" : " · " + w.Description)
+            </p>
+        </div>
+        <div class="page-header-actions">
+            <a href="/Admin/WorkCenters" class="btn-secondary">← All Work Centers</a>
+        </div>
+    </div>
+
+    <div class="detail-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-bottom:24px;">
+        <div class="card">
+            <div class="card-header"><h3 class="card-title">Identity & Organization</h3></div>
+            <div class="card-body">
+                <dl class="detail-dl">
+                    <dt>Code</dt><dd class="link-mono">@w.Code</dd>
+                    <dt>Name</dt><dd>@w.Name</dd>
+                    <dt>Type</dt><dd>@w.Type</dd>
+                    <dt>Status</dt><dd><span class="status-chip status-chip--@w.StatusTone()">@w.Status</span></dd>
+                    <dt>Site</dt><dd>@w.SiteName</dd>
+                    <dt>Location</dt><dd>@w.LocationName</dd>
+                    <dt>Owning Department</dt><dd>@w.DepartmentName</dd>
+                    <dt>Calendar</dt><dd>@w.CalendarCode</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h3 class="card-title">Scheduling & Dispatch</h3></div>
+            <div class="card-body">
+                <dl class="detail-dl">
+                    <dt>Capacity model</dt><dd>@w.CapacityModel</dd>
+                    <dt>Simultaneous ops max</dt><dd>@(w.SimultaneousOperationsMax?.ToString() ?? "1 (single)")</dd>
+                    <dt>Dispatch rule</dt><dd>@w.DispatchRule</dd>
+                    <dt>Bottleneck / drum</dt><dd>@(w.BottleneckFlag ? "Yes" : "No")@(w.ConstraintPriority != null ? $" (priority {w.ConstraintPriority})" : "")</dd>
+                    <dt>Scheduling enabled</dt><dd>@(w.SchedulingEnabled == null ? "default" : (w.SchedulingEnabled.Value ? "Yes" : "No"))</dd>
+                    <dt>Setup family</dt><dd>@w.SetupFamilyRule@(string.IsNullOrEmpty(w.SetupFamilyCode) ? "" : $" · {w.SetupFamilyCode}")</dd>
+                    <dt>Efficiency / Utilization</dt><dd>@w.EfficiencyPct.ToString("0.#")% / @w.UtilizationPct.ToString("0.#")%</dd>
+                    <dt>Queue / Move / Wait (min)</dt><dd>@w.DefaultQueueTimeMins / @w.DefaultMoveTimeMins / @w.DefaultWaitTimeMins</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><h3 class="card-title">Cost Rates (@w.CurrencyCode /hr)</h3></div>
+            <div class="card-body">
+                <dl class="detail-dl">
+                    <dt>Standard cost rate</dt><dd>@w.StandardCostRatePerHour.ToString("0.00")</dd>
+                    <dt>Overhead rate</dt><dd>@w.OverheadRatePerHour.ToString("0.00")</dd>
+                    <dt>Setup labor / machine</dt><dd>@w.SetupLaborRatePerHour.ToString("0.00") / @w.SetupMachineRatePerHour.ToString("0.00")</dd>
+                    <dt>Run labor / machine</dt><dd>@w.RunLaborRatePerHour.ToString("0.00") / @w.RunMachineRatePerHour.ToString("0.00")</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="data-table-wrap" style="margin-bottom:24px;">
+        <h3 class="card-title" style="margin:0 0 8px;">Assigned Resources (@Model.Resources.Count)</h3>
+        <table class="data-table">
+            <thead><tr><th>Code</th><th>Name</th><th>Kind</th><th>Status</th><th>Primary</th><th>EAM Asset</th></tr></thead>
+            <tbody>
+                @foreach (var r in Model.Resources)
+                {
+                    <tr>
+                        <td class="link-mono">@r.Code</td>
+                        <td>@r.Name</td>
+                        <td>@r.Kind</td>
+                        <td>@r.Status</td>
+                        <td>@(r.IsPrimary ? "★" : "")</td>
+                        <td>@(r.AssetId == null ? "—" : "#" + r.AssetId)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Model.Resources.Count == 0)
+        {
+            <div class="empty-state"><div class="empty-state-body">No production resources assigned to this work center yet.</div></div>
+        }
+    </div>
+
+    <div class="data-table-wrap" style="margin-bottom:24px;">
+        <h3 class="card-title" style="margin:0 0 8px;">Alternate Work Centers (@Model.Alternates.Count)</h3>
+        <table class="data-table">
+            <thead><tr><th>Preference</th><th>Alternate</th><th>Efficiency factor</th><th>Active</th></tr></thead>
+            <tbody>
+                @foreach (var a in Model.Alternates)
+                {
+                    <tr>
+                        <td class="num">@a.Preference</td>
+                        <td><a href="/Admin/WorkCenters/Details/@a.AlternateWorkCenterId" class="link-mono">@a.AlternateCode</a></td>
+                        <td class="num">@(a.EfficiencyFactor?.ToString("0.00") ?? "—")</td>
+                        <td>@(a.IsActive ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Model.Alternates.Count == 0)
+        {
+            <div class="empty-state"><div class="empty-state-body">No alternate (spill) work centers configured. The finite scheduler will keep overloaded ops on this center.</div></div>
+        }
+    </div>
+
+    <div class="data-table-wrap">
+        <h3 class="card-title" style="margin:0 0 8px;">Linked EAM Assets (@Model.Assets.Count)</h3>
+        <table class="data-table">
+            <thead><tr><th>Asset #</th><th>Description</th><th>Primary</th><th class="num">Current OEE</th></tr></thead>
+            <tbody>
+                @foreach (var a in Model.Assets)
+                {
+                    <tr>
+                        <td class="link-mono">@a.AssetTag</td>
+                        <td>@a.Name</td>
+                        <td>@(a.IsPrimary ? "★" : "")</td>
+                        <td class="num">@(a.OeePct != null ? a.OeePct.Value.ToString("0.0") + "%" : "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (Model.Assets.Count == 0)
+        {
+            <div class="empty-state"><div class="empty-state-body">No EAM assets linked to this work center.</div></div>
+        }
+    </div>
+}
