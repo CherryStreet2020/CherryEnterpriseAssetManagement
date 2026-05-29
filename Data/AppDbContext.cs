@@ -3421,6 +3421,39 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.CompanyId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                // B11 R1-1 — production-org backbone.
+                // Self-referencing nesting (Site→Dept→sub-Dept). RESTRICT so a
+                // parent can't be deleted out from under its children.
+                e.HasOne(x => x.ParentDepartment)
+                    .WithMany(p => p.ChildDepartments)
+                    .HasForeignKey(x => x.ParentDepartmentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => x.ParentDepartmentId)
+                    .HasFilter("\"ParentDepartmentId\" IS NOT NULL")
+                    .HasDatabaseName("IX_Departments_Parent_Partial");
+                e.HasIndex(x => x.SiteId)
+                    .HasFilter("\"SiteId\" IS NOT NULL")
+                    .HasDatabaseName("IX_Departments_Site_Partial");
+                e.HasIndex(x => x.IsProductionDepartment)
+                    .HasFilter("\"IsProductionDepartment\" = TRUE")
+                    .HasDatabaseName("IX_Departments_IsProduction_Partial");
+                // xmin concurrency (HARD LOCK feedback_xmin_pattern_for_concurrency_lock.md).
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R1-1 — close the WorkCenter.OwningDepartmentId orphan: real FK + nav.
+            // SET NULL on department delete (a WC survives its owning department's
+            // removal; the floor unit doesn't vanish because the org changed).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.WorkCenter>(e =>
+            {
+                e.HasOne(x => x.OwningDepartment)
+                    .WithMany()
+                    .HasForeignKey(x => x.OwningDepartmentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.OwningDepartmentId)
+                    .HasFilter("\"OwningDepartmentId\" IS NOT NULL")
+                    .HasDatabaseName("IX_WorkCenters_OwningDepartment_Partial");
             });
 
             // Locations

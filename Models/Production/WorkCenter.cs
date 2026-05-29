@@ -99,7 +99,10 @@ public class WorkCenter
     // one site. Multi-site companies can have "CNC-1" at Site A AND Site B without
     // collision because UNIQUE is (CompanyId, LocationId, Code).
     public int LocationId { get; set; }
+    // B11 R1-1 — OwningDepartmentId is now a real FK + nav (was an orphan id).
+    // Closes the production-org backbone: Site→Dept→WC.
     public int? OwningDepartmentId { get; set; }
+    public Abs.FixedAssets.Models.Department? OwningDepartment { get; set; }
 
     // Subcontract-specific (only meaningful when Type == Subcontract).
     public int? PreferredVendorId { get; set; }

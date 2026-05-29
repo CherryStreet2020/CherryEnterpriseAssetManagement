@@ -1,0 +1,98 @@
+@page "/Admin/DepartmentOrgProbe"
+@model Abs.FixedAssets.Pages.Admin.DepartmentOrgProbeModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Department Org Probe";
+    ViewData["TabTitle"] = "Department Org Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R1-1 — production-org Department backbone.
+    "Three objects, three jobs": Department organizes people/reporting/ownership;
+    Work Center is the scheduling object; Machine/Resource executes. This probe
+    exercises the extended Department (nesting, production flag, site) and closes
+    the WorkCenter.OwningDepartmentId orphan FK.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Department Org Probe — B11 R1-1</h1>
+        <p class="ds-page-header__subtitle">
+            The production-org backbone: Site → Department → Work Center. Departments nest
+            via ParentDepartmentId (no separate Division tier), flag production ownership,
+            and now own Work Centers through a real FK — not an orphan id.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant department stats</h2>
+            <p class="ds-text-muted">
+                Departments: <strong>@Model.TotalDepartments</strong> ·
+                Production: <strong>@Model.ProductionDepartments</strong> ·
+                Nested: <strong>@Model.NestedDepartments</strong> ·
+                Work Centers with a department: <strong>@Model.WorkCentersWithDept</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Org backbone flow</h2>
+            <p class="ds-text-muted">Suggested order: 1 → 2 → 3.</p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="CreateDept" class="ds-btn ds-btn--primary">1 · Create production department</button>
+                <button type="submit" asp-page-handler="Nest" class="ds-btn">2 · Nest under Manufacturing Ops</button>
+                <button type="submit" asp-page-handler="AssignWc" class="ds-btn">3 · Assign a Work Center</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample departments (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No departments in your tenant scope — create one with button 1.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Name</th><th>Type</th><th>Production</th><th>Parent Id</th><th>Site Id</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@r.Name</td>
+                                <td>@r.Type</td>
+                                <td>@(r.IsProduction ? "✓" : "—")</td>
+                                <td>@(r.ParentId?.ToString() ?? "—")</td>
+                                <td>@(r.SiteId?.ToString() ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
