@@ -15372,9 +15372,15 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CompanyId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Default")
+                        .HasFilter("\"SiteId\" IS NULL");
+
                     b.HasIndex("CompanyId", "SiteId")
                         .IsUnique()
-                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site");
+                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site")
+                        .HasFilter("\"SiteId\" IS NOT NULL");
 
                     b.ToTable("MakeBuyDecisionPolicies");
                 });

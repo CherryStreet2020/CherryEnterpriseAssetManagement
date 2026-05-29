@@ -14,7 +14,7 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260529222856_B7WaveC_MakeBuyDecision")]
+    [Migration("20260529224214_B7WaveC_MakeBuyDecision")]
     partial class B7WaveC_MakeBuyDecision
     {
         /// <inheritdoc />
@@ -15375,9 +15375,15 @@ namespace Abs.FixedAssets.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CompanyId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Default")
+                        .HasFilter("\"SiteId\" IS NULL");
+
                     b.HasIndex("CompanyId", "SiteId")
                         .IsUnique()
-                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site");
+                        .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site")
+                        .HasFilter("\"SiteId\" IS NOT NULL");
 
                     b.ToTable("MakeBuyDecisionPolicies");
                 });

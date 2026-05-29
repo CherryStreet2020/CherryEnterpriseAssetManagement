@@ -92,10 +92,18 @@ namespace Abs.FixedAssets.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "UX_MakeBuyDecisionPolicies_Company_Default",
+                table: "MakeBuyDecisionPolicies",
+                column: "CompanyId",
+                unique: true,
+                filter: "\"SiteId\" IS NULL");
+
+            migrationBuilder.CreateIndex(
                 name: "UX_MakeBuyDecisionPolicies_Company_Site",
                 table: "MakeBuyDecisionPolicies",
                 columns: new[] { "CompanyId", "SiteId" },
-                unique: true);
+                unique: true,
+                filter: "\"SiteId\" IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MakeBuyDecisions_Company_DecidedAt",

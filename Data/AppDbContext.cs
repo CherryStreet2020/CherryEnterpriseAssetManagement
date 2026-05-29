@@ -3553,11 +3553,19 @@ namespace Abs.FixedAssets.Data
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
-            // B7 Wave C — per-tenant/site make-or-buy policy. One row per (CompanyId, SiteId).
+            // B7 Wave C — per-tenant/site make-or-buy policy. Two FILTERED unique indexes
+            // because a plain unique on a nullable SiteId would let Postgres treat NULLs as
+            // distinct (multiple company-default rows). One company-default (SiteId NULL) +
+            // one row per (CompanyId, SiteId) when SiteId is set.
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.MakeBuyDecisionPolicy>(e =>
             {
+                e.HasIndex(x => x.CompanyId)
+                    .IsUnique()
+                    .HasFilter("\"SiteId\" IS NULL")
+                    .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Default");
                 e.HasIndex(x => new { x.CompanyId, x.SiteId })
                     .IsUnique()
+                    .HasFilter("\"SiteId\" IS NOT NULL")
                     .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site");
                 e.MapXminRowVersion(x => x.RowVersion);
             });
