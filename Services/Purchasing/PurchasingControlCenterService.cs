@@ -37,17 +37,20 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenant;
     private readonly IPurchasingRecommendationService? _recommendations;
+    private readonly ISupplierPerformanceService? _supplierPerformance;
     private readonly ILogger<PurchasingControlCenterService> _log;
 
     public PurchasingControlCenterService(
         AppDbContext db,
         ITenantContext tenant,
         ILogger<PurchasingControlCenterService> log,
-        IPurchasingRecommendationService? recommendations = null)
+        IPurchasingRecommendationService? recommendations = null,
+        ISupplierPerformanceService? supplierPerformance = null)
     {
         _db = db;
         _tenant = tenant;
         _recommendations = recommendations;
+        _supplierPerformance = supplierPerformance;
         _log = log;
     }
 
@@ -1316,5 +1319,32 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
             MediumSeverityCount: med,
             LowSeverityCount: low,
             Rows: pagedRows));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PR-18 TAB READ — §21 tab 13 Supplier Performance
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <inheritdoc />
+    public async Task<Result<SupplierPerformanceTabPage>> GetSupplierPerformanceTabAsync(
+        SupplierPerformancePeriod period, CancellationToken ct = default)
+    {
+        if (_supplierPerformance is null)
+            return Result.Failure<SupplierPerformanceTabPage>(
+                "Supplier performance service is not available.");
+
+        var rows = await _supplierPerformance.GetScorecardAsync(period, ct);
+
+        // At-risk = OTD below 90% (known basis) OR any supplier NCR in the
+        // window. Suppliers with no OTD basis are "unknown", not at-risk.
+        var atRisk = rows.Count(r =>
+            (r.OnTimeDeliveryPct.HasValue && r.OnTimeDeliveryPct.Value < 90m)
+            || r.NcrCount > 0);
+
+        return Result.Success(new SupplierPerformanceTabPage(
+            TotalCount: rows.Count,
+            Period: period,
+            AtRiskCount: atRisk,
+            Rows: rows));
     }
 }

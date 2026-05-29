@@ -69,6 +69,11 @@ public sealed class ControlCenterModel : PageModel
     [BindProperty(SupportsGet = true)]
     public int Skip { get; set; }
 
+    // PR-18 — Supplier Performance tab rolling-window selector (default 90d).
+    [BindProperty(SupportsGet = true, Name = "perf")]
+    public SupplierPerformancePeriod PerfPeriod { get; set; }
+        = SupplierPerformancePeriod.Rolling90Days;
+
     public const int PageSize = 50;
 
     // ── Tab constants — every §21 tab pre-registered ────────────────────
@@ -83,6 +88,7 @@ public sealed class ControlCenterModel : PageModel
     public const string TabExpedites = "expedites";              // PR-13
     public const string TabApprovals = "approvals";              // PR-13
     public const string TabCostExceptions = "cost-exceptions";   // PR-13
+    public const string TabSupplierPerformance = "supplier-performance"; // PR-18
 
     // PR-12 ships 4 more live tabs: Subcontract / Vendor WIP / Receipts /
     // Inspection Holds. PR-13 ships the final 4: POs / Expedites / Approvals /
@@ -91,11 +97,12 @@ public sealed class ControlCenterModel : PageModel
         TabSupplyDemand, TabBuyToJob,
         TabSubcontract, TabVendorWip, TabReceipts, TabInspectionHolds,
         TabPos, TabExpedites, TabApprovals, TabCostExceptions,
+        TabSupplierPerformance,
     };
     private static readonly string[] AllTabs = {
         TabSupplyDemand, TabBuyToJob, TabSubcontract, TabVendorWip,
         TabReceipts, TabInspectionHolds, TabPos, TabExpedites, TabApprovals,
-        TabCostExceptions,
+        TabCostExceptions, TabSupplierPerformance,
     };
 
     public string ActiveTab =>
@@ -121,6 +128,9 @@ public sealed class ControlCenterModel : PageModel
     // PR-13 tab payloads. Expedites + Approvals reuse Queue (demand grid).
     public PosTabPage? PosTab { get; private set; }
     public CostExceptionsTabPage? CostExceptionsTab { get; private set; }
+
+    // PR-18 payload — §21 tab 13 Supplier Performance scorecard.
+    public SupplierPerformanceTabPage? SupplierPerformanceTab { get; private set; }
 
     public string? ErrorMessage { get; private set; }
 
@@ -237,6 +247,13 @@ public sealed class ControlCenterModel : PageModel
                     else { ErrorMessage = r.Error; CostExceptionsTab = new CostExceptionsTabPage(0, 0, 0, 0, Array.Empty<PurchasingExceptionRow>()); }
                     break;
                 }
+                case TabSupplierPerformance:
+                {
+                    var r = await _svc.GetSupplierPerformanceTabAsync(PerfPeriod, ct);
+                    if (r.IsSuccess && r.Value is not null) SupplierPerformanceTab = r.Value;
+                    else { ErrorMessage = r.Error; SupplierPerformanceTab = new SupplierPerformanceTabPage(0, PerfPeriod, 0, Array.Empty<SupplierScorecardRow>()); }
+                    break;
+                }
             }
         }
 
@@ -258,6 +275,7 @@ public sealed class ControlCenterModel : PageModel
         TabInspectionHolds => InspectionHoldsTab?.TotalCount ?? 0,
         TabPos => PosTab?.TotalCount ?? 0,
         TabCostExceptions => CostExceptionsTab?.TotalCount ?? 0,
+        TabSupplierPerformance => SupplierPerformanceTab?.TotalCount ?? 0,
         _ => 0,
     };
 
@@ -273,6 +291,7 @@ public sealed class ControlCenterModel : PageModel
         // to Take, no Skip support. HasNext returns false because RowCount
         // equals TotalCount when clipped that way.
         TabCostExceptions => CostExceptionsTab?.Rows.Count ?? 0,
+        TabSupplierPerformance => SupplierPerformanceTab?.Rows.Count ?? 0,
         _ => 0,
     };
 
@@ -358,6 +377,7 @@ public sealed class ControlCenterModel : PageModel
                 new CockpitTab(TabExpedites, "Expedites", "fas fa-bolt"),
                 new CockpitTab(TabApprovals, "Approvals", "fas fa-circle-check"),
                 new CockpitTab(TabCostExceptions, "Cost Exceptions", "fas fa-triangle-exclamation"),
+                new CockpitTab(TabSupplierPerformance, "Supplier Performance", "fas fa-ranking-star"),
             },
         };
     }

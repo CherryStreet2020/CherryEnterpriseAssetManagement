@@ -554,6 +554,91 @@
         </section>
     }
 
+    @* ─── Supplier Performance scorecard (PR-18 · §21 tab 13) ─────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplierPerformance
+             && Model.SupplierPerformanceTab is { } spt)
+    {
+        string PerfLink(Abs.FixedAssets.Models.SupplierPerformancePeriod p) =>
+            $"?tab={Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabSupplierPerformance}&perf={p}";
+        string PerfLabel(Abs.FixedAssets.Models.SupplierPerformancePeriod p) => p switch
+        {
+            Abs.FixedAssets.Models.SupplierPerformancePeriod.Rolling30Days => "Last 30 days",
+            Abs.FixedAssets.Models.SupplierPerformancePeriod.Rolling90Days => "Last 90 days",
+            _ => "Year to date",
+        };
+        string Pct(decimal? v) => v.HasValue ? $"{v.Value:N1}%" : "—";
+        string Num(decimal? v) => v.HasValue ? v.Value.ToString("N0") : "—";
+
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-supplier-performance">Supplier performance
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @spt.TotalCount supplier(s)
+                            @if (spt.AtRiskCount > 0)
+                            { <text> · <span style="color:var(--danger);">@spt.AtRiskCount at risk</span></text> }
+                        </span>
+                    </h2>
+                    <span style="font-size:0.875rem;">
+                        @foreach (var p in new[] {
+                            Abs.FixedAssets.Models.SupplierPerformancePeriod.Rolling30Days,
+                            Abs.FixedAssets.Models.SupplierPerformancePeriod.Rolling90Days,
+                            Abs.FixedAssets.Models.SupplierPerformancePeriod.YearToDate })
+                        {
+                            if (p == spt.Period)
+                            { <span style="font-weight:600;margin-left:10px;">@PerfLabel(p)</span> }
+                            else
+                            { <a href="@PerfLink(p)" style="margin-left:10px;color:var(--link,#2563eb);">@PerfLabel(p)</a> }
+                        }
+                    </span>
+                </div>
+                @if (spt.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;" data-testid="pcc-supplier-performance-empty">
+                        <i class="fas fa-ranking-star" style="font-size:48px;color:var(--text-muted);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No supplier scorecards for @PerfLabel(spt.Period).ToLower() yet.</p>
+                        <p style="color:var(--text-muted);">Run a recompute from /Admin/SupplierPerformanceProbe to freeze OTD, quality PPM, price variance, and NCR counts per supplier.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Supplier</th>
+                                        <th>On-time %</th>
+                                        <th>Quality PPM</th>
+                                        <th>Price variance %</th>
+                                        <th>NCRs</th>
+                                        <th>Receipts</th>
+                                        <th>Computed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in spt.Rows)
+                                {
+                                    var atRisk = (r.OnTimeDeliveryPct.HasValue && r.OnTimeDeliveryPct.Value < 90m) || r.NcrCount > 0;
+                                    <tr data-testid="pcc-supplier-perf-@r.VendorId">
+                                        <td>@r.VendorName @if (atRisk) { <span title="At risk" style="color:var(--danger);">●</span> }</td>
+                                        <td style="@(r.OnTimeDeliveryPct.HasValue && r.OnTimeDeliveryPct.Value < 90m ? "color:var(--danger);font-weight:600;" : "")">@Pct(r.OnTimeDeliveryPct)</td>
+                                        <td>@Num(r.QualityPPM)</td>
+                                        <td style="@(r.PriceVariancePct.HasValue && r.PriceVariancePct.Value > 0m ? "color:var(--warning);" : "")">@Pct(r.PriceVariancePct)</td>
+                                        <td style="@(r.NcrCount > 0 ? "color:var(--danger);font-weight:600;" : "")">@r.NcrCount</td>
+                                        <td>@r.ReceiptEventsTotal</td>
+                                        <td>@(r.ComputedAtUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
     @* ─── Supply Demand / Buy-to-Job / Expedites / Approvals grid (PR-11/PR-13) ─ *@
     else if (Model.ActiveTabIsLive && Model.Queue is { } pq)
     {

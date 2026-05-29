@@ -408,6 +408,17 @@ public sealed record CostExceptionsTabPage(
     int LowSeverityCount,
     IReadOnlyList<PurchasingExceptionRow> Rows);
 
+/// <summary>
+/// §21 tab 13 — Supplier Performance. Current SupplierPerformance scorecard
+/// rows for the selected rolling window, plus tab-header counters. Worst-OTD
+/// first so risk surfaces. Backed by ISupplierPerformanceService (PR-18).
+/// </summary>
+public sealed record SupplierPerformanceTabPage(
+    int TotalCount,
+    SupplierPerformancePeriod Period,
+    int AtRiskCount,
+    IReadOnlyList<SupplierScorecardRow> Rows);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICE INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -535,5 +546,15 @@ public interface IPurchasingControlCenterService
     /// </summary>
     Task<Result<CostExceptionsTabPage>> GetCostExceptionsTabAsync(
         PurchasingQueueFilter filter,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 13 — Supplier Performance. Delegates to ISupplierPerformanceService
+    /// (PR-18) for the current scorecard in the requested rolling window. The
+    /// AtRiskCount counter flags suppliers with OTD &lt; 90% OR any NCR. Read-only;
+    /// recompute happens via the admin probe / a scheduled job, not this read.
+    /// </summary>
+    Task<Result<SupplierPerformanceTabPage>> GetSupplierPerformanceTabAsync(
+        SupplierPerformancePeriod period,
         CancellationToken ct = default);
 }
