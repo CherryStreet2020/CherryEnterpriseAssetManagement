@@ -69,7 +69,7 @@ namespace Abs.FixedAssets.Services.Production
             if (!_tenant.VisibleCompanyIds.Contains(descriptor.CompanyId))
                 return Result.Failure<ResourceLoadProfile>($"{kind} #{targetId} is not in your tenant scope.");
 
-            var cal = await ResolveCalendarAsync(descriptor.CalendarId, descriptor.CompanyId, ct);
+            var cal = await ResolveCalendarAsync(descriptor.CalendarId, descriptor.JoinWorkCenterId, descriptor.CompanyId, ct);
             var holidays = cal == null ? new List<HolidaySpan>() : await LoadHolidaysAsync(cal.Id, fromUtc, toUtc, ct);
             var exceptions = kind == ResourceLoadTargetKind.Resource
                 ? await LoadResourceExceptionsAsync(targetId, fromUtc, toUtc, ct)
@@ -114,7 +114,7 @@ namespace Abs.FixedAssets.Services.Production
             var profiles = new List<ResourceLoadProfile>(targets.Count);
             foreach (var d in targets)
             {
-                var cal = await ResolveCalendarAsync(d.CalendarId, companyId, ct);
+                var cal = await ResolveCalendarAsync(d.CalendarId, d.JoinWorkCenterId, companyId, ct);
                 var holidays = cal == null ? new List<HolidaySpan>() : await LoadHolidaysAsync(cal.Id, fromUtc, toUtc, ct);
                 var exceptions = kind == ResourceLoadTargetKind.Resource
                     ? await LoadResourceExceptionsAsync(d.Id, fromUtc, toUtc, ct)
@@ -153,9 +153,19 @@ namespace Abs.FixedAssets.Services.Production
                 .FirstOrDefaultAsync(ct);
         }
 
-        private async Task<CalendarInfo?> ResolveCalendarAsync(int? calendarId, int companyId, CancellationToken ct)
+        private async Task<CalendarInfo?> ResolveCalendarAsync(
+            int? calendarId, int? workCenterId, int companyId, CancellationToken ct)
         {
-            // Resource override → explicit WC calendar → company default → system default.
+            // Resolution chain: explicit calendar (resource override or WC's own) →
+            // the assigned WC's calendar (a resource with no CalendarId inherits its WC's,
+            // per ProductionResource.CalendarId doc) → company default → system default.
+            if (calendarId == null && workCenterId != null)
+            {
+                calendarId = await _db.WorkCenters
+                    .Where(w => w.Id == workCenterId)
+                    .Select(w => w.CalendarId)
+                    .FirstOrDefaultAsync(ct);
+            }
             if (calendarId != null)
             {
                 var c = await _db.WorkCalendars
