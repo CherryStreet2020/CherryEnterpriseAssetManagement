@@ -3395,6 +3395,15 @@ namespace Abs.FixedAssets.Data
                 // already align with the EF-auto zero default and need no override.
                 e.Property(x => x.MakeBuyCode).HasDefaultValue(MakeBuyCode.Buy);
                 e.Property(x => x.LifecycleStage).HasDefaultValue(LifecycleStage.Production);
+                // Theme B7 Wave A PR-1 — PO-as-Standard + Make-or-Buy duality.
+                // SourcePattern.StandardFirst = 0, MakeBuyPolicy.Inherit = 0, and
+                // DefaultSourcePreference.LetSystemDecide = 0 all align with the EF-auto
+                // zero default (the documented semantic default), so per the PR-FS-7
+                // Codex P1 lesson they need NO HasDefaultValue override — only indexes
+                // for the Make-or-Buy decision service + PoFirst queries.
+                e.HasIndex(x => x.SourcePattern);
+                e.HasIndex(x => x.MakeBuyPolicy);
+                e.HasIndex(x => x.IsSourceControlled);
                 e.HasIndex(x => x.ItemFamily);
                 e.HasIndex(x => x.IsSellable);
                 e.HasIndex(x => x.AS9100Critical);
