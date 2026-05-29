@@ -1,0 +1,185 @@
+@page "/Admin/SourcePatternProbe"
+@model Abs.FixedAssets.Pages.Admin.SourcePatternProbeModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "Source Pattern Probe";
+    ViewData["TabTitle"] = "Source Pattern Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave A PR-1 — PO-as-Standard + Make-or-Buy duality on Item.
+    Exercises the new SourcePattern / MakeBuyPolicy / DefaultSourcePreference /
+    IsSourceControlled / break-even fields + the carve-out guard.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Source Pattern Probe — B7 PR-1</h1>
+        <p class="ds-page-header__subtitle">
+            PO-as-Standard (optional Item Master) + Make-or-Buy duality. StandardFirst
+            keeps the classic master-first flow; PoFirst means the PO is the standard and
+            the master crystallizes at ship. Stocking / MTS / BTS parts are guarded to
+            StandardFirst.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant SourcePattern distribution</h2>
+            <p class="ds-text-muted">
+                Total items: <strong>@Model.TotalItems</strong> ·
+                StandardFirst: <strong>@Model.StandardFirstCount</strong> ·
+                PoFirst: <strong>@Model.PoFirstCount</strong> ·
+                Hybrid: <strong>@Model.HybridCount</strong> ·
+                Source-controlled: <strong>@Model.SourceControlledCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Target item</h2>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Item Id</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@Model.ItemId" required class="ds-input" />
+                </div>
+
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="SetStandardFirst" class="ds-btn">1 · Set StandardFirst</button>
+                    <button type="submit" asp-page-handler="SetPoFirst" class="ds-btn ds-btn--primary">2 · Set PoFirst (valid)</button>
+                    <button type="submit" asp-page-handler="AttemptPoFirstOnStock" class="ds-btn ds-btn--warning">3 · Test carve-out guard</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Make-or-Buy duality</h2>
+            <form method="post" class="ds-form-grid">
+                <input type="hidden" name="ItemId" value="@Model.ItemId" />
+                <div>
+                    <label for="MakeBuyPolicy">Make/Buy Policy</label>
+                    <select id="MakeBuyPolicy" name="MakeBuyPolicy" class="ds-input">
+                        @foreach (var v in Enum.GetValues<MakeBuyPolicy>())
+                        {
+                            <option value="@v" selected="@(v == Model.MakeBuyPolicy)">@v</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="DefaultSourcePreference">Default Source Preference</label>
+                    <select id="DefaultSourcePreference" name="DefaultSourcePreference" class="ds-input">
+                        @foreach (var v in Enum.GetValues<DefaultSourcePreference>())
+                        {
+                            <option value="@v" selected="@(v == Model.DefaultSourcePreference)">@v</option>
+                        }
+                    </select>
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="SetMakeBuyPolicy" class="ds-btn ds-btn--primary">4 · Set Make/Buy Policy</button>
+                    <button type="submit" asp-page-handler="SetDefaultPreference" class="ds-btn ds-btn--primary">5 · Set Default Preference</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Source control + break-even</h2>
+            <form method="post" class="ds-form-grid">
+                <input type="hidden" name="ItemId" value="@Model.ItemId" />
+                <div>
+                    <label for="SourceControlReason">Source Control Reason</label>
+                    <input type="text" id="SourceControlReason" name="SourceControlReason" value="@Model.SourceControlReason" class="ds-input" />
+                </div>
+                <div>
+                    <label for="MakeBreakEvenQty">Make Break-Even Qty</label>
+                    <input type="number" step="0.0001" id="MakeBreakEvenQty" name="MakeBreakEvenQty" value="@(Model.MakeBreakEvenQty?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div>
+                    <label for="FixedMakeInvestment">Fixed Make Investment</label>
+                    <input type="number" step="0.0001" id="FixedMakeInvestment" name="FixedMakeInvestment" value="@(Model.FixedMakeInvestment?.ToString() ?? string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="SetSourceControlled" class="ds-btn ds-btn--warning">6 · Flag source-controlled</button>
+                    <button type="submit" asp-page-handler="SetBreakEven" class="ds-btn ds-btn--primary">7 · Set break-even</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample items (latest 15, tenant-scoped)</h2>
+            @if (Model.SampleItems.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No items in your tenant scope.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Part Number</th>
+                            <th>Source Pattern</th>
+                            <th>Make/Buy Code</th>
+                            <th>Make/Buy Policy</th>
+                            <th>Stocked?</th>
+                            <th>Planning Policy</th>
+                            <th>Source-Ctrl?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.SampleItems)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.PartNumber</td>
+                                <td>
+                                    @switch (r.SourcePattern)
+                                    {
+                                        case SourcePattern.PoFirst:
+                                            <span class="ds-badge ds-badge--success">PoFirst</span>
+                                            break;
+                                        case SourcePattern.Hybrid:
+                                            <span class="ds-badge ds-badge--warning">Hybrid</span>
+                                            break;
+                                        default:
+                                            <span class="ds-badge">StandardFirst</span>
+                                            break;
+                                    }
+                                </td>
+                                <td><code>@r.MakeBuyCode</code></td>
+                                <td><code>@r.MakeBuyPolicy</code></td>
+                                <td>@(r.IsStocked ? "Yes" : "No")</td>
+                                <td><code>@r.PlanningPolicy</code></td>
+                                <td>@(r.IsSourceControlled ? "⚑" : "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

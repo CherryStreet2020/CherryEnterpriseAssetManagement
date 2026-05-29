@@ -180,6 +180,69 @@ namespace Abs.FixedAssets.Models
     }
 
     /// <summary>
+    /// Theme B7 — when the Item Master must exist relative to the Production Order.
+    /// Orthogonal to <see cref="PlanningPolicy"/> (which says HOW demand is planned);
+    /// SourcePattern says WHEN the master exists. Disrupts SAP/Oracle/Epicor, which
+    /// force a material master before you can build. See
+    /// docs/research/po-as-standard-make-or-buy-dean-research.md §2.4.
+    /// </summary>
+    public enum SourcePattern
+    {
+        /// <summary>Classic — Item Master + standard BOM/Routing required at PO release. (MTS/BTS/repeat.) Global default.</summary>
+        StandardFirst = 0,
+
+        /// <summary>ETO — build from the PO; Item Master optional, crystallized at ship from actuals. PO carries ItemId == null.</summary>
+        PoFirst = 1,
+
+        /// <summary>Master exists but the PO may diverge; crystallize an as-built variant/rev at ship.</summary>
+        Hybrid = 2,
+    }
+
+    /// <summary>
+    /// Theme B7 — make/buy duality policy, richer than SAP procurement type E/F/X.
+    /// Overlays <see cref="MakeBuyCode"/>; <c>Inherit</c> (value 0, the default) means
+    /// "derive the policy from MakeBuyCode" so this is additive and non-breaking.
+    /// Consumed by IMakeBuyDecisionService. See spec §4.2.
+    /// </summary>
+    public enum MakeBuyPolicy
+    {
+        /// <summary>Inherit from <see cref="MakeBuyCode"/> (default — no behavior change).</summary>
+        Inherit = 0,
+
+        /// <summary>Always make internally.</summary>
+        MakeOnly = 1,
+
+        /// <summary>Always buy externally.</summary>
+        BuyOnly = 2,
+
+        /// <summary>Either path — decision service routes per capacity/cost/lead-time.</summary>
+        MakeOrBuy = 3,
+
+        /// <summary>Make by default; buy the overflow when internal capacity is short.</summary>
+        MakeWithBuyOverflow = 4,
+
+        /// <summary>Buy by default; make as the backup when the vendor cannot deliver.</summary>
+        BuyWithMakeBackup = 5,
+    }
+
+    /// <summary>
+    /// Theme B7 — per-item default preference when the path is open. Value 0
+    /// (<c>LetSystemDecide</c>) is the semantic default so no DB override is needed.
+    /// A per-PO decision can still override this. See spec §4.2.
+    /// </summary>
+    public enum DefaultSourcePreference
+    {
+        /// <summary>Let IMakeBuyDecisionService decide from live capacity/cost/lead-time (default).</summary>
+        LetSystemDecide = 0,
+
+        /// <summary>Prefer making internally when feasible.</summary>
+        Make = 1,
+
+        /// <summary>Prefer buying externally when feasible.</summary>
+        Buy = 2,
+    }
+
+    /// <summary>
     /// MRP lot-sizing rule. Determines the qty produced/purchased per supply order.
     /// SAP lot-size key / Oracle lot-for-lot vs. fixed lot / D365 reorder policy.
     /// </summary>
@@ -788,6 +851,99 @@ namespace Abs.FixedAssets.Models
         /// </summary>
         [Display(Name = "Is Sellable")]
         public bool IsSellable { get; set; } = false;
+
+        // ----- Theme B7 — PO-as-Standard + Make-or-Buy duality (7) ------
+        // See docs/research/po-as-standard-make-or-buy-dean-research.md §2.4 + §4.2
+        // and docs/research/b7-cascade-design.md (Wave A PR-1). All fields are
+        // non-breaking: SourcePattern + MakeBuyPolicy + DefaultSourcePreference
+        // default to value-0 semantics (StandardFirst / Inherit / LetSystemDecide),
+        // so existing rows keep classic behavior with no migration backfill needed
+        // beyond the EF zero-default.
+
+        /// <summary>
+        /// B7 — when the Item Master must exist relative to the Production Order.
+        /// StandardFirst (default) = master required at release; PoFirst = build
+        /// from the PO, crystallize the master at ship. Carve-out guard:
+        /// stocking / MTS / BTS items cannot be PoFirst (see
+        /// <see cref="ValidateSourcePatternCarveout(SourcePattern, bool, PlanningPolicy, out string)"/>).
+        /// </summary>
+        [Display(Name = "Source Pattern")]
+        public SourcePattern SourcePattern { get; set; } = SourcePattern.StandardFirst;
+
+        /// <summary>
+        /// B7 — make/buy duality policy (richer than MakeBuyCode). Inherit (default)
+        /// derives from <see cref="MakeBuyCode"/>; consumed by IMakeBuyDecisionService.
+        /// </summary>
+        [Display(Name = "Make/Buy Policy")]
+        public MakeBuyPolicy MakeBuyPolicy { get; set; } = MakeBuyPolicy.Inherit;
+
+        /// <summary>
+        /// B7 — per-item default preference when the path is open (overridable per-PO).
+        /// </summary>
+        [Display(Name = "Default Source Preference")]
+        public DefaultSourcePreference DefaultSourcePreference { get; set; } = DefaultSourcePreference.LetSystemDecide;
+
+        /// <summary>
+        /// B7 — engineering source-control flag (AS9100 flight-safety). When true the
+        /// make-or-buy decision service hard-gates to MAKE (or an approved-source buy).
+        /// </summary>
+        [Display(Name = "Is Source Controlled")]
+        public bool IsSourceControlled { get; set; } = false;
+
+        /// <summary>B7 — reason/authority for the source-control flag (audit trail).</summary>
+        [StringLength(500)]
+        [Display(Name = "Source Control Reason")]
+        public string? SourceControlReason { get; set; }
+
+        /// <summary>
+        /// B7 — make-or-buy break-even quantity. Below this qty the service leans BUY
+        /// (fixed make investment amortizes worse); above, MAKE. Cached; recomputed on
+        /// cost change. BE = FixedMakeInvestment / (BuyUnit − VarMakeUnit).
+        /// </summary>
+        [Display(Name = "Make Break-Even Qty")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal? MakeBreakEvenQty { get; set; }
+
+        /// <summary>B7 — tooling/fixture capex for the make path (break-even numerator).</summary>
+        [Display(Name = "Fixed Make Investment")]
+        [Column(TypeName = "decimal(18,4)")]
+        public decimal? FixedMakeInvestment { get; set; }
+
+        /// <summary>
+        /// B7 carve-out guard — a PoFirst item must NOT be a stocking / replenished part.
+        /// MTS/BTS/blanket items need an Item Master + reorder policy up front, so they
+        /// stay StandardFirst (spec §2.3). Returns false + an error message when the
+        /// combination is invalid. Pure/static for reuse in the Item write path and tests.
+        /// </summary>
+        public static bool ValidateSourcePatternCarveout(
+            SourcePattern sourcePattern,
+            bool isStocked,
+            PlanningPolicy planningPolicy,
+            out string error)
+        {
+            error = string.Empty;
+            if (sourcePattern != SourcePattern.PoFirst)
+                return true;
+
+            if (isStocked)
+            {
+                error = "PoFirst is only valid for non-stocking ETO parts. " +
+                        "This item is flagged IsStocked = true (make-to-stock / buy-to-stock), " +
+                        "which requires an Item Master + reorder policy at release — keep it StandardFirst.";
+                return false;
+            }
+
+            if (planningPolicy is PlanningPolicy.MakeToStock
+                or PlanningPolicy.PurchaseToStock
+                or PlanningPolicy.BlanketRelease)
+            {
+                error = $"PoFirst is incompatible with PlanningPolicy.{planningPolicy} " +
+                        "(a replenished/stock policy). PO-as-Standard is for engineer/make/purchase-to-order — keep it StandardFirst.";
+                return false;
+            }
+
+            return true;
+        }
 
         // ----- BOM Behavior (2) -----------------------------------------
 
