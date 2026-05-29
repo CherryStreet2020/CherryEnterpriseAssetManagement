@@ -531,21 +531,36 @@ public sealed class ItemCrystallizationService : IItemCrystallizationService
         var good = summary.GoodQuantityCompleted ?? 0m;
         var divisor = good > 0m ? good : 1m;   // per good unit; fall back to total if qty unknown
 
-        // Map actual buckets → the 8-element cost-component vocabulary, summing
-        // where two buckets share a type (OutsideProcessing+Subcontract → Subcontract;
-        // FreightLanded+ScrapRework → Other). CostElementType.Setup is intentionally
-        // NOT seeded: ProductionOrderCostSummary has no ActualSetupCost bucket —
-        // setup is absorbed into Labor/Machine actuals at the rollup layer upstream,
+        // Map actual buckets → the 8-element cost-component vocabulary. CostElementType.Setup
+        // is intentionally NOT seeded: ProductionOrderCostSummary has no ActualSetupCost
+        // bucket — setup is absorbed into Labor/Machine actuals at the rollup layer upstream,
         // so a separate Setup element would be a phantom. (Do not "fix" by inventing one.)
+        //
+        // Codex P2 (PR #428): the split MUST reconstitute the WHOLE standard cost, not just
+        // the named buckets. ActualTotalCost includes posted actuals this summary doesn't
+        // break out (Packaging, Quality, ChildSupply transfers, Engineering, Adjustment,
+        // Variance, …). So `Other` is computed as the RESIDUAL = ActualTotalCost − every
+        // explicitly-mapped element — guaranteeing the 7 elements sum to ActualTotalCost
+        // and the split never undershoots the scalar standard cost.
+        var material      = summary.ActualMaterialCost;
+        var labor         = summary.ActualLaborCost;
+        var machine       = summary.ActualMachineCost;
+        var burden        = summary.ActualBurdenCost;
+        var subcontract   = summary.ActualSubcontractCost + summary.ActualOutsideProcessingCost;
+        var tooling       = summary.ActualToolingCost;
+        var mappedTotal   = material + labor + machine + burden + subcontract + tooling;
+        var other         = summary.ActualTotalCost - mappedTotal;   // freight + scrap/rework + any uncategorized residual
+        if (other < 0m) other = summary.ActualFreightLandedCost + summary.ActualScrapReworkCost; // defensive: never negative
+
         var buckets = new (CostElementType type, decimal total)[]
         {
-            (CostElementType.Material,         summary.ActualMaterialCost),
-            (CostElementType.Labor,            summary.ActualLaborCost),
-            (CostElementType.VariableOverhead, summary.ActualMachineCost),
-            (CostElementType.FixedOverhead,    summary.ActualBurdenCost),
-            (CostElementType.Subcontract,      summary.ActualSubcontractCost + summary.ActualOutsideProcessingCost),
-            (CostElementType.Tooling,          summary.ActualToolingCost),
-            (CostElementType.Other,            summary.ActualFreightLandedCost + summary.ActualScrapReworkCost),
+            (CostElementType.Material,         material),
+            (CostElementType.Labor,            labor),
+            (CostElementType.VariableOverhead, machine),
+            (CostElementType.FixedOverhead,    burden),
+            (CostElementType.Subcontract,      subcontract),
+            (CostElementType.Tooling,          tooling),
+            (CostElementType.Other,            other),
         };
 
         var nowUtc = DateTime.UtcNow;
