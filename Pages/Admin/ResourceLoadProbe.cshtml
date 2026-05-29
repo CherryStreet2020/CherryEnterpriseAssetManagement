@@ -1,0 +1,107 @@
+@page "/Admin/ResourceLoadProbe"
+@model Abs.FixedAssets.Pages.Admin.ResourceLoadProbeModel
+@using Abs.FixedAssets.Services.Production
+@{
+    ViewData["Title"] = "Resource Load Probe";
+    ViewData["TabTitle"] = "Resource Load Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R4-10 — resource load profile + calendar engine (OPENS Wave R4).
+    Real projected Load% = committed scheduled hours ÷ available working hours over a
+    window, per Work Center and per resource, plus drum (bottleneck) detection. The
+    calendar engine consumes WorkCalendar + Holidays + ResourceCalendarException to
+    compute available hours. Replaces B7's coarse make-or-buy proxy; feeds R4-11.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Resource Load Probe — B11 R4-10</h1>
+        <p class="ds-page-header__subtitle">
+            <code>IResourceLoadService.GetPlantLoadAsync</code> — real <strong>Load%</strong>
+            (committed hours ÷ calendar-available hours) per work center and resource, with the
+            <strong>drum</strong> (constraint) called out. The calendar engine floors availability to
+            the WorkCalendar week + holidays + per-resource downtime/maintenance windows.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Load flow</h2>
+            <p class="ds-text-muted">
+                Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong> ·
+                window <strong>@Model.WindowFromUtc.ToString("yyyy-MM-dd")…@Model.WindowToUtc.ToString("yyyy-MM-dd")</strong>
+                (5 working days) · probe WCs seeded: <strong>@Model.WorkCenterCount/3</strong> ·
+                probe resources: <strong>@Model.ResourceCount/3</strong>
+            </p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+                <button type="submit" asp-page-handler="ComputeWc" class="ds-btn">2 · Compute WC load + drum</button>
+                <button type="submit" asp-page-handler="ComputeResource" class="ds-btn">3 · Compute resource load</button>
+                <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.PlantResult is not null)
+    {
+        var p = Model.PlantResult;
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">
+                    @(p.Kind == ResourceLoadTargetKind.WorkCenter ? "Work-center" : "Resource") load —
+                    @p.FromUtc.ToString("yyyy-MM-dd")…@p.ToUtc.ToString("yyyy-MM-dd")
+                </h2>
+                <p class="ds-text-muted">
+                    Drum (constraint): <strong>@(p.DrumCode ?? "—")</strong>
+                    @if (p.DrumTargetId != null) { <text>at <strong>@p.DrumLoadPct.ToString("0.#")%</strong> load</text> }
+                </p>
+                @if (p.Profiles.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No targets — click “Set up worked example” first.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead>
+                            <tr><th></th><th>Target</th><th>Calendar</th><th>Committed h</th><th>Available h</th><th>Load %</th><th>Ops</th><th>Notes</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in p.Profiles)
+                            {
+                                var isDrum = r.TargetId == p.DrumTargetId;
+                                <tr>
+                                    <td>@(isDrum ? "🥁" : "")</td>
+                                    <td>#@r.TargetId @r.Code<br /><span class="ds-text-muted">@r.Name</span></td>
+                                    <td>@(r.CalendarCode ?? "—")</td>
+                                    <td>@r.CommittedHours.ToString("0.##")</td>
+                                    <td>@r.AvailableHours.ToString("0.##")</td>
+                                    <td class="@(r.LoadPct > 100m ? "ds-text-danger" : "ds-text-success")">
+                                        <strong>@r.LoadPct.ToString("0.#")%</strong>
+                                    </td>
+                                    <td>@r.CommittedOperationCount</td>
+                                    <td><span class="ds-text-muted">@(r.Notes ?? "")</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+</main>

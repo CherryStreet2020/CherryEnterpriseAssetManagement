@@ -261,6 +261,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperat
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICapabilityMatchService,
     Abs.FixedAssets.Services.Production.CapabilityMatchService>();
 
+// B11 R4-10 — IResourceLoadService (OPENS Wave R4). Calendar-aware working-time
+// engine (WorkCalendar + Holidays + per-resource ResourceCalendarException) +
+// real projected Load% (committed scheduled hours ÷ available hours) per WC /
+// resource + drum (bottleneck) detection. Replaces B7's coarse make-or-buy
+// proxy and feeds R4-11's finite scheduler.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IResourceLoadService,
+    Abs.FixedAssets.Services.Production.ResourceLoadService>();
+
 // Sprint 12.8 PR #2 — IBackwardSchedulingService (STUB of the future Sprint 14
 // engine). Stamps PlannedStart/End on a parent ProductionOrder's children +
 // each child's ProductionOperations, walking BACKWARD from the parent's
