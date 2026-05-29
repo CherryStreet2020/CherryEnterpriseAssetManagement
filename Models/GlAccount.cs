@@ -310,12 +310,17 @@ namespace Abs.FixedAssets.Models
         public Department? ParentDepartment { get; set; }
         public ICollection<Department> ChildDepartments { get; set; } = new List<Department>();
 
+        /// <summary>B11 R1-2 — work centers owned by this department (inverse of WorkCenter.OwningDepartment).</summary>
+        public ICollection<Abs.FixedAssets.Models.Production.WorkCenter> WorkCenters { get; set; }
+            = new List<Abs.FixedAssets.Models.Production.WorkCenter>();
+
         /// <summary>
         /// B11 — site/plant this department belongs to (the "Site" in Site→Dept→WC).
-        /// Plain id for now (the Site-vs-Location FK is settled in R5); aligns with
-        /// Asset.SiteId by name.
+        /// R1-2: real FK → Site (the canonical plant tier; Dean's 2026-05-29 ruling
+        /// that Site == Location). SET NULL on site delete.
         /// </summary>
         public int? SiteId { get; set; }
+        public Site? Site { get; set; }
 
         /// <summary>B11 — production supervisor (shop-floor lead). Mirrors the ManagerId id-reference pattern (no enforced FK in v1).</summary>
         public int? SupervisorId { get; set; }
