@@ -132,15 +132,15 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
 
                     if (await IsOverloadedAsync(primary, op.WorkCenterId, start, end, busyMins, ownOrderIds, inRun, ct))
                     {
-                        var alt = await FindAlternateAsync(op, primary, start, end, busyMins, parent.CompanyId,
+                        // Each candidate is evaluated at its OWN re-floored window on its OWN calendar,
+                        // so capacity is checked against the interval the op would actually occupy there.
+                        var alt = await FindAlternateAsync(op, direction, opCursor, spanMins, busyMins, parent.CompanyId,
                             ownOrderIds, inRun, horizonFrom, horizonTo, wcCache, warnings, ct);
                         if (alt is not null)
                         {
                             moved = true; originalWc = op.WorkCenterId;
-                            chosenWc = alt.Value.WcId; chosenAsset = alt.Value.AssetId; chosenCode = alt.Value.Code;
-                            altReason = alt.Value.Reason;
-                            var altCtx = wcCache[chosenWc];
-                            (start, end, ranOut) = Place(direction, altCtx, opCursor, spanMins); // re-floor on the alternate calendar
+                            chosenWc = alt.WcId; chosenAsset = alt.AssetId; chosenCode = alt.Code; altReason = alt.Reason;
+                            start = alt.Start; end = alt.End; ranOut = alt.RanOut;
                         }
                         else
                         {
@@ -216,7 +216,9 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
             }
         }
 
-        // Would placing one more busy op on this WC over [start,end] exceed its simultaneous capacity?
+        // Would placing this op on [start,end] push PEAK concurrency on the WC over its capacity?
+        // (Counting total *overlapping* ops would falsely reject a long candidate that merely brushes
+        // two non-concurrent jobs on a capacity-2 WC — so we sweep for the true peak instead.)
         private async Task<bool> IsOverloadedAsync(
             WcCtx wc, int wcId, DateTime start, DateTime end, decimal busyMins,
             HashSet<int> ownOrderIds, List<(int Wc, DateTime Start, DateTime End)> inRun,
@@ -225,27 +227,60 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
             if (busyMins <= 0m) return false;             // a zero-duration op never contends
             if (wc.CapacityMax >= int.MaxValue) return false; // InfiniteCapacity
 
-            // Competing demand from OTHER orders already persisted on this WC, overlapping the window.
-            var dbCount = await _db.ProductionOperations.CountAsync(o =>
-                o.WorkCenterId == wcId
-                && !ownOrderIds.Contains(o.ProductionOrderId)
-                && o.PlannedStart != null && o.PlannedEnd != null
-                && o.PlannedEnd > start && o.PlannedStart < end
-                && (o.PlannedSetupMins + o.PlannedRunMins) > 0m
-                && CommittedStatuses.Contains(o.Status), ct);
+            // Competing intervals: OTHER orders' committed ops on this WC overlapping the window…
+            var competing = await _db.ProductionOperations
+                .Where(o => o.WorkCenterId == wcId
+                    && !ownOrderIds.Contains(o.ProductionOrderId)
+                    && o.PlannedStart != null && o.PlannedEnd != null
+                    && o.PlannedEnd > start && o.PlannedStart < end
+                    && (o.PlannedSetupMins + o.PlannedRunMins) > 0m
+                    && CommittedStatuses.Contains(o.Status))
+                .Select(o => new { S = o.PlannedStart!.Value, E = o.PlannedEnd!.Value })
+                .ToListAsync(ct);
 
-            // Plus this run's own placements on the same WC overlapping the window.
-            var runCount = inRun.Count(p => p.Wc == wcId && p.End > start && p.Start < end);
+            // …plus this run's own placements on the same WC overlapping the window, plus the candidate.
+            var intervals = new List<(DateTime S, DateTime E)>(competing.Count + 4);
+            foreach (var c in competing) intervals.Add((c.S, c.E));
+            foreach (var p in inRun) if (p.Wc == wcId && p.End > start && p.Start < end) intervals.Add((p.Start, p.End));
+            intervals.Add((start, end));
 
-            return dbCount + runCount + 1 > wc.CapacityMax; // placing this op would be the (n+1)th
+            return PeakConcurrency(intervals) > wc.CapacityMax;
         }
 
-        private async Task<(int WcId, int? AssetId, string Code, string Reason)?> FindAlternateAsync(
-            ProductionOperation op, WcCtx primary, DateTime start, DateTime end, decimal busyMins,
+        // Max number of intervals overlapping at any instant. Ends are exclusive: an op ending exactly
+        // when another starts is NOT concurrent (process -1 before +1 at equal timestamps).
+        private static int PeakConcurrency(List<(DateTime S, DateTime E)> intervals)
+        {
+            var events = new List<(DateTime T, int Delta)>(intervals.Count * 2);
+            foreach (var iv in intervals)
+            {
+                if (iv.E <= iv.S) continue;
+                events.Add((iv.S, 1));
+                events.Add((iv.E, -1));
+            }
+            events.Sort((a, b) => a.T != b.T ? a.T.CompareTo(b.T) : a.Delta.CompareTo(b.Delta));
+            int cur = 0, peak = 0;
+            foreach (var e in events) { cur += e.Delta; if (cur > peak) peak = cur; }
+            return peak;
+        }
+
+        private async Task<AltChoice?> FindAlternateAsync(
+            ProductionOperation op, ScheduleDirection direction, DateTime opCursor, decimal spanMins, decimal busyMins,
             int companyId, HashSet<int> ownOrderIds, List<(int Wc, DateTime Start, DateTime End)> inRun,
             DateTime horizonFrom, DateTime horizonTo, Dictionary<int, WcCtx> wcCache, List<string> warnings,
             CancellationToken ct)
         {
+            // Evaluate a candidate WC by FLOORING the op on that WC's own calendar, then checking
+            // capacity at that re-floored window (a different shift/TZ/holiday moves the interval).
+            async Task<AltChoice?> TryAsync(int altWc, int? assetId, string reasonPrefix)
+            {
+                if (altWc == op.WorkCenterId) return null;
+                var altCtx = await GetWcAsync(altWc, companyId, horizonFrom, horizonTo, wcCache, warnings, ct);
+                var (s, e, ranOut) = Place(direction, altCtx, opCursor, spanMins);
+                if (await IsOverloadedAsync(altCtx, altWc, s, e, busyMins, ownOrderIds, inRun, ct)) return null;
+                return new AltChoice(altWc, assetId, altCtx.Code, $"{reasonPrefix} {altCtx.Code}", s, e, ranOut);
+            }
+
             // (a) Capability-based: R3-9 tells us WHO ELSE can run this op (if released from a routing op).
             if (op.RoutingOperationId is int routingOpId)
             {
@@ -253,19 +288,16 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
                 if (match.IsSuccess && match.Value.Eligible.Count > 0)
                 {
                     var eligibleIds = match.Value.Eligible.Select(e => e.ResourceId).ToList();
-                    // Map eligible resources → their WC + asset (need a WC that isn't the loaded primary).
                     var resources = await _db.ProductionResources
                         .Where(r => eligibleIds.Contains(r.Id) && r.WorkCenterId != null)
                         .Select(r => new { r.Id, r.WorkCenterId, r.AssetId, r.Code })
                         .ToListAsync(ct);
-                    // Preserve R3-9 rank order.
-                    foreach (var resId in eligibleIds)
+                    foreach (var resId in eligibleIds) // preserve R3-9 rank order
                     {
                         var r = resources.FirstOrDefault(x => x.Id == resId);
-                        if (r is null || r.WorkCenterId is not int altWc || altWc == op.WorkCenterId) continue;
-                        var altCtx = await GetWcAsync(altWc, companyId, horizonFrom, horizonTo, wcCache, warnings, ct);
-                        if (!await IsOverloadedAsync(altCtx, altWc, start, end, busyMins, ownOrderIds, inRun, ct))
-                            return (altWc, r.AssetId, altCtx.Code, $"capability alternate → resource {r.Code} on WC {altCtx.Code}");
+                        if (r is null || r.WorkCenterId is not int altWc) continue;
+                        var choice = await TryAsync(altWc, r.AssetId, $"capability alternate → resource {r.Code} on WC");
+                        if (choice is not null) return choice;
                     }
                 }
             }
@@ -278,12 +310,14 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
                 .ToListAsync(ct);
             foreach (var altWc in alternates)
             {
-                var altCtx = await GetWcAsync(altWc, companyId, horizonFrom, horizonTo, wcCache, warnings, ct);
-                if (!await IsOverloadedAsync(altCtx, altWc, start, end, busyMins, ownOrderIds, inRun, ct))
-                    return (altWc, null, altCtx.Code, $"spill → alternate WC {altCtx.Code}");
+                var choice = await TryAsync(altWc, null, "spill → alternate WC");
+                if (choice is not null) return choice;
             }
             return null;
         }
+
+        private sealed record AltChoice(
+            int WcId, int? AssetId, string Code, string Reason, DateTime Start, DateTime End, bool RanOut);
 
         // Resolve + cache a WC's scheduling context (capacity + working intervals over the horizon).
         private async Task<WcCtx> GetWcAsync(
