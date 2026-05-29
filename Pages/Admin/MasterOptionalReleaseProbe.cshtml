@@ -1,0 +1,156 @@
+@page "/Admin/MasterOptionalReleaseProbe"
+@model Abs.FixedAssets.Pages.Admin.MasterOptionalReleaseProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Master-Optional Release Probe";
+    ViewData["TabTitle"] = "Master-Optional Release Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave A PR-2 — master-optional (PoFirst) PO release path.
+    Exercises ProductionOrder.IsPoFirst / AsPlanned* identity / CrystallizedItemId
+    + the release-readiness guard (drawing # + rev) + the no-principal-item guard.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Master-Optional Release Probe — B7 PR-2</h1>
+        <p class="ds-page-header__subtitle">
+            PO-as-Standard / ETO: a PoFirst order builds from the PO itself — the Item
+            Master is optional at release (ItemId null) and crystallizes at ship. Release
+            is gated on an as-planned drawing # + rev (AS9100 §8.5.2). No incumbent
+            (SAP/Oracle/Epicor/Infor/Plex/IFS) lets you release without a material master.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant PoFirst distribution</h2>
+            <p class="ds-text-muted">
+                PoFirst orders: <strong>@Model.PoFirstCount</strong> ·
+                PoFirst master-less (ItemId null): <strong>@Model.MasterlessCount</strong> ·
+                PoFirst released+: <strong>@Model.PoFirstReleasedCount</strong> ·
+                PoFirst crystallized: <strong>@Model.PoFirstCrystallizedCount</strong> ·
+                Latest PoFirst Id: <strong>@(Model.LatestPoFirstId?.ToString() ?? "—")</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Create + release gate</h2>
+            <p class="ds-text-muted">
+                Buttons 1 &amp; 2 create their own fresh PoFirst PRO. Buttons 3–5 act on
+                the target Id below (blank = latest PoFirst PRO).
+            </p>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ProductionOrderId">Target PRO Id (optional)</label>
+                    <input type="number" id="ProductionOrderId" name="ProductionOrderId" value="@(Model.ProductionOrderId > 0 ? Model.ProductionOrderId.ToString() : string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="CreatePoFirst" class="ds-btn ds-btn--primary">1 · Create master-less PoFirst PRO</button>
+                    <button type="submit" asp-page-handler="AttemptReleaseNoDrawing" class="ds-btn ds-btn--warning">2 · Attempt release w/o drawing (reject)</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Set drawing + release · demands · crystallize</h2>
+            <form method="post" class="ds-form-grid">
+                <input type="hidden" name="ProductionOrderId" value="@Model.ProductionOrderId" />
+                <div>
+                    <label for="AsPlannedDrawingNumber">As-Planned Drawing #</label>
+                    <input type="text" id="AsPlannedDrawingNumber" name="AsPlannedDrawingNumber" value="@Model.AsPlannedDrawingNumber" class="ds-input" />
+                </div>
+                <div>
+                    <label for="AsPlannedDrawingRev">As-Planned Drawing Rev</label>
+                    <input type="text" id="AsPlannedDrawingRev" name="AsPlannedDrawingRev" value="@Model.AsPlannedDrawingRev" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="SetDrawingAndRelease" class="ds-btn ds-btn--primary">3 · Set drawing + release</button>
+                    <button type="submit" asp-page-handler="GenerateDemands" class="ds-btn ds-btn--primary">4 · Generate demands (master-less)</button>
+                    <button type="submit" asp-page-handler="SetCrystallized" class="ds-btn">5 · Set CrystallizedItemId</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample PoFirst orders (latest 15, tenant-scoped)</h2>
+            @if (Model.SamplePoFirst.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No PoFirst orders in your tenant scope — create one with button 1.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Order #</th>
+                            <th>Status</th>
+                            <th>Has Master?</th>
+                            <th>Drawing #</th>
+                            <th>Rev</th>
+                            <th>As-Planned Part #</th>
+                            <th>Crystallized Item</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.SamplePoFirst)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td><code>@r.OrderNumber</code></td>
+                                <td>
+                                    @switch (r.Status)
+                                    {
+                                        case ProductionOrderStatus.Planned:
+                                            <span class="ds-badge">Planned</span>
+                                            break;
+                                        case ProductionOrderStatus.Released:
+                                            <span class="ds-badge ds-badge--success">Released</span>
+                                            break;
+                                        case ProductionOrderStatus.Cancelled:
+                                            <span class="ds-badge ds-badge--danger">Cancelled</span>
+                                            break;
+                                        default:
+                                            <span class="ds-badge ds-badge--warning">@r.Status</span>
+                                            break;
+                                    }
+                                </td>
+                                <td>@(r.HasMaster ? "Yes" : "—")</td>
+                                <td>@(r.DrawingNumber ?? "—")</td>
+                                <td>@(r.DrawingRev ?? "—")</td>
+                                <td>@(r.AsPlannedPartNumber ?? "—")</td>
+                                <td>@(r.CrystallizedItemId?.ToString() ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

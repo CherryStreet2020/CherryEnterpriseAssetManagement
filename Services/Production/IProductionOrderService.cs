@@ -76,6 +76,9 @@ public interface IProductionOrderService
     /// InProgress→OnHold|Completed|Cancelled; OnHold→Released|InProgress|Cancelled;
     /// Completed and Cancelled are terminal. Stamps <c>ActualStart</c>
     /// on first entry to InProgress, <c>ActualEnd</c> on Completed.
+    /// B7 Wave A PR-2 — releasing a PoFirst (master-optional) order is gated on
+    /// an as-planned drawing number + rev (see
+    /// <see cref="ProductionOrder.ValidatePoFirstReleaseReadiness"/>).
     /// </summary>
     Task<Result<ProductionOrder>> UpdateStatusAsync(UpdateProductionOrderStatusRequest request, CancellationToken ct);
 
@@ -105,7 +108,12 @@ public interface IProductionOrderService
 
 // === Request DTOs ===
 
-/// <summary>Inputs for <see cref="IProductionOrderService.CreateAsync"/>.</summary>
+/// <summary>
+/// Inputs for <see cref="IProductionOrderService.CreateAsync"/>.
+/// B7 Wave A PR-2 — the trailing master-optional (PoFirst) fields default so
+/// existing StandardFirst callers are unaffected. A PoFirst order must leave
+/// <c>ItemId</c> null (the master crystallizes at ship).
+/// </summary>
 public sealed record CreateProductionOrderRequest(
     string OrderNumber,
     ProductionType Type,
@@ -121,9 +129,18 @@ public sealed record CreateProductionOrderRequest(
     int Priority,
     int? MasterProductionOrderId,
     int? MaterialStructureId,
-    string? CreatedBy);
+    string? CreatedBy,
+    bool IsPoFirst = false,
+    string? AsPlannedPartNumber = null,
+    string? AsPlannedDrawingNumber = null,
+    string? AsPlannedDrawingRev = null,
+    string? AsPlannedDescription = null);
 
-/// <summary>Inputs for <see cref="IProductionOrderService.UpdateHeaderAsync"/>.</summary>
+/// <summary>
+/// Inputs for <see cref="IProductionOrderService.UpdateHeaderAsync"/>.
+/// B7 Wave A PR-2 — trailing master-optional (PoFirst) fields default for
+/// backward compatibility.
+/// </summary>
 public sealed record UpdateProductionOrderHeaderRequest(
     int ProductionOrderId,
     string Title,
@@ -138,7 +155,12 @@ public sealed record UpdateProductionOrderHeaderRequest(
     int Priority,
     int? MasterProductionOrderId,
     int? MaterialStructureId,
-    string? ModifiedBy);
+    string? ModifiedBy,
+    bool IsPoFirst = false,
+    string? AsPlannedPartNumber = null,
+    string? AsPlannedDrawingNumber = null,
+    string? AsPlannedDrawingRev = null,
+    string? AsPlannedDescription = null);
 
 /// <summary>Inputs for <see cref="IProductionOrderService.UpdateStatusAsync"/>.</summary>
 public sealed record UpdateProductionOrderStatusRequest(
