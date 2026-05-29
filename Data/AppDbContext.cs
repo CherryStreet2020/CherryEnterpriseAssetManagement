@@ -648,6 +648,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary> ProductionOrderCostSummaries =>
             Set<Abs.FixedAssets.Models.Production.ProductionOrderCostSummary>();
 
+        // Theme B7 Wave B PR-4 — ItemCrystallization (the harvest-from-actuals
+        // audit record: PoFirst PRO's as-built BOM + as-run routing + actual
+        // cost promoted into an Item Master standard at ship, or deduped+linked).
+        public DbSet<Abs.FixedAssets.Models.Production.ItemCrystallization> ItemCrystallizations =>
+            Set<Abs.FixedAssets.Models.Production.ItemCrystallization>();
+
         // Sprint 14.4 PR-3 — CostRollupRun (rollup execution header), CostRollupLine (output lines),
         // CostRollupException (detected issues). The cost rollup engine audit trail.
         public DbSet<Abs.FixedAssets.Models.Production.CostRollupRun> CostRollupRuns =>
@@ -2159,6 +2165,65 @@ namespace Abs.FixedAssets.Data
                     .HasDatabaseName("IX_ProdMatStruct_LinkedSupply");
                 e.HasIndex(x => x.SupplyRequiredDate)
                     .HasDatabaseName("IX_ProdMatStruct_SupplyRequiredDate");
+            });
+
+            // Theme B7 Wave B PR-4 (2026-05-29) — ItemCrystallization.
+            // The crystallization-at-ship audit record. Tenant trio + xmin +
+            // enum HasDefaultValue (value-0 sentinels) + two FKs to Item +
+            // RESTRICT on the source PRO + UNIQUE crystallization number, all
+            // baked in from day one per the B6/B7 hard-locks.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ItemCrystallization>(e =>
+            {
+                // Enum DB defaults — value-0 semantic sentinels, HasDefaultValue
+                // safe (HARD LOCK feedback_b6_enum_defaults_must_match_model.md).
+                // Outcome default Pending (a stub being prepared); CostSource
+                // default FirstActual (the §5.4 rule).
+                e.Property(x => x.Outcome)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CrystallizationOutcome.Pending);
+                e.Property(x => x.CostSource)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.CrystallizationCostSource.FirstActual);
+
+                // xmin concurrency (HARD LOCK feedback_xmin_pattern_for_concurrency_lock.md).
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                // UNIQUE crystallization number per tenant. The two-phase
+                // placeholder (CRYST-PEND-{guid}) is globally unique, so this
+                // never collides during the insert→patch window.
+                e.HasIndex(x => new { x.CompanyId, x.CrystallizationNumber })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ItemCrystallization_Company_Number");
+
+                // Read-path indexes.
+                e.HasIndex(x => x.SourceProductionOrderId)
+                    .HasDatabaseName("IX_ItemCrystallization_SourcePRO");
+                e.HasIndex(x => x.CompanyId)
+                    .HasDatabaseName("IX_ItemCrystallization_Company");
+                e.HasIndex(x => x.CreatedItemId)
+                    .HasFilter("\"CreatedItemId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ItemCrystallization_CreatedItem_Partial");
+                e.HasIndex(x => x.StructureFingerprintHash)
+                    .HasFilter("\"StructureFingerprintHash\" IS NOT NULL")
+                    .HasDatabaseName("IX_ItemCrystallization_Fingerprint_Partial");
+
+                // FK config — RESTRICT on the source PRO (a crystallized order
+                // can't be deleted out from under its audit trail); SET NULL on
+                // both Item FKs (the audit record survives master archival).
+                // Two distinct Item relationships need separate WithMany() to
+                // disambiguate.
+                e.HasOne(x => x.SourceProductionOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceProductionOrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.HasOne(x => x.CreatedItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.CreatedItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.HasOne(x => x.MatchedItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.MatchedItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Sprint 14.2 PR-1 (2026-05-26 evening) — DMS substrate.
