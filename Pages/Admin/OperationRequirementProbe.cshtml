@@ -1,0 +1,97 @@
+@page "/Admin/OperationRequirementProbe"
+@model Abs.FixedAssets.Pages.Admin.OperationRequirementProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Operation Requirement Probe";
+    ViewData["TabTitle"] = "Operation Requirement Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R3-8 — FK-backed operation capability requirements.
+    Retires the loose RoutingOperation.RequiredSkillCodes / RequiredToolingIds
+    CSV with a real requirement table pointing at Capability (and optionally a
+    Tool). The R3-9 match service reads these to return eligible resources.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Operation Requirement Probe — B11 R3-8</h1>
+        <p class="ds-page-header__subtitle">
+            FK-backed <code>OperationCapabilityRequirement</code> replaces the CSV
+            <code>RequiredSkillCodes</code> / <code>RequiredToolingIds</code>. A routing op declares the
+            capabilities it requires; the R3-9 match service returns the resources eligible to run it.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant requirement stats</h2>
+            <p class="ds-text-muted">
+                Requirements: <strong>@Model.RequirementCount</strong> ·
+                Mandatory: <strong>@Model.MandatoryCount</strong> ·
+                Ops with requirements: <strong>@Model.OpsWithReqsCount</strong> ·
+                Latest op: <strong>@(Model.LatestOpId == 0 ? "—" : "#" + Model.LatestOpId)</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Requirement flow (acts on the latest routing operation)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="RequireMachine" class="ds-btn ds-btn--primary">1 · Require machine capability (5-axis)</button>
+                <button type="submit" asp-page-handler="BackfillCsv" class="ds-btn">2 · Backfill from CSV (skills)</button>
+                <button type="submit" asp-page-handler="RequireSpecialProcess" class="ds-btn">3 · Require special process (AWS D17.1)</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample requirements (latest 10, tenant-scoped)</h2>
+            @if (Model.RequirementSample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No operation requirements yet — use buttons 1–3.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Op</th><th>Capability</th><th>Type</th><th>Min proficiency</th><th>Mandatory?</th><th>Tool</th><th>Envelope</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.RequirementSample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>#@r.RoutingOperationId</td>
+                                <td>@r.CapabilityCode</td>
+                                <td>@r.Type</td>
+                                <td>@r.MinProficiency</td>
+                                <td>@(r.IsMandatory ? "yes" : "preferred")</td>
+                                <td>@(r.ToolId?.ToString() ?? "—")</td>
+                                <td>@(r.EnvelopeRange ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
