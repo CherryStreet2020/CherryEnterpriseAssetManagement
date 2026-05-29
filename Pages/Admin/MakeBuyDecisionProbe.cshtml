@@ -1,0 +1,101 @@
+@page "/Admin/MakeBuyDecisionProbe"
+@model Abs.FixedAssets.Pages.Admin.MakeBuyDecisionProbeModel
+@{
+    ViewData["Title"] = "Make-or-Buy Decision Probe";
+    ViewData["TabTitle"] = "Make-or-Buy Decision Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave C PR-7 — make-or-buy decision schema (OPENS Wave C). MakeBuyDecision is
+    the audit/"why" record; MakeBuyDecisionPolicy holds per-tenant thresholds + factor
+    weights. PR-8 supplies IMakeBuyDecisionService whose F2 capacity factor consumes the
+    real R4-10 Load% / R4-11 finite schedule.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Make-or-Buy Decision Probe — B7 R-C PR-7</h1>
+        <p class="ds-page-header__subtitle">
+            The audit record behind every make-or-buy call: <code>MakeBuyDecision</code> (verdict +
+            explainable factor breakdown + frozen snapshots) and <code>MakeBuyDecisionPolicy</code>
+            (thresholds + F2–F6 weights). PR-8 fills the decision engine.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Schema flow</h2>
+            <p class="ds-text-muted">Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong> ·
+                policy: <strong>@(Model.Policy == null ? "none" : "set")</strong> · recent decisions: <strong>@Model.Recent.Count</strong></p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="EnsurePolicy" class="ds-btn ds-btn--primary">1 · Ensure policy</button>
+                <button type="submit" asp-page-handler="RecordDecision" class="ds-btn">2 · Record sample decision</button>
+                <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Policy is not null)
+    {
+        var p = Model.Policy;
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Policy (company default)</h2>
+                <table class="ds-table">
+                    <tbody>
+                        <tr><td>Capacity threshold</td><td>@p.CapacityThresholdPct.ToString("0.#")%</td></tr>
+                        <tr><td>Drum-offload cost tolerance</td><td>@p.DrumOffloadCostTolerancePct.ToString("0.#")%</td></tr>
+                        <tr><td>Buy score threshold</td><td>@p.BuyDecisionScoreThreshold.ToString("0.00")</td></tr>
+                        <tr><td>Weights F2/F3/F4/F5/F6</td><td>@p.WeightCapacity.ToString("0.00") / @p.WeightCostDelta.ToString("0.00") / @p.WeightBreakEven.ToString("0.00") / @p.WeightLeadTime.ToString("0.00") / @p.WeightQualityRisk.ToString("0.00")</td></tr>
+                        <tr><td>Final tie-break</td><td>@p.FinalTieBreak</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    @if (Model.Recent.Count > 0)
+    {
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Recent decisions</h2>
+                <table class="ds-table">
+                    <thead>
+                        <tr><th>#</th><th>Item</th><th>Qty</th><th>Outcome</th><th>Score</th><th>Make $</th><th>Buy $</th><th>Drum</th><th>Decided</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model.Recent)
+                        {
+                            <tr>
+                                <td>@d.Id</td>
+                                <td>#@d.ItemId</td>
+                                <td>@d.Qty.ToString("0")</td>
+                                <td class="@(d.Outcome == Abs.FixedAssets.Models.Production.MakeBuyOutcome.Buy ? "ds-text-warning" : "ds-text-success")"><strong>@d.Outcome</strong>@(d.WasHardGated ? " (gated)" : "")</td>
+                                <td>@d.BuyScore.ToString("0.00")</td>
+                                <td>@(d.MakeCostFullyLoaded?.ToString("N0") ?? "—")</td>
+                                <td>@(d.BuyCostLanded?.ToString("N0") ?? "—")</td>
+                                <td>@(d.BottleneckWorkCenterCode ?? "—") @(d.BottleneckLoadPct?.ToString("0.#") ?? "")@(d.BottleneckLoadPct != null ? "%" : "")</td>
+                                <td>@d.DecidedAtUtc.ToString("MM-dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+</main>
