@@ -110,10 +110,13 @@ public sealed class WorkCenterHardeningProbeModel : PageModel
         var wc = await LatestWcAsync(ct);
         if (wc == null) { Set(false, "No tenant-visible Work Center."); await LoadStatsAsync(ct); return Page(); }
 
+        // Codex P2: keep the assigned site in the WC's OWN company — not just any
+        // tenant-visible site — so a multi-company tenant (e.g. EVS's 4 operating
+        // companies) can't persist a cross-company WorkCenters.SiteId.
         var site = await _db.Set<Site>()
-            .Where(s => _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+            .Where(s => s.CompanyId == wc.CompanyId)
             .OrderBy(s => s.Id).FirstOrDefaultAsync(ct);
-        if (site == null) { Set(false, "No tenant-visible Site to assign (create a Site first)."); await LoadStatsAsync(ct); return Page(); }
+        if (site == null) { Set(false, $"No Site in WC #{wc.Id}'s company ({wc.CompanyId}) to assign — create one first."); await LoadStatsAsync(ct); return Page(); }
 
         wc.SiteId = site.Id;
         wc.ModifiedAt = DateTime.UtcNow;
@@ -130,9 +133,13 @@ public sealed class WorkCenterHardeningProbeModel : PageModel
         var primary = await LatestWcAsync(ct);
         if (primary == null) { Set(false, "No tenant-visible Work Center."); await LoadStatsAsync(ct); return Page(); }
 
+        // Codex P2: the alternate MUST be in the same company as the primary, or
+        // the link's CompanyId (= primary.CompanyId) would disagree with one of
+        // its referenced work centers and leak across the company boundary.
         var alt = await ScopedWc()
-            .Where(w => w.Id != primary.Id).OrderByDescending(w => w.Id).FirstOrDefaultAsync(ct);
-        if (alt == null) { Set(false, "Need a second Work Center to link as an alternate."); await LoadStatsAsync(ct); return Page(); }
+            .Where(w => w.Id != primary.Id && w.CompanyId == primary.CompanyId)
+            .OrderByDescending(w => w.Id).FirstOrDefaultAsync(ct);
+        if (alt == null) { Set(false, $"Need a second Work Center in the same company ({primary.CompanyId}) to link as an alternate."); await LoadStatsAsync(ct); return Page(); }
 
         var exists = await _db.WorkCenterAlternates
             .AnyAsync(a => a.WorkCenterId == primary.Id && a.AlternateWorkCenterId == alt.Id, ct);
