@@ -114,6 +114,9 @@ public class ProductionResource
     /// <summary>Per-resource availability deltas (downtime / maintenance / extra shift) layered on the calendar (R2-6).</summary>
     public ICollection<ResourceCalendarException>? CalendarExceptions { get; set; }
 
+    /// <summary>Capabilities this resource holds — what it can do (R3-7). The R3-9 match service reads these.</summary>
+    public ICollection<ResourceCapability>? Capabilities { get; set; }
+
     /// <summary>True = the scheduler treats this resource as finite capacity. Default true (machines constrain).</summary>
     public bool FiniteCapacityFlag { get; set; } = true;
 

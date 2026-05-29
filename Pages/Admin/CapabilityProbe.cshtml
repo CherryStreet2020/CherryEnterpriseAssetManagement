@@ -1,0 +1,132 @@
+@page "/Admin/CapabilityProbe"
+@model Abs.FixedAssets.Pages.Admin.CapabilityProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Capability Model Probe";
+    ViewData["TabTitle"] = "Capability Model Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R3-7 — capability model (the crown-jewel disruptor).
+    A routing op declares a required CAPABILITY; the scheduler matches it to
+    eligible RESOURCES by capability + currency + availability — instead of
+    hard-coding a machine on the routing step (the Epicor / MIE / Plex way).
+    This probe creates capabilities and attaches them to a resource with and
+    without an expiry, proving the two qualification paths the R3-9 match
+    service filters on.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Capability Model Probe — B11 R3-7</h1>
+        <p class="ds-page-header__subtitle">
+            Capability master + resource↔capability join. Geometric capabilities never lapse;
+            special-process certs (AWS D17.1, NADCAP) carry a dated qualification + expiry.
+            The R3-9 match service returns the resources eligible to run an operation.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant capability stats</h2>
+            <p class="ds-text-muted">
+                Capabilities: <strong>@Model.CapabilityCount</strong> ·
+                Special-process: <strong>@Model.SpecialProcessCount</strong> ·
+                Resource qualifications: <strong>@Model.ResourceCapabilityCount</strong> ·
+                With expiry: <strong>@Model.ExpiringCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Capability flow (attach acts on the latest resource)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="CreateCapability" class="ds-btn ds-btn--primary">1 · Create capability (5-axis mill)</button>
+                <button type="submit" asp-page-handler="CreateSpecialProcess" class="ds-btn">2 · Create special process (AWS D17.1)</button>
+                <button type="submit" asp-page-handler="AttachNoExpiry" class="ds-btn">3 · Attach to resource (no expiry)</button>
+                <button type="submit" asp-page-handler="AttachWithExpiry" class="ds-btn">4 · Attach to resource (cert + expiry)</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample capabilities (latest 10, tenant-scoped)</h2>
+            @if (Model.CapabilitySample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No capabilities yet — use buttons 1–2.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Name</th><th>Category</th><th>Special?</th><th>Needs qual?</th><th>Validity (mo)</th><th>Standard</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in Model.CapabilitySample)
+                        {
+                            <tr>
+                                <td>@c.Id</td>
+                                <td>@c.Code</td>
+                                <td>@c.Name</td>
+                                <td>@c.Category</td>
+                                <td>@(c.IsSpecialProcess ? "yes" : "—")</td>
+                                <td>@(c.RequiresQualification ? "yes" : "—")</td>
+                                <td>@(c.ValidityMonths?.ToString() ?? "—")</td>
+                                <td>@(c.Standard ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample resource qualifications (latest 10, tenant-scoped)</h2>
+            @if (Model.ResourceCapabilitySample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No resource qualifications yet — use buttons 3–4.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Resource</th><th>Capability</th><th>Proficiency</th><th>Qualified</th><th>Expires</th><th>Cert</th><th>Current?</th></tr></thead>
+                    <tbody>
+                        @foreach (var x in Model.ResourceCapabilitySample)
+                        {
+                            <tr>
+                                <td>@x.Id</td>
+                                <td>#@x.ResourceId @x.ResourceCode</td>
+                                <td>@x.CapabilityCode</td>
+                                <td>@x.Proficiency</td>
+                                <td>@(x.QualifiedOnUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                <td>@(x.ExpiresOnUtc?.ToString("yyyy-MM-dd") ?? "never")</td>
+                                <td>@(x.CertificateReference ?? "—")</td>
+                                <td>@(x.Current ? "✓" : "✗ expired")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
