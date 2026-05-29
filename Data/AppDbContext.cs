@@ -194,6 +194,9 @@ namespace Abs.FixedAssets.Data
         // B11 R2-4 — schedulable production resources (machine/labor/tool/vendor, bridged to Asset).
         public DbSet<Abs.FixedAssets.Models.Production.ProductionResource> ProductionResources
             => Set<Abs.FixedAssets.Models.Production.ProductionResource>();
+        // B11 R2-5 — tool/fixture master (replaces CSV RequiredToolingIds).
+        public DbSet<Abs.FixedAssets.Models.Production.Tool> Tools
+            => Set<Abs.FixedAssets.Models.Production.Tool>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3543,6 +3546,48 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.WorkCenterId)
                     .OnDelete(DeleteBehavior.SetNull);
 
+                // R2-5 — non-machine bridges (Labor→Employee, Vendor→Vendor, Tool→Tool). All SET NULL.
+                e.HasOne(x => x.Employee)
+                    .WithMany()
+                    .HasForeignKey(x => x.EmployeeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Tool)
+                    .WithMany()
+                    .HasForeignKey(x => x.ToolId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.EmployeeId)
+                    .HasFilter("\"EmployeeId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_Employee_Partial");
+                e.HasIndex(x => x.VendorId)
+                    .HasFilter("\"VendorId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_Vendor_Partial");
+                e.HasIndex(x => x.ToolId)
+                    .HasFilter("\"ToolId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_Tool_Partial");
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R2-5 — Tool/Fixture master. New table; enum defaults are value-0
+            // sentinels (no HasDefaultValue). Optional Asset bridge SET NULL.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Tool>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ToolType);
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Tools_Company_Code");
+                e.HasIndex(x => x.AssetId)
+                    .HasFilter("\"AssetId\" IS NOT NULL")
+                    .HasDatabaseName("IX_Tools_Asset_Partial");
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
