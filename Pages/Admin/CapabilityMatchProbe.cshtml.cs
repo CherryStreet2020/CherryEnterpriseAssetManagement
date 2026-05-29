@@ -187,39 +187,60 @@ public sealed class CapabilityMatchProbeModel : PageModel
         await EnsureRequirementAsync(companyId, op.Id, cmm.Id, CapabilityRequirementType.Inspection,
             mandatory: false, CapabilityProficiency.Qualified, envMin: null, ct);
 
-        // Resources with varied profiles (real machine families).
+        // Resources with varied profiles (real machine families). To keep the worked
+        // example SELF-CONTAINED regardless of any requirements already on this op
+        // (e.g. residue from prior probes), each demo resource is granted EVERY
+        // mandatory capability the op currently requires — current + Qualified — and
+        // the intended defect is applied ONLY to the 5-axis (MILL) capability. That way
+        // A/B come out eligible and C/D fail specifically on the envelope / expiry.
         var future = DateTime.UtcNow.Date.AddMonths(18);
         var past = DateTime.UtcNow.Date.AddDays(-30);
+
+        var mandatoryCapIds = await _db.OperationCapabilityRequirements
+            .Where(r => r.RoutingOperationId == op.Id && r.IsMandatory)
+            .Select(r => r.CapabilityId).Distinct().ToListAsync(ct);
+
+        // Grant a resource all mandatory caps; the MILL cap gets the per-resource profile.
+        async Task GrantAllAsync(int resId, CapabilityProficiency millProf, DateTime? millExpiry, decimal? millEnv)
+        {
+            foreach (var capId in mandatoryCapIds)
+            {
+                if (capId == mill5.Id)
+                    await EnsureResourceCapabilityAsync(companyId, resId, capId, millProf, millExpiry, millEnv, ct);
+                else
+                    await EnsureResourceCapabilityAsync(companyId, resId, capId, CapabilityProficiency.Qualified, null, null, ct);
+            }
+        }
 
         // A — full 5-axis Expert + CMM, current, on the op's WC → eligible, top rank.
         var a = await EnsureResourceAsync(companyId, "HAAS-UMC750-A", "Haas UMC-750 5-axis (cell A)",
             ProductionResourceStatus.Active, op.WorkCenterId, ct);
-        await EnsureResourceCapabilityAsync(companyId, a.Id, mill5.Id, CapabilityProficiency.Expert, null, 5m, ct);
+        await GrantAllAsync(a.Id, CapabilityProficiency.Expert, null, 5m);
         await EnsureResourceCapabilityAsync(companyId, a.Id, cmm.Id, CapabilityProficiency.Qualified, null, null, ct);
 
         // B — 5-axis Qualified, current, no CMM → eligible, lower rank.
         var b = await EnsureResourceAsync(companyId, "HAAS-UMC750-B", "Haas UMC-750 5-axis (cell B)",
             ProductionResourceStatus.Active, null, ct);
-        await EnsureResourceCapabilityAsync(companyId, b.Id, mill5.Id, CapabilityProficiency.Qualified, null, 5m, ct);
+        await GrantAllAsync(b.Id, CapabilityProficiency.Qualified, null, 5m);
 
         // C — claims 5-axis but only 3 simultaneous axes (3+2 positional) → ineligible (envelope).
         var c = await EnsureResourceAsync(companyId, "MAZAK-VTC-1", "Mazak VTC-300 (3+2 positional)",
             ProductionResourceStatus.Active, null, ct);
-        await EnsureResourceCapabilityAsync(companyId, c.Id, mill5.Id, CapabilityProficiency.Qualified, null, 3m, ct);
+        await GrantAllAsync(c.Id, CapabilityProficiency.Qualified, null, 3m);
 
         // D — full 5-axis Expert but calibration LAPSED → ineligible (expired).
         var d = await EnsureResourceAsync(companyId, "DECKEL-DMU-1", "DMG DECKEL DMU-50 5-axis",
             ProductionResourceStatus.Active, null, ct);
-        await EnsureResourceCapabilityAsync(companyId, d.Id, mill5.Id, CapabilityProficiency.Expert, past, 5m, ct);
+        await GrantAllAsync(d.Id, CapabilityProficiency.Expert, past, 5m);
 
         // Z — full 5-axis Expert current but resource Inactive → excluded from candidate pool.
         var z = await EnsureResourceAsync(companyId, "HAAS-UMC750-Z", "Haas UMC-750 5-axis (mothballed)",
             ProductionResourceStatus.Inactive, null, ct);
-        await EnsureResourceCapabilityAsync(companyId, z.Id, mill5.Id, CapabilityProficiency.Expert, future, 5m, ct);
+        await GrantAllAsync(z.Id, CapabilityProficiency.Expert, future, 5m);
 
-        Set(true, $"Worked example ready on op #{op.Id}: requires 5-axis milling (≥5 axes, mandatory) + CMM (preferred). " +
-                  "5 resources seeded — A/B eligible, MAZAK (3 axes) + DECKEL (expired) ineligible, HAAS-Z excluded (Inactive). " +
-                  "Now click Run match.");
+        Set(true, $"Worked example ready on op #{op.Id}: requires 5-axis milling (≥5 axes, mandatory) + CMM (preferred); " +
+                  $"{mandatoryCapIds.Count} mandatory capability(ies) total. 5 resources seeded (each granted all mandatory caps) — " +
+                  "A/B eligible, MAZAK (3 axes) + DECKEL (expired) ineligible on 5-axis, HAAS-Z excluded (Inactive). Now click Run match.");
         await LoadStatsAsync(ct);
         return Page();
     }
