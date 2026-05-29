@@ -61,11 +61,18 @@ public static class CrystallizationFingerprint
         var sb = new StringBuilder(1024);
 
         // ── BOM segment ──────────────────────────────────────────
-        // Deterministic order: Sequence, then frozen part #, then qty.
+        // Deterministic order — the ordering key MUST include EVERY field that
+        // is serialized into the hash, or two identical structures captured in
+        // a different row order could hash differently and dedupe would miss
+        // them (Codex P2). Sort on part #, rev, qty, UoM, line kind — not just
+        // Sequence — so rows that tie on Sequence still order deterministically.
         var orderedBom = (bomLines ?? Enumerable.Empty<ProductionMaterialStructure>())
             .OrderBy(l => l.Sequence)
             .ThenBy(l => l.ChildPartNumber, StringComparer.Ordinal)
+            .ThenBy(l => l.ChildRevision, StringComparer.Ordinal)
             .ThenBy(l => l.QuantityPer)
+            .ThenBy(l => l.Uom, StringComparer.Ordinal)
+            .ThenBy(l => (int)l.LineKind)
             .ToList();
 
         sb.Append("BOM("); sb.Append(orderedBom.Count.ToString(inv)); sb.Append(')');
@@ -80,10 +87,14 @@ public static class CrystallizationFingerprint
         }
 
         // ── Routing segment ──────────────────────────────────────
-        // Deterministic order: SequenceNumber, then work center.
+        // Deterministic order — same discipline as BOM: every serialized op
+        // field participates in the ordering key (sequence, work center,
+        // operation type, description) so equal-sequence ops can't reorder.
         var orderedOps = (operations ?? Enumerable.Empty<ProductionOperation>())
             .OrderBy(o => o.SequenceNumber)
             .ThenBy(o => o.WorkCenterId)
+            .ThenBy(o => (int)o.OperationType)
+            .ThenBy(o => o.Description, StringComparer.Ordinal)
             .ToList();
 
         sb.Append("||ROUTING("); sb.Append(orderedOps.Count.ToString(inv)); sb.Append(')');

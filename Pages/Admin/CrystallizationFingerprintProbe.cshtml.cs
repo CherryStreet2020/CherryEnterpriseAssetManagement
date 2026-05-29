@@ -192,11 +192,17 @@ public sealed class CrystallizationFingerprintProbeModel : PageModel
     // 3) REVERSE latest stub (WRITE)
     public async Task<IActionResult> OnPostReverseLatestAsync(CancellationToken ct)
     {
+        // Scope to PENDING stubs only (Codex P2). This probe must never flip
+        // IsReversed on a real CreatedNewItem / LinkedToExisting crystallization
+        // (which PR-5's service writes) — that would mark the audit row reversed
+        // while leaving the minted item / dedupe link active. Reversing a real
+        // crystallization is the service's job (ReverseCrystallizationAsync),
+        // which also undoes the master-data change.
         var rec = await Scoped()
-            .Where(c => !c.IsReversed)
+            .Where(c => !c.IsReversed && c.Outcome == CrystallizationOutcome.Pending)
             .OrderByDescending(c => c.Id)
             .FirstOrDefaultAsync(ct);
-        if (rec == null) { Set(false, "No un-reversed crystallization in your tenant scope — create a stub first."); await LoadStatsAsync(ct); return Page(); }
+        if (rec == null) { Set(false, "No un-reversed Pending stub in your tenant scope — create a stub first (button 2)."); await LoadStatsAsync(ct); return Page(); }
 
         var by = User.Identity?.Name ?? "B7-PR4-probe";
         rec.IsReversed = true;
