@@ -1,0 +1,99 @@
+@page "/Admin/WorkCenterCostProbe"
+@model Abs.FixedAssets.Pages.Admin.WorkCenterCostProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Work Center Cost Probe";
+    ViewData["TabTitle"] = "Work Center Cost Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R1-3 — WorkCenter cost + operation-default groups (CLOSES Wave R1).
+    Detailed labor/machine/OH rate split + quoting rate + cost-center link, plus the
+    op-default group (yield/scrap, count-point, backflush, completion behavior) stamped
+    onto ProductionOperation at release.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Work Center Cost Probe — B11 R1-3</h1>
+        <p class="ds-page-header__subtitle">
+            The Work Center carries the costing rates (labor + machine, setup + run, fixed + variable
+            overhead, a quoting rate) and the operation defaults (yield/scrap, count-point, backflush,
+            completion behavior). This closes Wave R1 — the org/scheduling/cost backbone.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant work-center cost stats</h2>
+            <p class="ds-text-muted">
+                Work Centers: <strong>@Model.TotalWorkCenters</strong> ·
+                With rates: <strong>@Model.WithRatesCount</strong> ·
+                With a cost center: <strong>@Model.WithCostCenterCount</strong> ·
+                Count points: <strong>@Model.CountPointCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Cost + op-default flow (acts on the latest Work Center)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="SetRates" class="ds-btn ds-btn--primary">1 · Set cost rates</button>
+                <button type="submit" asp-page-handler="AssignCostCenter" class="ds-btn">2 · Assign cost center</button>
+                <button type="submit" asp-page-handler="SetOpDefaults" class="ds-btn">3 · Set operation defaults</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample work centers (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No work centers in your tenant scope.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Run Labor</th><th>Run Machine</th><th>Fixed OH</th><th>Var OH</th><th>Cost Ctr</th><th>Yield %</th><th>Count Pt</th><th>Completion</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@r.RunLabor.ToString("C")</td>
+                                <td>@r.RunMachine.ToString("C")</td>
+                                <td>@r.FixedOh.ToString("C")</td>
+                                <td>@r.VarOh.ToString("C")</td>
+                                <td>@(r.CostCenterId?.ToString() ?? "—")</td>
+                                <td>@(r.YieldPct?.ToString("0.#") ?? "default")</td>
+                                <td>@(r.CountPoint ? "✓" : "—")</td>
+                                <td>@r.Completion</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
