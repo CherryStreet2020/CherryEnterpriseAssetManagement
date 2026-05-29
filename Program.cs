@@ -288,6 +288,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.BackwardSchedulin
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IFiniteSchedulingService,
     Abs.FixedAssets.Services.Production.Scheduling.FiniteSchedulingService>();
 
+// B11 R4-12 — IDispatchBoardService (CLOSES Wave R4). The operator/supervisor surface
+// over the R4-11 placements: per-WC queue ordered by the WC's dispatch rule (FIFO /
+// EDD / SPT / critical-ratio / min-slack / priority), plus supervisor "dispatch next".
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IDispatchBoardService,
+    Abs.FixedAssets.Services.Production.Scheduling.DispatchBoardService>();
+
 // Sprint 12.7 PR #5 — ICfoMotionDemoSeeder. Idempotent demo-data seeder
 // for the CFO motion. Pushes /Controller KPI band (Cash / AP / POs / WIP)
 // to demo-believable numbers on the SEEDED PLACEHOLDER tenant (looked up
