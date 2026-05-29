@@ -1,0 +1,146 @@
+@page "/Admin/InvoiceMatchProbe"
+@model Abs.FixedAssets.Pages.Admin.InvoiceMatchProbeModel
+@{
+    ViewData["Title"] = "Invoice 3-Way Match Probe";
+    ViewData["TabTitle"] = "Invoice Match Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Invoice 3-Way Match Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.4 PR-19 — tolerance-driven 3-way match (PO ↔ Receipt ↔ Invoice).
+            Classifies each line's price / qty / date variance, freezes an
+            InvoiceMatchResult, drives VendorInvoice.MatchStatus + the Cost Exceptions
+            tab. Run &amp; Approve posts the AP approval (incl PPV) atomically inside the
+            match transaction (cross-service enlistment).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="im-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="im-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total match results</td><td data-testid="im-total">@Model.TotalResults</td></tr>
+                <tr><td>Current results</td><td data-testid="im-current">@Model.CurrentResults</td></tr>
+                <tr><td>Current · Matched</td><td data-testid="im-matched">@Model.MatchedCount</td></tr>
+                <tr><td>Current · Matched within tolerance</td><td data-testid="im-withintol">@Model.WithinToleranceCount</td></tr>
+                <tr><td><strong>Current · Exception</strong></td><td data-testid="im-exception"><strong>@Model.ExceptionCount</strong></td></tr>
+                <tr><td>Current · Posted on match</td><td data-testid="im-posted">@Model.PostedCount</td></tr>
+            </tbody>
+        </table>
+        @if (Model.CandidateInvoices.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">Invoices with PO-linked lines (3-way candidates, top 25)</h3>
+            <ul>
+                @foreach (var inv in Model.CandidateInvoices)
+                {
+                    <li>@inv.Display</li>
+                }
+            </ul>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W1. Run Match (compute + persist, no posting)</h2>
+        <form method="post" asp-page-handler="RunMatch">
+            <div class="ds-form-row"><label class="ds-label">Invoice ID</label><input type="number" class="ds-input" asp-for="RunInvoiceId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Price tol (abs $)</label><input type="number" step="0.01" class="ds-input" asp-for="PriceAbs" /></div>
+            <div class="ds-form-row"><label class="ds-label">Price tol (%)</label><input type="number" step="0.1" class="ds-input" asp-for="PricePct" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty tol (abs)</label><input type="number" step="0.0001" class="ds-input" asp-for="QtyAbs" /></div>
+            <div class="ds-form-row"><label class="ds-label">Qty tol (%)</label><input type="number" step="0.1" class="ds-input" asp-for="QtyPct" /></div>
+            <div class="ds-form-row"><label class="ds-label">Date tol (days)</label><input type="number" class="ds-input" asp-for="DateDays" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-run-match">Run Match</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W2. Run &amp; Approve If Clean (atomic match + AP posting)</h2>
+        <p class="ds-text-muted">If the match is clean (Matched or within tolerance), approves the invoice + posts the AP/PPV journal entry in the same transaction. Otherwise persists exceptions and posts nothing.</p>
+        <form method="post" asp-page-handler="RunApprove">
+            <div class="ds-form-row"><label class="ds-label">Invoice ID</label><input type="number" class="ds-input" asp-for="ApproveInvoiceId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Approver username</label><input type="text" class="ds-input" asp-for="ApproverUsername" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-run-approve">Run &amp; Approve If Clean</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R1. Load Current Match</h2>
+        <form method="post" asp-page-handler="LoadCurrent">
+            <div class="ds-form-row"><label class="ds-label">Invoice ID</label><input type="number" class="ds-input" asp-for="CurrentInvoiceId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-current">Load Current</button>
+        </form>
+        @if (Model.LastCurrent is { } c)
+        {
+            <table class="ds-table ds-mt-2">
+                <tbody>
+                    <tr><td>Run</td><td data-testid="im-cur-run">@c.MatchRunNumber (@c.Outcome)</td></tr>
+                    <tr><td>Lines (matched / within tol / exception)</td><td>@c.LinesMatched / @c.LinesWithinTolerance / @c.LinesException of @c.LinesTotal</td></tr>
+                    <tr><td>Total price variance</td><td data-testid="im-cur-var">$@c.TotalPriceVariance.ToString("N2")</td></tr>
+                    <tr><td>Posted</td><td>@c.PostedOnMatch @(c.PostedJournalEntryId.HasValue ? $"(JE {c.PostedJournalEntryId})" : "")</td></tr>
+                </tbody>
+            </table>
+            @if (c.Lines.Count > 0)
+            {
+                <table class="ds-table ds-mt-2">
+                    <thead><tr><th>Inv Line</th><th>Outcome</th><th>Inv qty×price</th><th>PO qty×price</th><th>Recv qty</th><th>Price var</th><th>Note</th></tr></thead>
+                    <tbody>
+                    @foreach (var l in c.Lines)
+                    {
+                        <tr data-testid="im-line-@l.VendorInvoiceLineId">
+                            <td>@l.VendorInvoiceLineId</td>
+                            <td>@l.Outcome</td>
+                            <td>@l.InvoicedQuantity.ToString("N2") × @l.InvoicedUnitPrice.ToString("N4")</td>
+                            <td>@l.PoQuantity.ToString("N2") × @l.PoUnitPrice.ToString("N4")</td>
+                            <td>@l.ReceivedQuantity.ToString("N2")</td>
+                            <td>@l.PriceVariance.ToString("N4") (@(l.PriceVariancePct?.ToString("N2") ?? "—")%)</td>
+                            <td>@l.Note</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            }
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R2. Load Exceptions (Cost Exceptions feed)</h2>
+        <form method="post" asp-page-handler="LoadExceptions">
+            <button type="submit" class="ds-btn" data-testid="btn-load-exceptions">Load Exceptions</button>
+        </form>
+        @if (Model.LastExceptions is { Count: > 0 } ex)
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>Invoice</th><th>Vendor</th><th>Run</th><th>Exc lines</th><th>Price var</th><th>Run at</th></tr></thead>
+                <tbody>
+                @foreach (var r in ex)
+                {
+                    <tr data-testid="im-exc-@r.VendorInvoiceId">
+                        <td>@r.InvoiceNumber</td>
+                        <td>@r.VendorName</td>
+                        <td>@r.MatchRunNumber</td>
+                        <td>@r.LinesException</td>
+                        <td>$@r.TotalPriceVariance.ToString("N2")</td>
+                        <td>@r.RunAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>

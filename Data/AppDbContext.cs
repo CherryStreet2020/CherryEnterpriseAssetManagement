@@ -504,6 +504,12 @@ namespace Abs.FixedAssets.Data
         // per pair; history preserved. Feeds §21 tab 13 + PR-20 quote ranker.
         public DbSet<SupplierPerformance> SupplierPerformances => Set<SupplierPerformance>();
 
+        // Sprint 15.4 PR-19 — 3-Way Match (PO ↔ Receipt ↔ Invoice). Persisted
+        // match runs with per-line price/qty/date variance + outcome. One
+        // IsCurrent result per invoice; exceptions feed the Cost Exceptions tab.
+        public DbSet<InvoiceMatchResult> InvoiceMatchResults => Set<InvoiceMatchResult>();
+        public DbSet<InvoiceMatchResultLine> InvoiceMatchResultLines => Set<InvoiceMatchResultLine>();
+
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -6053,6 +6059,66 @@ namespace Abs.FixedAssets.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ─── Sprint 15.4 PR-19 — InvoiceMatchResult + InvoiceMatchResultLine ─
+            // Persisted 3-way match runs. One IsCurrent result per invoice
+            // (filtered unique index); concurrent re-run loser hits 23505.
+            modelBuilder.Entity<InvoiceMatchResult>(e =>
+            {
+                e.Property(x => x.Outcome).HasDefaultValue(InvoiceMatchOutcome.NotMatched);
+                e.Property(x => x.IsCurrent).HasDefaultValue(true);
+                e.Property(x => x.PostedOnMatch).HasDefaultValue(false);
+
+                // Tenant-unique run number IM-YYYY-NNNNNN (two-phase numbered).
+                e.HasIndex(x => new { x.CompanyId, x.MatchRunNumber })
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NOT NULL");
+                e.HasIndex(x => x.VendorInvoiceId);
+                e.HasIndex(x => x.Outcome);
+
+                // One IsCurrent result per invoice at the DB level.
+                e.HasIndex(x => x.VendorInvoiceId)
+                    .HasDatabaseName("UX_InvoiceMatchResults_VendorInvoiceId_IsCurrent")
+                    .IsUnique()
+                    .HasFilter("\"IsCurrent\" = TRUE");
+
+                e.HasOne(x => x.VendorInvoice)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorInvoiceId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<InvoiceMatchResultLine>(e =>
+            {
+                e.Property(x => x.Outcome).HasDefaultValue(InvoiceMatchLineOutcome.Unlinked);
+
+                e.HasIndex(x => x.InvoiceMatchResultId);
+                e.HasIndex(x => x.VendorInvoiceLineId);
+                e.HasIndex(x => x.Outcome);
+
+                e.HasOne(x => x.InvoiceMatchResult)
+                    .WithMany(r => r.Lines)
+                    .HasForeignKey(x => x.InvoiceMatchResultId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.VendorInvoiceLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorInvoiceLineId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.PurchaseOrderLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.GoodsReceiptLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.GoodsReceiptLineId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
 
