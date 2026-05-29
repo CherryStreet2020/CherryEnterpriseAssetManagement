@@ -1,0 +1,141 @@
+@page "{id:int?}"
+@model Abs.FixedAssets.Pages.Admin.WorkCenters.EditModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = Model.PageTitle;
+    Layout = "_ModernLayout";
+    var lbl = "display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);font-weight:500;margin-bottom:6px;";
+    var fld = "width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2,rgba(0,0,0,0.18));color:var(--text-primary);font-size:14px;";
+    var mono = fld + "font-family:var(--font-mono,ui-monospace,monospace);";
+    var grid = "padding:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;";
+    var secHdr = "padding:18px 22px;border-bottom:1px solid var(--border);";
+}
+
+<div class="page-header">
+    <div class="page-header-titles">
+        <nav aria-label="breadcrumb" class="breadcrumb-trail">
+            <a href="/">Home</a><span class="breadcrumb-sep">/</span>
+            <a href="/Admin">Admin</a><span class="breadcrumb-sep">/</span>
+            <a href="/Admin/WorkCenters">Work Centers</a><span class="breadcrumb-sep">/</span>
+            <span class="breadcrumb-current">@(Model.IsNew ? "New" : Model.Code)</span>
+        </nav>
+        <h1 class="page-title">@Model.PageTitle</h1>
+        <p class="page-subtitle">A Work Center is the routing / scheduling / capacity / costing object — a machine, cell, station, outside process, or capability group.</p>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="ds-card" data-tone="danger" style="margin-top:14px;padding:12px 16px;color:var(--text-primary);">@Model.ErrorMessage</div>
+}
+
+<form method="post" style="margin-top:18px;">
+    <input type="hidden" asp-for="Id" />
+
+    <div class="ds-card" data-tone="brand" style="padding:0;margin-bottom:18px;">
+        <div style="@secHdr"><div style="font-size:17px;font-weight:700;">Identity &amp; Organization</div></div>
+        <div style="@grid">
+            <div>
+                <label style="@lbl">Code <span style="color:var(--ds-danger,#f87171);">*</span></label>
+                @if (Model.IsNew)
+                {
+                    <input type="text" asp-for="Code" required maxlength="50" placeholder="e.g., HAAS-UMC750-1" style="@mono" />
+                }
+                else
+                {
+                    <input type="text" asp-for="Code" maxlength="50" style="@mono" readonly />
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Code is fixed after creation.</div>
+                }
+            </div>
+            <div>
+                <label style="@lbl">Name <span style="color:var(--ds-danger,#f87171);">*</span></label>
+                <input type="text" asp-for="Name" required maxlength="200" placeholder="e.g., Haas UMC-750 5-axis mill" style="@fld" />
+            </div>
+            <div style="grid-column:1 / -1;">
+                <label style="@lbl">Description</label>
+                <input type="text" asp-for="Description" maxlength="500" style="@fld" />
+            </div>
+            <div>
+                <label style="@lbl">Type</label>
+                <select asp-for="Type" asp-items="@(Html.GetEnumSelectList<WorkCenterType>())" style="@fld"></select>
+            </div>
+            <div>
+                <label style="@lbl">Capacity model</label>
+                <select asp-for="CapacityModel" asp-items="@(Html.GetEnumSelectList<WorkCenterCapacityModel>())" style="@fld"></select>
+            </div>
+            <div>
+                <label style="@lbl">Site / Location <span style="color:var(--ds-danger,#f87171);">*</span></label>
+                <select asp-for="LocationId" asp-items="Model.LocationOptions" style="@fld"><option value="">— select —</option></select>
+            </div>
+            <div>
+                <label style="@lbl">Owning department</label>
+                <select asp-for="OwningDepartmentId" asp-items="Model.DepartmentOptions" style="@fld"><option value="">— none —</option></select>
+            </div>
+            <div>
+                <label style="@lbl">Calendar</label>
+                <select asp-for="CalendarId" asp-items="Model.CalendarOptions" style="@fld"><option value="">— company default —</option></select>
+            </div>
+        </div>
+    </div>
+
+    <div class="ds-card" style="padding:0;margin-bottom:18px;">
+        <div style="@secHdr"><div style="font-size:17px;font-weight:700;">Scheduling &amp; Dispatch</div></div>
+        <div style="@grid">
+            <div>
+                <label style="@lbl">Dispatch rule</label>
+                <select asp-for="DispatchRule" asp-items="@(Html.GetEnumSelectList<WorkCenterDispatchRule>())" style="@fld"></select>
+            </div>
+            <div>
+                <label style="@lbl">Simultaneous ops max</label>
+                <input type="number" asp-for="SimultaneousOperationsMax" min="1" placeholder="1 (single)" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Setup-family rule</label>
+                <select asp-for="SetupFamilyRule" asp-items="@(Html.GetEnumSelectList<WorkCenterSetupFamilyRule>())" style="@fld"></select>
+            </div>
+            <div>
+                <label style="@lbl">Setup-family code</label>
+                <input type="text" asp-for="SetupFamilyCode" maxlength="50" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Constraint priority</label>
+                <input type="number" asp-for="ConstraintPriority" min="0" placeholder="(drum ranking)" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Efficiency %</label>
+                <input type="number" asp-for="EfficiencyPct" step="0.1" min="0" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Utilization %</label>
+                <input type="number" asp-for="UtilizationPct" step="0.1" min="0" style="@mono" />
+            </div>
+            <div style="display:flex;gap:18px;align-items:center;padding-top:22px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" asp-for="SchedulingEnabled" /> Scheduling enabled</label>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" asp-for="BottleneckFlag" /> Bottleneck / drum</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="ds-card" style="padding:0;margin-bottom:18px;">
+        <div style="@secHdr"><div style="font-size:17px;font-weight:700;">Cost</div></div>
+        <div style="@grid">
+            <div>
+                <label style="@lbl">Standard cost rate /hr</label>
+                <input type="number" asp-for="StandardCostRatePerHour" step="0.01" min="0" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Overhead rate /hr</label>
+                <input type="number" asp-for="OverheadRatePerHour" step="0.01" min="0" style="@mono" />
+            </div>
+            <div>
+                <label style="@lbl">Currency</label>
+                <input type="text" asp-for="CurrencyCode" maxlength="3" style="@mono" />
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn-primary">@(Model.IsNew ? "Create Work Center" : "Save Changes")</button>
+        <a href="@(Model.IsNew ? "/Admin/WorkCenters" : $"/Admin/WorkCenters/Details/{Model.Id}")" class="btn-secondary">Cancel</a>
+    </div>
+</form>

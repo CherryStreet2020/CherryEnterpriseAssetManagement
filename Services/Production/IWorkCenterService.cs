@@ -50,7 +50,15 @@ public sealed record CreateWorkCenterRequest(
     decimal StandardCostRatePerHour,
     decimal OverheadRatePerHour,
     string CurrencyCode,
-    string? CreatedBy);
+    string? CreatedBy,
+    // Scheduling & dispatch (B11 R1-R4 differentiators; optional, sensible defaults).
+    bool? SchedulingEnabled = null,
+    bool BottleneckFlag = false,
+    int? ConstraintPriority = null,
+    int? SimultaneousOperationsMax = null,
+    WorkCenterDispatchRule DispatchRule = WorkCenterDispatchRule.FirstInFirstOut,
+    WorkCenterSetupFamilyRule SetupFamilyRule = WorkCenterSetupFamilyRule.None,
+    string? SetupFamilyCode = null);
 
 public sealed record UpdateWorkCenterHeaderRequest(
     int WorkCenterId,
@@ -66,7 +74,15 @@ public sealed record UpdateWorkCenterHeaderRequest(
     decimal StandardCostRatePerHour,
     decimal OverheadRatePerHour,
     string CurrencyCode,
-    string? ModifiedBy);
+    string? ModifiedBy,
+    // Scheduling & dispatch (optional, sensible defaults).
+    bool? SchedulingEnabled = null,
+    bool BottleneckFlag = false,
+    int? ConstraintPriority = null,
+    int? SimultaneousOperationsMax = null,
+    WorkCenterDispatchRule DispatchRule = WorkCenterDispatchRule.FirstInFirstOut,
+    WorkCenterSetupFamilyRule SetupFamilyRule = WorkCenterSetupFamilyRule.None,
+    string? SetupFamilyCode = null);
 
 public sealed record UpdateWorkCenterStatusRequest(
     int WorkCenterId,
@@ -129,6 +145,13 @@ public sealed class WorkCenterService : IWorkCenterService
             StandardCostRatePerHour = r.StandardCostRatePerHour,
             OverheadRatePerHour = r.OverheadRatePerHour,
             CurrencyCode = string.IsNullOrEmpty(r.CurrencyCode) ? "USD" : r.CurrencyCode,
+            SchedulingEnabled = r.SchedulingEnabled,
+            BottleneckFlag = r.BottleneckFlag,
+            ConstraintPriority = r.ConstraintPriority,
+            SimultaneousOperationsMax = r.SimultaneousOperationsMax,
+            DispatchRule = r.DispatchRule,
+            SetupFamilyRule = r.SetupFamilyRule,
+            SetupFamilyCode = string.IsNullOrWhiteSpace(r.SetupFamilyCode) ? null : r.SetupFamilyCode.Trim(),
             CreatedBy = r.CreatedBy,
             CreatedAt = DateTime.UtcNow,
             IsActive = true,
@@ -159,6 +182,13 @@ public sealed class WorkCenterService : IWorkCenterService
         wc.StandardCostRatePerHour = r.StandardCostRatePerHour;
         wc.OverheadRatePerHour = r.OverheadRatePerHour;
         wc.CurrencyCode = string.IsNullOrEmpty(r.CurrencyCode) ? "USD" : r.CurrencyCode;
+        wc.SchedulingEnabled = r.SchedulingEnabled;
+        wc.BottleneckFlag = r.BottleneckFlag;
+        wc.ConstraintPriority = r.ConstraintPriority;
+        wc.SimultaneousOperationsMax = r.SimultaneousOperationsMax;
+        wc.DispatchRule = r.DispatchRule;
+        wc.SetupFamilyRule = r.SetupFamilyRule;
+        wc.SetupFamilyCode = string.IsNullOrWhiteSpace(r.SetupFamilyCode) ? null : r.SetupFamilyCode.Trim();
         wc.ModifiedAt = DateTime.UtcNow;
         wc.ModifiedBy = r.ModifiedBy;
         await _db.SaveChangesAsync(ct);
