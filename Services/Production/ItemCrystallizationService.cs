@@ -28,6 +28,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Models.Masters;
 using Abs.FixedAssets.Models.Production;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -239,10 +240,19 @@ public sealed class ItemCrystallizationService : IItemCrystallizationService
                     LifecycleStage = LifecycleStage.Production,
                     MakeBuyCode = MakeBuyCode.Make,
                     IsSellable = true,
+                    // B7 PR-6 (§5.4): a crystallized ETO master's standard cost IS the
+                    // first-unit actual — flag it FirstActual ("unvalidated for repeat"
+                    // until a 2nd run / deliberate standard-set promotes it to Validated).
+                    StandardCostBasis = StandardCostBasis.FirstActual,
                 };
                 _db.Items.Add(minted);
                 await _db.SaveChangesAsync(ct);
                 createdItemId = minted.Id;
+
+                // B7 PR-6: break the scalar first-actual standard cost into the
+                // 8-element ItemStandardCostElement split (SAP Cost Component Split)
+                // from the PRO's actual cost-summary buckets, per good unit.
+                await SeedFirstActualCostElementsAsync(minted.Id, minted.CompanyId, pro, request.By, ct);
 
                 // ── Standard BOM (Bom subtype of MaterialStructure) from as-built ──
                 var ms = new MaterialStructure
@@ -498,6 +508,85 @@ public sealed class ItemCrystallizationService : IItemCrystallizationService
                 CrystallizationCostSource.FirstActual);
 
         return (null, CrystallizationCostSource.FirstActual);
+    }
+
+    /// <summary>
+    /// B7 PR-6 — seed the minted Item's standard cost as an 8-element
+    /// ItemStandardCostElement split (SAP Cost Component Split), harvested from
+    /// the source PRO's ACTUAL cost-summary buckets, expressed per good unit
+    /// (§5.4 first-actual). Only non-zero elements are inserted. Multiple summary
+    /// buckets that map to one CostElementType are summed. The rows are added to
+    /// the open transaction and flushed by the caller's subsequent SaveChanges.
+    /// </summary>
+    private async Task SeedFirstActualCostElementsAsync(
+        int itemId, int? companyId, ProductionOrder pro, string by, CancellationToken ct)
+    {
+        var summary = await _db.ProductionOrderCostSummaries.AsNoTracking()
+            .Where(s => s.ProductionOrderId == pro.Id
+                && _tenant.VisibleCompanyIds.Contains(s.CompanyId))
+            .OrderByDescending(s => s.UpdatedAtUtc ?? s.CreatedAtUtc)
+            .FirstOrDefaultAsync(ct);
+        if (summary == null) return;
+
+        var good = summary.GoodQuantityCompleted ?? 0m;
+        var divisor = good > 0m ? good : 1m;   // per good unit; fall back to total if qty unknown
+
+        // Map actual buckets → the 8-element cost-component vocabulary. CostElementType.Setup
+        // is intentionally NOT seeded: ProductionOrderCostSummary has no ActualSetupCost
+        // bucket — setup is absorbed into Labor/Machine actuals at the rollup layer upstream,
+        // so a separate Setup element would be a phantom. (Do not "fix" by inventing one.)
+        //
+        // Codex P2 (PR #428): the split MUST reconstitute the WHOLE standard cost, not just
+        // the named buckets. ActualTotalCost includes posted actuals this summary doesn't
+        // break out (Packaging, Quality, ChildSupply transfers, Engineering, Adjustment,
+        // Variance, …). So `Other` is computed as the RESIDUAL = ActualTotalCost − every
+        // explicitly-mapped element — guaranteeing the 7 elements sum to ActualTotalCost
+        // and the split never undershoots the scalar standard cost.
+        var material      = summary.ActualMaterialCost;
+        var labor         = summary.ActualLaborCost;
+        var machine       = summary.ActualMachineCost;
+        var burden        = summary.ActualBurdenCost;
+        var subcontract   = summary.ActualSubcontractCost + summary.ActualOutsideProcessingCost;
+        var tooling       = summary.ActualToolingCost;
+        var mappedTotal   = material + labor + machine + burden + subcontract + tooling;
+        var other         = summary.ActualTotalCost - mappedTotal;   // freight + scrap/rework + any uncategorized residual
+        if (other < 0m) other = summary.ActualFreightLandedCost + summary.ActualScrapReworkCost; // defensive: never negative
+
+        var buckets = new (CostElementType type, decimal total)[]
+        {
+            (CostElementType.Material,         material),
+            (CostElementType.Labor,            labor),
+            (CostElementType.VariableOverhead, machine),
+            (CostElementType.FixedOverhead,    burden),
+            (CostElementType.Subcontract,      subcontract),
+            (CostElementType.Tooling,          tooling),
+            (CostElementType.Other,            other),
+        };
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var (type, total) in buckets)
+        {
+            if (total <= 0m) continue;
+            var perUnit = decimal.Round(total / divisor, 4, MidpointRounding.AwayFromZero);
+            if (perUnit <= 0m) continue;
+            _db.ItemStandardCostElements.Add(new ItemStandardCostElement
+            {
+                ItemId = itemId,
+                CompanyId = companyId,
+                SiteId = pro.LocationId,
+                ElementType = type,
+                Amount = perUnit,
+                CurrencyCode = "USD",
+                Source = CostElementSource.Calculated,
+                EffectiveFromUtc = nowUtc,
+                IsActive = true,
+                CalculationNotes =
+                    $"First-actual (§5.4) — {type} ${total:N4} ÷ {divisor:N4} good unit(s) " +
+                    $"= ${perUnit:N4}/ea, harvested from PRO {pro.OrderNumber} cost summary at crystallization.",
+                CreatedAt = nowUtc,
+                CreatedBy = by,
+            });
+        }
     }
 
     /// <summary>
