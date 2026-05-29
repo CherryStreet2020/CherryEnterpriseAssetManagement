@@ -1,0 +1,129 @@
+@page "/Admin/ResourceCalendarProbe"
+@model Abs.FixedAssets.Pages.Admin.ResourceCalendarProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Resource Calendar + Capacity Probe";
+    ViewData["TabTitle"] = "Resource Calendar + Capacity Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R2-6 — per-resource calendars + finite-capacity (CLOSES Wave R2).
+    A resource can override the work-center calendar, carry its own availability
+    deltas (downtime / planned maintenance / extra shift), and declare a finite
+    envelope (batch / job-size / concurrency). The maintenance window can bridge
+    to the EAM WorkOrder that causes it — production and maintenance, one graph.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Resource Calendar + Capacity Probe — B11 R2-6</h1>
+        <p class="ds-page-header__subtitle">
+            Per-resource calendar override + availability deltas + finite-capacity envelope.
+            The R4 finite scheduler reads these to project real load. A maintenance window
+            bridges to the EAM WorkOrder that drives the downtime.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant calendar + capacity stats</h2>
+            <p class="ds-text-muted">
+                Resources: <strong>@Model.ResourceCount</strong> ·
+                Calendar-overridden: <strong>@Model.CalendarAssignedCount</strong> ·
+                Exception windows: <strong>@Model.ExceptionCount</strong> ·
+                Maintenance-bridged: <strong>@Model.MaintenanceBridgedCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Calendar + capacity flow (acts on the latest resource)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="AssignCalendar" class="ds-btn ds-btn--primary">1 · Assign calendar</button>
+                <button type="submit" asp-page-handler="AddDowntime" class="ds-btn">2 · Add downtime window</button>
+                <button type="submit" asp-page-handler="AddMaintenance" class="ds-btn">3 · Add maintenance window (EAM bridge)</button>
+                <button type="submit" asp-page-handler="SetCapacity" class="ds-btn">4 · Set capacity envelope</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample resources (latest 10, tenant-scoped)</h2>
+            @if (Model.ResourceSample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No production resources yet — run the R2-4 / R2-5 probes first.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Kind</th><th>Calendar</th><th>Hrs/day</th><th>Max batch</th><th>Max job</th><th>Concurrent</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.ResourceSample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@r.Kind</td>
+                                <td>@(r.CalendarId?.ToString() ?? "—")</td>
+                                <td>@(r.AvailableHoursPerDay?.ToString("0.#") ?? "—")</td>
+                                <td>@(r.MaxBatchSize?.ToString("0.#") ?? "—")</td>
+                                <td>@(r.MaxJobQuantity?.ToString("0.#") ?? "—")</td>
+                                <td>@(r.MaxConcurrentJobs?.ToString() ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample exception windows (latest 10, tenant-scoped)</h2>
+            @if (Model.ExceptionSample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No exception windows yet — use buttons 2–3.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Resource</th><th>Type</th><th>Start (UTC)</th><th>End (UTC)</th><th>EAM WO</th><th>Reason</th></tr></thead>
+                    <tbody>
+                        @foreach (var x in Model.ExceptionSample)
+                        {
+                            <tr>
+                                <td>@x.Id</td>
+                                <td>@x.ResourceId</td>
+                                <td>@x.Type</td>
+                                <td>@x.StartUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@x.EndUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@(x.SourceWorkOrderId?.ToString() ?? "—")</td>
+                                <td>@x.Reason</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

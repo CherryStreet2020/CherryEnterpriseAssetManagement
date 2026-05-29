@@ -20,6 +20,7 @@
 // a populated table.)
 
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -106,8 +107,12 @@ public class ProductionResource
     // ── Scheduling / capacity ───────────────────────────────────
     public ProductionResourceStatus Status { get; set; } = ProductionResourceStatus.Active;
 
-    /// <summary>Per-resource calendar/shift override (FK → WorkCalendar). Null = inherit the WC/site calendar.</summary>
+    /// <summary>Per-resource calendar/shift override (FK → WorkCalendar, SET NULL — R2-6). Null = inherit the WC/site calendar.</summary>
     public int? CalendarId { get; set; }
+    public Abs.FixedAssets.Models.Masters.WorkCalendar? Calendar { get; set; }
+
+    /// <summary>Per-resource availability deltas (downtime / maintenance / extra shift) layered on the calendar (R2-6).</summary>
+    public ICollection<ResourceCalendarException>? CalendarExceptions { get; set; }
 
     /// <summary>True = the scheduler treats this resource as finite capacity. Default true (machines constrain).</summary>
     public bool FiniteCapacityFlag { get; set; } = true;
@@ -121,6 +126,31 @@ public class ProductionResource
 
     public decimal EfficiencyPct { get; set; } = 100;   // safe on a NEW table — no backfill
     public decimal UtilizationPct { get; set; } = 100;
+
+    // ── Finite-capacity envelope (R2-6 — all nullable; ADDED to a populated table) ──
+
+    /// <summary>Per-resource cap on available hours/day, overriding the calendar-derived hours. Null = use the calendar.</summary>
+    [Column(TypeName = "decimal(6,2)")]
+    public decimal? AvailableHoursPerDay { get; set; }
+
+    /// <summary>Max operations this resource can run at once (a 3-person labor pool, a multi-spindle cell). Null = 1 unless ExclusiveUse expands it. Ignored when ExclusiveUse.</summary>
+    public int? MaxConcurrentJobs { get; set; }
+
+    /// <summary>Min batch the resource will run (furnace/plating-tank floor). Null = none.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? MinBatchSize { get; set; }
+
+    /// <summary>Max batch the resource can hold (oven/tank ceiling). Null = none.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? MaxBatchSize { get; set; }
+
+    /// <summary>Smallest job quantity routable to this resource. Null = none.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? MinJobQuantity { get; set; }
+
+    /// <summary>Largest job quantity routable to this resource. Null = none.</summary>
+    [Column(TypeName = "decimal(18,4)")]
+    public decimal? MaxJobQuantity { get; set; }
 
     // ── Cost ────────────────────────────────────────────────────
     /// <summary>Per-hour cost rate for this resource (labor wage / machine burden / vendor rate).</summary>
