@@ -206,6 +206,9 @@ namespace Abs.FixedAssets.Data
         // B11 R3-7 — resource↔capability join (qualification + expiry the match service reads).
         public DbSet<Abs.FixedAssets.Models.Production.ResourceCapability> ResourceCapabilities
             => Set<Abs.FixedAssets.Models.Production.ResourceCapability>();
+        // B11 R3-8 — FK-backed routing-op capability requirements (retires CSV RequiredSkillCodes/RequiredToolingIds).
+        public DbSet<Abs.FixedAssets.Models.Production.OperationCapabilityRequirement> OperationCapabilityRequirements
+            => Set<Abs.FixedAssets.Models.Production.OperationCapabilityRequirement>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3673,6 +3676,43 @@ namespace Abs.FixedAssets.Data
                     .WithMany(c => c.ResourceCapabilities)
                     .HasForeignKey(x => x.CapabilityId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R3-8 — OperationCapabilityRequirement (FK-backed routing-op requirements).
+            // Three FKs to three different principals, exactly one CASCADE → no
+            // multi-cascade-path conflict. RoutingOperation CASCADE (pure child);
+            // Capability RESTRICT (no delete-in-use); Tool SET NULL (optional pin).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.OperationCapabilityRequirement>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.CapabilityId);
+                e.HasIndex(x => x.RoutingOperationId);
+                e.HasIndex(x => new { x.RoutingOperationId, x.CapabilityId, x.RequirementType })
+                    .IsUnique()
+                    .HasDatabaseName("UX_OperationCapabilityRequirements_Op_Capability_Type");
+
+                // Owning routing op — CASCADE: requirements die with the op.
+                e.HasOne(x => x.RoutingOperation)
+                    .WithMany(o => o.CapabilityRequirements)
+                    .HasForeignKey(x => x.RoutingOperationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Capability master — RESTRICT: deactivate, don't delete-in-use.
+                e.HasOne(x => x.Capability)
+                    .WithMany()
+                    .HasForeignKey(x => x.CapabilityId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Optional pinned tool — SET NULL: requirement survives tool archival.
+                e.HasOne(x => x.Tool)
+                    .WithMany()
+                    .HasForeignKey(x => x.ToolId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.ToolId)
+                    .HasFilter("\"ToolId\" IS NOT NULL")
+                    .HasDatabaseName("IX_OperationCapabilityRequirements_Tool_Partial");
 
                 e.MapXminRowVersion(x => x.RowVersion);
             });

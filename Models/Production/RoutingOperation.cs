@@ -86,10 +86,16 @@ public class RoutingOperation
     [MaxLength(8000)]
     public string? Instructions { get; set; }                // Rich text / markdown
 
+    // B11 R3-8 — these two CSV fields are SUPERSEDED by OperationCapabilityRequirements
+    // (FK-backed, the source of truth the R3-9 match service reads). Kept readable
+    // during the transition / for legacy display; backfilled into the new table.
     [MaxLength(500)]
-    public string? RequiredSkillCodes { get; set; }          // CSV — "CNC_OP, FANUC_PROG"
+    public string? RequiredSkillCodes { get; set; }          // CSV — "CNC_OP, FANUC_PROG" (legacy; see CapabilityRequirements)
     [MaxLength(500)]
-    public string? RequiredToolingIds { get; set; }          // CSV of tooling IDs
+    public string? RequiredToolingIds { get; set; }          // CSV of tooling IDs (legacy; see CapabilityRequirements)
+
+    // B11 R3-8 — FK-backed capability requirements (the source of truth).
+    public System.Collections.Generic.ICollection<OperationCapabilityRequirement>? CapabilityRequirements { get; set; }
 
     // Costing override (default: WorkCenter's rate).
     public decimal? CostRateOverridePerHour { get; set; }
