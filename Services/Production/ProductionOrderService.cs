@@ -251,21 +251,32 @@ public sealed class ProductionOrderService : IProductionOrderService
             return Result.Failure<ProductionOrder>(poFirstItemError);
 
         // B7 Wave A PR-2 — the release gate (UpdateStatusAsync) only fires on the
-        // transition INTO Released. Without this second guard a header edit could
-        // strip the as-planned drawing #/rev off an ALREADY-released PoFirst order,
-        // leaving it in a released/in-progress state with no revision-controlled
-        // configuration (the exact AS9100 §8.5.2 hole the gate exists to close).
+        // transition INTO Released. Without this guard a header edit could strip
+        // the as-planned drawing #/rev off — or un-flag PoFirst on — an ALREADY
+        // released PoFirst order, leaving a released/in-progress order with no
+        // revision-controlled configuration (the AS9100 §8.5.2 hole the gate
+        // closes). Key the check off the ORDER's CURRENT state, NOT the request:
+        // the new DTO fields default to IsPoFirst=false/null, so a caller that
+        // omits them must not be able to skip this guard and then flip the order
+        // off PoFirst + clear the drawing in the assignment block below.
         // Pre-release edits (Planned/Firmed) may leave the drawing blank — the
-        // release gate will catch it before the order commits to a build.
+        // release gate catches it before the order commits to a build.
         var isPostRelease = order.Status is not ProductionOrderStatus.Planned
             and not ProductionOrderStatus.Firmed;
-        if (request.IsPoFirst && isPostRelease
-            && !ProductionOrder.ValidatePoFirstReleaseReadiness(
-                   isPoFirst: true,
-                   request.AsPlannedDrawingNumber,
-                   request.AsPlannedDrawingRev,
-                   out var postReleaseDrawingError))
-            return Result.Failure<ProductionOrder>(postReleaseDrawingError);
+        if (order.IsPoFirst && isPostRelease)
+        {
+            if (!request.IsPoFirst)
+                return Result.Failure<ProductionOrder>(
+                    "Cannot clear the PO-First flag on an already-released order — its " +
+                    "as-planned configuration is the released standard (AS9100 §8.5.2). " +
+                    "Reverse or cancel the order instead.");
+            if (!ProductionOrder.ValidatePoFirstReleaseReadiness(
+                    isPoFirst: true,
+                    request.AsPlannedDrawingNumber,
+                    request.AsPlannedDrawingRev,
+                    out var postReleaseDrawingError))
+                return Result.Failure<ProductionOrder>(postReleaseDrawingError);
+        }
 
         order.Title                   = request.Title;
         order.Description             = request.Description;
