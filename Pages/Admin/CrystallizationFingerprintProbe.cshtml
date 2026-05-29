@@ -1,0 +1,133 @@
+@page "/Admin/CrystallizationFingerprintProbe"
+@model Abs.FixedAssets.Pages.Admin.CrystallizationFingerprintProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Crystallization Fingerprint Probe";
+    ViewData["TabTitle"] = "Crystallization Fingerprint Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave B PR-4 — ItemCrystallization entity + structure fingerprint.
+    Crystallization-at-ship harvests a PoFirst order's as-built BOM + as-run
+    routing + actual cost into an Item Master standard. This probe proves the
+    schema: SHA-256 fingerprint determinism (the dedupe key), two-phase
+    CRYST-YYYY-NNNNNN numbering, frozen as-built lineage, and tenant scoping.
+    PR-5 adds the IItemCrystallizationService (preview / crystallize / dedupe /
+    reverse).
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Crystallization Fingerprint Probe — B7 PR-4</h1>
+        <p class="ds-page-header__subtitle">
+            A master-optional (PoFirst / ETO) Production Order builds with no Item Master —
+            the PO's frozen BOM + as-run routing IS the standard. At ship, crystallization
+            harvests those actuals into a reusable, costed, traceable master. This probe
+            fingerprints the as-built structure (the dedupe key), creates the audit record
+            with two-phase numbering, and reverses it — all tenant-scoped.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant crystallization stats</h2>
+            <p class="ds-text-muted">
+                Crystallizations: <strong>@Model.TotalCrystallizations</strong> ·
+                Pending: <strong>@Model.PendingCount</strong> ·
+                Reversed: <strong>@Model.ReversedCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Crystallization flow</h2>
+            <p class="ds-text-muted">Blank Target PRO Id = latest tenant-visible PoFirst PRO. Suggested order: 1 → 2 → 3.</p>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ProId">Target PRO Id (optional)</label>
+                    <input type="number" id="ProId" name="ProId" value="@(Model.ProId > 0 ? Model.ProId.ToString() : string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="ComputeFingerprint" class="ds-btn">1 · Compute fingerprint</button>
+                    <button type="submit" asp-page-handler="CreateStub" class="ds-btn ds-btn--primary">2 · Create crystallization stub</button>
+                    <button type="submit" asp-page-handler="ReverseLatest" class="ds-btn ds-btn--warning">3 · Reverse latest stub</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample crystallizations (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No crystallizations in your tenant scope — create a stub with button 2.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead>
+                        <tr>
+                            <th>Id</th>
+                            <th>Crystallization #</th>
+                            <th>Source PRO</th>
+                            <th>Outcome</th>
+                            <th>Fingerprint (first 16)</th>
+                            <th>As-Built Part #</th>
+                            <th>Reversed</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Number</td>
+                                <td>@r.SourceProId</td>
+                                <td>
+                                    @switch (r.Outcome)
+                                    {
+                                        case CrystallizationOutcome.CreatedNewItem:
+                                            <span class="ds-badge ds-badge--success">CreatedNewItem</span>
+                                            break;
+                                        case CrystallizationOutcome.LinkedToExisting:
+                                            <span class="ds-badge ds-badge--info">LinkedToExisting</span>
+                                            break;
+                                        case CrystallizationOutcome.Rejected:
+                                            <span class="ds-badge ds-badge--danger">Rejected</span>
+                                            break;
+                                        default:
+                                            <span class="ds-badge">Pending</span>
+                                            break;
+                                    }
+                                </td>
+                                <td><code>@(r.Fingerprint is { Length: >= 16 } ? r.Fingerprint.Substring(0, 16) : (r.Fingerprint ?? "—"))</code></td>
+                                <td>@(r.AsBuiltPartNumber ?? "—")</td>
+                                <td>@(r.IsReversed ? "✓" : "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
