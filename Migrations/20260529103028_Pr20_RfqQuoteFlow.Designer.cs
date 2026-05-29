@@ -14,7 +14,7 @@ using Pgvector;
 namespace Abs.FixedAssets.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260529101810_Pr20_RfqQuoteFlow")]
+    [Migration("20260529103028_Pr20_RfqQuoteFlow")]
     partial class Pr20_RfqQuoteFlow
     {
         /// <inheritdoc />
@@ -22201,9 +22201,15 @@ namespace Abs.FixedAssets.Migrations
                     b.Property<int>("LeadTimeDays")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("LeadTimeScore")
+                        .HasColumnType("decimal(9,4)");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
+
+                    b.Property<decimal?>("PriceScore")
+                        .HasColumnType("decimal(9,4)");
 
                     b.Property<int?>("RankPosition")
                         .HasColumnType("integer");

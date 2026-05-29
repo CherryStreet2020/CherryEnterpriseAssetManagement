@@ -228,14 +228,23 @@ public class RfqQuoteService : IRfqQuoteService
             quote.Status = SupplierQuoteStatus.Received;
             quote.ReceivedAtUtc = nowUtc;
             quote.UpdatedAt = nowUtc;
-            // A new quote invalidates any prior ranking.
-            quote.CompositeScore = null;
-            quote.RankPosition = null;
-            quote.IsWinner = false;
-            quote.ScoreReason = null;
-
-            if (rfq.Status is RfqStatus.Draft or RfqStatus.Issued)
+            // A new/updated quote invalidates ANY prior ranking for the whole
+            // RFQ (Codex P2). If it was already Evaluated, drop it back to
+            // QuotesReceived and clear every quote's ranking outputs so the buyer
+            // must re-rank before they can award on stale data.
+            foreach (var q in rfq.Quotes)
+            {
+                q.CompositeScore = null;
+                q.PriceScore = null;
+                q.LeadTimeScore = null;
+                q.RankPosition = null;
+                q.IsWinner = false;
+                q.ScoreReason = null;
+                if (q.Id != quote.Id) q.UpdatedAt = nowUtc;
+            }
+            if (rfq.Status is RfqStatus.Draft or RfqStatus.Issued or RfqStatus.Evaluated)
                 rfq.Status = RfqStatus.QuotesReceived;
+            rfq.EvaluatedAtUtc = null;
             rfq.UpdatedAt = nowUtc;
 
             await _db.SaveChangesAsync(ct);
@@ -261,6 +270,12 @@ public class RfqQuoteService : IRfqQuoteService
         var rfq = await LoadScopedRfqAsync(rfqId, ct);
         if (rfq == null)
             return Result.Failure<RankQuotesResult>($"RFQ {rfqId} not found or out of scope.");
+        // Codex P2: never re-rank a terminal RFQ — that would demote Awarded/
+        // Closed back to Evaluated while AwardedQuoteId/ResultingPurchaseOrderId
+        // still point at a decision made on the prior ranking.
+        if (rfq.Status is RfqStatus.Awarded or RfqStatus.Closed or RfqStatus.Cancelled)
+            return Result.Failure<RankQuotesResult>(
+                $"RFQ is {rfq.Status} — cannot re-rank a completed RFQ.");
 
         var quotes = rfq.Quotes
             .Where(q => q.Status is SupplierQuoteStatus.Received
@@ -318,6 +333,8 @@ public class RfqQuoteService : IRfqQuoteService
             composite = Round4(composite);
 
             q.SupplierOnTimeDeliveryPct = otd;
+            q.PriceScore = priceScore;
+            q.LeadTimeScore = leadScore;
             scored.Add((q, priceScore, leadScore, otd, composite));
         }
 
@@ -559,7 +576,7 @@ public class RfqQuoteService : IRfqQuoteService
                 q.Id, q.VendorId,
                 vendorNames.TryGetValue(q.VendorId, out var nm) ? nm : $"Vendor {q.VendorId}",
                 q.TotalQuotedAmount, Math.Max(0, q.LeadTimeDays), q.SupplierOnTimeDeliveryPct,
-                0m, 0m, q.SupplierOnTimeDeliveryPct, q.CompositeScore!.Value,
+                q.PriceScore ?? 0m, q.LeadTimeScore ?? 0m, q.SupplierOnTimeDeliveryPct, q.CompositeScore!.Value,
                 q.RankPosition ?? 0, q.IsWinner, q.ScoreReason ?? string.Empty))
             .ToList();
     }

@@ -190,6 +190,14 @@ namespace Abs.FixedAssets.Models
         [Column(TypeName = "decimal(9,4)")]
         public decimal? CompositeScore { get; set; }
 
+        /// <summary>Persisted price sub-score (0–100) so the saved comparison keeps its breakdown.</summary>
+        [Column(TypeName = "decimal(9,4)")]
+        public decimal? PriceScore { get; set; }
+
+        /// <summary>Persisted lead-time sub-score (0–100).</summary>
+        [Column(TypeName = "decimal(9,4)")]
+        public decimal? LeadTimeScore { get; set; }
+
         [Display(Name = "Rank")]
         public int? RankPosition { get; set; }
 

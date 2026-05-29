@@ -68,6 +68,8 @@ namespace Abs.FixedAssets.Migrations
                     LeadTimeDays = table.Column<int>(type: "integer", nullable: false),
                     TotalQuotedAmount = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
                     CompositeScore = table.Column<decimal>(type: "numeric(9,4)", nullable: true),
+                    PriceScore = table.Column<decimal>(type: "numeric(9,4)", nullable: true),
+                    LeadTimeScore = table.Column<decimal>(type: "numeric(9,4)", nullable: true),
                     RankPosition = table.Column<int>(type: "integer", nullable: true),
                     IsWinner = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     ScoreReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
