@@ -21,6 +21,7 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
     {
         private readonly AppDbContext _db;
         private readonly ITenantContext _tenant;
+        private readonly IProductionOperationTransactionService _opTx;
         private readonly ILogger<DispatchBoardService> _log;
 
         // What shows on a dispatch board: queued + in-progress. Completed/Skipped/Scrapped are done.
@@ -37,9 +38,10 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
             ProductionOperationStatus.Scheduled, ProductionOperationStatus.Released,
         };
 
-        public DispatchBoardService(AppDbContext db, ITenantContext tenant, ILogger<DispatchBoardService> log)
+        public DispatchBoardService(AppDbContext db, ITenantContext tenant,
+            IProductionOperationTransactionService opTx, ILogger<DispatchBoardService> log)
         {
-            _db = db; _tenant = tenant; _log = log;
+            _db = db; _tenant = tenant; _opTx = opTx; _log = log;
         }
 
         public async Task<Result<DispatchBoard>> GetBoardAsync(int companyId, CancellationToken ct = default)
@@ -98,14 +100,15 @@ namespace Abs.FixedAssets.Services.Production.Scheduling
 
             var top = OrderByRule(rows, wc.DispatchRule, now).First();
 
-            var op = await _db.ProductionOperations.FirstOrDefaultAsync(o => o.Id == top.OpId, ct);
-            if (op == null) return Result.Failure<DispatchEntry>("Operation vanished before dispatch.");
-            op.Status = ProductionOperationStatus.InSetup;
-            op.ModifiedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync(ct);
+            // Route the start through the operation-transaction state machine (PR #379) so the
+            // dispatch is validated and recorded as a ProductionOperationTransaction (audit boundary)
+            // — never flip ProductionOperation.Status directly.
+            var startSetup = await _opTx.StartSetupAsync(top.OpId, "dispatch-board", assetId: null, ct);
+            if (startSetup.IsFailure)
+                return Result.Failure<DispatchEntry>($"Dispatch failed at the state machine: {startSetup.Error}");
 
-            _log.LogInformation("DispatchNext WC {Wc}: op {Op} ({Order} seq {Seq}) → InSetup.",
-                workCenterId, op.Id, top.OrderNumber, top.SequenceNumber);
+            _log.LogInformation("DispatchNext WC {Wc}: op {Op} ({Order} seq {Seq}) → StartSetup via op-tx service.",
+                workCenterId, top.OpId, top.OrderNumber, top.SequenceNumber);
             return Result.Success(ToEntry(top with { Status = ProductionOperationStatus.InSetup }, 1));
         }
 
