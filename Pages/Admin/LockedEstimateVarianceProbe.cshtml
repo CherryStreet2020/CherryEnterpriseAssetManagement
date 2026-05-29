@@ -1,0 +1,122 @@
+@page "/Admin/LockedEstimateVarianceProbe"
+@model Abs.FixedAssets.Pages.Admin.LockedEstimateVarianceProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Locked-Estimate Variance Probe";
+    ViewData["TabTitle"] = "Locked-Estimate Variance Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave A PR-3 — estimate-as-standard variance baseline.
+    A PoFirst order has no item-master standard cost, so its variance "standard"
+    is the PO estimate frozen at release (decision #5). Exercises VarianceBaselineMode
+    + LockedEstimateCapturedUtc + LockEstimateBaselineAsync + the baseline-aware
+    ComputeVariances result.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Locked-Estimate Variance Probe — B7 PR-3</h1>
+        <p class="ds-page-header__subtitle">
+            A PoFirst (master-optional) order has no item-master standard cost — so its
+            variance baseline is the PO estimate frozen at release. The close/variance
+            engine measures actuals against that locked estimate, order-scoped, not an
+            item-master purchase-price variance.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant cost-summary baseline distribution</h2>
+            <p class="ds-text-muted">
+                Cost summaries: <strong>@Model.TotalSummaries</strong> ·
+                Locked-PO-estimate baseline: <strong>@Model.LockedPoEstimateCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Variance baseline flow</h2>
+            <p class="ds-text-muted">Blank Target PRO Id = latest tenant-visible PoFirst PRO. Suggested order: 3 → 1 → 4 → 5.</p>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ProId">Target PRO Id (optional)</label>
+                    <input type="number" id="ProId" name="ProId" value="@(Model.ProId > 0 ? Model.ProId.ToString() : string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="SeedEstimate" class="ds-btn">3 · Seed locked PO estimate</button>
+                    <button type="submit" asp-page-handler="LockPoEstimate" class="ds-btn ds-btn--primary">1 · Lock baseline = LockedPoEstimate</button>
+                    <button type="submit" asp-page-handler="SeedActual" class="ds-btn">4 · Seed actual costs + refresh</button>
+                    <button type="submit" asp-page-handler="ComputeVariances" class="ds-btn ds-btn--primary">5 · Compute variances</button>
+                    <button type="submit" asp-page-handler="RevertStandard" class="ds-btn ds-btn--warning">2 · Revert = ItemMasterStandard</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample cost summaries (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No cost summaries in your tenant scope — seed an estimate with button 3.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead>
+                        <tr>
+                            <th>PRO Id</th>
+                            <th>Baseline Mode</th>
+                            <th>Estimate Locked (UTC)</th>
+                            <th>Estimated Total</th>
+                            <th>Actual Total</th>
+                            <th>Variance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.ProductionOrderId</td>
+                                <td>
+                                    @if (r.BaselineMode == VarianceBaselineMode.LockedPoEstimate)
+                                    {
+                                        <span class="ds-badge ds-badge--success">LockedPoEstimate</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="ds-badge">ItemMasterStandard</span>
+                                    }
+                                </td>
+                                <td>@(r.LockedUtc?.ToString("u") ?? "—")</td>
+                                <td>@r.EstimatedTotal.ToString("C")</td>
+                                <td>@r.ActualTotal.ToString("C")</td>
+                                <td class="@(r.CostVariance > 0 ? "ds-text-danger" : "ds-text-success")">@r.CostVariance.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

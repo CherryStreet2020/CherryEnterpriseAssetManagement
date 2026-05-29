@@ -2794,9 +2794,14 @@ namespace Abs.FixedAssets.Data
             {
                 e.Property(x => x.CostStatus)
                     .HasDefaultValue(Abs.FixedAssets.Models.Production.ProductionCostStatus.Estimated);
+                // B7 PR-3 — variance baseline mode. Default ItemMasterStandard (value 0
+                // == CLR sentinel) → HasDefaultValue safe per enum-defaults HARD LOCK.
+                e.Property(x => x.VarianceBaselineMode)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Production.VarianceBaselineMode.ItemMasterStandard);
                 e.MapXminRowVersion(x => x.RowVersion);
                 e.HasIndex(x => new { x.CompanyId, x.ProductionOrderId })
                     .IsUnique().HasDatabaseName("UX_ProCostSum_Company_PRO");
+                e.HasIndex(x => x.VarianceBaselineMode).HasDatabaseName("IX_ProCostSum_BaselineMode");
                 e.HasIndex(x => x.TenantId);
                 e.HasIndex(x => x.CompanyId);
                 e.HasIndex(x => x.CostStatus).HasDatabaseName("IX_ProCostSum_Status");
