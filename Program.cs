@@ -254,6 +254,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IRoutingService,
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionOperationService,
     Abs.FixedAssets.Services.Production.ProductionOperationService>();
 
+// B11 R3-9 — ICapabilityMatchService (CLOSES Wave R3). Given a routing op,
+// returns the resources eligible to run it (hold ALL mandatory capabilities,
+// current + at proficiency + envelope, on an Active resource), ranked. The
+// function R4's finite scheduler calls to know who can run an op.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICapabilityMatchService,
+    Abs.FixedAssets.Services.Production.CapabilityMatchService>();
+
 // Sprint 12.8 PR #2 — IBackwardSchedulingService (STUB of the future Sprint 14
 // engine). Stamps PlannedStart/End on a parent ProductionOrder's children +
 // each child's ProductionOperations, walking BACKWARD from the parent's

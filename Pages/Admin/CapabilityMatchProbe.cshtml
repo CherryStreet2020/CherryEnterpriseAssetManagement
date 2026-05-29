@@ -1,0 +1,122 @@
+@page "/Admin/CapabilityMatchProbe"
+@model Abs.FixedAssets.Pages.Admin.CapabilityMatchProbeModel
+@using Abs.FixedAssets.Services.Production
+@{
+    ViewData["Title"] = "Capability Match Probe";
+    ViewData["TabTitle"] = "Capability Match Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R3-9 — capability-match resolver (CLOSES Wave R3).
+    Given a routing op's requirements, ICapabilityMatchService returns the
+    resources ELIGIBLE to run it — those holding ALL mandatory capabilities,
+    current + at proficiency + envelope, on an Active resource — ranked. This
+    is the disruption vs. hard-coding a machine on the routing step.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Capability Match Probe — B11 R3-9</h1>
+        <p class="ds-page-header__subtitle">
+            <code>ICapabilityMatchService.GetEligibleResourcesAsync</code> — the function R4's finite
+            scheduler calls to know <em>who can run this op</em>. Eligible resources hold every mandatory
+            capability, current and at proficiency, satisfying the envelope; ineligible ones come back with the reason.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Match flow (acts on the latest routing operation)</h2>
+            <p class="ds-text-muted">Latest op: <strong>@(Model.LatestOpId == 0 ? "—" : "#" + Model.LatestOpId)</strong></p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+                <button type="submit" asp-page-handler="RunMatch" class="ds-btn">2 · Run match</button>
+                <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.MatchResult is not null)
+    {
+        var m = Model.MatchResult;
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Eligible resources — op #@m.RoutingOperationId (ranked)</h2>
+                <p class="ds-text-muted">
+                    @m.MandatoryRequirementCount mandatory requirement(s) · @m.CandidateResourceCount active candidate(s) ·
+                    as of @m.AsOfUtc.ToString("yyyy-MM-dd HH:mm")Z
+                </p>
+                @if (m.Eligible.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No eligible resource holds all mandatory capabilities.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead><tr><th>Rank</th><th>Resource</th><th>Kind</th><th>Score</th><th>Capabilities</th></tr></thead>
+                        <tbody>
+                            @{ var rank = 1; }
+                            @foreach (var e in m.Eligible)
+                            {
+                                <tr>
+                                    <td>@rank</td>
+                                    <td>#@e.ResourceId @e.ResourceCode<br /><span class="ds-text-muted">@e.ResourceName</span></td>
+                                    <td>@e.Kind</td>
+                                    <td><strong>@e.Score</strong></td>
+                                    <td>
+                                        @foreach (var mm in e.Matches.Where(x => x.Satisfied))
+                                        {
+                                            <div>✓ @mm.Detail@(mm.IsMandatory ? "" : " (preferred)")</div>
+                                        }
+                                    </td>
+                                </tr>
+                                rank++;
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Ineligible resources — why they were excluded</h2>
+                @if (m.Ineligible.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>Every active candidate is eligible.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead><tr><th>Resource</th><th>Kind</th><th>Blocking reason</th></tr></thead>
+                        <tbody>
+                            @foreach (var e in m.Ineligible)
+                            {
+                                <tr>
+                                    <td>#@e.ResourceId @e.ResourceCode<br /><span class="ds-text-muted">@e.ResourceName</span></td>
+                                    <td>@e.Kind</td>
+                                    <td class="ds-text-danger">@e.IneligibleReason</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+</main>
