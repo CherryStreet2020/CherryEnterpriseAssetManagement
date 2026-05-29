@@ -3480,6 +3480,15 @@ namespace Abs.FixedAssets.Data
 
                 // R1-2 — xmin concurrency (closes the WC concurrency gap).
                 e.MapXminRowVersion(x => x.RowVersion);
+
+                // R1-3 — CostCenter link (production cost posts here). SET NULL.
+                e.HasOne(x => x.CostCenter)
+                    .WithMany()
+                    .HasForeignKey(x => x.CostCenterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CostCenterId)
+                    .HasFilter("\"CostCenterId\" IS NOT NULL")
+                    .HasDatabaseName("IX_WorkCenters_CostCenter_Partial");
             });
 
             // B11 R1-2 — WorkCenterAlternate (ordered spill targets for the R4 scheduler).

@@ -85,6 +85,25 @@ public enum WorkCenterSetupFamilyRule
     MinimizeChangeover = 2,   // optimize sequence against a setup matrix (R4)
 }
 
+// ── B11 R1-3 — cost + operation-default enums (value-0 defaults, no HasDefaultValue) ──
+
+/// <summary>Where this work center's labor cost rate is sourced from when costing an operation.</summary>
+public enum WorkCenterLaborRateSource
+{
+    WorkCenterRate = 0,   // use the WC's own labor rates (default)
+    EmployeeRate = 1,     // use the clocked employee's LaborRate (PRA-8)
+    CraftRate = 2,        // use the craft/skill standard rate
+    BlendedCrewRate = 3,  // weighted blend across the crew
+}
+
+/// <summary>What happens to completed quantity at an operation on this work center.</summary>
+public enum WorkCenterCompletionBehavior
+{
+    Manual = 0,        // operator manually moves completed qty (default)
+    AutoAdvance = 1,   // completed qty auto-advances to the next operation
+    AutoComplete = 2,  // completing the final op auto-completes the order
+}
+
 [Table("WorkCenters")]
 public class WorkCenter
 {
@@ -121,11 +140,60 @@ public class WorkCenter
     public int DefaultMoveTimeMins { get; set; } = 0;
     public int DefaultWaitTimeMins { get; set; } = 0;
 
-    // Costing.
+    // Costing (legacy generic rates — kept; the R1-3 split below is the detailed model).
+    // PRECEDENCE: the cost engine prefers the R1-3 split (RunLaborRatePerHour /
+    // RunMachineRatePerHour / Fixed+Variable OH) when those are populated (> 0),
+    // and falls back to these coarse legacy rates otherwise.
     public decimal StandardCostRatePerHour { get; set; } = 0;
     public decimal OverheadRatePerHour { get; set; } = 0;
     [MaxLength(3)]
     public string CurrencyCode { get; set; } = "USD";
+
+    // ── B11 R1-3 — detailed cost-rate group (the cost engine + quoting consume these) ──
+    // All decimal rates default 0 (== CLR sentinel → migration backfills 0, no override).
+
+    /// <summary>Where labor cost comes from when costing ops here. Default WorkCenterRate.</summary>
+    public WorkCenterLaborRateSource LaborRateSource { get; set; } = WorkCenterLaborRateSource.WorkCenterRate;
+
+    /// <summary>Labor $/hr during setup (one-time per batch).</summary>
+    public decimal SetupLaborRatePerHour { get; set; } = 0;
+    /// <summary>Labor $/hr during run (per-unit production).</summary>
+    public decimal RunLaborRatePerHour { get; set; } = 0;
+    /// <summary>Machine $/hr during setup.</summary>
+    public decimal SetupMachineRatePerHour { get; set; } = 0;
+    /// <summary>Machine $/hr during run.</summary>
+    public decimal RunMachineRatePerHour { get; set; } = 0;
+
+    /// <summary>Fixed manufacturing overhead $/hr (depreciation, supervision, facility).</summary>
+    public decimal FixedOverheadRatePerHour { get; set; } = 0;
+    /// <summary>Variable manufacturing overhead $/hr (utilities, consumables).</summary>
+    public decimal VariableOverheadRatePerHour { get; set; } = 0;
+
+    /// <summary>Blended $/hr used for QUOTING (may differ from actual costing rates). Null = use actual rates.</summary>
+    public decimal? QuotingRatePerHour { get; set; }
+
+    /// <summary>Cost center this WC's production cost posts to (FK → CostCenter). SET NULL on delete.</summary>
+    public int? CostCenterId { get; set; }
+    public Abs.FixedAssets.Models.CostCenter? CostCenter { get; set; }
+
+    // ── B11 R1-3 — operation-default group (defaults stamped onto ProductionOperation at release) ──
+
+    /// <summary>Default expected good-output yield %. NULLABLE (null ⇒ 100%) to avoid a backfill that zeroes existing WCs.</summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal? DefaultYieldPct { get; set; }
+
+    /// <summary>Default expected scrap %. Default 0 (== sentinel).</summary>
+    [Column(TypeName = "decimal(5,2)")]
+    public decimal DefaultScrapPct { get; set; } = 0;
+
+    /// <summary>True when this WC is a reporting/count point (production reported against it). Default false.</summary>
+    public bool IsCountPoint { get; set; } = false;
+
+    /// <summary>Default: auto-backflush component materials on completion at this WC. Default false.</summary>
+    public bool DefaultBackflushMaterials { get; set; } = false;
+
+    /// <summary>Default completion behavior for ops here (manual move / auto-advance / auto-complete). Default Manual.</summary>
+    public WorkCenterCompletionBehavior DefaultCompletionBehavior { get; set; } = WorkCenterCompletionBehavior.Manual;
 
     // Org / location FKs.
     // PR #5c.1: LocationId is REQUIRED — every WorkCenter physically lives at exactly
