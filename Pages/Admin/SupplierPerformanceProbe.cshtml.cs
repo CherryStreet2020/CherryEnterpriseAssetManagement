@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
+using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Purchasing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,15 +32,18 @@ public sealed class SupplierPerformanceProbeModel : PageModel
 {
     private readonly ISupplierPerformanceService _service;
     private readonly AppDbContext _db;
+    private readonly ITenantContext _tenantContext;
     private readonly ILogger<SupplierPerformanceProbeModel> _logger;
 
     public SupplierPerformanceProbeModel(
         ISupplierPerformanceService service,
         AppDbContext db,
+        ITenantContext tenantContext,
         ILogger<SupplierPerformanceProbeModel> logger)
     {
         _service = service;
         _db = db;
+        _tenantContext = tenantContext;
         _logger = logger;
     }
 
@@ -89,21 +93,29 @@ public sealed class SupplierPerformanceProbeModel : PageModel
 
     private async Task LoadStatsAsync(CancellationToken ct)
     {
-        TotalSnapshots = await _db.Set<SupplierPerformance>().CountAsync(ct);
-        CurrentSnapshots = await _db.Set<SupplierPerformance>()
-            .CountAsync(s => s.IsCurrent, ct);
-        Rolling30Count = await _db.Set<SupplierPerformance>()
+        // Codex P2 + pre-PR subagent P2-3: scope all probe reads to the
+        // visible tenant set so a tenant-scoped Admin never sees snapshot
+        // counts or vendor names from companies outside their scope.
+        var visible = _tenantContext.VisibleCompanyIds;
+
+        var scoped = _db.Set<SupplierPerformance>()
+            .Where(s => s.CompanyId != null && visible.Contains(s.CompanyId.Value));
+        TotalSnapshots = await scoped.CountAsync(ct);
+        CurrentSnapshots = await scoped.CountAsync(s => s.IsCurrent, ct);
+        Rolling30Count = await scoped
             .CountAsync(s => s.IsCurrent && s.PeriodType == SupplierPerformancePeriod.Rolling30Days, ct);
-        Rolling90Count = await _db.Set<SupplierPerformance>()
+        Rolling90Count = await scoped
             .CountAsync(s => s.IsCurrent && s.PeriodType == SupplierPerformancePeriod.Rolling90Days, ct);
-        YtdCount = await _db.Set<SupplierPerformance>()
+        YtdCount = await scoped
             .CountAsync(s => s.IsCurrent && s.PeriodType == SupplierPerformancePeriod.YearToDate, ct);
 
-        // Vendors that have at least one PO — the recompute candidates.
+        // Vendors (in scope) that have at least one PO — the recompute candidates.
         var vendorIds = await _db.Set<PurchaseOrder>()
+            .Where(p => p.CompanyId != null && visible.Contains(p.CompanyId.Value) && p.VendorId != 0)
             .Select(p => p.VendorId).Distinct().Take(50).ToListAsync(ct);
         Vendors = await _db.Set<Vendor>()
-            .Where(v => vendorIds.Contains(v.Id))
+            .Where(v => vendorIds.Contains(v.Id)
+                && v.CompanyId != null && visible.Contains(v.CompanyId.Value))
             .OrderBy(v => v.Name)
             .Select(v => new VendorOption(v.Id, $"#{v.Id} — {v.Name}"))
             .ToListAsync(ct);
