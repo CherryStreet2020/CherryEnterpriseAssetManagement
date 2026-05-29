@@ -72,9 +72,12 @@ public class DetailsModel : PageModel
 
         if (WC == null) return NotFound();
 
+        var now = System.DateTime.UtcNow;
         Resources = await _db.ProductionResources
             .AsNoTracking()
-            .Where(r => r.WorkCenterId == id)
+            .Where(r => r.WorkCenterId == id
+                && (r.EffectiveFromUtc == null || r.EffectiveFromUtc <= now)
+                && (r.EffectiveToUtc == null || r.EffectiveToUtc > now))
             .OrderByDescending(r => r.IsPrimary).ThenBy(r => r.Code)
             .Select(r => new ResourceRow
             {
