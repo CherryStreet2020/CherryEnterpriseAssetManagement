@@ -200,6 +200,12 @@ namespace Abs.FixedAssets.Data
         // B11 R2-6 — per-resource availability deltas (downtime / maintenance / extra shift).
         public DbSet<Abs.FixedAssets.Models.Production.ResourceCalendarException> ResourceCalendarExceptions
             => Set<Abs.FixedAssets.Models.Production.ResourceCalendarException>();
+        // B11 R3-7 — capability master (what a resource can do; required by routing ops).
+        public DbSet<Abs.FixedAssets.Models.Production.Capability> Capabilities
+            => Set<Abs.FixedAssets.Models.Production.Capability>();
+        // B11 R3-7 — resource↔capability join (qualification + expiry the match service reads).
+        public DbSet<Abs.FixedAssets.Models.Production.ResourceCapability> ResourceCapabilities
+            => Set<Abs.FixedAssets.Models.Production.ResourceCapability>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3629,6 +3635,45 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.AssetId)
                     .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R3-7 — Capability master. New table; enum default is value-0
+            // sentinel (no HasDefaultValue). Unique per company by Code.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.Capability>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.Category);
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .IsUnique()
+                    .HasDatabaseName("UX_Capabilities_Company_Code");
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R3-7 — ResourceCapability join. CASCADE on the owning resource
+            // (pure child); RESTRICT on the Capability master (cannot delete a
+            // capability still held). Two FKs to DIFFERENT principals, one CASCADE
+            // → no Postgres multi-cascade-path conflict. Unique (resource,capability).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ResourceCapability>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.CapabilityId);
+                e.HasIndex(x => new { x.ProductionResourceId, x.CapabilityId })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ResourceCapabilities_Resource_Capability");
+
+                // Owning resource — CASCADE: a resource's capabilities die with it.
+                e.HasOne(x => x.ProductionResource)
+                    .WithMany(r => r.Capabilities)
+                    .HasForeignKey(x => x.ProductionResourceId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // Capability master — RESTRICT: deactivate, don't delete-in-use.
+                e.HasOne(x => x.Capability)
+                    .WithMany(c => c.ResourceCapabilities)
+                    .HasForeignKey(x => x.CapabilityId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
