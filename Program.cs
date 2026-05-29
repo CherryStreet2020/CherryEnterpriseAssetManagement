@@ -695,6 +695,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.ISupplierPerforma
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IInvoiceMatchService,
     Abs.FixedAssets.Services.Purchasing.InvoiceMatchService>();
 
+// Sprint 15.4 PR-20 (2026-05-29) — RFQ / Quote Flow (CLOSES the 20-PR cascade).
+// SupplierRFQ + SupplierQuote with the locked composite ranker (RankQuotesAsync:
+// Price 50% + LeadTime 30% + SupplierOTD 20%, configurable; SupplierOTD from
+// PR-18 GetCompositeInputsAsync with price+lead fallback). ConvertQuoteToPoLine
+// turns the awarded quote into a Draft PO carrying §17 demand links forward.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IRfqQuoteService,
+    Abs.FixedAssets.Services.Purchasing.RfqQuoteService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios
