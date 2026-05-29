@@ -39,6 +39,7 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
     private readonly IPurchasingRecommendationService? _recommendations;
     private readonly ISupplierPerformanceService? _supplierPerformance;
     private readonly IInvoiceMatchService? _invoiceMatch;
+    private readonly IRfqQuoteService? _rfqQuote;
     private readonly ILogger<PurchasingControlCenterService> _log;
 
     public PurchasingControlCenterService(
@@ -47,13 +48,15 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         ILogger<PurchasingControlCenterService> log,
         IPurchasingRecommendationService? recommendations = null,
         ISupplierPerformanceService? supplierPerformance = null,
-        IInvoiceMatchService? invoiceMatch = null)
+        IInvoiceMatchService? invoiceMatch = null,
+        IRfqQuoteService? rfqQuote = null)
     {
         _db = db;
         _tenant = tenant;
         _recommendations = recommendations;
         _supplierPerformance = supplierPerformance;
         _invoiceMatch = invoiceMatch;
+        _rfqQuote = rfqQuote;
         _log = log;
     }
 
@@ -1376,5 +1379,20 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
             Period: period,
             AtRiskCount: atRisk,
             Rows: rows));
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // PR-20 TAB READ — §21 tab 5 Supplier RFQs
+    // ════════════════════════════════════════════════════════════════════════
+
+    /// <inheritdoc />
+    public async Task<Result<RfqTabPage>> GetRfqTabAsync(CancellationToken ct = default)
+    {
+        if (_rfqQuote is null)
+            return Result.Failure<RfqTabPage>("RFQ service is not available.");
+
+        var rows = await _rfqQuote.GetRfqListAsync(200, null, ct);
+        var awaiting = rows.Count(r => r.Status is RfqStatus.Issued or RfqStatus.QuotesReceived);
+        return Result.Success(new RfqTabPage(rows.Count, awaiting, rows));
     }
 }

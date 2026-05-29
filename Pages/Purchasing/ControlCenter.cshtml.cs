@@ -89,6 +89,7 @@ public sealed class ControlCenterModel : PageModel
     public const string TabApprovals = "approvals";              // PR-13
     public const string TabCostExceptions = "cost-exceptions";   // PR-13
     public const string TabSupplierPerformance = "supplier-performance"; // PR-18
+    public const string TabRfqs = "supplier-rfqs";                       // PR-20
 
     // PR-12 ships 4 more live tabs: Subcontract / Vendor WIP / Receipts /
     // Inspection Holds. PR-13 ships the final 4: POs / Expedites / Approvals /
@@ -97,12 +98,12 @@ public sealed class ControlCenterModel : PageModel
         TabSupplyDemand, TabBuyToJob,
         TabSubcontract, TabVendorWip, TabReceipts, TabInspectionHolds,
         TabPos, TabExpedites, TabApprovals, TabCostExceptions,
-        TabSupplierPerformance,
+        TabSupplierPerformance, TabRfqs,
     };
     private static readonly string[] AllTabs = {
         TabSupplyDemand, TabBuyToJob, TabSubcontract, TabVendorWip,
         TabReceipts, TabInspectionHolds, TabPos, TabExpedites, TabApprovals,
-        TabCostExceptions, TabSupplierPerformance,
+        TabCostExceptions, TabSupplierPerformance, TabRfqs,
     };
 
     public string ActiveTab =>
@@ -131,6 +132,9 @@ public sealed class ControlCenterModel : PageModel
 
     // PR-18 payload — §21 tab 13 Supplier Performance scorecard.
     public SupplierPerformanceTabPage? SupplierPerformanceTab { get; private set; }
+
+    // PR-20 payload — §21 tab 5 Supplier RFQs.
+    public RfqTabPage? RfqTab { get; private set; }
 
     public string? ErrorMessage { get; private set; }
 
@@ -254,6 +258,13 @@ public sealed class ControlCenterModel : PageModel
                     else { ErrorMessage = r.Error; SupplierPerformanceTab = new SupplierPerformanceTabPage(0, PerfPeriod, 0, Array.Empty<SupplierScorecardRow>()); }
                     break;
                 }
+                case TabRfqs:
+                {
+                    var r = await _svc.GetRfqTabAsync(ct);
+                    if (r.IsSuccess && r.Value is not null) RfqTab = r.Value;
+                    else { ErrorMessage = r.Error; RfqTab = new RfqTabPage(0, 0, Array.Empty<RfqListRow>()); }
+                    break;
+                }
             }
         }
 
@@ -276,6 +287,7 @@ public sealed class ControlCenterModel : PageModel
         TabPos => PosTab?.TotalCount ?? 0,
         TabCostExceptions => CostExceptionsTab?.TotalCount ?? 0,
         TabSupplierPerformance => SupplierPerformanceTab?.TotalCount ?? 0,
+        TabRfqs => RfqTab?.TotalCount ?? 0,
         _ => 0,
     };
 
@@ -292,6 +304,7 @@ public sealed class ControlCenterModel : PageModel
         // equals TotalCount when clipped that way.
         TabCostExceptions => CostExceptionsTab?.Rows.Count ?? 0,
         TabSupplierPerformance => SupplierPerformanceTab?.Rows.Count ?? 0,
+        TabRfqs => RfqTab?.Rows.Count ?? 0,
         _ => 0,
     };
 
@@ -378,6 +391,7 @@ public sealed class ControlCenterModel : PageModel
                 new CockpitTab(TabApprovals, "Approvals", "fas fa-circle-check"),
                 new CockpitTab(TabCostExceptions, "Cost Exceptions", "fas fa-triangle-exclamation"),
                 new CockpitTab(TabSupplierPerformance, "Supplier Performance", "fas fa-ranking-star"),
+                new CockpitTab(TabRfqs, "Supplier RFQs", "fas fa-scale-balanced"),
             },
         };
     }

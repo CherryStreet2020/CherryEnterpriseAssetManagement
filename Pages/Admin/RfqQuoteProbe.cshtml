@@ -1,0 +1,179 @@
+@page "/Admin/RfqQuoteProbe"
+@model Abs.FixedAssets.Pages.Admin.RfqQuoteProbeModel
+@{
+    ViewData["Title"] = "RFQ / Quote Flow Probe";
+    ViewData["TabTitle"] = "RFQ Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">RFQ / Quote Flow Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.4 PR-20 (CLOSES the 20-PR purchasing cascade) — Create RFQ →
+            Issue to suppliers → Record quotes → <strong>Rank</strong> by blended
+            composite (Price 50% + LeadTime 30% + Supplier-OTD 20% from PR-18) →
+            Award → Convert to a Draft PO carrying §17 demand links.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="rfq-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="rfq-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total RFQs</td><td data-testid="rfq-total">@Model.TotalRfqs</td></tr>
+                <tr><td>Issued / awaiting quotes</td><td data-testid="rfq-issued">@Model.IssuedCount</td></tr>
+                <tr><td>Evaluated</td><td data-testid="rfq-evaluated">@Model.EvaluatedCount</td></tr>
+                <tr><td>Awarded / closed</td><td data-testid="rfq-awarded">@Model.AwardedCount</td></tr>
+                <tr><td>Total quotes</td><td data-testid="rfq-quotes">@Model.TotalQuotes</td></tr>
+            </tbody>
+        </table>
+        @if (Model.Vendors.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">Vendors in scope (top 25)</h3>
+            <ul>@foreach (var v in Model.Vendors) { <li>@v.Display</li> }</ul>
+        }
+    </div></section>
+
+    @* ── Ranked side-by-side comparison (the headline) ── *@
+    @if (Model.RankedRows is { Count: > 0 } ranked)
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            <h2 class="ds-h2">Ranked quote comparison</h2>
+            <div class="ds-table"><div class="ds-table__scroll">
+                <table>
+                    <thead><tr>
+                        <th>Rank</th><th>Supplier</th><th>Total</th><th>Lead (d)</th>
+                        <th>Price score</th><th>Lead score</th><th>OTD %</th><th>Composite</th><th>Why</th>
+                    </tr></thead>
+                    <tbody>
+                    @foreach (var q in ranked)
+                    {
+                        <tr data-testid="rfq-rank-@q.SupplierQuoteId" style="@(q.IsWinner ? "background:rgba(34,197,94,0.12);font-weight:600;" : "")">
+                            <td>@q.RankPosition @(q.IsWinner ? "🏆" : "")</td>
+                            <td>@q.VendorName</td>
+                            <td>$@q.TotalQuotedAmount.ToString("N2")</td>
+                            <td>@q.LeadTimeDays</td>
+                            <td>@q.PriceScore.ToString("N0")</td>
+                            <td>@q.LeadTimeScore.ToString("N0")</td>
+                            <td>@(q.SupplierOnTimeDeliveryPct?.ToString("N0") ?? "—")</td>
+                            <td>@q.CompositeScore.ToString("N1")</td>
+                            <td style="font-weight:400;">@q.ScoreReason</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div></div>
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W1. Create RFQ</h2>
+        <form method="post" asp-page-handler="Create">
+            <div class="ds-form-row"><label class="ds-label">Title</label><input class="ds-input" asp-for="RfqTitle" /></div>
+            <div class="ds-form-row"><label class="ds-label">Line 1 desc</label><input class="ds-input" asp-for="Line1Desc" /></div>
+            <div class="ds-form-row"><label class="ds-label">Line 1 qty</label><input type="number" step="0.01" class="ds-input" asp-for="Line1Qty" /></div>
+            <div class="ds-form-row"><label class="ds-label">Line 2 desc (optional)</label><input class="ds-input" asp-for="Line2Desc" /></div>
+            <div class="ds-form-row"><label class="ds-label">Line 2 qty</label><input type="number" step="0.01" class="ds-input" asp-for="Line2Qty" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-create">Create RFQ</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W2. Issue to suppliers</h2>
+        <form method="post" asp-page-handler="Issue">
+            <div class="ds-form-row"><label class="ds-label">RFQ ID</label><input type="number" class="ds-input" asp-for="IssueRfqId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Vendor IDs (CSV)</label><input class="ds-input" asp-for="VendorIdsCsv" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-issue">Issue RFQ</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W3. Record a supplier quote</h2>
+        <p class="ds-text-muted">Applies the unit price to every RFQ line at its quantity.</p>
+        <form method="post" asp-page-handler="RecordQuote">
+            <div class="ds-form-row"><label class="ds-label">RFQ ID</label><input type="number" class="ds-input" asp-for="QuoteRfqId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Vendor ID</label><input type="number" class="ds-input" asp-for="QuoteVendorId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Unit price</label><input type="number" step="0.0001" class="ds-input" asp-for="QuoteUnitPrice" /></div>
+            <div class="ds-form-row"><label class="ds-label">Lead time (days)</label><input type="number" class="ds-input" asp-for="QuoteLeadTimeDays" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-record-quote">Record Quote</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W4. ⭐ Rank quotes</h2>
+        <form method="post" asp-page-handler="Rank">
+            <div class="ds-form-row"><label class="ds-label">RFQ ID</label><input type="number" class="ds-input" asp-for="RankRfqId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Price weight</label><input type="number" step="0.05" class="ds-input" asp-for="PriceWeight" /></div>
+            <div class="ds-form-row"><label class="ds-label">Lead-time weight</label><input type="number" step="0.05" class="ds-input" asp-for="LeadTimeWeight" /></div>
+            <div class="ds-form-row"><label class="ds-label">OTD weight</label><input type="number" step="0.05" class="ds-input" asp-for="OtdWeight" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-rank">Rank Quotes</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W5. Award &nbsp; · &nbsp; W6. Convert to PO</h2>
+        <form method="post" asp-page-handler="Award" style="margin-bottom:12px;">
+            <div class="ds-form-row"><label class="ds-label">Award quote ID</label><input type="number" class="ds-input" asp-for="AwardQuoteId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-award">Award Quote</button>
+        </form>
+        <form method="post" asp-page-handler="Convert">
+            <div class="ds-form-row"><label class="ds-label">Convert quote ID</label><input type="number" class="ds-input" asp-for="ConvertQuoteId" /></div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-convert">Convert to PO</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R1. Load RFQ &nbsp;·&nbsp; R2. Load Ranked &nbsp;·&nbsp; R3. List</h2>
+        <form method="post" asp-page-handler="LoadRfq" style="margin-bottom:8px;">
+            <div class="ds-form-row"><label class="ds-label">RFQ ID</label><input type="number" class="ds-input" asp-for="LoadRfqId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-rfq">Load RFQ</button>
+        </form>
+        @if (Model.LoadedRfq is { } rfq)
+        {
+            <table class="ds-table ds-mt-2"><tbody>
+                <tr><td>RFQ</td><td>@rfq.RfqNumber — @rfq.Title (@rfq.Status)</td></tr>
+                <tr><td>Lines</td><td>@rfq.Lines.Count</td></tr>
+                <tr><td>Quotes</td><td>@string.Join(", ", rfq.Quotes.Select(q => $"v{q.VendorId}:{q.Status}"))</td></tr>
+                <tr><td>Awarded quote</td><td>@(rfq.AwardedQuoteId?.ToString() ?? "—")</td></tr>
+                <tr><td>Resulting PO</td><td>@(rfq.ResultingPurchaseOrderId?.ToString() ?? "—")</td></tr>
+            </tbody></table>
+        }
+        <form method="post" asp-page-handler="LoadRanked" style="margin:8px 0;">
+            <div class="ds-form-row"><label class="ds-label">RFQ ID</label><input type="number" class="ds-input" asp-for="RankedRfqId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-ranked">Load Ranked</button>
+        </form>
+        <form method="post" asp-page-handler="LoadList">
+            <button type="submit" class="ds-btn" data-testid="btn-load-list">Load RFQ List</button>
+        </form>
+        @if (Model.RfqList is { Count: > 0 } list)
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>RFQ #</th><th>Title</th><th>Status</th><th>Lines</th><th>Quotes</th><th>Winner</th></tr></thead>
+                <tbody>
+                @foreach (var r in list)
+                {
+                    <tr data-testid="rfq-list-@r.SupplierRFQId">
+                        <td>@r.RfqNumber</td><td>@r.Title</td><td>@r.Status</td>
+                        <td>@r.LineCount</td><td>@r.QuoteCount</td><td>@(r.WinnerVendorName ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>

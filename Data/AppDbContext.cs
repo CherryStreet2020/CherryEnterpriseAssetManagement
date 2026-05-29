@@ -510,6 +510,15 @@ namespace Abs.FixedAssets.Data
         public DbSet<InvoiceMatchResult> InvoiceMatchResults => Set<InvoiceMatchResult>();
         public DbSet<InvoiceMatchResultLine> InvoiceMatchResultLines => Set<InvoiceMatchResultLine>();
 
+        // Sprint 15.4 PR-20 — RFQ / Quote Flow (CLOSES the purchasing cascade).
+        // SupplierRFQ + lines + per-supplier SupplierQuote + lines. Composite
+        // ranker stamps score/rank/winner on the quote; awarded quote converts
+        // to a Draft PO carrying §17 demand links.
+        public DbSet<SupplierRFQ> SupplierRFQs => Set<SupplierRFQ>();
+        public DbSet<SupplierRFQLine> SupplierRFQLines => Set<SupplierRFQLine>();
+        public DbSet<SupplierQuote> SupplierQuotes => Set<SupplierQuote>();
+        public DbSet<SupplierQuoteLine> SupplierQuoteLines => Set<SupplierQuoteLine>();
+
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -6119,6 +6128,83 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.GoodsReceiptLineId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ─── Sprint 15.4 PR-20 — RFQ / Quote Flow ───────────────────────────
+            modelBuilder.Entity<SupplierRFQ>(e =>
+            {
+                e.Property(x => x.Status).HasDefaultValue(RfqStatus.Draft);
+
+                // Tenant-unique RFQ number (two-phase numbered).
+                e.HasIndex(x => new { x.CompanyId, x.RfqNumber })
+                    .IsUnique()
+                    .HasFilter("\"CompanyId\" IS NOT NULL");
+                e.HasIndex(x => x.Status);
+
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(x => x.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<SupplierRFQLine>(e =>
+            {
+                e.HasIndex(x => x.SupplierRFQId);
+                e.HasOne(x => x.SupplierRFQ)
+                    .WithMany(r => r.Lines)
+                    .HasForeignKey(x => x.SupplierRFQId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<SupplierQuote>(e =>
+            {
+                e.Property(x => x.Status).HasDefaultValue(SupplierQuoteStatus.Invited);
+                e.Property(x => x.IsWinner).HasDefaultValue(false);
+
+                e.HasIndex(x => x.SupplierRFQId);
+                e.HasIndex(x => x.VendorId);
+                e.HasIndex(x => x.Status);
+                // One quote per (RFQ, vendor).
+                e.HasIndex(x => new { x.SupplierRFQId, x.VendorId }).IsUnique();
+
+                e.HasOne(x => x.SupplierRFQ)
+                    .WithMany(r => r.Quotes)
+                    .HasForeignKey(x => x.SupplierRFQId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<SupplierQuoteLine>(e =>
+            {
+                e.HasIndex(x => x.SupplierQuoteId);
+                e.HasIndex(x => x.SupplierRFQLineId);
+                e.HasOne(x => x.SupplierQuote)
+                    .WithMany(q => q.Lines)
+                    .HasForeignKey(x => x.SupplierQuoteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.SupplierRFQLine)
+                    .WithMany()
+                    .HasForeignKey(x => x.SupplierRFQLineId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 

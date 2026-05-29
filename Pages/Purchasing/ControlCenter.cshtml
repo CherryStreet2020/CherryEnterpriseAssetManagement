@@ -639,6 +639,67 @@
         </section>
     }
 
+    @* ─── Supplier RFQs (PR-20 · §21 tab 5) ──────────────────────────────── *@
+    else if (Model.ActiveTab == Abs.FixedAssets.Pages.Purchasing.ControlCenterModel.TabRfqs
+             && Model.RfqTab is { } rt)
+    {
+        <section class="ds-card cockpit__group" data-group="@Model.ActiveTab">
+            <div class="ds-card__body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+                    <h2 style="font-size:1.2rem;font-weight:600;margin:0;" data-testid="pcc-tab-title-supplier-rfqs">Supplier RFQs
+                        <span style="color:var(--text-muted);font-weight:400;">
+                            · @rt.TotalCount RFQ(s)
+                            @if (rt.AwaitingQuotesCount > 0)
+                            { <text> · <span style="color:var(--warning);">@rt.AwaitingQuotesCount awaiting quotes</span></text> }
+                        </span>
+                    </h2>
+                </div>
+                @if (rt.Rows.Count == 0)
+                {
+                    <div style="text-align:center;padding:48px 24px;" data-testid="pcc-supplier-rfqs-empty">
+                        <i class="fas fa-scale-balanced" style="font-size:48px;color:var(--text-muted);"></i>
+                        <p style="margin-top:12px;font-weight:600;">No RFQs yet.</p>
+                        <p style="color:var(--text-muted);">Create an RFQ, invite suppliers, record quotes, then rank them by blended price / lead-time / supplier-OTD score. Run the flow from /Admin/RfqQuoteProbe.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="ds-table">
+                        <div class="ds-table__scroll">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>RFQ #</th>
+                                        <th>Title</th>
+                                        <th>Status</th>
+                                        <th>Lines</th>
+                                        <th>Quotes</th>
+                                        <th>Winner</th>
+                                        <th>Required by</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                @foreach (var r in rt.Rows)
+                                {
+                                    <tr data-testid="pcc-rfq-@r.SupplierRFQId">
+                                        <td>@r.RfqNumber</td>
+                                        <td>@r.Title</td>
+                                        <td>@r.Status</td>
+                                        <td>@r.LineCount</td>
+                                        <td>@r.QuoteCount</td>
+                                        <td>@(string.IsNullOrEmpty(r.WinnerVendorName) ? "—" : r.WinnerVendorName)</td>
+                                        <td>@(r.RequiredByDate?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+    }
+
     @* ─── Supply Demand / Buy-to-Job / Expedites / Approvals grid (PR-11/PR-13) ─ *@
     else if (Model.ActiveTabIsLive && Model.Queue is { } pq)
     {

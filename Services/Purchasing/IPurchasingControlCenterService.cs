@@ -419,6 +419,15 @@ public sealed record SupplierPerformanceTabPage(
     int AtRiskCount,
     IReadOnlyList<SupplierScorecardRow> Rows);
 
+/// <summary>
+/// §21 tab 5 — Supplier RFQs. RFQ list rows for the CC tab. Backed by
+/// IRfqQuoteService (PR-20). AwaitingQuotes counts RFQs in Issued/QuotesReceived.
+/// </summary>
+public sealed record RfqTabPage(
+    int TotalCount,
+    int AwaitingQuotesCount,
+    IReadOnlyList<RfqListRow> Rows);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SERVICE INTERFACE
 // ═══════════════════════════════════════════════════════════════════════════
@@ -557,4 +566,11 @@ public interface IPurchasingControlCenterService
     Task<Result<SupplierPerformanceTabPage>> GetSupplierPerformanceTabAsync(
         SupplierPerformancePeriod period,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// §21 tab 5 — Supplier RFQs. Delegates to IRfqQuoteService (PR-20) for the
+    /// RFQ list in tenant scope. Read-only; the RFQ flow runs via the probe / a
+    /// future RFQ page.
+    /// </summary>
+    Task<Result<RfqTabPage>> GetRfqTabAsync(CancellationToken ct = default);
 }
