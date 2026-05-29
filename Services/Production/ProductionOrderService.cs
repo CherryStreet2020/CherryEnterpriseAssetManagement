@@ -133,6 +133,12 @@ public sealed class ProductionOrderService : IProductionOrderService
                     "Location and Customer belong to different companies.");
         }
 
+        // B7 Wave A PR-2 — a PoFirst (master-optional) order builds from the PO;
+        // it must NOT carry a principal Item (the master crystallizes at ship).
+        if (!ProductionOrder.ValidatePoFirstHasNoPrincipalItem(
+                request.IsPoFirst, request.ItemId, out var poFirstItemError))
+            return Result.Failure<ProductionOrder>(poFirstItemError);
+
         // If an Item is specified, it must be visible to the same company.
         if (request.ItemId.HasValue)
         {
@@ -167,6 +173,12 @@ public sealed class ProductionOrderService : IProductionOrderService
             Priority                = request.Priority,
             MasterProductionOrderId = request.MasterProductionOrderId,
             MaterialStructureId     = request.MaterialStructureId,
+            // B7 Wave A PR-2 — master-optional (PoFirst) identity.
+            IsPoFirst               = request.IsPoFirst,
+            AsPlannedPartNumber     = request.AsPlannedPartNumber,
+            AsPlannedDrawingNumber  = request.AsPlannedDrawingNumber,
+            AsPlannedDrawingRev     = request.AsPlannedDrawingRev,
+            AsPlannedDescription    = request.AsPlannedDescription,
             CreatedAt               = DateTime.UtcNow,
             CreatedBy               = request.CreatedBy
         };
@@ -231,6 +243,30 @@ public sealed class ProductionOrderService : IProductionOrderService
             return Result.Failure<ProductionOrder>(
                 $"Production order is {order.Status} — header edits are not allowed on terminal-status orders.");
 
+        // B7 Wave A PR-2 — a PoFirst (master-optional) order must not carry a
+        // principal Item. Guard the post-edit combination (covers flipping
+        // IsPoFirst on, or setting an ItemId on an already-PoFirst order).
+        if (!ProductionOrder.ValidatePoFirstHasNoPrincipalItem(
+                request.IsPoFirst, request.ItemId, out var poFirstItemError))
+            return Result.Failure<ProductionOrder>(poFirstItemError);
+
+        // B7 Wave A PR-2 — the release gate (UpdateStatusAsync) only fires on the
+        // transition INTO Released. Without this second guard a header edit could
+        // strip the as-planned drawing #/rev off an ALREADY-released PoFirst order,
+        // leaving it in a released/in-progress state with no revision-controlled
+        // configuration (the exact AS9100 §8.5.2 hole the gate exists to close).
+        // Pre-release edits (Planned/Firmed) may leave the drawing blank — the
+        // release gate will catch it before the order commits to a build.
+        var isPostRelease = order.Status is not ProductionOrderStatus.Planned
+            and not ProductionOrderStatus.Firmed;
+        if (request.IsPoFirst && isPostRelease
+            && !ProductionOrder.ValidatePoFirstReleaseReadiness(
+                   isPoFirst: true,
+                   request.AsPlannedDrawingNumber,
+                   request.AsPlannedDrawingRev,
+                   out var postReleaseDrawingError))
+            return Result.Failure<ProductionOrder>(postReleaseDrawingError);
+
         order.Title                   = request.Title;
         order.Description             = request.Description;
         order.ItemId                  = request.ItemId;
@@ -243,6 +279,12 @@ public sealed class ProductionOrderService : IProductionOrderService
         order.Priority                = request.Priority;
         order.MasterProductionOrderId = request.MasterProductionOrderId;
         order.MaterialStructureId     = request.MaterialStructureId;
+        // B7 Wave A PR-2 — master-optional (PoFirst) identity.
+        order.IsPoFirst               = request.IsPoFirst;
+        order.AsPlannedPartNumber     = request.AsPlannedPartNumber;
+        order.AsPlannedDrawingNumber  = request.AsPlannedDrawingNumber;
+        order.AsPlannedDrawingRev     = request.AsPlannedDrawingRev;
+        order.AsPlannedDescription    = request.AsPlannedDescription;
         order.ModifiedAt              = DateTime.UtcNow;
         order.ModifiedBy              = request.ModifiedBy;
 
@@ -280,6 +322,16 @@ public sealed class ProductionOrderService : IProductionOrderService
         if (!IsLegalProductionStatusTransition(order.Status, request.NewStatus))
             return Result.Failure<ProductionOrder>(
                 $"Illegal status transition: {order.Status} → {request.NewStatus}.");
+
+        // B7 Wave A PR-2 — release gate for master-optional (PoFirst) orders.
+        // Releasing means committing to a build, so a PoFirst order must carry a
+        // revision-controlled as-planned configuration (drawing # + rev) since it
+        // has no Item Master to inherit one from. StandardFirst orders pass through.
+        if (request.NewStatus == ProductionOrderStatus.Released
+            && !ProductionOrder.ValidatePoFirstReleaseReadiness(
+                   order.IsPoFirst, order.AsPlannedDrawingNumber, order.AsPlannedDrawingRev,
+                   out var releaseError))
+            return Result.Failure<ProductionOrder>(releaseError);
 
         order.Status     = request.NewStatus;
         order.ModifiedAt = DateTime.UtcNow;

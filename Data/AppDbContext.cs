@@ -2015,6 +2015,29 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.SnapshotCapturedAtUtc)
                     .HasFilter("\"SnapshotCapturedAtUtc\" IS NOT NULL")
                     .HasDatabaseName("IX_ProductionOrders_SnapshotCaptured_Partial");
+
+                // ----- Theme B7 Wave A PR-2 — master-optional (PoFirst) identity -----
+                // IsPoFirst: bool default false == CLR sentinel — HasDefaultValue
+                // is safe (enum-defaults HARD LOCK). Partial index for the
+                // "find master-less orders" buyer/planner query.
+                e.Property(x => x.IsPoFirst).HasDefaultValue(false);
+                e.HasIndex(x => x.IsPoFirst)
+                    .HasFilter("\"IsPoFirst\" = TRUE")
+                    .HasDatabaseName("IX_ProductionOrders_IsPoFirst_Partial");
+
+                // CrystallizedItemId — second FK to Items (distinct from ItemId).
+                // SET NULL on item delete so order history survives master
+                // archival. ItemId is configured Restrict in the first
+                // ProductionOrder config block (HasOne(x => x.Item)); EF merges
+                // the blocks, so this FK needs its own WithMany() to
+                // disambiguate the two Item relationships.
+                e.HasOne(x => x.CrystallizedItem)
+                    .WithMany()
+                    .HasForeignKey(x => x.CrystallizedItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CrystallizedItemId)
+                    .HasFilter("\"CrystallizedItemId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionOrders_CrystallizedItemId_Partial");
             });
 
             // Sprint 14.1 PR-1 (2026-05-26) — ProductionMaterialStructure.

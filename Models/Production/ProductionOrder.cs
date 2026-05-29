@@ -425,6 +425,132 @@ namespace Abs.FixedAssets.Models.Production
         // CHECK constraint enforced in the migration.
         public ProjectPostingMode? ProjectPostingMode { get; set; }
 
+        // ----- Theme B7 Wave A PR-2 — master-optional (PoFirst) identity -----
+        //
+        // PO-as-Standard / ETO: a PoFirst order builds from the PO itself; the
+        // Item Master is OPTIONAL at release (ItemId == null) and crystallizes
+        // at ship into CrystallizedItemId (Wave B). The order's frozen
+        // BOM + Routing IS the standard during the build. This is the claim no
+        // incumbent (SAP/Oracle/Epicor/Infor/Plex/IFS) can make — they force a
+        // material master before you can release.
+        //
+        // In lieu of an Item Master, a PoFirst order carries its own as-planned
+        // identity: drawing number + rev are MANDATORY at release (AS9100
+        // §8.5.2 — production must run against a defined, revision-controlled
+        // configuration), part number + description are optional descriptors.
+        // See docs/research/po-as-standard-make-or-buy-dean-research.md §2/§6
+        // and docs/research/b7-cascade-design.md (Wave A PR-2).
+        //
+        // NOTE distinct from DrawingRevision/WorkInstructionsRevision above:
+        // those are the IN-FORCE revisions populated at release from the Item's
+        // current revision or a linked DocumentVersion (StandardFirst path).
+        // The AsPlanned* fields are the order's OWN identity when there is no
+        // Item to inherit from (PoFirst path).
+
+        /// <summary>
+        /// B7 — true when this order builds master-optional (PO-as-Standard / ETO).
+        /// A PoFirst order may carry <see cref="ItemId"/> == null at release and
+        /// crystallizes its master at ship (see <see cref="CrystallizedItemId"/>).
+        /// Defaults false (classic StandardFirst — master required).
+        /// </summary>
+        [Display(Name = "Is PO-First (master-optional)")]
+        public bool IsPoFirst { get; set; } = false;
+
+        /// <summary>
+        /// B7 — as-planned part number the PoFirst order carries in lieu of an
+        /// Item Master. Optional descriptor (drawing number + rev are the
+        /// release-mandatory identity).
+        /// </summary>
+        [StringLength(64)]
+        [Display(Name = "As-Planned Part #")]
+        public string? AsPlannedPartNumber { get; set; }
+
+        /// <summary>
+        /// B7 — as-planned drawing number. MANDATORY at release for a PoFirst
+        /// order (AS9100 §8.5.2 configuration anchor).
+        /// </summary>
+        [StringLength(64)]
+        [Display(Name = "As-Planned Drawing #")]
+        public string? AsPlannedDrawingNumber { get; set; }
+
+        /// <summary>
+        /// B7 — as-planned drawing revision. MANDATORY at release for a PoFirst
+        /// order — production runs against a revision-controlled configuration.
+        /// </summary>
+        [StringLength(16)]
+        [Display(Name = "As-Planned Drawing Rev")]
+        public string? AsPlannedDrawingRev { get; set; }
+
+        /// <summary>B7 — free-text as-planned description for the PoFirst build.</summary>
+        [StringLength(500)]
+        [Display(Name = "As-Planned Description")]
+        public string? AsPlannedDescription { get; set; }
+
+        /// <summary>
+        /// B7 — set by Wave B crystallization at ship: the minted/linked Item
+        /// Master that this PoFirst order's as-built BOM + Routing + actual cost
+        /// crystallized into. NULL until crystallized; SET NULL on item delete so
+        /// the order's history survives master archival. Distinct from
+        /// <see cref="ItemId"/> (the principal-material FK, which stays null for
+        /// PoFirst orders).
+        /// </summary>
+        [Display(Name = "Crystallized Item")]
+        public int? CrystallizedItemId { get; set; }
+        public Item? CrystallizedItem { get; set; }
+
+        /// <summary>
+        /// B7 release guard — a PoFirst (master-optional) order MUST carry an
+        /// as-planned drawing number + rev before it can be released. A
+        /// StandardFirst order is unaffected (returns true). Pure/static for
+        /// reuse in the release write path and unit tests — mirrors
+        /// <see cref="Item.ValidateSourcePatternCarveout"/>.
+        /// </summary>
+        public static bool ValidatePoFirstReleaseReadiness(
+            bool isPoFirst,
+            string? asPlannedDrawingNumber,
+            string? asPlannedDrawingRev,
+            out string error)
+        {
+            error = string.Empty;
+            if (!isPoFirst)
+                return true; // StandardFirst — release gate handled elsewhere.
+
+            if (string.IsNullOrWhiteSpace(asPlannedDrawingNumber)
+                || string.IsNullOrWhiteSpace(asPlannedDrawingRev))
+            {
+                error = "A PO-First (master-optional) order requires an as-planned " +
+                        "drawing number AND revision before release — production must " +
+                        "run against a defined, revision-controlled configuration " +
+                        "(AS9100 §8.5.2). Set AsPlannedDrawingNumber + AsPlannedDrawingRev first.";
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// B7 create/edit guard — a PoFirst (master-optional) order builds from
+        /// the PO; it must NOT carry a principal <see cref="ItemId"/> (the master
+        /// crystallizes at ship into <see cref="CrystallizedItemId"/>). Returns
+        /// false + message when both are set. Pure/static for reuse + tests.
+        /// </summary>
+        public static bool ValidatePoFirstHasNoPrincipalItem(
+            bool isPoFirst,
+            int? itemId,
+            out string error)
+        {
+            error = string.Empty;
+            if (isPoFirst && itemId.HasValue)
+            {
+                error = "A PO-First (master-optional) order builds from the PO itself — " +
+                        "leave the principal Item null. The Item Master crystallizes at " +
+                        "ship into CrystallizedItemId (Wave B). If you need a master at " +
+                        "release, use a StandardFirst order instead.";
+                return false;
+            }
+            return true;
+        }
+
         // Audit fields — same convention as WorkOrder.
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
