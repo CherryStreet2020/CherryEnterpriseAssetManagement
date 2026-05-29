@@ -67,8 +67,6 @@ public sealed class OperationRequirementProbeModel : PageModel
 
     public async Task OnGetAsync(CancellationToken ct) => await LoadStatsAsync(ct);
 
-    private int CompanyId() => _tenant.VisibleCompanyIds.FirstOrDefault();
-
     private IQueryable<OperationCapabilityRequirement> ScopedReqs() =>
         _db.OperationCapabilityRequirements.Where(r => _tenant.VisibleCompanyIds.Contains(r.CompanyId));
 
@@ -81,6 +79,13 @@ public sealed class OperationRequirementProbeModel : PageModel
 
     private Task<RoutingOperation?> LatestOpAsync(CancellationToken ct) =>
         ScopedOps().OrderByDescending(o => o.Id).FirstOrDefaultAsync(ct);
+
+    // The op's OWN company (via its Routing) — NOT the tenant's first visible
+    // company. In a multi-company tenant the latest op may belong to any visible
+    // company; writes must be stamped with that op's company so the requirement
+    // and its capability land under the right tenant (Codex R3-8 P2 / R1-2 lesson).
+    private Task<int> OpCompanyAsync(RoutingOperation op, CancellationToken ct) =>
+        _db.Routings.Where(r => r.Id == op.RoutingId).Select(r => r.CompanyId).FirstAsync(ct);
 
     private async Task LoadStatsAsync(CancellationToken ct)
     {
@@ -119,11 +124,9 @@ public sealed class OperationRequirementProbeModel : PageModel
     // 1) Latest op REQUIRES the 5-axis milling capability (machine-side)
     public async Task<IActionResult> OnPostRequireMachineAsync(CancellationToken ct)
     {
-        var companyId = CompanyId();
-        if (companyId == 0) { Set(false, "No tenant-visible company."); await LoadStatsAsync(ct); return Page(); }
-
         var op = await LatestOpAsync(ct);
         if (op == null) { Set(false, "No RoutingOperation in tenant — seed a routing first."); await LoadStatsAsync(ct); return Page(); }
+        var companyId = await OpCompanyAsync(op, ct);
 
         var cap = await EnsureCapabilityAsync(companyId, "MILL-5AX-SIM", "5-axis simultaneous milling",
             CapabilityCategory.Machining, special: false, needsQual: false, std: null, ct);
@@ -157,11 +160,9 @@ public sealed class OperationRequirementProbeModel : PageModel
     // 2) Backfill the latest op's RequiredSkillCodes CSV into FK-backed LaborSkill requirements
     public async Task<IActionResult> OnPostBackfillCsvAsync(CancellationToken ct)
     {
-        var companyId = CompanyId();
-        if (companyId == 0) { Set(false, "No tenant-visible company."); await LoadStatsAsync(ct); return Page(); }
-
         var op = await LatestOpAsync(ct);
         if (op == null) { Set(false, "No RoutingOperation in tenant — seed a routing first."); await LoadStatsAsync(ct); return Page(); }
+        var companyId = await OpCompanyAsync(op, ct);
 
         // Stamp a realistic legacy CSV if the op has none, so the conversion path is demonstrable.
         var stamped = false;
@@ -211,11 +212,9 @@ public sealed class OperationRequirementProbeModel : PageModel
     // 3) Latest op REQUIRES the AWS D17.1 special process (must be a qualified, in-cert resource)
     public async Task<IActionResult> OnPostRequireSpecialProcessAsync(CancellationToken ct)
     {
-        var companyId = CompanyId();
-        if (companyId == 0) { Set(false, "No tenant-visible company."); await LoadStatsAsync(ct); return Page(); }
-
         var op = await LatestOpAsync(ct);
         if (op == null) { Set(false, "No RoutingOperation in tenant — seed a routing first."); await LoadStatsAsync(ct); return Page(); }
+        var companyId = await OpCompanyAsync(op, ct);
 
         var cap = await EnsureCapabilityAsync(companyId, "WELD-AWS-D17.1-AL", "AWS D17.1 aluminum TIG welding",
             CapabilityCategory.Welding, special: true, needsQual: true, std: "AWS D17.1", ct);
