@@ -1,0 +1,101 @@
+@page "/Admin/ProductionResourceProbe"
+@model Abs.FixedAssets.Pages.Admin.ProductionResourceProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Production Resource Probe";
+    ViewData["TabTitle"] = "Production Resource Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R2-4 — ProductionResource ↔ Asset bridge (opens Wave R2).
+    The schedulable resource record: machine/labor/tool/vendor/location/cell,
+    assignable to a Work Center, bridged to an EAM Asset for machines. Dual
+    identity, never duplicated.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Production Resource Probe — B11 R2-4</h1>
+        <p class="ds-page-header__subtitle">
+            "Three objects, three jobs": the Machine/Resource executes — and a machine is also
+            an EAM Asset. ProductionResource carries the scheduling/dispatch/cost identity and
+            bridges to the Asset (machines); labor/tool/vendor resources schedule without an asset.
+            This opens Wave R2 — the resource layer the finite scheduler (R4) loads against.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant resource stats</h2>
+            <p class="ds-text-muted">
+                Resources: <strong>@Model.TotalResources</strong> ·
+                Machines: <strong>@Model.MachineCount</strong> ·
+                Labor: <strong>@Model.LaborCount</strong> ·
+                With an Asset: <strong>@Model.WithAssetCount</strong> ·
+                Assigned to a WC: <strong>@Model.AssignedToWcCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Resource flow (assigns to the latest Work Center)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="CreateMachine" class="ds-btn ds-btn--primary">1 · Create machine resource (Asset-bridged)</button>
+                <button type="submit" asp-page-handler="CreateLabor" class="ds-btn">2 · Create labor resource (no Asset)</button>
+                <button type="submit" asp-page-handler="SetEffective" class="ds-btn">3 · Set effective window + primary</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample resources (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No production resources yet — create one with button 1 or 2.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Name</th><th>Kind</th><th>Asset</th><th>WC</th><th>Primary</th><th>Finite</th><th>Cost/hr</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@r.Name</td>
+                                <td>@r.Kind</td>
+                                <td>@(r.AssetId?.ToString() ?? "—")</td>
+                                <td>@(r.WorkCenterId?.ToString() ?? "—")</td>
+                                <td>@(r.IsPrimary ? "✓" : "—")</td>
+                                <td>@(r.Finite ? "✓" : "—")</td>
+                                <td>@r.CostRate.ToString("C")</td>
+                                <td>@r.Status</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

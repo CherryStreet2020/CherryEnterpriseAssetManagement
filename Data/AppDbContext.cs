@@ -191,6 +191,9 @@ namespace Abs.FixedAssets.Data
         // B11 R1-2 — alternate-routing links (WC spill targets for the R4 scheduler).
         public DbSet<Abs.FixedAssets.Models.Production.WorkCenterAlternate> WorkCenterAlternates
             => Set<Abs.FixedAssets.Models.Production.WorkCenterAlternate>();
+        // B11 R2-4 — schedulable production resources (machine/labor/tool/vendor, bridged to Asset).
+        public DbSet<Abs.FixedAssets.Models.Production.ProductionResource> ProductionResources
+            => Set<Abs.FixedAssets.Models.Production.ProductionResource>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3509,6 +3512,37 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.AlternateWorkCenterId)
                     .OnDelete(DeleteBehavior.Restrict);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R2-4 — ProductionResource (schedulable resource ↔ Asset bridge).
+            // All enum defaults are value-0 sentinels and the table is NEW (no
+            // backfill), so no HasDefaultValue overrides are needed.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionResource>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ResourceKind);
+                e.HasIndex(x => new { x.CompanyId, x.Code })
+                    .IsUnique()
+                    .HasDatabaseName("UX_ProductionResources_Company_Code");
+                e.HasIndex(x => x.WorkCenterId)
+                    .HasFilter("\"WorkCenterId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_WorkCenter_Partial");
+                e.HasIndex(x => x.AssetId)
+                    .HasFilter("\"AssetId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_Asset_Partial");
+
+                // EAM bridge — SET NULL so the resource survives asset archival.
+                e.HasOne(x => x.Asset)
+                    .WithMany()
+                    .HasForeignKey(x => x.AssetId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                // WC assignment — SET NULL so the resource survives a WC retirement.
+                e.HasOne(x => x.WorkCenter)
+                    .WithMany()
+                    .HasForeignKey(x => x.WorkCenterId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
