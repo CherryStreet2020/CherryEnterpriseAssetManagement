@@ -498,6 +498,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<POChangeHistory> POChangeHistories => Set<POChangeHistory>();
         public DbSet<POChangeHistoryLine> POChangeHistoryLines => Set<POChangeHistoryLine>();
 
+        // Sprint 15.4 PR-18 — Vendor Performance / Scorecard (SupplierPerformance).
+        // Computed snapshot of OTD %, quality PPM, price variance %, and NCR
+        // count per (Vendor, PeriodType) rolling window. One IsCurrent snapshot
+        // per pair; history preserved. Feeds §21 tab 13 + PR-20 quote ranker.
+        public DbSet<SupplierPerformance> SupplierPerformances => Set<SupplierPerformance>();
+
         // Sprint 12A PR #6 — ASN domain entity (first-class) + lines.
         // Replaces the placeholder "ASN:" prefix on StockReceipt.SourcePoNumber.
         // Real EDI 856 ingestion + AS2 trading-partner pipeline lands in
@@ -6008,6 +6014,45 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.PurchaseOrderLineId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ─── Sprint 15.4 PR-18 — SupplierPerformance scorecard snapshot ─────
+            // Computed OTD % / quality PPM / price variance % / NCR count per
+            // (Vendor, PeriodType) rolling window. One IsCurrent snapshot per
+            // pair (filtered unique index); history preserved. Feeds §21 tab 13
+            // and the PR-20 quote ranker.
+            modelBuilder.Entity<SupplierPerformance>(e =>
+            {
+                // NB: PeriodType deliberately has NO HasDefaultValue. It is a
+                // required discriminator dimension always set explicitly by the
+                // service. A DB default would make EF treat the CLR sentinel
+                // (Rolling30Days = 0) as "unset" and silently rewrite a
+                // Rolling30Days recompute to the default — a data-corruption bug.
+                e.Property(x => x.IsCurrent).HasDefaultValue(true);
+
+                e.HasIndex(x => x.VendorId);
+                e.HasIndex(x => new { x.VendorId, x.PeriodType });
+
+                // One IsCurrent snapshot per (Vendor, PeriodType) at the DB
+                // level — two concurrent RecomputeAsync calls for the same pair
+                // would otherwise both insert IsCurrent=true. The filtered
+                // unique index makes the second commit fail 23505, which the
+                // service surfaces as a retry message (mirrors PR-16 pattern).
+                e.HasIndex(x => new { x.VendorId, x.PeriodType })
+                    .HasDatabaseName("UX_SupplierPerformances_Vendor_Period_IsCurrent")
+                    .IsUnique()
+                    .HasFilter("\"IsCurrent\" = TRUE");
+
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                e.MapXminRowVersion(x => x.RowVersion);
             });
         }
 

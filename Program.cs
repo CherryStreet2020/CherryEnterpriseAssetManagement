@@ -676,6 +676,16 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAcknowledgment
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAmendmentService,
     Abs.FixedAssets.Services.Purchasing.PoAmendmentService>();
 
+// Sprint 15.4 PR-18 (2026-05-28) — Vendor Performance / Scorecard service.
+// Mostly-read aggregate: RecomputeAsync derives OTD % / quality PPM / purchase
+// price variance % / supplier NCR count from receipts, POs, item standard cost,
+// and CARs, then freezes a SupplierPerformance snapshot per (Vendor, PeriodType)
+// rolling window (Rolling30 / Rolling90 / YTD). One IsCurrent snapshot per pair
+// (filtered unique index). Feeds §21 tab 13 (Supplier Performance) and exposes
+// GetCompositeInputsAsync — the three ranker inputs PR-20's quote ranker reads.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.ISupplierPerformanceService,
+    Abs.FixedAssets.Services.Purchasing.SupplierPerformanceService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

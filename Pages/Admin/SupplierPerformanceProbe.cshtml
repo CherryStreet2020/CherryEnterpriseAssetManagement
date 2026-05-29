@@ -1,0 +1,155 @@
+@page "/Admin/SupplierPerformanceProbe"
+@model Abs.FixedAssets.Pages.Admin.SupplierPerformanceProbeModel
+@{
+    ViewData["Title"] = "Supplier Performance / Scorecard Probe";
+    ViewData["TabTitle"] = "Supplier Performance Probe";
+    Layout = "_ModernLayout";
+}
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Supplier Performance / Scorecard Probe</h1>
+        <p class="ds-page-header__subtitle">
+            Sprint 15.4 PR-18 — derives OTD %, quality PPM, purchase price variance %,
+            and supplier NCR count from receipts, POs, item standard cost, and CARs,
+            then freezes a SupplierPerformance snapshot per (Vendor, PeriodType) rolling
+            window (Rolling30 / Rolling90 / YTD). One IsCurrent snapshot per pair.
+            GetCompositeInputs exposes the three ranker inputs PR-20's quote ranker reads.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (!string.IsNullOrEmpty(Model.Outcome))
+    {
+        <section class="ds-card ds-mt-3"><div class="ds-card__body">
+            @if (Model.OutcomeIsError)
+            { <p class="ds-text-danger" data-testid="sperf-outcome-error">@Model.Outcome</p> }
+            else
+            { <p class="ds-text-success" data-testid="sperf-outcome-ok">@Model.Outcome</p> }
+        </div></section>
+    }
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">Summary Stats</h2>
+        <table class="ds-table">
+            <tbody>
+                <tr><td>Total snapshots</td><td data-testid="sperf-total">@Model.TotalSnapshots</td></tr>
+                <tr><td>Current snapshots</td><td data-testid="sperf-current">@Model.CurrentSnapshots</td></tr>
+                <tr><td>Current · Rolling 30d</td><td data-testid="sperf-r30">@Model.Rolling30Count</td></tr>
+                <tr><td>Current · Rolling 90d</td><td data-testid="sperf-r90">@Model.Rolling90Count</td></tr>
+                <tr><td>Current · Year to date</td><td data-testid="sperf-ytd">@Model.YtdCount</td></tr>
+            </tbody>
+        </table>
+        @if (Model.Vendors.Count > 0)
+        {
+            <h3 class="ds-h3 ds-mt-3">Vendors with PO activity (top 50)</h3>
+            <ul>
+                @foreach (var v in Model.Vendors)
+                {
+                    <li>@v.Display</li>
+                }
+            </ul>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W1. Recompute (single supplier + period)</h2>
+        <p class="ds-text-muted">Derives the four metrics in the window, flips the prior IsCurrent snapshot, inserts a fresh one.</p>
+        <form method="post" asp-page-handler="Recompute">
+            <div class="ds-form-row"><label class="ds-label">Vendor ID</label><input type="number" class="ds-input" asp-for="RecomputeVendorId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Period</label>
+                <select class="ds-input" asp-for="RecomputePeriod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.SupplierPerformancePeriod>()"></select>
+            </div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-recompute">Recompute Snapshot</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">W2. Recompute All (every supplier with PO activity)</h2>
+        <p class="ds-text-muted">Loops all in-scope vendors for the chosen period. Returns count written.</p>
+        <form method="post" asp-page-handler="RecomputeAll">
+            <div class="ds-form-row"><label class="ds-label">Period</label>
+                <select class="ds-input" asp-for="RecomputeAllPeriod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.SupplierPerformancePeriod>()"></select>
+            </div>
+            <button type="submit" class="ds-btn ds-btn-primary" data-testid="btn-recompute-all">Recompute All</button>
+        </form>
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R1. Load Current Snapshot</h2>
+        <form method="post" asp-page-handler="LoadCurrent">
+            <div class="ds-form-row"><label class="ds-label">Vendor ID</label><input type="number" class="ds-input" asp-for="CurrentVendorId" /></div>
+            <div class="ds-form-row"><label class="ds-label">Period</label>
+                <select class="ds-input" asp-for="CurrentPeriod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.SupplierPerformancePeriod>()"></select>
+            </div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-current">Load Current</button>
+        </form>
+        @if (Model.LastCurrent is { } c)
+        {
+            <table class="ds-table ds-mt-2">
+                <tbody>
+                    <tr><td>Window</td><td data-testid="sperf-cur-window">@c.PeriodStartUtc.ToString("yyyy-MM-dd") → @c.PeriodEndUtc.ToString("yyyy-MM-dd")</td></tr>
+                    <tr><td>On-time delivery %</td><td data-testid="sperf-cur-otd">@(c.OnTimeDeliveryPct?.ToString("N2") ?? "—")</td></tr>
+                    <tr><td>Quality PPM</td><td data-testid="sperf-cur-ppm">@(c.QualityPPM?.ToString("N0") ?? "—")</td></tr>
+                    <tr><td>Price variance %</td><td data-testid="sperf-cur-ppv">@(c.PriceVariancePct?.ToString("N2") ?? "—")</td></tr>
+                    <tr><td>NCR count</td><td data-testid="sperf-cur-ncr">@c.NcrCount</td></tr>
+                    <tr><td>Receipt events (OTD basis)</td><td>@c.ReceiptEventsTotal (@c.ReceiptEventsOnTime on time)</td></tr>
+                    <tr><td>Qty received / rejected</td><td>@c.QuantityReceivedTotal.ToString("N2") / @c.QuantityRejectedTotal.ToString("N2")</td></tr>
+                    <tr><td>PPV basis lines</td><td>@c.PriceVarianceBasisLineCount (std @c.StandardCostBasisAmount.ToString("N2") vs actual @c.ActualCostAmount.ToString("N2"))</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R2. Load Scorecard (all suppliers, worst OTD first)</h2>
+        <form method="post" asp-page-handler="LoadScorecard">
+            <div class="ds-form-row"><label class="ds-label">Period</label>
+                <select class="ds-input" asp-for="ScorecardPeriod" asp-items="Html.GetEnumSelectList<Abs.FixedAssets.Models.SupplierPerformancePeriod>()"></select>
+            </div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-scorecard">Load Scorecard</button>
+        </form>
+        @if (Model.LastScorecard is { Count: > 0 } rows)
+        {
+            <table class="ds-table ds-mt-2">
+                <thead><tr><th>Supplier</th><th>OTD %</th><th>PPM</th><th>Price var %</th><th>NCRs</th><th>Receipts</th></tr></thead>
+                <tbody>
+                @foreach (var r in rows)
+                {
+                    <tr data-testid="sperf-scorecard-@r.VendorId">
+                        <td>@r.VendorName</td>
+                        <td>@(r.OnTimeDeliveryPct?.ToString("N1") ?? "—")</td>
+                        <td>@(r.QualityPPM?.ToString("N0") ?? "—")</td>
+                        <td>@(r.PriceVariancePct?.ToString("N1") ?? "—")</td>
+                        <td>@r.NcrCount</td>
+                        <td>@r.ReceiptEventsTotal</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+    <section class="ds-card ds-mt-3"><div class="ds-card__body">
+        <h2 class="ds-h2">R3. Load Composite Inputs (PR-20 ranker hook)</h2>
+        <p class="ds-text-muted">Returns the three Rolling90Days inputs the RFQ quote ranker consumes.</p>
+        <form method="post" asp-page-handler="LoadComposite">
+            <div class="ds-form-row"><label class="ds-label">Vendor ID</label><input type="number" class="ds-input" asp-for="CompositeVendorId" /></div>
+            <button type="submit" class="ds-btn" data-testid="btn-load-composite">Load Composite Inputs</button>
+        </form>
+        @if (Model.LastComposite is { } ci)
+        {
+            <table class="ds-table ds-mt-2">
+                <tbody>
+                    <tr><td>Has current snapshot</td><td data-testid="sperf-comp-has">@ci.HasCurrentSnapshot</td></tr>
+                    <tr><td>OTD %</td><td data-testid="sperf-comp-otd">@(ci.OnTimeDeliveryPct?.ToString("N2") ?? "—")</td></tr>
+                    <tr><td>Quality PPM</td><td data-testid="sperf-comp-ppm">@(ci.QualityPPM?.ToString("N0") ?? "—")</td></tr>
+                    <tr><td>Price variance %</td><td data-testid="sperf-comp-ppv">@(ci.PriceVariancePct?.ToString("N2") ?? "—")</td></tr>
+                </tbody>
+            </table>
+        }
+    </div></section>
+
+</main>
