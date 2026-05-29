@@ -197,6 +197,11 @@ namespace Abs.FixedAssets.Data
         // B11 R2-5 — tool/fixture master (replaces CSV RequiredToolingIds).
         public DbSet<Abs.FixedAssets.Models.Production.Tool> Tools
             => Set<Abs.FixedAssets.Models.Production.Tool>();
+        // B7 Wave C — make-or-buy decision audit record + per-tenant policy.
+        public DbSet<Abs.FixedAssets.Models.Production.MakeBuyDecision> MakeBuyDecisions
+            => Set<Abs.FixedAssets.Models.Production.MakeBuyDecision>();
+        public DbSet<Abs.FixedAssets.Models.Production.MakeBuyDecisionPolicy> MakeBuyDecisionPolicies
+            => Set<Abs.FixedAssets.Models.Production.MakeBuyDecisionPolicy>();
         // B11 R2-6 — per-resource availability deltas (downtime / maintenance / extra shift).
         public DbSet<Abs.FixedAssets.Models.Production.ResourceCalendarException> ResourceCalendarExceptions
             => Set<Abs.FixedAssets.Models.Production.ResourceCalendarException>();
@@ -3533,6 +3538,38 @@ namespace Abs.FixedAssets.Data
             // B11 R2-4 — ProductionResource (schedulable resource ↔ Asset bridge).
             // All enum defaults are value-0 sentinels and the table is NEW (no
             // backfill), so no HasDefaultValue overrides are needed.
+            // B7 Wave C — make-or-buy decision audit record. Item RESTRICT (item outlives
+            // decisions); ChosenSupplierId/ChosenQuoteId are snapshots (no FK). xmin concurrency.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MakeBuyDecision>(e =>
+            {
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => new { x.CompanyId, x.ItemId })
+                    .HasDatabaseName("IX_MakeBuyDecisions_Company_Item");
+                e.HasIndex(x => new { x.CompanyId, x.DecidedAtUtc })
+                    .HasDatabaseName("IX_MakeBuyDecisions_Company_DecidedAt");
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B7 Wave C — per-tenant/site make-or-buy policy. Two FILTERED unique indexes
+            // because a plain unique on a nullable SiteId would let Postgres treat NULLs as
+            // distinct (multiple company-default rows). One company-default (SiteId NULL) +
+            // one row per (CompanyId, SiteId) when SiteId is set.
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.MakeBuyDecisionPolicy>(e =>
+            {
+                e.HasIndex(x => x.CompanyId)
+                    .IsUnique()
+                    .HasFilter("\"SiteId\" IS NULL")
+                    .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Default");
+                e.HasIndex(x => new { x.CompanyId, x.SiteId })
+                    .IsUnique()
+                    .HasFilter("\"SiteId\" IS NOT NULL")
+                    .HasDatabaseName("UX_MakeBuyDecisionPolicies_Company_Site");
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.ProductionResource>(e =>
             {
                 e.HasIndex(x => x.CompanyId);
