@@ -290,6 +290,52 @@ namespace Abs.FixedAssets.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public ICollection<Asset> Assets { get; set; } = new List<Asset>();
+
+        // ===================================================================
+        // Theme B11 Wave R1-1 (2026-05-29) — production-org backbone.
+        //
+        // "Three objects, three jobs": Department organizes people, reporting,
+        // ownership, cost-center + location defaults (§0 of the resource-model
+        // spec). We EXTEND this existing entity (decision #2) rather than fork a
+        // parallel production-org hierarchy. Site→Dept→WC (no Division tier,
+        // decision #1) — nesting via ParentDepartmentId lets a Division-like
+        // grouping emerge as a parent department later without a new table.
+        // ===================================================================
+
+        /// <summary>
+        /// B11 — self-referencing parent for department nesting (Site→Dept→sub-Dept→WC).
+        /// RESTRICT on delete: a parent with children can't be removed out from under them.
+        /// </summary>
+        public int? ParentDepartmentId { get; set; }
+        public Department? ParentDepartment { get; set; }
+        public ICollection<Department> ChildDepartments { get; set; } = new List<Department>();
+
+        /// <summary>
+        /// B11 — site/plant this department belongs to (the "Site" in Site→Dept→WC).
+        /// Plain id for now (the Site-vs-Location FK is settled in R5); aligns with
+        /// Asset.SiteId by name.
+        /// </summary>
+        public int? SiteId { get; set; }
+
+        /// <summary>B11 — production supervisor (shop-floor lead). Mirrors the ManagerId id-reference pattern (no enforced FK in v1).</summary>
+        public int? SupervisorId { get; set; }
+
+        /// <summary>B11 — production planner/scheduler responsible for this department's work centers.</summary>
+        public int? PlannerId { get; set; }
+
+        /// <summary>B11 — default WorkCalendar for work centers in this department (per-WC override allowed). Plain id (mirrors WorkCenter.CalendarId).</summary>
+        public int? DefaultCalendarId { get; set; }
+
+        /// <summary>
+        /// B11 — true when this department is part of the production org backbone
+        /// (owns work centers / resources), as opposed to a pure finance/admin
+        /// cost-center department. Lets the WC/scheduling layer filter to real
+        /// shop departments without overloading the 14-value Type enum.
+        /// </summary>
+        public bool IsProductionDepartment { get; set; } = false;
+
+        // Concurrency token via Postgres xmin (project convention — never IsRowVersion()+bytea).
+        public byte[]? RowVersion { get; set; }
     }
 
     public enum DepartmentType
