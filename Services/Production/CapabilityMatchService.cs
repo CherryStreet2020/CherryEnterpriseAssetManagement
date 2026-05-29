@@ -51,15 +51,16 @@ namespace Abs.FixedAssets.Services.Production
                 join cap in _db.Capabilities on req.CapabilityId equals cap.Id
                 select new ReqInfo(
                     req.Id, req.CapabilityId, cap.Code, req.RequirementType, req.MinProficiency,
-                    req.IsMandatory, req.RequiredEnvelopeMin, req.RequiredEnvelopeMax))
+                    req.IsMandatory, req.RequiredEnvelopeMin, req.RequiredEnvelopeMax, req.ToolId))
                 .ToListAsync(ct);
 
             var mandatoryCount = requirements.Count(r => r.IsMandatory);
 
-            // 3) Candidate pool: Active resources in the op's company.
+            // 3) Candidate pool: Active resources in the op's company. ToolId is the
+            //    schedulable bridge to a Tool master — needed to honor pinned-tool requirements.
             var resources = await _db.ProductionResources
                 .Where(r => r.CompanyId == opInfo.CompanyId && r.Status == ProductionResourceStatus.Active)
-                .Select(r => new { r.Id, r.Code, r.Name, r.ResourceKind, r.WorkCenterId })
+                .Select(r => new { r.Id, r.Code, r.Name, r.ResourceKind, r.WorkCenterId, r.ToolId })
                 .ToListAsync(ct);
 
             // 4) All qualifications for those resources, in one query.
@@ -86,7 +87,7 @@ namespace Abs.FixedAssets.Services.Production
 
                 foreach (var req in requirements)
                 {
-                    var (satisfied, detail, proficiencyBonus) = Evaluate(req, held, asOf);
+                    var (satisfied, detail, proficiencyBonus) = Evaluate(req, held, res.ToolId, asOf);
                     matches.Add(new RequirementMatch(
                         req.RequirementId, req.CapabilityCode, req.RequirementType,
                         req.IsMandatory, satisfied, detail));
@@ -126,7 +127,7 @@ namespace Abs.FixedAssets.Services.Production
 
         /// <summary>Evaluate one requirement against a resource's held qualifications.</summary>
         private static (bool satisfied, string detail, int proficiencyBonus) Evaluate(
-            ReqInfo req, List<QualInfo> held, DateTime asOf)
+            ReqInfo req, List<QualInfo> held, int? resourceToolId, DateTime asOf)
         {
             var rc = held.FirstOrDefault(q => q.CapabilityId == req.CapabilityId);
             if (rc == null)
@@ -137,6 +138,12 @@ namespace Abs.FixedAssets.Services.Production
                 return (false, $"cert expired {rc.ExpiresOnUtc:yyyy-MM-dd}", 0);
             if (rc.Proficiency < req.MinProficiency)
                 return (false, $"proficiency {rc.Proficiency} < required {req.MinProficiency}", 0);
+
+            // Pinned tool: a requirement that names a specific Tool (R3-8) is satisfied
+            // only by the resource bridged to THAT tool (ProductionResource.ToolId), not
+            // by any resource that merely holds the tooling capability.
+            if (req.ToolId != null && resourceToolId != req.ToolId)
+                return (false, $"requires pinned tool #{req.ToolId} (resource bridges {(resourceToolId?.ToString() ?? "no tool")})", 0);
 
             // Parametric envelope: if the requirement bounds it, the resource's achieved
             // value must exist and fall within [min, max].
@@ -158,7 +165,7 @@ namespace Abs.FixedAssets.Services.Production
         private sealed record ReqInfo(
             int RequirementId, int CapabilityId, string CapabilityCode,
             CapabilityRequirementType RequirementType, CapabilityProficiency MinProficiency,
-            bool IsMandatory, decimal? RequiredEnvelopeMin, decimal? RequiredEnvelopeMax);
+            bool IsMandatory, decimal? RequiredEnvelopeMin, decimal? RequiredEnvelopeMax, int? ToolId);
 
         private sealed record QualInfo(
             int ResourceId, int CapabilityId, CapabilityProficiency Proficiency,
