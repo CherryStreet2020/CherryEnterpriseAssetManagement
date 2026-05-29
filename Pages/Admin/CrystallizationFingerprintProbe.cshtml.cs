@@ -156,7 +156,10 @@ public sealed class CrystallizationFingerprintProbeModel : PageModel
             CompanyId = pro.CompanyId,
             SiteId = pro.LocationId,
             SourceProductionOrderId = pro.Id,
-            CrystallizationNumber = $"CRYST-PEND-{Guid.NewGuid():N}",
+            // Placeholder must fit CrystallizationNumber's varchar(40). "CRYST-"
+            // (6) + 32-hex guid = 38 chars; patched to CRYST-YYYY-NNNNNN (17)
+            // after Id is assigned. ("CRYST-PEND-" + guid = 43 > 40 → 22001.)
+            CrystallizationNumber = $"CRYST-{Guid.NewGuid():N}",
             Outcome = CrystallizationOutcome.Pending,
             StructureFingerprintHash = fp,
             CostSource = CrystallizationCostSource.FirstActual,
