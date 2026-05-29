@@ -1,0 +1,97 @@
+@page "/Admin/ToolResourceProbe"
+@model Abs.FixedAssets.Pages.Admin.ToolResourceProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Tool + Resource Bridge Probe";
+    ViewData["TabTitle"] = "Tool + Resource Bridge Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R2-5 — Tool/Fixture master + Labor/Vendor/Tool resource bridges.
+    The Tool entity replaces the loose CSV RequiredToolingIds. ProductionResource
+    now bridges to Employee (labor), Vendor (subcontract), and Tool — reusing the
+    existing masters, no new HR/vendor model.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Tool + Resource Bridge Probe — B11 R2-5</h1>
+        <p class="ds-page-header__subtitle">
+            A first-class Tool/Fixture master (replacing CSV tooling text), and the resource
+            bridges that turn an Employee, a Vendor, or a Tool into a schedulable
+            ProductionResource — reusing the existing masters (PRA-8 Employee, purchasing Vendor).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant tool + bridge stats</h2>
+            <p class="ds-text-muted">
+                Tools: <strong>@Model.TotalTools</strong> ·
+                Tool resources: <strong>@Model.ToolResourceCount</strong> ·
+                Labor-bridged: <strong>@Model.LaborBridgedCount</strong> ·
+                Vendor-bridged: <strong>@Model.VendorBridgedCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tool + bridge flow</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="CreateTool" class="ds-btn ds-btn--primary">1 · Create tool (fixture)</button>
+                <button type="submit" asp-page-handler="CreateToolResource" class="ds-btn">2 · Create tool resource</button>
+                <button type="submit" asp-page-handler="BridgeLabor" class="ds-btn">3 · Bridge labor → Employee</button>
+                <button type="submit" asp-page-handler="BridgeVendor" class="ds-btn">4 · Bridge vendor → Vendor</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample resources (latest 15, tenant-scoped)</h2>
+            @if (Model.ResourceSample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No production resources with bridges yet — use buttons 2–4.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Kind</th><th>Asset</th><th>Employee</th><th>Vendor</th><th>Tool</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.ResourceSample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@r.Kind</td>
+                                <td>@(r.AssetId?.ToString() ?? "—")</td>
+                                <td>@(r.EmployeeId?.ToString() ?? "—")</td>
+                                <td>@(r.VendorId?.ToString() ?? "—")</td>
+                                <td>@(r.ToolId?.ToString() ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>

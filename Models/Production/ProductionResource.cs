@@ -77,6 +77,20 @@ public class ProductionResource
     public int? AssetId { get; set; }
     public Asset? Asset { get; set; }
 
+    // ── R2-5 bridges for non-machine kinds (each null unless the kind matches) ──
+
+    /// <summary>Labor resource → the Employee it represents (ResourceKind.Labor). SET NULL.</summary>
+    public int? EmployeeId { get; set; }
+    public Abs.FixedAssets.Models.Masters.Employee? Employee { get; set; }
+
+    /// <summary>Vendor resource → the outside-process Vendor (ResourceKind.Vendor). SET NULL.</summary>
+    public int? VendorId { get; set; }
+    public Abs.FixedAssets.Models.Vendor? Vendor { get; set; }
+
+    /// <summary>Tool resource → the Tool/Fixture master (ResourceKind.Tool). SET NULL.</summary>
+    public int? ToolId { get; set; }
+    public Tool? Tool { get; set; }
+
     // ── Work-center assignment ──────────────────────────────────
     /// <summary>The Work Center this resource is currently assigned to. SET NULL — a resource survives a WC retirement.</summary>
     public int? WorkCenterId { get; set; }
