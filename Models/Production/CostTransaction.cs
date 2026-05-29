@@ -170,6 +170,22 @@ public enum ProductionCostStatus
     ReopenedForAdjustment = 9,
 }
 
+/// <summary>
+/// B7 Wave A PR-3 — which baseline the close/variance engine measures actuals
+/// against for a Production Order. Decision #5: a PoFirst (master-optional) order
+/// has no item-master standard cost, so its variance "standard" is the PO estimate
+/// frozen at release (order-scoped, not item-master purchase-price variance).
+/// Value 0 (ItemMasterStandard) is the semantic default — no DB override needed.
+/// </summary>
+public enum VarianceBaselineMode
+{
+    /// <summary>Classic — measure actuals against the item-master standard cost (StandardFirst / repeat). Default.</summary>
+    ItemMasterStandard = 0,
+
+    /// <summary>ETO / PoFirst — measure actuals against the PO estimate frozen at release (no item master exists).</summary>
+    LockedPoEstimate = 1,
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // COST TRANSACTION — the atomic cost event
 // ═══════════════════════════════════════════════════════════════════
@@ -473,6 +489,21 @@ public class ProductionOrderCostSummary
     public decimal CostVariance { get; set; }
     [Column(TypeName = "decimal(18,2)")]
     public decimal MarginImpact { get; set; }
+
+    // ── B7 PR-3 — variance baseline (item-master standard vs locked PO estimate) ──
+    /// <summary>
+    /// Which baseline the variance/close engine measures actuals against. Default
+    /// <see cref="VarianceBaselineMode.ItemMasterStandard"/>; a PoFirst order is set
+    /// to <see cref="VarianceBaselineMode.LockedPoEstimate"/> at release (decision #5).
+    /// </summary>
+    public VarianceBaselineMode VarianceBaselineMode { get; set; } = VarianceBaselineMode.ItemMasterStandard;
+
+    /// <summary>
+    /// When the PO estimate was locked as the variance baseline (UTC). Set at release
+    /// for PoFirst orders; null for item-master-standard orders. The Estimated* fields
+    /// above are the frozen baseline — never overwritten by rollup.
+    /// </summary>
+    public DateTime? LockedEstimateCapturedUtc { get; set; }
 
     // ── WIP / completion / settlement ───────────────────────────
     [Column(TypeName = "decimal(18,2)")]

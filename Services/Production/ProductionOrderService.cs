@@ -39,6 +39,7 @@ public sealed class ProductionOrderService : IProductionOrderService
     private readonly ITenantContext _tenantContext;
     private readonly ICustomerProjectService _customerProjectService;
     private readonly Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService _chainOfCustody;
+    private readonly IProductionVarianceCloseService _varianceClose;
     private readonly ILogger<ProductionOrderService> _logger;
 
     public ProductionOrderService(
@@ -46,12 +47,14 @@ public sealed class ProductionOrderService : IProductionOrderService
         ITenantContext tenantContext,
         ICustomerProjectService customerProjectService,
         Abs.FixedAssets.Services.ChainOfCustody.IChainOfCustodyService chainOfCustody,
+        IProductionVarianceCloseService varianceClose,
         ILogger<ProductionOrderService> logger)
     {
         _db = db;
         _tenantContext = tenantContext;
         _customerProjectService = customerProjectService;
         _chainOfCustody = chainOfCustody;
+        _varianceClose = varianceClose;
         _logger = logger;
     }
 
@@ -355,6 +358,28 @@ public sealed class ProductionOrderService : IProductionOrderService
             order.ActualEnd = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
+
+        // B7 Wave A PR-3 — at release of a PoFirst (master-optional) order, lock its
+        // PO estimate as the variance baseline (decision #5): with no item-master
+        // standard cost, the frozen PO estimate IS the variance "standard". Failure-
+        // isolated (like the chain-of-custody emit above) so a cost-summary hiccup
+        // never blocks the release itself.
+        if (order.IsPoFirst && request.NewStatus == ProductionOrderStatus.Released)
+        {
+            try
+            {
+                await _varianceClose.LockEstimateBaselineAsync(
+                    order.Id, VarianceBaselineMode.LockedPoEstimate, request.ModifiedBy, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "PoFirst estimate-baseline lock failed for PRO {OrderId} at release. " +
+                    "Variance close will fall back to the default baseline until re-locked.",
+                    order.Id);
+            }
+        }
+
         return Result.Success(order);
     }
 

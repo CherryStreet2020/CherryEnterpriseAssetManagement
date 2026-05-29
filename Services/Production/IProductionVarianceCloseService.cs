@@ -28,6 +28,12 @@ public sealed class VarianceComputationResult
     public decimal TotalVariance { get; init; }
     public int FavorableCount { get; init; }
     public int UnfavorableCount { get; init; }
+
+    // B7 PR-3 — which baseline the actuals were measured against, so callers /
+    // cockpit / AS9100 audit can show "vs locked PO estimate" for PoFirst orders
+    // instead of implying an item-master standard that doesn't exist.
+    public VarianceBaselineMode BaselineMode { get; init; } = VarianceBaselineMode.ItemMasterStandard;
+    public DateTime? EstimateLockedUtc { get; init; }
 }
 
 /// <summary>Result of the close workflow.</summary>
@@ -51,6 +57,19 @@ public interface IProductionVarianceCloseService
     Task<Result<VarianceComputationResult>> ComputeVariancesAsync(
         int productionOrderId,
         string? computedBy,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// B7 PR-3 — lock the variance baseline for a Production Order. For a PoFirst
+    /// (master-optional) order this sets <see cref="VarianceBaselineMode.LockedPoEstimate"/>
+    /// and stamps <c>LockedEstimateCapturedUtc</c>, declaring the PO estimate frozen
+    /// at release as the variance "standard" (decision #5). Creates the cost summary
+    /// if one doesn't exist yet. Idempotent. Tenant-scoped.
+    /// </summary>
+    Task<Result<ProductionOrderCostSummary>> LockEstimateBaselineAsync(
+        int productionOrderId,
+        VarianceBaselineMode mode,
+        string? lockedBy,
         CancellationToken ct = default);
 
     // ── Close workflow ──────────────────────────────────────────

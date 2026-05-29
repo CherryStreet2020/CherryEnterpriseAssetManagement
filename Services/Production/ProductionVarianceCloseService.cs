@@ -57,6 +57,12 @@ public sealed class ProductionVarianceCloseService : IProductionVarianceCloseSer
         var variances = new List<ProductionVariance>();
         var ts = DateTime.UtcNow;
 
+        // B7 PR-3 — the variance MATH below is identical regardless of baseline mode:
+        // it always compares the frozen Estimated* fields to Actual*. The mode only
+        // RELABELS what Estimated* represents — for LockedPoEstimate it's the PO
+        // estimate frozen at release (no item master exists); for ItemMasterStandard
+        // it's the standard cost. The mode is surfaced in the result + close event so
+        // the cockpit / AS9100 audit shows the correct baseline source.
         var pro = await _db.Set<ProductionOrder>()
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
@@ -128,7 +134,80 @@ public sealed class ProductionVarianceCloseService : IProductionVarianceCloseSer
             TotalVariance = totalVar,
             FavorableCount = meaningful.Count(v => v.IsFavorable),
             UnfavorableCount = meaningful.Count(v => !v.IsFavorable && v.VarianceAmount != 0),
+            // B7 PR-3 — surface the baseline so callers can label the variance as
+            // "vs locked PO estimate" (PoFirst) vs "vs item-master standard".
+            BaselineMode = summary.VarianceBaselineMode,
+            EstimateLockedUtc = summary.LockedEstimateCapturedUtc,
         });
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CLOSE WORKFLOW — atomic
+    // ═══════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════
+    // LOCK ESTIMATE BASELINE — B7 PR-3 (decision #5)
+    // ═══════════════════════════════════════════════════════════════
+
+    public async Task<Result<ProductionOrderCostSummary>> LockEstimateBaselineAsync(
+        int productionOrderId, VarianceBaselineMode mode, string? lockedBy, CancellationToken ct = default)
+    {
+        var pro = await _db.Set<ProductionOrder>()
+            .FirstOrDefaultAsync(p => p.Id == productionOrderId, ct);
+        if (pro == null)
+            return Result.Failure<ProductionOrderCostSummary>($"PRO {productionOrderId} not found.");
+
+        // Idempotent baseline apply. The locked timestamp marks WHEN the PO estimate
+        // became the frozen variance baseline: preserved on re-lock, cleared when
+        // reverting to item-master standard so the field never claims a lock that
+        // isn't in force.
+        static void ApplyBaseline(ProductionOrderCostSummary s, VarianceBaselineMode m, string? by)
+        {
+            s.VarianceBaselineMode = m;
+            s.LockedEstimateCapturedUtc = m == VarianceBaselineMode.LockedPoEstimate
+                ? (s.LockedEstimateCapturedUtc ?? DateTime.UtcNow)
+                : null;
+            s.UpdatedAtUtc = DateTime.UtcNow;
+            s.UpdatedBy = by;
+        }
+
+        var summary = await _db.Set<ProductionOrderCostSummary>()
+            .FirstOrDefaultAsync(s => s.ProductionOrderId == productionOrderId, ct);
+        if (summary == null)
+        {
+            summary = new ProductionOrderCostSummary
+            {
+                CompanyId = pro.CompanyId,
+                ProductionOrderId = productionOrderId,
+            };
+            _db.Set<ProductionOrderCostSummary>().Add(summary);
+        }
+        ApplyBaseline(summary, mode, lockedBy);
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException) when (summary.Id == 0)
+        {
+            // Lost a create race on UX_ProCostSum_Company_PRO — another path (rollup /
+            // release / probe) inserted the summary first. This is a NEW concern now
+            // that the lock auto-fires at release. Detach our duplicate, reload the
+            // winner, re-apply the baseline, and save.
+            _db.Entry(summary).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+            var existing = await _db.Set<ProductionOrderCostSummary>()
+                .FirstOrDefaultAsync(s => s.ProductionOrderId == productionOrderId, ct);
+            if (existing == null) throw;
+            ApplyBaseline(existing, mode, lockedBy);
+            await _db.SaveChangesAsync(ct);
+            summary = existing;
+        }
+
+        _log.LogInformation(
+            "Variance baseline for PRO {ProId} locked to {Mode} (capturedUtc={Utc}) by {By}",
+            productionOrderId, mode, summary.LockedEstimateCapturedUtc, lockedBy ?? "system");
+
+        return Result.Success(summary);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -234,7 +313,11 @@ public sealed class ProductionVarianceCloseService : IProductionVarianceCloseSer
             CloseSuccessful = true,
             CloseMessage = $"PRO #{productionOrderId} closed. " +
                 $"Total variance: ${varianceResult.Value!.TotalVariance:N2} " +
-                $"({varianceResult.Value!.FavorableCount} favorable, {varianceResult.Value!.UnfavorableCount} unfavorable). " +
+                $"({varianceResult.Value!.FavorableCount} favorable, {varianceResult.Value!.UnfavorableCount} unfavorable) " +
+                // B7 PR-3 — record the baseline in the audit trail (AS9100): a PoFirst
+                // order's variance is measured against its locked PO estimate, not an
+                // item-master standard that never existed.
+                $"vs {(summary.VarianceBaselineMode == VarianceBaselineMode.LockedPoEstimate ? "locked PO estimate" : "item-master standard")}. " +
                 $"{varianceJeCount} variance JEs posted.",
             ClosedBy = closedBy,
         };
