@@ -243,6 +243,26 @@ namespace Abs.FixedAssets.Models
     }
 
     /// <summary>
+    /// Theme B7 (Wave B PR-6) — basis of an Item's standard cost. Value 0
+    /// (<c>Forecast</c>) is the semantic default (a freshly-estimated master),
+    /// so no DB override is needed beyond the EF zero-default. A crystallized
+    /// ETO master is born <c>FirstActual</c> (standard = first-unit actual,
+    /// §5.4) — "unvalidated for repeat" until a 2nd run or a deliberate
+    /// standard-set promotes it to <c>Validated</c>. See spec §5.4.
+    /// </summary>
+    public enum StandardCostBasis
+    {
+        /// <summary>Estimated / forecast standard (pre-production guess). Default.</summary>
+        Forecast = 0,
+
+        /// <summary>Standard = first-unit actual harvested at crystallization. Unvalidated for repeat.</summary>
+        FirstActual = 1,
+
+        /// <summary>Standard validated by a 2nd run or a deliberate cost-set. Trusted for repeat planning.</summary>
+        Validated = 2,
+    }
+
+    /// <summary>
     /// MRP lot-sizing rule. Determines the qty produced/purchased per supply order.
     /// SAP lot-size key / Oracle lot-for-lot vs. fixed lot / D365 reorder policy.
     /// </summary>
@@ -908,6 +928,16 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "Fixed Make Investment")]
         [Column(TypeName = "decimal(18,4)")]
         public decimal? FixedMakeInvestment { get; set; }
+
+        /// <summary>
+        /// B7 Wave B PR-6 — basis of this Item's standard cost. Default
+        /// <see cref="StandardCostBasis.Forecast"/>; a crystallized ETO master is
+        /// set to <see cref="StandardCostBasis.FirstActual"/> (standard = first-unit
+        /// actual, §5.4) and stays unvalidated for repeat until promoted to
+        /// <see cref="StandardCostBasis.Validated"/>.
+        /// </summary>
+        [Display(Name = "Standard Cost Basis")]
+        public StandardCostBasis StandardCostBasis { get; set; } = StandardCostBasis.Forecast;
 
         /// <summary>
         /// B7 carve-out guard — a PoFirst item must NOT be a stocking / replenished part.

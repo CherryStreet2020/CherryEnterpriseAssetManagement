@@ -1,0 +1,124 @@
+@page "/Admin/FirstActualCostProbe"
+@model Abs.FixedAssets.Pages.Admin.FirstActualCostProbeModel
+@using Abs.FixedAssets.Models
+@{
+    ViewData["Title"] = "First-Actual Cost Probe";
+    ViewData["TabTitle"] = "First-Actual Cost Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave B PR-6 — first-actual cost seeding + StandardCostBasis flag (CLOSES Wave B).
+    A crystallized ETO master's standard cost = first-unit actual (§5.4), broken into the
+    8-element ItemStandardCostElement split, flagged StandardCostBasis=FirstActual until
+    a 2nd run / deliberate set promotes it to Validated.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">First-Actual Cost Probe — B7 PR-6</h1>
+        <p class="ds-page-header__subtitle">
+            A crystallized ETO master is born with its standard cost = first-unit actual,
+            decomposed into the SAP-style cost-component split and flagged FirstActual —
+            "unvalidated for repeat" until a 2nd run or a deliberate cost-set promotes it.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant items by standard-cost basis</h2>
+            <p class="ds-text-muted">
+                Forecast: <strong>@Model.ForecastCount</strong> ·
+                FirstActual: <strong>@Model.FirstActualCount</strong> ·
+                Validated: <strong>@Model.ValidatedCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Cost basis flow</h2>
+            <p class="ds-text-muted">Blank Item Id = latest crystallized (CreatedNewItem) Item. Crystallize a PoFirst PRO on the Crystallization Service Probe first to seed the element split.</p>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ItemId">Target Item Id (optional)</label>
+                    <input type="number" id="ItemId" name="ItemId" value="@(Model.ItemId > 0 ? Model.ItemId.ToString() : string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="Show" class="ds-btn">1 · Show breakdown</button>
+                    <button type="submit" asp-page-handler="Promote" class="ds-btn ds-btn--primary">2 · Promote → Validated</button>
+                    <button type="submit" asp-page-handler="Reset" class="ds-btn ds-btn--warning">3 · Reset → FirstActual</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.ShownItemId != null)
+    {
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Item #@Model.ShownItemId (@Model.ShownPartNumber)</h2>
+                <p class="ds-text-muted">
+                    Standard-cost basis:
+                    @if (Model.ShownBasis == StandardCostBasis.Validated)
+                    {
+                        <span class="ds-badge ds-badge--success">Validated</span>
+                    }
+                    else if (Model.ShownBasis == StandardCostBasis.FirstActual)
+                    {
+                        <span class="ds-badge ds-badge--info">FirstActual</span>
+                    }
+                    else
+                    {
+                        <span class="ds-badge">Forecast</span>
+                    }
+                    · Scalar standard cost: <strong>@Model.ShownScalarStandardCost.ToString("C")</strong>
+                </p>
+                <h3 class="ds-h3">Cost-element split (@Model.Elements.Count)</h3>
+                @if (Model.Elements.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No active cost elements — crystallize a PoFirst PRO with posted actuals to seed the split.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead><tr><th>Element</th><th>Amount / ea</th><th>Source</th><th>Calculation</th></tr></thead>
+                        <tbody>
+                            @foreach (var e in Model.Elements)
+                            {
+                                <tr>
+                                    <td>@e.Type</td>
+                                    <td>@e.Amount.ToString("C")</td>
+                                    <td>@e.Source</td>
+                                    <td class="ds-text-muted">@(e.Notes ?? "—")</td>
+                                </tr>
+                            }
+                            <tr>
+                                <td><strong>Total</strong></td>
+                                <td><strong>@Model.ElementsTotal.ToString("C")</strong></td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </section>
+    }
+</main>

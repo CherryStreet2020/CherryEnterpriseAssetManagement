@@ -3496,6 +3496,10 @@ namespace Abs.FixedAssets.Data
                 // for the Make-or-Buy decision service + PoFirst queries.
                 e.HasIndex(x => x.SourcePattern);
                 e.HasIndex(x => x.MakeBuyPolicy);
+                // Theme B7 Wave B PR-6 — StandardCostBasis.Forecast = 0 aligns with the
+                // EF-auto zero default (same PR-FS-7 lesson as the PR-1 enums): NO
+                // HasDefaultValue override, just an index for cost-basis filtering.
+                e.HasIndex(x => x.StandardCostBasis);
                 e.HasIndex(x => x.IsSourceControlled);
                 e.HasIndex(x => x.ItemFamily);
                 e.HasIndex(x => x.IsSellable);
