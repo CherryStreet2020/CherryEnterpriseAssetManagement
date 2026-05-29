@@ -76,12 +76,18 @@ public class EditModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
     {
-        await LoadPickersAsync(ct);
+        if (IsNew) { await LoadPickersAsync(Company(), ct); return Page(); }
 
-        if (!IsNew)
+        var w = await _db.WorkCenters.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, ct);
+        // Tenant scope: never load a work center outside the caller's visible companies.
+        if (w == null || !_tenant.VisibleCompanyIds.Contains(w.CompanyId))
         {
-            var w = await _db.WorkCenters.AsNoTracking().FirstOrDefaultAsync(x => x.Id == Id, ct);
-            if (w == null) { ErrorMessage = "Work center not found."; return Page(); }
+            ErrorMessage = "Work center not found.";
+            await LoadPickersAsync(Company(), ct);
+            return Page();
+        }
+        await LoadPickersAsync(w.CompanyId, ct);
+        {
             Code = w.Code; Name = w.Name; Description = w.Description; Type = w.Type;
             CapacityModel = w.CapacityModel; LocationId = w.LocationId;
             OwningDepartmentId = w.OwningDepartmentId; CalendarId = w.CalendarId;
@@ -97,36 +103,38 @@ public class EditModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken ct)
     {
-        var companyId = Company();
-        if (companyId <= 0) { ErrorMessage = "No company in your tenant scope."; await LoadPickersAsync(ct); return Page(); }
-
         if (IsNew)
         {
+            var companyId = Company();
+            if (companyId <= 0) { ErrorMessage = "No company in your tenant scope."; await LoadPickersAsync(companyId, ct); return Page(); }
             var req = new CreateWorkCenterRequest(
                 companyId, LocationId, Code, Name, Description, Type, CapacityModel, CalendarId,
                 OwningDepartmentId, StandardCostRatePerHour, OverheadRatePerHour, CurrencyCode, "WorkCenterEdit",
                 SchedulingEnabled, BottleneckFlag, ConstraintPriority, SimultaneousOperationsMax,
                 DispatchRule, SetupFamilyRule, SetupFamilyCode);
             var r = await _svc.CreateAsync(req, ct);
-            if (r.IsFailure) { ErrorMessage = r.Error; await LoadPickersAsync(ct); return Page(); }
+            if (r.IsFailure) { ErrorMessage = r.Error; await LoadPickersAsync(companyId, ct); return Page(); }
             return RedirectToPage("Details", new { id = r.Value!.Id });
         }
         else
         {
+            // Pickers on re-render must use the EDITED work center's company, not FirstOrDefault().
+            var wcCompany = await _db.WorkCenters.Where(w => w.Id == Id)
+                .Select(w => (int?)w.CompanyId).FirstOrDefaultAsync(ct);
+            var pickerCompany = wcCompany ?? Company();
             var req = new UpdateWorkCenterHeaderRequest(
                 Id!.Value, LocationId, Name, Description, Type, CapacityModel, CalendarId, OwningDepartmentId,
                 EfficiencyPct, UtilizationPct, StandardCostRatePerHour, OverheadRatePerHour, CurrencyCode, "WorkCenterEdit",
                 SchedulingEnabled, BottleneckFlag, ConstraintPriority, SimultaneousOperationsMax,
                 DispatchRule, SetupFamilyRule, SetupFamilyCode);
-            var r = await _svc.UpdateHeaderAsync(req, ct);
-            if (r.IsFailure) { ErrorMessage = r.Error; await LoadPickersAsync(ct); return Page(); }
+            var r = await _svc.UpdateHeaderAsync(req, ct);  // service enforces tenant scope
+            if (r.IsFailure) { ErrorMessage = r.Error; await LoadPickersAsync(pickerCompany, ct); return Page(); }
             return RedirectToPage("Details", new { id = Id.Value });
         }
     }
 
-    private async Task LoadPickersAsync(CancellationToken ct)
+    private async Task LoadPickersAsync(int companyId, CancellationToken ct)
     {
-        var companyId = Company();
         LocationOptions = await _db.Locations.AsNoTracking()
             .Where(l => l.CompanyId == companyId)
             .OrderBy(l => l.Name)
