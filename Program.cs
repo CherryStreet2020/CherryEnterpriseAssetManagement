@@ -459,6 +459,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.ICostRollupServic
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IProductionVarianceCloseService,
     Abs.FixedAssets.Services.Production.ProductionVarianceCloseService>();
 
+// Theme B7 Wave B PR-5 (2026-05-29) — IItemCrystallizationService.
+// THE BIC differentiator: crystallization-at-ship (preview / crystallize /
+// dedupe-human-confirm / reverse). Mints Item + standard BOM + standard Routing
+// + first-actual cost from a PoFirst order's as-built actuals.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IItemCrystallizationService,
+    Abs.FixedAssets.Services.Production.ItemCrystallizationService>();
+
 // B8 PR-PRO-11 (2026-05-28) — 14 Transaction Validation Services.
 // Guards on PRO-3/4/5 transaction pipeline. IEnumerable<IProductionTransactionValidator>
 // discovered by TransactionValidationPipeline for chain-of-responsibility execution.

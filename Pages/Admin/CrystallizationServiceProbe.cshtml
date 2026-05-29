@@ -1,0 +1,160 @@
+@page "/Admin/CrystallizationServiceProbe"
+@model Abs.FixedAssets.Pages.Admin.CrystallizationServiceProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Crystallization Service Probe";
+    ViewData["TabTitle"] = "Crystallization Service Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave B PR-5 — IItemCrystallizationService (the BIC differentiator).
+    Preview / crystallize / dedupe-human-confirm / reverse against a real PoFirst PRO.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Crystallization Service Probe — B7 PR-5</h1>
+        <p class="ds-page-header__subtitle">
+            The flagship: at ship, harvest a master-optional (PoFirst / ETO) order's as-built BOM +
+            as-run routing + actual cost into a reusable, costed Item Master standard — or dedupe-and-link
+            to an existing one (always human-confirmed). No incumbent ERP does this from as-run actuals.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant crystallization stats</h2>
+            <p class="ds-text-muted">
+                Total: <strong>@Model.TotalCrystallizations</strong> ·
+                Minted (new): <strong>@Model.CreatedNewCount</strong> ·
+                Linked (dedupe): <strong>@Model.LinkedCount</strong> ·
+                Reversed: <strong>@Model.ReversedCount</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Crystallization flow</h2>
+            <p class="ds-text-muted">Blank Target PRO Id = latest tenant-visible PoFirst PRO. Suggested order: 1 → 2 → 4 (then 1 again to see it linked).</p>
+            <form method="post" class="ds-form-grid">
+                <div>
+                    <label for="ProId">Target PRO Id (optional)</label>
+                    <input type="number" id="ProId" name="ProId" value="@(Model.ProId > 0 ? Model.ProId.ToString() : string.Empty)" class="ds-input" />
+                </div>
+                <div class="ds-mt-3 ds-btn-row">
+                    <button type="submit" asp-page-handler="Preview" class="ds-btn">1 · Preview (read-only)</button>
+                    <button type="submit" asp-page-handler="CrystallizeNew" class="ds-btn ds-btn--primary">2 · Crystallize (mint new)</button>
+                    <button type="submit" asp-page-handler="CrystallizeGated" class="ds-btn">3 · Crystallize (gated — no force)</button>
+                    <button type="submit" asp-page-handler="ReverseLatest" class="ds-btn ds-btn--warning">4 · Reverse latest</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Preview is not null)
+    {
+        var p = Model.Preview;
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">Preview — would-be standard for PRO #@p.SourceProductionOrderId (@p.OrderNumber)</h2>
+                <p class="ds-text-muted">
+                    Part: <strong>@(p.ProposedPartNumber ?? "—")</strong> Rev <strong>@(p.ProposedRevision ?? "—")</strong> ·
+                    Standard cost: <strong>@((p.SeededStandardCost ?? 0m).ToString("C"))</strong> (@p.CostSource) ·
+                    Fingerprint: <code>@(p.StructureFingerprintHash.Length >= 16 ? p.StructureFingerprintHash.Substring(0,16) : p.StructureFingerprintHash)</code>
+                </p>
+                @if (p.DedupeMatchItemId != null)
+                {
+                    <p class="ds-text-warning"><strong>Dedupe match:</strong> Item @p.DedupeMatchItemId (@p.DedupeMatchPartNumber) — link instead of create (human-confirm).</p>
+                }
+                @if (p.AlreadyCrystallized)
+                {
+                    <p class="ds-text-warning"><strong>Already crystallized</strong> into Item @p.ExistingCrystallizedItemId — reverse before re-crystallizing.</p>
+                }
+                @if (p.Warnings.Count > 0)
+                {
+                    <ul>
+                        @foreach (var w in p.Warnings) { <li class="ds-text-muted">@w</li> }
+                    </ul>
+                }
+                <h3 class="ds-h3">Standard BOM (@p.BomLines.Count)</h3>
+                <table class="ds-table">
+                    <thead><tr><th>Seq</th><th>Child Item</th><th>Part #</th><th>Rev</th><th>Qty/Parent</th><th>UoM</th><th>Kind</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in p.BomLines)
+                        {
+                            <tr><td>@l.Sequence</td><td>@l.ChildItemId</td><td>@l.ChildPartNumber</td><td>@(l.ChildRevision ?? "—")</td><td>@l.QuantityPer</td><td>@(l.Uom ?? "—")</td><td>@l.LineKind</td></tr>
+                        }
+                    </tbody>
+                </table>
+                <h3 class="ds-h3">Standard Routing (@p.RoutingOps.Count)</h3>
+                <table class="ds-table">
+                    <thead><tr><th>Seq</th><th>Work Center</th><th>Type</th><th>Description</th><th>Setup (min)</th><th>Run/unit (min)</th></tr></thead>
+                    <tbody>
+                        @foreach (var o in p.RoutingOps)
+                        {
+                            <tr><td>@o.Sequence</td><td>@o.WorkCenterId</td><td>@o.OperationType</td><td>@o.Description</td><td>@o.SetupMins</td><td>@o.RunMinsPerUnit</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample crystallizations (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No crystallizations yet — preview then crystallize with button 2.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Number</th><th>Source PRO</th><th>Outcome</th><th>Created Item</th><th>Matched Item</th><th>Seeded Cost</th><th>Reversed</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Number</td>
+                                <td>@r.SourceProId</td>
+                                <td>
+                                    @switch (r.Outcome)
+                                    {
+                                        case CrystallizationOutcome.CreatedNewItem: <span class="ds-badge ds-badge--success">CreatedNewItem</span> break;
+                                        case CrystallizationOutcome.LinkedToExisting: <span class="ds-badge ds-badge--info">LinkedToExisting</span> break;
+                                        case CrystallizationOutcome.Rejected: <span class="ds-badge ds-badge--danger">Rejected</span> break;
+                                        default: <span class="ds-badge">Pending</span> break;
+                                    }
+                                </td>
+                                <td>@(r.CreatedItemId?.ToString() ?? "—")</td>
+                                <td>@(r.MatchedItemId?.ToString() ?? "—")</td>
+                                <td>@((r.SeededCost ?? 0m).ToString("C"))</td>
+                                <td>@(r.IsReversed ? "✓" : "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
