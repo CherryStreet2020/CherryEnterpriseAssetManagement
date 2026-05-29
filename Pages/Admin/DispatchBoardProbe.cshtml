@@ -1,0 +1,95 @@
+@page "/Admin/DispatchBoardProbe"
+@model Abs.FixedAssets.Pages.Admin.DispatchBoardProbeModel
+@using Abs.FixedAssets.Services.Production.Scheduling
+@{
+    ViewData["Title"] = "Dispatch Board Probe";
+    ViewData["TabTitle"] = "Dispatch Board Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R4-12 — dispatch board (CLOSES Wave R4). The operator/supervisor surface
+    over the R4-11 placements: per-WC queue ordered by that WC's own dispatch rule, plus
+    supervisor "dispatch next" (top queued op → InSetup).
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Dispatch Board Probe — B11 R4-12</h1>
+        <p class="ds-page-header__subtitle">
+            <code>IDispatchBoardService.GetBoardAsync</code> — what runs next on each work center, in the
+            order dictated by <em>that</em> center's dispatch rule. The same three jobs sort into three
+            different run orders across the three columns below.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Dispatch flow</h2>
+            <p class="ds-text-muted">Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong></p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+                <button type="submit" asp-page-handler="Show" class="ds-btn">2 · Show dispatch board</button>
+                <button type="submit" asp-page-handler="DispatchNext" class="ds-btn">3 · Dispatch next (EDD WC)</button>
+                <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Board is not null)
+    {
+        var b = Model.Board;
+        <p class="ds-text-muted ds-mb-4">Generated @b.GeneratedAtUtc.ToString("yyyy-MM-dd HH:mm")Z · @b.Columns.Count work-center column(s) with queued work.</p>
+
+        @if (b.Columns.Count == 0)
+        {
+            <section class="ds-card"><div class="ds-card__body"><p class="ds-text-muted"><em>No queued operations — click “Set up worked example”.</em></p></div></section>
+        }
+        else
+        {
+            @foreach (var col in b.Columns)
+            {
+                <section class="ds-card ds-mb-4">
+                    <div class="ds-card__body">
+                        <h2 class="ds-h2">@col.WorkCenterCode <span class="ds-text-muted">· @col.DispatchRule</span></h2>
+                        <p class="ds-text-muted">@col.WorkCenterName</p>
+                        <table class="ds-table">
+                            <thead>
+                                <tr><th>#</th><th>Job</th><th>Op</th><th>Status</th><th>Due (UTC)</th><th>Priority</th><th>Work (min)</th><th>Planned start</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in col.Entries)
+                                {
+                                    <tr>
+                                        <td><strong>@e.Rank</strong></td>
+                                        <td>@e.OrderNumber</td>
+                                        <td>#@e.ProductionOperationId · seq @e.SequenceNumber</td>
+                                        <td>@e.Status</td>
+                                        <td>@(e.DueUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                        <td>@e.Priority</td>
+                                        <td>@e.RemainingWorkMins.ToString("0")</td>
+                                        <td>@(e.PlannedStartUtc?.ToString("MM-dd HH:mm") ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+        }
+    }
+</main>
