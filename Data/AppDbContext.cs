@@ -197,6 +197,9 @@ namespace Abs.FixedAssets.Data
         // B11 R2-5 — tool/fixture master (replaces CSV RequiredToolingIds).
         public DbSet<Abs.FixedAssets.Models.Production.Tool> Tools
             => Set<Abs.FixedAssets.Models.Production.Tool>();
+        // B11 R2-6 — per-resource availability deltas (downtime / maintenance / extra shift).
+        public DbSet<Abs.FixedAssets.Models.Production.ResourceCalendarException> ResourceCalendarExceptions
+            => Set<Abs.FixedAssets.Models.Production.ResourceCalendarException>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3568,6 +3571,44 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.ToolId)
                     .HasFilter("\"ToolId\" IS NOT NULL")
                     .HasDatabaseName("IX_ProductionResources_Tool_Partial");
+
+                // R2-6 — per-resource calendar override. SET NULL so the resource
+                // falls back to the WC/site calendar if its override is removed.
+                e.HasOne(x => x.Calendar)
+                    .WithMany()
+                    .HasForeignKey(x => x.CalendarId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CalendarId)
+                    .HasFilter("\"CalendarId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ProductionResources_Calendar_Partial");
+
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R2-6 — ResourceCalendarException (per-resource availability deltas).
+            // New table; enum default is value-0 sentinel (no HasDefaultValue).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.ResourceCalendarException>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => x.ExceptionType);
+                // The scheduler's hot query: a resource's windows in a date range.
+                e.HasIndex(x => new { x.ProductionResourceId, x.StartUtc, x.EndUtc })
+                    .HasDatabaseName("IX_ResourceCalendarExceptions_Resource_Window");
+
+                // Owning resource — CASCADE: a resource's exception windows die with it.
+                e.HasOne(x => x.ProductionResource)
+                    .WithMany(r => r.CalendarExceptions)
+                    .HasForeignKey(x => x.ProductionResourceId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // EAM maintenance bridge — SET NULL so the window outlives WO archival.
+                e.HasOne(x => x.SourceWorkOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceWorkOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.SourceWorkOrderId)
+                    .HasFilter("\"SourceWorkOrderId\" IS NOT NULL")
+                    .HasDatabaseName("IX_ResourceCalendarExceptions_WorkOrder_Partial");
 
                 e.MapXminRowVersion(x => x.RowVersion);
             });
