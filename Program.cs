@@ -280,6 +280,14 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IResourceLoadServ
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.BackwardScheduling.IBackwardSchedulingService,
     Abs.FixedAssets.Services.Production.BackwardScheduling.BackwardSchedulingService>();
 
+// B11 R4-11 — IFiniteSchedulingService (the REAL engine that supersedes the stub).
+// Calendar-aware (R4-10 WorkingTimeEngine) + finite-capacity (SimultaneousOperationsMax
+// + competing demand) + capability-based alternate selection (R3-9). Backward/forward
+// + what-if. The legacy stub above stays registered for the demo seeder; R4-12 dispatch
+// board + B7 make-or-buy consume THIS service. Migrating the seeder to it is a follow-up.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IFiniteSchedulingService,
+    Abs.FixedAssets.Services.Production.Scheduling.FiniteSchedulingService>();
+
 // Sprint 12.7 PR #5 — ICfoMotionDemoSeeder. Idempotent demo-data seeder
 // for the CFO motion. Pushes /Controller KPI band (Cash / AP / POs / WIP)
 // to demo-believable numbers on the SEEDED PLACEHOLDER tenant (looked up

@@ -1,0 +1,113 @@
+@page "/Admin/FiniteScheduleProbe"
+@model Abs.FixedAssets.Pages.Admin.FiniteScheduleProbeModel
+@using Abs.FixedAssets.Services.Production.Scheduling
+@{
+    ViewData["Title"] = "Finite Schedule Probe";
+    ViewData["TabTitle"] = "Finite Schedule Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R4-11 — the real finite scheduler. Calendar-aware (R4-10 working-time
+    engine) + finite-capacity (SimultaneousOperationsMax + competing demand) + capability/
+    alternate re-homing (R3-9 / WorkCenterAlternate spill). Supersedes the wall-clock stub.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Finite Schedule Probe — B11 R4-11</h1>
+        <p class="ds-page-header__subtitle">
+            <code>IFiniteSchedulingService.ScheduleAsync</code> — operations floored into real Mon-Fri
+            working windows, contention-checked against each work center's capacity, and re-homed to a
+            capability/alternate work center when the primary is loaded. The wall-clock stub is superseded.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Schedule flow</h2>
+            <p class="ds-text-muted">
+                Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong> ·
+                due (parent ScheduledEnd) <strong>@Model.DueUtc.ToString("yyyy-MM-dd HH:mm")Z</strong> ·
+                parent order: <strong>@(Model.ParentProId == null ? "—" : "#" + Model.ParentProId)</strong>
+            </p>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+                <button type="submit" asp-page-handler="RunBackward" class="ds-btn">2 · Run finite schedule (backward, commit)</button>
+                <button type="submit" asp-page-handler="WhatIfForward" class="ds-btn">3 · What-if (forward, no commit)</button>
+                <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+            </form>
+        </div>
+    </section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card">
+            <div class="ds-card__body">
+                <h2 class="ds-h2">
+                    @r.Direction schedule — @(r.Committed ? "committed" : "what-if (not persisted)")
+                </h2>
+                <p class="ds-text-muted">
+                    Anchor @r.AnchorUtc.ToString("yyyy-MM-dd HH:mm")Z · @r.OperationsPlaced op(s) ·
+                    <strong>@r.OperationsMovedToAlternate re-homed</strong> · @r.OperationsOnOverloaded on overloaded WC ·
+                    span @r.TotalSpannedDays day(s)
+                </p>
+                @if (r.Placements.Count == 0)
+                {
+                    <p class="ds-text-muted"><em>No operations placed.</em></p>
+                }
+                else
+                {
+                    <table class="ds-table">
+                        <thead>
+                            <tr><th>Seq</th><th>Operation</th><th>Work center</th><th>Planned start (UTC)</th><th>Planned end (UTC)</th><th>Decision</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in r.Placements.OrderBy(x => x.PlannedStartUtc))
+                            {
+                                <tr>
+                                    <td>@p.SequenceNumber</td>
+                                    <td>#@p.ProductionOperationId @p.Description</td>
+                                    <td>
+                                        <strong>@p.WorkCenterCode</strong>
+                                        @if (p.MovedToAlternate) { <br /><span class="ds-text-warning">re-homed from WC #@p.OriginalWorkCenterId</span> }
+                                    </td>
+                                    <td>@p.PlannedStartUtc.ToString("ddd yyyy-MM-dd HH:mm")</td>
+                                    <td>@p.PlannedEndUtc.ToString("ddd yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        @if (p.MovedToAlternate) { <span class="ds-text-success">@p.AlternateReason</span> }
+                                        else if (p.OnOverloadedResource) { <span class="ds-text-danger">on overloaded WC (no free alternate)</span> }
+                                        else { <span class="ds-text-muted">primary WC, has capacity</span> }
+                                        @if (p.WorkingTimeRanOut) { <br /><span class="ds-text-warning">⚠ working-time horizon exhausted</span> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                @if (r.Warnings.Count > 0)
+                {
+                    <h3 class="ds-h3 ds-mt-4">Warnings</h3>
+                    <ul>
+                        @foreach (var w in r.Warnings) { <li class="ds-text-muted">@w</li> }
+                    </ul>
+                }
+            </div>
+        </section>
+    }
+</main>
