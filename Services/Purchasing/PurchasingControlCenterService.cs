@@ -413,25 +413,12 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         var invoiceMatchTotal = 0;
         if (_invoiceMatch is not null)
         {
-            var matchRows = await _invoiceMatch.GetExceptionRowsAsync(take, ct);
-            List<InvoiceMatchExceptionRow> filteredMatchRows;
-            if (filter.VendorId.HasValue && matchRows.Count > 0)
-            {
-                // Single query: which of these invoices belong to the filter vendor.
-                var invoiceIds = matchRows.Select(m => m.VendorInvoiceId).ToList();
-                var vendorInvoiceIds = await _db.Set<VendorInvoice>()
-                    .Where(v => invoiceIds.Contains(v.Id) && v.VendorId == filter.VendorId)
-                    .Select(v => v.Id)
-                    .ToListAsync(ct);
-                var allow = vendorInvoiceIds.ToHashSet();
-                filteredMatchRows = matchRows.Where(m => allow.Contains(m.VendorInvoiceId)).ToList();
-            }
-            else
-            {
-                filteredMatchRows = matchRows.ToList();
-            }
-            invoiceMatchTotal = filteredMatchRows.Count;
-            foreach (var m in filteredMatchRows)
+            // Filters applied in-query before paging (Codex P2) so a filtered
+            // lane never drops matching exceptions.
+            var matchRows = await _invoiceMatch.GetExceptionRowsAsync(
+                take, filter.CompanyId, filter.VendorId, ct);
+            invoiceMatchTotal = matchRows.Count;
+            foreach (var m in matchRows)
             {
                 rows.Add(new PurchasingExceptionRow(
                     ExceptionKind: "InvoiceMatchException",

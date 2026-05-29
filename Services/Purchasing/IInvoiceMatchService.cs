@@ -94,10 +94,14 @@ public interface IInvoiceMatchService
         CancellationToken ct = default);
 
     /// <summary>
-    /// Current match results in Exception outcome across the tenant, most
-    /// recent first. Drives the Purchasing CC Cost Exceptions tab.
+    /// Current match results in Exception outcome, most recent first. Drives the
+    /// Purchasing CC Cost Exceptions tab. Optional companyId / vendorId filters
+    /// are applied IN-QUERY before paging so a filtered lane never drops
+    /// matching exceptions or under-reports the backlog.
     /// </summary>
     Task<IReadOnlyList<InvoiceMatchExceptionRow>> GetExceptionRowsAsync(
         int maxRows,
+        int? companyId = null,
+        int? vendorId = null,
         CancellationToken ct = default);
 }

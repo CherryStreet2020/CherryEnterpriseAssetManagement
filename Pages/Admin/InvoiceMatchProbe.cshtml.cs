@@ -149,7 +149,7 @@ public sealed class InvoiceMatchProbeModel : PageModel
     // R2) LOAD EXCEPTIONS
     public async Task<IActionResult> OnPostLoadExceptionsAsync(CancellationToken ct)
     {
-        LastExceptions = await _service.GetExceptionRowsAsync(50, ct);
+        LastExceptions = await _service.GetExceptionRowsAsync(50, ct: ct);
         Set(true, $"{LastExceptions.Count} invoice(s) with open match exceptions.");
         await LoadStatsAsync(ct);
         return Page();

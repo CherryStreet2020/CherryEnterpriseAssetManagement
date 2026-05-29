@@ -121,6 +121,15 @@ public class InvoiceMatchService : IInvoiceMatchService
                 var posting = await _apPosting.PostApprovalAsync(
                     invoiceId, overrideMatch: true, approverUsername: approverUsername);
 
+                // Codex P1: PostApprovalAsync re-runs the LEGACY exact-match
+                // evaluator and persists its (stricter) verdict, which would
+                // stamp MatchStatus=Exception on a within-tolerance invoice we
+                // just approved. Re-assert this service's authoritative verdict
+                // — the invoice is the same tracked entity, so this overrides
+                // the legacy write and the SaveChanges below persists it.
+                invoice.MatchStatus = InvoiceMatchStatus.FullyMatched;
+                invoice.UpdatedAt = nowUtc;
+
                 result.PostedOnMatch = true;
                 result.PostedJournalEntryId = posting.JournalEntryId;
                 result.UpdatedAt = nowUtc;
@@ -373,11 +382,11 @@ public class InvoiceMatchService : IInvoiceMatchService
     }
 
     public async Task<IReadOnlyList<InvoiceMatchExceptionRow>> GetExceptionRowsAsync(
-        int maxRows, CancellationToken ct = default)
+        int maxRows, int? companyId = null, int? vendorId = null, CancellationToken ct = default)
     {
         var visible = _tenantContext.VisibleCompanyIds;
         var take = Math.Clamp(maxRows, 1, 500);
-        return await (
+        var q =
             from r in _db.Set<InvoiceMatchResult>()
             join inv in _db.Set<VendorInvoice>() on r.VendorInvoiceId equals inv.Id
             join v in _db.Set<Vendor>() on inv.VendorId equals v.Id
@@ -385,11 +394,20 @@ public class InvoiceMatchService : IInvoiceMatchService
                 && r.Outcome == InvoiceMatchOutcome.Exception
                 && r.CompanyId != null
                 && visible.Contains(r.CompanyId.Value)
-            orderby r.RunAtUtc descending
-            select new InvoiceMatchExceptionRow(
-                r.Id, r.VendorInvoiceId, inv.InvoiceNumber, v.Name,
-                r.MatchRunNumber, r.LinesException, r.TotalPriceVariance, r.RunAtUtc))
+            select new { r, inv, v };
+
+        // Apply the lane filters IN-QUERY, before paging (Codex P2).
+        if (companyId.HasValue)
+            q = q.Where(x => x.r.CompanyId == companyId);
+        if (vendorId.HasValue)
+            q = q.Where(x => x.inv.VendorId == vendorId);
+
+        return await q
+            .OrderByDescending(x => x.r.RunAtUtc)
             .Take(take)
+            .Select(x => new InvoiceMatchExceptionRow(
+                x.r.Id, x.r.VendorInvoiceId, x.inv.InvoiceNumber, x.v.Name,
+                x.r.MatchRunNumber, x.r.LinesException, x.r.TotalPriceVariance, x.r.RunAtUtc))
             .ToListAsync(ct);
     }
 
