@@ -188,6 +188,9 @@ namespace Abs.FixedAssets.Data
             => Set<Abs.FixedAssets.Models.Production.WorkCenter>();
         public DbSet<Abs.FixedAssets.Models.Production.WorkCenterAssetLink> WorkCenterAssetLinks
             => Set<Abs.FixedAssets.Models.Production.WorkCenterAssetLink>();
+        // B11 R1-2 — alternate-routing links (WC spill targets for the R4 scheduler).
+        public DbSet<Abs.FixedAssets.Models.Production.WorkCenterAlternate> WorkCenterAlternates
+            => Set<Abs.FixedAssets.Models.Production.WorkCenterAlternate>();
         public DbSet<Abs.FixedAssets.Models.Production.Routing> Routings
             => Set<Abs.FixedAssets.Models.Production.Routing>();
         public DbSet<Abs.FixedAssets.Models.Production.RoutingOperation> RoutingOperations
@@ -3438,22 +3441,66 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => x.IsProductionDepartment)
                     .HasFilter("\"IsProductionDepartment\" = TRUE")
                     .HasDatabaseName("IX_Departments_IsProduction_Partial");
+                // B11 R1-2 — SiteId real FK → Site (canonical plant tier). SET NULL.
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 // xmin concurrency (HARD LOCK feedback_xmin_pattern_for_concurrency_lock.md).
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
-            // B11 R1-1 — close the WorkCenter.OwningDepartmentId orphan: real FK + nav.
+            // B11 R1-1/R1-2 — production-org backbone + scheduling hardening.
             // SET NULL on department delete (a WC survives its owning department's
             // removal; the floor unit doesn't vanish because the org changed).
             modelBuilder.Entity<Abs.FixedAssets.Models.Production.WorkCenter>(e =>
             {
+                // R1-2: inverse collection (Department.WorkCenters).
                 e.HasOne(x => x.OwningDepartment)
-                    .WithMany()
+                    .WithMany(d => d.WorkCenters)
                     .HasForeignKey(x => x.OwningDepartmentId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.HasIndex(x => x.OwningDepartmentId)
                     .HasFilter("\"OwningDepartmentId\" IS NOT NULL")
                     .HasDatabaseName("IX_WorkCenters_OwningDepartment_Partial");
+
+                // R1-2 — SiteId canonical plant tier (FK → Site). SET NULL.
+                e.HasOne(x => x.Site)
+                    .WithMany()
+                    .HasForeignKey(x => x.SiteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.SiteId)
+                    .HasFilter("\"SiteId\" IS NOT NULL")
+                    .HasDatabaseName("IX_WorkCenters_Site_Partial");
+
+                // R1-2 — bottleneck/drum partial index for the scheduler's constraint scan.
+                e.HasIndex(x => x.BottleneckFlag)
+                    .HasFilter("\"BottleneckFlag\" = TRUE")
+                    .HasDatabaseName("IX_WorkCenters_Bottleneck_Partial");
+
+                // R1-2 — xmin concurrency (closes the WC concurrency gap).
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // B11 R1-2 — WorkCenterAlternate (ordered spill targets for the R4 scheduler).
+            modelBuilder.Entity<Abs.FixedAssets.Models.Production.WorkCenterAlternate>(e =>
+            {
+                e.HasIndex(x => x.CompanyId);
+                e.HasIndex(x => new { x.WorkCenterId, x.Preference })
+                    .HasDatabaseName("IX_WorkCenterAlternates_WC_Preference");
+                e.HasIndex(x => new { x.WorkCenterId, x.AlternateWorkCenterId })
+                    .IsUnique()
+                    .HasDatabaseName("UX_WorkCenterAlternates_WC_Alt");
+                // Two FKs to WorkCenter — both RESTRICT to avoid multiple-cascade-paths.
+                e.HasOne(x => x.WorkCenter)
+                    .WithMany(w => w.Alternates)
+                    .HasForeignKey(x => x.WorkCenterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.AlternateWorkCenter)
+                    .WithMany()
+                    .HasForeignKey(x => x.AlternateWorkCenterId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.MapXminRowVersion(x => x.RowVersion);
             });
 
             // Locations

@@ -182,6 +182,16 @@ The B7 make-or-buy `MakeBuyDecision` already reserves the F2 snapshot fields (`B
 
 > Original open questions preserved in git history. R1-1 (Department extension) is the first build.
 
+### §6b — Org-structure facts + Site=Location ruling (Dean, 2026-05-29)
+
+Real tenant structures (corrects the earlier wrong "ABS is single-site" assumption):
+- **ABS** = 1 holding company · 1 operating company · **6 sites**.
+- **EVS** = 1 holding company · **4 operating companies** · 4 sites.
+
+Both map onto the EXISTING model with NO new tiers: `Company.CompanyType {Holding,Operating,Division}` + `Company.ParentCompanyId` (holding→operating nesting) under a `Tenant`, with `Site.CompanyId` → operating company. Chain: `Tenant → Company(Holding) → Company(Operating) → Site → Department → WorkCenter → Machine/Resource`. This is why decision #1 (no extra Division tier in the resource model) still holds — Holding/Operating/Division already live on `Company`.
+
+**RULING: `Site` and `Location` are the SAME real-world thing (one physical plant).** `Site` is the **canonical** plant tier. `Location` (GlAccount.cs) is legacy and will be collapsed into Site in a dedicated cleanup PR. R1-2 wires `Department.SiteId → Site` + `WorkCenter.SiteId → Site` (canonical) but LEAVES `WorkCenter.LocationId` in place (load-bearing: UNIQUE (CompanyId,Code) + MES ProductionOperation.LocationIdSnapshot everywhere) — deprecate-in-place, do not rip out. The R4 scheduler scopes by Site.
+
 ---
 
 ## §7 — BIC Differentiators (what beats SAP/D365/Oracle/MIE/Epicor)

@@ -1,0 +1,98 @@
+@page "/Admin/WorkCenterHardeningProbe"
+@model Abs.FixedAssets.Pages.Admin.WorkCenterHardeningProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Work Center Hardening Probe";
+    ViewData["TabTitle"] = "Work Center Hardening Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B11 Wave R1-2 — WorkCenter scheduling/dispatch hardening.
+    Adds xmin + canonical SiteId + the scheduling field group (bottleneck/drum,
+    dispatch rule, resource-selection, setup-family) + alternate-routing links —
+    the config the R4 finite scheduler consumes to produce real Load% / drum.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Work Center Hardening Probe — B11 R1-2</h1>
+        <p class="ds-page-header__subtitle">
+            The Work Center is the scheduling/capacity tier. This probe sets the bottleneck/drum,
+            dispatch + resource-selection + setup-family rules, the canonical Site, and an
+            alternate-routing link — everything the R4 finite scheduler needs to produce a real
+            Load% and pick the drum.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4">
+            <div class="ds-card__body">
+                <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                    <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+                </p>
+            </div>
+        </section>
+    }
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Tenant work-center stats</h2>
+            <p class="ds-text-muted">
+                Work Centers: <strong>@Model.TotalWorkCenters</strong> ·
+                Bottleneck/drum: <strong>@Model.BottleneckCount</strong> ·
+                With a Site: <strong>@Model.WithSiteCount</strong> ·
+                Alternate links: <strong>@Model.AlternateLinks</strong>
+            </p>
+            <form method="post" asp-page-handler="Reload">
+                <button type="submit" class="ds-btn">Reload stats</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card ds-mb-4">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Scheduling-hardening flow (acts on the latest Work Center)</h2>
+            <form method="post" class="ds-btn-row">
+                <button type="submit" asp-page-handler="Configure" class="ds-btn ds-btn--primary">1 · Configure scheduling (drum + rules)</button>
+                <button type="submit" asp-page-handler="AssignSite" class="ds-btn">2 · Assign canonical Site</button>
+                <button type="submit" asp-page-handler="AddAlternate" class="ds-btn">3 · Add alternate WC link</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="ds-card">
+        <div class="ds-card__body">
+            <h2 class="ds-h2">Sample work centers (latest 15, tenant-scoped)</h2>
+            @if (Model.Sample.Count == 0)
+            {
+                <p class="ds-text-muted"><em>No work centers in your tenant scope.</em></p>
+            }
+            else
+            {
+                <table class="ds-table">
+                    <thead><tr><th>Id</th><th>Code</th><th>Bottleneck</th><th>Site Id</th><th>Dispatch Rule</th><th>Setup Rule</th><th>Setup Family</th><th>Scheduling</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in Model.Sample)
+                        {
+                            <tr>
+                                <td>@r.Id</td>
+                                <td>@r.Code</td>
+                                <td>@(r.Bottleneck ? "✓ drum" : "—")</td>
+                                <td>@(r.SiteId?.ToString() ?? "—")</td>
+                                <td>@r.Dispatch</td>
+                                <td>@r.SetupRule</td>
+                                <td>@(r.SetupFamily ?? "—")</td>
+                                <td>@(r.SchedulingEnabled is null ? "default" : (r.SchedulingEnabled.Value ? "on" : "off"))</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </section>
+</main>
