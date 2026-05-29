@@ -686,6 +686,15 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IPoAmendmentServi
 builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.ISupplierPerformanceService,
     Abs.FixedAssets.Services.Purchasing.SupplierPerformanceService>();
 
+// Sprint 15.4 PR-19 (2026-05-29) — 3-Way Match service (PO ↔ Receipt ↔ Invoice).
+// Tolerance-driven, persisted match runs (InvoiceMatchResult) classifying each
+// line's price/qty/date variance, driving VendorInvoice.MatchStatus + the §21
+// Cost Exceptions tab. RunAndApproveIfCleanAsync posts the AP approval (incl PPV)
+// via IApPostingService INSIDE the match transaction (cross-service tx
+// enlistment) so match record + approval + journal entry commit atomically.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Purchasing.IInvoiceMatchService,
+    Abs.FixedAssets.Services.Purchasing.InvoiceMatchService>();
+
 // Sprint 15.2 PR-6 (2026-05-28) — Subcontract Shipment + Receipt service.
 // Physical WIP-to-vendor shipment events + vendor-to-us receipt events with
 // lot/serial/revision traceability. Implements 10 §11 receipt scenarios

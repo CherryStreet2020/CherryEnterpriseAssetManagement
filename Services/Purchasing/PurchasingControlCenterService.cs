@@ -38,6 +38,7 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
     private readonly ITenantContext _tenant;
     private readonly IPurchasingRecommendationService? _recommendations;
     private readonly ISupplierPerformanceService? _supplierPerformance;
+    private readonly IInvoiceMatchService? _invoiceMatch;
     private readonly ILogger<PurchasingControlCenterService> _log;
 
     public PurchasingControlCenterService(
@@ -45,12 +46,14 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
         ITenantContext tenant,
         ILogger<PurchasingControlCenterService> log,
         IPurchasingRecommendationService? recommendations = null,
-        ISupplierPerformanceService? supplierPerformance = null)
+        ISupplierPerformanceService? supplierPerformance = null,
+        IInvoiceMatchService? invoiceMatch = null)
     {
         _db = db;
         _tenant = tenant;
         _recommendations = recommendations;
         _supplierPerformance = supplierPerformance;
+        _invoiceMatch = invoiceMatch;
         _log = log;
     }
 
@@ -404,7 +407,47 @@ public class PurchasingControlCenterService : IPurchasingControlCenterService
                 CostImpactUsd: w.TotalValueAtVendor));
         }
 
-        var totalCount = costExceptionTotal + lateWipTotal;
+        // ─── Invoice 3-way match exceptions (PR-19) ─────────────────────────
+        // Price/qty/date/over-billing breaches surfaced by IInvoiceMatchService.
+        // Filtered to a vendor when the lane caller narrows by VendorId.
+        var invoiceMatchTotal = 0;
+        if (_invoiceMatch is not null)
+        {
+            var matchRows = await _invoiceMatch.GetExceptionRowsAsync(take, ct);
+            List<InvoiceMatchExceptionRow> filteredMatchRows;
+            if (filter.VendorId.HasValue && matchRows.Count > 0)
+            {
+                // Single query: which of these invoices belong to the filter vendor.
+                var invoiceIds = matchRows.Select(m => m.VendorInvoiceId).ToList();
+                var vendorInvoiceIds = await _db.Set<VendorInvoice>()
+                    .Where(v => invoiceIds.Contains(v.Id) && v.VendorId == filter.VendorId)
+                    .Select(v => v.Id)
+                    .ToListAsync(ct);
+                var allow = vendorInvoiceIds.ToHashSet();
+                filteredMatchRows = matchRows.Where(m => allow.Contains(m.VendorInvoiceId)).ToList();
+            }
+            else
+            {
+                filteredMatchRows = matchRows.ToList();
+            }
+            invoiceMatchTotal = filteredMatchRows.Count;
+            foreach (var m in filteredMatchRows)
+            {
+                rows.Add(new PurchasingExceptionRow(
+                    ExceptionKind: "InvoiceMatchException",
+                    DemandId: null,
+                    PurchaseOrderId: null,
+                    PurchaseOrderLineId: null,
+                    VendorId: null,
+                    Severity: m.TotalPriceVariance > 0m ? "High" : "Medium",
+                    Description: $"Invoice {m.InvoiceNumber} ({m.VendorName}) — {m.LinesException} line exception(s), "
+                                 + $"price variance ${m.TotalPriceVariance:N2} (run {m.MatchRunNumber}).",
+                    DetectedUtc: m.RunAtUtc,
+                    CostImpactUsd: m.TotalPriceVariance));
+            }
+        }
+
+        var totalCount = costExceptionTotal + lateWipTotal + invoiceMatchTotal;
         return Result.Success(new PurchasingExceptionLane(totalCount, rows));
     }
 
