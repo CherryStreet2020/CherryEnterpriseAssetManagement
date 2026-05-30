@@ -166,7 +166,10 @@ public sealed class ProjectEstimateService : IProjectEstimateService
         if (lines.Count == 0)
             return Result.Failure<ProjectEstimateSnapshotSummary>("Add at least one cost line before snapshotting the estimate.");
 
-        // Optional target revision — must be on the same project/company.
+        // Optional target revision — must be on the same project/company AND already
+        // SUBMITTED (Codex P2): a draft revision has no frozen TotalPrice yet (it's
+        // filled on submit), so attaching to one would lock the estimate against a
+        // null price / null margin and link it to a quote that can still change.
         ProjectQuoteRevision? rev = null;
         if (req.RevisionId is { } revId)
         {
@@ -175,13 +178,19 @@ public sealed class ProjectEstimateService : IProjectEstimateService
             if (rev == null || rev.Quote == null || !_tenant.VisibleCompanyIds.Contains(rev.Quote.CompanyId)
                 || rev.Quote.CustomerProjectId != est.CustomerProjectId)
                 return Result.Failure<ProjectEstimateSnapshotSummary>($"Quote revision {revId} is not on this estimate's project.");
+            if (!rev.IsSnapshotLocked || rev.VersionStatus != ProjectQuoteRevisionStatus.Submitted)
+                return Result.Failure<ProjectEstimateSnapshotSummary>(
+                    "Attach a cost snapshot only to a submitted quote revision — submit the revision first so its price is frozen.");
         }
 
         var b = Bucketize(lines.Select(l => (l.CostElementType, l.ExtendedCost ?? 0m)));
         decimal total = ApplyContingency(b.direct, est.ContingencyPct);
 
-        // Price the cost was measured against: explicit quotedPrice, else the revision's frozen total.
-        decimal? price = req.QuotedPrice ?? rev?.TotalPrice;
+        // Price the cost was measured against. When attached to a revision, the
+        // AUTHORITATIVE price is that revision's FROZEN TotalPrice (Codex P2) — a
+        // request-supplied QuotedPrice can't diverge the stamped margin from the
+        // frozen quote. A standalone snapshot (no revision) honors req.QuotedPrice.
+        decimal? price = rev != null ? rev.TotalPrice : req.QuotedPrice;
         decimal? margin = (price is { } p && p != 0m) ? Math.Round((p - total) / p * 100m, 4) : (decimal?)null;
 
         var frozenJson = JsonSerializer.Serialize(lines.Select(l => new

@@ -183,6 +183,28 @@ public sealed class ProjectEstimateServiceTests
     }
 
     [Fact]
+    public async Task Snapshot_attach_to_unsubmitted_draft_revision_is_rejected()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var estSvc = NewEstimateSvc(db);
+        var quoteSvc = NewQuoteSvc(db);
+
+        // A DRAFT revision (created but not submitted) has no frozen TotalPrice.
+        var q = await quoteSvc.CreateQuoteAsync(new CreateQuoteRequest(pid, "Q-DRAFT"));
+        var draftRevId = await db.ProjectQuoteRevisions.Where(r => r.ProjectQuoteId == q.Value!.QuoteId).Select(r => r.Id).FirstAsync();
+
+        var eid = await SeedEstimateWithLinesAsync(db, estSvc, pid);
+        var s = await estSvc.SnapshotEstimateAsync(new SnapshotEstimateRequest(eid, RevisionId: draftRevId));
+        Assert.True(s.IsFailure);
+        Assert.Contains("submitted", s.Error, StringComparison.OrdinalIgnoreCase);
+
+        // And the estimate was NOT locked by the rejected attempt.
+        var est = await db.ProjectEstimates.SingleAsync(x => x.Id == eid);
+        Assert.Equal(ProjectEstimateStatus.Draft, est.Status);
+    }
+
+    [Fact]
     public async Task Snapshot_with_no_lines_is_rejected()
     {
         using var db = NewDb();
