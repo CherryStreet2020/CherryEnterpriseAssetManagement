@@ -78,6 +78,8 @@ public static class VoiceInvokeEndpoint
         Abs.FixedAssets.Services.Production.IItemCrystallizationService crystallization,
         // B9 Wave 1 PR-2 — project promise verdict (ProjectPromiseStatus intent).
         Abs.FixedAssets.Services.Projects.IProjectPromiseService projectPromise,
+        // B9 Wave 1 PR-3 — project lifecycle graph (ShowProjectGraph intent).
+        Abs.FixedAssets.Services.Projects.IProjectGraphService projectGraph,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -140,6 +142,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.ExplainMakeBuyDecision => await HandleExplainMakeBuyDecisionAsync(makeBuy, intent, ct),
                 IntentKind.CrystallizeJobToStandard => await HandleCrystallizeJobToStandardAsync(crystallization, intent, ct),
                 IntentKind.ProjectPromiseStatus  => await HandleProjectPromiseStatusAsync(projectPromise, intent, ct),
+                IntentKind.ShowProjectGraph      => await HandleShowProjectGraphAsync(projectGraph, intent, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -880,6 +883,59 @@ public static class VoiceInvokeEndpoint
             Ok = true,
             Spoken = a.Headline,
             Displayed = new VoiceDisplayed { Title = $"Promise — {a.ProjectCode}", Lines = displayLines.ToArray() },
+        };
+    }
+
+    // B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — ShowProjectGraph. Resolve the project,
+    // narrate the lifecycle shape (phases / jobs / cost rollup + future-wave stages)
+    // and deep-link to the /CustomerProjects/Graph page. Read-only.
+    private static async Task<VoiceInvokeResponse> HandleShowProjectGraphAsync(
+        Abs.FixedAssets.Services.Projects.IProjectGraphService projectGraph,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which project's graph? Say its project code or number — e.g. \"show the project graph for PRJ-001\".",
+                Displayed = new VoiceDisplayed { Title = "Project graph", Lines = new[] { "Say a project code or id." } },
+            };
+        }
+
+        var result = await projectGraph.GetGraphByRefAsync(intent.NaturalKey, ct);
+        if (result.IsFailure || result.Value is null)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = result.Error ?? $"I couldn't build the project graph for '{intent.NaturalKey}'.",
+            };
+        }
+
+        var g = result.Value;
+
+        // Lit (live) vs future-wave node counts for the display payload.
+        int liveCount = g.Nodes.Count(n => n.State == Abs.FixedAssets.Services.Projects.ProjectGraphNodeState.Present);
+        int futureCount = g.Nodes.Count(n => n.State == Abs.FixedAssets.Services.Projects.ProjectGraphNodeState.Future);
+
+        var displayLines = new List<string>
+        {
+            $"{g.PhaseCount} phase(s) · {g.JobCount} linked job(s)",
+            $"{liveCount} live node(s), {futureCount} future-wave stage(s) mapped",
+            "Stages: Quote → Project → WBS → Job → Purchasing → Receipt → Cost → Billing → Acceptance",
+        };
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = g.Headline + " Opening the lifecycle graph.",
+            Displayed = new VoiceDisplayed { Title = $"Project graph — {g.ProjectCode}", Lines = displayLines.ToArray() },
+            ActionLinks = new[]
+            {
+                new VoiceActionLink("Open project graph", $"/CustomerProjects/Graph/{g.ProjectId}"),
+            },
         };
     }
 

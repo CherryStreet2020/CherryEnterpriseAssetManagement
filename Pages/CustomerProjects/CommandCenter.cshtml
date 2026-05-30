@@ -45,6 +45,13 @@
     }
     else if (d != null)
     {
+        @* ── Lifecycle graph entry point (B9 PR-3) ── *@
+        <div style="display:flex; justify-content:flex-end; margin-bottom:.8rem;">
+            <a href="/CustomerProjects/Graph/@d.ProjectId" class="btn-secondary" data-testid="pcc-open-graph">
+                <i class="fas fa-diagram-project"></i> Lifecycle Graph
+            </a>
+        </div>
+
         @* ── "Can we still hit the promise?" verdict banner (B9 PR-2) ── *@
         @if (Model.Promise is { } pr)
         {

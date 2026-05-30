@@ -265,6 +265,7 @@ public sealed class HybridIntentRouter : IHybridIntentRouter
             IntentKind.ExplainMakeBuyDecision   => IntentClassifier.ExtractMakeBuyItemRef(utterance),
             IntentKind.CrystallizeJobToStandard => IntentClassifier.ExtractProductionOrderRef(utterance),
             IntentKind.ProjectPromiseStatus     => IntentClassifier.ExtractProjectRef(utterance),
+            IntentKind.ShowProjectGraph         => IntentClassifier.ExtractProjectRef(utterance),
             _                                   => IntentClassifier.ExtractNaturalKey(utterance),
         };
         var parsed = new ParsedIntent(winner.Kind, key);

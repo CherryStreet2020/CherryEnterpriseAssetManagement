@@ -54,6 +54,13 @@ public enum IntentKind
     // and narrates the Green/Yellow/Red/Black promise verdict + top reasons via
     // IProjectPromiseService.EvaluateByRefAsync.
     ProjectPromiseStatus,
+
+    // B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — "show the project graph for PRJ-001",
+    // "graph project DEMO-COO-PROJ-001", "show the lifecycle for this project".
+    // Resolves the project, narrates the lifecycle shape (phases / jobs / cost
+    // rollup + the future-wave stages) via IProjectGraphService.GetGraphByRefAsync,
+    // and deep-links to the /CustomerProjects/Graph page.
+    ShowProjectGraph,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -117,6 +124,15 @@ public static class IntentClassifier
         @"\b(?:customer\s*project|project|program|proj)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,49})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // B9 Wave 1 PR-3 — a project-CODE-shaped token (letters then one-or-more
+    // hyphen groups, e.g. PRJ-001, DEMO-COO-PROJ-001). Tried FIRST in
+    // ExtractProjectRef so a code is captured even when filler sits between the
+    // "project" keyword and the code ("show the project graph for DEMO-COO-PROJ-001").
+    // A digit-presence post-check keeps hyphenated English ("quote-to-cash",
+    // "make-or-buy") from being mistaken for a code.
+    private static readonly Regex ProjectCodePattern = new Regex(
+        @"\b([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)\b", RegexOptions.Compiled);
+
     public static ParsedIntent Classify(string raw)
     {
         var s = raw.ToLowerInvariant();
@@ -145,6 +161,17 @@ public static class IntentClassifier
         {
             var key = ExtractProjectRef(raw);
             return new ParsedIntent(IntentKind.ProjectPromiseStatus, key);
+        }
+
+        // PROJECT GRAPH intents (B9 Wave 1 PR-3, CLOSES B9 Wave 1) — "show the
+        // project graph for X", "graph project DEMO-COO-PROJ-001", "show the
+        // project lifecycle". Distinctive graph/map/lifecycle phrasing anchored to
+        // a project subject; placed with the other project intents and before the
+        // generic chain / show-me branches so it wins cleanly.
+        if (IsShowProjectGraphQuery(s))
+        {
+            var key = ExtractProjectRef(raw);
+            return new ParsedIntent(IntentKind.ShowProjectGraph, key);
         }
 
         // CHAIN-OF-CUSTODY intents — must come before EXPLAIN so "trace
@@ -391,6 +418,18 @@ public static class IntentClassifier
     /// </summary>
     public static string? ExtractProjectRef(string raw)
     {
+        // 1) A project-code-shaped token anywhere (PRJ-001, DEMO-COO-PROJ-001).
+        //    Most reliable for real codes and robust to filler between the
+        //    "project" keyword and the code. Require a digit so hyphenated
+        //    English words aren't mistaken for a code.
+        foreach (Match cm in ProjectCodePattern.Matches(raw))
+        {
+            var tok = cm.Groups[1].Value;
+            if (ContainsDigit(tok)) return tok;
+        }
+
+        // 2) Explicit "project/program X" grammar — walk matches, return the first
+        //    identifier-looking token; null if explicit matches are all filler.
         var explicitMatches = ProjectRefPattern.Matches(raw);
         if (explicitMatches.Count > 0)
         {
@@ -401,8 +440,30 @@ public static class IntentClassifier
             }
             return null;
         }
+
+        // 3) A bare integer ("graph project 12").
         var bi = BareIntegerPattern.Match(raw);
         return bi.Success ? bi.Groups[1].Value : null;
+    }
+
+    private static bool ContainsDigit(string s)
+    {
+        foreach (var ch in s) if (char.IsDigit(ch)) return true;
+        return false;
+    }
+
+    // B9 Wave 1 PR-3 — true when the utterance asks to see the project lifecycle
+    // graph. Requires a graph/map/lifecycle word anchored to a project subject so
+    // it doesn't swallow unrelated "show me…" or chain-trace requests.
+    private static bool IsShowProjectGraphQuery(string s)
+    {
+        var graphWord = s.Contains("graph") || s.Contains("lifecycle") || s.Contains("life cycle")
+            || s.Contains("pipeline") || s.Contains("project map") || s.Contains("flow chart")
+            || s.Contains("flowchart");
+        if (!graphWord) return false;
+        // Anchor to a project/quote-to-cash context.
+        return s.Contains("project") || s.Contains("program") || s.Contains("proj")
+            || s.Contains("quote to cash") || s.Contains("quote-to-cash");
     }
 
     // True when a captured make-or-buy token looks like a real item id / part

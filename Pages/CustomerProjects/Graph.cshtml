@@ -1,0 +1,65 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.CustomerProjects.GraphModel
+@using Abs.FixedAssets.Services.Projects
+@{
+    var g = Model.Graph;
+    ViewData["Title"] = g != null ? $"Project Graph — {g.ProjectCode}" : "Project Lifecycle Graph";
+    Layout = "_ModernLayout";
+    var muted = "var(--v2-text-muted, #94a3b8)";
+}
+
+@*
+    Theme B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — Project Lifecycle Graph.
+    Quote → Project → WBS/Phase → Job → Purchasing → Receipt → Cost → Billing →
+    Acceptance on one clickable canvas. Live nodes are lit; future-wave stages
+    render dimmed with their wave label. Reuses the cytoscape graph render
+    approach from the chain-of-custody partial.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">
+            Project Lifecycle Graph@(g != null ? $" — {g.ProjectCode}" : "")
+        </h1>
+        @if (g != null)
+        {
+            <p class="ds-page-header__subtitle">
+                <strong>@g.ProjectName</strong>
+                · @g.PhaseCount phase@(g.PhaseCount == 1 ? "" : "s")
+                · @g.JobCount linked job@(g.JobCount == 1 ? "" : "s")
+            </p>
+        }
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.ErrorMessage != null)
+    {
+        <section class="ds-card"><div class="ds-card__body">
+            <p class="ds-text-danger"><strong>✗</strong> @Model.ErrorMessage</p>
+            <a href="/CustomerProjects" class="btn-secondary" style="margin-top:.6rem;">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+        </div></section>
+    }
+    else if (g != null)
+    {
+        <section class="ds-card" style="margin-bottom:1rem;" data-testid="pg-summary">
+            <div class="ds-card__body" style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                <p style="margin:0; flex:1; min-width:18rem; font-size:.9rem;">@g.Headline</p>
+                <div style="display:flex; gap:.5rem;">
+                    <a href="/CustomerProjects/CommandCenter/@g.ProjectId" class="btn-primary" data-testid="pg-open-command-center">
+                        <i class="fas fa-gauge-high"></i> Command Center
+                    </a>
+                    <a href="/CustomerProjects/Details/@g.ProjectId" class="btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Project Details
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <div data-testid="pg-graph">
+            @await Html.PartialAsync("/Pages/Shared/Partials/_ProjectGraph.cshtml", g)
+        </div>
+    }
+</main>
