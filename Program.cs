@@ -242,6 +242,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectContractSer
 // 100%-rule validator, and the set-once baseline gate (owner + cost bucket).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectWbsService,
     Abs.FixedAssets.Services.Projects.ProjectWbsService>();
+// B9 Wave 3 PR-8 — schedule spine: milestones / tasks / dependencies + the
+// gates (achieve-blocked-by-open-task, complete-blocked-by-open-predecessor,
+// no-cycle dependency edges).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectScheduleService,
+    Abs.FixedAssets.Services.Projects.ProjectScheduleService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
