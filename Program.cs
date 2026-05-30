@@ -220,6 +220,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Items.IItemMasterService,
 // that mutates a CustomerProject calls THIS service — never AppDbContext.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.ICustomerProjectService,
     Abs.FixedAssets.Services.Projects.CustomerProjectService>();
+// B9 Wave 1 PR-1 — read-only Project Command Center aggregation (the BIC money-shot).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectCommandCenterService,
+    Abs.FixedAssets.Services.Projects.ProjectCommandCenterService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
