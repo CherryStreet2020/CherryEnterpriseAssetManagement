@@ -295,6 +295,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectQuoteLine> ProjectQuoteLines
             => Set<Abs.FixedAssets.Models.Projects.ProjectQuoteLine>();
 
+        // B9 Wave 2 PR-5 — quote-to-cash spine (estimate layer).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectEstimate> ProjectEstimates
+            => Set<Abs.FixedAssets.Models.Projects.ProjectEstimate>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectEstimateLine> ProjectEstimateLines
+            => Set<Abs.FixedAssets.Models.Projects.ProjectEstimateLine>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot> ProjectEstimateSnapshots
+            => Set<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5101,6 +5109,12 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ApprovedById)
                     .OnDelete(DeleteBehavior.SetNull);
+                // B9 W2 PR-5 — the frozen estimate snapshot this revision committed to.
+                // No nav on the revision; SET NULL keeps the revision if the snapshot goes.
+                e.HasOne<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot>()
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceEstimateSnapshotId)
+                    .OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
             });
 
@@ -5118,6 +5132,88 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Item)
                     .WithMany()
                     .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ============================================================
+            // B9 Wave 2 PR-5 — quote-to-cash spine (estimate layer).
+            // ProjectEstimate / ProjectEstimateLine / ProjectEstimateSnapshot.
+            // Same conventions as PR-4: new tables, xmin, enum DB defaults, lines
+            // tenant-scoped through the parent estimate (no CompanyId). The snapshot
+            // is reachable via ONE cascade path (CustomerProjectId CASCADE); its link
+            // to the source estimate is SET NULL so the immutable snapshot survives.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectEstimate>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.EstimateNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectestimates_company_estimatenumber");
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectestimates_customerproject");
+                e.HasIndex(x => x.ProjectQuoteId)
+                    .HasDatabaseName("ix_projectestimates_quote")
+                    .HasFilter("\"ProjectQuoteId\" IS NOT NULL");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectestimates_status");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectEstimateStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Quote)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectQuoteId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectEstimateLine>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectEstimateId, x.LineNo }).IsUnique()
+                    .HasDatabaseName("ux_projectestimatelines_estimate_lineno");
+                e.HasIndex(x => x.CostElementType)
+                    .HasDatabaseName("ix_projectestimatelines_costelement");
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_projectestimatelines_item")
+                    .HasFilter("\"ItemId\" IS NOT NULL");
+                e.Property(x => x.CostElementType)
+                    .HasDefaultValue(Abs.FixedAssets.Models.Masters.CostElementType.Material);
+                e.HasOne(x => x.Estimate)
+                    .WithMany(es => es.Lines)
+                    .HasForeignKey(x => x.ProjectEstimateId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot>(e =>
+            {
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectestimatesnapshots_customerproject");
+                e.HasIndex(x => x.ProjectEstimateId)
+                    .HasDatabaseName("ix_projectestimatesnapshots_estimate")
+                    .HasFilter("\"ProjectEstimateId\" IS NOT NULL");
+                e.HasIndex(x => x.ProjectQuoteRevisionId)
+                    .HasDatabaseName("ix_projectestimatesnapshots_revision")
+                    .HasFilter("\"ProjectQuoteRevisionId\" IS NOT NULL");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Estimate)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectEstimateId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
             });
