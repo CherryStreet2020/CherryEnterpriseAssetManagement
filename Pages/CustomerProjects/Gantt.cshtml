@@ -1,0 +1,63 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.CustomerProjects.GanttModel
+@using Abs.FixedAssets.Services.Projects
+@{
+    var g = Model.Gantt;
+    ViewData["Title"] = g != null ? $"Project Gantt — {g.ProjectCode}" : "Project Gantt";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B9 Wave 3 PR-9 (CLOSES B9 Wave 3) — Project Gantt + critical path.
+    Server-rendered SVG timeline: task bars positioned by date, % complete fill,
+    milestone diamonds, finish-to-start dependency arrows, and the CPM critical
+    path highlighted in red. No external JS lib — deterministic + CSP-clean.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">
+            Project Gantt &amp; Critical Path@(g != null ? $" — {g.ProjectCode}" : "")
+        </h1>
+        @if (g != null)
+        {
+            <p class="ds-page-header__subtitle">
+                <strong>@g.ProjectName</strong>
+                · @g.Bars.Count task@(g.Bars.Count == 1 ? "" : "s")
+                · <span class="ds-text-danger"><strong>@g.CriticalTaskCount</strong> on the critical path</span>
+            </p>
+        }
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.ErrorMessage != null)
+    {
+        <section class="ds-card"><div class="ds-card__body">
+            <p class="ds-text-danger"><strong>✗</strong> @Model.ErrorMessage</p>
+            <a href="/CustomerProjects" class="btn-secondary" data-csp-style="margin-top:.6rem;">
+                <i class="fas fa-arrow-left"></i> Back to Projects
+            </a>
+        </div></section>
+    }
+    else if (g != null)
+    {
+        <section class="ds-card" data-csp-style="margin-bottom:1rem;" data-testid="gantt-summary">
+            <div class="ds-card__body" data-csp-style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap;">
+                <p data-csp-style="margin:0; flex:1; min-width:18rem; font-size:.9rem;">@g.Headline</p>
+                <div data-csp-style="display:flex; gap:.5rem;">
+                    <a href="/CustomerProjects/CommandCenter/@g.ProjectId" class="btn-primary" data-testid="gantt-open-command-center">
+                        <i class="fas fa-gauge-high"></i> Command Center
+                    </a>
+                    <a href="/CustomerProjects/Graph/@g.ProjectId" class="btn-secondary">
+                        <i class="fas fa-diagram-project"></i> Lifecycle Graph
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <div data-testid="gantt-chart">
+            @await Html.PartialAsync("/Pages/Shared/Partials/_ProjectGantt.cshtml", g)
+        </div>
+    }
+</main>

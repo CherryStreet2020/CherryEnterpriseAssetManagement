@@ -1,0 +1,157 @@
+@*
+    Theme B9 Wave 3 PR-9 (CLOSES B9 Wave 3) — Project Gantt + critical path.
+
+    Server-rendered SVG (no external JS lib → deterministic, testable, CSP-clean):
+      · task bars positioned by date, with a % complete fill overlay,
+      · milestone diamonds in a top lane,
+      · finish-to-start dependency arrows,
+      · the CPM critical path highlighted in red.
+
+    The SVG is assembled as a string and emitted with Html.Raw — Razor reserves
+    the bare <text> tag, so building the markup server-side avoids that clash.
+    SVG presentation attributes (fill/stroke/x/y) are not CSS `style`, so the
+    strict CSP doesn't block them. HTML wrappers use data-csp-style.
+*@
+@using System.Globalization
+@using System.Text
+@using Abs.FixedAssets.Models.Projects
+@using Abs.FixedAssets.Services.Projects
+@model ProjectGanttView
+
+@{
+    var ci = CultureInfo.InvariantCulture;
+    string N(double v) => v.ToString("0.#", ci);
+    string Enc(string? s) => System.Net.WebUtility.HtmlEncode(s ?? string.Empty);
+
+    const double leftW = 240, timelineW = 920, rowH = 30, headerH = 30, msLaneH = 46, padB = 16, barH = 16;
+    var tlStart = Model.TimelineStart.Date;
+    var tlEnd = Model.TimelineEnd.Date;
+    double totalDays = Math.Max(1, (tlEnd - tlStart).TotalDays);
+    int rows = Model.Bars.Count;
+    double tasksTop = headerH + msLaneH;
+    double chartH = tasksTop + Math.Max(1, rows) * rowH + padB;
+    double totalW = leftW + timelineW + 16;
+
+    double X(DateTime d)
+    {
+        var dd = (d.Date - tlStart).TotalDays;
+        if (dd < 0) dd = 0; if (dd > totalDays) dd = totalDays;
+        return leftW + (dd / totalDays) * timelineW;
+    }
+    double RowMidY(int i) => tasksTop + i * rowH + rowH / 2.0;
+
+    var geom = new Dictionary<int, (double x1, double x2, double yMid, bool crit)>();
+    for (int i = 0; i < Model.Bars.Count; i++)
+    {
+        var b = Model.Bars[i];
+        double x1 = X(b.Start), x2 = X(b.End);
+        if (x2 - x1 < 4) x2 = x1 + 4;
+        geom[b.TaskId] = (x1, x2, RowMidY(i), b.IsCritical);
+    }
+
+    string BarFill(GanttBar b) => b.Status == ProjectTaskStatus.Complete ? "#475569" : (b.IsCritical ? "#dc2626" : "#3b82f6");
+    string BarFillDone(GanttBar b) => b.Status == ProjectTaskStatus.Complete ? "#334155" : (b.IsCritical ? "#991b1b" : "#1d4ed8");
+    string MsFill(GanttMilestoneMarker m) => m.Status == ProjectMilestoneStatus.Achieved ? "#16a34a" : (m.IsCritical ? "#dc2626" : "#d97706");
+
+    var svg = new StringBuilder();
+    if (Model.Bars.Count > 0 || Model.Milestones.Count > 0)
+    {
+        svg.Append($"<svg viewBox=\"0 0 {N(totalW)} {N(chartH)}\" width=\"100%\" preserveAspectRatio=\"xMinYMin meet\" role=\"img\" aria-label=\"Project Gantt chart with critical path\" data-testid=\"gantt-svg\">");
+
+        // weekly gridlines + date labels
+        for (var d = tlStart; d <= tlEnd; d = d.AddDays(7))
+        {
+            var gx = N(X(d));
+            svg.Append($"<line x1=\"{gx}\" y1=\"{N(headerH)}\" x2=\"{gx}\" y2=\"{N(chartH)}\" stroke=\"#eef2f7\" stroke-width=\"1\"></line>");
+            svg.Append($"<text x=\"{gx}\" y=\"20\" fill=\"#94a3b8\" font-size=\"9\" text-anchor=\"middle\">{Enc(d.ToString("MMM d", ci))}</text>");
+        }
+
+        // today marker
+        var today = DateTime.UtcNow.Date;
+        if (today >= tlStart && today <= tlEnd)
+        {
+            var tx = N(X(today));
+            svg.Append($"<line x1=\"{tx}\" y1=\"{N(headerH)}\" x2=\"{tx}\" y2=\"{N(chartH)}\" stroke=\"#0891b2\" stroke-width=\"1.5\" stroke-dasharray=\"3,3\"></line>");
+            svg.Append($"<text x=\"{tx}\" y=\"{N(headerH + 10)}\" fill=\"#0891b2\" font-size=\"9\" text-anchor=\"middle\">today</text>");
+        }
+
+        // milestone lane
+        foreach (var m in Model.Milestones)
+        {
+            var mx = X(m.Date);
+            var cy = headerH + msLaneH / 2.0;
+            const double s = 7.0;
+            var pts = $"{N(mx)},{N(cy - s)} {N(mx + s)},{N(cy)} {N(mx)},{N(cy + s)} {N(mx - s)},{N(cy)}";
+            svg.Append($"<polygon points=\"{pts}\" fill=\"{MsFill(m)}\" stroke=\"#ffffff\" stroke-width=\"1\"></polygon>");
+            svg.Append($"<text x=\"{N(mx + s + 4)}\" y=\"{N(cy + 3)}\" fill=\"#334155\" font-size=\"9\">{Enc(m.Code)}</text>");
+        }
+
+        // dependency arrows
+        foreach (var e in Model.Dependencies)
+        {
+            if (!geom.TryGetValue(e.PredecessorTaskId, out var p) || !geom.TryGetValue(e.SuccessorTaskId, out var su)) continue;
+            double fromX = (e.DependencyType == DependencyType.StartToStart || e.DependencyType == DependencyType.StartToFinish) ? p.x1 : p.x2;
+            double toX = (e.DependencyType == DependencyType.FinishToFinish || e.DependencyType == DependencyType.StartToFinish) ? su.x2 : su.x1;
+            var col = (p.crit && su.crit) ? "#dc2626" : "#cbd5e1";
+            var fx = N(fromX); var fy = N(p.yMid); var mx = N(toX); var ty = N(su.yMid);
+            svg.Append($"<path d=\"M {fx} {fy} L {mx} {fy} L {mx} {ty}\" fill=\"none\" stroke=\"{col}\" stroke-width=\"1.4\"></path>");
+            svg.Append($"<circle cx=\"{mx}\" cy=\"{ty}\" r=\"2.4\" fill=\"{col}\"></circle>");
+        }
+
+        // task rows
+        for (int i = 0; i < Model.Bars.Count; i++)
+        {
+            var b = Model.Bars[i];
+            var g = geom[b.TaskId];
+            var rowMid = RowMidY(i);
+            var barTop = rowMid - barH / 2.0;
+            var w = g.x2 - g.x1;
+            var pct = (double)b.PercentComplete / 100.0;
+            var label = b.Code + " · " + b.Name;
+            if (label.Length > 40) label = label.Substring(0, 39) + "…";
+            var labelColor = b.IsCritical ? "#b91c1c" : "#334155";
+            var weight = b.IsCritical ? "700" : "400";
+            svg.Append($"<text x=\"8\" y=\"{N(rowMid + 3)}\" fill=\"{labelColor}\" font-size=\"10\" font-weight=\"{weight}\">{Enc(label)}</text>");
+            svg.Append($"<rect x=\"{N(g.x1)}\" y=\"{N(barTop)}\" width=\"{N(w)}\" height=\"{N(barH)}\" rx=\"3\" fill=\"{BarFill(b)}\" opacity=\"0.35\"></rect>");
+            svg.Append($"<rect x=\"{N(g.x1)}\" y=\"{N(barTop)}\" width=\"{N(w * pct)}\" height=\"{N(barH)}\" rx=\"3\" fill=\"{BarFillDone(b)}\"></rect>");
+            if (b.IsCritical)
+                svg.Append($"<rect x=\"{N(g.x1)}\" y=\"{N(barTop)}\" width=\"{N(w)}\" height=\"{N(barH)}\" rx=\"3\" fill=\"none\" stroke=\"#dc2626\" stroke-width=\"1.5\"></rect>");
+            var floatTxt = b.TotalFloatDays > 0.01 ? $" · {b.TotalFloatDays.ToString("0.#", ci)}d float" : "";
+            svg.Append($"<text x=\"{N(g.x2 + 5)}\" y=\"{N(rowMid + 3)}\" fill=\"#94a3b8\" font-size=\"8\">{Enc(b.PercentComplete.ToString("0", ci) + "%" + floatTxt)}</text>");
+        }
+
+        svg.Append("</svg>");
+    }
+}
+
+<div class="pe-card" data-csp-style="margin-top:1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">
+            <span class="accent-dot accent-dot--green"></span>
+            Project Gantt &amp; Critical Path
+        </span>
+        <span class="status-badge info">@Model.Bars.Count task@(Model.Bars.Count == 1 ? "" : "s") · @Model.CriticalTaskCount critical</span>
+    </div>
+    <div class="pe-card__body">
+        @if (Model.Bars.Count == 0 && Model.Milestones.Count == 0)
+        {
+            <p data-csp-style="margin:0; font-size:.9rem; color:var(--cherry-muted,#64748b);">
+                No scheduled tasks or milestones yet. Add tasks and finish-to-start dependencies
+                to see the critical path light up here.
+            </p>
+        }
+        else
+        {
+            <div data-csp-style="overflow-x:auto;" data-testid="gantt-chart-svg">
+                @Html.Raw(svg.ToString())
+            </div>
+            <div data-csp-style="margin-top:0.6rem; display:flex; flex-wrap:wrap; gap:0.9rem; font-size:0.72rem; color:var(--cherry-muted,#64748b);">
+                <span><span data-csp-style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#dc2626;vertical-align:middle;"></span> critical path</span>
+                <span><span data-csp-style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#3b82f6;vertical-align:middle;"></span> task (has float)</span>
+                <span><span data-csp-style="display:inline-block;width:11px;height:11px;border-radius:2px;background:#475569;vertical-align:middle;"></span> complete</span>
+                <span>◆ milestone</span>
+                <span data-csp-style="opacity:.8;">Darker fill = % complete. Critical path = zero schedule float.</span>
+            </div>
+        }
+    </div>
+</div>

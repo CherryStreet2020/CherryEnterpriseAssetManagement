@@ -562,6 +562,45 @@ public class HybridIntentRouterTests
         Assert.Equal(IntentKind.ShowProjectGraph, result.Intent.Kind);
     }
 
+    // B9 Wave 3 PR-9 — ShowProjectGantt keyword routing (CLOSES B9 Wave 3)
+    [Fact]
+    public async Task KeywordGantt_ShowGanttForCode_RoutesWithCode()
+    {
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "show the gantt for DEMO-COO-PROJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGantt, result.Intent.Kind);
+        Assert.Equal("DEMO-COO-PROJ-001", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+        Assert.Equal(0, voyage.EmbedQueryCalls);
+    }
+
+    [Fact]
+    public async Task KeywordGantt_CriticalPath_RoutesToGantt_NotGraph()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "what's the critical path on project PRJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGantt, result.Intent.Kind);
+        Assert.Equal("PRJ-001", result.Intent.NaturalKey);
+    }
+
+    [Fact]
+    public async Task KeywordGantt_ProjectTimeline_RoutesToGantt()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "show the project timeline for this project", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGantt, result.Intent.Kind);
+    }
+
     [Fact]
     public async Task KeywordGraph_CollisionSafety_PromiseStaysPromise()
     {

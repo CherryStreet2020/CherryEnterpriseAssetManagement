@@ -45,8 +45,11 @@
     }
     else if (d != null)
     {
-        @* ── Lifecycle graph entry point (B9 PR-3) ── *@
-        <div style="display:flex; justify-content:flex-end; margin-bottom:.8rem;">
+        @* ── Lifecycle graph + Gantt entry points (B9 PR-3 / PR-9) ── *@
+        <div style="display:flex; justify-content:flex-end; gap:.5rem; margin-bottom:.8rem;">
+            <a href="/CustomerProjects/Gantt/@d.ProjectId" class="btn-secondary" data-testid="pcc-open-gantt">
+                <i class="fas fa-bars-staggered"></i> Gantt &amp; Critical Path
+            </a>
             <a href="/CustomerProjects/Graph/@d.ProjectId" class="btn-secondary" data-testid="pcc-open-graph">
                 <i class="fas fa-diagram-project"></i> Lifecycle Graph
             </a>

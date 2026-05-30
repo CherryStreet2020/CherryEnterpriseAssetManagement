@@ -297,4 +297,93 @@ public sealed class ProjectScheduleServiceTests
         Assert.True(res.IsFailure);
         Assert.Contains("not found", res.Error, StringComparison.OrdinalIgnoreCase);
     }
+
+    // -- PR-9: Gantt + critical path (CPM) ---------------------------
+
+    private static async Task<int> TaskWithDatesAsync(ProjectScheduleService svc, AppDbContext db,
+        int pid, string code, DateTime start, DateTime finish)
+    {
+        var id = (await svc.CreateTaskAsync(new CreateTaskRequest(pid, code, code,
+            PlannedStart: start, PlannedFinish: finish))).Value;
+        return id;
+    }
+
+    [Fact]
+    public async Task GetGantt_identifies_critical_path_and_float()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        var d = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var a = await TaskWithDatesAsync(svc, db, pid, "A", d, d.AddDays(2));            // 2d
+        var b = await TaskWithDatesAsync(svc, db, pid, "B", d.AddDays(2), d.AddDays(5)); // 3d
+        var c = await TaskWithDatesAsync(svc, db, pid, "C", d.AddDays(5), d.AddDays(6)); // 1d
+        var par = await TaskWithDatesAsync(svc, db, pid, "D", d.AddDays(2), d.AddDays(3)); // 1d parallel
+        await svc.AddDependencyAsync(new AddDependencyRequest(a, b));
+        await svc.AddDependencyAsync(new AddDependencyRequest(b, c));
+        await svc.AddDependencyAsync(new AddDependencyRequest(a, par));
+
+        var res = await svc.GetGanttAsync(pid);
+
+        Assert.True(res.IsSuccess);
+        var view = res.Value!;
+        Assert.Equal(3, view.CriticalTaskCount);
+        Assert.Equal(new[] { "A", "B", "C" }, view.CriticalPathCodes.OrderBy(x => x).ToArray());
+        var dBar = view.Bars.First(x => x.Code == "D");
+        Assert.False(dBar.IsCritical);
+        Assert.True(dBar.TotalFloatDays > 0.5, $"expected D to carry float, got {dBar.TotalFloatDays}");
+        Assert.Equal(6d, view.ProjectDurationDays, 1);
+    }
+
+    [Fact]
+    public async Task RecalculateCriticalPath_stamps_the_flag()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        var d = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        var a = await TaskWithDatesAsync(svc, db, pid, "A", d, d.AddDays(2));
+        var b = await TaskWithDatesAsync(svc, db, pid, "B", d.AddDays(2), d.AddDays(5));
+        await svc.AddDependencyAsync(new AddDependencyRequest(a, b));
+
+        var res = await svc.RecalculateCriticalPathAsync(pid);
+
+        Assert.True(res.IsSuccess);
+        Assert.Equal(2, res.Value);
+        var tasks = await db.ProjectTasks.Where(t => t.CustomerProjectId == pid).ToListAsync();
+        Assert.All(tasks, t => Assert.True(t.IsCriticalPath));
+    }
+
+    [Fact]
+    public async Task GetGantt_plots_milestones_and_empty_state()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+
+        var empty = await svc.GetGanttAsync(pid);
+        Assert.True(empty.IsSuccess);
+        Assert.Empty(empty.Value!.Bars);
+        Assert.Contains("No scheduled tasks", empty.Value.Headline, StringComparison.OrdinalIgnoreCase);
+
+        await svc.CreateMilestoneAsync(new CreateMilestoneRequest(pid, "M1", "Ship",
+            TargetDate: new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc)));
+        var res = await svc.GetGanttAsync(pid);
+        Assert.Single(res.Value!.Milestones);
+    }
+
+    [Fact]
+    public async Task GetGanttByRef_resolves_by_code_case_insensitive()
+    {
+        using var db = NewDb();
+        var p = new CustomerProject { CompanyId = 1, Code = "PRJ-GANTT-1", Name = "G", Status = CustomerProjectStatus.Active, Mode = CustomerProjectMode.Standard, Currency = "USD" };
+        db.CustomerProjects.Add(p);
+        await db.SaveChangesAsync();
+        var svc = NewSvc(db);
+
+        var res = await svc.GetGanttByRefAsync("prj-gantt-1");
+
+        Assert.True(res.IsSuccess);
+        Assert.Equal("PRJ-GANTT-1", res.Value!.ProjectCode);
+    }
 }
