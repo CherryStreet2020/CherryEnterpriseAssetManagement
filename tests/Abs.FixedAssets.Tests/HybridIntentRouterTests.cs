@@ -519,4 +519,70 @@ public class HybridIntentRouterTests
         var result = await router.RouteAsync("why are we buying item 9395", tenantId: 1, CancellationToken.None);
         Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
     }
+
+    // ====================================================================
+    // B9 Wave 1 PR-3 — ShowProjectGraph keyword routing (CLOSES B9 Wave 1)
+    // ====================================================================
+
+    [Fact]
+    public async Task KeywordGraph_ShowProjectGraphForCode_RoutesWithCode()
+    {
+        using var db = NewDb();
+        var voyage = new TrackingVoyageStub();
+        var router = Build(db, voyage);
+
+        var result = await router.RouteAsync(
+            "show the project graph for DEMO-COO-PROJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGraph, result.Intent.Kind);
+        Assert.Equal("DEMO-COO-PROJ-001", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+        Assert.Equal(0, voyage.EmbedQueryCalls); // keyword win never touches Voyage
+    }
+
+    [Fact]
+    public async Task KeywordGraph_GraphProject_RoutesToGraph()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "graph project PRJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGraph, result.Intent.Kind);
+        Assert.Equal("PRJ-001", result.Intent.NaturalKey);
+    }
+
+    [Fact]
+    public async Task KeywordGraph_LifecycleForProject_RoutesToGraph()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "show the lifecycle for this project", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ShowProjectGraph, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordGraph_CollisionSafety_PromiseStaysPromise()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        // "on track" promise phrasing must NOT be hijacked by the graph intent.
+        var result = await router.RouteAsync(
+            "are we on track to deliver project PRJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ProjectPromiseStatus, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordGraph_CollisionSafety_ChainOfCustodyStaysChain()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        // A receipt chain-of-custody ask (no graph/project word) must not route to the project graph.
+        var result = await router.RouteAsync(
+            "trace this receipt back to its source", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainChainOfCustody, result.Intent.Kind);
+    }
 }

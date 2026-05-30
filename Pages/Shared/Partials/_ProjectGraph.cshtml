@@ -1,0 +1,205 @@
+@*
+    Theme B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — Project lifecycle graph.
+
+    Renders a ProjectGraph (Quote → Project → WBS/Phase → Job → Purchasing →
+    Receipt → Cost → Billing → Acceptance) as an interactive cytoscape.js graph
+    with a dagre left-to-right layout. Reuses the same render approach as
+    _ChainOfCustodyGraph: nodes + ParentId-derived edges, server-serialized to
+    JSON, drawn client-side. Future-wave stages render DIMMED (dashed, low
+    opacity) with their wave label so the full lifecycle is visible while the
+    nodes we can populate today are lit.
+
+    Present nodes are CLICKABLE — tap navigates to the node's deep link
+    (Command Center, project Details, the job Cockpit).
+
+    Usage from any PageModel:
+        @await Html.PartialAsync("/Pages/Shared/Partials/_ProjectGraph.cshtml", Model.Graph)
+*@
+
+@model Abs.FixedAssets.Services.Projects.ProjectGraph
+
+@{
+    var containerId = $"project-graph-{Guid.NewGuid():N}";
+    var nodesJson = System.Text.Json.JsonSerializer.Serialize(
+        Model.Nodes.Select(n => new
+        {
+            id = n.Id,
+            stage = n.Stage.ToString(),
+            state = n.State.ToString(),
+            tone = n.Tone.ToString(),
+            label = n.Label,
+            sublabel = n.Sublabel,
+            href = n.DeepLinkHref,
+            wave = n.WaveLabel,
+            parent = n.ParentId,
+        }).ToList());
+}
+
+<div class="pe-card" data-csp-style="margin-top:1rem;">
+    <div class="pe-card__header">
+        <span class="pe-card__title">
+            <span class="accent-dot accent-dot--green"></span>
+            Project Lifecycle Graph
+        </span>
+        <span class="status-badge info">@Model.PhaseCount phase@(Model.PhaseCount == 1 ? "" : "s") · @Model.JobCount job@(Model.JobCount == 1 ? "" : "s")</span>
+    </div>
+    <div class="pe-card__body">
+        <div data-csp-style="margin-bottom:0.6rem; font-size:0.8rem; color:var(--cherry-muted, #64748b);">
+            Quote → Project → WBS → Job → Purchasing → Receipt → Cost → Billing → Acceptance.
+            Lit nodes are live data; <span data-csp-style="opacity:0.6;">dimmed</span> nodes are future-wave stages.
+        </div>
+        <div id="@containerId" data-csp-style="width:100%; height:540px; border:1px solid var(--cherry-border, #e5e7eb); border-radius:8px; background:#fafafa;"></div>
+        <div data-csp-style="margin-top:0.5rem; display:flex; flex-wrap:wrap; gap:0.75rem; font-size:0.72rem; color:var(--cherry-muted, #64748b);">
+            <span><span data-csp-style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16a34a;vertical-align:middle;"></span> on track</span>
+            <span><span data-csp-style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d97706;vertical-align:middle;"></span> at risk</span>
+            <span><span data-csp-style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dc2626;vertical-align:middle;"></span> blocked / on hold</span>
+            <span><span data-csp-style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#475569;vertical-align:middle;"></span> done</span>
+            <span><span data-csp-style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#cbd5e1;border:1px dashed #94a3b8;vertical-align:middle;"></span> future wave</span>
+            <span data-csp-style="opacity:0.8;">Pan/zoom with the mouse · click a lit node to open it.</span>
+        </div>
+    </div>
+</div>
+
+@*
+    Scripts render in the partial BODY (not an @section): the strict nonce-based
+    CSP (SecurityHeadersMiddleware) drops 'unsafe-inline' from script-src, but
+    NonceTagHelper stamps the per-request nonce onto EVERY server-rendered
+    <script> element wherever it sits — so body-inline scripts execute reliably
+    without depending on section bubbling from a partial. cdnjs + jsdelivr are
+    both allowlisted in script-src.
+*@
+<div data-csp-graph-scripts>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js" defer></script>
+    <script defer>
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
+                if (typeof cytoscape === 'undefined' || typeof dagre === 'undefined') {
+                    setTimeout(arguments.callee, 400);
+                    return;
+                }
+                if (typeof cytoscapeDagre !== 'undefined') {
+                    cytoscape.use(cytoscapeDagre);
+                }
+
+                var raw = @Html.Raw(nodesJson);
+                if (!raw || raw.length === 0) return;
+
+                // Tone → solid color for Present/Empty nodes.
+                function toneColor(tone) {
+                    switch (tone) {
+                        case 'Good': return '#16a34a';
+                        case 'Warning': return '#d97706';
+                        case 'Bad': return '#dc2626';
+                        case 'Done': return '#475569';
+                        default: return '#4f46e5';
+                    }
+                }
+                // Stage gets a distinctive hue for the structural (Neutral-tone) lit nodes.
+                function stageColor(stage) {
+                    switch (stage) {
+                        case 'Project': return '#4f46e5';
+                        case 'Wbs': return '#0891b2';
+                        case 'Cost': return '#15803d';
+                        default: return '#64748b';
+                    }
+                }
+
+                var nodes = raw.map(function (n) {
+                    var future = n.state === 'Future';
+                    var bg = future
+                        ? '#cbd5e1'
+                        : (n.tone && n.tone !== 'Neutral' ? toneColor(n.tone) : stageColor(n.stage));
+                    var line2 = future && n.wave ? n.wave : (n.sublabel || '');
+                    return {
+                        data: {
+                            id: n.id,
+                            label: n.label + (line2 ? '\n' + line2 : ''),
+                            bg: bg,
+                            future: future ? 1 : 0,
+                            href: n.href || ''
+                        }
+                    };
+                });
+
+                var edges = raw
+                    .filter(function (n) { return n.parent !== null && n.parent !== undefined; })
+                    .map(function (n) {
+                        return {
+                            data: {
+                                id: 'e-' + n.parent + '-' + n.id,
+                                source: n.parent,
+                                target: n.id
+                            }
+                        };
+                    });
+
+                var cy = cytoscape({
+                    container: document.getElementById('@containerId'),
+                    elements: { nodes: nodes, edges: edges },
+                    layout: {
+                        name: typeof cytoscapeDagre !== 'undefined' ? 'dagre' : 'breadthfirst',
+                        rankDir: 'LR',
+                        nodeSep: 26,
+                        rankSep: 90,
+                        padding: 24
+                    },
+                    style: [
+                        {
+                            selector: 'node',
+                            style: {
+                                'background-color': 'data(bg)',
+                                'label': 'data(label)',
+                                'color': '#fff',
+                                'text-valign': 'center',
+                                'text-halign': 'center',
+                                'text-wrap': 'wrap',
+                                'text-max-width': '128px',
+                                'font-size': '10px',
+                                'font-weight': '600',
+                                'width': '146px',
+                                'height': '56px',
+                                'shape': 'round-rectangle',
+                                'border-width': 0
+                            }
+                        },
+                        {
+                            selector: 'node[future = 1]',
+                            style: {
+                                'opacity': 0.5,
+                                'color': '#334155',
+                                'border-width': 1.5,
+                                'border-color': '#94a3b8',
+                                'border-style': 'dashed'
+                            }
+                        },
+                        {
+                            selector: 'edge',
+                            style: {
+                                'curve-style': 'bezier',
+                                'target-arrow-shape': 'triangle',
+                                'target-arrow-color': '#94a3b8',
+                                'line-color': '#94a3b8',
+                                'width': 2
+                            }
+                        }
+                    ],
+                    wheelSensitivity: 0.2
+                });
+
+                // Click a lit node → navigate to its deep link.
+                cy.on('tap', 'node', function (evt) {
+                    var href = evt.target.data('href');
+                    if (href) { window.location.href = href; }
+                });
+                cy.on('mouseover', 'node[href != ""]', function () {
+                    document.getElementById('@containerId').style.cursor = 'pointer';
+                });
+                cy.on('mouseout', 'node', function () {
+                    document.getElementById('@containerId').style.cursor = 'default';
+                });
+            });
+        }());
+    </script>
+</div>

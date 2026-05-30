@@ -104,5 +104,13 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.ProjectPromiseStatus, "will we make the customer deadline on this program"),
         new IntentPrototype(IntentKind.ProjectPromiseStatus, "is the project going to ship on time"),
         new IntentPrototype(IntentKind.ProjectPromiseStatus, "what is the delivery risk on project DEMO-COO-PROJ-001"),
+
+        // ShowProjectGraph — B9 Wave 1 PR-3 (CLOSES B9 Wave 1). Open the project
+        // lifecycle graph. Vector prototypes cover paraphrasings of "show the graph".
+        new IntentPrototype(IntentKind.ShowProjectGraph, "show me the project graph for PRJ-001"),
+        new IntentPrototype(IntentKind.ShowProjectGraph, "graph project DEMO-COO-PROJ-001"),
+        new IntentPrototype(IntentKind.ShowProjectGraph, "show the lifecycle for this project"),
+        new IntentPrototype(IntentKind.ShowProjectGraph, "pull up the quote to cash graph for this program"),
+        new IntentPrototype(IntentKind.ShowProjectGraph, "visualize the whole project pipeline end to end"),
     };
 }

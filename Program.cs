@@ -226,6 +226,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectCommandCent
 // B9 Wave 1 PR-2 — "Can we still hit the promise?" verdict engine.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectPromiseService,
     Abs.FixedAssets.Services.Projects.ProjectPromiseService>();
+// B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — project lifecycle graph (quote→cash spine).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectGraphService,
+    Abs.FixedAssets.Services.Projects.ProjectGraphService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
