@@ -1,0 +1,153 @@
+@page "{id:int}"
+@model Abs.FixedAssets.Pages.CustomerProjects.CommandCenterModel
+@using Abs.FixedAssets.Services.Projects
+@{
+    var d = Model.Data;
+    ViewData["Title"] = d != null ? $"Command Center — {d.Code}" : "Project Command Center";
+    Layout = "_ModernLayout";
+    var muted = "var(--v2-text-muted, #94a3b8)";
+    var mono = "var(--font-mono, 'JetBrains Mono', monospace)";
+    string Money(decimal? v, string ccy) => v.HasValue ? $"{ccy} {v.Value:N0}" : "—";
+}
+
+@*
+    Theme B9 Wave 1 PR-1 — Project Command Center (the BIC money-shot).
+    Answers, on one screen, what did the customer buy / what changed / what are we
+    building / what's late / what will margin be / who owns the next action — from
+    the CustomerProject substrate today, with honest "wired in a later wave" states.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">
+            Project Command Center@(d != null ? $" — {d.Code}" : "")
+        </h1>
+        @if (d != null)
+        {
+            <p class="ds-page-header__subtitle">
+                <strong>@d.Name</strong>
+                @if (!string.IsNullOrWhiteSpace(d.CustomerName)) { <text> · @d.CustomerName</text> }
+                · <span class="ds-badge ds-badge--info">@d.Status</span>
+                · mode <strong>@d.Mode</strong>
+                @if (d.ContractType != null) { <text> · @d.ContractType</text> }
+                @if (d.QualityProgram != null) { <text> · @d.QualityProgram</text> }
+            </p>
+        }
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.ErrorMessage != null)
+    {
+        <section class="ds-card"><div class="ds-card__body">
+            <p class="ds-text-danger"><strong>✗</strong> @Model.ErrorMessage</p>
+        </div></section>
+    }
+    else if (d != null)
+    {
+        @* ── KPI band ─────────────────────────────────────────────── *@
+        <section style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px,1fr)); gap:.6rem; margin-bottom:1.1rem;" data-testid="pcc-kpis">
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Contract (effective)</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono;">@Money(d.EffectiveContractValue ?? d.ContractValue, d.Currency)</div>
+                @if (d.EffectiveContractValue.HasValue && d.ContractValue.HasValue && d.EffectiveContractValue != d.ContractValue)
+                {
+                    <div style="font-size:.6rem; color:@muted;">base @Money(d.ContractValue, d.Currency)</div>
+                }
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Projected margin</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono; color:@(d.ProjectedMargin.HasValue ? (d.ProjectedMargin.Value < 0 ? "var(--v2-status-cancelled,#ef4444)" : "var(--v2-status-completed,#22c55e)") : muted);">
+                    @Money(d.ProjectedMargin, d.Currency)
+                </div>
+                @if (d.ProjectedMarginPct.HasValue) { <div style="font-size:.6rem; color:@muted;">@d.ProjectedMarginPct.Value.ToString("0.#")%</div> }
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">% complete (EVM)</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono;">@(d.PercentComplete.HasValue ? d.PercentComplete.Value.ToString("0.#") + "%" : "—")</div>
+                <div style="font-size:.6rem; color:@muted;">EAC @Money(d.EstimatedTotalCost, d.Currency)</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Linked jobs</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono;">@d.Jobs.Total</div>
+                <div style="font-size:.6rem; color:@muted;">@d.Jobs.Open open · @d.Jobs.Completed done@(d.Jobs.OnHold > 0 ? $" · {d.Jobs.OnHold} hold" : "")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Change exposure</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono; color:@(d.Amendments.Open > 0 ? "var(--v2-status-warning,#f59e0b)" : muted);">@Money(d.Amendments.PendingValueDelta, d.Currency)</div>
+                <div style="font-size:.6rem; color:@muted;">@d.Amendments.Open open · @d.Amendments.Approved approved</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Schedule</div>
+                <div style="font-size:1.1rem; font-weight:600; font-family:@mono; color:@(d.DaysLateVsTarget is > 0 ? "var(--v2-status-cancelled,#ef4444)" : muted);">
+                    @(d.DaysLateVsTarget.HasValue ? (d.DaysLateVsTarget.Value > 0 ? $"+{d.DaysLateVsTarget.Value}d" : d.DaysLateVsTarget.Value < 0 ? $"{d.DaysLateVsTarget.Value}d" : "on date") : "—")
+                </div>
+                <div style="font-size:.6rem; color:@muted;">target @(d.TargetEndDate?.ToString("MMM d, yyyy") ?? "—")</div>
+            </div></div>
+        </section>
+
+        @* ── Command-center questions ─────────────────────────────── *@
+        <section class="ds-card" style="margin-bottom:1.1rem;" data-testid="pcc-questions"><div class="ds-card__body">
+            <h2 class="ds-h2" style="margin-bottom:.25rem;">Answer these immediately</h2>
+            <p style="color:@muted; font-size:.8rem; margin-bottom:.85rem;">The questions a PM/exec asks the moment they open a project. Answered from live data; some areas land in later B9 waves.</p>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(330px,1fr)); gap:.55rem;">
+                @foreach (var q in d.Questions)
+                {
+                    var border = q.State == CommandCenterAnswerState.Attention ? "var(--v2-status-warning,#f59e0b)"
+                        : q.State == CommandCenterAnswerState.Pending ? "var(--v2-surface-2,#334155)"
+                        : "var(--v2-status-completed,#22c55e)";
+                    var dim = q.State == CommandCenterAnswerState.Pending;
+                    <div style="border-left:3px solid @border; padding:.5rem .7rem; background:var(--v2-surface-1, rgba(255,255,255,.02)); border-radius:.3rem; @(dim ? "opacity:.6;" : "")">
+                        <div style="font-size:.78rem; font-weight:600;">@q.Question</div>
+                        <div style="font-size:.8rem; color:@muted; margin-top:.15rem;">
+                            @q.Answer
+                            @if (q.State == CommandCenterAnswerState.Pending && !string.IsNullOrEmpty(q.WiredInWave))
+                            {
+                                <span class="ds-badge ds-badge--neutral" style="margin-left:.3rem;">@q.WiredInWave</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div></section>
+
+        @* ── Job status breakdown + AI summary ────────────────────── *@
+        <section style="display:grid; grid-template-columns:1fr 1fr; gap:.9rem;">
+            <div class="ds-card"><div class="ds-card__body">
+                <h3 class="ds-h3" style="margin-bottom:.5rem;">Linked production (by status)</h3>
+                @if (d.Jobs.Total == 0)
+                {
+                    <p style="color:@muted; font-size:.85rem;">No production jobs linked to this project yet.</p>
+                }
+                else
+                {
+                    <table class="ds-table" style="font-size:.85rem;">
+                        <thead><tr><th>Status</th><th style="text-align:right;">Jobs</th></tr></thead>
+                        <tbody>
+                            @foreach (var s in d.Jobs.ByStatus)
+                            {
+                                <tr><td>@s.Status</td><td style="text-align:right; font-family:@mono;">@s.Count</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body">
+                <h3 class="ds-h3" style="margin-bottom:.5rem;">AI project summary</h3>
+                @if (string.IsNullOrWhiteSpace(d.AiSummaryText))
+                {
+                    <p style="color:@muted; font-size:.85rem;">No AI summary generated yet. The AI-assisted project review (weekly status, margin-erosion explanation, closeout checklist) lands in Wave 6.</p>
+                }
+                else
+                {
+                    <p style="font-size:.85rem; line-height:1.5;">@d.AiSummaryText</p>
+                    <p style="color:@muted; font-size:.7rem; margin-top:.4rem;">generated @(d.AiSummaryGeneratedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—") UTC</p>
+                }
+                @if (d.RiskScore.HasValue)
+                {
+                    <p style="margin-top:.6rem; font-size:.8rem;">Risk score: <strong>@d.RiskScore</strong>@(d.RiskTone != null ? $" ({d.RiskTone})" : "")</p>
+                }
+            </div></div>
+        </section>
+    }
+</main>
