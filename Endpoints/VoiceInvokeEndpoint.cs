@@ -80,6 +80,8 @@ public static class VoiceInvokeEndpoint
         Abs.FixedAssets.Services.Projects.IProjectPromiseService projectPromise,
         // B9 Wave 1 PR-3 — project lifecycle graph (ShowProjectGraph intent).
         Abs.FixedAssets.Services.Projects.IProjectGraphService projectGraph,
+        // B9 Wave 3 PR-9 — project Gantt + critical path (ShowProjectGantt intent).
+        Abs.FixedAssets.Services.Projects.IProjectScheduleService projectSchedule,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -143,6 +145,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.CrystallizeJobToStandard => await HandleCrystallizeJobToStandardAsync(crystallization, intent, ct),
                 IntentKind.ProjectPromiseStatus  => await HandleProjectPromiseStatusAsync(projectPromise, intent, ct),
                 IntentKind.ShowProjectGraph      => await HandleShowProjectGraphAsync(projectGraph, intent, ct),
+                IntentKind.ShowProjectGantt      => await HandleShowProjectGanttAsync(projectSchedule, intent, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -935,6 +938,61 @@ public static class VoiceInvokeEndpoint
             ActionLinks = new[]
             {
                 new VoiceActionLink("Open project graph", $"/CustomerProjects/Graph/{g.ProjectId}"),
+            },
+        };
+    }
+
+    // B9 Wave 3 PR-9 (CLOSES B9 Wave 3) — ShowProjectGantt. Resolve the project,
+    // narrate the critical-path summary, and deep-link to the /CustomerProjects/Gantt
+    // page. Read-only.
+    private static async Task<VoiceInvokeResponse> HandleShowProjectGanttAsync(
+        Abs.FixedAssets.Services.Projects.IProjectScheduleService projectSchedule,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which project's Gantt? Say its project code or number — e.g. \"show the gantt for PRJ-001\".",
+                Displayed = new VoiceDisplayed { Title = "Project Gantt", Lines = new[] { "Say a project code or id." } },
+            };
+        }
+
+        var result = await projectSchedule.GetGanttByRefAsync(intent.NaturalKey, ct);
+        if (result.IsFailure || result.Value is null)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = result.Error ?? $"I couldn't build the Gantt for '{intent.NaturalKey}'.",
+            };
+        }
+
+        var g = result.Value;
+        var critList = g.CriticalPathCodes.Count > 0
+            ? string.Join(" → ", g.CriticalPathCodes.Take(8))
+            : "none yet";
+        var displayLines = new List<string>
+        {
+            $"{g.Bars.Count} task(s) · {g.CriticalTaskCount} on the critical path",
+            $"Critical path: {critList}",
+            $"{g.Milestones.Count} milestone(s) plotted · span {g.ProjectDurationDays:0.#} working-day(s)",
+        };
+
+        var spoken = g.Bars.Count == 0
+            ? $"Project {g.ProjectCode} has no scheduled tasks yet. Opening the Gantt."
+            : $"{g.ProjectCode}: {g.CriticalTaskCount} of {g.Bars.Count} task(s) are on the critical path. Opening the Gantt.";
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = spoken,
+            Displayed = new VoiceDisplayed { Title = $"Gantt — {g.ProjectCode}", Lines = displayLines.ToArray() },
+            ActionLinks = new[]
+            {
+                new VoiceActionLink("Open project Gantt", $"/CustomerProjects/Gantt/{g.ProjectId}"),
             },
         };
     }

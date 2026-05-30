@@ -264,6 +264,12 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             .FirstOrDefaultAsync(p => p.CompanyId == tenantId && p.Code == DemoProjectCode, ct);
         if (existingProject is not null)
         {
+            // B9 Wave 3 PR-9 — ensure the demo schedule (milestones / tasks /
+            // dependencies) exists so the Gantt + critical path render for the
+            // demo project. Idempotent (skips when tasks already exist) and
+            // defensive (never breaks the rest of the seeder).
+            await TryEnsureDemoScheduleAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -548,6 +554,67 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         }
 
         return (project, projectCreated: 1, phasesCreated: PhaseTemplates.Length);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 3 PR-9 — demo schedule (milestones / tasks / dependencies) so the
+    // Gantt + critical path render for the demo project. Wrapped so a failure
+    // here never aborts the rest of the seeder.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoScheduleAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoScheduleAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo schedule seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoScheduleAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any task already exists for the project, skip.
+        if (await _db.Set<ProjectTask>().AnyAsync(t => t.CustomerProjectId == projectId, ct)) return;
+
+        var phaseByCode = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId)
+            .ToDictionaryAsync(p => p.Code, p => p.Id, ct);
+        int? Ph(string c) => phaseByCode.TryGetValue(c, out var id) ? id : (int?)null;
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // --- Milestones (created first so tasks can link to them) ---
+        var msDesign = new ProjectMilestone { CustomerProjectId = projectId, ProjectPhaseId = Ph("ENG"), Code = "MS-DESIGN", Name = "Design Released", MilestoneType = MilestoneType.Customer, TargetDate = D(2026, 5, 28), ForecastDate = D(2026, 5, 28), CustomerVisible = true, SortOrder = 0, CreatedBy = "DemoSeeder" };
+        var msMatl = new ProjectMilestone { CustomerProjectId = projectId, ProjectPhaseId = Ph("PROC"), Code = "MS-MATL", Name = "Material On Dock", MilestoneType = MilestoneType.Internal, TargetDate = D(2026, 6, 12), ForecastDate = D(2026, 6, 12), SortOrder = 1, CreatedBy = "DemoSeeder" };
+        var msFai = new ProjectMilestone { CustomerProjectId = projectId, ProjectPhaseId = Ph("PROD"), Code = "MS-FAI", Name = "First Article Approved", MilestoneType = MilestoneType.Gate, TargetDate = D(2026, 6, 23), ForecastDate = D(2026, 6, 23), CustomerVisible = true, SortOrder = 2, CreatedBy = "DemoSeeder" };
+        var msShip = new ProjectMilestone { CustomerProjectId = projectId, ProjectPhaseId = Ph("DEL"), Code = "MS-SHIP", Name = "Shipment / Final Acceptance", MilestoneType = MilestoneType.Billing, TargetDate = D(2026, 6, 26), ForecastDate = D(2026, 6, 26), CustomerVisible = true, IsBillingMilestone = true, BillingAmount = 185_000m, SortOrder = 3, CreatedBy = "DemoSeeder" };
+        _db.Set<ProjectMilestone>().AddRange(msDesign, msMatl, msFai, msShip);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Tasks (the ETO bracket build; real mfg ops, no fake data) ---
+        ProjectTask T(string code, string name, string? phase, DateTime s, DateTime f, ProjectTaskStatus st, decimal pct, string owner, int sort, int? msId = null, ProjectTaskPriority pri = ProjectTaskPriority.Normal)
+            => new()
+            {
+                CustomerProjectId = projectId, ProjectPhaseId = Ph(phase ?? ""), Code = code, Name = name,
+                PlannedStart = s, PlannedFinish = f, ForecastStart = s, ForecastFinish = f,
+                Status = st, PercentComplete = pct, ResponsibleOwner = owner, Priority = pri,
+                ProjectMilestoneId = msId, IsMilestoneBlocking = msId.HasValue, SortOrder = sort, CreatedBy = "DemoSeeder",
+            };
+
+        var t1 = T("ENG-100", "Detailed mechanical design", "ENG", D(2026, 5, 15), D(2026, 5, 25), ProjectTaskStatus.Complete, 100m, "Mechanical Eng", 0);
+        var t2 = T("ENG-110", "Drawing package release (AS9102 ready)", "ENG", D(2026, 5, 25), D(2026, 5, 28), ProjectTaskStatus.Complete, 100m, "Mechanical Eng", 1, msDesign.Id);
+        var t3 = T("PROC-100", "Procure Ti-6Al-4V bar stock (long-lead)", "PROC", D(2026, 5, 28), D(2026, 6, 12), ProjectTaskStatus.InProgress, 20m, "Buyer", 2, msMatl.Id, ProjectTaskPriority.High);
+        var t9 = T("PROD-130", "Workholding fixture design", "PROD", D(2026, 5, 28), D(2026, 6, 1), ProjectTaskStatus.NotStarted, 0m, "Tooling Eng", 3);
+        var t4 = T("PROD-100", "CNC rough mill", "PROD", D(2026, 6, 12), D(2026, 6, 17), ProjectTaskStatus.NotStarted, 0m, "CNC Lead", 4);
+        var t5 = T("PROD-110", "Finish mill + manual deburr", "PROD", D(2026, 6, 17), D(2026, 6, 21), ProjectTaskStatus.NotStarted, 0m, "CNC Lead", 5);
+        var t6 = T("PROD-120", "First Article Inspection (AS9102)", "PROD", D(2026, 6, 21), D(2026, 6, 23), ProjectTaskStatus.NotStarted, 0m, "QA Lead", 6, msFai.Id);
+        var t7 = T("DEL-100", "Final QA + NADCAP cert review", "DEL", D(2026, 6, 23), D(2026, 6, 25), ProjectTaskStatus.NotStarted, 0m, "QA Lead", 7);
+        var t8 = T("DEL-110", "Pack + ship", "DEL", D(2026, 6, 25), D(2026, 6, 26), ProjectTaskStatus.NotStarted, 0m, "Shipping", 8, msShip.Id);
+        _db.Set<ProjectTask>().AddRange(t1, t2, t3, t9, t4, t5, t6, t7, t8);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Finish-to-start dependencies (the chain that drives the critical path) ---
+        ProjectTaskDependency Dep(ProjectTask p, ProjectTask s)
+            => new() { CustomerProjectId = projectId, PredecessorTaskId = p.Id, SuccessorTaskId = s.Id, DependencyType = DependencyType.FinishToStart, CreatedBy = "DemoSeeder" };
+        _db.Set<ProjectTaskDependency>().AddRange(
+            Dep(t1, t2), Dep(t2, t3), Dep(t3, t4), Dep(t4, t5), Dep(t5, t6), Dep(t6, t7), Dep(t7, t8),
+            Dep(t2, t9), Dep(t9, t4)); // T9 (fixture) is parallel → carries float, not on the critical path
+        await _db.SaveChangesAsync(ct);
     }
 
     // -------------------------------------------------------------------------

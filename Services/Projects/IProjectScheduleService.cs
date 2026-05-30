@@ -36,7 +36,68 @@ public interface IProjectScheduleService
 
     /// <summary>Achieve a milestone. Blocked while any blocking task is open. Set-once.</summary>
     Task<Result<ProjectMilestone>> AchieveMilestoneAsync(AchieveMilestoneRequest req, CancellationToken ct = default);
+
+    /// <summary>
+    /// The Gantt view: positioned task bars + milestone markers + dependency
+    /// edges, with a critical-path computed via CPM (forward/backward pass over
+    /// the finish-to-start / SS / FF / SF dependency network). PR-9 / CLOSES W3.
+    /// </summary>
+    Task<Result<ProjectGanttView>> GetGanttAsync(int projectId, CancellationToken ct = default);
+
+    /// <summary>Resolve a project code/id (case-insensitive) then build its Gantt view (voice path).</summary>
+    Task<Result<ProjectGanttView>> GetGanttByRefAsync(string projectRef, CancellationToken ct = default);
+
+    /// <summary>
+    /// Recompute the critical path and stamp <c>ProjectTask.IsCriticalPath</c>.
+    /// Returns the number of tasks now on the critical path.
+    /// </summary>
+    Task<Result<int>> RecalculateCriticalPathAsync(int projectId, CancellationToken ct = default);
 }
+
+// ---------------------------------------------------------------------------
+// Gantt / critical-path DTOs (PR-9)
+// ---------------------------------------------------------------------------
+
+public sealed record ProjectGanttView(
+    int ProjectId,
+    string ProjectCode,
+    string ProjectName,
+    System.DateTime TimelineStart,
+    System.DateTime TimelineEnd,
+    double ProjectDurationDays,
+    int CriticalTaskCount,
+    string Headline,
+    IReadOnlyList<string> CriticalPathCodes,
+    IReadOnlyList<GanttBar> Bars,
+    IReadOnlyList<GanttMilestoneMarker> Milestones,
+    IReadOnlyList<GanttDependencyEdge> Dependencies);
+
+public sealed record GanttBar(
+    int TaskId,
+    string Code,
+    string Name,
+    string? PhaseCode,
+    System.DateTime Start,
+    System.DateTime End,
+    double DurationDays,
+    decimal PercentComplete,
+    ProjectTaskStatus Status,
+    bool IsCritical,
+    double TotalFloatDays);
+
+public sealed record GanttMilestoneMarker(
+    int MilestoneId,
+    string Code,
+    string Name,
+    System.DateTime Date,
+    MilestoneType MilestoneType,
+    ProjectMilestoneStatus Status,
+    bool IsCritical);
+
+public sealed record GanttDependencyEdge(
+    int PredecessorTaskId,
+    int SuccessorTaskId,
+    DependencyType DependencyType);
 
 // ---------------------------------------------------------------------------
 // Read DTOs

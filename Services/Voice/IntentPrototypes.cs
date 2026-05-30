@@ -112,5 +112,13 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.ShowProjectGraph, "show the lifecycle for this project"),
         new IntentPrototype(IntentKind.ShowProjectGraph, "pull up the quote to cash graph for this program"),
         new IntentPrototype(IntentKind.ShowProjectGraph, "visualize the whole project pipeline end to end"),
+
+        // ShowProjectGantt — B9 Wave 3 PR-9 (CLOSES B9 Wave 3). Open the project
+        // Gantt + critical path.
+        new IntentPrototype(IntentKind.ShowProjectGantt, "show me the gantt for PRJ-001"),
+        new IntentPrototype(IntentKind.ShowProjectGantt, "what's the critical path on project DEMO-COO-PROJ-001"),
+        new IntentPrototype(IntentKind.ShowProjectGantt, "show the project timeline for this project"),
+        new IntentPrototype(IntentKind.ShowProjectGantt, "pull up the schedule and milestones for this program"),
+        new IntentPrototype(IntentKind.ShowProjectGantt, "which tasks are on the critical path"),
     };
 }

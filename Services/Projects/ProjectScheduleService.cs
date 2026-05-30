@@ -356,4 +356,261 @@ public sealed class ProjectScheduleService : IProjectScheduleService
         _log.LogInformation("Milestone {Code} achieved on project {ProjectId}.", ms.Code, ms.CustomerProjectId);
         return Result.Success(ms);
     }
+
+    // ==================================================================
+    // PR-9 — Gantt + critical path (CPM).
+    // ==================================================================
+
+    public async Task<Result<ProjectGanttView>> GetGanttAsync(int projectId, CancellationToken ct = default)
+    {
+        var (ok, err) = await ProjectVisibleAsync(projectId, ct);
+        if (!ok) return Result.Failure<ProjectGanttView>(err!);
+
+        var proj = await _db.CustomerProjects
+            .Where(p => p.Id == projectId)
+            .Select(p => new { p.Code, p.Name })
+            .FirstAsync(ct);
+
+        var tasks = await _db.ProjectTasks
+            .Where(t => t.CustomerProjectId == projectId)
+            .OrderBy(t => t.SortOrder).ThenBy(t => t.Id)
+            .ToListAsync(ct);
+        var milestones = await _db.ProjectMilestones
+            .Where(m => m.CustomerProjectId == projectId)
+            .OrderBy(m => m.SortOrder).ThenBy(m => m.Id)
+            .ToListAsync(ct);
+        var deps = await _db.ProjectTaskDependencies
+            .Where(d => d.CustomerProjectId == projectId)
+            .ToListAsync(ct);
+        var phaseCodes = await _db.ProjectPhases
+            .Where(p => p.CustomerProjectId == projectId)
+            .Select(p => new { p.Id, p.Code })
+            .ToDictionaryAsync(p => p.Id, p => p.Code, ct);
+
+        // CPM — schedule each task; flag the critical ones.
+        var cpm = ComputeSchedule(tasks, deps);
+
+        // Anchor date for tasks that have no explicit dates (chain them by CPM).
+        var anchor = tasks
+            .Select(t => t.PlannedStart ?? t.ForecastStart)
+            .Where(d => d.HasValue)
+            .Select(d => d!.Value)
+            .DefaultIfEmpty(DateTime.UtcNow.Date)
+            .Min();
+
+        var bars = new List<GanttBar>();
+        foreach (var t in tasks)
+        {
+            var c = cpm[t.Id];
+            DateTime start, end;
+            if (t.PlannedStart.HasValue && t.PlannedFinish.HasValue && t.PlannedFinish > t.PlannedStart)
+            { start = t.PlannedStart.Value; end = t.PlannedFinish.Value; }
+            else if (t.ForecastStart.HasValue && t.ForecastFinish.HasValue && t.ForecastFinish > t.ForecastStart)
+            { start = t.ForecastStart.Value; end = t.ForecastFinish.Value; }
+            else
+            { start = anchor.AddDays(c.Es); end = anchor.AddDays(c.Ef); }
+
+            bars.Add(new GanttBar(
+                t.Id, t.Code, t.Name,
+                t.ProjectPhaseId.HasValue && phaseCodes.TryGetValue(t.ProjectPhaseId.Value, out var pc) ? pc : null,
+                start, end, Math.Round(c.Duration, 2), t.PercentComplete ?? 0m, t.Status,
+                c.IsCritical, Math.Round(c.TotalFloat, 2)));
+        }
+
+        // Milestone markers (a milestone is "critical" if it sits on/after the
+        // critical project finish, or any of its blocking tasks is critical).
+        var criticalTaskIds = cpm.Where(kv => kv.Value.IsCritical).Select(kv => kv.Key).ToHashSet();
+        var blockingByMs = tasks
+            .Where(t => t.ProjectMilestoneId.HasValue)
+            .GroupBy(t => t.ProjectMilestoneId!.Value)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Id).ToList());
+        var msMarkers = new List<GanttMilestoneMarker>();
+        foreach (var m in milestones)
+        {
+            var date = m.TargetDate ?? m.ForecastDate ?? m.ActualDate;
+            if (date is null) continue; // undated milestones don't plot
+            bool crit = blockingByMs.TryGetValue(m.Id, out var ids) && ids.Any(criticalTaskIds.Contains);
+            msMarkers.Add(new GanttMilestoneMarker(
+                m.Id, m.Code, m.Name, date.Value, m.MilestoneType, m.Status, crit));
+        }
+
+        // Timeline bounds.
+        var allStarts = bars.Select(b => b.Start).Concat(msMarkers.Select(m => m.Date)).ToList();
+        var allEnds = bars.Select(b => b.End).Concat(msMarkers.Select(m => m.Date)).ToList();
+        var tlStart = allStarts.DefaultIfEmpty(anchor).Min();
+        var tlEnd = allEnds.DefaultIfEmpty(anchor.AddDays(1)).Max();
+        if (tlEnd <= tlStart) tlEnd = tlStart.AddDays(1);
+
+        var critCodes = bars.Where(b => b.IsCritical).Select(b => b.Code).ToList();
+        var projDuration = cpm.Count > 0 ? cpm.Values.Max(c => c.Ef) : 0d;
+
+        var headline = bars.Count == 0
+            ? "No scheduled tasks yet — add tasks and dependencies to see the critical path."
+            : $"{bars.Count} task(s), {critCodes.Count} on the critical path · project span {Math.Round(projDuration, 1)} working-day(s) of dependency-driven work.";
+
+        return Result.Success(new ProjectGanttView(
+            projectId, proj.Code, proj.Name, tlStart, tlEnd, Math.Round(projDuration, 2),
+            critCodes.Count, headline, critCodes, bars, msMarkers,
+            deps.Select(d => new GanttDependencyEdge(d.PredecessorTaskId, d.SuccessorTaskId, d.DependencyType)).ToList()));
+    }
+
+    public async Task<Result<ProjectGanttView>> GetGanttByRefAsync(string projectRef, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectRef))
+            return Result.Failure<ProjectGanttView>("Which project? Say a project code or id.");
+
+        var raw = projectRef.Trim();
+        int? pid = null;
+        if (int.TryParse(raw, out var asId) && asId > 0)
+            pid = await _db.CustomerProjects
+                .Where(x => x.Id == asId && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
+                .Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
+
+        if (pid is null)
+        {
+            // Case-insensitive code resolution (ToUpper both sides — InMemory-testable,
+            // not EF.Functions.ILike). Exact → prefix.
+            var upper = raw.ToUpperInvariant();
+            pid = await _db.CustomerProjects
+                .Where(x => x.Code != null && x.Code.ToUpper() == upper && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
+                .Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
+            pid ??= await _db.CustomerProjects
+                .Where(x => x.Code != null && x.Code.ToUpper().StartsWith(upper) && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
+                .OrderBy(x => x.Id).Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
+        }
+
+        if (pid is null or 0)
+            return Result.Failure<ProjectGanttView>($"I couldn't find a project matching '{raw}' in your scope.");
+
+        return await GetGanttAsync(pid.Value, ct);
+    }
+
+    public async Task<Result<int>> RecalculateCriticalPathAsync(int projectId, CancellationToken ct = default)
+    {
+        var (ok, err) = await ProjectVisibleAsync(projectId, ct);
+        if (!ok) return Result.Failure<int>(err!);
+
+        var tasks = await _db.ProjectTasks.Where(t => t.CustomerProjectId == projectId).ToListAsync(ct);
+        var deps = await _db.ProjectTaskDependencies.Where(d => d.CustomerProjectId == projectId).ToListAsync(ct);
+        var cpm = ComputeSchedule(tasks, deps);
+
+        int critical = 0;
+        foreach (var t in tasks)
+        {
+            bool isCrit = cpm[t.Id].IsCritical;
+            if (t.IsCriticalPath != isCrit) t.IsCriticalPath = isCrit;
+            if (isCrit) critical++;
+        }
+        await _db.SaveChangesAsync(ct);
+        return Result.Success(critical);
+    }
+
+    // ------------------------------------------------------------------
+    // CPM — forward/backward pass over the dependency network.
+    // Durations come from planned (else forecast) dates; default 1 day.
+    // Cycles are already prevented at AddDependency, so a topological order
+    // exists; if a stray cycle is hit we fall back to input order.
+    // ------------------------------------------------------------------
+    private sealed class CpmNode
+    {
+        public double Duration;
+        public double Es, Ef, Ls, Lf, TotalFloat;
+        public bool IsCritical;
+    }
+
+    private static Dictionary<int, CpmNode> ComputeSchedule(
+        List<ProjectTask> tasks, List<ProjectTaskDependency> deps)
+    {
+        const double Eps = 0.0001;
+        var nodes = new Dictionary<int, CpmNode>();
+        foreach (var t in tasks)
+            nodes[t.Id] = new CpmNode { Duration = DurationDays(t) };
+        if (nodes.Count == 0) return nodes;
+
+        // Keep only edges whose endpoints are both real tasks.
+        var edges = deps.Where(d => nodes.ContainsKey(d.PredecessorTaskId) && nodes.ContainsKey(d.SuccessorTaskId)).ToList();
+
+        // Topological order via Kahn's algorithm.
+        var outAdj = edges.GroupBy(e => e.PredecessorTaskId).ToDictionary(g => g.Key, g => g.ToList());
+        var indeg = nodes.Keys.ToDictionary(id => id, _ => 0);
+        foreach (var e in edges) indeg[e.SuccessorTaskId]++;
+        var queue = new Queue<int>(nodes.Keys.Where(id => indeg[id] == 0));
+        var topo = new List<int>();
+        while (queue.Count > 0)
+        {
+            var n = queue.Dequeue();
+            topo.Add(n);
+            if (outAdj.TryGetValue(n, out var outs))
+                foreach (var e in outs)
+                    if (--indeg[e.SuccessorTaskId] == 0) queue.Enqueue(e.SuccessorTaskId);
+        }
+        if (topo.Count < nodes.Count) // cycle fallback — process remaining in input order
+            topo.AddRange(nodes.Keys.Where(id => !topo.Contains(id)));
+
+        // Forward pass — earliest start/finish.
+        var inAdj = edges.GroupBy(e => e.SuccessorTaskId).ToDictionary(g => g.Key, g => g.ToList());
+        foreach (var id in topo)
+        {
+            var node = nodes[id];
+            double es = 0;
+            if (inAdj.TryGetValue(id, out var ins))
+            {
+                foreach (var e in ins)
+                {
+                    var p = nodes[e.PredecessorTaskId];
+                    double cand = e.DependencyType switch
+                    {
+                        DependencyType.FinishToStart => p.Ef + e.LagDays,
+                        DependencyType.StartToStart => p.Es + e.LagDays,
+                        DependencyType.FinishToFinish => p.Ef + e.LagDays - node.Duration,
+                        DependencyType.StartToFinish => p.Es + e.LagDays - node.Duration,
+                        _ => p.Ef + e.LagDays,
+                    };
+                    if (cand > es) es = cand;
+                }
+            }
+            node.Es = Math.Max(0, es);
+            node.Ef = node.Es + node.Duration;
+        }
+
+        double projectEnd = nodes.Values.Max(n => n.Ef);
+
+        // Backward pass — latest start/finish.
+        foreach (var id in Enumerable.Reverse(topo))
+        {
+            var node = nodes[id];
+            double lf = projectEnd;
+            if (outAdj.TryGetValue(id, out var outs))
+            {
+                foreach (var e in outs)
+                {
+                    var s = nodes[e.SuccessorTaskId];
+                    double cand = e.DependencyType switch
+                    {
+                        DependencyType.FinishToStart => s.Ls - e.LagDays,
+                        DependencyType.StartToStart => s.Ls - e.LagDays + node.Duration,
+                        DependencyType.FinishToFinish => s.Lf - e.LagDays,
+                        DependencyType.StartToFinish => s.Lf - e.LagDays + node.Duration,
+                        _ => s.Ls - e.LagDays,
+                    };
+                    if (cand < lf) lf = cand;
+                }
+            }
+            node.Lf = lf;
+            node.Ls = node.Lf - node.Duration;
+            node.TotalFloat = node.Ls - node.Es;
+            node.IsCritical = Math.Abs(node.TotalFloat) <= Eps;
+        }
+
+        return nodes;
+    }
+
+    private static double DurationDays(ProjectTask t)
+    {
+        if (t.PlannedStart.HasValue && t.PlannedFinish.HasValue && t.PlannedFinish.Value > t.PlannedStart.Value)
+            return (t.PlannedFinish.Value - t.PlannedStart.Value).TotalDays;
+        if (t.ForecastStart.HasValue && t.ForecastFinish.HasValue && t.ForecastFinish.Value > t.ForecastStart.Value)
+            return (t.ForecastFinish.Value - t.ForecastStart.Value).TotalDays;
+        return 1d;
+    }
 }

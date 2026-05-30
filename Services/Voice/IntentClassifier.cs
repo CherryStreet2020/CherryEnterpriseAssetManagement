@@ -61,6 +61,12 @@ public enum IntentKind
     // rollup + the future-wave stages) via IProjectGraphService.GetGraphByRefAsync,
     // and deep-links to the /CustomerProjects/Graph page.
     ShowProjectGraph,
+
+    // B9 Wave 3 PR-9 (CLOSES B9 Wave 3) — "show the gantt for PRJ-001",
+    // "what's the critical path on this project", "project timeline".
+    // Resolves the project and deep-links to the /CustomerProjects/Gantt page,
+    // narrating the critical-path summary via IProjectScheduleService.GetGanttAsync.
+    ShowProjectGantt,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -168,6 +174,15 @@ public static class IntentClassifier
         // project lifecycle". Distinctive graph/map/lifecycle phrasing anchored to
         // a project subject; placed with the other project intents and before the
         // generic chain / show-me branches so it wins cleanly.
+        // PROJECT GANTT / critical-path intent (B9 Wave 3 PR-9, CLOSES W3) — must
+        // come BEFORE the graph branch so "project timeline" / "gantt" / "critical
+        // path" route here rather than to the lifecycle graph.
+        if (IsShowProjectGanttQuery(s))
+        {
+            var key = ExtractProjectRef(raw);
+            return new ParsedIntent(IntentKind.ShowProjectGantt, key);
+        }
+
         if (IsShowProjectGraphQuery(s))
         {
             var key = ExtractProjectRef(raw);
@@ -455,6 +470,20 @@ public static class IntentClassifier
     // B9 Wave 1 PR-3 — true when the utterance asks to see the project lifecycle
     // graph. Requires a graph/map/lifecycle word anchored to a project subject so
     // it doesn't swallow unrelated "show me…" or chain-trace requests.
+    // B9 Wave 3 PR-9 — true when the utterance asks for the project Gantt /
+    // schedule / critical path. Anchored to a project subject.
+    private static bool IsShowProjectGanttQuery(string s)
+    {
+        var ganttWord = s.Contains("gantt") || s.Contains("critical path")
+            || s.Contains("critical-path") || s.Contains("timeline")
+            || ((s.Contains("schedule") || s.Contains("milestone") || s.Contains("task"))
+                 && (s.Contains("project") || s.Contains("proj") || s.Contains("program")));
+        if (!ganttWord) return false;
+        // "gantt" alone is unambiguous; otherwise require a project anchor.
+        if (s.Contains("gantt")) return true;
+        return s.Contains("project") || s.Contains("proj") || s.Contains("program");
+    }
+
     private static bool IsShowProjectGraphQuery(string s)
     {
         var graphWord = s.Contains("graph") || s.Contains("lifecycle") || s.Contains("life cycle")
