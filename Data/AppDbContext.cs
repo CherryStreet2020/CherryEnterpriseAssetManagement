@@ -4988,6 +4988,50 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ParentPhaseId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                // B9 Wave 3 PR-7 — WBS hardening. Enum DB defaults MUST match
+                // the model defaults (Lock: enum-defaults-match-model).
+                e.Property(x => x.WbsType).HasDefaultValue(
+                    Abs.FixedAssets.Models.Projects.WbsType.Phase);
+                e.Property(x => x.Status).HasDefaultValue(
+                    Abs.FixedAssets.Models.Projects.ProjectPhaseStatus.NotStarted);
+                e.Property(x => x.WbsLevel).HasDefaultValue(1);
+                e.Property(x => x.CustomerVisible).HasDefaultValue(false);
+                e.Property(x => x.IsBaselined).HasDefaultValue(false);
+                // Index the baseline flag — the command center / Gantt read
+                // "is this project baselined" frequently; the partial index
+                // keeps the common (not-yet-baselined) scan cheap.
+                e.HasIndex(x => x.IsBaselined)
+                    .HasDatabaseName("ix_projectphases_baselined")
+                    .HasFilter("\"IsBaselined\" = true");
+
+                // xmin concurrency token (baseline + roll-up mutate this node).
+                e.MapXminRowVersion(x => x.RowVersion);
+
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint(
+                        "ck_projectphases_percentcomplete_range",
+                        "\"PercentComplete\" IS NULL OR (\"PercentComplete\" >= 0 AND \"PercentComplete\" <= 100)");
+                    t.HasCheckConstraint(
+                        "ck_projectphases_weightpercent_range",
+                        "\"WeightPercent\" IS NULL OR (\"WeightPercent\" >= 0 AND \"WeightPercent\" <= 100)");
+                    t.HasCheckConstraint(
+                        "ck_projectphases_costs_nonneg",
+                        "(\"PlannedCost\" IS NULL OR \"PlannedCost\" >= 0) " +
+                        "AND (\"ActualCost\" IS NULL OR \"ActualCost\" >= 0) " +
+                        "AND (\"CommittedCost\" IS NULL OR \"CommittedCost\" >= 0) " +
+                        "AND (\"ForecastCost\" IS NULL OR \"ForecastCost\" >= 0)");
+                    t.HasCheckConstraint(
+                        "ck_projectphases_wbstype_range",
+                        "\"WbsType\" BETWEEN 0 AND 9");
+                    t.HasCheckConstraint(
+                        "ck_projectphases_status_range",
+                        "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint(
+                        "ck_projectphases_wbslevel_pos",
+                        "\"WbsLevel\" >= 1");
+                });
             });
 
             // ProductionOrder gets the new nullable FKs + a partial index
@@ -7070,6 +7114,11 @@ namespace Abs.FixedAssets.Data
                         // ProductionOrder.SnapshotCapturedBy. Same convention as
                         // CompletedBy/StartedBy/ClosedBy above.
                         propertyName.Contains("capturedby") ||
+                        // B9 Wave 3 PR-7 — case-preserve user identifier on
+                        // ProjectPhase.BaselinedBy. Same convention as the
+                        // other ...By stamps so "Baselined by Dean" reads back
+                        // with its original casing.
+                        propertyName.Contains("baselinedby") ||
                         // Sprint 14.2 PR-1 — case-preserve user identifiers on
                         // DocumentVersion.ApprovedBy / ReleasedBy and
                         // ItemDocumentLink.LinkedBy. Same convention.

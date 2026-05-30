@@ -347,6 +347,79 @@ namespace Abs.FixedAssets.Models.Projects
 
         [StringLength(100)]
         public string? CreatedBy { get; set; }
+
+        // ============================================================
+        // B9 Wave 3 PR-7 — WBS hardening. ProjectPhase IS the WBS backbone
+        // (one self-nesting tree via ParentPhaseId; no parallel ProjectWBS).
+        // These fields turn a phase node into a controllable WBS element:
+        // classification, ownership, a cost bucket, baseline/forecast/actual
+        // schedule, weighted progress (100%-rule), and a set-once baseline
+        // stamp. Child entity — tenant-scoped THROUGH the parent project;
+        // it carries no CompanyId of its own.
+        // ============================================================
+
+        // WBS classification (spec §5 "WBS types"). Default Phase.
+        public WbsType WbsType { get; set; } = WbsType.Phase;
+
+        // Depth in the WBS tree; root = 1. Maintained by the service on add.
+        public int WbsLevel { get; set; } = 1;
+
+        // Responsible owner — REQUIRED on every leaf before the project WBS
+        // can be baselined (B9 §20 validation). Free text in v1; a later PR
+        // can FK this to a User / Department master.
+        [StringLength(200)]
+        public string? ResponsibleOwner { get; set; }
+
+        [StringLength(64)]
+        public string? ResponsibleDepartment { get; set; }
+
+        // Cost bucket — the control account this WBS element rolls into plus
+        // the four cost columns (spec §5 WBS dictionary). A leaf MUST have a
+        // non-null PlannedCost (the "cost bucket") to baseline.
+        [StringLength(64)]
+        public string? ControlAccount { get; set; }
+
+        public decimal? PlannedCost { get; set; }
+        public decimal? ActualCost { get; set; }
+        public decimal? CommittedCost { get; set; }
+        public decimal? ForecastCost { get; set; }
+
+        // 100%-rule weight — this element's share of its PARENT's scope.
+        // Siblings under one parent must sum to 100 to baseline; roots
+        // (ParentPhaseId == null) must sum to 100 across the project.
+        // 0..100, CHECK enforced.
+        public decimal? WeightPercent { get; set; }
+
+        // Progress 0..100, CHECK enforced. A leaf's value is entered directly;
+        // a parent's value is the weighted roll-up of its children (computed
+        // in IProjectWbsService, not persisted on parents).
+        public decimal? PercentComplete { get; set; }
+
+        // Schedule (spec §5): baseline is frozen at baseline; forecast is the
+        // live plan; actual is stamped as work happens.
+        public DateTime? BaselineStart { get; set; }
+        public DateTime? BaselineFinish { get; set; }
+        public DateTime? ForecastStart { get; set; }
+        public DateTime? ForecastFinish { get; set; }
+        public DateTime? ActualStart { get; set; }
+        public DateTime? ActualFinish { get; set; }
+
+        // Lifecycle status of this WBS element.
+        public ProjectPhaseStatus Status { get; set; } = ProjectPhaseStatus.NotStarted;
+
+        // Customer-visible WBS element (spec §5 customer-visible flag) — drives
+        // what a customer portal / statement surfaces.
+        public bool CustomerVisible { get; set; } = false;
+
+        // Set-once baseline stamp. Once IsBaselined, BaselineStart/Finish are
+        // frozen; re-baselining requires an explicit allowRebaseline call.
+        public bool IsBaselined { get; set; } = false;
+        public DateTime? BaselinedAt { get; set; }
+        [StringLength(100)]
+        public string? BaselinedBy { get; set; }
+
+        // xmin concurrency token (baseline + roll-up mutate this node).
+        public byte[]? RowVersion { get; set; }
     }
 
     // ----------------------------------------------------------------
@@ -413,6 +486,35 @@ namespace Abs.FixedAssets.Models.Projects
         Subcustomer = 2,
         EndCustomer = 3,
         PassThrough = 4
+    }
+
+    // ----------------------------------------------------------------
+    // B9 Wave 3 PR-7 — WBS classification + lifecycle (spec §5).
+    // ----------------------------------------------------------------
+
+    // WBS element type (spec §5 "WBS types"). Default Phase.
+    public enum WbsType
+    {
+        Phase = 0,          // Engineering, Procurement, Manufacturing, Install
+        Deliverable = 1,    // Machine A, Conveyor B, Control Panel C
+        WorkPackage = 2,    // lowest controllable unit of work
+        Contract = 3,       // contract line 1, 2, 3
+        Cost = 4,           // labor, material, subcontract
+        Location = 5,       // plant 1, line 2, cell 3
+        System = 6,         // mechanical, electrical, controls
+        Manufacturing = 7,  // job group, assembly group
+        Service = 8,        // install, commissioning, warranty
+        Billing = 9         // deposit, milestone, final payment
+    }
+
+    // Lifecycle status of a WBS element / phase.
+    public enum ProjectPhaseStatus
+    {
+        NotStarted = 0,
+        InProgress = 1,
+        Complete = 2,
+        OnHold = 3,
+        Cancelled = 4
     }
 
     // ----------------------------------------------------------------
