@@ -224,6 +224,24 @@ public sealed class ProjectQuoteServiceTests
     }
 
     [Fact]
+    public async Task AddLine_rejects_item_from_another_tenant()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db); // company 1
+        var foreignItem = new Item { PartNumber = "OTHER-CO-ITM", Description = "Foreign item", CompanyId = 99 };
+        db.Items.Add(foreignItem);
+        await db.SaveChangesAsync();
+
+        var svc = NewService(db, 1); // tenant sees only company 1
+        var (_, revId) = await SeedQuoteWithRevAsync(db, svc, pid);
+
+        var l = await svc.AddLineAsync(new AddQuoteLineRequest(revId, ItemId: foreignItem.Id,
+            Quantity: 1m, UnitPrice: 100m));
+        Assert.True(l.IsFailure);
+        Assert.Contains("tenant scope", l.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task CreateRfq_then_quote_links_rfq()
     {
         using var db = NewDb();

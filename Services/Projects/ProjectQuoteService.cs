@@ -163,6 +163,17 @@ public sealed class ProjectQuoteService : IProjectQuoteService
             return Result.Failure<int>(
                 "This revision is submitted and its snapshot is locked — add a new revision instead of editing it.");
 
+        // Tenant-scope the optional item FK (Codex P1): Items are company-scoped, so a
+        // caller must not attach another tenant's item to a quote line. Shared/global
+        // catalog items (CompanyId == null) are allowed.
+        if (req.ItemId is { } itemId)
+        {
+            bool itemOk = await _db.Items.AnyAsync(
+                i => i.Id == itemId
+                    && (i.CompanyId == null || _tenant.VisibleCompanyIds.Contains(i.CompanyId.Value)), ct);
+            if (!itemOk) return Result.Failure<int>($"Item {itemId} is not in your tenant scope.");
+        }
+
         int lineNo = req.LineNo ?? ((await _db.ProjectQuoteLines
             .Where(l => l.ProjectQuoteRevisionId == req.RevisionId)
             .Select(l => (int?)l.LineNo).MaxAsync(ct) ?? 0) + 1);

@@ -159,7 +159,12 @@ public sealed class ProjectCommandCenterService : IProjectCommandCenterService
         }
         else
         {
-            var top = submitted.OrderByDescending(q => q.LatestSubmittedTotalPrice).First();
+            // The actual LATEST submitted quote = newest submission date (Codex P2),
+            // tie-broken by quote id so the result is deterministic.
+            var top = submitted
+                .OrderByDescending(q => q.LatestSubmittedDate)
+                .ThenByDescending(q => q.QuoteId)
+                .First();
             quoteAnswer = $"{quotes.Count} quote(s); latest submitted: {top.QuoteNumber} Rev {top.LatestSubmittedRevisionLabel} at {top.Currency} {top.LatestSubmittedTotalPrice!.Value:N0}.";
             quoteState = CommandCenterAnswerState.Answered;
         }
