@@ -387,9 +387,37 @@ public sealed class CockpitModel : PageModel
     /// dedupe-link to an existing master (decision #3 — never auto-linked); otherwise mints new.</summary>
     public async Task<IActionResult> OnPostCrystallizeAsync(bool link, int? linkItemId, CancellationToken ct)
     {
-        var request = link && linkItemId is > 0
-            ? new CrystallizeRequest(Id, Actor(), ConfirmDedupeLink: true, LinkToExistingItemId: linkItemId)
-            : new CrystallizeRequest(Id, Actor(), ForceCreateNew: true);
+        // P1 (Codex): server-side mode gate. The GET path hides this tab in Operator
+        // mode; UI hiding does NOT protect the mutation, so a direct POST must be
+        // rejected with the same gate before any write service is invoked.
+        ResolveMode();
+        if (HideCostColumns)
+        {
+            CrystallizationActionError = true;
+            CrystallizationMessage = "Crystallization is not available in Operator view. Switch to Supervisor or Planner mode.";
+            return await ReloadForCrystallizeTabAsync(ct);
+        }
+
+        CrystallizeRequest request;
+        if (link && linkItemId is > 0)
+        {
+            // P2 (Codex): never trust the posted linkItemId. Re-preview and confirm it
+            // equals the CURRENT structural-fingerprint dedupe match before linking, so
+            // a tampered hidden field can't audit the PRO as a dedupe of an unrelated
+            // standard.
+            var verify = await _crystallization.PreviewCrystallizationAsync(Id, ct);
+            if (verify.IsFailure || verify.Value!.DedupeMatchItemId != linkItemId)
+            {
+                CrystallizationActionError = true;
+                CrystallizationMessage = "The dedupe match changed or doesn't match — I won't link to an unverified standard. Re-open the Crystallize tab and confirm again.";
+                return await ReloadForCrystallizeTabAsync(ct);
+            }
+            request = new CrystallizeRequest(Id, Actor(), ConfirmDedupeLink: true, LinkToExistingItemId: linkItemId);
+        }
+        else
+        {
+            request = new CrystallizeRequest(Id, Actor(), ForceCreateNew: true);
+        }
 
         var result = await _crystallization.CrystallizeAsync(request, ct);
         CrystallizationActionError = result.IsFailure;
@@ -401,6 +429,15 @@ public sealed class CockpitModel : PageModel
     /// <summary>Reverse the latest crystallization on this PRO. The as-built history is never rewritten.</summary>
     public async Task<IActionResult> OnPostReverseCrystallizationAsync(string? reason, CancellationToken ct)
     {
+        // P1 (Codex): same server-side mode gate as the crystallize handler.
+        ResolveMode();
+        if (HideCostColumns)
+        {
+            CrystallizationActionError = true;
+            CrystallizationMessage = "Crystallization is not available in Operator view. Switch to Supervisor or Planner mode.";
+            return await ReloadForCrystallizeTabAsync(ct);
+        }
+
         var result = await _crystallization.ReverseLatestForProductionOrderAsync(
             Id,
             string.IsNullOrWhiteSpace(reason) ? "Reversed from the Production Cockpit." : reason,
