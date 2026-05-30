@@ -229,6 +229,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectPromiseServ
 // B9 Wave 1 PR-3 (CLOSES B9 Wave 1) — project lifecycle graph (quote→cash spine).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectGraphService,
     Abs.FixedAssets.Services.Projects.ProjectGraphService>();
+// B9 Wave 2 PR-4 — quote-to-cash spine: the quote layer (RFQ/Quote/Revision/Line).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQuoteService,
+    Abs.FixedAssets.Services.Projects.ProjectQuoteService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
