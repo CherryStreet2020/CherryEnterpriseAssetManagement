@@ -475,6 +475,17 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             }
         }, warnings, ct);
 
+        // B9 — on the FRESH-seed path, populate the project sub-spines too, so a
+        // first-ever seed fully lands (schedule / procurement / resourcing /
+        // financials / quote baseline). These also run in the already-seeded
+        // branch above; running them here means a single seed run is complete
+        // rather than needing a second pass (Codex P2). All idempotent + defensive.
+        await TryEnsureDemoScheduleAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoProcurementAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoResourcingAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoFinancialsAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoQuoteBaselineAsync(tenantId, customerProject.Id, warnings, ct);
+
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
             materialStructuresCreated, materialStructureLinesCreated,
