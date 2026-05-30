@@ -178,9 +178,12 @@ public sealed class ProjectProcurementService : IProjectProcurementService
             return Result.Failure<int>($"Plan {req.ProjectProcurementPlanId} is not in this project.");
         if (req.ProjectPhaseId.HasValue && !await PhaseInProjectAsync(req.ProjectPhaseId.Value, req.CustomerProjectId, ct))
             return Result.Failure<int>($"Phase {req.ProjectPhaseId} is not in this project.");
+        // PO must belong to the PROJECT's company (not merely a visible one) —
+        // otherwise a multi-company tenant could peg a company-B PO to a
+        // company-A project and contaminate the rollups (Codex P2).
         if (req.PurchaseOrderId.HasValue && !await _db.PurchaseOrders.AnyAsync(
-                po => po.Id == req.PurchaseOrderId.Value && _tenant.VisibleCompanyIds.Contains(po.CompanyId ?? 0), ct))
-            return Result.Failure<int>($"Purchase order {req.PurchaseOrderId} is not in your tenant scope.");
+                po => po.Id == req.PurchaseOrderId.Value && po.CompanyId == companyId, ct))
+            return Result.Failure<int>($"Purchase order {req.PurchaseOrderId} does not belong to this project's company.");
         if (req.VendorId.HasValue && !await _db.Vendors.AnyAsync(
                 v => v.Id == req.VendorId.Value && v.CompanyId == companyId, ct))
             return Result.Failure<int>($"Vendor {req.VendorId} does not belong to this project's company.");
@@ -292,12 +295,13 @@ public sealed class ProjectProcurementService : IProjectProcurementService
     public async Task<Result<int>> LinkPurchaseOrderToProjectAsync(LinkPurchaseOrderRequest req, CancellationToken ct = default)
     {
         if (req is null || req.PurchaseOrderId <= 0) return Result.Failure<int>("A valid PurchaseOrderId is required.");
-        var (ok, err, _) = await ProjectInfoAsync(req.CustomerProjectId, ct);
+        var (ok, err, companyId) = await ProjectInfoAsync(req.CustomerProjectId, ct);
         if (!ok) return Result.Failure<int>(err!);
 
+        // PO must belong to the project's company (Codex P2 — no cross-company peg).
         var po = await _db.PurchaseOrders
-            .FirstOrDefaultAsync(p => p.Id == req.PurchaseOrderId && _tenant.VisibleCompanyIds.Contains(p.CompanyId ?? 0), ct);
-        if (po is null) return Result.Failure<int>($"Purchase order {req.PurchaseOrderId} is not in your tenant scope.");
+            .FirstOrDefaultAsync(p => p.Id == req.PurchaseOrderId && p.CompanyId == companyId, ct);
+        if (po is null) return Result.Failure<int>($"Purchase order {req.PurchaseOrderId} does not belong to this project's company.");
 
         if (req.ProjectPhaseId.HasValue && !await PhaseInProjectAsync(req.ProjectPhaseId.Value, req.CustomerProjectId, ct))
             return Result.Failure<int>($"Phase {req.ProjectPhaseId} is not in this project.");

@@ -214,6 +214,28 @@ public sealed class CustomerProjectService : ICustomerProjectService
             return Result.Failure<CustomerProject>(
                 $"Illegal status transition: {project.Status} → {request.NewStatus}.");
 
+        // B9 Wave 4 PR-10 — the close gate also guards THIS (canonical) status
+        // path, not just IProjectProcurementService.CloseProjectAsync, so the
+        // rule cannot be bypassed via the generic status setter (Codex). A
+        // project cannot close while it has Open / PartiallyReceived commitments;
+        // the waiver is available only through the procurement close path.
+        if (request.NewStatus == CustomerProjectStatus.Closed
+            && project.Status != CustomerProjectStatus.Closed)
+        {
+            var openCommitmentCodes = await _db.ProjectCommitments
+                .Where(c => c.CustomerProjectId == project.Id
+                    && (c.Status == Abs.FixedAssets.Models.Projects.ProjectCommitmentStatus.Open
+                        || c.Status == Abs.FixedAssets.Models.Projects.ProjectCommitmentStatus.PartiallyReceived))
+                .OrderBy(c => c.Id)
+                .Select(c => c.Code)
+                .ToListAsync(ct);
+            if (openCommitmentCodes.Count > 0)
+                return Result.Failure<CustomerProject>(
+                    $"Cannot close '{project.Code}' — {openCommitmentCodes.Count} open commitment(s): " +
+                    $"{string.Join(", ", openCommitmentCodes)}. Receive/close them, or close via the " +
+                    "project procurement close path with the open-commitment waiver.");
+        }
+
         project.Status     = request.NewStatus;
         project.ModifiedAt = DateTime.UtcNow;
         project.ModifiedBy = request.ModifiedBy;

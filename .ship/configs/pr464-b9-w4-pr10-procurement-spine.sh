@@ -16,6 +16,7 @@ FILES=(
   "Migrations/AppDbContextModelSnapshot.cs"
   "Services/Projects/IProjectProcurementService.cs"
   "Services/Projects/ProjectProcurementService.cs"
+  "Services/Projects/CustomerProjectService.cs"
   "Services/Seeding/CooMotionDemoSeeder.cs"
   "Program.cs"
   "tests/Abs.FixedAssets.Tests/ProjectProcurementServiceTests.cs"
