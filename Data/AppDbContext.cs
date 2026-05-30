@@ -311,6 +311,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectCustomerPO> ProjectCustomerPOs
             => Set<Abs.FixedAssets.Models.Projects.ProjectCustomerPO>();
 
+        // B9 Wave 3 PR-8 — schedule spine (milestones / tasks / dependencies).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectMilestone> ProjectMilestones
+            => Set<Abs.FixedAssets.Models.Projects.ProjectMilestone>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectTask> ProjectTasks
+            => Set<Abs.FixedAssets.Models.Projects.ProjectTask>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectTaskDependency> ProjectTaskDependencies
+            => Set<Abs.FixedAssets.Models.Projects.ProjectTaskDependency>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5341,6 +5349,132 @@ namespace Abs.FixedAssets.Data
                     .HasForeignKey(x => x.ProjectContractId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ============================================================
+            // B9 Wave 3 PR-8 — schedule spine: milestones / tasks / deps.
+            // Child entities of CustomerProject (no CompanyId; tenant-scoped
+            // THROUGH the parent project — ProjectPhase precedent).
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectMilestone>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectmilestones_project_code");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectmilestones_status");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_projectmilestones_phase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+                e.Property(x => x.MilestoneType).HasDefaultValue(Abs.FixedAssets.Models.Projects.MilestoneType.Internal);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectMilestoneStatus.Open);
+                e.Property(x => x.CustomerVisible).HasDefaultValue(false);
+                e.Property(x => x.IsBillingMilestone).HasDefaultValue(false);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectmilestones_weightpercent_range",
+                        "\"WeightPercent\" IS NULL OR (\"WeightPercent\" >= 0 AND \"WeightPercent\" <= 100)");
+                    t.HasCheckConstraint("ck_projectmilestones_type_range", "\"MilestoneType\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectmilestones_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectmilestones_billingamount_nonneg",
+                        "\"BillingAmount\" IS NULL OR \"BillingAmount\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectTask>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projecttasks_project_code");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projecttasks_status");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_projecttasks_phase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.ProjectMilestoneId)
+                    .HasDatabaseName("ix_projecttasks_milestone")
+                    .HasFilter("\"ProjectMilestoneId\" IS NOT NULL");
+                e.HasIndex(x => x.ParentTaskId)
+                    .HasDatabaseName("ix_projecttasks_parent")
+                    .HasFilter("\"ParentTaskId\" IS NOT NULL");
+                e.Property(x => x.TaskType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectTaskType.Task);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectTaskStatus.NotStarted);
+                e.Property(x => x.Priority).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectTaskPriority.Normal);
+                e.Property(x => x.ConstraintType).HasDefaultValue(Abs.FixedAssets.Models.Projects.TaskConstraintType.None);
+                e.Property(x => x.IsMilestoneBlocking).HasDefaultValue(true);
+                e.Property(x => x.IsCriticalPath).HasDefaultValue(false);
+                e.Property(x => x.CustomerVisible).HasDefaultValue(false);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ParentTask)
+                    .WithMany()
+                    .HasForeignKey(x => x.ParentTaskId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectMilestone)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectMilestoneId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projecttasks_percentcomplete_range",
+                        "\"PercentComplete\" IS NULL OR (\"PercentComplete\" >= 0 AND \"PercentComplete\" <= 100)");
+                    t.HasCheckConstraint("ck_projecttasks_weightpercent_range",
+                        "\"WeightPercent\" IS NULL OR (\"WeightPercent\" >= 0 AND \"WeightPercent\" <= 100)");
+                    t.HasCheckConstraint("ck_projecttasks_type_range", "\"TaskType\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projecttasks_status_range", "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projecttasks_priority_range", "\"Priority\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projecttasks_constrainttype_range", "\"ConstraintType\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projecttasks_hours_nonneg",
+                        "(\"WorkHoursPlanned\" IS NULL OR \"WorkHoursPlanned\" >= 0) AND (\"WorkHoursActual\" IS NULL OR \"WorkHoursActual\" >= 0)");
+                    t.HasCheckConstraint("ck_projecttasks_costs_nonneg",
+                        "(\"CostPlanned\" IS NULL OR \"CostPlanned\" >= 0) AND (\"CostActual\" IS NULL OR \"CostActual\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectTaskDependency>(e =>
+            {
+                // One edge per (pred, succ) pair.
+                e.HasIndex(x => new { x.PredecessorTaskId, x.SuccessorTaskId }).IsUnique()
+                    .HasDatabaseName("ux_projecttaskdeps_pred_succ");
+                e.HasIndex(x => x.SuccessorTaskId).HasDatabaseName("ix_projecttaskdeps_successor");
+                e.HasIndex(x => x.CustomerProjectId).HasDatabaseName("ix_projecttaskdeps_project");
+                e.Property(x => x.DependencyType).HasDefaultValue(Abs.FixedAssets.Models.Projects.DependencyType.FinishToStart);
+                e.Property(x => x.LagDays).HasDefaultValue(0);
+                // Owning project — CASCADE so a project delete removes the edges
+                // in the same cascade as the tasks (the task FKs are NoAction, so
+                // without this the orphaned edges block the project delete).
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                // NoAction on BOTH task FKs — a task pair has two paths to
+                // ProjectTasks; cascading both would be a multiple-cascade-path.
+                e.HasOne(x => x.PredecessorTask)
+                    .WithMany()
+                    .HasForeignKey(x => x.PredecessorTaskId)
+                    .OnDelete(DeleteBehavior.NoAction);
+                e.HasOne(x => x.SuccessorTask)
+                    .WithMany()
+                    .HasForeignKey(x => x.SuccessorTaskId)
+                    .OnDelete(DeleteBehavior.NoAction);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projecttaskdeps_type_range", "\"DependencyType\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projecttaskdeps_no_self", "\"PredecessorTaskId\" <> \"SuccessorTaskId\"");
+                });
             });
 
             // CustomerProject gets the new cockpit-sort indexes. The raw-
