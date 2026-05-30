@@ -441,7 +441,12 @@ public sealed class ProjectScheduleService : IProjectScheduleService
         var tlEnd = allEnds.DefaultIfEmpty(anchor.AddDays(1)).Max();
         if (tlEnd <= tlStart) tlEnd = tlStart.AddDays(1);
 
-        var critCodes = bars.Where(b => b.IsCritical).Select(b => b.Code).ToList();
+        // Order the critical chain by CPM earliest-start (then code) so the
+        // voice handler narrates it in dependency/path order — NOT display order
+        // (Codex P2: SortOrder can differ from the dependency sequence).
+        var critCodes = bars.Where(b => b.IsCritical)
+            .OrderBy(b => cpm[b.TaskId].Es).ThenBy(b => b.Code)
+            .Select(b => b.Code).ToList();
         var projDuration = cpm.Count > 0 ? cpm.Values.Max(c => c.Ef) : 0d;
 
         var headline = bars.Count == 0
