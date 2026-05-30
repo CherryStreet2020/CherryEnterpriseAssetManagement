@@ -13,6 +13,7 @@ FILES=(
   "Program.cs"
   "Services/Voice/IntentClassifier.cs"
   "Services/Voice/IntentPrototypes.cs"
+  "Services/Voice/HybridIntentRouter.cs"
   "Endpoints/VoiceInvokeEndpoint.cs"
   "tests/Abs.FixedAssets.Tests/HybridIntentRouterTests.cs"
   "tests/Abs.FixedAssets.Tests/ProjectPromiseServiceTests.cs"

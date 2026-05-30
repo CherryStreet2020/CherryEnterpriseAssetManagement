@@ -255,13 +255,18 @@ public sealed class HybridIntentRouter : IHybridIntentRouter
                 Reason: "vector winner was Unknown");
         }
 
-        // Per-intent natural-key extraction. ExplainMakeBuyDecision needs the
-        // item ref (id / part number) even when vector routing wins, otherwise a
-        // phrasing with no make/buy verb ("why did we outsource component PN-1234")
-        // loses its ref and the handler asks "which item?" (B7 Wave D PR-2).
-        var key = winner.Kind == IntentKind.ExplainMakeBuyDecision
-            ? IntentClassifier.ExtractMakeBuyItemRef(utterance)
-            : IntentClassifier.ExtractNaturalKey(utterance);
+        // Per-intent natural-key extraction. Intents that resolve a domain-specific
+        // ref (item / production order / project) need their OWN extractor even when
+        // VECTOR routing wins — ExtractNaturalKey doesn't match part numbers, PRO-
+        // numbers, or project codes like DEMO-COO-PROJ-001, so a vector-only phrasing
+        // would otherwise lose its ref and the handler would ask "which …?".
+        var key = winner.Kind switch
+        {
+            IntentKind.ExplainMakeBuyDecision   => IntentClassifier.ExtractMakeBuyItemRef(utterance),
+            IntentKind.CrystallizeJobToStandard => IntentClassifier.ExtractProductionOrderRef(utterance),
+            IntentKind.ProjectPromiseStatus     => IntentClassifier.ExtractProjectRef(utterance),
+            _                                   => IntentClassifier.ExtractNaturalKey(utterance),
+        };
         var parsed = new ParsedIntent(winner.Kind, key);
 
         return new RoutedIntent(
