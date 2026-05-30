@@ -294,6 +294,13 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IFinit
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IDispatchBoardService,
     Abs.FixedAssets.Services.Production.Scheduling.DispatchBoardService>();
 
+// B7 Wave C PR-8 — IMakeBuyDecisionService (the make-or-buy engine). Six-factor chain
+// (F1 eligibility gate, F2 capacity via R4-10 Load%, F3 cost delta, F4 break-even,
+// F5 lead-time fit, F6 quality/risk) + hard gates → BuyScore + explainable rationale,
+// persisted as a MakeBuyDecision (PR-7).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IMakeBuyDecisionService,
+    Abs.FixedAssets.Services.Production.MakeBuyDecisionService>();
+
 // Sprint 12.7 PR #5 — ICfoMotionDemoSeeder. Idempotent demo-data seeder
 // for the CFO motion. Pushes /Controller KPI band (Cash / AP / POs / WIP)
 // to demo-believable numbers on the SEEDED PLACEHOLDER tenant (looked up
