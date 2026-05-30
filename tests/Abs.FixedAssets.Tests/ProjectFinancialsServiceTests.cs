@@ -141,6 +141,23 @@ public sealed class ProjectFinancialsServiceTests
         Assert.Equal(20_000m, v.ProjectedMargin);        // 100k − 80k
     }
 
+    [Fact]
+    public async Task Eac_only_forecast_derives_etc_from_eac_minus_actual()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db, contract: 100_000m);
+        var svc = NewSvc(db);
+        await SeedLockedBudgetAsync(svc, pid);   // 60,000
+        await svc.PostActualCostAsync(new PostActualCostRequest(pid, CostElementType.Material, 30_000m, new DateTime(2026, 6, 1)));
+        // EAC-only forecast (ManualEac default, ETC left null) for Material: EAC 80,000.
+        await svc.CreateForecastAsync(new CreateForecastRequest(pid, CostElementType.Material, new DateTime(2026, 6, 2), EstimateAtCompletion: 80_000m));
+
+        var v = (await svc.GetFinancialsAsync(pid)).Value!;
+        Assert.Equal(50_000m, v.EstimateToComplete);     // 80k EAC − 30k Material actual
+        Assert.Equal(80_000m, v.EstimateAtCompletion);   // 30k actual + 50k ETC
+        Assert.Equal(20_000m, v.ProjectedMargin);        // 100k − 80k
+    }
+
     // -- committed-cost cross-wire to PR-10 commitments --------------------
 
     [Fact]

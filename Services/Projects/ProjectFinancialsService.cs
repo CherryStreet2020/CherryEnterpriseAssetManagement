@@ -134,7 +134,21 @@ public sealed class ProjectFinancialsService : IProjectFinancialsService
             .Select(g => g.First())   // already ordered desc → first = latest
             .ToList();
         if (latestPerElement.Count > 0)
-            pos.EstimateToComplete = latestPerElement.Sum(f => f.EstimateToComplete ?? 0m);
+            // Per element: prefer an explicit ETC; otherwise derive it from an
+            // EAC-only forecast as max(0, EAC − actual-for-that-element) so an
+            // EstimateAtCompletion left with a null EstimateToComplete (the
+            // ManualEac default) still flows into ETC instead of counting as
+            // zero and overstating margin (Codex P2).
+            pos.EstimateToComplete = latestPerElement.Sum(f =>
+            {
+                if (f.EstimateToComplete.HasValue) return f.EstimateToComplete.Value;
+                if (f.EstimateAtCompletion.HasValue)
+                {
+                    var actualEl = pos.ActualByElement.TryGetValue(f.CostElementType, out var ae) ? ae : 0m;
+                    return Math.Max(0m, f.EstimateAtCompletion.Value - actualEl);
+                }
+                return 0m;
+            });
         else
             pos.EstimateToComplete = Math.Max(0m, pos.BudgetTotal - pos.ActualCostToDate);
 
