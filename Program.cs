@@ -252,6 +252,10 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectScheduleSer
 // PurchaseOrder→project pegging.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectProcurementService,
     Abs.FixedAssets.Services.Projects.ProjectProcurementService>();
+// B9 Wave 4 PR-11 — resource/labor/expense spine: plan/assignment/time-entry/
+// expense + planned-vs-actual rollups (feeds the Wave 5 margin engine).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectResourceService,
+    Abs.FixedAssets.Services.Projects.ProjectResourceService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

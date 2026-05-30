@@ -275,6 +275,11 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // long-lead Ti-6Al-4V buy stays OPEN and blocks project close.
             await TryEnsureDemoProcurementAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 4 PR-11 — ensure the demo resource/labor/expense spine
+            // (plan + assignment + time entries + an expense) so planned-vs-actual
+            // labor surfaces for the demo project.
+            await TryEnsureDemoResourcingAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -702,6 +707,82 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             ProjectCommitmentId = cmtFix.Id, CustomerProjectId = projectId,
             ReceiptNumber = "GRN-DEMO-FIXTURE-001", ReceivedAmount = 6_200m,
             ReceiptDate = D(2026, 6, 9), Notes = "Fixture received + inspected.", CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 4 PR-11 — demo resource/labor/expense spine so planned-vs-actual
+    // labor surfaces for the demo project. Idempotent + defensive.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoResourcingAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoResourcingAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo resourcing seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoResourcingAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any resource plan already exists, skip.
+        if (await _db.Set<ProjectResourcePlan>().AnyAsync(p => p.CustomerProjectId == projectId, ct)) return;
+
+        var phaseByCode = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId)
+            .ToDictionaryAsync(p => p.Code, p => p.Id, ct);
+        int? Ph(string c) => phaseByCode.TryGetValue(c, out var id) ? id : (int?)null;
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // A real employee from the tenant company, if one is loaded (else null).
+        var employeeId = await _db.Set<Abs.FixedAssets.Models.Masters.Employee>()
+            .Where(x => x.CompanyId == tenantId).OrderBy(x => x.Id)
+            .Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
+
+        // --- Plan: CNC machining labor (the PROD-phase demand) ---
+        var plan = new ProjectResourcePlan
+        {
+            CustomerProjectId = projectId, ProjectPhaseId = Ph("PROD"),
+            Code = "RP-CNC-LABOR", Name = "CNC machining labor",
+            Description = "Planned CNC machinist hours for the bracket build (rough + finish mill).",
+            ResourceType = ProjectResourceType.Labor, RoleOrSkill = "CNC Machinist",
+            PlannedHours = 120m, PlannedRate = 95m, PlannedCost = 11_400m, Currency = "USD",
+            StartDate = D(2026, 6, 12), EndDate = D(2026, 6, 21),
+            Status = ProjectResourcePlanStatus.Approved, SortOrder = 0, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectResourcePlan>().Add(plan);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Assignment of a machinist against that plan ---
+        var asg = new ProjectResourceAssignment
+        {
+            CustomerProjectId = projectId, ProjectResourcePlanId = plan.Id, ProjectPhaseId = Ph("PROD"),
+            EmployeeId = employeeId, Code = "RA-CNC-01", ResourceType = ProjectResourceType.Labor,
+            AllocationPercent = 75m, PlannedHours = 120m, CostRate = 95m, BillRate = 165m, Currency = "USD",
+            StartDate = D(2026, 6, 12), EndDate = D(2026, 6, 21),
+            Status = ProjectAssignmentStatus.Active, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectResourceAssignment>().Add(asg);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Actual time logged against the assignment (cost = hours × $95) ---
+        ProjectTimeEntry T(DateTime d, decimal hrs, TimeEntryStatus st)
+            => new()
+            {
+                CustomerProjectId = projectId, ProjectResourceAssignmentId = asg.Id, ProjectPhaseId = Ph("PROD"),
+                EmployeeId = employeeId, WorkDate = d, Hours = hrs, Category = TimeEntryCategory.Regular,
+                IsBillable = true, CostRate = 95m, BillRate = 165m, ComputedCost = hrs * 95m,
+                Status = st, CreatedBy = "DemoSeeder",
+            };
+        _db.Set<ProjectTimeEntry>().AddRange(
+            T(D(2026, 6, 12), 8m, TimeEntryStatus.Approved),
+            T(D(2026, 6, 13), 6.5m, TimeEntryStatus.Submitted));
+
+        // --- A travel expense (customer FAI witness visit) ---
+        _db.Set<ProjectExpense>().Add(new ProjectExpense
+        {
+            CustomerProjectId = projectId, ProjectPhaseId = Ph("DEL"), EmployeeId = employeeId,
+            Code = "EXP-TRAVEL-01", Description = "Customer site visit — FAI witness", Category = ProjectExpenseCategory.Travel,
+            Amount = 1_240m, Currency = "USD", ExpenseDate = D(2026, 6, 22), IsBillable = true,
+            ReceiptReference = "EXP-DEMO-001", Status = ProjectExpenseStatus.Approved, CreatedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }

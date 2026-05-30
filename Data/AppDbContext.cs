@@ -327,6 +327,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectReceipt> ProjectReceipts
             => Set<Abs.FixedAssets.Models.Projects.ProjectReceipt>();
 
+        // B9 Wave 4 PR-11 — resource/labor/expense spine.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectResourcePlan> ProjectResourcePlans
+            => Set<Abs.FixedAssets.Models.Projects.ProjectResourcePlan>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectResourceAssignment> ProjectResourceAssignments
+            => Set<Abs.FixedAssets.Models.Projects.ProjectResourceAssignment>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectTimeEntry> ProjectTimeEntries
+            => Set<Abs.FixedAssets.Models.Projects.ProjectTimeEntry>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectExpense> ProjectExpenses
+            => Set<Abs.FixedAssets.Models.Projects.ProjectExpense>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5612,6 +5622,115 @@ namespace Abs.FixedAssets.Data
                 {
                     t.HasCheckConstraint("ck_projectreceipts_amount_nonneg",
                         "\"ReceivedAmount\" >= 0 AND (\"ReceivedQuantity\" IS NULL OR \"ReceivedQuantity\" >= 0)");
+                });
+            });
+
+            // ============================================================
+            // B9 Wave 4 PR-11 — resource/labor/expense spine.
+            // ProjectResourcePlan / ProjectResourceAssignment / ProjectTimeEntry
+            // / ProjectExpense. New tables ⇒ default initializers safe. Children
+            // CASCADE from the project; every optional peg SET NULL (single
+            // cascade path project→child). xmin; enum defaults == model default.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectResourcePlan>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectresourceplans_project_code");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectresourceplans_status");
+                e.Property(x => x.ResourceType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectResourceType.Labor);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectResourcePlanStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectTask).WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WorkCenter).WithMany().HasForeignKey(x => x.WorkCenterId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectresourceplans_type_range", "\"ResourceType\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectresourceplans_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectresourceplans_amounts_nonneg",
+                        "(\"PlannedHours\" IS NULL OR \"PlannedHours\" >= 0) AND (\"PlannedRate\" IS NULL OR \"PlannedRate\" >= 0) AND (\"PlannedCost\" IS NULL OR \"PlannedCost\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectResourceAssignment>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectresourceassignments_project_code");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectresourceassignments_project_status");
+                e.HasIndex(x => x.ProjectResourcePlanId)
+                    .HasDatabaseName("ix_projectresourceassignments_plan")
+                    .HasFilter("\"ProjectResourcePlanId\" IS NOT NULL");
+                e.Property(x => x.ResourceType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectResourceType.Labor);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectAssignmentStatus.Planned);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectResourcePlan).WithMany().HasForeignKey(x => x.ProjectResourcePlanId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectTask).WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.WorkCenter).WithMany().HasForeignKey(x => x.WorkCenterId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Asset).WithMany().HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectresourceassignments_type_range", "\"ResourceType\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectresourceassignments_status_range", "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectresourceassignments_allocation_range",
+                        "\"AllocationPercent\" IS NULL OR (\"AllocationPercent\" >= 0 AND \"AllocationPercent\" <= 100)");
+                    t.HasCheckConstraint("ck_projectresourceassignments_amounts_nonneg",
+                        "(\"PlannedHours\" IS NULL OR \"PlannedHours\" >= 0) AND (\"CostRate\" IS NULL OR \"CostRate\" >= 0) AND (\"BillRate\" IS NULL OR \"BillRate\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectTimeEntry>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.WorkDate })
+                    .HasDatabaseName("ix_projecttimeentries_project_date");
+                e.HasIndex(x => x.ProjectResourceAssignmentId)
+                    .HasDatabaseName("ix_projecttimeentries_assignment")
+                    .HasFilter("\"ProjectResourceAssignmentId\" IS NOT NULL");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projecttimeentries_status");
+                e.Property(x => x.Category).HasDefaultValue(Abs.FixedAssets.Models.Projects.TimeEntryCategory.Regular);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.TimeEntryStatus.Draft);
+                // CASCADE from project only; the assignment link is SET NULL so the
+                // single cascade path stays project→time-entry (no multi-path).
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Assignment).WithMany(a => a.TimeEntries).HasForeignKey(x => x.ProjectResourceAssignmentId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectTask).WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projecttimeentries_category_range", "\"Category\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projecttimeentries_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projecttimeentries_amounts_nonneg",
+                        "\"Hours\" >= 0 AND (\"CostRate\" IS NULL OR \"CostRate\" >= 0) AND (\"BillRate\" IS NULL OR \"BillRate\" >= 0) AND (\"ComputedCost\" IS NULL OR \"ComputedCost\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectExpense>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectexpenses_project_code");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectexpenses_project_status");
+                e.Property(x => x.Category).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectExpenseCategory.Travel);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectExpenseStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectTask).WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectexpenses_category_range", "\"Category\" BETWEEN 0 AND 6");
+                    t.HasCheckConstraint("ck_projectexpenses_status_range", "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectexpenses_amount_nonneg", "\"Amount\" >= 0");
                 });
             });
 
