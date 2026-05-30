@@ -235,6 +235,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQuoteServic
 // B9 Wave 2 PR-5 — quote-to-cash spine: the estimate layer (Estimate/Line/Snapshot).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectEstimateService,
     Abs.FixedAssets.Services.Projects.ProjectEstimateService>();
+// B9 Wave 2 PR-6 — quote-to-cash spine: contract/award layer (CLOSES Wave 2).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectContractService,
+    Abs.FixedAssets.Services.Projects.ProjectContractService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
