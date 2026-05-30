@@ -45,6 +45,53 @@
     }
     else if (d != null)
     {
+        @* ── "Can we still hit the promise?" verdict banner (B9 PR-2) ── *@
+        @if (Model.Promise is { } pr)
+        {
+            var pColor = pr.Status switch
+            {
+                PromiseStatus.Green => "var(--v2-status-completed, #22c55e)",
+                PromiseStatus.Yellow => "var(--v2-status-warning, #f59e0b)",
+                PromiseStatus.Red => "var(--v2-status-cancelled, #ef4444)",
+                _ => "#111827",
+            };
+            var pLabel = pr.Status switch
+            {
+                PromiseStatus.Green => "ON TRACK",
+                PromiseStatus.Yellow => "AT RISK",
+                PromiseStatus.Red => "PROMISE UNLIKELY",
+                _ => "PROMISE MISSED",
+            };
+            <section class="ds-card" style="margin-bottom:1.1rem; border-left:5px solid @pColor;" data-testid="pcc-promise">
+                <div class="ds-card__body" style="display:flex; gap:1rem; align-items:flex-start;">
+                    <div style="min-width:9rem; text-align:center;">
+                        <div style="display:inline-block; padding:.35rem .7rem; border-radius:.4rem; background:@pColor; color:#fff; font-weight:700; font-size:.8rem; letter-spacing:.03em;" data-testid="pcc-promise-status">@pLabel</div>
+                        <div style="font-size:.62rem; color:@muted; text-transform:uppercase; margin-top:.35rem;">Can we still hit the promise?</div>
+                    </div>
+                    <div style="flex:1;">
+                        @if (pr.Reasons.Count == 0)
+                        {
+                            <p style="margin:.1rem 0; font-size:.9rem;">On track to hit the customer promise — no schedule, job, readiness, or change-order risks detected.</p>
+                        }
+                        else
+                        {
+                            <ul style="margin:.1rem 0 0; padding-left:1.1rem; font-size:.85rem; line-height:1.5;">
+                                @foreach (var rsn in pr.Reasons)
+                                {
+                                    var rc = rsn.Severity switch {
+                                        PromiseStatus.Red => "var(--v2-status-cancelled, #ef4444)",
+                                        PromiseStatus.Black => "#111827",
+                                        PromiseStatus.Yellow => "var(--v2-status-warning, #f59e0b)",
+                                        _ => muted };
+                                    <li><span style="color:@rc; font-weight:600;">●</span> @rsn.Detail</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </section>
+        }
+
         @* ── KPI band ─────────────────────────────────────────────── *@
         <section style="display:grid; grid-template-columns:repeat(auto-fit, minmax(165px,1fr)); gap:.6rem; margin-bottom:1.1rem;" data-testid="pcc-kpis">
             <div class="ds-card"><div class="ds-card__body" style="padding:.7rem; text-align:center;">

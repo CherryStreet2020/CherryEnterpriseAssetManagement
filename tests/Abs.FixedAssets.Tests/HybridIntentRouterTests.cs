@@ -481,4 +481,42 @@ public class HybridIntentRouterTests
         var result = await router.RouteAsync("explain receipt RCPT-2026-1234", tenantId: 1, CancellationToken.None);
         Assert.Equal(IntentKind.ExplainException, result.Intent.Kind);
     }
+
+    // ====================================================================
+    // B9 Wave 1 PR-2 — ProjectPromiseStatus keyword routing
+    // ====================================================================
+
+    [Fact]
+    public async Task KeywordPromise_HitThePromiseOnProject_RoutesWithCode()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "can we still hit the promise on project PRJ-001", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ProjectPromiseStatus, result.Intent.Kind);
+        Assert.Equal("PRJ-001", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+    }
+
+    [Fact]
+    public async Task KeywordPromise_OnTrackToDeliver_RoutesToPromise()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "are we on track to deliver this project on time", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ProjectPromiseStatus, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordPromise_CollisionSafety_MakeBuyStaysMakeBuy()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("why are we buying item 9395", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+    }
 }

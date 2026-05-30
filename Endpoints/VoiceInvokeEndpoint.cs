@@ -76,6 +76,8 @@ public static class VoiceInvokeEndpoint
         // B7 Wave D PR-3 — crystallize-job-to-standard preview (CrystallizeJobToStandard intent).
         // Resolves a PRO ref → read-only crystallization preview; narrates + points to the cockpit.
         Abs.FixedAssets.Services.Production.IItemCrystallizationService crystallization,
+        // B9 Wave 1 PR-2 — project promise verdict (ProjectPromiseStatus intent).
+        Abs.FixedAssets.Services.Projects.IProjectPromiseService projectPromise,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -137,6 +139,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.ExplainChainTrace     => await HandleExplainChainTraceAsync(controllerCockpit, intent, transcript, ct),
                 IntentKind.ExplainMakeBuyDecision => await HandleExplainMakeBuyDecisionAsync(makeBuy, intent, ct),
                 IntentKind.CrystallizeJobToStandard => await HandleCrystallizeJobToStandardAsync(crystallization, intent, ct),
+                IntentKind.ProjectPromiseStatus  => await HandleProjectPromiseStatusAsync(projectPromise, intent, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -826,6 +829,57 @@ public static class VoiceInvokeEndpoint
                 Title = $"Crystallize — {p.OrderNumber}",
                 Lines = displayLines.ToArray(),
             },
+        };
+    }
+
+    // B9 Wave 1 PR-2 — ProjectPromiseStatus. Resolve the project and narrate the
+    // Green/Yellow/Red/Black "can we still hit the promise?" verdict + top reasons.
+    private static async Task<VoiceInvokeResponse> HandleProjectPromiseStatusAsync(
+        Abs.FixedAssets.Services.Projects.IProjectPromiseService projectPromise,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which project? Say its project code or number — e.g. \"can we still hit the promise on project PRJ-001\".",
+                Displayed = new VoiceDisplayed { Title = "Project promise", Lines = new[] { "Say a project code or id." } },
+            };
+        }
+
+        var result = await projectPromise.EvaluateByRefAsync(intent.NaturalKey, ct);
+        if (result.IsFailure || result.Value is null)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = result.Error ?? $"I couldn't assess the promise for '{intent.NaturalKey}'.",
+            };
+        }
+
+        var a = result.Value;
+        var label = a.Status switch
+        {
+            Abs.FixedAssets.Services.Projects.PromiseStatus.Green => "GREEN — on track",
+            Abs.FixedAssets.Services.Projects.PromiseStatus.Yellow => "YELLOW — at risk",
+            Abs.FixedAssets.Services.Projects.PromiseStatus.Red => "RED — promise unlikely",
+            _ => "BLACK — promise already missed",
+        };
+
+        var displayLines = new List<string> { $"Verdict: {label}" };
+        if (a.Reasons.Count == 0)
+            displayLines.Add("No schedule, job, readiness, or change-order risks detected.");
+        else
+            foreach (var r in a.Reasons.Take(6))
+                displayLines.Add($"  • {r.Detail}");
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = a.Headline,
+            Displayed = new VoiceDisplayed { Title = $"Promise — {a.ProjectCode}", Lines = displayLines.ToArray() },
         };
     }
 
