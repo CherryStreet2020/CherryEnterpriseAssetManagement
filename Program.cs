@@ -264,6 +264,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectFinancialsS
 // vs live actuals/EAC (PR-12), bucket-for-bucket. The estimating feedback loop.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQuoteVsActualService,
     Abs.FixedAssets.Services.Projects.ProjectQuoteVsActualService>();
+// B9 Wave 5 PR-14 (CLOSES Wave 5) — billing/invoice/revenue recognition:
+// schedule tied to PR-8 billing milestones + milestone-achieved & acceptance
+// gates on invoicing.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectBillingService,
+    Abs.FixedAssets.Services.Projects.ProjectBillingService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

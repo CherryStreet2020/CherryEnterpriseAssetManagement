@@ -290,6 +290,11 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // so the quote-vs-actual surface shows real quoted-vs-EAC numbers.
             await TryEnsureDemoQuoteBaselineAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 5 PR-14 — ensure the demo billing spine (schedule tied to
+            // billing milestones + a revenue recognition entry) so the bill-side
+            // surfaces for the demo project.
+            await TryEnsureDemoBillingAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -485,6 +490,7 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         await TryEnsureDemoResourcingAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoFinancialsAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoQuoteBaselineAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoBillingAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -932,6 +938,62 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             ContingencyPct = contingencyPct, TotalCost = total,
             QuotedPrice = quotedPrice, EstimatedMarginPct = marginPct, TargetMarginPct = 60.0m,
             LineCount = 4, CapturedAt = new DateTime(2026, 5, 28, 0, 0, 0, DateTimeKind.Utc), CapturedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 5 PR-14 — demo billing spine (schedule tied to billing milestones +
+    // a revenue recognition entry) so the bill-side surfaces, incl. a final
+    // delivery line that RequiresAcceptance. Idempotent + defensive.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoBillingAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoBillingAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo billing seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoBillingAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any billing schedule already exists, skip.
+        if (await _db.Set<ProjectBillingSchedule>().AnyAsync(s => s.CustomerProjectId == projectId, ct)) return;
+
+        // Link to the demo billing milestones seeded by the PR-9 schedule.
+        var msByCode = await _db.Set<ProjectMilestone>()
+            .Where(m => m.CustomerProjectId == projectId)
+            .ToDictionaryAsync(m => m.Code, m => m.Id, ct);
+        int? Ms(string c) => msByCode.TryGetValue(c, out var id) ? id : (int?)null;
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // Progress billing on design release (no acceptance) + final delivery
+        // billing on shipment (requires customer acceptance).
+        _db.Set<ProjectBillingSchedule>().AddRange(
+            new ProjectBillingSchedule
+            {
+                CustomerProjectId = projectId, ProjectMilestoneId = Ms("MS-DESIGN"),
+                Code = "BILL-PROGRESS-1", Name = "Progress billing — design release",
+                Description = "Progress payment on customer design approval.",
+                BillingType = ProjectBillingType.Milestone, ScheduledAmount = 40_000m, Currency = "USD",
+                ScheduledDate = D(2026, 5, 28), PercentOfContract = 21.6m,
+                RequiresAcceptance = false, Status = ProjectBillingStatus.Planned, SortOrder = 0, CreatedBy = "DemoSeeder",
+            },
+            new ProjectBillingSchedule
+            {
+                CustomerProjectId = projectId, ProjectMilestoneId = Ms("MS-SHIP"),
+                Code = "BILL-FINAL", Name = "Final billing — shipment / acceptance",
+                Description = "Final delivery invoice; requires customer acceptance before final billing.",
+                BillingType = ProjectBillingType.Milestone, ScheduledAmount = 145_000m, Currency = "USD",
+                ScheduledDate = D(2026, 6, 26), PercentOfContract = 78.4m,
+                RequiresAcceptance = true, Status = ProjectBillingStatus.Planned, SortOrder = 1, CreatedBy = "DemoSeeder",
+            });
+        await _db.SaveChangesAsync(ct);
+
+        // Revenue recognized to date (percent-complete on work performed).
+        _db.Set<ProjectRevenueRecognition>().Add(new ProjectRevenueRecognition
+        {
+            CustomerProjectId = projectId, PeriodLabel = "2026-06", Method = RevenueRecognitionMethod.PercentComplete,
+            RecognizedAmount = 40_000m, Currency = "USD", RecognitionDate = D(2026, 6, 12), PercentComplete = 21.6m,
+            Notes = "Revenue recognized on design + procurement progress.", CreatedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }
