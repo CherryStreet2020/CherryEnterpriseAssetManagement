@@ -35,6 +35,12 @@ public enum IntentKind
     // narrates each ChainStep through Cherry's voice. See
     // Services/Controller/ChainTraceService.cs + IControllerCockpitService.
     ExplainChainTrace,
+    // B7 Wave D PR-2 — make-or-buy decision narration.
+    // "why are we buying item 9395" / "why did we make part PN-1234" /
+    // "explain the make or buy call on this bracket". Re-hydrates the item's
+    // latest persisted MakeBuyDecision via IMakeBuyDecisionService.ExplainAsync
+    // and narrates the verdict + rationale. See Services/Production.
+    ExplainMakeBuyDecision,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -70,6 +76,14 @@ public static class IntentClassifier
     private static readonly Regex BareIntegerPattern = new Regex(
         @"\b(\d{1,9})\b", RegexOptions.Compiled);
 
+    // B7 Wave D PR-2 — make-or-buy item reference extractor. Recognises
+    // "item 9395", "part PN-1234", "part number 9395", "component X", "sku Y".
+    // The captured token is an item Id or part number that
+    // IMakeBuyDecisionService.ExplainLatestForItemAsync resolves.
+    private static readonly Regex MakeBuyItemPattern = new Regex(
+        @"\b(?:item|part\s*number|part\s*no\.?|part|component|sku)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,39})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public static ParsedIntent Classify(string raw)
     {
         var s = raw.ToLowerInvariant();
@@ -93,6 +107,18 @@ public static class IntentClassifier
         {
             var key = ExtractNaturalKey(raw);
             return new ParsedIntent(IntentKind.ExplainChainOfCustody, key);
+        }
+
+        // MAKE-OR-BUY intents (B7 Wave D PR-2) — must come before CHAIN-TRACE
+        // and EXPLAIN so "why are we buying item 9395" / "explain the make-or-buy
+        // call on part PN-1234" route to the make-or-buy narrator, not to the
+        // controller chain walker or the receipt-side ExplainException handler.
+        // Guarded on a make/buy subject so generic "why is..." / "explain..."
+        // utterances still fall through to their existing intents.
+        if (IsMakeBuyQuery(s))
+        {
+            var key = ExtractMakeBuyItemRef(raw);
+            return new ParsedIntent(IntentKind.ExplainMakeBuyDecision, key);
         }
 
         // CHAIN-TRACE intents (Sprint 12.7 PR #3 — CFO motion) — must come
@@ -200,6 +226,46 @@ public static class IntentClassifier
     {
         var m = BareIntegerPattern.Match(raw);
         return m.Success ? m.Groups[1].Value : null;
+    }
+
+    /// <summary>
+    /// B7 Wave D PR-2 — extract the item reference (item Id or part number) from a
+    /// make-or-buy utterance. Tries the "item/part X" grammar first, then a
+    /// receipt-shaped natural key (PN-1234), then a bare integer.
+    /// Public so the vector-fallback path can re-use it after vector routing.
+    /// </summary>
+    public static string? ExtractMakeBuyItemRef(string raw)
+    {
+        var m = MakeBuyItemPattern.Match(raw);
+        if (m.Success) return m.Groups[1].Value;
+        var nk = ExtractNaturalKey(raw);
+        if (!string.IsNullOrEmpty(nk)) return nk;
+        var bi = BareIntegerPattern.Match(raw);
+        return bi.Success ? bi.Groups[1].Value : null;
+    }
+
+    // B7 Wave D PR-2 — true when the utterance is a make-or-buy "why" question.
+    // Strong signal: explicit "make or buy" phrasing. Weak signal: a diagnostic
+    // verb paired with a make/buy verb ("why are we buying this", "should we make
+    // or build part X"). Guarded so plain "why is..." / "explain..." (no make/buy
+    // verb) fall through to ExplainChainTrace / ExplainException.
+    private static bool IsMakeBuyQuery(string s)
+    {
+        if (s.Contains("make or buy") || s.Contains("make-or-buy") ||
+            s.Contains("make vs buy") || s.Contains("make versus buy") ||
+            s.Contains("buy or make") || s.Contains("buy vs make") ||
+            s.Contains("buy or build") || s.Contains("make or source"))
+            return true;
+
+        var hasVerb = s.Contains("why") || s.Contains("should we") ||
+                      s.Contains("did we") || s.Contains("are we") ||
+                      s.Contains("explain");
+        var hasMakeBuy = s.Contains("buying") || s.Contains("making") ||
+                         s.Contains("buy this") || s.Contains("make this") ||
+                         s.Contains("buy it") || s.Contains("make it") ||
+                         s.Contains("we buy") || s.Contains("we make") ||
+                         s.Contains("to buy") || s.Contains("to make");
+        return hasVerb && hasMakeBuy;
     }
 
     private static bool HasChainTraceVerb(string s) =>

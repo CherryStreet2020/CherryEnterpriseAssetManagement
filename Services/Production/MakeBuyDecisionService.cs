@@ -352,6 +352,75 @@ namespace Abs.FixedAssets.Services.Production
 
         private static decimal Clamp01(decimal v) => v < 0m ? 0m : (v > 1m ? 1m : v);
 
+        // B7 Wave D PR-2 — resolve a spoken item reference → latest decision → ExplainAsync.
+        // The Cherry Bar voice handler stays thin; all the data work lives here (ADR-025),
+        // tenant-scoped to the item's company throughout.
+        public async Task<Result<MakeBuyVoiceExplanation>> ExplainLatestForItemAsync(
+            string itemRef, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(itemRef))
+                return Result.Failure<MakeBuyVoiceExplanation>("No item specified.");
+            itemRef = itemRef.Trim();
+            var lower = itemRef.ToLower();
+
+            var scoped = _db.Items.Where(i => _tenant.VisibleCompanyIds.Contains(i.CompanyId ?? 0));
+
+            int? itemId = null;
+            string? partNumber = null;
+            string? description = null;
+
+            // Numeric reference → try item Id first.
+            if (int.TryParse(itemRef, out var rawId))
+            {
+                var byId = await scoped.Where(i => i.Id == rawId)
+                    .Select(i => new { i.Id, i.PartNumber, i.Description })
+                    .FirstOrDefaultAsync(ct);
+                if (byId != null) { itemId = byId.Id; partNumber = byId.PartNumber; description = byId.Description; }
+            }
+
+            // Otherwise (or if the numeric id missed) resolve by part number — exact, then prefix.
+            if (itemId == null)
+            {
+                var byPn = await scoped.Where(i => i.PartNumber.ToLower() == lower)
+                    .Select(i => new { i.Id, i.PartNumber, i.Description })
+                    .FirstOrDefaultAsync(ct)
+                    ?? await scoped.Where(i => i.PartNumber.ToLower().StartsWith(lower))
+                        .Select(i => new { i.Id, i.PartNumber, i.Description })
+                        .FirstOrDefaultAsync(ct);
+                if (byPn != null) { itemId = byPn.Id; partNumber = byPn.PartNumber; description = byPn.Description; }
+            }
+
+            if (itemId == null)
+                return Result.Failure<MakeBuyVoiceExplanation>(
+                    $"I couldn't find an item matching '{itemRef}'.");
+
+            var latestId = await _db.MakeBuyDecisions
+                .Where(d => d.ItemId == itemId && _tenant.VisibleCompanyIds.Contains(d.CompanyId))
+                .OrderByDescending(d => d.DecidedAtUtc).ThenByDescending(d => d.Id)
+                .Select(d => (int?)d.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (latestId == null)
+                return Result.Failure<MakeBuyVoiceExplanation>(
+                    $"No make-or-buy decision has been recorded for {partNumber} yet.");
+
+            var explained = await ExplainAsync(latestId.Value, ct);
+            if (explained.IsFailure)
+                return Result.Failure<MakeBuyVoiceExplanation>(explained.Error!);
+            var r = explained.Value!;
+
+            string? supplierName = null;
+            if (r.ChosenSupplierId != null)
+                supplierName = await _db.Vendors
+                    .Where(v => v.Id == r.ChosenSupplierId
+                        && _tenant.VisibleCompanyIds.Contains(v.CompanyId ?? 0))
+                    .Select(v => v.Name)
+                    .FirstOrDefaultAsync(ct);
+
+            return Result.Success(new MakeBuyVoiceExplanation(
+                r, partNumber ?? $"Item #{itemId}", description, supplierName));
+        }
+
         private sealed record PolicyCfg(decimal CapacityThresholdPct, decimal DrumOffloadCostTolerancePct,
             decimal BuyDecisionScoreThreshold, decimal WeightCapacity, decimal WeightCostDelta,
             decimal WeightBreakEven, decimal WeightLeadTime, decimal WeightQualityRisk, MakeBuyTieBreak FinalTieBreak);

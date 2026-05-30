@@ -70,6 +70,9 @@ public static class VoiceInvokeEndpoint
         // Powers the ExplainChainTrace intent (the CFO motion). Reads
         // AsNoTracking only; zero DbContext mutation.
         Abs.FixedAssets.Services.Controller.IControllerCockpitService controllerCockpit,
+        // B7 Wave D PR-2 — make-or-buy decision narration (ExplainMakeBuyDecision intent).
+        // Resolves an item ref → its latest persisted MakeBuyDecision → ExplainAsync.
+        Abs.FixedAssets.Services.Production.IMakeBuyDecisionService makeBuy,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -129,6 +132,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.ExplainException      => await HandleExplainExceptionAsync(voiceTools, intent, ct),
                 IntentKind.ExplainChainOfCustody => await HandleExplainChainOfCustodyAsync(voiceTools, chainOfCustody, intent, ct),
                 IntentKind.ExplainChainTrace     => await HandleExplainChainTraceAsync(controllerCockpit, intent, transcript, ct),
+                IntentKind.ExplainMakeBuyDecision => await HandleExplainMakeBuyDecisionAsync(makeBuy, intent, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -631,6 +635,105 @@ public static class VoiceInvokeEndpoint
         };
     }
 
+    // B7 Wave D PR-2 — make-or-buy decision voice narration.
+    //
+    // "why are we buying item 9395" / "explain the make-or-buy call on part PN-1234"
+    // → resolve the item, re-hydrate its latest persisted MakeBuyDecision via
+    // IMakeBuyDecisionService.ExplainLatestForItemAsync (which calls ExplainAsync),
+    // and narrate the verdict + the persisted rationale through Cherry's TTS.
+    //
+    // The handler stays thin — all the resolution lives in the service (ADR-025).
+    // Failure modes (no item ref, item not found, no decision recorded) come back
+    // as friendly Result failures we surface verbatim.
+    private static async Task<VoiceInvokeResponse> HandleExplainMakeBuyDecisionAsync(
+        Abs.FixedAssets.Services.Production.IMakeBuyDecisionService makeBuy,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which item should I explain the make-or-buy call for? Say its part number or item number.",
+                Displayed = new VoiceDisplayed
+                {
+                    Title = "Make-or-buy explanation",
+                    Lines = new[]
+                    {
+                        "Say a part number — e.g. \"why are we buying part PN-1234\"",
+                        "Or an item number — e.g. \"explain the make or buy call on item 9395\"",
+                    },
+                },
+            };
+        }
+
+        var result = await makeBuy.ExplainLatestForItemAsync(intent.NaturalKey, ct);
+        if (result.IsFailure || result.Value is null)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = result.Error ?? $"I couldn't explain the make-or-buy call for '{intent.NaturalKey}'.",
+            };
+        }
+
+        var ex = result.Value;
+        var r = ex.Result;
+        var verdict = r.Outcome == Abs.FixedAssets.Models.Production.MakeBuyOutcome.Buy ? "buy" : "make";
+
+        // Lead sentence: the verdict + confidence. Hard-gated decisions get the
+        // gate reason; scored decisions get the buy-score framing.
+        var spokenParts = new List<string>();
+        if (r.WasHardGated)
+        {
+            spokenParts.Add($"We chose to {verdict} {ex.PartNumber} because {LowerFirst(r.HardGateReason ?? "a policy rule forced it")}.");
+        }
+        else
+        {
+            spokenParts.Add($"We chose to {verdict} {ex.PartNumber}, with a buy score of {r.BuyScore:0.00} and {Math.Round((double)r.Confidence * 100)}% confidence.");
+        }
+
+        // The persisted rationale (the audit-true "why").
+        if (!string.IsNullOrWhiteSpace(r.RationaleText))
+            spokenParts.Add(r.RationaleText);
+
+        // Cost + supplier color when it's a BUY with a chosen supplier.
+        if (r.Outcome == Abs.FixedAssets.Models.Production.MakeBuyOutcome.Buy
+            && r.MakeCostFullyLoaded.HasValue && r.BuyCostLanded.HasValue)
+        {
+            var supplier = string.IsNullOrWhiteSpace(ex.SupplierName) ? "the chosen supplier" : ex.SupplierName;
+            spokenParts.Add($"Making it lands at {r.MakeCostFullyLoaded.Value:C0} fully loaded versus {r.BuyCostLanded.Value:C0} to buy from {supplier}.");
+        }
+
+        var displayLines = new List<string>
+        {
+            $"Verdict: {(r.Outcome == Abs.FixedAssets.Models.Production.MakeBuyOutcome.Buy ? "BUY" : "MAKE")}"
+                + (r.WasHardGated ? " (hard-gated)" : $" · buy score {r.BuyScore:0.00} · {Math.Round((double)r.Confidence * 100)}% confidence"),
+        };
+        if (r.WasHardGated && !string.IsNullOrWhiteSpace(r.HardGateReason))
+            displayLines.Add($"Gate: {r.HardGateReason}");
+        if (r.MakeCostFullyLoaded.HasValue) displayLines.Add($"Make (fully loaded): {r.MakeCostFullyLoaded.Value:C2}");
+        if (r.BuyCostLanded.HasValue) displayLines.Add($"Buy (landed): {r.BuyCostLanded.Value:C2}");
+        if (!string.IsNullOrWhiteSpace(ex.SupplierName)) displayLines.Add($"Supplier: {ex.SupplierName}");
+        foreach (var f in r.Factors.Take(6))
+            displayLines.Add($"  • {f.Code} {f.Label}: {f.Score:0.00} → {f.Reason}");
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = string.Join(" ", spokenParts),
+            Displayed = new VoiceDisplayed
+            {
+                Title = $"Make-or-buy — {ex.PartNumber}",
+                Lines = displayLines.ToArray(),
+            },
+        };
+    }
+
+    private static string LowerFirst(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToLowerInvariant(s[0]) + s.Substring(1);
+
     private static string NarrateEdge(string? edgeType, string nodeType, string label) =>
         edgeType switch
         {
@@ -654,7 +757,7 @@ public static class VoiceInvokeEndpoint
     private static VoiceInvokeResponse HandleHelp() => new()
     {
         Ok = true,
-        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, explain receipt RCPT-2026-1234, trace receipt RCPT-2026-1234, why is NBV on asset 4231, or drill down on JE 47.",
+        Spoken = "Try saying: what's arriving today, find receipt RCPT-2026-1234, explain receipt RCPT-2026-1234, trace receipt RCPT-2026-1234, why is NBV on asset 4231, drill down on JE 47, or why are we buying item 9395.",
         Displayed = new VoiceDisplayed
         {
             Title = "Voice commands I understand today",
@@ -667,6 +770,8 @@ public static class VoiceInvokeEndpoint
                 // Sprint 12.7 PR #3 — Controller-side chain trace.
                 "why is NBV on asset ####  (source-to-GL trace)",
                 "drill down on JE ####  (journal entry trace)",
+                // B7 Wave D PR-2 — make-or-buy narration.
+                "why are we buying item ####  (make-or-buy decision)",
             },
         },
     };
@@ -687,6 +792,7 @@ public static class VoiceInvokeEndpoint
                 "Try: trace receipt RCPT-...",
                 "Try: why is NBV on asset ####",
                 "Try: drill down on JE ####",
+                "Try: why are we buying item ####",
             },
         },
     };

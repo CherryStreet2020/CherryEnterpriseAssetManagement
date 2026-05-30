@@ -60,6 +60,17 @@ namespace Abs.FixedAssets.Services.Production
         int? ChosenSupplierId,
         int? ChosenQuoteId);
 
+    /// <summary>
+    /// B7 Wave D PR-2 — the voice-narration shape for "why did we make vs buy item X".
+    /// Wraps the explainable decision result with the resolved item identity + supplier
+    /// name so the Cherry Bar handler can speak a complete, audit-true sentence.
+    /// </summary>
+    public sealed record MakeBuyVoiceExplanation(
+        MakeBuyDecisionResult Result,
+        string PartNumber,
+        string? Description,
+        string? SupplierName);
+
     public interface IMakeBuyDecisionService
     {
         /// <summary>
@@ -73,5 +84,15 @@ namespace Abs.FixedAssets.Services.Production
 
         /// <summary>Re-hydrate and re-render a previously persisted decision (audit / Cherry Bar).</summary>
         Task<Result<MakeBuyDecisionResult>> ExplainAsync(int decisionId, CancellationToken ct = default);
+
+        /// <summary>
+        /// B7 Wave D PR-2 — resolve an item by a spoken reference (item id or part number),
+        /// find its latest persisted make-or-buy decision, and re-hydrate it via
+        /// <see cref="ExplainAsync"/> for the Cherry Bar <c>ExplainMakeBuyDecision</c> intent.
+        /// Tenant-scoped to the item's company. Fails with a friendly message when the item
+        /// or a decision can't be found.
+        /// </summary>
+        Task<Result<MakeBuyVoiceExplanation>> ExplainLatestForItemAsync(
+            string itemRef, CancellationToken ct = default);
     }
 }
