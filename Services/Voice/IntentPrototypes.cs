@@ -87,5 +87,14 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "should we make or buy this bracket"),
         new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "why did we decide to outsource this component"),
         new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "what drove the make versus buy call on this part"),
+
+        // CrystallizeJobToStandard — B7 Wave D PR-3 (CLOSES B7). Harvest a reusable
+        // standard from a completed ETO job. Vector prototypes cover business-fluent
+        // paraphrasings of "crystallize" the keyword layer might miss.
+        new IntentPrototype(IntentKind.CrystallizeJobToStandard, "crystallize this job into a standard"),
+        new IntentPrototype(IntentKind.CrystallizeJobToStandard, "harvest a reusable standard from order PRO-2026-00042"),
+        new IntentPrototype(IntentKind.CrystallizeJobToStandard, "promote this finished job to a standard item"),
+        new IntentPrototype(IntentKind.CrystallizeJobToStandard, "turn this one-off build into a reusable standard"),
+        new IntentPrototype(IntentKind.CrystallizeJobToStandard, "save this job as a standard master"),
     };
 }

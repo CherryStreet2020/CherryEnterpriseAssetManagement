@@ -287,6 +287,72 @@
         break;
 
     // ================================================================
+    // CRYSTALLIZE — B7 Wave D PR-3: harvest a reusable standard at ship (CLOSES B7)
+    // ================================================================
+    case CockpitModel.TabCrystallize:
+        @if (!string.IsNullOrEmpty(Model.CrystallizationMessage) && Model.CrystallizationPanel == null)
+        {
+            <div class="ds-card" data-testid="cockpit-crystallize-empty"><div class="ds-card__body" style="text-align: center; padding: 3rem;">
+                <i class="fas fa-gem" style="font-size: 2.5rem; color: var(--v2-text-muted, #94a3b8); margin-bottom: 1rem;"></i>
+                <h3 class="ds-h3">Crystallize to Standard</h3>
+                <p style="color: var(--v2-text-muted, #94a3b8);">@Model.CrystallizationMessage</p>
+            </div></div>
+        }
+        else if (Model.CrystallizationPanel != null)
+        {
+            if (!string.IsNullOrEmpty(Model.CrystallizationMessage))
+            {
+                <div class="ds-alert @(Model.CrystallizationActionError ? "ds-alert--danger" : "ds-alert--success")" data-testid="cockpit-crystallize-result"
+                     style="margin-bottom: 1rem; padding: .6rem .85rem; border-radius: .4rem; border-left: 3px solid @(Model.CrystallizationActionError ? "var(--v2-status-cancelled, #ef4444)" : "var(--v2-status-completed, #22c55e)");">
+                    @Model.CrystallizationMessage
+                </div>
+            }
+
+            @await Html.PartialAsync("_CockpitCrystallizationPanel", Model.CrystallizationPanel)
+
+            var cp = Model.CrystallizationPanel;
+            <div style="display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem;" data-testid="cockpit-crystallize-actions">
+                @if (cp.AlreadyCrystallized)
+                {
+                    <form method="post" asp-page-handler="ReverseCrystallization" asp-route-id="@Model.Id" asp-route-tab="@CockpitModel.TabCrystallize">
+                        <button type="submit" class="ds-btn ds-btn--secondary" data-testid="cockpit-crystallize-reverse">
+                            <i class="fas fa-rotate-left"></i> Reverse crystallization
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    @if (cp.HasDedupeMatch)
+                    {
+                        <form method="post" asp-page-handler="Crystallize" asp-route-id="@Model.Id" asp-route-tab="@CockpitModel.TabCrystallize">
+                            <input type="hidden" name="link" value="true" />
+                            <input type="hidden" name="linkItemId" value="@cp.Preview.DedupeMatchItemId" />
+                            <button type="submit" class="ds-btn ds-btn--primary" data-testid="cockpit-crystallize-link">
+                                <i class="fas fa-link"></i> Link to existing #@cp.Preview.DedupeMatchItemId
+                            </button>
+                        </form>
+                    }
+                    <form method="post" asp-page-handler="Crystallize" asp-route-id="@Model.Id" asp-route-tab="@CockpitModel.TabCrystallize">
+                        <input type="hidden" name="link" value="false" />
+                        <button type="submit" class="ds-btn @(cp.HasDedupeMatch ? "ds-btn--secondary" : "ds-btn--primary")" data-testid="cockpit-crystallize-new"
+                                @(cp.HasStandardToHarvest ? "" : "disabled")>
+                            <i class="fas fa-gem"></i> Crystallize new standard
+                        </button>
+                    </form>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="ds-card" data-testid="cockpit-crystallize-empty"><div class="ds-card__body" style="text-align: center; padding: 3rem;">
+                <i class="fas fa-gem" style="font-size: 2.5rem; color: var(--v2-text-muted, #94a3b8); margin-bottom: 1rem;"></i>
+                <h3 class="ds-h3">Crystallize to Standard</h3>
+                <p style="color: var(--v2-text-muted, #94a3b8);">Nothing to crystallize for this order.</p>
+            </div></div>
+        }
+        break;
+
+    // ================================================================
     // PLACEHOLDER TABS — future PR ships
     // ================================================================
     default:

@@ -18,6 +18,7 @@ namespace Abs.FixedAssets.Services.Production
         private readonly IOperationReadinessService _readiness;
         private readonly ITenantContext _tenant;
         private readonly IMakeBuyDecisionService _makeBuy;
+        private readonly IItemCrystallizationService _crystallization;
         private readonly ILogger<ProductionCockpitService> _log;
 
         public ProductionCockpitService(
@@ -25,12 +26,14 @@ namespace Abs.FixedAssets.Services.Production
             IOperationReadinessService readiness,
             ITenantContext tenant,
             IMakeBuyDecisionService makeBuy,
+            IItemCrystallizationService crystallization,
             ILogger<ProductionCockpitService> log)
         {
             _db = db;
             _readiness = readiness;
             _tenant = tenant;
             _makeBuy = makeBuy;
+            _crystallization = crystallization;
             _log = log;
         }
 
@@ -179,6 +182,28 @@ namespace Abs.FixedAssets.Services.Production
                 BuyThreshold: buyThreshold);
 
             return Result.Success(new CockpitMakeBuyPanel(data, null));
+        }
+
+        // ================================================================
+        // B7 Wave D PR-3 — Crystallization panel resolution (CLOSES B7)
+        // Read-only: delegates to IItemCrystallizationService.PreviewCrystallizationAsync
+        // (which is itself tenant-scoped). Per ADR-025 the preview's data reads live in the
+        // crystallization service; this method only validates the PRO scope + wraps the DTO.
+        // ================================================================
+        public async Task<Result<CockpitCrystallizationPanel>> GetCrystallizationPanelAsync(
+            int productionOrderId, CancellationToken ct = default)
+        {
+            var pro = await LoadAndValidateAsync(productionOrderId, ct);
+            if (pro == null)
+                return Result.Success(new CockpitCrystallizationPanel(null,
+                    $"Production Order {productionOrderId} not found or not accessible."));
+
+            var preview = await _crystallization.PreviewCrystallizationAsync(productionOrderId, ct);
+            if (preview.IsFailure)
+                return Result.Success(new CockpitCrystallizationPanel(null, preview.Error));
+
+            return Result.Success(new CockpitCrystallizationPanel(
+                new CockpitCrystallizationPanelData(preview.Value!), null));
         }
 
         // ================================================================

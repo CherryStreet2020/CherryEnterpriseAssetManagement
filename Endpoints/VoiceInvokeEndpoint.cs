@@ -73,6 +73,9 @@ public static class VoiceInvokeEndpoint
         // B7 Wave D PR-2 — make-or-buy decision narration (ExplainMakeBuyDecision intent).
         // Resolves an item ref → its latest persisted MakeBuyDecision → ExplainAsync.
         Abs.FixedAssets.Services.Production.IMakeBuyDecisionService makeBuy,
+        // B7 Wave D PR-3 — crystallize-job-to-standard preview (CrystallizeJobToStandard intent).
+        // Resolves a PRO ref → read-only crystallization preview; narrates + points to the cockpit.
+        Abs.FixedAssets.Services.Production.IItemCrystallizationService crystallization,
         ILogger<VoiceInvokeRequest> logger,
         CancellationToken ct)
     {
@@ -133,6 +136,7 @@ public static class VoiceInvokeEndpoint
                 IntentKind.ExplainChainOfCustody => await HandleExplainChainOfCustodyAsync(voiceTools, chainOfCustody, intent, ct),
                 IntentKind.ExplainChainTrace     => await HandleExplainChainTraceAsync(controllerCockpit, intent, transcript, ct),
                 IntentKind.ExplainMakeBuyDecision => await HandleExplainMakeBuyDecisionAsync(makeBuy, intent, ct),
+                IntentKind.CrystallizeJobToStandard => await HandleCrystallizeJobToStandardAsync(crystallization, intent, ct),
                 IntentKind.Help                  => HandleHelp(),
                 _                                => HandleUnknown(transcript),
             };
@@ -732,6 +736,94 @@ public static class VoiceInvokeEndpoint
             Displayed = new VoiceDisplayed
             {
                 Title = $"Make-or-buy — {ex.PartNumber}",
+                Lines = displayLines.ToArray(),
+            },
+        };
+    }
+
+    // B7 Wave D PR-3 (CLOSES B7) — CrystallizeJobToStandard.
+    // Read-only PREVIEW + spoken summary. Voice NEVER mints a standard on its own
+    // (crystallization is a manual one-click, dedupe is human-confirmed — decision
+    // #3); it narrates the would-be standard and points the user to the cockpit
+    // Crystallize tab to confirm the write.
+    private static async Task<VoiceInvokeResponse> HandleCrystallizeJobToStandardAsync(
+        Abs.FixedAssets.Services.Production.IItemCrystallizationService crystallization,
+        ParsedIntent intent,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(intent.NaturalKey))
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = "Which job should I crystallize into a standard? Say its production order number or id.",
+                Displayed = new VoiceDisplayed
+                {
+                    Title = "Crystallize to standard",
+                    Lines = new[]
+                    {
+                        "Say an order number — e.g. \"crystallize order PRO-2026-00042 into a standard\"",
+                        "Or an order id — e.g. \"crystallize job 15 into a standard\"",
+                    },
+                },
+            };
+        }
+
+        var result = await crystallization.PreviewCrystallizationByRefAsync(intent.NaturalKey, ct);
+        if (result.IsFailure || result.Value is null)
+        {
+            return new VoiceInvokeResponse
+            {
+                Ok = false,
+                Spoken = result.Error ?? $"I couldn't preview a crystallization for '{intent.NaturalKey}'.",
+            };
+        }
+
+        var p = result.Value;
+        var costText = p.SeededStandardCost.HasValue ? p.SeededStandardCost.Value.ToString("C0") : "no posted cost yet";
+        var proposedPn = string.IsNullOrWhiteSpace(p.ProposedPartNumber) ? "a new standard" : p.ProposedPartNumber;
+
+        string spoken;
+        if (p.AlreadyCrystallized)
+        {
+            spoken = $"Order {p.OrderNumber} was already crystallized into item #{p.ExistingCrystallizedItemId}. "
+                + "You can reverse it from the Crystallize tab on the cockpit — the as-built history stays intact.";
+        }
+        else if (p.DedupeMatchItemId != null)
+        {
+            spoken = $"Crystallizing order {p.OrderNumber} would match an existing standard, "
+                + $"{p.DedupeMatchPartNumber ?? $"item #{p.DedupeMatchItemId}"}. I won't auto-link it — open the "
+                + "Crystallize tab on the cockpit to confirm whether to link to it or mint a new standard.";
+        }
+        else
+        {
+            spoken = $"Crystallizing order {p.OrderNumber} would mint {proposedPn} with {p.BomLines.Count} "
+                + $"BOM line{(p.BomLines.Count == 1 ? "" : "s")} and {p.RoutingOps.Count} routing "
+                + $"operation{(p.RoutingOps.Count == 1 ? "" : "s")}, seeded at {costText}. Open the Crystallize "
+                + "tab on the cockpit to confirm the mint.";
+        }
+
+        var displayLines = new List<string>
+        {
+            $"Order: {p.OrderNumber}" + (p.IsPoFirst ? " (PO-first / ETO)" : ""),
+            $"Would mint: {proposedPn}" + (string.IsNullOrWhiteSpace(p.ProposedRevision) ? "" : $" Rev {p.ProposedRevision}"),
+            $"Standard BOM: {p.BomLines.Count} line(s) · Standard routing: {p.RoutingOps.Count} op(s)",
+            $"Seeded standard cost: {costText} ({p.CostSource})",
+        };
+        if (p.AlreadyCrystallized)
+            displayLines.Add($"Already crystallized → item #{p.ExistingCrystallizedItemId} (reverse available)");
+        else if (p.DedupeMatchItemId != null)
+            displayLines.Add($"Dedupe match: item #{p.DedupeMatchItemId} ({p.DedupeMatchPartNumber}) — human-confirm to link");
+        foreach (var w in p.Warnings.Take(3))
+            displayLines.Add($"⚠ {w}");
+
+        return new VoiceInvokeResponse
+        {
+            Ok = true,
+            Spoken = spoken,
+            Displayed = new VoiceDisplayed
+            {
+                Title = $"Crystallize — {p.OrderNumber}",
                 Lines = displayLines.ToArray(),
             },
         };

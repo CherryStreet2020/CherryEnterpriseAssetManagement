@@ -41,6 +41,13 @@ public enum IntentKind
     // latest persisted MakeBuyDecision via IMakeBuyDecisionService.ExplainAsync
     // and narrates the verdict + rationale. See Services/Production.
     ExplainMakeBuyDecision,
+
+    // B7 Wave D PR-3 (CLOSES B7) — "crystallize this job into a standard",
+    // "harvest a reusable standard from order PRO-2026-00042", "promote this
+    // job to a standard". Previews IItemCrystallizationService.PreviewCrystallizationByRef
+    // (read-only) and narrates the would-be Item + dedupe match + seeded cost,
+    // then points the user to the cockpit Crystallize tab to confirm the mint.
+    CrystallizeJobToStandard,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -84,6 +91,20 @@ public static class IntentClassifier
         @"\b(?:item|part\s*number|part\s*no\.?|part|component|sku)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,39})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // B7 Wave D PR-3 — production order references for the crystallize intent.
+    // A bare PRO-style order number anywhere ("crystallize PRO-2026-00042"). Kept
+    // SEPARATE from the prefixed grammar below so the "PRO-" prefix is preserved
+    // (a generic "pro" alternation would strip it and capture only "2026-00042").
+    private static readonly Regex ProOrderNumberPattern = new Regex(
+        @"\b(PRO-[0-9][A-Za-z0-9\-]*)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    // An explicit "order/job/production order X" reference. The captured token is a
+    // PRO Id or OrderNumber that IItemCrystallizationService.PreviewCrystallizationByRef
+    // resolves (numeric id OR OrderNumber, exact→prefix).
+    private static readonly Regex ProductionOrderRefPattern = new Regex(
+        @"\b(?:production\s*order|work\s*order|order|job)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,39})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public static ParsedIntent Classify(string raw)
     {
         var s = raw.ToLowerInvariant();
@@ -92,6 +113,16 @@ public static class IntentClassifier
         if (s.Contains("help") || s.Contains("what can you do") || s.Contains("how do i"))
         {
             return new ParsedIntent(IntentKind.Help, null);
+        }
+
+        // CRYSTALLIZATION intents (B7 Wave D PR-3, CLOSES B7) — "crystallize this
+        // job into a standard", "harvest a reusable standard from order PRO-…".
+        // Placed early: "crystallize" is a strong, distinctive verb that never
+        // collides with explain / make-buy / chain-trace, so it wins cleanly.
+        if (IsCrystallizeQuery(s))
+        {
+            var key = ExtractProductionOrderRef(raw);
+            return new ParsedIntent(IntentKind.CrystallizeJobToStandard, key);
         }
 
         // CHAIN-OF-CUSTODY intents — must come before EXPLAIN so "trace
@@ -259,6 +290,55 @@ public static class IntentClassifier
         // (PN-1234), then a bare integer ("why are we buying 9395").
         var nk = ExtractNaturalKey(raw);
         if (!string.IsNullOrEmpty(nk)) return nk;
+        var bi = BareIntegerPattern.Match(raw);
+        return bi.Success ? bi.Groups[1].Value : null;
+    }
+
+    // B7 Wave D PR-3 — true when the utterance asks to crystallize a job into a
+    // reusable standard. Strong signal: the distinctive "crystallize" verb. Weak
+    // signal: a harvest/promote verb paired with explicit "...standard" phrasing.
+    private static bool IsCrystallizeQuery(string s)
+    {
+        if (s.Contains("crystallize") || s.Contains("crystalize") || s.Contains("crystallise"))
+            return true;
+
+        var standardish = s.Contains("into a standard") || s.Contains("to a standard")
+            || s.Contains("as a standard") || s.Contains("reusable standard")
+            || s.Contains("into a reusable") || s.Contains("standard item from")
+            || s.Contains("standard master");
+        var harvestVerb = s.Contains("harvest") || s.Contains("promote")
+            || s.Contains("turn this job") || s.Contains("turn this order")
+            || s.Contains("make this job") || s.Contains("save this job");
+        return standardish && (harvestVerb || s.Contains("job") || s.Contains("order"));
+    }
+
+    /// <summary>
+    /// B7 Wave D PR-3 — extract the production order reference (PRO OrderNumber or Id)
+    /// from a crystallize utterance. Tries a bare PRO-style number first (preserves the
+    /// "PRO-" prefix), then an explicit "order/job X" grammar, then a bare integer.
+    /// Public so the vector-fallback path can re-use it after vector routing.
+    /// </summary>
+    public static string? ExtractProductionOrderRef(string raw)
+    {
+        // 1) A bare PRO-style order number anywhere ("crystallize PRO-2026-00042").
+        var pro = ProOrderNumberPattern.Match(raw);
+        if (pro.Success) return pro.Groups[1].Value;
+
+        // 2) Explicit "order/job X" grammar — walk matches, return the first valid id;
+        //    if explicit matches exist but none look like an id, return null so the
+        //    handler asks "which job?" (don't grab a bare integer from filler).
+        var explicitMatches = ProductionOrderRefPattern.Matches(raw);
+        if (explicitMatches.Count > 0)
+        {
+            foreach (Match em in explicitMatches)
+            {
+                var token = em.Groups[1].Value;
+                if (LooksLikeItemId(token)) return token;
+            }
+            return null;
+        }
+
+        // 3) No explicit grammar — a bare integer ("crystallize 15").
         var bi = BareIntegerPattern.Match(raw);
         return bi.Success ? bi.Groups[1].Value : null;
     }

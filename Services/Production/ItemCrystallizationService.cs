@@ -111,6 +111,51 @@ public sealed class ItemCrystallizationService : IItemCrystallizationService
     }
 
     // ═══════════════════════════════════════════════════════════════════
+    // PREVIEW BY REFERENCE (read-only) — B7 Wave D PR-3, for the voice intent
+    // ═══════════════════════════════════════════════════════════════════
+
+    public async Task<Result<CrystallizationPreview>> PreviewCrystallizationByRefAsync(
+        string productionOrderRef, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(productionOrderRef))
+            return Result.Failure<CrystallizationPreview>("Which job? Say a production order number or id.");
+
+        var raw = productionOrderRef.Trim();
+        int? proId = null;
+
+        // Numeric ⇒ treat as PRO Id (tenant-scoped).
+        if (int.TryParse(raw, out var asId) && asId > 0)
+        {
+            proId = await _db.ProductionOrders
+                .Where(p => p.Id == asId && _tenant.VisibleCompanyIds.Contains(p.CompanyId))
+                .Select(p => (int?)p.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        // Otherwise (or if the id didn't resolve) match on OrderNumber: exact → prefix.
+        if (proId is null)
+        {
+            proId = await _db.ProductionOrders
+                .Where(p => p.OrderNumber == raw && _tenant.VisibleCompanyIds.Contains(p.CompanyId))
+                .Select(p => (int?)p.Id)
+                .FirstOrDefaultAsync(ct);
+
+            proId ??= await _db.ProductionOrders
+                .Where(p => p.OrderNumber != null && p.OrderNumber.StartsWith(raw)
+                    && _tenant.VisibleCompanyIds.Contains(p.CompanyId))
+                .OrderByDescending(p => p.Id)
+                .Select(p => (int?)p.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (proId is null or 0)
+            return Result.Failure<CrystallizationPreview>(
+                $"I couldn't find a production order matching '{raw}' in your scope.");
+
+        return await PreviewCrystallizationAsync(proId.Value, ct);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
     // CRYSTALLIZE (atomic mint or dedupe-link)
     // ═══════════════════════════════════════════════════════════════════
 
@@ -399,6 +444,27 @@ public sealed class ItemCrystallizationService : IItemCrystallizationService
     // ═══════════════════════════════════════════════════════════════════
     // REVERSE
     // ═══════════════════════════════════════════════════════════════════
+
+    public async Task<Result<ReverseCrystallizationResult>> ReverseLatestForProductionOrderAsync(
+        int productionOrderId, string reason, string by, CancellationToken ct = default)
+    {
+        if (productionOrderId <= 0)
+            return Result.Failure<ReverseCrystallizationResult>("productionOrderId must be > 0.");
+
+        var latestId = await _db.ItemCrystallizations
+            .Where(c => c.SourceProductionOrderId == productionOrderId
+                && !c.IsReversed
+                && _tenant.VisibleCompanyIds.Contains(c.CompanyId))
+            .OrderByDescending(c => c.Id)
+            .Select(c => (int?)c.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (latestId is null or 0)
+            return Result.Failure<ReverseCrystallizationResult>(
+                $"No active crystallization found for production order {productionOrderId}.");
+
+        return await ReverseCrystallizationAsync(latestId.Value, reason, by, ct);
+    }
 
     public async Task<Result<ReverseCrystallizationResult>> ReverseCrystallizationAsync(
         int crystallizationId, string reason, string by, CancellationToken ct = default)

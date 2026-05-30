@@ -104,6 +104,15 @@ public interface IItemCrystallizationService
         int productionOrderId, CancellationToken ct = default);
 
     /// <summary>
+    /// B7 Wave D PR-3 — resolve a production order by a free-text reference (numeric
+    /// Id OR OrderNumber, exact→prefix, tenant-scoped) then return its crystallization
+    /// preview. Used by the Cherry Bar <c>CrystallizeJobToStandard</c> voice intent so
+    /// "crystallize order PRO-2026-00042 into a standard" works without an Id. Read-only.
+    /// </summary>
+    Task<Result<CrystallizationPreview>> PreviewCrystallizationByRefAsync(
+        string productionOrderRef, CancellationToken ct = default);
+
+    /// <summary>
     /// Atomic crystallize: mint Item + standard BOM + standard Routing + seeded
     /// standard cost, OR link to a human-confirmed dedupe match. Sets
     /// ProductionOrder.CrystallizedItemId and writes the ItemCrystallization audit
@@ -119,4 +128,12 @@ public interface IItemCrystallizationService
     /// </summary>
     Task<Result<ReverseCrystallizationResult>> ReverseCrystallizationAsync(
         int crystallizationId, string reason, string by, CancellationToken ct = default);
+
+    /// <summary>
+    /// B7 Wave D PR-3 — reverse the latest non-reversed crystallization for a production
+    /// order (tenant-scoped) by source PRO. Convenience for the cockpit "Reverse" button,
+    /// which knows the PRO but not the crystallization record id. Fails if none exists.
+    /// </summary>
+    Task<Result<ReverseCrystallizationResult>> ReverseLatestForProductionOrderAsync(
+        int productionOrderId, string reason, string by, CancellationToken ct = default);
 }
