@@ -67,6 +67,7 @@ using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models;
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Models.Projects;
+using CostElementType = Abs.FixedAssets.Models.Masters.CostElementType;
 using Abs.FixedAssets.Services.Production;
 using Abs.FixedAssets.Services.Production.BackwardScheduling;
 using Microsoft.EntityFrameworkCore;
@@ -279,6 +280,11 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // (plan + assignment + time entries + an expense) so planned-vs-actual
             // labor surfaces for the demo project.
             await TryEnsureDemoResourcingAsync(tenantId, existingProject.Id, warnings, ct);
+
+            // B9 Wave 5 PR-12 — ensure the demo financials spine (locked budget +
+            // actual postings + forecast + an EAC snapshot) so the live margin
+            // (Contract − EAC) surfaces for the demo project.
+            await TryEnsureDemoFinancialsAsync(tenantId, existingProject.Id, warnings, ct);
 
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
@@ -783,6 +789,98 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             Code = "EXP-TRAVEL-01", Description = "Customer site visit — FAI witness", Category = ProjectExpenseCategory.Travel,
             Amount = 1_240m, Currency = "USD", ExpenseDate = D(2026, 6, 22), IsBillable = true,
             ReceiptReference = "EXP-DEMO-001", Status = ProjectExpenseStatus.Approved, CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 5 PR-12 — demo financials spine (locked budget by element + actual
+    // postings + a forecast + an EAC snapshot) so the live margin surfaces.
+    // Idempotent + defensive.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoFinancialsAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoFinancialsAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo financials seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoFinancialsAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any budget already exists, skip.
+        if (await _db.Set<ProjectBudget>().AnyAsync(b => b.CustomerProjectId == projectId, ct)) return;
+
+        var phaseByCode = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId)
+            .ToDictionaryAsync(p => p.Code, p => p.Id, ct);
+        int? Ph(string c) => phaseByCode.TryGetValue(c, out var id) ? id : (int?)null;
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        var contractValue = await _db.Set<CustomerProject>()
+            .Where(p => p.Id == projectId).Select(p => p.ContractValue).FirstOrDefaultAsync(ct) ?? 185_000m;
+
+        // --- Baseline budget by cost element (locked = the cost baseline) ---
+        var budget = new ProjectBudget
+        {
+            CustomerProjectId = projectId, Code = "BUD-BASELINE", Name = "Baseline budget (Q3 2026)",
+            Description = "Element-level cost baseline for the bracket build.",
+            BudgetType = ProjectBudgetType.Baseline, Status = ProjectBudgetStatus.Locked,
+            Currency = "USD", SortOrder = 0, IsLocked = true, LockedAt = D(2026, 5, 28), LockedBy = "DemoSeeder",
+            CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectBudget>().Add(budget);
+        await _db.SaveChangesAsync(ct);
+
+        ProjectBudgetLine BL(int no, CostElementType el, string desc, decimal amt, string? phase)
+            => new()
+            {
+                ProjectBudgetId = budget.Id, ProjectPhaseId = Ph(phase ?? ""), LineNo = no,
+                CostElementType = el, Description = desc, BudgetAmount = amt, CreatedBy = "DemoSeeder",
+            };
+        _db.Set<ProjectBudgetLine>().AddRange(
+            BL(1, CostElementType.Material, "Ti-6Al-4V bar stock", 42_000m, "PROC"),
+            BL(2, CostElementType.Labor, "CNC machining labor", 11_400m, "PROD"),
+            BL(3, CostElementType.Subcontract, "Workholding fixture", 6_500m, "PROD"),
+            BL(4, CostElementType.VariableOverhead, "Shop overhead allocation", 4_000m, "PROD"));
+        await _db.SaveChangesAsync(ct);
+        const decimal budgetTotal = 42_000m + 11_400m + 6_500m + 4_000m;   // 63,900
+
+        // --- Actual cost postings to date (the ledger) ---
+        ProjectActualCost AC(CostElementType el, decimal amt, ActualCostSource src, string reference, DateTime d, string? phase)
+            => new()
+            {
+                CustomerProjectId = projectId, ProjectPhaseId = Ph(phase ?? ""), CostElementType = el,
+                SourceType = src, Amount = amt, PostingReference = reference, PostingDate = d,
+                Currency = "USD", CreatedBy = "DemoSeeder",
+            };
+        _db.Set<ProjectActualCost>().AddRange(
+            AC(CostElementType.Labor, 760m, ActualCostSource.TimeEntry, "TE-2026-06-12", D(2026, 6, 12), "PROD"),
+            AC(CostElementType.Subcontract, 6_200m, ActualCostSource.Receipt, "GRN-DEMO-FIXTURE-001", D(2026, 6, 9), "PROD"),
+            AC(CostElementType.Material, 4_180m, ActualCostSource.Receipt, "GRN-DEMO-TI64-PARTIAL", D(2026, 6, 12), "PROC"));
+        await _db.SaveChangesAsync(ct);
+        const decimal actualToDate = 760m + 6_200m + 4_180m;   // 11,140
+
+        // --- A cost-to-complete forecast on the long-lead material ---
+        _db.Set<ProjectForecast>().Add(new ProjectForecast
+        {
+            CustomerProjectId = projectId, ProjectBudgetId = budget.Id, ProjectPhaseId = Ph("PROC"),
+            CostElementType = CostElementType.Material, Method = ForecastMethod.ManualEac,
+            EstimateToComplete = 37_500m, EstimateAtCompletion = 41_680m, Currency = "USD",
+            ForecastDate = D(2026, 6, 12), Notes = "Remaining Ti bar stock receipts.", CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+
+        // --- An EAC snapshot (the margin bridge) ---
+        var etc = budgetTotal - actualToDate;           // 52,760
+        var eac = actualToDate + etc;                   // == budget total
+        var margin = contractValue - eac;
+        _db.Set<ProjectEACSnapshot>().Add(new ProjectEACSnapshot
+        {
+            CustomerProjectId = projectId, ProjectBudgetId = budget.Id, SnapshotDate = D(2026, 6, 12),
+            SnapshotReason = "Mid-build position", ContractValue = contractValue, BudgetTotal = budgetTotal,
+            ActualCostToDate = actualToDate, CommittedCost = 38_500m, EstimateToComplete = etc,
+            EstimateAtCompletion = eac, ProjectedMargin = margin,
+            ProjectedMarginPercent = contractValue > 0 ? Math.Round(margin / contractValue * 100m, 2) : null,
+            Currency = "USD", CreatedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }
