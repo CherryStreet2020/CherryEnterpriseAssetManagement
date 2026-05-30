@@ -247,6 +247,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectWbsService,
 // no-cycle dependency edges).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectScheduleService,
     Abs.FixedAssets.Services.Projects.ProjectScheduleService>();
+// B9 Wave 4 PR-10 (OPENS Wave 4) — procurement spine: plan/commitment/receipt +
+// the project-close gate (cannot close with open commitments unless waived) +
+// PurchaseOrder→project pegging.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectProcurementService,
+    Abs.FixedAssets.Services.Projects.ProjectProcurementService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
