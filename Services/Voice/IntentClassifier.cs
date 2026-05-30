@@ -236,26 +236,41 @@ public static class IntentClassifier
     /// </summary>
     public static string? ExtractMakeBuyItemRef(string raw)
     {
-        // When the "item/part X" grammar matches, X is the user's intended ref —
-        // accept it only if it looks like a real identifier (carries a digit or
-        // hyphen), and STOP either way. Do NOT fall through to the bare-integer
-        // scan on rejection, or "buying this part instead of making 500 units"
-        // would reject "instead" and then wrongly grab "500" as the item id.
-        // A rejected explicit ref ⇒ return null so the handler asks "which item?".
-        var m = MakeBuyItemPattern.Match(raw);
-        if (m.Success)
+        // Walk EVERY explicit "item/part X" match and return the first token that
+        // looks like a real identifier (carries a digit or hyphen). Filler such as
+        // "this part instead of …" produces an early match whose token ("instead")
+        // is not an identifier — skip it and keep scanning, so
+        // "buying this part instead of making item 9395" still resolves 9395.
+        var explicitMatches = MakeBuyItemPattern.Matches(raw);
+        if (explicitMatches.Count > 0)
         {
-            var token = m.Groups[1].Value;
-            var looksLikeId = token.IndexOf('-') >= 0;
-            foreach (var ch in token) if (char.IsDigit(ch)) { looksLikeId = true; break; }
-            return looksLikeId ? token : null;
+            foreach (Match em in explicitMatches)
+            {
+                var token = em.Groups[1].Value;
+                if (LooksLikeItemId(token)) return token;
+            }
+            // Explicit "item/part" grammar was used but NONE of the captured tokens
+            // is a real identifier ⇒ return null so the handler asks "which item?".
+            // Do NOT fall through to the bare-integer scan, or "buying this part
+            // instead of making 500 units" would wrongly grab "500" as the item id.
+            return null;
         }
-        // No explicit "item/part" grammar — try a receipt-shaped natural key
+        // No explicit "item/part" grammar at all — try a receipt-shaped natural key
         // (PN-1234), then a bare integer ("why are we buying 9395").
         var nk = ExtractNaturalKey(raw);
         if (!string.IsNullOrEmpty(nk)) return nk;
         var bi = BareIntegerPattern.Match(raw);
         return bi.Success ? bi.Groups[1].Value : null;
+    }
+
+    // True when a captured make-or-buy token looks like a real item id / part
+    // number (carries a digit or hyphen) rather than filler ("instead", "this").
+    private static bool LooksLikeItemId(string token)
+    {
+        if (string.IsNullOrEmpty(token)) return false;
+        if (token.IndexOf('-') >= 0) return true;
+        foreach (var ch in token) if (char.IsDigit(ch)) return true;
+        return false;
     }
 
     // B7 Wave D PR-2 — true when the utterance is a make-or-buy "why" question.

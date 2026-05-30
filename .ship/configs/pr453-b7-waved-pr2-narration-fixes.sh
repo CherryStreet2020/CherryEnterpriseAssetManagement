@@ -11,5 +11,6 @@ PR_BODY=".ship/msgs/pr453-body.md"
 FILES=(
   "Endpoints/VoiceInvokeEndpoint.cs"
   "Services/Voice/IntentClassifier.cs"
+  "tests/Abs.FixedAssets.Tests/HybridIntentRouterTests.cs"
   ".ship/configs/pr453-b7-waved-pr2-narration-fixes.sh"
 )
