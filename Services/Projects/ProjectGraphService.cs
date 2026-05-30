@@ -195,11 +195,17 @@ public sealed class ProjectGraphService : IProjectGraphService
 
         if (pid is null)
         {
+            // Case-insensitive code resolution — voice transcripts and typed refs
+            // arrive lower/mixed-case ("demo-coo-proj-001") while the stored Code is
+            // upper ("DEMO-COO-PROJ-001"). Normalize BOTH sides: string.ToUpper()
+            // translates to SQL upper() on Npgsql and is evaluable under the
+            // InMemory test provider (unlike EF.Functions.ILike). Exact → prefix.
+            var upper = raw.ToUpperInvariant();
             pid = await _db.CustomerProjects
-                .Where(x => x.Code == raw && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
+                .Where(x => x.Code != null && x.Code.ToUpper() == upper && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
                 .Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
             pid ??= await _db.CustomerProjects
-                .Where(x => x.Code != null && x.Code.StartsWith(raw) && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
+                .Where(x => x.Code != null && x.Code.ToUpper().StartsWith(upper) && _tenant.VisibleCompanyIds.Contains(x.CompanyId ?? 0))
                 .OrderBy(x => x.Id).Select(x => (int?)x.Id).FirstOrDefaultAsync(ct);
         }
 

@@ -182,6 +182,18 @@ public sealed class ProjectGraphServiceTests
     }
 
     [Fact]
+    public async Task GetGraphByRef_resolves_lowercase_code_case_insensitively()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db, code: "DEMO-COO-PROJ-001");
+
+        // Voice transcripts arrive lower-case — must still resolve the upper-case code.
+        var r = await NewService(db).GetGraphByRefAsync("demo-coo-proj-001", CancellationToken.None);
+        Assert.True(r.IsSuccess);
+        Assert.Equal(pid, r.Value!.ProjectId);
+    }
+
+    [Fact]
     public async Task Project_outside_tenant_scope_is_not_found()
     {
         using var db = NewDb();
