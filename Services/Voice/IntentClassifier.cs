@@ -236,19 +236,22 @@ public static class IntentClassifier
     /// </summary>
     public static string? ExtractMakeBuyItemRef(string raw)
     {
-        // Only accept the "item/part X" capture when X actually looks like an
-        // identifier (contains a digit or hyphen). Otherwise "buying this part
-        // instead of making it" would capture "instead" as the item ref; instead
-        // we fall through so the handler asks "which item?". Real part numbers /
-        // item ids always carry a digit or hyphen.
+        // When the "item/part X" grammar matches, X is the user's intended ref —
+        // accept it only if it looks like a real identifier (carries a digit or
+        // hyphen), and STOP either way. Do NOT fall through to the bare-integer
+        // scan on rejection, or "buying this part instead of making 500 units"
+        // would reject "instead" and then wrongly grab "500" as the item id.
+        // A rejected explicit ref ⇒ return null so the handler asks "which item?".
         var m = MakeBuyItemPattern.Match(raw);
         if (m.Success)
         {
             var token = m.Groups[1].Value;
             var looksLikeId = token.IndexOf('-') >= 0;
             foreach (var ch in token) if (char.IsDigit(ch)) { looksLikeId = true; break; }
-            if (looksLikeId) return token;
+            return looksLikeId ? token : null;
         }
+        // No explicit "item/part" grammar — try a receipt-shaped natural key
+        // (PN-1234), then a bare integer ("why are we buying 9395").
         var nk = ExtractNaturalKey(raw);
         if (!string.IsNullOrEmpty(nk)) return nk;
         var bi = BareIntegerPattern.Match(raw);

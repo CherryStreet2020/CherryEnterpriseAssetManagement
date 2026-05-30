@@ -694,9 +694,15 @@ public static class VoiceInvokeEndpoint
             spokenParts.Add($"We chose to {verdict} {ex.PartNumber}, with a buy score of {r.BuyScore:0.00} and {Math.Round((double)r.Confidence * 100)}% confidence.");
         }
 
-        // The persisted rationale (the audit-true "why").
-        if (!string.IsNullOrWhiteSpace(r.RationaleText))
+        // The persisted rationale (the audit-true "why"). Skip it when the
+        // decision was hard-gated and the rationale merely restates the gate
+        // reason already spoken in the lead sentence — otherwise the narration
+        // doubles ("…because MAKE NOT FEASIBLE. BUY — MAKE NOT FEASIBLE…").
+        if (!string.IsNullOrWhiteSpace(r.RationaleText)
+            && !(r.WasHardGated && RationaleRestatesGate(r.RationaleText, r.HardGateReason)))
+        {
             spokenParts.Add(r.RationaleText);
+        }
 
         // Cost + supplier color when it's a BUY with a chosen supplier.
         if (r.Outcome == Abs.FixedAssets.Models.Production.MakeBuyOutcome.Buy
@@ -731,8 +737,22 @@ public static class VoiceInvokeEndpoint
         };
     }
 
+    // True when the persisted rationale just restates the hard-gate reason
+    // (case-insensitive containment), so we don't speak it twice.
+    private static bool RationaleRestatesGate(string rationale, string? gateReason)
+    {
+        if (string.IsNullOrWhiteSpace(gateReason)) return false;
+        return rationale.IndexOf(gateReason.Trim(), StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    // Lowercase the first letter only for ordinary sentence-case strings
+    // ("Make not feasible" → "make not feasible"). Leave acronyms / all-caps
+    // reasons ("MAKE NOT FEASIBLE (NO ROUTING)") untouched so they don't mangle
+    // into "mAKE NOT FEASIBLE".
     private static string LowerFirst(string s) =>
-        string.IsNullOrEmpty(s) ? s : char.ToLowerInvariant(s[0]) + s.Substring(1);
+        string.IsNullOrEmpty(s) || (s.Length > 1 && char.IsUpper(s[1]))
+            ? s
+            : char.ToLowerInvariant(s[0]) + s.Substring(1);
 
     private static string NarrateEdge(string? edgeType, string nodeType, string label) =>
         edgeType switch
