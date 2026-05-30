@@ -85,8 +85,9 @@ public class MakeBuyDecision
     /// <summary>The top 2-3 plain-English lines a human reads.</summary>
     [MaxLength(2000)] public string? RationaleText { get; set; }
 
-    /// <summary>Full per-factor breakdown (jsonb array of {code,label,score,weight,weightedImpact,reason}).</summary>
-    [Column(TypeName = "jsonb")] public string? FactorBreakdown { get; set; }
+    /// <summary>Full per-factor breakdown — JSON array of {code,label,score,weight,weightedImpact,reason}.
+    /// Stored as text (read back + parsed by ExplainAsync, not SQL-queried); a jsonb upgrade is a follow-up.</summary>
+    public string? FactorBreakdown { get; set; }
 
     // ── Frozen snapshots (as-decided; never recomputed) ─────────
     [Column(TypeName = "decimal(18,4)")] public decimal? MakeCostFullyLoaded { get; set; }
