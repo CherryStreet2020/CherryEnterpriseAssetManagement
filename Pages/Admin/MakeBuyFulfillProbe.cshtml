@@ -1,0 +1,68 @@
+@page "/Admin/MakeBuyFulfillProbe"
+@model Abs.FixedAssets.Pages.Admin.MakeBuyFulfillProbeModel
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Make-or-Buy Fulfillment Probe";
+    ViewData["TabTitle"] = "Make-or-Buy Fulfillment Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave C PR-9 — make-or-buy → supply integration (CLOSES Wave C). Runs the
+    decision on a ProductionSupplyDemand and applies the verdict: BUY → procurement
+    hand-off (SupplyPolicy=BuyDirectToJob); MAKE → child production order.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Make-or-Buy Fulfillment Probe — B7 R-C PR-9</h1>
+        <p class="ds-page-header__subtitle">
+            <code>IMakeBuyFulfillmentService.FulfillDemandAsync</code> — decide make-or-buy for a demand,
+            then act: <strong>BUY</strong> routes it to procurement; <strong>MAKE</strong> creates the child
+            production order. Closes Wave C.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4"><div class="ds-card__body">
+            <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")"><strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome</p>
+        </div></section>
+    }
+
+    <section class="ds-card ds-mb-4"><div class="ds-card__body">
+        <h2 class="ds-h2">Fulfillment flow</h2>
+        <p class="ds-text-muted">Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong> ·
+            demand: <strong>@(Model.DemandId == null ? "—" : "#" + Model.DemandId)</strong> ·
+            item: <strong>@(Model.DemandItemId == null ? "—" : "#" + Model.DemandItemId)</strong> ·
+            source-controlled: <strong>@Model.ItemSourceControlled</strong> ·
+            current policy: <strong>@(Model.DemandPolicy?.ToString() ?? "—")</strong> / @(Model.DemandBuyerState?.ToString() ?? "—")</p>
+        <form method="post" class="ds-btn-row">
+            <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+            <button type="submit" asp-page-handler="Fulfill" class="ds-btn">2 · Fulfill demand</button>
+            <button type="submit" asp-page-handler="ToggleSourceControlled" class="ds-btn">3 · Toggle source-controlled + fulfill</button>
+            <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+        </form>
+    </div></section>
+
+    @if (Model.Result is not null)
+    {
+        var r = Model.Result;
+        <section class="ds-card"><div class="ds-card__body">
+            <h2 class="ds-h2">
+                Outcome: <span class="@(r.Outcome == MakeBuyOutcome.Buy ? "ds-text-warning" : "ds-text-success")">@r.Outcome</span>
+            </h2>
+            <table class="ds-table">
+                <tbody>
+                    <tr><td>Demand</td><td>#@r.DemandId (item #@r.ItemId)</td></tr>
+                    <tr><td>Decision</td><td>#@(r.DecisionId?.ToString() ?? "—")</td></tr>
+                    <tr><td>Applied supply policy</td><td><strong>@r.AppliedSupplyPolicy</strong></td></tr>
+                    <tr><td>Child production order</td><td>@(r.CreatedChildOrderId == null ? "— (buy path)" : "#" + r.CreatedChildOrderId)</td></tr>
+                </tbody>
+            </table>
+            <p class="ds-text-muted ds-mt-4">@r.Action</p>
+        </div></section>
+    }
+</main>

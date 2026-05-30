@@ -301,6 +301,12 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Production.Scheduling.IDispa
 builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IMakeBuyDecisionService,
     Abs.FixedAssets.Services.Production.MakeBuyDecisionService>();
 
+// B7 Wave C PR-9 — IMakeBuyFulfillmentService (CLOSES Wave C). Runs the decision on a
+// ProductionSupplyDemand and applies the verdict: BUY → SupplyPolicy=BuyDirectToJob
+// (hand-off to procurement); MAKE → child production order. Links the decision to the demand.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Production.IMakeBuyFulfillmentService,
+    Abs.FixedAssets.Services.Production.MakeBuyFulfillmentService>();
+
 // Sprint 12.7 PR #5 — ICfoMotionDemoSeeder. Idempotent demo-data seeder
 // for the CFO motion. Pushes /Controller KPI band (Cash / AP / POs / WIP)
 // to demo-believable numbers on the SEEDED PLACEHOLDER tenant (looked up
