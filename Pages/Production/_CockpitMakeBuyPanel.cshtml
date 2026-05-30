@@ -27,6 +27,9 @@
     // BuyScore meter (0..1). The policy threshold default is 0.50; mark it on the bar.
     var scorePct = (int)Math.Round(Math.Clamp((double)r.BuyScore, 0d, 1d) * 100);
     var confPct = (int)Math.Round(Math.Clamp((double)r.Confidence, 0d, 1d) * 100);
+    // The marker = the policy's actual BuyDecisionScoreThreshold the engine decided against.
+    var thresholdPct = (int)Math.Round(Math.Clamp((double)Model.BuyThreshold, 0d, 1d) * 100);
+    var thresholdText = Model.BuyThreshold.ToString("0.00");
     var meterColor = isBuy ? "var(--v2-accent-info, #3b82f6)" : "var(--v2-status-completed, #22c55e)";
     var muted = "var(--v2-text-muted, #94a3b8)";
     var mono = "var(--font-mono, 'JetBrains Mono', monospace)";
@@ -88,11 +91,11 @@
             </div>
             <div style="position:relative; height:10px; border-radius:5px; background:var(--v2-surface-2, #1e293b); overflow:visible;">
                 <div style="position:absolute; inset:0 auto 0 0; width:@scorePct%; background:@meterColor; border-radius:5px;"></div>
-                @* threshold marker at 0.50 (policy default) *@
-                <div title="BUY threshold (0.50)" style="position:absolute; top:-3px; bottom:-3px; left:50%; width:2px; background:var(--v2-text-muted, #94a3b8);"></div>
+                @* threshold marker at the policy's actual BuyDecisionScoreThreshold *@
+                <div title="BUY threshold (@thresholdText)" style="position:absolute; top:-3px; bottom:-3px; left:@thresholdPct%; width:2px; background:var(--v2-text-muted, #94a3b8);"></div>
             </div>
             <div style="font-size:.7rem; color:@muted; margin-top:.25rem;">
-                ≥ 0.50 favors <strong>BUY</strong>; below favors <strong>MAKE</strong> (marker = policy threshold).
+                ≥ @thresholdText favors <strong>BUY</strong>; below favors <strong>MAKE</strong> (marker = policy threshold).
             </div>
         </div>
 

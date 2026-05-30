@@ -155,8 +155,16 @@ public sealed class CockpitModel : PageModel
             await LoadCostDataAsync(ct);
 
         // B7 Wave D PR-1: Lazy-load the make-or-buy decision only when its tab is active.
+        // Gated like the Cost tab — the panel exposes make/buy cost + supplier quote, which
+        // Operator mode (HideCostColumns) deliberately hides.
         if (ActiveTab == TabMakeBuy)
-            await LoadMakeBuyAsync(ct);
+        {
+            if (HideCostColumns)
+                MakeBuyMessage = "Make-or-buy detail (cost comparison + supplier quote) is hidden "
+                    + "in Operator view. Switch to Supervisor or Planner mode to see the decision.";
+            else
+                await LoadMakeBuyAsync(ct);
+        }
 
         return Page();
     }
@@ -322,6 +330,7 @@ public sealed class CockpitModel : PageModel
             DecidedAtUtc = p.Data.DecidedAtUtc,
             Context = p.Data.Context,
             SupplierName = p.Data.SupplierName,
+            BuyThreshold = p.Data.BuyThreshold,
         };
     }
 

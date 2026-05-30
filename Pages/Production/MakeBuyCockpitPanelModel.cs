@@ -31,6 +31,10 @@ public sealed class MakeBuyCockpitPanelModel
     /// <summary>Human name behind the frozen ChosenSupplierId snapshot (BUY verdicts).</summary>
     public string? SupplierName { get; init; }
 
+    /// <summary>The policy's actual BuyDecisionScoreThreshold the engine decided against
+    /// (so the meter marker matches the real MAKE/BUY boundary, not a hardcoded 0.50).</summary>
+    public decimal BuyThreshold { get; init; } = 0.50m;
+
     // ── Convenience accessors for the view ───────────────────────────────────
     public MakeBuyOutcome Outcome => Result.Outcome;
     public bool IsBuy => Result.Outcome == MakeBuyOutcome.Buy;

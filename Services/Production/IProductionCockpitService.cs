@@ -139,7 +139,8 @@ namespace Abs.FixedAssets.Services.Production
         string? Description,
         DateTime? DecidedAtUtc,
         MakeBuyDecisionContext Context,
-        string? SupplierName);
+        string? SupplierName,
+        decimal BuyThreshold);
 
     /// <summary>Either the panel data, or a human empty-state reason when there's nothing to show.</summary>
     public sealed record CockpitMakeBuyPanel(

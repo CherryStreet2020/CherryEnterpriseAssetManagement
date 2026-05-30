@@ -144,8 +144,22 @@ namespace Abs.FixedAssets.Services.Production
 
             var meta = await _db.Set<MakeBuyDecision>()
                 .Where(d => d.Id == latestId)
-                .Select(d => new { d.DecidedAtUtc, d.Context })
+                .Select(d => new { d.DecidedAtUtc, d.Context, d.CompanyId, d.SiteIdSnapshot })
                 .FirstOrDefaultAsync(ct);
+
+            // The marker the panel renders must be the SAME threshold the engine decided
+            // against (policy: site-specific → company-default → 0.50 fallback), or the
+            // audit explanation can show the wrong side of the boundary.
+            decimal buyThreshold = 0.50m;
+            if (meta != null)
+            {
+                buyThreshold = await _db.Set<MakeBuyDecisionPolicy>()
+                    .Where(p => p.CompanyId == meta.CompanyId && p.IsActive
+                        && (p.SiteId == meta.SiteIdSnapshot || p.SiteId == null))
+                    .OrderByDescending(p => p.SiteId != null)   // prefer the site-specific row
+                    .Select(p => (decimal?)p.BuyDecisionScoreThreshold)
+                    .FirstOrDefaultAsync(ct) ?? 0.50m;
+            }
 
             string? supplierName = null;
             if (result.ChosenSupplierId != null)
@@ -161,7 +175,8 @@ namespace Abs.FixedAssets.Services.Production
                 Description: ident?.Description,
                 DecidedAtUtc: meta?.DecidedAtUtc,
                 Context: meta?.Context ?? MakeBuyDecisionContext.ManualWhatIf,
-                SupplierName: supplierName);
+                SupplierName: supplierName,
+                BuyThreshold: buyThreshold);
 
             return Result.Success(new CockpitMakeBuyPanel(data, null));
         }
