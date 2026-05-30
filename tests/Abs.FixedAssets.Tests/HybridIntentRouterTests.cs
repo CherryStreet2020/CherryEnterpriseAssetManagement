@@ -325,4 +325,71 @@ public class HybridIntentRouterTests
         Assert.Equal("RCPT-2026-7777", result.Intent.NaturalKey);
         Assert.Equal(RoutingSource.Keyword, result.Source);
     }
+
+    // ====================================================================
+    // B7 Wave D PR-2 — ExplainMakeBuyDecision keyword routing
+    // ====================================================================
+
+    [Fact]
+    public async Task KeywordMakeBuy_WhyAreWeBuying_RoutesToMakeBuy()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("why are we buying item 9395", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+        Assert.Equal("9395", result.Intent.NaturalKey);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+    }
+
+    [Fact]
+    public async Task KeywordMakeBuy_MakeOrBuyPhrasing_RoutesToMakeBuy()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("explain the make or buy call on part PN-1234", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+        Assert.Equal("PN-1234", result.Intent.NaturalKey);
+    }
+
+    [Fact]
+    public async Task KeywordMakeBuy_ShouldWeMakeOrBuy_RoutesToMakeBuy()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("should we make or buy this bracket", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordMakeBuy_CollisionSafety_NbvStaysChainTrace()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("why is NBV on asset 4231", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainChainTrace, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordMakeBuy_CollisionSafety_ExplainReceiptStaysException()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("explain receipt RCPT-2026-1234", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainException, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordMakeBuy_CollisionSafety_TraceReceiptStaysChainOfCustody()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("trace this receipt back to its source", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainChainOfCustody, result.Intent.Kind);
+    }
 }

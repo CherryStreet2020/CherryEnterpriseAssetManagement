@@ -78,5 +78,14 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.ExplainChainTrace, "what fed journal entry 47 in the general ledger"),
         new IntentPrototype(IntentKind.ExplainChainTrace, "where did this asset's cost come from"),
         new IntentPrototype(IntentKind.ExplainChainTrace, "walk me through the source to general ledger chain"),
+
+        // ExplainMakeBuyDecision — B7 Wave D PR-2. Make-or-buy decision narration.
+        // "why are we buying item 9395" / "why did we make part PN-1234". Vector
+        // prototypes cover business-fluent paraphrasings the keyword layer misses.
+        new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "why are we buying this part instead of making it"),
+        new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "explain the make or buy decision for item 9395"),
+        new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "should we make or buy this bracket"),
+        new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "why did we decide to outsource this component"),
+        new IntentPrototype(IntentKind.ExplainMakeBuyDecision, "what drove the make versus buy call on this part"),
     };
 }
