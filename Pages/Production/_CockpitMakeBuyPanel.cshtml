@@ -1,0 +1,194 @@
+@* Theme B7 Wave D PR-1 (2026-05-30) — Make-or-Buy Panel for the PRO Cockpit
+   (THE BIC DIFFERENTIATOR UX — explainability as a first-class surface).
+
+   Renders one persisted MakeBuyDecision (PR-8 DecideAsync/ExplainAsync) so a
+   planner/supervisor can see — and a Cherry Bar voice answer can narrate —
+   exactly WHY this item was made vs bought:
+     * Verdict header: MAKE/BUY outcome badge + confidence + hard-gate banner
+     * BuyScore meter vs the policy threshold
+     * Decision ribbon: make $ vs buy $ delta · bottleneck WC + load% + drum ·
+       make-completion vs vendor-delivery dates · chosen supplier
+     * Plain-English rationale lines
+     * F1–F6 factor breakdown table (score→BUY · weight · weighted impact · reason)
+
+   No incumbent (SAP/Oracle/Epicor/Infor/Plex) persists or replays the WHY of a
+   make-or-buy call. This panel is the demo money-shot AND the AS9100 audit record.
+
+   Input model: MakeBuyCockpitPanelModel (Pages/Production/MakeBuyCockpitPanelModel.cs).
+*@
+@using Abs.FixedAssets.Models.Production
+@using Abs.FixedAssets.Services.Production
+@model Abs.FixedAssets.Pages.Production.MakeBuyCockpitPanelModel
+@{
+    var r = Model.Result;
+    var isBuy = Model.IsBuy;
+    var outcomeClass = isBuy ? "ds-badge--info" : "ds-badge--success";
+    var outcomeText = isBuy ? "BUY" : "MAKE";
+    // BuyScore meter (0..1). The policy threshold default is 0.50; mark it on the bar.
+    var scorePct = (int)Math.Round(Math.Clamp((double)r.BuyScore, 0d, 1d) * 100);
+    var confPct = (int)Math.Round(Math.Clamp((double)r.Confidence, 0d, 1d) * 100);
+    var meterColor = isBuy ? "var(--v2-accent-info, #3b82f6)" : "var(--v2-status-completed, #22c55e)";
+    var muted = "var(--v2-text-muted, #94a3b8)";
+    var mono = "var(--font-mono, 'JetBrains Mono', monospace)";
+    var delta = Model.CostDelta;
+    // RationaleText is 2–3 sentences; split into readable lines.
+    var rationaleLines = string.IsNullOrWhiteSpace(r.RationaleText)
+        ? new string[0]
+        : r.RationaleText.Split(new[] { ". ", ".\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+}
+
+<section class="ds-card" data-testid="cockpit-makebuy-panel">
+    <div class="ds-card__body">
+
+        @* ── Verdict header ───────────────────────────────────────── *@
+        <header style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1rem;">
+            <div>
+                <h3 style="font-size:1.1rem; font-weight:600; margin:0;">
+                    Make-or-Buy Decision — @Model.PartNumber
+                </h3>
+                <p style="margin:.25rem 0 0; color:@muted; font-size:.85rem;">
+                    @(Model.Description ?? "—")
+                    @if (Model.Context != null)
+                    {
+                        <text> · trigger: <strong>@Model.Context</strong></text>
+                    }
+                    @if (Model.DecidedAtUtc != null)
+                    {
+                        <text> · decided @Model.DecidedAtUtc.Value.ToString("yyyy-MM-dd HH:mm") UTC</text>
+                    }
+                    @if (r.PersistedDecisionId != null)
+                    {
+                        <text> · <code>decision #@r.PersistedDecisionId</code></text>
+                    }
+                </p>
+            </div>
+            <div style="text-align:right; white-space:nowrap;">
+                <span class="ds-badge @outcomeClass" data-testid="cockpit-makebuy-outcome">@outcomeText</span>
+                <div style="margin-top:.35rem; font-size:.75rem; color:@muted;">
+                    confidence <strong data-testid="cockpit-makebuy-confidence">@confPct%</strong>
+                </div>
+            </div>
+        </header>
+
+        @* ── Hard-gate banner ─────────────────────────────────────── *@
+        @if (r.WasHardGated)
+        {
+            <div class="ds-alert ds-alert--warning" data-testid="cockpit-makebuy-hardgate"
+                 style="margin-bottom:1rem; padding:.6rem .85rem; border-radius:.4rem; background:var(--v2-surface-warning, rgba(245,158,11,.12)); border-left:3px solid var(--v2-status-warning, #f59e0b);">
+                <strong>Hard-gated to @outcomeText.</strong>
+                <span style="color:@muted;">@(r.HardGateReason ?? "A policy rule forced this verdict regardless of score.")</span>
+            </div>
+        }
+
+        @* ── BuyScore meter vs threshold ──────────────────────────── *@
+        <div style="margin-bottom:1.1rem;" data-testid="cockpit-makebuy-score">
+            <div style="display:flex; justify-content:space-between; font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.25rem;">
+                <span>Buy score</span>
+                <span style="font-family:@mono;">@r.BuyScore.ToString("0.00") / 1.00</span>
+            </div>
+            <div style="position:relative; height:10px; border-radius:5px; background:var(--v2-surface-2, #1e293b); overflow:visible;">
+                <div style="position:absolute; inset:0 auto 0 0; width:@scorePct%; background:@meterColor; border-radius:5px;"></div>
+                @* threshold marker at 0.50 (policy default) *@
+                <div title="BUY threshold (0.50)" style="position:absolute; top:-3px; bottom:-3px; left:50%; width:2px; background:var(--v2-text-muted, #94a3b8);"></div>
+            </div>
+            <div style="font-size:.7rem; color:@muted; margin-top:.25rem;">
+                ≥ 0.50 favors <strong>BUY</strong>; below favors <strong>MAKE</strong> (marker = policy threshold).
+            </div>
+        </div>
+
+        @* ── Decision ribbon (frozen snapshots) ───────────────────── *@
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:.5rem; margin-bottom:1.1rem;" data-testid="cockpit-makebuy-ribbon">
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Make (fully loaded)</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;">@(r.MakeCostFullyLoaded?.ToString("C2") ?? "—")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Buy (landed)</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;">@(r.BuyCostLanded?.ToString("C2") ?? "—")</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Cost delta</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono; color:@(delta.HasValue ? (delta.Value >= 0 ? "var(--v2-status-completed, #22c55e)" : "var(--v2-status-cancelled, #ef4444)") : muted);">
+                    @(delta.HasValue ? (delta.Value >= 0 ? "+" : "") + delta.Value.ToString("C2") : "—")
+                </div>
+                <div style="font-size:.6rem; color:@muted;">make − buy</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Bottleneck WC</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;">
+                    @(r.BottleneckWorkCenterCode ?? "—")@(r.RoutedThroughDrum ? " ⚙" : "")
+                </div>
+                <div style="font-size:.6rem; color:@(r.RoutedThroughDrum ? "var(--v2-status-warning, #f59e0b)" : muted);">
+                    @(r.BottleneckLoadPct.HasValue ? r.BottleneckLoadPct.Value.ToString("0.#") + "% load" : "no load data")@(r.RoutedThroughDrum ? " · drum" : "")
+                </div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Make done / Vendor ETA</div>
+                <div style="font-size:.9rem; font-weight:600; font-family:@mono;">
+                    @(r.MakeCompletionDate?.ToString("MMM d") ?? "—") / @(r.VendorDeliveryDate?.ToString("MMM d") ?? "—")
+                </div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Chosen supplier</div>
+                <div style="font-size:.9rem; font-weight:600;" data-testid="cockpit-makebuy-supplier">
+                    @(Model.SupplierName ?? (r.ChosenSupplierId != null ? "#" + r.ChosenSupplierId : "—"))
+                </div>
+                @if (r.ChosenQuoteId != null)
+                {
+                    <div style="font-size:.6rem; color:@muted;">quote #@r.ChosenQuoteId</div>
+                }
+            </div></div>
+        </div>
+
+        @* ── Rationale ────────────────────────────────────────────── *@
+        @if (rationaleLines.Length > 0)
+        {
+            <div style="margin-bottom:1.1rem;" data-testid="cockpit-makebuy-rationale">
+                <div style="font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.35rem;">Why</div>
+                <ul style="margin:0; padding-left:1.1rem; font-size:.85rem; line-height:1.5;">
+                    @foreach (var line in rationaleLines)
+                    {
+                        <li>@line.Trim().TrimEnd('.')</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @* ── F1–F6 factor breakdown ───────────────────────────────── *@
+        <div data-testid="cockpit-makebuy-factors">
+            <div style="font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.35rem;">Factor breakdown</div>
+            <table class="ds-table" style="font-size:.82rem;">
+                <thead>
+                    <tr>
+                        <th>Factor</th>
+                        <th style="width:34%;">Score → BUY</th>
+                        <th style="text-align:right;">Weight</th>
+                        <th style="text-align:right;">Weighted</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in r.Factors)
+                    {
+                        var fPct = (int)Math.Round(Math.Clamp((double)f.Score, 0d, 1d) * 100);
+                        <tr>
+                            <td><strong>@f.Code</strong> <span style="color:@muted;">@f.Label</span></td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:.4rem;">
+                                    <div style="flex:1; height:7px; border-radius:4px; background:var(--v2-surface-2, #1e293b); overflow:hidden;">
+                                        <div style="height:100%; width:@fPct%; background:@meterColor;"></div>
+                                    </div>
+                                    <span style="font-family:@mono; font-size:.75rem; min-width:2.4rem; text-align:right;">@f.Score.ToString("0.00")</span>
+                                </div>
+                            </td>
+                            <td style="text-align:right; font-family:@mono;">@f.Weight.ToString("0.00")</td>
+                            <td style="text-align:right; font-family:@mono;">@f.WeightedImpact.ToString("0.000")</td>
+                            <td style="color:@muted;">@f.Reason</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</section>

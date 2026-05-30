@@ -269,6 +269,24 @@
         break;
 
     // ================================================================
+    // MAKE/BUY — B7 Wave D PR-1: the "why did we make vs buy this?" panel
+    // ================================================================
+    case CockpitModel.TabMakeBuy:
+        @if (Model.MakeBuyPanel != null)
+        {
+            @await Html.PartialAsync("_CockpitMakeBuyPanel", Model.MakeBuyPanel)
+        }
+        else
+        {
+            <div class="ds-card" data-testid="cockpit-makebuy-empty"><div class="ds-card__body" style="text-align: center; padding: 3rem;">
+                <i class="fas fa-scale-balanced" style="font-size: 2.5rem; color: var(--v2-text-muted, #94a3b8); margin-bottom: 1rem;"></i>
+                <h3 class="ds-h3">Make-or-Buy</h3>
+                <p style="color: var(--v2-text-muted, #94a3b8);">@(Model.MakeBuyMessage ?? "No make-or-buy decision to show.")</p>
+            </div></div>
+        }
+        break;
+
+    // ================================================================
     // PLACEHOLDER TABS — future PR ships
     // ================================================================
     default:

@@ -1,0 +1,61 @@
+@page "/Admin/MakeBuyCockpitPanelProbe"
+@model Abs.FixedAssets.Pages.Admin.MakeBuyCockpitPanelProbeModel
+@using Abs.FixedAssets.Services.Production
+@using Abs.FixedAssets.Models.Production
+@{
+    ViewData["Title"] = "Make-or-Buy Cockpit Panel Probe";
+    ViewData["TabTitle"] = "Make-or-Buy Cockpit Panel Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave D PR-1 — _CockpitMakeBuyPanel. Renders the SAME partial the live
+    Production Cockpit Make/Buy tab uses, driven through IMakeBuyDecisionService.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Make-or-Buy Cockpit Panel Probe — B7 R-D PR-1</h1>
+        <p class="ds-page-header__subtitle">
+            <code>_CockpitMakeBuyPanel</code> — the "why did we make vs buy this?" surface.
+            Persists a decision via <code>DecideAsync</code>, renders the explainable panel,
+            and re-hydrates it via <code>ExplainAsync</code> (the live cockpit's exact path).
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4"><div class="ds-card__body">
+            <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+            </p>
+        </div></section>
+    }
+
+    <section class="ds-card ds-mb-4"><div class="ds-card__body">
+        <h2 class="ds-h2">Panel flow</h2>
+        <p class="ds-text-muted">Company <strong>#@(Model.CompanyId == 0 ? "—" : Model.CompanyId.ToString())</strong> ·
+            probe item: <strong>@(Model.ProbeItemId == null ? "—" : "#" + Model.ProbeItemId)</strong> ·
+            source-controlled: <strong>@Model.ProbeSourceControlled</strong> · qty 50 · due +21d</p>
+        <form method="post" class="ds-btn-row">
+            <button type="submit" asp-page-handler="Setup" class="ds-btn ds-btn--primary">1 · Set up worked example</button>
+            <button type="submit" asp-page-handler="DecidePersist" class="ds-btn">2 · Decide &amp; persist + show</button>
+            <button type="submit" asp-page-handler="ToggleSourceControlled" class="ds-btn">3 · Toggle source-controlled + show</button>
+            <button type="submit" asp-page-handler="ExplainLatest" class="ds-btn">4 · Explain latest + show</button>
+            <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+        </form>
+    </div></section>
+
+    @if (Model.PanelData != null)
+    {
+        @await Html.PartialAsync("/Pages/Production/_CockpitMakeBuyPanel.cshtml", Model.PanelData)
+    }
+    else
+    {
+        <section class="ds-card"><div class="ds-card__body">
+            <p class="ds-text-muted">Run <strong>Set up worked example</strong> then <strong>Decide &amp; persist + show</strong> to render the panel.</p>
+        </div></section>
+    }
+</main>
