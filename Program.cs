@@ -256,6 +256,10 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectProcurement
 // expense + planned-vs-actual rollups (feeds the Wave 5 margin engine).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectResourceService,
     Abs.FixedAssets.Services.Projects.ProjectResourceService>();
+// B9 Wave 5 PR-12 — financials / the margin engine: budget/actual/forecast/EAC
+// snapshot + live Contract−EAC margin (committed wired from PR-10 commitments).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectFinancialsService,
+    Abs.FixedAssets.Services.Projects.ProjectFinancialsService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

@@ -337,6 +337,18 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectExpense> ProjectExpenses
             => Set<Abs.FixedAssets.Models.Projects.ProjectExpense>();
 
+        // B9 Wave 5 PR-12 — financials / margin engine.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectBudget> ProjectBudgets
+            => Set<Abs.FixedAssets.Models.Projects.ProjectBudget>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectBudgetLine> ProjectBudgetLines
+            => Set<Abs.FixedAssets.Models.Projects.ProjectBudgetLine>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectActualCost> ProjectActualCosts
+            => Set<Abs.FixedAssets.Models.Projects.ProjectActualCost>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectForecast> ProjectForecasts
+            => Set<Abs.FixedAssets.Models.Projects.ProjectForecast>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectEACSnapshot> ProjectEacSnapshots
+            => Set<Abs.FixedAssets.Models.Projects.ProjectEACSnapshot>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5734,6 +5746,102 @@ namespace Abs.FixedAssets.Data
                 });
             });
 
+            // ============================================================
+            // B9 Wave 5 PR-12 — financials / margin engine.
+            // ProjectBudget / ProjectBudgetLine / ProjectActualCost /
+            // ProjectForecast / ProjectEACSnapshot. New tables; children scope
+            // THROUGH the parent project (no CompanyId); BudgetLine CASCADEs from
+            // its budget (single path project→budget→line). xmin; enum defaults
+            // == model default. NO CHECK on CostElementType (Other == 99).
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectBudget>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectbudgets_project_code");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectbudgets_project_status");
+                e.Property(x => x.BudgetType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectBudgetType.Working);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectBudgetStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectbudgets_type_range", "\"BudgetType\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectbudgets_status_range", "\"Status\" BETWEEN 0 AND 4");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectBudgetLine>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectBudgetId, x.LineNo }).IsUnique()
+                    .HasDatabaseName("ux_projectbudgetlines_budget_lineno");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_projectbudgetlines_phase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+                e.Property(x => x.CostElementType).HasDefaultValue(Abs.FixedAssets.Models.Masters.CostElementType.Material);
+                e.HasOne(x => x.Budget).WithMany(b => b.Lines).HasForeignKey(x => x.ProjectBudgetId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectbudgetlines_amounts_nonneg",
+                        "\"BudgetAmount\" >= 0 AND (\"Quantity\" IS NULL OR \"Quantity\" >= 0) AND (\"UnitCost\" IS NULL OR \"UnitCost\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectActualCost>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.CostElementType })
+                    .HasDatabaseName("ix_projectactualcosts_project_element");
+                e.HasIndex(x => new { x.CustomerProjectId, x.PostingDate })
+                    .HasDatabaseName("ix_projectactualcosts_project_date");
+                e.Property(x => x.CostElementType).HasDefaultValue(Abs.FixedAssets.Models.Masters.CostElementType.Material);
+                e.Property(x => x.SourceType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ActualCostSource.Manual);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectTask).WithMany().HasForeignKey(x => x.ProjectTaskId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectactualcosts_source_range", "\"SourceType\" BETWEEN 0 AND 6");
+                    t.HasCheckConstraint("ck_projectactualcosts_amount_nonneg", "\"Amount\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectForecast>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.ForecastDate })
+                    .HasDatabaseName("ix_projectforecasts_project_date");
+                e.HasIndex(x => x.ProjectBudgetId)
+                    .HasDatabaseName("ix_projectforecasts_budget")
+                    .HasFilter("\"ProjectBudgetId\" IS NOT NULL");
+                e.Property(x => x.CostElementType).HasDefaultValue(Abs.FixedAssets.Models.Masters.CostElementType.Material);
+                e.Property(x => x.Method).HasDefaultValue(Abs.FixedAssets.Models.Projects.ForecastMethod.ManualEac);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Budget).WithMany().HasForeignKey(x => x.ProjectBudgetId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase).WithMany().HasForeignKey(x => x.ProjectPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectforecasts_method_range", "\"Method\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectforecasts_amounts_nonneg",
+                        "(\"EstimateToComplete\" IS NULL OR \"EstimateToComplete\" >= 0) AND (\"EstimateAtCompletion\" IS NULL OR \"EstimateAtCompletion\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectEACSnapshot>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.SnapshotDate })
+                    .HasDatabaseName("ix_projecteacsnapshots_project_date");
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Budget).WithMany().HasForeignKey(x => x.ProjectBudgetId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
             // CustomerProject gets the new cockpit-sort indexes. The raw-
             // SQL migration creates them with the cockpit filter; this
             // declaration tells EF they exist so .Include / sort hints
@@ -7533,6 +7641,11 @@ namespace Abs.FixedAssets.Data
                         // and "Cost > expected benefit; revisit Q3" that need
                         // their case preserved for readability.
                         propertyName.Contains("rejectionreason") ||
+                        // B9 Wave 5 PR-12 — case-preserve the free-form
+                        // ProjectEACSnapshot.SnapshotReason ("Mid-build position")
+                        // so it reads naturally. Same convention as the other
+                        // human-text reason fields above.
+                        propertyName.Contains("snapshotreason") ||
                         propertyName.Contains("beforevalue") ||
                         propertyName.Contains("aftervalue") ||
                         propertyName.Contains("decisionnotes") ||
