@@ -332,16 +332,27 @@ public sealed class CustomerProjectService : ICustomerProjectService
             return Result.Failure<ProjectPhase>(
                 $"Customer project {request.CustomerProjectId} not found or not visible.");
 
+        // B9 Wave 3 PR-7 — derive WbsLevel from the parent (root = 1).
+        int wbsLevel = 1;
         if (request.ParentPhaseId.HasValue)
         {
-            var parentOk = await _db.ProjectPhases
+            var parent = await _db.ProjectPhases
                 .Where(p => p.Id == request.ParentPhaseId.Value
                          && p.CustomerProjectId == request.CustomerProjectId)
-                .AnyAsync(ct);
-            if (!parentOk)
+                .Select(p => new { p.WbsLevel })
+                .FirstOrDefaultAsync(ct);
+            if (parent is null)
                 return Result.Failure<ProjectPhase>(
                     $"Parent phase {request.ParentPhaseId} not found within this project.");
+            wbsLevel = parent.WbsLevel + 1;
         }
+
+        if (request.WeightPercent is < 0 or > 100)
+            return Result.Failure<ProjectPhase>("WeightPercent must be between 0 and 100.");
+        if (request.PercentComplete is < 0 or > 100)
+            return Result.Failure<ProjectPhase>("PercentComplete must be between 0 and 100.");
+        if (request.PlannedCost is < 0)
+            return Result.Failure<ProjectPhase>("PlannedCost cannot be negative.");
 
         var codeTaken = await _db.ProjectPhases
             .Where(p => p.CustomerProjectId == request.CustomerProjectId && p.Code == request.Code)
@@ -359,7 +370,15 @@ public sealed class CustomerProjectService : ICustomerProjectService
             Description       = request.Description,
             SortOrder         = request.SortOrder,
             CreatedAt         = DateTime.UtcNow,
-            CreatedBy         = request.CreatedBy
+            CreatedBy         = request.CreatedBy,
+            // WBS attributes
+            WbsType           = request.WbsType,
+            WbsLevel          = wbsLevel,
+            ResponsibleOwner  = string.IsNullOrWhiteSpace(request.ResponsibleOwner) ? null : request.ResponsibleOwner.Trim(),
+            ControlAccount    = string.IsNullOrWhiteSpace(request.ControlAccount) ? null : request.ControlAccount.Trim(),
+            PlannedCost       = request.PlannedCost,
+            WeightPercent     = request.WeightPercent,
+            PercentComplete   = request.PercentComplete,
         };
 
         _db.ProjectPhases.Add(phase);

@@ -238,6 +238,10 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectEstimateSer
 // B9 Wave 2 PR-6 — quote-to-cash spine: contract/award layer (CLOSES Wave 2).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectContractService,
     Abs.FixedAssets.Services.Projects.ProjectContractService>();
+// B9 Wave 3 PR-7 (OPENS Wave 3) — WBS hardening: weighted roll-up, the
+// 100%-rule validator, and the set-once baseline gate (owner + cost bucket).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectWbsService,
+    Abs.FixedAssets.Services.Projects.ProjectWbsService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

@@ -188,7 +188,15 @@ public sealed record AddProjectPhaseRequest(
     string Name,
     string? Description,
     int SortOrder,
-    string? CreatedBy);
+    string? CreatedBy,
+    // B9 Wave 3 PR-7 — optional WBS attributes so a phase can be created
+    // baseline-ready in one call (owner + cost bucket + 100%-rule weight).
+    WbsType WbsType = WbsType.Phase,
+    string? ResponsibleOwner = null,
+    string? ControlAccount = null,
+    decimal? PlannedCost = null,
+    decimal? WeightPercent = null,
+    decimal? PercentComplete = null);
 
 /// <summary>Inputs for <see cref="ICustomerProjectService.LinkProductionOrderAsync"/>.</summary>
 public sealed record LinkProductionOrderRequest(
