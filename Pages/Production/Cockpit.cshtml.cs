@@ -3,15 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Abs.FixedAssets.Data;
 using Abs.FixedAssets.Models.Production;
 using Abs.FixedAssets.Pages.Shared.Primitives.Cockpit;
-using Abs.FixedAssets.Services;
 using Abs.FixedAssets.Services.Production;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace Abs.FixedAssets.Pages.Production;
@@ -48,9 +45,6 @@ public sealed class CockpitModel : PageModel
     private readonly ICostRollupService _rollupSvc;
     private readonly ICostTransactionService _costTxnSvc;
     private readonly IProductionVarianceCloseService _varianceSvc;
-    private readonly AppDbContext _db;
-    private readonly ITenantContext _tenant;
-    private readonly IMakeBuyDecisionService _makeBuy;
     private readonly ILogger<CockpitModel> _logger;
 
     public CockpitModel(
@@ -58,18 +52,12 @@ public sealed class CockpitModel : PageModel
         ICostRollupService rollupSvc,
         ICostTransactionService costTxnSvc,
         IProductionVarianceCloseService varianceSvc,
-        AppDbContext db,
-        ITenantContext tenant,
-        IMakeBuyDecisionService makeBuy,
         ILogger<CockpitModel> logger)
     {
         _cockpit = cockpit;
         _rollupSvc = rollupSvc;
         _costTxnSvc = costTxnSvc;
         _varianceSvc = varianceSvc;
-        _db = db;
-        _tenant = tenant;
-        _makeBuy = makeBuy;
         _logger = logger;
     }
 
@@ -306,83 +294,35 @@ public sealed class CockpitModel : PageModel
     }
 
     // ----- B7 Wave D PR-1: Make-or-Buy panel lazy-loading -----
-    // Surfaces the PRO item's latest persisted MakeBuyDecision (PR-7 schema) by
-    // re-hydrating it through IMakeBuyDecisionService.ExplainAsync (PR-8) — the
-    // "why did we make vs buy this?" record. Read-only; tenant-scoped to the
-    // visible companies. The decision itself is created upstream (MRP fulfillment
-    // PR-9, or the engine probe); this tab makes it visible + audit-replayable.
+    // Surfaces the PRO item's latest persisted MakeBuyDecision (PR-7 schema), re-hydrated
+    // through the engine's ExplainAsync (PR-8) — the "why did we make vs buy this?" record.
+    // Read-only. Per ADR-025 the data read lives in IProductionCockpitService (which owns
+    // AppDbContext); this page only maps the service DTO to the panel view-model.
     private async Task LoadMakeBuyAsync(CancellationToken ct)
     {
-        try
+        var panel = await _cockpit.GetMakeBuyPanelAsync(Id, ct);
+        if (panel.IsFailure)
         {
-            var itemId = Data?.Order.ItemId ?? Data?.Order.CrystallizedItemId;
-            if (itemId is null or 0)
-            {
-                MakeBuyMessage = "This order has no linked item yet (master-less PO-first build), "
-                    + "so there is no make-or-buy decision to show. The decision is recorded when a "
-                    + "component demand is fulfilled or the item is crystallized.";
-                return;
-            }
-
-            // Latest persisted decision for this item, tenant-scoped.
-            var latestId = await _db.MakeBuyDecisions
-                .Where(d => d.ItemId == itemId && _tenant.VisibleCompanyIds.Contains(d.CompanyId))
-                .OrderByDescending(d => d.Id)
-                .Select(d => (int?)d.Id)
-                .FirstOrDefaultAsync(ct);
-
-            if (latestId is null)
-            {
-                MakeBuyMessage = "No make-or-buy decision has been recorded for this item yet. "
-                    + "Decisions are written by MRP fulfillment (BUY → procurement hand-off, "
-                    + "MAKE → child job) or from the Make-or-Buy engine.";
-                return;
-            }
-
-            var explained = await _makeBuy.ExplainAsync(latestId.Value, ct);
-            if (explained.IsFailure)
-            {
-                MakeBuyMessage = $"Could not load decision #{latestId}: {explained.Error}";
-                return;
-            }
-            var result = explained.Value!;
-
-            // Item identity + audit context (tenant-scoped) + resolved supplier name.
-            var ident = await _db.Items
-                .Where(i => i.Id == itemId && _tenant.VisibleCompanyIds.Contains(i.CompanyId ?? 0))
-                .Select(i => new { i.PartNumber, i.Description })
-                .FirstOrDefaultAsync(ct);
-
-            var meta = await _db.MakeBuyDecisions
-                .Where(d => d.Id == latestId)
-                .Select(d => new { d.DecidedAtUtc, d.Context })
-                .FirstOrDefaultAsync(ct);
-
-            string? supplierName = null;
-            if (result.ChosenSupplierId != null)
-            {
-                supplierName = await _db.Vendors
-                    .Where(v => v.Id == result.ChosenSupplierId
-                        && _tenant.VisibleCompanyIds.Contains(v.CompanyId ?? 0))
-                    .Select(v => v.Name)
-                    .FirstOrDefaultAsync(ct);
-            }
-
-            MakeBuyPanel = new MakeBuyCockpitPanelModel
-            {
-                Result = result,
-                PartNumber = ident?.PartNumber ?? $"Item #{itemId}",
-                Description = ident?.Description,
-                DecidedAtUtc = meta?.DecidedAtUtc,
-                Context = meta?.Context,
-                SupplierName = supplierName,
-            };
+            MakeBuyMessage = panel.Error;
+            return;
         }
-        catch (Exception ex)
+
+        var p = panel.Value!;
+        if (p.Data is null)
         {
-            _logger.LogWarning(ex, "Failed to load make-or-buy panel for PRO {ProId}", Id);
-            MakeBuyMessage = "Make-or-buy data is temporarily unavailable.";
+            MakeBuyMessage = p.EmptyReason ?? "No make-or-buy decision to show.";
+            return;
         }
+
+        MakeBuyPanel = new MakeBuyCockpitPanelModel
+        {
+            Result = p.Data.Result,
+            PartNumber = p.Data.PartNumber,
+            Description = p.Data.Description,
+            DecidedAtUtc = p.Data.DecidedAtUtc,
+            Context = p.Data.Context,
+            SupplierName = p.Data.SupplierName,
+        };
     }
 
     // ----- Sprint 14.4 PR-5: Cost data lazy-loading -----

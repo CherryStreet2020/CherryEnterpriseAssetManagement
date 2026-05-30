@@ -17,17 +17,20 @@ namespace Abs.FixedAssets.Services.Production
         private readonly AppDbContext _db;
         private readonly IOperationReadinessService _readiness;
         private readonly ITenantContext _tenant;
+        private readonly IMakeBuyDecisionService _makeBuy;
         private readonly ILogger<ProductionCockpitService> _log;
 
         public ProductionCockpitService(
             AppDbContext db,
             IOperationReadinessService readiness,
             ITenantContext tenant,
+            IMakeBuyDecisionService makeBuy,
             ILogger<ProductionCockpitService> log)
         {
             _db = db;
             _readiness = readiness;
             _tenant = tenant;
+            _makeBuy = makeBuy;
             _log = log;
         }
 
@@ -93,6 +96,74 @@ namespace Abs.FixedAssets.Services.Production
 
             return Result.Success<IReadOnlyList<CockpitRoutingRow>>(
                 await BuildRoutingGridAsync(pro, ct));
+        }
+
+        // ================================================================
+        // B7 Wave D PR-1 — Make-or-Buy panel resolution
+        // Read-only: finds the PRO item's latest persisted MakeBuyDecision (tenant-scoped)
+        // and re-hydrates it via the engine's ExplainAsync (the audit/replay path).
+        // ================================================================
+        public async Task<Result<CockpitMakeBuyPanel>> GetMakeBuyPanelAsync(
+            int productionOrderId, CancellationToken ct = default)
+        {
+            var pro = await LoadAndValidateAsync(productionOrderId, ct);
+            if (pro == null)
+                return Result.Failure<CockpitMakeBuyPanel>(
+                    $"Production Order {productionOrderId} not found or not accessible.");
+
+            var itemId = pro.ItemId ?? pro.CrystallizedItemId;
+            if (itemId is null or 0)
+                return Result.Success(new CockpitMakeBuyPanel(null,
+                    "This order has no linked item yet (master-less PO-first build), so there is no "
+                    + "make-or-buy decision to show. The decision is recorded when a component demand "
+                    + "is fulfilled or the item is crystallized."));
+
+            // Latest persisted decision for this item, tenant-scoped.
+            var latestId = await _db.Set<MakeBuyDecision>()
+                .Where(d => d.ItemId == itemId && _tenant.VisibleCompanyIds.Contains(d.CompanyId))
+                .OrderByDescending(d => d.Id)
+                .Select(d => (int?)d.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (latestId is null)
+                return Result.Success(new CockpitMakeBuyPanel(null,
+                    "No make-or-buy decision has been recorded for this item yet. Decisions are "
+                    + "written by MRP fulfillment (BUY → procurement hand-off, MAKE → child job) "
+                    + "or from the Make-or-Buy engine."));
+
+            var explained = await _makeBuy.ExplainAsync(latestId.Value, ct);
+            if (explained.IsFailure)
+                return Result.Failure<CockpitMakeBuyPanel>(
+                    $"Could not load decision #{latestId}: {explained.Error}");
+            var result = explained.Value!;
+
+            var ident = await _db.Set<Item>()
+                .Where(i => i.Id == itemId && _tenant.VisibleCompanyIds.Contains(i.CompanyId ?? 0))
+                .Select(i => new { i.PartNumber, i.Description })
+                .FirstOrDefaultAsync(ct);
+
+            var meta = await _db.Set<MakeBuyDecision>()
+                .Where(d => d.Id == latestId)
+                .Select(d => new { d.DecidedAtUtc, d.Context })
+                .FirstOrDefaultAsync(ct);
+
+            string? supplierName = null;
+            if (result.ChosenSupplierId != null)
+                supplierName = await _db.Set<Vendor>()
+                    .Where(v => v.Id == result.ChosenSupplierId
+                        && _tenant.VisibleCompanyIds.Contains(v.CompanyId ?? 0))
+                    .Select(v => v.Name)
+                    .FirstOrDefaultAsync(ct);
+
+            var data = new CockpitMakeBuyPanelData(
+                Result: result,
+                PartNumber: ident?.PartNumber ?? $"Item #{itemId}",
+                Description: ident?.Description,
+                DecidedAtUtc: meta?.DecidedAtUtc,
+                Context: meta?.Context ?? MakeBuyDecisionContext.ManualWhatIf,
+                SupplierName: supplierName);
+
+            return Result.Success(new CockpitMakeBuyPanel(data, null));
         }
 
         // ================================================================

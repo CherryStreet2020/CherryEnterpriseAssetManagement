@@ -127,6 +127,25 @@ namespace Abs.FixedAssets.Services.Production
         IReadOnlyList<CockpitRoutingRow> RoutingRows,
         ProductionOrderReadiness? Readiness);
 
+    // ================================================================
+    // MAKE/BUY PANEL — B7 Wave D PR-1
+    // ================================================================
+
+    /// <summary>The resolved make-or-buy decision for the cockpit panel: the explainable
+    /// result plus the item identity + audit context + resolved supplier name.</summary>
+    public sealed record CockpitMakeBuyPanelData(
+        MakeBuyDecisionResult Result,
+        string PartNumber,
+        string? Description,
+        DateTime? DecidedAtUtc,
+        MakeBuyDecisionContext Context,
+        string? SupplierName);
+
+    /// <summary>Either the panel data, or a human empty-state reason when there's nothing to show.</summary>
+    public sealed record CockpitMakeBuyPanel(
+        CockpitMakeBuyPanelData? Data,
+        string? EmptyReason);
+
     public interface IProductionCockpitService
     {
         /// <summary>
@@ -152,6 +171,16 @@ namespace Abs.FixedAssets.Services.Production
         /// Load just the routing grid rows.
         /// </summary>
         Task<Result<IReadOnlyList<CockpitRoutingRow>>> GetRoutingGridAsync(
+            int productionOrderId, CancellationToken ct = default);
+
+        /// <summary>
+        /// B7 Wave D PR-1 — resolve the PRO item's latest persisted make-or-buy decision
+        /// (re-hydrated via <see cref="IMakeBuyDecisionService.ExplainAsync"/>) for the
+        /// cockpit "why did we make vs buy this?" panel. Read-only, tenant-scoped. Returns
+        /// a panel with a null <c>Data</c> + an <c>EmptyReason</c> when the order has no item
+        /// or no decision has been recorded yet.
+        /// </summary>
+        Task<Result<CockpitMakeBuyPanel>> GetMakeBuyPanelAsync(
             int productionOrderId, CancellationToken ct = default);
     }
 }

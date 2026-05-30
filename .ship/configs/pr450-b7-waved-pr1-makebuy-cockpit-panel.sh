@@ -13,5 +13,7 @@ FILES=(
   "Pages/Production/Cockpit.cshtml"
   "Pages/Admin/MakeBuyCockpitPanelProbe.cshtml"
   "Pages/Admin/MakeBuyCockpitPanelProbe.cshtml.cs"
+  "Services/Production/IProductionCockpitService.cs"
+  "Services/Production/ProductionCockpitService.cs"
   ".ship/configs/pr450-b7-waved-pr1-makebuy-cockpit-panel.sh"
 )
