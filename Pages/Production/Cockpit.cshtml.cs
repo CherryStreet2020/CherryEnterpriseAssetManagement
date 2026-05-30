@@ -95,6 +95,12 @@ public sealed class CockpitModel : PageModel
     public IReadOnlyList<ProductionVariance> CostVariances { get; private set; } = Array.Empty<ProductionVariance>();
     public string CostViewMode { get; set; } = "financial"; // "financial" or "exploded"
 
+    // ----- B7 Wave D PR-1: Make-or-Buy Cockpit panel data -----
+    /// <summary>The PRO item's latest persisted make-or-buy decision, re-hydrated via ExplainAsync. Null = none/no item.</summary>
+    public MakeBuyCockpitPanelModel? MakeBuyPanel { get; private set; }
+    /// <summary>Empty-state / status message for the Make/Buy tab when no panel renders.</summary>
+    public string? MakeBuyMessage { get; private set; }
+
     // ----- Tab keys -----
     public const string TabOverview   = "overview";
     public const string TabBom        = "bom";
@@ -108,12 +114,13 @@ public sealed class CockpitModel : PageModel
     public const string TabSchedule   = "schedule";
     public const string TabGenealogy  = "genealogy";
     public const string TabAudit      = "audit";
+    public const string TabMakeBuy    = "makebuy";
 
     private static readonly string[] KnownTabs =
     {
         TabOverview, TabBom, TabRouting, TabLabor, TabScrap,
         TabInventory, TabCost, TabQuality, TabDocuments,
-        TabSchedule, TabGenealogy, TabAudit
+        TabSchedule, TabGenealogy, TabAudit, TabMakeBuy
     };
 
     public string ActiveTab =>
@@ -146,6 +153,18 @@ public sealed class CockpitModel : PageModel
         // Sprint 14.4 PR-5: Lazy-load cost data only when cost tab is active
         if (ActiveTab == TabCost && !HideCostColumns)
             await LoadCostDataAsync(ct);
+
+        // B7 Wave D PR-1: Lazy-load the make-or-buy decision only when its tab is active.
+        // Gated like the Cost tab — the panel exposes make/buy cost + supplier quote, which
+        // Operator mode (HideCostColumns) deliberately hides.
+        if (ActiveTab == TabMakeBuy)
+        {
+            if (HideCostColumns)
+                MakeBuyMessage = "Make-or-buy detail (cost comparison + supplier quote) is hidden "
+                    + "in Operator view. Switch to Supervisor or Planner mode to see the decision.";
+            else
+                await LoadMakeBuyAsync(ct);
+        }
 
         return Page();
     }
@@ -277,7 +296,41 @@ public sealed class CockpitModel : PageModel
                 new(TabSchedule,  "Schedule",    "fas fa-calendar-days"),
                 new(TabGenealogy, "Genealogy",   "fas fa-sitemap"),
                 new(TabAudit,     "Audit Trail", "fas fa-clock-rotate-left"),
+                new(TabMakeBuy,   "Make/Buy",    "fas fa-scale-balanced"),
             },
+        };
+    }
+
+    // ----- B7 Wave D PR-1: Make-or-Buy panel lazy-loading -----
+    // Surfaces the PRO item's latest persisted MakeBuyDecision (PR-7 schema), re-hydrated
+    // through the engine's ExplainAsync (PR-8) — the "why did we make vs buy this?" record.
+    // Read-only. Per ADR-025 the data read lives in IProductionCockpitService (which owns
+    // AppDbContext); this page only maps the service DTO to the panel view-model.
+    private async Task LoadMakeBuyAsync(CancellationToken ct)
+    {
+        var panel = await _cockpit.GetMakeBuyPanelAsync(Id, ct);
+        if (panel.IsFailure)
+        {
+            MakeBuyMessage = panel.Error;
+            return;
+        }
+
+        var p = panel.Value!;
+        if (p.Data is null)
+        {
+            MakeBuyMessage = p.EmptyReason ?? "No make-or-buy decision to show.";
+            return;
+        }
+
+        MakeBuyPanel = new MakeBuyCockpitPanelModel
+        {
+            Result = p.Data.Result,
+            PartNumber = p.Data.PartNumber,
+            Description = p.Data.Description,
+            DecidedAtUtc = p.Data.DecidedAtUtc,
+            Context = p.Data.Context,
+            SupplierName = p.Data.SupplierName,
+            BuyThreshold = p.Data.BuyThreshold,
         };
     }
 
