@@ -147,6 +147,7 @@ namespace Abs.FixedAssets.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    CustomerProjectId = table.Column<int>(type: "integer", nullable: false),
                     PredecessorTaskId = table.Column<int>(type: "integer", nullable: false),
                     SuccessorTaskId = table.Column<int>(type: "integer", nullable: false),
                     DependencyType = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
@@ -160,6 +161,12 @@ namespace Abs.FixedAssets.Migrations
                     table.PrimaryKey("PK_ProjectTaskDependencies", x => x.Id);
                     table.CheckConstraint("ck_projecttaskdeps_no_self", "\"PredecessorTaskId\" <> \"SuccessorTaskId\"");
                     table.CheckConstraint("ck_projecttaskdeps_type_range", "\"DependencyType\" BETWEEN 0 AND 3");
+                    table.ForeignKey(
+                        name: "FK_ProjectTaskDependencies_CustomerProjects_CustomerProjectId",
+                        column: x => x.CustomerProjectId,
+                        principalTable: "CustomerProjects",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_ProjectTaskDependencies_ProjectTasks_PredecessorTaskId",
                         column: x => x.PredecessorTaskId,
@@ -188,6 +195,11 @@ namespace Abs.FixedAssets.Migrations
                 table: "ProjectMilestones",
                 columns: new[] { "CustomerProjectId", "Code" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_projecttaskdeps_project",
+                table: "ProjectTaskDependencies",
+                column: "CustomerProjectId");
 
             migrationBuilder.CreateIndex(
                 name: "ix_projecttaskdeps_successor",

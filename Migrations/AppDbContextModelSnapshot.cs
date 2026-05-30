@@ -22897,6 +22897,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<int>("CustomerProjectId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("DependencyType")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
@@ -22920,6 +22923,9 @@ namespace Abs.FixedAssets.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CustomerProjectId")
+                        .HasDatabaseName("ix_projecttaskdeps_project");
 
                     b.HasIndex("SuccessorTaskId")
                         .HasDatabaseName("ix_projecttaskdeps_successor");
@@ -33380,6 +33386,12 @@ namespace Abs.FixedAssets.Migrations
 
             modelBuilder.Entity("Abs.FixedAssets.Models.Projects.ProjectTaskDependency", b =>
                 {
+                    b.HasOne("Abs.FixedAssets.Models.Projects.CustomerProject", "Project")
+                        .WithMany()
+                        .HasForeignKey("CustomerProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Abs.FixedAssets.Models.Projects.ProjectTask", "PredecessorTask")
                         .WithMany()
                         .HasForeignKey("PredecessorTaskId")
@@ -33393,6 +33405,8 @@ namespace Abs.FixedAssets.Migrations
                         .IsRequired();
 
                     b.Navigation("PredecessorTask");
+
+                    b.Navigation("Project");
 
                     b.Navigation("SuccessorTask");
                 });

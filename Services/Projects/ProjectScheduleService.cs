@@ -57,7 +57,7 @@ public sealed class ProjectScheduleService : IProjectScheduleService
         var taskIds = tasks.Select(t => t.Id).ToHashSet();
 
         var deps = await _db.ProjectTaskDependencies
-            .Where(d => taskIds.Contains(d.PredecessorTaskId) || taskIds.Contains(d.SuccessorTaskId))
+            .Where(d => d.CustomerProjectId == projectId)
             .ToListAsync(ct);
 
         var predsByTask = deps.GroupBy(d => d.SuccessorTaskId)
@@ -224,17 +224,10 @@ public sealed class ProjectScheduleService : IProjectScheduleService
 
         // Cycle check: would pred→succ create a cycle? It does iff succ can
         // already reach pred over the existing edge set within this project.
-        // Scope edges by the project's task ids (no nav translation — InMemory-safe).
-        var projTaskIds = await _db.ProjectTasks
-            .Where(t => t.CustomerProjectId == pred.CustomerProjectId)
-            .Select(t => t.Id)
-            .ToListAsync(ct);
-        var projTaskIdSet = projTaskIds.ToHashSet();
-        var edges = (await _db.ProjectTaskDependencies
+        var edges = await _db.ProjectTaskDependencies
+            .Where(d => d.CustomerProjectId == pred.CustomerProjectId)
             .Select(d => new { d.PredecessorTaskId, d.SuccessorTaskId })
-            .ToListAsync(ct))
-            .Where(d => projTaskIdSet.Contains(d.PredecessorTaskId) && projTaskIdSet.Contains(d.SuccessorTaskId))
-            .ToList();
+            .ToListAsync(ct);
         var adjacency = edges
             .GroupBy(e => e.PredecessorTaskId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.SuccessorTaskId).ToList());
@@ -243,6 +236,7 @@ public sealed class ProjectScheduleService : IProjectScheduleService
 
         var dep = new ProjectTaskDependency
         {
+            CustomerProjectId = pred.CustomerProjectId,
             PredecessorTaskId = req.PredecessorTaskId,
             SuccessorTaskId = req.SuccessorTaskId,
             DependencyType = req.DependencyType,

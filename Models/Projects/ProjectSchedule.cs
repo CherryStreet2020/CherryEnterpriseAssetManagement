@@ -175,6 +175,13 @@ namespace Abs.FixedAssets.Models.Projects
     {
         public int Id { get; set; }
 
+        // Denormalized owning project — both tasks share it. Carries a CASCADE
+        // FK from CustomerProject so a project delete removes the dependency
+        // rows in the same cascade as the task rows (the task FKs are NoAction,
+        // so without this the orphaned edges would block the project delete).
+        public int CustomerProjectId { get; set; }
+        public CustomerProject? Project { get; set; }
+
         public int PredecessorTaskId { get; set; }
         public ProjectTask? PredecessorTask { get; set; }
 

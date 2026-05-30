@@ -5449,10 +5449,18 @@ namespace Abs.FixedAssets.Data
                 e.HasIndex(x => new { x.PredecessorTaskId, x.SuccessorTaskId }).IsUnique()
                     .HasDatabaseName("ux_projecttaskdeps_pred_succ");
                 e.HasIndex(x => x.SuccessorTaskId).HasDatabaseName("ix_projecttaskdeps_successor");
+                e.HasIndex(x => x.CustomerProjectId).HasDatabaseName("ix_projecttaskdeps_project");
                 e.Property(x => x.DependencyType).HasDefaultValue(Abs.FixedAssets.Models.Projects.DependencyType.FinishToStart);
                 e.Property(x => x.LagDays).HasDefaultValue(0);
-                // NoAction on BOTH FKs — a task pair has two paths to ProjectTasks;
-                // cascade would create multiple cascade paths (SQL/PG reject).
+                // Owning project — CASCADE so a project delete removes the edges
+                // in the same cascade as the tasks (the task FKs are NoAction, so
+                // without this the orphaned edges block the project delete).
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                // NoAction on BOTH task FKs — a task pair has two paths to
+                // ProjectTasks; cascading both would be a multiple-cascade-path.
                 e.HasOne(x => x.PredecessorTask)
                     .WithMany()
                     .HasForeignKey(x => x.PredecessorTaskId)
