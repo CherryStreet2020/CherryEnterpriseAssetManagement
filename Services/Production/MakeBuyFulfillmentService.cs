@@ -56,13 +56,19 @@ namespace Abs.FixedAssets.Services.Production
             {
                 demand.SupplyPolicy = SupplyPolicy.BuyDirectToJob;
                 demand.BuyerActionState = BuyerActionState.Open;     // ready for buyer / Auto-PO
-                action = $"BUY — demand routed to procurement (SupplyPolicy=BuyDirectToJob, buyer action Open); " +
-                         $"decision #{d.PersistedDecisionId}, supplier #{d.ChosenSupplierId}. Auto-PO/buyer picks it up.";
+                demand.VendorId = d.ChosenSupplierId;                // hand the chosen supplier to the Auto-PO evaluator
+                // If this demand was previously fulfilled as MAKE, clear the stale make link so it
+                // doesn't look both made and bought.
+                demand.LinkedChildProductionOrderId = null;
+                demand.SupplyStatus = DemandSupplyStatus.NotSupplied;
+                action = $"BUY — demand routed to procurement (SupplyPolicy=BuyDirectToJob, buyer action Open, vendor #{d.ChosenSupplierId}); " +
+                         $"decision #{d.PersistedDecisionId}. Auto-PO/buyer picks it up.";
             }
             else
             {
                 demand.SupplyPolicy = SupplyPolicy.MakeDirectToJob;
                 demand.BuyerActionState = BuyerActionState.Resolved; // no procurement needed; a child job supplies it
+                demand.VendorId = null;                              // not a buy
 
                 // Idempotent: reuse the existing make-job if this demand was already fulfilled-to-make
                 // (re-running MRP / pressing fulfill twice must not duplicate the order or trip the
