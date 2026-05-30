@@ -286,6 +286,10 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // (Contract − EAC) surfaces for the demo project.
             await TryEnsureDemoFinancialsAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 5 PR-13 — ensure a quoted baseline (frozen estimate snapshot)
+            // so the quote-vs-actual surface shows real quoted-vs-EAC numbers.
+            await TryEnsureDemoQuoteBaselineAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -470,6 +474,17 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
                 }
             }
         }, warnings, ct);
+
+        // B9 — on the FRESH-seed path, populate the project sub-spines too, so a
+        // first-ever seed fully lands (schedule / procurement / resourcing /
+        // financials / quote baseline). These also run in the already-seeded
+        // branch above; running them here means a single seed run is complete
+        // rather than needing a second pass (Codex P2). All idempotent + defensive.
+        await TryEnsureDemoScheduleAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoProcurementAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoResourcingAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoFinancialsAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoQuoteBaselineAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -881,6 +896,42 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             EstimateAtCompletion = eac, ProjectedMargin = margin,
             ProjectedMarginPercent = contractValue > 0 ? Math.Round(margin / contractValue * 100m, 2) : null,
             Currency = "USD", CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 5 PR-13 — demo quoted baseline (a frozen ProjectEstimateSnapshot)
+    // so the quote-vs-actual surface compares quoted cost vs live EAC. The quoted
+    // buckets sit slightly under the actuals so the comparison shows a Material
+    // overrun signal. Idempotent + defensive.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoQuoteBaselineAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoQuoteBaselineAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo quote baseline seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoQuoteBaselineAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if a snapshot already exists for the project, skip.
+        if (await _db.Set<ProjectEstimateSnapshot>().AnyAsync(s => s.CustomerProjectId == projectId, ct)) return;
+
+        const decimal material = 40_000m, labor = 12_000m, sub = 6_000m, overhead = 3_500m, other = 0m;
+        const decimal direct = material + labor + sub + overhead + other;   // 61,500
+        const decimal contingencyPct = 4.0m;
+        var total = Math.Round(direct * (1 + contingencyPct / 100m), 4);    // 63,960
+        const decimal quotedPrice = 185_000m;
+        var marginPct = Math.Round((quotedPrice - total) / quotedPrice * 100m, 4);
+
+        _db.Set<ProjectEstimateSnapshot>().Add(new ProjectEstimateSnapshot
+        {
+            CompanyId = tenantId, CustomerProjectId = projectId, Currency = "USD",
+            MaterialCost = material, LaborCost = labor, SubcontractCost = sub,
+            OverheadCost = overhead, OtherCost = other, DirectTotalCost = direct,
+            ContingencyPct = contingencyPct, TotalCost = total,
+            QuotedPrice = quotedPrice, EstimatedMarginPct = marginPct, TargetMarginPct = 60.0m,
+            LineCount = 4, CapturedAt = new DateTime(2026, 5, 28, 0, 0, 0, DateTimeKind.Utc), CapturedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }

@@ -260,6 +260,10 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectResourceSer
 // snapshot + live Contract−EAC margin (committed wired from PR-10 commitments).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectFinancialsService,
     Abs.FixedAssets.Services.Projects.ProjectFinancialsService>();
+// B9 Wave 5 PR-13 — quote-vs-actual surface: frozen estimate snapshot (PR-5)
+// vs live actuals/EAC (PR-12), bucket-for-bucket. The estimating feedback loop.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQuoteVsActualService,
+    Abs.FixedAssets.Services.Projects.ProjectQuoteVsActualService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
