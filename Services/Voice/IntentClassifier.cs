@@ -236,8 +236,19 @@ public static class IntentClassifier
     /// </summary>
     public static string? ExtractMakeBuyItemRef(string raw)
     {
+        // Only accept the "item/part X" capture when X actually looks like an
+        // identifier (contains a digit or hyphen). Otherwise "buying this part
+        // instead of making it" would capture "instead" as the item ref; instead
+        // we fall through so the handler asks "which item?". Real part numbers /
+        // item ids always carry a digit or hyphen.
         var m = MakeBuyItemPattern.Match(raw);
-        if (m.Success) return m.Groups[1].Value;
+        if (m.Success)
+        {
+            var token = m.Groups[1].Value;
+            var looksLikeId = token.IndexOf('-') >= 0;
+            foreach (var ch in token) if (char.IsDigit(ch)) { looksLikeId = true; break; }
+            if (looksLikeId) return token;
+        }
         var nk = ExtractNaturalKey(raw);
         if (!string.IsNullOrEmpty(nk)) return nk;
         var bi = BareIntegerPattern.Match(raw);
