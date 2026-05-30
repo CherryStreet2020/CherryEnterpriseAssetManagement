@@ -161,6 +161,38 @@ public sealed class ProjectBillingServiceTests
         Assert.Equal(ProjectBillingStatus.Invoiced, sched!.Status);
     }
 
+    [Fact]
+    public async Task Cannot_invoice_an_already_invoiced_line_twice()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        var bid = (await svc.CreateBillingScheduleAsync(new CreateBillingScheduleRequest(
+            pid, "BILL-DEP", "Deposit", 20_000m, ProjectBillingType.Fixed))).Value;
+        await svc.RecordInvoiceAsync(new RecordInvoiceRequest(bid, "INV-1", 20_000m, new DateTime(2026, 5, 20)));
+
+        var dup = await svc.RecordInvoiceAsync(new RecordInvoiceRequest(bid, "INV-2", 20_000m, new DateTime(2026, 5, 21)));
+        Assert.True(dup.IsFailure);
+        Assert.Contains("cannot record another invoice", dup.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Schedule_defaults_to_project_currency()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var proj = await db.CustomerProjects.FindAsync(pid);
+        proj!.Currency = "CAD";
+        await db.SaveChangesAsync();
+        var svc = NewSvc(db);
+
+        var bid = (await svc.CreateBillingScheduleAsync(new CreateBillingScheduleRequest(
+            pid, "BILL-1", "X", 1_000m, ProjectBillingType.Fixed))).Value;
+
+        var sched = await db.ProjectBillingSchedules.FindAsync(bid);
+        Assert.Equal("CAD", sched!.Currency);
+    }
+
     // -- totals + readiness ------------------------------------------------
 
     [Fact]

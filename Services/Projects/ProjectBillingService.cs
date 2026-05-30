@@ -109,7 +109,7 @@ public sealed class ProjectBillingService : IProjectBillingService
         if (req is null || string.IsNullOrWhiteSpace(req.Code)) return Result.Failure<int>("A billing Code is required.");
         if (string.IsNullOrWhiteSpace(req.Name)) return Result.Failure<int>("A billing Name is required.");
         if (req.ScheduledAmount < 0) return Result.Failure<int>("ScheduledAmount cannot be negative.");
-        var (ok, err, _, _) = await ProjectInfoAsync(req.CustomerProjectId, ct);
+        var (ok, err, _, projCurrency) = await ProjectInfoAsync(req.CustomerProjectId, ct);
         if (!ok) return Result.Failure<int>(err!);
 
         if (req.ProjectMilestoneId.HasValue && !await _db.ProjectMilestones.AnyAsync(
@@ -129,7 +129,9 @@ public sealed class ProjectBillingService : IProjectBillingService
             Description = req.Description,
             BillingType = req.BillingType,
             ScheduledAmount = req.ScheduledAmount,
-            Currency = string.IsNullOrWhiteSpace(req.Currency) ? "USD" : req.Currency.Trim().ToUpperInvariant(),
+            // Default to the PROJECT currency (Codex P2 — not a hard-coded USD),
+            // so a non-USD project's lines/invoices/totals stay one currency.
+            Currency = string.IsNullOrWhiteSpace(req.Currency) ? projCurrency : req.Currency.Trim().ToUpperInvariant(),
             ScheduledDate = req.ScheduledDate,
             PercentOfContract = req.PercentOfContract,
             RequiresAcceptance = req.RequiresAcceptance,
@@ -174,8 +176,11 @@ public sealed class ProjectBillingService : IProjectBillingService
         var (ok, err, _, _) = await ProjectInfoAsync(sched.CustomerProjectId, ct);
         if (!ok) return Result.Failure<int>(err!);
 
-        if (sched.Status == ProjectBillingStatus.Cancelled)
-            return Result.Failure<int>($"Billing line '{sched.Code}' is cancelled — cannot invoice it.");
+        // Block re-invoicing a line that is already Invoiced/Paid/Cancelled —
+        // otherwise a retry/resubmit would insert a duplicate invoice and inflate
+        // billed totals (Codex P2). One invoice per scheduled event in v1.
+        if (IsClosedInvoiceState(sched.Status))
+            return Result.Failure<int>($"Billing line '{sched.Code}' is {sched.Status} — cannot record another invoice against it.");
 
         // Gate 1: a Milestone-type line cannot be invoiced until its milestone is Achieved.
         if (sched.BillingType == ProjectBillingType.Milestone)
@@ -223,7 +228,7 @@ public sealed class ProjectBillingService : IProjectBillingService
         if (req is null) return Result.Failure<int>("Request is required.");
         if (req.RecognizedAmount < 0) return Result.Failure<int>("RecognizedAmount cannot be negative.");
         if (req.PercentComplete is < 0 or > 100) return Result.Failure<int>("PercentComplete must be 0..100.");
-        var (ok, err, _, _) = await ProjectInfoAsync(req.CustomerProjectId, ct);
+        var (ok, err, _, projCurrency) = await ProjectInfoAsync(req.CustomerProjectId, ct);
         if (!ok) return Result.Failure<int>(err!);
 
         if (req.ProjectBillingScheduleId.HasValue && !await _db.ProjectBillingSchedules.AnyAsync(
@@ -237,7 +242,7 @@ public sealed class ProjectBillingService : IProjectBillingService
             PeriodLabel = string.IsNullOrWhiteSpace(req.PeriodLabel) ? null : req.PeriodLabel.Trim(),
             Method = req.Method,
             RecognizedAmount = req.RecognizedAmount,
-            Currency = string.IsNullOrWhiteSpace(req.Currency) ? "USD" : req.Currency.Trim().ToUpperInvariant(),
+            Currency = string.IsNullOrWhiteSpace(req.Currency) ? projCurrency : req.Currency.Trim().ToUpperInvariant(),
             RecognitionDate = req.RecognitionDate == default ? DateTime.UtcNow.Date : req.RecognitionDate,
             PercentComplete = req.PercentComplete,
             Notes = req.Notes,
