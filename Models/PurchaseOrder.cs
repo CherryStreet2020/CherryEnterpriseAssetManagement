@@ -112,6 +112,21 @@ namespace Abs.FixedAssets.Models
         [Display(Name = "CIP Project")]
         public CipProject? CipProject { get; set; }
 
+        // ----- Theme B9 Wave 4 PR-10 — Customer-project pegging -----
+        // A PO raised for a customer engagement pegs to that project (and,
+        // optionally, a WBS phase) so committed spend rolls up to the project.
+        // Nullable header FK + partial index (the dominant ERP pattern, and the
+        // shipped ProductionOrder.CustomerProjectId precedent — NOT a link table).
+        // The vast majority of POs are not project-linked, so the index is
+        // filtered (WHERE CustomerProjectId IS NOT NULL) to stay cheap.
+        public int? CustomerProjectId { get; set; }
+        [Display(Name = "Customer Project")]
+        public Abs.FixedAssets.Models.Projects.CustomerProject? CustomerProject { get; set; }
+
+        public int? ProjectPhaseId { get; set; }
+        [Display(Name = "Project Phase")]
+        public Abs.FixedAssets.Models.Projects.ProjectPhase? ProjectPhase { get; set; }
+
         public int? RequestedById { get; set; }
         [Display(Name = "Requested By")]
         public User? RequestedBy { get; set; }

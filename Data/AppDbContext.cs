@@ -319,6 +319,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectTaskDependency> ProjectTaskDependencies
             => Set<Abs.FixedAssets.Models.Projects.ProjectTaskDependency>();
 
+        // B9 Wave 4 PR-10 — procurement spine (plan / commitment / receipt).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectProcurementPlan> ProjectProcurementPlans
+            => Set<Abs.FixedAssets.Models.Projects.ProjectProcurementPlan>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectCommitment> ProjectCommitments
+            => Set<Abs.FixedAssets.Models.Projects.ProjectCommitment>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectReceipt> ProjectReceipts
+            => Set<Abs.FixedAssets.Models.Projects.ProjectReceipt>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5063,6 +5071,28 @@ namespace Abs.FixedAssets.Data
                     .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
             });
 
+            // B9 Wave 4 PR-10 — PurchaseOrder gets the nullable customer-project
+            // peg (+ optional WBS phase), mirroring the ProductionOrder precedent:
+            // nullable header FK, SET NULL on project/phase delete, partial index
+            // (most POs are not project-linked).
+            modelBuilder.Entity<PurchaseOrder>(e =>
+            {
+                e.HasOne(x => x.CustomerProject)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_purchaseorders_customerproject")
+                    .HasFilter("\"CustomerProjectId\" IS NOT NULL");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_purchaseorders_projectphase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+            });
+
             // ============================================================
             // Sprint 13.5 PR #1.5 — Field expansion + ProjectAmendments.
             //
@@ -5474,6 +5504,114 @@ namespace Abs.FixedAssets.Data
                 {
                     t.HasCheckConstraint("ck_projecttaskdeps_type_range", "\"DependencyType\" BETWEEN 0 AND 3");
                     t.HasCheckConstraint("ck_projecttaskdeps_no_self", "\"PredecessorTaskId\" <> \"SuccessorTaskId\"");
+                });
+            });
+
+            // ============================================================
+            // B9 Wave 4 PR-10 — procurement spine (OPENS Wave 4).
+            // ProjectProcurementPlan / ProjectCommitment / ProjectReceipt.
+            // New tables ⇒ default initializers are safe (no backfill). xmin
+            // concurrency; enum DB defaults wired to model defaults (repo
+            // hard-lock); children scope THROUGH the parent project (no
+            // CompanyId). Plan + Commitment CASCADE from the project; Receipt
+            // is owned by its commitment (single cascade path), so its
+            // denormalized CustomerProjectId is a plain indexed column with NO
+            // FK and GoodsReceiptId is a soft int reference.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectProcurementPlan>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectprocplans_project_code");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectprocplans_status");
+                e.HasIndex(x => x.ProjectPhaseId)
+                    .HasDatabaseName("ix_projectprocplans_phase")
+                    .HasFilter("\"ProjectPhaseId\" IS NOT NULL");
+                e.Property(x => x.Category).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectProcurementCategory.Material);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectProcurementPlanStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectprocplans_category_range", "\"Category\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectprocplans_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectprocplans_amounts_nonneg",
+                        "(\"PlannedAmount\" IS NULL OR \"PlannedAmount\" >= 0) AND (\"PlannedQuantity\" IS NULL OR \"PlannedQuantity\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectCommitment>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectcommitments_project_code");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectcommitments_project_status");
+                e.HasIndex(x => x.PurchaseOrderId)
+                    .HasDatabaseName("ix_projectcommitments_po")
+                    .HasFilter("\"PurchaseOrderId\" IS NOT NULL");
+                e.HasIndex(x => x.ProjectProcurementPlanId)
+                    .HasDatabaseName("ix_projectcommitments_plan")
+                    .HasFilter("\"ProjectProcurementPlanId\" IS NOT NULL");
+                e.Property(x => x.CommitmentType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectCommitmentType.PurchaseOrder);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectCommitmentStatus.Open);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectProcurementPlan)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectProcurementPlanId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.ProjectPhase)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectPhaseId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.PurchaseOrder)
+                    .WithMany()
+                    .HasForeignKey(x => x.PurchaseOrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Vendor)
+                    .WithMany()
+                    .HasForeignKey(x => x.VendorId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectcommitments_type_range", "\"CommitmentType\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectcommitments_status_range", "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectcommitments_amount_nonneg",
+                        "\"CommittedAmount\" >= 0 AND (\"CommittedQuantity\" IS NULL OR \"CommittedQuantity\" >= 0)");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectReceipt>(e =>
+            {
+                e.HasIndex(x => x.ProjectCommitmentId).HasDatabaseName("ix_projectreceipts_commitment");
+                e.HasIndex(x => x.CustomerProjectId).HasDatabaseName("ix_projectreceipts_project");
+                // Owned by its commitment — single CASCADE path. Receipt has NO
+                // direct project FK (the denormalized CustomerProjectId is a plain
+                // column) and GoodsReceiptId is a soft reference (no FK).
+                e.HasOne(x => x.Commitment)
+                    .WithMany(c => c.Receipts)
+                    .HasForeignKey(x => x.ProjectCommitmentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectreceipts_amount_nonneg",
+                        "\"ReceivedAmount\" >= 0 AND (\"ReceivedQuantity\" IS NULL OR \"ReceivedQuantity\" >= 0)");
                 });
             });
 

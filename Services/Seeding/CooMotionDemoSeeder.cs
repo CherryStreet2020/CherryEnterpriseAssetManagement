@@ -270,6 +270,11 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // defensive (never breaks the rest of the seeder).
             await TryEnsureDemoScheduleAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 4 PR-10 — ensure the demo procurement spine (plan +
+            // commitments + a receipt) exists so the close gate demos live: the
+            // long-lead Ti-6Al-4V buy stays OPEN and blocks project close.
+            await TryEnsureDemoProcurementAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -614,6 +619,90 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         _db.Set<ProjectTaskDependency>().AddRange(
             Dep(t1, t2), Dep(t2, t3), Dep(t3, t4), Dep(t4, t5), Dep(t5, t6), Dep(t6, t7), Dep(t7, t8),
             Dep(t2, t9), Dep(t9, t4)); // T9 (fixture) is parallel → carries float, not on the critical path
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -------------------------------------------------------------------------
+    // B9 Wave 4 PR-10 — demo procurement spine (plan / commitments / receipt) so
+    // the close gate is demonstrable: the long-lead Ti-6Al-4V commitment stays
+    // OPEN and will block closing DEMO-COO-PROJ-001 until received or waived.
+    // Wrapped so a failure here never aborts the rest of the seeder.
+    // -------------------------------------------------------------------------
+    private async Task TryEnsureDemoProcurementAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoProcurementAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo procurement seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoProcurementAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any commitment already exists for the project, skip.
+        if (await _db.Set<ProjectCommitment>().AnyAsync(c => c.CustomerProjectId == projectId, ct)) return;
+
+        var phaseByCode = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId)
+            .ToDictionaryAsync(p => p.Code, p => p.Id, ct);
+        int? Ph(string c) => phaseByCode.TryGetValue(c, out var id) ? id : (int?)null;
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // A real vendor from the tenant company, if one is loaded (else leave null).
+        var vendorId = await _db.Set<Vendor>()
+            .Where(v => v.CompanyId == tenantId)
+            .OrderBy(v => v.Id)
+            .Select(v => (int?)v.Id)
+            .FirstOrDefaultAsync(ct);
+
+        // --- Plans (what the project intends to buy) ---
+        var planTi = new ProjectProcurementPlan
+        {
+            CustomerProjectId = projectId, ProjectPhaseId = Ph("PROC"),
+            Code = "PROC-PLAN-TI64", Name = "Ti-6Al-4V bar stock (long-lead)",
+            Description = "AMS 4928 titanium bar stock for the bracket build — long-lead procurement.",
+            Category = ProjectProcurementCategory.Material, PlannedQuantity = 220m, UnitOfMeasure = "lb",
+            PlannedAmount = 42_000m, Currency = "USD", NeedByDate = D(2026, 6, 12), IsLongLead = true,
+            Status = ProjectProcurementPlanStatus.Approved, SortOrder = 0, CreatedBy = "DemoSeeder",
+        };
+        var planFix = new ProjectProcurementPlan
+        {
+            CustomerProjectId = projectId, ProjectPhaseId = Ph("PROD"),
+            Code = "PROC-PLAN-FIXTURE", Name = "Workholding fixture (outside subcontract)",
+            Description = "Subcontracted CNC workholding fixture for the finish-mill op.",
+            Category = ProjectProcurementCategory.Subcontract, PlannedAmount = 6_500m, Currency = "USD",
+            NeedByDate = D(2026, 6, 10), Status = ProjectProcurementPlanStatus.Approved, SortOrder = 1, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectProcurementPlan>().AddRange(planTi, planFix);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Commitments ---
+        // OPEN: the long-lead Ti buy — committed to the vendor, not yet received.
+        var cmtTi = new ProjectCommitment
+        {
+            CustomerProjectId = projectId, ProjectProcurementPlanId = planTi.Id, ProjectPhaseId = Ph("PROC"),
+            VendorId = vendorId, CommitmentType = ProjectCommitmentType.PurchaseOrder,
+            Code = "CMT-TI64-001", Description = "PO commitment — Ti-6Al-4V bar stock",
+            CommittedAmount = 38_500m, Currency = "USD", CommittedQuantity = 220m, UnitOfMeasure = "lb",
+            Status = ProjectCommitmentStatus.Open, CommittedDate = D(2026, 5, 28), ExpectedReceiptDate = D(2026, 6, 12),
+            CreatedBy = "DemoSeeder",
+        };
+        // RECEIVED: the fixture subcontract — fully received.
+        var cmtFix = new ProjectCommitment
+        {
+            CustomerProjectId = projectId, ProjectProcurementPlanId = planFix.Id, ProjectPhaseId = Ph("PROD"),
+            VendorId = vendorId, CommitmentType = ProjectCommitmentType.Subcontract,
+            Code = "CMT-FIXTURE-001", Description = "Subcontract commitment — workholding fixture",
+            CommittedAmount = 6_200m, Currency = "USD", Status = ProjectCommitmentStatus.Received,
+            CommittedDate = D(2026, 5, 30), ExpectedReceiptDate = D(2026, 6, 9), CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectCommitment>().AddRange(cmtTi, cmtFix);
+        await _db.SaveChangesAsync(ct);
+
+        // --- Receipt against the fully-received fixture commitment ---
+        _db.Set<ProjectReceipt>().Add(new ProjectReceipt
+        {
+            ProjectCommitmentId = cmtFix.Id, CustomerProjectId = projectId,
+            ReceiptNumber = "GRN-DEMO-FIXTURE-001", ReceivedAmount = 6_200m,
+            ReceiptDate = D(2026, 6, 9), Notes = "Fixture received + inspected.", CreatedBy = "DemoSeeder",
+        });
         await _db.SaveChangesAsync(ct);
     }
 
