@@ -303,6 +303,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot> ProjectEstimateSnapshots
             => Set<Abs.FixedAssets.Models.Projects.ProjectEstimateSnapshot>();
 
+        // B9 Wave 2 PR-6 — quote-to-cash spine (contract/award layer; CLOSES Wave 2).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectContract> ProjectContracts
+            => Set<Abs.FixedAssets.Models.Projects.ProjectContract>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectContractLine> ProjectContractLines
+            => Set<Abs.FixedAssets.Models.Projects.ProjectContractLine>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectCustomerPO> ProjectCustomerPOs
+            => Set<Abs.FixedAssets.Models.Projects.ProjectCustomerPO>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5214,6 +5222,79 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Estimate)
                     .WithMany()
                     .HasForeignKey(x => x.ProjectEstimateId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ============================================================
+            // B9 Wave 2 PR-6 — quote-to-cash spine (contract/award layer; CLOSES W2).
+            // ProjectContract / ProjectContractLine / ProjectCustomerPO. Same
+            // conventions: new tables, xmin, enum DB defaults, lines scoped through
+            // the parent contract (no CompanyId). Award/baseline links are soft refs
+            // into the quote spine (no FK — enforced in the service).
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectContract>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.ContractNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectcontracts_company_contractnumber");
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectcontracts_customerproject");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectcontracts_status");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectContractStatus.Draft);
+                e.Property(x => x.ReviewStatus).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectContractReviewStatus.NotStarted);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectContractLine>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectContractId, x.LineNo }).IsUnique()
+                    .HasDatabaseName("ux_projectcontractlines_contract_lineno");
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_projectcontractlines_item")
+                    .HasFilter("\"ItemId\" IS NOT NULL");
+                e.HasOne(x => x.Contract)
+                    .WithMany(c => c.Lines)
+                    .HasForeignKey(x => x.ProjectContractId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectCustomerPO>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.CustomerPoNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectcustomerpos_company_ponumber");
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectcustomerpos_customerproject");
+                e.HasIndex(x => x.ProjectContractId)
+                    .HasDatabaseName("ix_projectcustomerpos_contract")
+                    .HasFilter("\"ProjectContractId\" IS NOT NULL");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectcustomerpos_status");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectCustomerPoStatus.Open);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Contract)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectContractId)
                     .OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
             });
