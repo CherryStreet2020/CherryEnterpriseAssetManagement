@@ -392,4 +392,32 @@ public class HybridIntentRouterTests
         var result = await router.RouteAsync("trace this receipt back to its source", tenantId: 1, CancellationToken.None);
         Assert.Equal(IntentKind.ExplainChainOfCustody, result.Intent.Kind);
     }
+
+    // PR #453 — filler ("this part instead of") before the real ref must NOT
+    // short-circuit; the later explicit "item 9395" should still resolve.
+    [Fact]
+    public async Task KeywordMakeBuy_FillerBeforeRealRef_ResolvesLaterItem()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "why are we buying this part instead of making item 9395", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+        Assert.Equal("9395", result.Intent.NaturalKey);
+    }
+
+    // PR #453 — an explicit "part" grammar whose only token is filler must NOT
+    // fall through and grab a bare integer ("500") from elsewhere in the phrase.
+    [Fact]
+    public async Task KeywordMakeBuy_FillerOnly_DoesNotGrabBareInteger()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "why are we buying this part instead of making 500 units", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+        Assert.True(string.IsNullOrEmpty(result.Intent.NaturalKey));
+    }
 }
