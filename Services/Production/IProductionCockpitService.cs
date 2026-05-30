@@ -147,6 +147,20 @@ namespace Abs.FixedAssets.Services.Production
         CockpitMakeBuyPanelData? Data,
         string? EmptyReason);
 
+    // ================================================================
+    // CRYSTALLIZATION PANEL — B7 Wave D PR-3 (CLOSES B7)
+    // ================================================================
+
+    /// <summary>The read-only crystallization preview for the cockpit panel: the would-be
+    /// Item + standard BOM/routing/cost + dedupe match + already-crystallized state.</summary>
+    public sealed record CockpitCrystallizationPanelData(
+        CrystallizationPreview Preview);
+
+    /// <summary>Either the panel data, or a human empty-state reason when there's nothing to crystallize.</summary>
+    public sealed record CockpitCrystallizationPanel(
+        CockpitCrystallizationPanelData? Data,
+        string? EmptyReason);
+
     public interface IProductionCockpitService
     {
         /// <summary>
@@ -182,6 +196,16 @@ namespace Abs.FixedAssets.Services.Production
         /// or no decision has been recorded yet.
         /// </summary>
         Task<Result<CockpitMakeBuyPanel>> GetMakeBuyPanelAsync(
+            int productionOrderId, CancellationToken ct = default);
+
+        /// <summary>
+        /// B7 Wave D PR-3 — read-only crystallization preview for the cockpit "Crystallize"
+        /// tab: the would-be Item + standard BOM/routing + seeded cost + dedupe match. Delegates
+        /// to <see cref="IItemCrystallizationService.PreviewCrystallizationAsync"/>, tenant-scoped.
+        /// Returns a panel with null <c>Data</c> + an <c>EmptyReason</c> when the order can't be
+        /// previewed (not found / not accessible).
+        /// </summary>
+        Task<Result<CockpitCrystallizationPanel>> GetCrystallizationPanelAsync(
             int productionOrderId, CancellationToken ct = default);
     }
 }

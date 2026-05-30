@@ -1,0 +1,63 @@
+@page "/Admin/CrystallizationCockpitPanelProbe"
+@model Abs.FixedAssets.Pages.Admin.CrystallizationCockpitPanelProbeModel
+@{
+    ViewData["Title"] = "Crystallization Cockpit Panel Probe";
+    ViewData["TabTitle"] = "Crystallization Cockpit Panel Probe";
+    Layout = "_ModernLayout";
+}
+
+@*
+    Theme B7 Wave D PR-3 — _CockpitCrystallizationPanel. Renders the SAME partial the live
+    Production Cockpit "Crystallize" tab uses, driven through IProductionCockpitService
+    (read) + IItemCrystallizationService (crystallize / reverse writes). CLOSES Theme B7.
+*@
+
+<header class="ds-page-header">
+    <div class="ds-page-header__inner">
+        <h1 class="ds-page-header__title">Crystallization Cockpit Panel Probe — B7 R-D PR-3</h1>
+        <p class="ds-page-header__subtitle">
+            <code>_CockpitCrystallizationPanel</code> — harvest a reusable, costed, plannable
+            standard from a completed ETO job. Previews via <code>GetCrystallizationPanelAsync</code>
+            (the live cockpit read path); mints / reverses via <code>IItemCrystallizationService</code>.
+        </p>
+    </div>
+</header>
+
+<main class="ds-page">
+    @if (Model.Outcome is not null)
+    {
+        <section class="ds-card ds-mb-4"><div class="ds-card__body">
+            <p class="@(Model.OutcomeIsError ? "ds-text-danger" : "ds-text-success")">
+                <strong>@(Model.OutcomeIsError ? "✗" : "✓")</strong> @Model.Outcome
+            </p>
+        </div></section>
+    }
+
+    <section class="ds-card ds-mb-4"><div class="ds-card__body">
+        <h2 class="ds-h2">Panel flow</h2>
+        <p class="ds-text-muted">Target PoFirst PRO:
+            <strong>@(Model.ProbeProId == null ? "—" : "#" + Model.ProbeProId)</strong>
+            @if (!string.IsNullOrEmpty(Model.ProbeOrderNumber)) { <text>(<code>@Model.ProbeOrderNumber</code>)</text> }
+            · or enter a PRO Id below.</p>
+        <form method="post" class="ds-btn-row">
+            <label style="display:inline-flex; align-items:center; gap:.4rem; margin-right:.75rem;">
+                PRO Id <input type="number" asp-for="ProId" class="ds-input" style="width:7rem;" />
+            </label>
+            <button type="submit" asp-page-handler="Preview" class="ds-btn ds-btn--primary">1 · Preview + render</button>
+            <button type="submit" asp-page-handler="CrystallizeNew" class="ds-btn">2 · Crystallize new + render</button>
+            <button type="submit" asp-page-handler="Reverse" class="ds-btn">3 · Reverse latest + render</button>
+            <button type="submit" asp-page-handler="Reload" class="ds-btn">Reload</button>
+        </form>
+    </div></section>
+
+    @if (Model.PanelData != null)
+    {
+        @await Html.PartialAsync("/Pages/Production/_CockpitCrystallizationPanel.cshtml", Model.PanelData)
+    }
+    else
+    {
+        <section class="ds-card"><div class="ds-card__body">
+            <p class="ds-text-muted">Run <strong>Preview + render</strong> against a PoFirst PRO to render the panel.</p>
+        </div></section>
+    }
+</main>

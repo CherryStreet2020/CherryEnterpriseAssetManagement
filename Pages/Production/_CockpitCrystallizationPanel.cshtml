@@ -1,0 +1,156 @@
+@* Theme B7 Wave D PR-3 (2026-05-30) — Crystallization Panel for the PRO Cockpit
+   (THE BIC DIFFERENTIATOR — harvest a reusable, costed, plannable standard from a
+   completed master-optional/ETO job, at ship, optional, dedupe-aware, reversible).
+
+   No incumbent ERP (SAP / Oracle / Epicor / Infor / Plex / IFS) harvests a costed,
+   plannable standard from as-run actuals at ship. This panel is that claim, made
+   visible: it previews the would-be Item Master + standard BOM + standard routing +
+   first-actual standard cost, flags a structural dedupe match for human confirmation
+   (never auto-linked — decision #3), and shows the already-crystallized state.
+
+   DISPLAY-ONLY. The crystallize / link / reverse WRITE actions are rendered by the
+   host surface (live Cockpit tab or admin probe) so each posts to its own handler.
+
+   Input model: CrystallizationCockpitPanelModel (Pages/Production/CrystallizationCockpitPanelModel.cs).
+*@
+@using Abs.FixedAssets.Services.Production
+@model Abs.FixedAssets.Pages.Production.CrystallizationCockpitPanelModel
+@{
+    var p = Model.Preview;
+    var muted = "var(--v2-text-muted, #94a3b8)";
+    var mono = "var(--font-mono, 'JetBrains Mono', monospace)";
+    var proposedPn = string.IsNullOrWhiteSpace(p.ProposedPartNumber) ? "(unnamed — carries no as-planned part #)" : p.ProposedPartNumber;
+    var fpShort = string.IsNullOrEmpty(p.StructureFingerprintHash) ? "—" : p.StructureFingerprintHash.Substring(0, Math.Min(16, p.StructureFingerprintHash.Length));
+}
+
+<section class="ds-card" data-testid="cockpit-crystallization-panel">
+    <div class="ds-card__body">
+
+        @* ── Header ──────────────────────────────────────────────── *@
+        <header style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:1rem;">
+            <div>
+                <h3 style="font-size:1.1rem; font-weight:600; margin:0;">
+                    Crystallize to Standard — @p.OrderNumber
+                </h3>
+                <p style="margin:.25rem 0 0; color:@muted; font-size:.85rem;">
+                    Would mint master <strong data-testid="cryst-proposed-pn">@proposedPn</strong>
+                    @if (!string.IsNullOrWhiteSpace(p.ProposedRevision)) { <text> Rev @p.ProposedRevision</text> }
+                    @if (!string.IsNullOrWhiteSpace(p.ProposedDescription)) { <text> · @p.ProposedDescription</text> }
+                    · <code title="structural fingerprint (SHA-256 over as-built BOM + as-run routing)">fp @fpShort…</code>
+                </p>
+            </div>
+            <div style="text-align:right; white-space:nowrap;">
+                @if (Model.AlreadyCrystallized)
+                {
+                    <span class="ds-badge ds-badge--success" data-testid="cryst-state">CRYSTALLIZED</span>
+                }
+                else if (!p.IsPoFirst)
+                {
+                    <span class="ds-badge ds-badge--neutral" data-testid="cryst-state">STANDARD-FIRST</span>
+                }
+                else
+                {
+                    <span class="ds-badge ds-badge--info" data-testid="cryst-state">READY</span>
+                }
+            </div>
+        </header>
+
+        @* ── Already-crystallized banner ─────────────────────────── *@
+        @if (Model.AlreadyCrystallized)
+        {
+            <div class="ds-alert ds-alert--success" data-testid="cryst-already"
+                 style="margin-bottom:1rem; padding:.6rem .85rem; border-radius:.4rem; background:var(--v2-surface-success, rgba(34,197,94,.12)); border-left:3px solid var(--v2-status-completed, #22c55e);">
+                <strong>Already crystallized to Item #@p.ExistingCrystallizedItemId.</strong>
+                <span style="color:@muted;">This job already minted a reusable standard. Reverse it below if it was harvested in error — the as-built history is never rewritten.</span>
+            </div>
+        }
+
+        @* ── Dedupe-match banner (human-confirm) ─────────────────── *@
+        @if (Model.HasDedupeMatch && !Model.AlreadyCrystallized)
+        {
+            <div class="ds-alert ds-alert--warning" data-testid="cryst-dedupe"
+                 style="margin-bottom:1rem; padding:.6rem .85rem; border-radius:.4rem; background:var(--v2-surface-warning, rgba(245,158,11,.12)); border-left:3px solid var(--v2-status-warning, #f59e0b);">
+                <strong>A matching standard already exists: Item #@p.DedupeMatchItemId (@p.DedupeMatchPartNumber).</strong>
+                <span style="color:@muted;">Same structural fingerprint. Confirm whether to <em>link</em> this job to that existing standard or <em>create a new</em> master anyway — crystallization never auto-links (decision&nbsp;#3).</span>
+            </div>
+        }
+
+        @* ── Cost + scope ribbon ─────────────────────────────────── *@
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:.5rem; margin-bottom:1.1rem;" data-testid="cryst-ribbon">
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Seeded standard cost</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;" data-testid="cryst-cost">@(p.SeededStandardCost?.ToString("C2") ?? "—")</div>
+                <div style="font-size:.6rem; color:@muted;">@p.CostSource</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Standard BOM</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;">@p.BomLines.Count</div>
+                <div style="font-size:.6rem; color:@muted;">line(s) from as-built</div>
+            </div></div>
+            <div class="ds-card"><div class="ds-card__body" style="padding:.55rem; text-align:center;">
+                <div style="font-size:.62rem; color:@muted; text-transform:uppercase;">Standard routing</div>
+                <div style="font-size:1.05rem; font-weight:600; font-family:@mono;">@p.RoutingOps.Count</div>
+                <div style="font-size:.6rem; color:@muted;">op(s) from as-run</div>
+            </div></div>
+        </div>
+
+        @* ── Warnings ────────────────────────────────────────────── *@
+        @if (p.Warnings.Count > 0)
+        {
+            <div style="margin-bottom:1.1rem;" data-testid="cryst-warnings">
+                <div style="font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.35rem;">Before you crystallize</div>
+                <ul style="margin:0; padding-left:1.1rem; font-size:.82rem; line-height:1.5; color:@muted;">
+                    @foreach (var w in p.Warnings) { <li>@w</li> }
+                </ul>
+            </div>
+        }
+
+        @* ── Would-be standard BOM ───────────────────────────────── *@
+        @if (p.BomLines.Count > 0)
+        {
+            <div style="margin-bottom:1.1rem;" data-testid="cryst-bom">
+                <div style="font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.35rem;">Would-be standard BOM</div>
+                <table class="ds-table" style="font-size:.82rem;">
+                    <thead><tr><th>Seq</th><th>Component</th><th>Rev</th><th style="text-align:right;">Qty / unit</th><th>UOM</th><th>Kind</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in p.BomLines)
+                        {
+                            <tr>
+                                <td style="font-family:@mono;">@l.Sequence</td>
+                                <td><strong>@l.ChildPartNumber</strong></td>
+                                <td style="color:@muted;">@(l.ChildRevision ?? "—")</td>
+                                <td style="text-align:right; font-family:@mono;">@l.QuantityPer.ToString("0.####")</td>
+                                <td style="color:@muted;">@(l.Uom ?? "—")</td>
+                                <td style="color:@muted;">@l.LineKind</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        @* ── Would-be standard routing ───────────────────────────── *@
+        @if (p.RoutingOps.Count > 0)
+        {
+            <div data-testid="cryst-routing">
+                <div style="font-size:.72rem; color:@muted; text-transform:uppercase; margin-bottom:.35rem;">Would-be standard routing</div>
+                <table class="ds-table" style="font-size:.82rem;">
+                    <thead><tr><th>Seq</th><th>Operation</th><th>WC</th><th style="text-align:right;">Setup (min)</th><th style="text-align:right;">Run / unit (min)</th></tr></thead>
+                    <tbody>
+                        @foreach (var o in p.RoutingOps)
+                        {
+                            <tr>
+                                <td style="font-family:@mono;">@o.Sequence</td>
+                                <td><strong>@o.OperationType</strong> <span style="color:@muted;">@o.Description</span></td>
+                                <td style="font-family:@mono;">#@o.WorkCenterId</td>
+                                <td style="text-align:right; font-family:@mono;">@o.SetupMins.ToString("0.##")</td>
+                                <td style="text-align:right; font-family:@mono;">@o.RunMinsPerUnit.ToString("0.###")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+</section>

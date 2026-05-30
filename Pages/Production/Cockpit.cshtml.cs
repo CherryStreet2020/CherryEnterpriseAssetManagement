@@ -45,6 +45,7 @@ public sealed class CockpitModel : PageModel
     private readonly ICostRollupService _rollupSvc;
     private readonly ICostTransactionService _costTxnSvc;
     private readonly IProductionVarianceCloseService _varianceSvc;
+    private readonly IItemCrystallizationService _crystallization;
     private readonly ILogger<CockpitModel> _logger;
 
     public CockpitModel(
@@ -52,12 +53,14 @@ public sealed class CockpitModel : PageModel
         ICostRollupService rollupSvc,
         ICostTransactionService costTxnSvc,
         IProductionVarianceCloseService varianceSvc,
+        IItemCrystallizationService crystallization,
         ILogger<CockpitModel> logger)
     {
         _cockpit = cockpit;
         _rollupSvc = rollupSvc;
         _costTxnSvc = costTxnSvc;
         _varianceSvc = varianceSvc;
+        _crystallization = crystallization;
         _logger = logger;
     }
 
@@ -101,6 +104,14 @@ public sealed class CockpitModel : PageModel
     /// <summary>Empty-state / status message for the Make/Buy tab when no panel renders.</summary>
     public string? MakeBuyMessage { get; private set; }
 
+    // ----- B7 Wave D PR-3: Crystallization Cockpit panel data (CLOSES B7) -----
+    /// <summary>The read-only crystallization preview for this PRO. Null = nothing to preview.</summary>
+    public CrystallizationCockpitPanelModel? CrystallizationPanel { get; private set; }
+    /// <summary>Empty-state / status message for the Crystallize tab when no panel renders.</summary>
+    public string? CrystallizationMessage { get; private set; }
+    /// <summary>True/error flag so the Crystallize tab can color the last action result.</summary>
+    public bool CrystallizationActionError { get; private set; }
+
     // ----- Tab keys -----
     public const string TabOverview   = "overview";
     public const string TabBom        = "bom";
@@ -115,12 +126,13 @@ public sealed class CockpitModel : PageModel
     public const string TabGenealogy  = "genealogy";
     public const string TabAudit      = "audit";
     public const string TabMakeBuy    = "makebuy";
+    public const string TabCrystallize = "crystallize";
 
     private static readonly string[] KnownTabs =
     {
         TabOverview, TabBom, TabRouting, TabLabor, TabScrap,
         TabInventory, TabCost, TabQuality, TabDocuments,
-        TabSchedule, TabGenealogy, TabAudit, TabMakeBuy
+        TabSchedule, TabGenealogy, TabAudit, TabMakeBuy, TabCrystallize
     };
 
     public string ActiveTab =>
@@ -164,6 +176,18 @@ public sealed class CockpitModel : PageModel
                     + "in Operator view. Switch to Supervisor or Planner mode to see the decision.";
             else
                 await LoadMakeBuyAsync(ct);
+        }
+
+        // B7 Wave D PR-3: Lazy-load the crystallization preview only when its tab is active.
+        // Gated like Cost/Make-Buy — the preview exposes the seeded standard cost, which
+        // Operator mode (HideCostColumns) deliberately hides.
+        if (ActiveTab == TabCrystallize)
+        {
+            if (HideCostColumns)
+                CrystallizationMessage = "Crystallization (seeded standard cost + would-be standard) is hidden "
+                    + "in Operator view. Switch to Supervisor or Planner mode to harvest a standard.";
+            else
+                await LoadCrystallizationAsync(ct);
         }
 
         return Page();
@@ -297,6 +321,7 @@ public sealed class CockpitModel : PageModel
                 new(TabGenealogy, "Genealogy",   "fas fa-sitemap"),
                 new(TabAudit,     "Audit Trail", "fas fa-clock-rotate-left"),
                 new(TabMakeBuy,   "Make/Buy",    "fas fa-scale-balanced"),
+                new(TabCrystallize, "Crystallize", "fas fa-gem"),
             },
         };
     }
@@ -333,6 +358,89 @@ public sealed class CockpitModel : PageModel
             BuyThreshold = p.Data.BuyThreshold,
         };
     }
+
+    // ----- B7 Wave D PR-3: Crystallization panel lazy-loading + write actions (CLOSES B7) -----
+    // Read path: read-only PreviewCrystallizationAsync via IProductionCockpitService (ADR-025 —
+    // the data read lives in the service). Write path (crystallize / reverse) routes through
+    // IItemCrystallizationService directly (a service, not AppDbContext — ADR-025 compliant);
+    // each is user-initiated by an explicit button click and human-confirmed for dedupe.
+    private async Task LoadCrystallizationAsync(CancellationToken ct)
+    {
+        var panel = await _cockpit.GetCrystallizationPanelAsync(Id, ct);
+        if (panel.IsFailure)
+        {
+            CrystallizationMessage = panel.Error;
+            return;
+        }
+
+        var p = panel.Value!;
+        if (p.Data is null)
+        {
+            CrystallizationMessage = p.EmptyReason ?? "Nothing to crystallize for this order.";
+            return;
+        }
+
+        CrystallizationPanel = new CrystallizationCockpitPanelModel { Preview = p.Data.Preview };
+    }
+
+    /// <summary>Crystallize the job into a reusable standard. <paramref name="link"/> confirms a
+    /// dedupe-link to an existing master (decision #3 — never auto-linked); otherwise mints new.</summary>
+    public async Task<IActionResult> OnPostCrystallizeAsync(bool link, int? linkItemId, CancellationToken ct)
+    {
+        var request = link && linkItemId is > 0
+            ? new CrystallizeRequest(Id, Actor(), ConfirmDedupeLink: true, LinkToExistingItemId: linkItemId)
+            : new CrystallizeRequest(Id, Actor(), ForceCreateNew: true);
+
+        var result = await _crystallization.CrystallizeAsync(request, ct);
+        CrystallizationActionError = result.IsFailure;
+        CrystallizationMessage = result.IsSuccess ? result.Value!.Message : result.Error;
+
+        return await ReloadForCrystallizeTabAsync(ct);
+    }
+
+    /// <summary>Reverse the latest crystallization on this PRO. The as-built history is never rewritten.</summary>
+    public async Task<IActionResult> OnPostReverseCrystallizationAsync(string? reason, CancellationToken ct)
+    {
+        var result = await _crystallization.ReverseLatestForProductionOrderAsync(
+            Id,
+            string.IsNullOrWhiteSpace(reason) ? "Reversed from the Production Cockpit." : reason,
+            Actor(), ct);
+        CrystallizationActionError = result.IsFailure;
+        CrystallizationMessage = result.IsSuccess ? result.Value!.Message : result.Error;
+
+        return await ReloadForCrystallizeTabAsync(ct);
+    }
+
+    // Re-hydrate the cockpit shell after a crystallize/reverse write so the page
+    // re-renders on the Crystallize tab with the refreshed preview.
+    private async Task<IActionResult> ReloadForCrystallizeTabAsync(CancellationToken ct)
+    {
+        var actionMsg = CrystallizationMessage;
+        var actionErr = CrystallizationActionError;
+
+        TabKey = TabCrystallize;
+        var result = await _cockpit.GetCockpitDataAsync(Id, ct);
+        if (result.IsFailure)
+        {
+            ErrorMessage = result.Error;
+            return Page();
+        }
+        Data = result.Value;
+        ResolveMode();
+        HydratePageHeader();
+        HydrateKpiBand();
+        HydrateTabShell();
+
+        if (!HideCostColumns)
+            await LoadCrystallizationAsync(ct);
+
+        // Keep the action result message (LoadCrystallizationAsync may have set its own).
+        CrystallizationMessage = actionMsg;
+        CrystallizationActionError = actionErr;
+        return Page();
+    }
+
+    private string Actor() => User.Identity?.Name ?? "cockpit-crystallize";
 
     // ----- Sprint 14.4 PR-5: Cost data lazy-loading -----
     private async Task LoadCostDataAsync(CancellationToken ct)

@@ -420,4 +420,65 @@ public class HybridIntentRouterTests
         Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
         Assert.True(string.IsNullOrEmpty(result.Intent.NaturalKey));
     }
+
+    // ====================================================================
+    // B7 Wave D PR-3 — CrystallizeJobToStandard keyword routing (CLOSES B7)
+    // ====================================================================
+
+    [Fact]
+    public async Task KeywordCrystallize_CrystallizeThisJob_RoutesToCrystallize()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("crystallize this job into a standard", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.CrystallizeJobToStandard, result.Intent.Kind);
+        Assert.Equal(RoutingSource.Keyword, result.Source);
+        // No explicit PRO ref → handler will ask "which job?".
+        Assert.True(string.IsNullOrEmpty(result.Intent.NaturalKey));
+    }
+
+    [Fact]
+    public async Task KeywordCrystallize_ProOrderNumber_ExtractsFullRef()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync(
+            "crystallize order PRO-2026-00042 into a standard", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.CrystallizeJobToStandard, result.Intent.Kind);
+        // The "PRO-" prefix must be preserved (a generic "pro" capture would strip it).
+        Assert.Equal("PRO-2026-00042", result.Intent.NaturalKey);
+    }
+
+    [Fact]
+    public async Task KeywordCrystallize_JobId_ExtractsBareId()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("crystallize job 15 into a standard", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.CrystallizeJobToStandard, result.Intent.Kind);
+        Assert.Equal("15", result.Intent.NaturalKey);
+    }
+
+    [Fact]
+    public async Task KeywordCrystallize_CollisionSafety_MakeBuyStaysMakeBuy()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("why are we buying item 9395", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainMakeBuyDecision, result.Intent.Kind);
+    }
+
+    [Fact]
+    public async Task KeywordCrystallize_CollisionSafety_ExplainReceiptStaysException()
+    {
+        using var db = NewDb();
+        var router = Build(db, new TrackingVoyageStub());
+
+        var result = await router.RouteAsync("explain receipt RCPT-2026-1234", tenantId: 1, CancellationToken.None);
+        Assert.Equal(IntentKind.ExplainException, result.Intent.Kind);
+    }
 }
