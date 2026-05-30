@@ -174,13 +174,16 @@ namespace Abs.FixedAssets.Services.Production
             decimal buyScore = weightSum > 0m ? factors.Sum(f => f.WeightedImpact) / weightSum : 0.5m;
 
             // ── Hard gates (override the score) ─────────────────────────────────
+            // A forced-MAKE item with no routing is still MADE (policy/source-control demands it),
+            // but we flag that it isn't yet producible so a planner adds a routing.
+            const string NoRoutingCaveat = " ⚠ No routing/operations yet — make is not currently feasible; add a routing.";
             MakeBuyOutcome outcome; bool gated = false; string? gateReason = null;
             if (item.IsSourceControlled)
-            { outcome = MakeBuyOutcome.Make; gated = true; gateReason = $"Source-controlled item — must be made in-house{(string.IsNullOrWhiteSpace(item.SourceControlReason) ? "" : $" ({item.SourceControlReason})")}."; }
+            { outcome = MakeBuyOutcome.Make; gated = true; gateReason = $"Source-controlled item — must be made in-house{(string.IsNullOrWhiteSpace(item.SourceControlReason) ? "" : $" ({item.SourceControlReason})")}." + (makeFeasible ? "" : NoRoutingCaveat); }
             else if (!makeAllowed && !buyAllowed)
             { return Result.Failure<MakeBuyDecisionResult>("Item policy allows neither make nor buy."); }
             else if (makeAllowed && !buyAllowed)
-            { outcome = MakeBuyOutcome.Make; gated = true; gateReason = "Policy allows make only."; }
+            { outcome = MakeBuyOutcome.Make; gated = true; gateReason = "Policy allows make only." + (makeFeasible ? "" : NoRoutingCaveat); }
             else if (buyAllowed && !makeAllowed)
             {
                 if (!buyFeasible) return Result.Failure<MakeBuyDecisionResult>("Policy is buy-only but no valid supplier quote exists.");
@@ -213,7 +216,7 @@ namespace Abs.FixedAssets.Services.Production
             {
                 var decision = new MakeBuyDecision
                 {
-                    CompanyId = companyId, SiteIdSnapshot = siteId, ItemId = itemId, Qty = qty, DueDate = dueDate,
+                    CompanyId = companyId, SiteIdSnapshot = siteId, ItemId = itemId, Qty = qty, DueDate = due,
                     DecidedAtUtc = now, Context = context, SourceType = "MakeBuyDecisionService",
                     Outcome = outcome, BuyScore = Math.Round(buyScore, 4), Confidence = Math.Round(confidence, 4),
                     WasHardGated = gated, HardGateReason = gateReason, RationaleText = rationale,
@@ -232,7 +235,7 @@ namespace Abs.FixedAssets.Services.Production
             }
 
             return Result.Success(new MakeBuyDecisionResult(
-                persistedId, itemId, qty, dueDate, outcome, Math.Round(buyScore, 4), Math.Round(confidence, 4),
+                persistedId, itemId, qty, due, outcome, Math.Round(buyScore, 4), Math.Round(confidence, 4),
                 gated, gateReason, rationale, factors,
                 makeCostFull, buyCostLanded, drumCode, drumLoad, routedThroughDrum,
                 makeComplete, vendorDelivery, chosenSupplier, chosenQuote));
