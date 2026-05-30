@@ -189,6 +189,19 @@ public sealed class ProjectContractService : IProjectContractService
             return Result.Failure<AwardResult>(
                 "Cannot award: this quote revision is not approved. Get approval, or award with an authorized override.");
 
+        // The baseline is set ONCE on award. CustomerProject.ContractValue is the
+        // immutable baseline (the amendment model owns later changes — PR-15), so a
+        // second award (this contract again, or another awarded contract on the same
+        // project) must not silently rewrite it (Codex P2).
+        if (contract.Status == ProjectContractStatus.Awarded || contract.AwardedRevisionId != null)
+            return Result.Failure<AwardResult>("This contract has already been awarded.");
+        bool projectAlreadyAwarded = await _db.ProjectContracts.AnyAsync(
+            c => c.CustomerProjectId == contract.CustomerProjectId && c.Id != contract.Id
+                && c.AwardedRevisionId != null, ct);
+        if (projectAlreadyAwarded)
+            return Result.Failure<AwardResult>(
+                "This project already has an awarded contract baseline — use a contract amendment to change the contract value.");
+
         var now = DateTime.UtcNow;
 
         // Winning revision → baseline.

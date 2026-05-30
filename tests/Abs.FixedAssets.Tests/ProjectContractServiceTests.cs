@@ -129,6 +129,33 @@ public sealed class ProjectContractServiceTests
     }
 
     [Fact]
+    public async Task Re_award_after_baseline_set_is_rejected_and_baseline_preserved()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var q = NewQuoteSvc(db);
+        var svc = NewContractSvc(db);
+
+        var rev1 = await SeedSubmittedRevisionAsync(db, q, pid, 250_000m);
+        var cid1 = (await svc.CreateContractAsync(new CreateContractRequest(pid, "CT-A1"))).Value;
+        Assert.True((await svc.AwardQuoteRevisionAsync(new AwardQuoteRevisionRequest(cid1, rev1))).IsSuccess);
+
+        // A later submitted revision on the SAME project must not silently overwrite the baseline.
+        var rev2 = await SeedSubmittedRevisionAsync(db, q, pid, 400_000m);
+        var cid2 = (await svc.CreateContractAsync(new CreateContractRequest(pid, "CT-A2"))).Value;
+        var blocked = await svc.AwardQuoteRevisionAsync(new AwardQuoteRevisionRequest(cid2, rev2));
+        Assert.True(blocked.IsFailure);
+        Assert.Contains("amendment", blocked.Error, StringComparison.OrdinalIgnoreCase);
+
+        var project = await db.CustomerProjects.SingleAsync(p => p.Id == pid);
+        Assert.Equal(250_000m, project.ContractValue);   // original baseline preserved
+
+        // And re-awarding the SAME already-awarded contract is rejected too.
+        var reawardSame = await svc.AwardQuoteRevisionAsync(new AwardQuoteRevisionRequest(cid1, rev1));
+        Assert.True(reawardSame.IsFailure);
+    }
+
+    [Fact]
     public async Task Award_unsubmitted_draft_revision_is_rejected()
     {
         using var db = NewDb();
