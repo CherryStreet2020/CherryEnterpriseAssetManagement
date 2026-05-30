@@ -349,6 +349,14 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectEACSnapshot> ProjectEacSnapshots
             => Set<Abs.FixedAssets.Models.Projects.ProjectEACSnapshot>();
 
+        // B9 Wave 5 PR-14 — billing / invoice / revenue recognition.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectBillingSchedule> ProjectBillingSchedules
+            => Set<Abs.FixedAssets.Models.Projects.ProjectBillingSchedule>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectInvoiceLink> ProjectInvoiceLinks
+            => Set<Abs.FixedAssets.Models.Projects.ProjectInvoiceLink>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectRevenueRecognition> ProjectRevenueRecognitions
+            => Set<Abs.FixedAssets.Models.Projects.ProjectRevenueRecognition>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5840,6 +5848,74 @@ namespace Abs.FixedAssets.Data
                 e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
                 e.HasOne(x => x.Budget).WithMany().HasForeignKey(x => x.ProjectBudgetId).OnDelete(DeleteBehavior.SetNull);
                 e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            // ============================================================
+            // B9 Wave 5 PR-14 — billing / invoice / revenue recognition (CLOSES W5).
+            // ProjectBillingSchedule / ProjectInvoiceLink / ProjectRevenueRecognition.
+            // Children scope THROUGH the project (no CompanyId); each CASCADEs from
+            // the project; milestone + schedule pegs SET NULL (single cascade path).
+            // xmin; enum defaults == model default.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectBillingSchedule>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.Code }).IsUnique()
+                    .HasDatabaseName("ux_projectbillingschedules_project_code");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectbillingschedules_project_status");
+                e.HasIndex(x => x.ProjectMilestoneId)
+                    .HasDatabaseName("ix_projectbillingschedules_milestone")
+                    .HasFilter("\"ProjectMilestoneId\" IS NOT NULL");
+                e.Property(x => x.BillingType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectBillingType.Milestone);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectBillingStatus.Planned);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ProjectMilestone).WithMany().HasForeignKey(x => x.ProjectMilestoneId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectbillingschedules_type_range", "\"BillingType\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectbillingschedules_status_range", "\"Status\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectbillingschedules_amount_nonneg", "\"ScheduledAmount\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectInvoiceLink>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.InvoiceDate })
+                    .HasDatabaseName("ix_projectinvoicelinks_project_date");
+                e.HasIndex(x => x.ProjectBillingScheduleId)
+                    .HasDatabaseName("ix_projectinvoicelinks_schedule")
+                    .HasFilter("\"ProjectBillingScheduleId\" IS NOT NULL");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectInvoiceStatus.Draft);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.BillingSchedule).WithMany(b => b.Invoices).HasForeignKey(x => x.ProjectBillingScheduleId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectinvoicelinks_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectinvoicelinks_amount_nonneg", "\"InvoicedAmount\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectRevenueRecognition>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.RecognitionDate })
+                    .HasDatabaseName("ix_projectrevenuerecognitions_project_date");
+                e.HasIndex(x => x.ProjectBillingScheduleId)
+                    .HasDatabaseName("ix_projectrevenuerecognitions_schedule")
+                    .HasFilter("\"ProjectBillingScheduleId\" IS NOT NULL");
+                e.Property(x => x.Method).HasDefaultValue(Abs.FixedAssets.Models.Projects.RevenueRecognitionMethod.PointInTime);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.BillingSchedule).WithMany().HasForeignKey(x => x.ProjectBillingScheduleId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectrevenuerecognitions_method_range", "\"Method\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectrevenuerecognitions_amount_nonneg", "\"RecognizedAmount\" >= 0");
+                });
             });
 
             // CustomerProject gets the new cockpit-sort indexes. The raw-
