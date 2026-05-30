@@ -57,9 +57,12 @@ public sealed class ProjectCommandCenterServiceTests
         public void SetError(string error) { }
     }
 
-    private static ProjectCommandCenterService NewService(AppDbContext db, params int[] visible) =>
-        new(db, new StubTenantContext { VisibleCompanyIds = visible.ToList() },
-            NullLogger<ProjectCommandCenterService>.Instance);
+    private static ProjectCommandCenterService NewService(AppDbContext db, params int[] visible)
+    {
+        var tenant = new StubTenantContext { VisibleCompanyIds = visible.ToList() };
+        var quotes = new ProjectQuoteService(db, tenant, NullLogger<ProjectQuoteService>.Instance);
+        return new(db, tenant, quotes, NullLogger<ProjectCommandCenterService>.Instance);
+    }
 
     private static async Task<int> SeedProjectAsync(AppDbContext db, int companyId = 1,
         decimal? contractValue = 100_000m, decimal? estCost = 70_000m,

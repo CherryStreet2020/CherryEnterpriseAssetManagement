@@ -285,6 +285,16 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectAmendment> ProjectAmendments
             => Set<Abs.FixedAssets.Models.Projects.ProjectAmendment>();
 
+        // B9 Wave 2 PR-4 — quote-to-cash spine (quote layer).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectRfq> ProjectRfqs
+            => Set<Abs.FixedAssets.Models.Projects.ProjectRfq>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectQuote> ProjectQuotes
+            => Set<Abs.FixedAssets.Models.Projects.ProjectQuote>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectQuoteRevision> ProjectQuoteRevisions
+            => Set<Abs.FixedAssets.Models.Projects.ProjectQuoteRevision>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectQuoteLine> ProjectQuoteLines
+            => Set<Abs.FixedAssets.Models.Projects.ProjectQuoteLine>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5017,6 +5027,99 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ApprovedById)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // ============================================================
+            // B9 Wave 2 PR-4 — quote-to-cash spine (quote layer).
+            // ProjectRfq / ProjectQuote / ProjectQuoteRevision / ProjectQuoteLine.
+            // New tables ⇒ default initializers are safe (no backfill). xmin
+            // concurrency. Enum DB defaults wired to match model defaults
+            // (repo hard-lock). Revisions/lines are tenant-scoped THROUGH their
+            // parent ProjectQuote (RoutingOperation→Routing precedent), so they
+            // carry no CompanyId.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectRfq>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.RfqNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectrfqs_company_rfqnumber");
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectrfqs_customerproject");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectrfqs_status");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectRfqStatus.Open);
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectQuote>(e =>
+            {
+                e.HasIndex(x => new { x.CompanyId, x.QuoteNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectquotes_company_quotenumber");
+                e.HasIndex(x => x.CustomerProjectId)
+                    .HasDatabaseName("ix_projectquotes_customerproject");
+                e.HasIndex(x => x.ProjectRfqId)
+                    .HasDatabaseName("ix_projectquotes_rfq")
+                    .HasFilter("\"ProjectRfqId\" IS NOT NULL");
+                e.HasIndex(x => x.Status).HasDatabaseName("ix_projectquotes_status");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQuoteStatus.Draft);
+                e.Property(x => x.QuoteType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQuoteType.Budgetary);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Company)
+                    .WithMany()
+                    .HasForeignKey(x => x.CompanyId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.CustomerProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Rfq)
+                    .WithMany(r => r.Quotes)
+                    .HasForeignKey(x => x.ProjectRfqId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectQuoteRevision>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectQuoteId, x.RevisionNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectquoterevisions_quote_number");
+                e.HasIndex(x => x.VersionStatus)
+                    .HasDatabaseName("ix_projectquoterevisions_versionstatus");
+                e.Property(x => x.VersionStatus).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQuoteRevisionStatus.Draft);
+                e.Property(x => x.ApprovalStatus).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQuoteApprovalStatus.NotRequired);
+                e.HasOne(x => x.Quote)
+                    .WithMany(q => q.Revisions)
+                    .HasForeignKey(x => x.ProjectQuoteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ApprovedBy)
+                    .WithMany()
+                    .HasForeignKey(x => x.ApprovedById)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectQuoteLine>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectQuoteRevisionId, x.LineNo }).IsUnique()
+                    .HasDatabaseName("ux_projectquotelines_revision_lineno");
+                e.HasIndex(x => x.ItemId)
+                    .HasDatabaseName("ix_projectquotelines_item")
+                    .HasFilter("\"ItemId\" IS NOT NULL");
+                e.HasOne(x => x.Revision)
+                    .WithMany(r => r.Lines)
+                    .HasForeignKey(x => x.ProjectQuoteRevisionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.Item)
+                    .WithMany()
+                    .HasForeignKey(x => x.ItemId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
             });
 
             // CustomerProject gets the new cockpit-sort indexes. The raw-

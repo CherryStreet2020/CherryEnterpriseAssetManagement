@@ -21,12 +21,14 @@ public sealed class ProjectCommandCenterService : IProjectCommandCenterService
 {
     private readonly AppDbContext _db;
     private readonly ITenantContext _tenant;
+    private readonly IProjectQuoteService _quotes;
     private readonly ILogger<ProjectCommandCenterService> _log;
 
     public ProjectCommandCenterService(
-        AppDbContext db, ITenantContext tenant, ILogger<ProjectCommandCenterService> log)
+        AppDbContext db, ITenantContext tenant, IProjectQuoteService quotes,
+        ILogger<ProjectCommandCenterService> log)
     {
-        _db = db; _tenant = tenant; _log = log;
+        _db = db; _tenant = tenant; _quotes = quotes; _log = log;
     }
 
     public async Task<Result<ProjectCommandCenterData>> GetCommandCenterAsync(
@@ -105,9 +107,14 @@ public sealed class ProjectCommandCenterService : IProjectCommandCenterService
             ? (int)(p.ProjectedEndDate.Value.Date - p.TargetEndDate.Value.Date).TotalDays
             : (int?)null;
 
+        // ── Quotes (B9 Wave 2 PR-4) — answers "What did we quote?" with live data ──
+        IReadOnlyList<ProjectQuoteSummary> quotes = System.Array.Empty<ProjectQuoteSummary>();
+        var quotesResult = await _quotes.GetQuotesForProjectAsync(customerProjectId, ct);
+        if (quotesResult.IsSuccess && quotesResult.Value is { } qv) quotes = qv;
+
         var questions = BuildQuestions(p.ContractValue, p.CustomerPoNumber, effectiveContract,
             p.Currency, amRollup, jobs, phaseCount, daysLate, projectedMargin, projectedMarginPct,
-            p.EstimatedTotalCost, p.ProjectManagerName);
+            p.EstimatedTotalCost, p.ProjectManagerName, quotes);
 
         var data = new ProjectCommandCenterData(
             ProjectId: p.Id, Code: p.Code, Name: p.Name, Status: p.Status, Mode: p.Mode,
@@ -131,14 +138,40 @@ public sealed class ProjectCommandCenterService : IProjectCommandCenterService
     private static IReadOnlyList<CommandCenterQuestion> BuildQuestions(
         decimal? contractValue, string? customerPo, decimal? effectiveContract, string currency,
         ProjectAmendmentRollup am, ProjectJobRollup jobs, int phaseCount, int? daysLate,
-        decimal? projectedMargin, decimal? projectedMarginPct, decimal? estTotalCost, string? pm)
+        decimal? projectedMargin, decimal? projectedMarginPct, decimal? estTotalCost, string? pm,
+        IReadOnlyList<ProjectQuoteSummary> quotes)
     {
         string Money(decimal v) => $"{currency} {v:N0}";
 
+        // "What did we quote?" — answered from the B9 W2 quote spine.
+        var submitted = quotes.Where(q => q.LatestSubmittedTotalPrice.HasValue).ToList();
+        string quoteAnswer;
+        CommandCenterAnswerState quoteState;
+        if (quotes.Count == 0)
+        {
+            quoteAnswer = "No quotes recorded for this project yet.";
+            quoteState = CommandCenterAnswerState.Pending;
+        }
+        else if (submitted.Count == 0)
+        {
+            quoteAnswer = $"{quotes.Count} quote(s) in draft — none submitted to the customer yet.";
+            quoteState = CommandCenterAnswerState.Attention;
+        }
+        else
+        {
+            // The actual LATEST submitted quote = newest submission date (Codex P2),
+            // tie-broken by quote id so the result is deterministic.
+            var top = submitted
+                .OrderByDescending(q => q.LatestSubmittedDate)
+                .ThenByDescending(q => q.QuoteId)
+                .First();
+            quoteAnswer = $"{quotes.Count} quote(s); latest submitted: {top.QuoteNumber} Rev {top.LatestSubmittedRevisionLabel} at {top.Currency} {top.LatestSubmittedTotalPrice!.Value:N0}.";
+            quoteState = CommandCenterAnswerState.Answered;
+        }
+
         var list = new List<CommandCenterQuestion>
         {
-            // Wave 2 — quote spine not built yet
-            new("What did we quote?", "Quote versioning lands in Wave 2.", CommandCenterAnswerState.Pending, "Wave 2"),
+            new("What did we quote?", quoteAnswer, quoteState),
 
             // Answerable from header today
             new("What did the customer buy?",
