@@ -15,16 +15,19 @@ namespace Abs.FixedAssets.Pages.CustomerProjects;
 public sealed class CommandCenterModel : PageModel
 {
     private readonly IProjectCommandCenterService _commandCenter;
+    private readonly IProjectPromiseService _promise;
 
-    public CommandCenterModel(IProjectCommandCenterService commandCenter)
+    public CommandCenterModel(IProjectCommandCenterService commandCenter, IProjectPromiseService promise)
     {
         _commandCenter = commandCenter;
+        _promise = promise;
     }
 
     [BindProperty(SupportsGet = true)]
     public int Id { get; set; }
 
     public ProjectCommandCenterData? Data { get; private set; }
+    public ProjectPromiseAssessment? Promise { get; private set; }
     public string? ErrorMessage { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken ct)
@@ -35,6 +38,11 @@ public sealed class CommandCenterModel : PageModel
         if (result.IsFailure) { ErrorMessage = result.Error; return Page(); }
 
         Data = result.Value;
+
+        // B9 PR-2 — the "can we still hit the promise?" verdict (best-effort).
+        var promise = await _promise.EvaluateAsync(Id, ct);
+        if (promise.IsSuccess) Promise = promise.Value;
+
         return Page();
     }
 }

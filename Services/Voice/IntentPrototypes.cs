@@ -96,5 +96,13 @@ public static class IntentPrototypes
         new IntentPrototype(IntentKind.CrystallizeJobToStandard, "promote this finished job to a standard item"),
         new IntentPrototype(IntentKind.CrystallizeJobToStandard, "turn this one-off build into a reusable standard"),
         new IntentPrototype(IntentKind.CrystallizeJobToStandard, "save this job as a standard master"),
+
+        // ProjectPromiseStatus — B9 Wave 1 PR-2. "Can we still hit the customer
+        // promise?" verdict. Vector prototypes cover business-fluent paraphrasings.
+        new IntentPrototype(IntentKind.ProjectPromiseStatus, "can we still hit the promise on project PRJ-001"),
+        new IntentPrototype(IntentKind.ProjectPromiseStatus, "are we on track to deliver this project on time"),
+        new IntentPrototype(IntentKind.ProjectPromiseStatus, "will we make the customer deadline on this program"),
+        new IntentPrototype(IntentKind.ProjectPromiseStatus, "is the project going to ship on time"),
+        new IntentPrototype(IntentKind.ProjectPromiseStatus, "what is the delivery risk on project DEMO-COO-PROJ-001"),
     };
 }

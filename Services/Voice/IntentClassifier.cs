@@ -48,6 +48,12 @@ public enum IntentKind
     // (read-only) and narrates the would-be Item + dedupe match + seeded cost,
     // then points the user to the cockpit Crystallize tab to confirm the mint.
     CrystallizeJobToStandard,
+
+    // B9 Wave 1 PR-2 — "can we still hit the promise on project X", "are we on
+    // track to deliver PRJ-001", "will we make the deadline". Resolves the project
+    // and narrates the Green/Yellow/Red/Black promise verdict + top reasons via
+    // IProjectPromiseService.EvaluateByRefAsync.
+    ProjectPromiseStatus,
 }
 
 public sealed record ParsedIntent(IntentKind Kind, string? NaturalKey);
@@ -105,6 +111,12 @@ public static class IntentClassifier
         @"\b(?:production\s*order|work\s*order|order|job)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,39})\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // B9 Wave 1 PR-2 — explicit "project/program X" reference. The captured token is a
+    // project Code or Id that IProjectPromiseService.EvaluateByRefAsync resolves.
+    private static readonly Regex ProjectRefPattern = new Regex(
+        @"\b(?:customer\s*project|project|program|proj)\s*[-:#]?\s*([A-Za-z0-9][A-Za-z0-9\-]{0,49})\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     public static ParsedIntent Classify(string raw)
     {
         var s = raw.ToLowerInvariant();
@@ -123,6 +135,16 @@ public static class IntentClassifier
         {
             var key = ExtractProductionOrderRef(raw);
             return new ParsedIntent(IntentKind.CrystallizeJobToStandard, key);
+        }
+
+        // PROJECT PROMISE intents (B9 Wave 1 PR-2) — "can we still hit the promise
+        // on project X", "are we on track to deliver PRJ-001", "will we make the
+        // deadline". Distinctive promise/deadline/on-track phrasing; placed before
+        // make-buy / chain-trace so "are we …" promise questions route here.
+        if (IsProjectPromiseQuery(s))
+        {
+            var key = ExtractProjectRef(raw);
+            return new ParsedIntent(IntentKind.ProjectPromiseStatus, key);
         }
 
         // CHAIN-OF-CUSTODY intents — must come before EXPLAIN so "trace
@@ -339,6 +361,46 @@ public static class IntentClassifier
         }
 
         // 3) No explicit grammar — a bare integer ("crystallize 15").
+        var bi = BareIntegerPattern.Match(raw);
+        return bi.Success ? bi.Groups[1].Value : null;
+    }
+
+    // B9 Wave 1 PR-2 — true when the utterance asks whether the customer promise /
+    // delivery date will be met. Requires distinctive promise/deadline/on-track
+    // phrasing so it doesn't swallow generic "are we …" questions.
+    private static bool IsProjectPromiseQuery(string s)
+    {
+        var promiseSignal = s.Contains("hit the promise") || s.Contains("customer promise")
+            || s.Contains("hit the deadline") || s.Contains("make the deadline")
+            || s.Contains("miss the deadline") || s.Contains("hit the date")
+            || s.Contains("hit the delivery") || s.Contains("on time")
+            || s.Contains("on track") || s.Contains("ship on time") || s.Contains("deliver on time")
+            || s.Contains("hit the schedule") || s.Contains("hit the target");
+        if (!promiseSignal) return false;
+        // Anchor to a project/delivery context so an unrelated "on track" doesn't fire.
+        return s.Contains("project") || s.Contains("program") || s.Contains("proj")
+            || s.Contains("promise") || s.Contains("deadline") || s.Contains("deliver")
+            || s.Contains("delivery") || s.Contains("ship");
+    }
+
+    /// <summary>
+    /// B9 Wave 1 PR-2 — extract the project reference (project Code or Id) from a
+    /// promise utterance. Explicit "project/program X" grammar first (return the first
+    /// identifier-looking token; null if explicit matches are all filler), else a bare
+    /// integer. Public for the vector-fallback re-extract path.
+    /// </summary>
+    public static string? ExtractProjectRef(string raw)
+    {
+        var explicitMatches = ProjectRefPattern.Matches(raw);
+        if (explicitMatches.Count > 0)
+        {
+            foreach (Match em in explicitMatches)
+            {
+                var token = em.Groups[1].Value;
+                if (LooksLikeItemId(token)) return token;
+            }
+            return null;
+        }
         var bi = BareIntegerPattern.Match(raw);
         return bi.Success ? bi.Groups[1].Value : null;
     }

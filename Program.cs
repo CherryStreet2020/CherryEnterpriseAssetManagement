@@ -223,6 +223,9 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.ICustomerProjectSer
 // B9 Wave 1 PR-1 — read-only Project Command Center aggregation (the BIC money-shot).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectCommandCenterService,
     Abs.FixedAssets.Services.Projects.ProjectCommandCenterService>();
+// B9 Wave 1 PR-2 — "Can we still hit the promise?" verdict engine.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectPromiseService,
+    Abs.FixedAssets.Services.Projects.ProjectPromiseService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
