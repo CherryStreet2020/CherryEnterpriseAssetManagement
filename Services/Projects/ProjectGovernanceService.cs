@@ -289,6 +289,23 @@ public sealed class ProjectGovernanceService : IProjectGovernanceService
                 m => m.Id == req.ProjectMeetingId.Value && m.CustomerProjectId == req.CustomerProjectId, ct))
             return Result.Failure<int>($"Meeting {req.ProjectMeetingId} is not in this project.");
 
+        // Tenant-scope the polymorphic source tag too (Codex P2): a Risk/Issue/
+        // Decision/Meeting-sourced action must reference a row in THIS project,
+        // never another project's/tenant's id (RAID traceability + no id leak).
+        if (req.Source != ProjectActionSource.Manual && req.SourceId.HasValue)
+        {
+            var sid = req.SourceId.Value; var pid = req.CustomerProjectId;
+            bool sourceOk = req.Source switch
+            {
+                ProjectActionSource.Risk => await _db.ProjectRisks.AnyAsync(x => x.Id == sid && x.CustomerProjectId == pid, ct),
+                ProjectActionSource.Issue => await _db.ProjectIssues.AnyAsync(x => x.Id == sid && x.CustomerProjectId == pid, ct),
+                ProjectActionSource.Decision => await _db.ProjectDecisions.AnyAsync(x => x.Id == sid && x.CustomerProjectId == pid, ct),
+                ProjectActionSource.Meeting => await _db.ProjectMeetings.AnyAsync(x => x.Id == sid && x.CustomerProjectId == pid, ct),
+                _ => true
+            };
+            if (!sourceOk) return Result.Failure<int>($"Action source {req.Source} #{sid} is not in this project.");
+        }
+
         var n = (await _db.ProjectActionItems.Where(x => x.CustomerProjectId == req.CustomerProjectId)
             .MaxAsync(x => (int?)x.ActionNumber, ct) ?? 0) + 1;
         var a = new ProjectActionItem

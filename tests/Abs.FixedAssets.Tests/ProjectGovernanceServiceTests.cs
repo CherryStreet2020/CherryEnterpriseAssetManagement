@@ -168,6 +168,24 @@ public sealed class ProjectGovernanceServiceTests
     }
 
     [Fact]
+    public async Task ActionItem_rejects_source_id_from_another_project()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var otherPid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        // A risk in ANOTHER project — must not be accepted as this action's source.
+        var foreignRisk = (await svc.CreateRiskAsync(new CreateRiskRequest(otherPid, "foreign"))).Value;
+        var res = await svc.CreateActionItemAsync(new CreateActionItemRequest(
+            pid, "do", Source: ProjectActionSource.Risk, SourceId: foreignRisk));
+        Assert.False(res.IsSuccess);
+        // A risk in THIS project is accepted.
+        var ownRisk = (await svc.CreateRiskAsync(new CreateRiskRequest(pid, "own"))).Value;
+        Assert.True((await svc.CreateActionItemAsync(new CreateActionItemRequest(
+            pid, "do", Source: ProjectActionSource.Risk, SourceId: ownRisk))).IsSuccess);
+    }
+
+    [Fact]
     public async Task CompleteActionItem_stamps_completion_and_is_terminal()
     {
         using var db = NewDb();
