@@ -274,6 +274,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectBillingServ
 // §20 gate (no applied customer scope change before its approval clears).
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectChangeService,
     Abs.FixedAssets.Services.Projects.ProjectChangeService>();
+// B9 Wave 6 PR-16 — governance: the RAID log (risks/issues/actions/decisions)
+// + meetings/minutes, tenant-scoped through the project and cross-linked to
+// the WBS phases + change requests.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectGovernanceService,
+    Abs.FixedAssets.Services.Projects.ProjectGovernanceService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /
