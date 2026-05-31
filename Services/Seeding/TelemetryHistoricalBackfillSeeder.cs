@@ -159,6 +159,17 @@ namespace Abs.FixedAssets.Services.Seeding
             var ingestedAt = now;
             var unitFallback = (short)Uom.Percent; // safety default
 
+            // SensorEvents.Id has no reliable store-generated default on every
+            // environment: the TimescaleDB removal (Lock-14) was applied directly
+            // to the dev/prod databases OUTSIDE EF migrations and dropped the
+            // original BIGSERIAL default, so a COPY that omits Id inserts NULL →
+            // 23502 → the whole COPY rolls back on every boot (the 2026-05-31
+            // outage). We therefore write Id EXPLICITLY (seeded from MAX+1),
+            // which is robust whether or not the live column still has a sequence
+            // default. After the COPY we advance any owned sequence so live
+            // inserts can't collide with the explicit ids (no-op where dropped).
+            long nextId = await GetMaxSensorEventIdAsync(conn, ct) + 1;
+
             // Track latest value per (assetId, readingType) for AssetSensorLatest upsert.
             var latestPerKey = new Dictionary<(int assetId, SensorReadingType), (decimal value, short unit, DateTime readingAt, bool isOutOfSpec, string tone)>();
 
@@ -166,7 +177,7 @@ namespace Abs.FixedAssets.Services.Seeding
             {
                 using var importer = conn.BeginBinaryImport(
                     "COPY \"SensorEvents\" (" +
-                    "\"AssetId\", \"AssetSensorChannelId\", \"ReadingType\", \"Value\", \"Unit\", " +
+                    "\"Id\", \"AssetId\", \"AssetSensorChannelId\", \"ReadingType\", \"Value\", \"Unit\", " +
                     "\"ReadingAt\", \"IngestedAt\", \"Source\", \"SourceZone\", \"QualityCode\", " +
                     "\"OpcQualityByte\", \"IsOutOfSpec\", \"SchemaVersion\", \"CorrelationId\"" +
                     ") FROM STDIN (FORMAT BINARY)");
@@ -198,6 +209,7 @@ namespace Abs.FixedAssets.Services.Seeding
                             bool isOutOfSpec = IsOutOfSpec(value, profile.CriticalThreshold, profile.BreachOnHighSide);
 
                             importer.StartRow();
+                            importer.Write(nextId++, NpgsqlDbType.Bigint);                 // Id (explicit — see note above)
                             importer.Write(asset.Id, NpgsqlDbType.Integer);
                             importer.WriteNull();                                          // AssetSensorChannelId
                             importer.Write((int)profile.ReadingType, NpgsqlDbType.Integer);
@@ -237,6 +249,7 @@ namespace Abs.FixedAssets.Services.Seeding
                                 bool isOutOfSpec = IsOutOfSpec(value, profile.CriticalThreshold, profile.BreachOnHighSide);
 
                                 importer.StartRow();
+                                importer.Write(nextId++, NpgsqlDbType.Bigint);             // Id (explicit — see note above)
                                 importer.Write(asset.Id, NpgsqlDbType.Integer);
                                 importer.WriteNull();
                                 importer.Write((int)profile.ReadingType, NpgsqlDbType.Integer);
@@ -265,6 +278,11 @@ namespace Abs.FixedAssets.Services.Seeding
                 }
 
                 importer.Complete();
+
+                // If this environment still has an owned sequence on Id, advance
+                // it past the explicit ids we just wrote so future EF inserts
+                // don't collide. No-op where the BIGSERIAL default was dropped.
+                await AdvanceSensorEventSequenceAsync(conn, nextId - 1, ct);
             }
             catch (Exception ex)
             {
@@ -331,6 +349,43 @@ namespace Abs.FixedAssets.Services.Seeding
                 latestRowsUpserted);
 
             return totalRows;
+        }
+
+        // Reads the current MAX(Id) so the explicit-id COPY continues past any
+        // existing rows. Raw SQL on the open Npgsql connection (no EF tracking).
+        private static async Task<long> GetMaxSensorEventIdAsync(NpgsqlConnection conn, CancellationToken ct)
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COALESCE(MAX(\"Id\"), 0) FROM \"SensorEvents\";";
+            var result = await cmd.ExecuteScalarAsync(ct);
+            return result is null or DBNull ? 0L : Convert.ToInt64(result);
+        }
+
+        // Advances the Id column's owned sequence past maxId IF one exists, so a
+        // later EF/telemetry insert (which relies on the sequence default) cannot
+        // collide with the explicit ids written by this backfill. Where the
+        // default was dropped (prod after the manual TimescaleDB removal),
+        // pg_get_serial_sequence returns NULL and this is a no-op. Non-fatal.
+        private async Task AdvanceSensorEventSequenceAsync(NpgsqlConnection conn, long maxId, CancellationToken ct)
+        {
+            try
+            {
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText =
+                    "SELECT setval(seq, @maxId, true) " +
+                    "FROM pg_get_serial_sequence('\"SensorEvents\"', 'Id') AS seq " +
+                    "WHERE seq IS NOT NULL;";
+                var p = cmd.CreateParameter();
+                p.ParameterName = "maxId";
+                p.Value = maxId;
+                cmd.Parameters.Add(p);
+                await cmd.ExecuteNonQueryAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "TelemetryHistoricalBackfillSeeder: could not advance the Id sequence (non-fatal).");
+            }
         }
 
         // ---- Value generation ----
