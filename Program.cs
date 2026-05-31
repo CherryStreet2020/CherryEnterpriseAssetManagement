@@ -284,6 +284,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectGovernanceS
 // a RevenueTrigger acceptance flips the PR-14 billing AcceptanceConfirmed gate.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQualityService,
     Abs.FixedAssets.Services.Projects.ProjectQualityService>();
+// B9 Wave 6 PR-18 (CLOSES B9) — service handoff + warranty + the data-driven
+// AI project review. The closeout gate (unsigned handoff blocks project close)
+// is also enforced in CustomerProjectService.UpdateStatusAsync.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectServiceService,
+    Abs.FixedAssets.Services.Projects.ProjectServiceService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

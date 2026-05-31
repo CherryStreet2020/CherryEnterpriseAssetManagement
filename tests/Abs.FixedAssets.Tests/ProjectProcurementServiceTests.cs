@@ -191,6 +191,26 @@ public sealed class ProjectProcurementServiceTests
     }
 
     [Fact]
+    public async Task Close_project_blocked_by_unsigned_service_handoff()
+    {
+        // B9 Wave 6 PR-18 — the equipment closeout gate is enforced on THIS path too.
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        db.Set<Abs.FixedAssets.Models.Projects.ProjectServiceHandoff>().Add(
+            new Abs.FixedAssets.Models.Projects.ProjectServiceHandoff
+            {
+                CustomerProjectId = pid, HandoffNumber = 1, Title = "unsigned",
+                Status = Abs.FixedAssets.Models.Projects.ProjectHandoffStatus.Draft,
+            });
+        await db.SaveChangesAsync();
+
+        var res = await svc.CloseProjectAsync(new CloseProjectRequest(pid));
+        Assert.True(res.IsFailure);
+        Assert.Contains("signed off", res.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Close_project_succeeds_with_waiver()
     {
         using var db = NewDb();
