@@ -1434,20 +1434,30 @@ using (var scope = app.Services.CreateScope())
     // daily cycle, weekend dip, noise, occasional out-of-spec spikes,
     // storyline rising trends.
     //
-    // Idempotent — skips if SensorEvents already has > 1000 rows so
-    // subsequent restarts don't re-seed. Wrapped in try/catch so a
-    // seeder failure can never block app startup.
-    try
+    // Idempotent — skips once SensorEvents is populated.
+    //
+    // 🔴 2026-05-31 OUTAGE FIX: this backfill bulk-COPYs millions of rows and
+    // MUST NOT run on the synchronous startup/readiness path. Awaiting it here
+    // blocked boot until the multi-million-row COPY finished (or failed), which
+    // tripped the autoscale health checks and caused a restart-loop outage
+    // (83% uptime). Run it FIRE-AND-FORGET on a background task with its OWN DI
+    // scope (the outer `scope` disposes when this using-block exits), so startup
+    // completes immediately. Failures are logged, never fatal.
+    _ = Task.Run(async () =>
     {
-        var backfillSeeder = scope.ServiceProvider
-            .GetRequiredService<Abs.FixedAssets.Services.Seeding.ITelemetryHistoricalBackfillSeeder>();
-        var rows = await backfillSeeder.SeedAsync();
-        Console.WriteLine($"[Startup] Telemetry historical backfill: {rows} SensorEvent rows seeded");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[Startup] WARNING: Telemetry historical backfill failed: {ex.Message}");
-    }
+        try
+        {
+            using var bgScope = app.Services.CreateScope();
+            var backfillSeeder = bgScope.ServiceProvider
+                .GetRequiredService<Abs.FixedAssets.Services.Seeding.ITelemetryHistoricalBackfillSeeder>();
+            var rows = await backfillSeeder.SeedAsync();
+            Console.WriteLine($"[Startup/bg] Telemetry historical backfill: {rows} SensorEvent rows seeded");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Startup/bg] WARNING: Telemetry historical backfill failed: {ex.Message}");
+        }
+    });
 
     // PR #119.2 — WorkOrderFieldVisibility seeder (ADR-012 v0.2 config backbone).
     //
