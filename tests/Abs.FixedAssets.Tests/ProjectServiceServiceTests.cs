@@ -96,6 +96,22 @@ public sealed class ProjectServiceServiceTests
     }
 
     [Fact]
+    public async Task SignedOff_handoff_cannot_reopen_only_close()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        var id = (await svc.CreateServiceHandoffAsync(new CreateServiceHandoffRequest(pid, "h"))).Value;
+        await svc.UpdateHandoffProgressAsync(new UpdateHandoffProgressRequest(id, StartupChecklistComplete: true, TrainingCompleted: true));
+        await svc.SignOffHandoffAsync(new SignOffHandoffRequest(id, "Weir"));
+        // backward transitions blocked
+        Assert.False((await svc.TransitionHandoffAsync(id, ProjectHandoffStatus.Draft)).IsSuccess);
+        Assert.False((await svc.TransitionHandoffAsync(id, ProjectHandoffStatus.Commissioned)).IsSuccess);
+        // only Closed is allowed
+        Assert.True((await svc.TransitionHandoffAsync(id, ProjectHandoffStatus.Closed)).IsSuccess);
+    }
+
+    [Fact]
     public async Task Handoff_numbers_per_project_and_scopes_phase()
     {
         using var db = NewDb();

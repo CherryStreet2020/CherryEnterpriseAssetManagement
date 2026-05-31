@@ -17,8 +17,10 @@ FILES=(
   "Services/Projects/IProjectServiceService.cs"
   "Services/Projects/ProjectServiceService.cs"
   "Services/Projects/CustomerProjectService.cs"
+  "Services/Projects/ProjectProcurementService.cs"
   "Services/Seeding/CooMotionDemoSeeder.cs"
   "Program.cs"
   "tests/Abs.FixedAssets.Tests/ProjectServiceServiceTests.cs"
+  "tests/Abs.FixedAssets.Tests/ProjectProcurementServiceTests.cs"
   ".ship/configs/pr472-b9-w6-pr18-service-warranty.sh"
 )

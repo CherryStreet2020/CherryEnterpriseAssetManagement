@@ -176,6 +176,11 @@ public sealed class ProjectServiceService : IProjectServiceService
         // Sign-off goes through SignOffHandoffAsync so its gate + stamps apply.
         if (newStatus == ProjectHandoffStatus.SignedOff)
             return Result.Failure<ProjectServiceHandoff>("Use SignOffHandoff to sign off (it enforces the checklist/training gate).");
+        // A signed-off handoff is set-once: it can only go on to Closed, never
+        // reopen to Draft/Commissioned (Codex P2 — that would reopen a signed
+        // customer handoff while its sign-off stamps stay populated).
+        if (h.Status == ProjectHandoffStatus.SignedOff && newStatus != ProjectHandoffStatus.Closed)
+            return Result.Failure<ProjectServiceHandoff>("A signed-off handoff cannot reopen; it can only be Closed.");
         // Cannot close a handoff that was never signed off.
         if (newStatus == ProjectHandoffStatus.Closed && h.Status != ProjectHandoffStatus.SignedOff)
             return Result.Failure<ProjectServiceHandoff>("Cannot close a handoff before it is signed off.");
