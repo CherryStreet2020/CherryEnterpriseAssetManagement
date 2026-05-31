@@ -279,6 +279,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectChangeServi
 // the WBS phases + change requests.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectGovernanceService,
     Abs.FixedAssets.Services.Projects.ProjectGovernanceService>();
+// B9 Wave 6 PR-17 — quality + acceptance: inspections/NCR/MRB/punch + the §22.4
+// acceptance gate (no accept while open blocking NCR/pending MRB/blocking punch);
+// a RevenueTrigger acceptance flips the PR-14 billing AcceptanceConfirmed gate.
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQualityService,
+    Abs.FixedAssets.Services.Projects.ProjectQualityService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

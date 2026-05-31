@@ -375,6 +375,18 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectDecision> ProjectDecisions
             => Set<Abs.FixedAssets.Models.Projects.ProjectDecision>();
 
+        // B9 Wave 6 PR-17 — quality + acceptance (inspection/NCR/MRB/punch/acceptance).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectInspection> ProjectInspections
+            => Set<Abs.FixedAssets.Models.Projects.ProjectInspection>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectNCR> ProjectNCRs
+            => Set<Abs.FixedAssets.Models.Projects.ProjectNCR>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectMRB> ProjectMRBs
+            => Set<Abs.FixedAssets.Models.Projects.ProjectMRB>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectPunchItem> ProjectPunchItems
+            => Set<Abs.FixedAssets.Models.Projects.ProjectPunchItem>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectAcceptance> ProjectAcceptances
+            => Set<Abs.FixedAssets.Models.Projects.ProjectAcceptance>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -6120,6 +6132,127 @@ namespace Abs.FixedAssets.Data
                 });
             });
 
+            // ============================================================
+            // B9 Wave 6 PR-17 — quality + acceptance. Tenant-scoped THROUGH the
+            // project (no CompanyId); CASCADE from the project; cross-entity pegs
+            // (phase / inspection / NCR) SET NULL = one cascade path per row;
+            // xmin; enum DB defaults == 0-member model defaults.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectInspection>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.InspectionNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectinspections_project_number");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectinspections_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.Property(x => x.InspectionType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectInspectionType.InProcess);
+                e.Property(x => x.Result).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectInspectionResult.Pending);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectinspections_number_pos", "\"InspectionNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectinspections_type_range", "\"InspectionType\" BETWEEN 0 AND 6");
+                    t.HasCheckConstraint("ck_projectinspections_result_range", "\"Result\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectinspections_qty_nonneg", "\"QuantityInspected\" >= 0 AND \"QuantityAccepted\" >= 0 AND \"QuantityRejected\" >= 0");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectNCR>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.NcrNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectncrs_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectncrs_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectncrs_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.LinkedInspectionId)
+                    .HasDatabaseName("ix_projectncrs_inspection").HasFilter("\"LinkedInspectionId\" IS NOT NULL");
+                e.Property(x => x.Source).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectNcrSource.Internal);
+                e.Property(x => x.Severity).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectNcrSeverity.Minor);
+                e.Property(x => x.Disposition).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQualityDisposition.Pending);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectNcrStatus.Open);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedInspection).WithMany().HasForeignKey(x => x.LinkedInspectionId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectncrs_number_pos", "\"NcrNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectncrs_source_range", "\"Source\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectncrs_severity_range", "\"Severity\" BETWEEN 0 AND 2");
+                    t.HasCheckConstraint("ck_projectncrs_disposition_range", "\"Disposition\" BETWEEN 0 AND 6");
+                    t.HasCheckConstraint("ck_projectncrs_status_range", "\"Status\" BETWEEN 0 AND 3");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectMRB>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.MrbNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectmrbs_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectmrbs_project_status");
+                e.HasIndex(x => x.LinkedNcrId)
+                    .HasDatabaseName("ix_projectmrbs_ncr").HasFilter("\"LinkedNcrId\" IS NOT NULL");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectmrbs_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.Property(x => x.Disposition).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectQualityDisposition.Pending);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectMrbStatus.Pending);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.LinkedNcr).WithMany().HasForeignKey(x => x.LinkedNcrId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectmrbs_number_pos", "\"MrbNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectmrbs_disposition_range", "\"Disposition\" BETWEEN 0 AND 6");
+                    t.HasCheckConstraint("ck_projectmrbs_status_range", "\"Status\" BETWEEN 0 AND 2");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectPunchItem>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.PunchNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectpunchitems_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectpunchitems_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectpunchitems_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.Property(x => x.Priority).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectPriority.Low);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectPunchStatus.Open);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectpunchitems_number_pos", "\"PunchNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectpunchitems_priority_range", "\"Priority\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectpunchitems_status_range", "\"Status\" BETWEEN 0 AND 4");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectAcceptance>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.AcceptanceNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectacceptances_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectacceptances_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectacceptances_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.Property(x => x.AcceptanceType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectAcceptanceType.Customer);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectAcceptanceStatus.Pending);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectacceptances_number_pos", "\"AcceptanceNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectacceptances_type_range", "\"AcceptanceType\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectacceptances_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectacceptances_qty_nonneg", "\"AcceptedQuantity\" >= 0 AND \"RejectedQuantity\" >= 0");
+                });
+            });
+
             // CustomerProject gets the new cockpit-sort indexes. The raw-
             // SQL migration creates them with the cockpit filter; this
             // declaration tells EF they exist so .Include / sort hints
@@ -7948,6 +8081,19 @@ namespace Abs.FixedAssets.Data
                         propertyName == "minutes" ||
                         propertyName.Contains("alternativesconsidered") ||
                         propertyName == "impact" ||
+                        // B9 Wave 6 PR-17 — case-preserve quality/acceptance prose
+                        // (containment / board members / justification / completion
+                        // evidence / acceptance criteria + documents / inspection
+                        // result / acceptedby stamp). Same convention as the RAID
+                        // prose above.
+                        propertyName.Contains("containmentaction") ||
+                        propertyName.Contains("boardmembers") ||
+                        propertyName.Contains("justification") ||
+                        propertyName.Contains("completionevidence") ||
+                        propertyName.Contains("requiredcriteria") ||
+                        propertyName.Contains("requireddocuments") ||
+                        propertyName.Contains("inspectionresult") ||
+                        propertyName.Contains("acceptedby") ||
                         propertyName.Contains("beforevalue") ||
                         propertyName.Contains("aftervalue") ||
                         propertyName.Contains("decisionnotes") ||

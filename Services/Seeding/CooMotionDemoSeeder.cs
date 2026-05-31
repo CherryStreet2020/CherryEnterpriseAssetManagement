@@ -303,6 +303,10 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // surface has live data (risk/issue/action/decision/meeting).
             await TryEnsureDemoGovernanceAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 6 PR-17 — ensure a demo quality bundle (inspection / NCR /
+            // MRB / punch / pending acceptance) so the acceptance gate has data.
+            await TryEnsureDemoQualityAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -501,6 +505,7 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         await TryEnsureDemoBillingAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoChangeControlAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoGovernanceAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoQualityAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -1147,6 +1152,80 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             Impact = "Accepts the supplier risk above in exchange for schedule; revisit for the next program.",
             Status = ProjectDecisionStatus.Approved, AffectedPhaseId = phaseId, LinkedChangeRequestId = crId,
             CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task TryEnsureDemoQualityAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoQualityAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo quality seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoQualityAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any inspection already exists, skip the bundle.
+        if (await _db.Set<ProjectInspection>().AnyAsync(x => x.CustomerProjectId == projectId, ct)) return;
+
+        var phaseId = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId).OrderBy(p => p.Id)
+            .Select(p => (int?)p.Id).FirstOrDefaultAsync(ct);
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // A failed first-article inspection that spawned an NCR.
+        var fai = new ProjectInspection
+        {
+            CustomerProjectId = projectId, InspectionNumber = 1,
+            Title = "AS9102 first article — bracket frame Rev B2",
+            InspectionType = ProjectInspectionType.FirstArticle, Result = ProjectInspectionResult.Fail,
+            InspectionDate = D(2026, 6, 3), Inspector = "Quality Lead", QuantityInspected = 1, QuantityAccepted = 0,
+            QuantityRejected = 1, ReportReference = "FAI-2026-0042", AffectedPhaseId = phaseId,
+            CompletedAt = D(2026, 6, 3), CompletedBy = "Quality Lead", CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectInspection>().Add(fai);
+        await _db.SaveChangesAsync(ct);
+
+        // The NCR off that failed FAI — open + blocking shipment (one bore Ø out of tol).
+        var ncr = new ProjectNCR
+        {
+            CustomerProjectId = projectId, NcrNumber = 1, Title = "Bore Ø2.500 +.0005/-0 out of tolerance on FAI part",
+            Description = "First-article bracket bore measured Ø2.5021 — 0.0016 over the high limit per print Rev B2.",
+            Source = ProjectNcrSource.Inspection, Severity = ProjectNcrSeverity.Major, DetectedDate = D(2026, 6, 3),
+            QuantityAffected = 1, BlocksShipment = true,
+            ContainmentAction = "Quarantine the FAI part; tag the lot; hold further machining at OP-40.",
+            Disposition = ProjectQualityDisposition.Pending, Status = ProjectNcrStatus.Open,
+            AffectedPhaseId = phaseId, LinkedInspectionId = fai.Id, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectNCR>().Add(ncr);
+        await _db.SaveChangesAsync(ct);
+
+        // An MRB convened on that NCR — pending disposition (still blocks acceptance).
+        _db.Set<ProjectMRB>().Add(new ProjectMRB
+        {
+            CustomerProjectId = projectId, MrbNumber = 1, Title = "MRB — FAI bore oversize",
+            LinkedNcrId = ncr.Id, BoardMembers = "Quality Lead, Mfg Eng, Dean Dunagan", ReviewDate = D(2026, 6, 4),
+            Disposition = ProjectQualityDisposition.Pending, Status = ProjectMrbStatus.Pending,
+            CustomerApprovalRequired = true, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        });
+
+        // A customer-visible punch item that blocks acceptance.
+        _db.Set<ProjectPunchItem>().Add(new ProjectPunchItem
+        {
+            CustomerProjectId = projectId, PunchNumber = 1, Title = "Touch-up anodize scratch on housing face",
+            Source = "Customer walkdown", Description = "Minor handling scratch through the Type II anodize on the A-face.",
+            Priority = ProjectPriority.Medium, Owner = "Finishing", DueDate = D(2026, 6, 20),
+            Status = ProjectPunchStatus.Open, CustomerVisible = true, BlockingShipment = false,
+            BlockingInvoice = false, BlockingAcceptance = true, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        });
+
+        // A pending customer acceptance (FAT) — blocked until the NCR/MRB/punch clear.
+        _db.Set<ProjectAcceptance>().Add(new ProjectAcceptance
+        {
+            CustomerProjectId = projectId, AcceptanceNumber = 1, AcceptanceType = ProjectAcceptanceType.Customer,
+            Status = ProjectAcceptanceStatus.Pending, CustomerContact = "Weir QA",
+            RequiredCriteria = "AS9102 FAI accepted; dimensional report signed; cosmetic walkdown complete.",
+            RequiredDocuments = "FAI package, CoC, material certs (AMS 4928), anodize cert.",
+            RevenueTrigger = true, WarrantyTrigger = true, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }
