@@ -299,6 +299,10 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // so the change-control surface + the §20 convert gate have live data.
             await TryEnsureDemoChangeControlAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 6 PR-16 — ensure a demo RAID + meeting so the governance
+            // surface has live data (risk/issue/action/decision/meeting).
+            await TryEnsureDemoGovernanceAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -496,6 +500,7 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         await TryEnsureDemoQuoteBaselineAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoBillingAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoChangeControlAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoGovernanceAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -1058,6 +1063,91 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             CreatedBy = "DemoSeeder",
         };
         _db.Set<ProjectChangeRequest>().Add(cr);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task TryEnsureDemoGovernanceAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoGovernanceAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo governance seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoGovernanceAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any risk already exists, skip the whole bundle.
+        if (await _db.Set<ProjectRisk>().AnyAsync(r => r.CustomerProjectId == projectId, ct)) return;
+
+        var phaseId = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId).OrderBy(p => p.Id)
+            .Select(p => (int?)p.Id).FirstOrDefaultAsync(ct);
+        var crId = await _db.Set<ProjectChangeRequest>()
+            .Where(c => c.CustomerProjectId == projectId).OrderBy(c => c.Id)
+            .Select(c => (int?)c.Id).FirstOrDefaultAsync(ct);
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // Risk: long-lead Ti-6Al-4V forging slip (probability High × impact High).
+        _db.Set<ProjectRisk>().Add(new ProjectRisk
+        {
+            CustomerProjectId = projectId, RiskNumber = 1,
+            Title = "Long-lead Ti-6Al-4V forging may slip the ship date",
+            Description = "Single-source AMS 4928 forging vendor at ~14-week lead; a slip cascades to PROD-130 and final assembly.",
+            Category = ProjectRiskCategory.Supplier, Probability = ProjectRiskRating.High, Impact = ProjectRiskRating.High,
+            Exposure = 16, Owner = "Dean Dunagan",
+            MitigationPlan = "Expedite the forging PO; qualify a 2nd source (Carpenter); hold a 1-week schedule buffer.",
+            ContingencyPlan = "Air-freight billet stock and rough-machine in-house if the forging slips >2 weeks.",
+            Trigger = "Vendor ack date slips past 2026-06-15.", Status = ProjectRiskStatus.Mitigating,
+            DueDate = D(2026, 6, 15), CostExposure = 22_000m, ScheduleExposureDays = 10, Currency = "USD",
+            CustomerImpact = true, SupplierImpact = true, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        });
+
+        // Issue: a CMM fixture shortage holding up first-article (High severity).
+        _db.Set<ProjectIssue>().Add(new ProjectIssue
+        {
+            CustomerProjectId = projectId, IssueNumber = 1,
+            Title = "CMM fixture unavailable for AS9102 first article",
+            Description = "The bracket FAI is blocked: the dedicated CMM holding fixture is on another job.",
+            Severity = ProjectIssueSeverity.High, Priority = ProjectPriority.High, Owner = "Quality Lead",
+            OpenDate = D(2026, 5, 26), DueDate = D(2026, 6, 2), Status = ProjectIssueStatus.InProgress,
+            RootCause = "Fixture scheduling conflict across two concurrent NADCAP jobs.",
+            CorrectiveAction = "Build a second soft-jaw fixture; add fixture booking to the daily production huddle.",
+            CustomerImpact = false, CostImpact = 3_500m, ScheduleImpactDays = 4, Currency = "USD",
+            AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        });
+
+        // Meeting: a design review that generated an action item.
+        var meeting = new ProjectMeeting
+        {
+            CustomerProjectId = projectId, MeetingNumber = 1, Title = "Design review — frame assembly Rev B2",
+            MeetingType = ProjectMeetingType.DesignReview, MeetingDate = D(2026, 5, 22),
+            Location = "PWH-CAN-MAIN Conf A", Attendees = "Dean Dunagan, Quality Lead, Mfg Eng, Weir liaison",
+            Agenda = "Review Rev B2 scope add (4th actuator), confirm FAI plan, lock the forging PO.",
+            Minutes = "Approved Rev B2 internally; FAI plan confirmed; forging PO to be expedited. Action: open the change request.",
+            Status = ProjectMeetingStatus.Held, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectMeeting>().Add(meeting);
+        await _db.SaveChangesAsync(ct);
+
+        // Action item off that meeting (open, owner + due date).
+        _db.Set<ProjectActionItem>().Add(new ProjectActionItem
+        {
+            CustomerProjectId = projectId, ActionNumber = 1, ProjectMeetingId = meeting.Id, Owner = "Dean Dunagan",
+            Description = "Expedite the Ti-6Al-4V forging PO and obtain a firm vendor ack date.",
+            DueDate = D(2026, 6, 10), Priority = ProjectPriority.High, Status = ProjectActionStatus.Open,
+            Source = ProjectActionSource.Meeting, SourceId = meeting.Id, CreatedBy = "DemoSeeder",
+        });
+
+        // Decision: source the forging single-source for this build (approved).
+        _db.Set<ProjectDecision>().Add(new ProjectDecision
+        {
+            CustomerProjectId = projectId, DecisionNumber = 1, DecisionDate = D(2026, 5, 22),
+            Title = "Single-source the Ti-6Al-4V forging for this build",
+            Description = "Proceed single-source with the incumbent AMS 4928 forging vendor for Rev B2.",
+            DecisionMaker = "Dean Dunagan",
+            AlternativesConsidered = "Dual-source (adds 3 weeks of qualification); machine from billet (higher cost, more scrap).",
+            Impact = "Accepts the supplier risk above in exchange for schedule; revisit for the next program.",
+            Status = ProjectDecisionStatus.Approved, AffectedPhaseId = phaseId, LinkedChangeRequestId = crId,
+            CreatedBy = "DemoSeeder",
+        });
         await _db.SaveChangesAsync(ct);
     }
 

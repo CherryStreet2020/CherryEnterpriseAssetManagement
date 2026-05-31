@@ -362,6 +362,19 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectChangeRequest> ProjectChangeRequests
             => Set<Abs.FixedAssets.Models.Projects.ProjectChangeRequest>();
 
+        // B9 Wave 6 PR-16 — governance: RAID log (risks/issues/actions/decisions)
+        // + meetings/minutes.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectRisk> ProjectRisks
+            => Set<Abs.FixedAssets.Models.Projects.ProjectRisk>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectIssue> ProjectIssues
+            => Set<Abs.FixedAssets.Models.Projects.ProjectIssue>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectMeeting> ProjectMeetings
+            => Set<Abs.FixedAssets.Models.Projects.ProjectMeeting>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectActionItem> ProjectActionItems
+            => Set<Abs.FixedAssets.Models.Projects.ProjectActionItem>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectDecision> ProjectDecisions
+            => Set<Abs.FixedAssets.Models.Projects.ProjectDecision>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5980,6 +5993,133 @@ namespace Abs.FixedAssets.Data
                 });
             });
 
+            // ============================================================
+            // B9 Wave 6 PR-16 — governance (RAID + meetings). Each entity is
+            // tenant-scoped THROUGH the parent project (no CompanyId); CASCADE
+            // from the project; every optional peg (WBS phase / change request /
+            // meeting) is SET NULL so there is exactly one cascade path per row;
+            // xmin; enum DB defaults == 0-member model defaults.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectRisk>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.RiskNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectrisks_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectrisks_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectrisks_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.LinkedChangeRequestId)
+                    .HasDatabaseName("ix_projectrisks_changerequest").HasFilter("\"LinkedChangeRequestId\" IS NOT NULL");
+                e.Property(x => x.Category).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectRiskCategory.Technical);
+                e.Property(x => x.Probability).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectRiskRating.NotSet);
+                e.Property(x => x.Impact).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectRiskRating.NotSet);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectRiskStatus.Open);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedChangeRequest).WithMany().HasForeignKey(x => x.LinkedChangeRequestId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectrisks_number_pos", "\"RiskNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectrisks_category_range", "\"Category\" BETWEEN 0 AND 7");
+                    t.HasCheckConstraint("ck_projectrisks_probability_range", "\"Probability\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectrisks_impact_range", "\"Impact\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectrisks_status_range", "\"Status\" BETWEEN 0 AND 4");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectIssue>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.IssueNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectissues_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectissues_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectissues_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.LinkedChangeRequestId)
+                    .HasDatabaseName("ix_projectissues_changerequest").HasFilter("\"LinkedChangeRequestId\" IS NOT NULL");
+                e.Property(x => x.Severity).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectIssueSeverity.Low);
+                e.Property(x => x.Priority).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectPriority.Low);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectIssueStatus.Open);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedChangeRequest).WithMany().HasForeignKey(x => x.LinkedChangeRequestId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectissues_number_pos", "\"IssueNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectissues_severity_range", "\"Severity\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectissues_priority_range", "\"Priority\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectissues_status_range", "\"Status\" BETWEEN 0 AND 4");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectMeeting>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.MeetingNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectmeetings_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.MeetingDate })
+                    .HasDatabaseName("ix_projectmeetings_project_date");
+                e.Property(x => x.MeetingType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectMeetingType.Status);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectMeetingStatus.Scheduled);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectmeetings_number_pos", "\"MeetingNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectmeetings_type_range", "\"MeetingType\" BETWEEN 0 AND 5");
+                    t.HasCheckConstraint("ck_projectmeetings_status_range", "\"Status\" BETWEEN 0 AND 2");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectActionItem>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.ActionNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectactionitems_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectactionitems_project_status");
+                e.HasIndex(x => x.ProjectMeetingId)
+                    .HasDatabaseName("ix_projectactionitems_meeting").HasFilter("\"ProjectMeetingId\" IS NOT NULL");
+                e.Property(x => x.Priority).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectPriority.Low);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectActionStatus.Open);
+                e.Property(x => x.Source).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectActionSource.Manual);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                // Meeting peg SET NULL — the project is the single cascade owner.
+                e.HasOne(x => x.Meeting).WithMany(m => m.ActionItems).HasForeignKey(x => x.ProjectMeetingId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectactionitems_number_pos", "\"ActionNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectactionitems_priority_range", "\"Priority\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectactionitems_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectactionitems_source_range", "\"Source\" BETWEEN 0 AND 4");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectDecision>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.DecisionNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectdecisions_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectdecisions_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectdecisions_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.LinkedChangeRequestId)
+                    .HasDatabaseName("ix_projectdecisions_changerequest").HasFilter("\"LinkedChangeRequestId\" IS NOT NULL");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectDecisionStatus.Proposed);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.HasOne(x => x.LinkedChangeRequest).WithMany().HasForeignKey(x => x.LinkedChangeRequestId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectdecisions_number_pos", "\"DecisionNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectdecisions_status_range", "\"Status\" BETWEEN 0 AND 3");
+                });
+            });
+
             // CustomerProject gets the new cockpit-sort indexes. The raw-
             // SQL migration creates them with the cockpit filter; this
             // declaration tells EF they exist so .Include / sort hints
@@ -7791,6 +7931,23 @@ namespace Abs.FixedAssets.Data
                         // other human-text / ...By fields above.
                         propertyName.Contains("impactnarrative") ||
                         propertyName.Contains("rejectedby") ||
+                        // B9 Wave 6 PR-16 — case-preserve the free-form governance
+                        // prose fields (RAID + meeting minutes). These hold
+                        // sentences ("Expedite the forging PO; qualify a 2nd
+                        // supplier") that must read naturally. Same convention as
+                        // notes / description / resolution / lessonslearned above.
+                        // (rootcause/correctiveaction also de-uppercase the prose
+                        // on AssetMaintenance — a readability improvement.)
+                        propertyName.Contains("mitigationplan") ||
+                        propertyName.Contains("contingencyplan") ||
+                        propertyName == "trigger" ||
+                        propertyName.Contains("rootcause") ||
+                        propertyName.Contains("correctiveaction") ||
+                        propertyName == "agenda" ||
+                        propertyName.Contains("attendees") ||
+                        propertyName == "minutes" ||
+                        propertyName.Contains("alternativesconsidered") ||
+                        propertyName == "impact" ||
                         propertyName.Contains("beforevalue") ||
                         propertyName.Contains("aftervalue") ||
                         propertyName.Contains("decisionnotes") ||
