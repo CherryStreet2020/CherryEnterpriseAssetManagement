@@ -82,6 +82,15 @@ namespace Abs.FixedAssets.Models.Projects
         // point at a non-existent table. Constraint added in Sprint 14.
         public int? SourceQuotationId { get; set; }
 
+        // B9 Wave 6 PR-15 — back-link to the ProjectChangeRequest this amendment
+        // (change order) was converted from. SET NULL on the request side so a
+        // request delete doesn't take the order with it. Null for amendments
+        // created directly (the legacy CreateAmendment path predates change
+        // requests). The forward link lives on
+        // ProjectChangeRequest.ResultingProjectAmendmentId.
+        public int? SourceChangeRequestId { get; set; }
+        public ProjectChangeRequest? SourceChangeRequest { get; set; }
+
         // Customer's own change-order reference number ("Weir CO-2026-014").
         // Required for traceability per research anti-pattern §5.6.
         [StringLength(100)]

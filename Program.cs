@@ -269,6 +269,11 @@ builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectQuoteVsActu
 // gates on invoicing.
 builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectBillingService,
     Abs.FixedAssets.Services.Projects.ProjectBillingService>();
+// B9 Wave 6 PR-15 (OPENS Wave 6) — change control: ProjectChangeRequest intake/
+// impact/approval → converts into a ProjectAmendment (change order). Hosts the
+// §20 gate (no applied customer scope change before its approval clears).
+builder.Services.AddScoped<Abs.FixedAssets.Services.Projects.IProjectChangeService,
+    Abs.FixedAssets.Services.Projects.ProjectChangeService>();
 
 // ADR-025 D5 / Sprint 13.5 PR #3 — IProductionOrderService is the mutation
 // surface for ProductionOrder (ADR-013). Five methods in v1 — Create /

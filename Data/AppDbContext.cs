@@ -357,6 +357,11 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectRevenueRecognition> ProjectRevenueRecognitions
             => Set<Abs.FixedAssets.Models.Projects.ProjectRevenueRecognition>();
 
+        // B9 Wave 6 PR-15 — change control (intake/impact/approval; converts to a
+        // ProjectAmendment change order).
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectChangeRequest> ProjectChangeRequests
+            => Set<Abs.FixedAssets.Models.Projects.ProjectChangeRequest>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -5155,6 +5160,16 @@ namespace Abs.FixedAssets.Data
                     .WithMany()
                     .HasForeignKey(x => x.ApprovedById)
                     .OnDelete(DeleteBehavior.SetNull);
+                // B9 Wave 6 PR-15 — back-link to the originating change request.
+                // SET NULL so deleting the request doesn't take the change order
+                // (amendment) with it. Forward link configured on the request.
+                e.HasOne(x => x.SourceChangeRequest)
+                    .WithMany()
+                    .HasForeignKey(x => x.SourceChangeRequestId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                e.HasIndex(x => x.SourceChangeRequestId)
+                    .HasDatabaseName("ix_projectamendments_sourcechangerequest")
+                    .HasFilter("\"SourceChangeRequestId\" IS NOT NULL");
             });
 
             // ============================================================
@@ -5915,6 +5930,53 @@ namespace Abs.FixedAssets.Data
                 {
                     t.HasCheckConstraint("ck_projectrevenuerecognitions_method_range", "\"Method\" BETWEEN 0 AND 3");
                     t.HasCheckConstraint("ck_projectrevenuerecognitions_amount_nonneg", "\"RecognizedAmount\" >= 0");
+                });
+            });
+
+            // ============================================================
+            // B9 Wave 6 PR-15 — ProjectChangeRequest (change control). OPENS
+            // Wave 6. Intake + impact analysis + approval/disposition; converts
+            // into a ProjectAmendment (change order). Tenant-scoped THROUGH the
+            // parent project (no CompanyId). CASCADE from the project; the WBS
+            // phase peg + the resulting-amendment link are SET NULL (one cascade
+            // path: project→request). xmin; enum DB defaults == 0-member default.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectChangeRequest>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.ChangeRequestNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectchangerequests_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectchangerequests_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectchangerequests_phase")
+                    .HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.ResultingProjectAmendmentId)
+                    .HasDatabaseName("ix_projectchangerequests_resultingamendment")
+                    .HasFilter("\"ResultingProjectAmendmentId\" IS NOT NULL");
+
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeRequestStatus.Draft);
+                e.Property(x => x.Source).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeSource.Customer);
+                e.Property(x => x.Category).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeCategory.CustomerScope);
+                e.Property(x => x.RiskImpact).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeRiskLevel.None);
+                e.Property(x => x.BillingTreatment).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeBillingTreatment.None);
+                e.Property(x => x.CostTreatment).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectChangeCostTreatment.None);
+                e.Property(x => x.Currency).HasMaxLength(8).HasDefaultValue("USD");
+
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                // Forward link to the change order. SET NULL — the amendment
+                // back-link (configured above) holds the other half of the pair.
+                e.HasOne(x => x.ResultingProjectAmendment).WithMany().HasForeignKey(x => x.ResultingProjectAmendmentId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectchangerequests_number_pos", "\"ChangeRequestNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectchangerequests_status_range", "\"Status\" BETWEEN 0 AND 8");
+                    t.HasCheckConstraint("ck_projectchangerequests_source_range", "\"Source\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectchangerequests_category_range", "\"Category\" BETWEEN 0 AND 13");
+                    t.HasCheckConstraint("ck_projectchangerequests_risk_range", "\"RiskImpact\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectchangerequests_billingtreatment_range", "\"BillingTreatment\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectchangerequests_costtreatment_range", "\"CostTreatment\" BETWEEN 0 AND 3");
                 });
             });
 
@@ -7722,6 +7784,13 @@ namespace Abs.FixedAssets.Data
                         // so it reads naturally. Same convention as the other
                         // human-text reason fields above.
                         propertyName.Contains("snapshotreason") ||
+                        // B9 Wave 6 PR-15 — case-preserve the free-form
+                        // ProjectChangeRequest.ImpactNarrative ("Adds 4th Ti-6Al-4V
+                        // actuator; affects PROD-130 + the long-lead forging PO")
+                        // and the RejectedBy user stamp. Same convention as the
+                        // other human-text / ...By fields above.
+                        propertyName.Contains("impactnarrative") ||
+                        propertyName.Contains("rejectedby") ||
                         propertyName.Contains("beforevalue") ||
                         propertyName.Contains("aftervalue") ||
                         propertyName.Contains("decisionnotes") ||
