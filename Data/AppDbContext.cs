@@ -6183,6 +6183,7 @@ namespace Abs.FixedAssets.Data
                     t.HasCheckConstraint("ck_projectncrs_severity_range", "\"Severity\" BETWEEN 0 AND 2");
                     t.HasCheckConstraint("ck_projectncrs_disposition_range", "\"Disposition\" BETWEEN 0 AND 6");
                     t.HasCheckConstraint("ck_projectncrs_status_range", "\"Status\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectncrs_qty_nonneg", "\"QuantityAffected\" >= 0");
                 });
             });
 

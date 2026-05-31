@@ -107,6 +107,15 @@ public sealed class ProjectQualityServiceTests
         Assert.False((await svc.CreateNcrAsync(new CreateNcrRequest(pid, "bad", AffectedPhaseId: phase.Id))).IsSuccess);
     }
 
+    [Fact]
+    public async Task CreateNcr_rejects_negative_quantity()
+    {
+        using var db = NewDb();
+        var pid = await SeedProjectAsync(db);
+        var svc = NewSvc(db);
+        Assert.False((await svc.CreateNcrAsync(new CreateNcrRequest(pid, "bad", QuantityAffected: -5))).IsSuccess);
+    }
+
     // -- NCR disposition + close gate -------------------------------------
 
     [Fact]

@@ -170,6 +170,7 @@ public sealed class ProjectQualityService : IProjectQualityService
         if (req is null) return Result.Failure<int>("Request is required.");
         var (ok, err) = await ProjectOkAsync(req.CustomerProjectId, ct);
         if (!ok) return Result.Failure<int>(err!);
+        if (req.QuantityAffected < 0) return Result.Failure<int>("QuantityAffected cannot be negative.");
         var pe = await ValidatePhaseAsync(req.CustomerProjectId, req.AffectedPhaseId, ct);
         if (pe != null) return Result.Failure<int>(pe);
         if (req.LinkedInspectionId.HasValue && !await _db.ProjectInspections.AnyAsync(
