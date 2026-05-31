@@ -341,10 +341,17 @@ public sealed class ProjectChangeService : IProjectChangeService
             CreatedBy = req.CreatedBy,
         };
         _db.ProjectAmendments.Add(amendment);
-        await _db.SaveChangesAsync(ct);
 
-        // Cross-link + close the request out as Converted.
-        cr.ResultingProjectAmendmentId = amendment.Id;
+        // Cross-link + close the request out as Converted IN THE SAME UNIT OF
+        // WORK so the amendment insert and the request update commit (or roll
+        // back) together (Codex P1). Setting the NAVIGATION lets EF populate
+        // ResultingProjectAmendmentId from the generated key after the insert;
+        // and because ProjectChangeRequest carries an xmin token, a concurrent
+        // conversion that already linked the request makes THIS SaveChanges
+        // throw DbUpdateConcurrencyException — which aborts the whole
+        // transaction, including the amendment insert, so no orphan/duplicate
+        // approved amendment can contribute to the effective contract value.
+        cr.ResultingProjectAmendment = amendment;
         cr.Status = ProjectChangeRequestStatus.Converted;
         cr.ModifiedAt = DateTime.UtcNow;
         cr.ModifiedBy = req.CreatedBy;
