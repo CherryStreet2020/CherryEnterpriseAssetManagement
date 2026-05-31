@@ -307,6 +307,10 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // MRB / punch / pending acceptance) so the acceptance gate has data.
             await TryEnsureDemoQualityAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 6 PR-18 — ensure a demo service handoff (signed off) +
+            // warranty (active) so the equipment tail + closeout review have data.
+            await TryEnsureDemoServiceHandoffAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -506,6 +510,7 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         await TryEnsureDemoChangeControlAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoGovernanceAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoQualityAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoServiceHandoffAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -1226,6 +1231,50 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             RequiredCriteria = "AS9102 FAI accepted; dimensional report signed; cosmetic walkdown complete.",
             RequiredDocuments = "FAI package, CoC, material certs (AMS 4928), anodize cert.",
             RevenueTrigger = true, WarrantyTrigger = true, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task TryEnsureDemoServiceHandoffAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoServiceHandoffAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo service-handoff seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoServiceHandoffAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any handoff already exists, skip.
+        if (await _db.Set<ProjectServiceHandoff>().AnyAsync(x => x.CustomerProjectId == projectId, ct)) return;
+
+        var phaseId = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId).OrderByDescending(p => p.Id)
+            .Select(p => (int?)p.Id).FirstOrDefaultAsync(ct);
+        static DateTime D(int y, int m, int d) => new(y, m, d, 0, 0, 0, DateTimeKind.Utc);
+
+        // A signed-off equipment handoff (so the demo project remains closeable).
+        var handoff = new ProjectServiceHandoff
+        {
+            CustomerProjectId = projectId, HandoffNumber = 1,
+            Title = "Installed bracket frame assembly — commissioning handoff",
+            SerialNumber = "SN-BRK-2026-0042", CustomerAssetNumber = "WEIR-EQ-7781",
+            InstallLocation = "Weir Power Frame Cell 3", InstallDate = D(2026, 6, 24), CommissioningDate = D(2026, 6, 25),
+            ServiceContractReference = "SVC-WEIR-2026", PmTemplateReference = "PM-FRAME-QTR",
+            AsBuiltBomReference = "BOM-BRK-RevB2", AsBuiltDrawingReference = "DWG-BRK-RevB2",
+            StartupChecklistComplete = true, TrainingCompleted = true, CustomerSignoff = true,
+            CustomerSignoffBy = "Weir Maintenance Mgr", CustomerSignoffAt = D(2026, 6, 25),
+            Status = ProjectHandoffStatus.SignedOff, AffectedPhaseId = phaseId, CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectServiceHandoff>().Add(handoff);
+        await _db.SaveChangesAsync(ct);
+
+        // An active full warranty tied to the handoff.
+        _db.Set<ProjectWarranty>().Add(new ProjectWarranty
+        {
+            CustomerProjectId = projectId, WarrantyNumber = 1, ProjectServiceHandoffId = handoff.Id,
+            Title = "12-month full warranty — bracket frame assembly", WarrantyType = ProjectWarrantyType.Full,
+            StartDate = D(2026, 6, 25), EndDate = D(2027, 6, 25), Provider = "ABS Machining",
+            Terms = "Parts + labor, 12 months from commissioning; excludes consumables and customer-induced damage.",
+            Status = ProjectWarrantyStatus.Active, CreatedBy = "DemoSeeder",
         });
         await _db.SaveChangesAsync(ct);
     }

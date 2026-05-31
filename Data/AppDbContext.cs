@@ -387,6 +387,12 @@ namespace Abs.FixedAssets.Data
         public DbSet<Abs.FixedAssets.Models.Projects.ProjectAcceptance> ProjectAcceptances
             => Set<Abs.FixedAssets.Models.Projects.ProjectAcceptance>();
 
+        // B9 Wave 6 PR-18 (CLOSES B9) — service handoff + warranty.
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectServiceHandoff> ProjectServiceHandoffs
+            => Set<Abs.FixedAssets.Models.Projects.ProjectServiceHandoff>();
+        public DbSet<Abs.FixedAssets.Models.Projects.ProjectWarranty> ProjectWarranties
+            => Set<Abs.FixedAssets.Models.Projects.ProjectWarranty>();
+
         // Sprint 13.5 PR #1.75 — AS9102 First Article Inspection workflow.
         // FaiReports = Form 1 header + lifecycle. FaiCharacteristics =
         // Form 3 per-balloon dim row. FaiProductAccountability = Form 2
@@ -6254,6 +6260,56 @@ namespace Abs.FixedAssets.Data
                 });
             });
 
+            // ============================================================
+            // B9 Wave 6 PR-18 (CLOSES B9) — service handoff + warranty.
+            // Tenant-scoped THROUGH the project; CASCADE from project; the
+            // warranty→handoff peg + WBS phase pegs SET NULL (one cascade path);
+            // installed-asset id is a soft denormalized reference (no FK); xmin;
+            // enum DB defaults == 0-member.
+            // ============================================================
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectServiceHandoff>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.HandoffNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectservicehandoffs_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectservicehandoffs_project_status");
+                e.HasIndex(x => x.AffectedPhaseId)
+                    .HasDatabaseName("ix_projectservicehandoffs_phase").HasFilter("\"AffectedPhaseId\" IS NOT NULL");
+                e.HasIndex(x => x.InstalledAssetId)
+                    .HasDatabaseName("ix_projectservicehandoffs_asset").HasFilter("\"InstalledAssetId\" IS NOT NULL");
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectHandoffStatus.Draft);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.AffectedPhase).WithMany().HasForeignKey(x => x.AffectedPhaseId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectservicehandoffs_number_pos", "\"HandoffNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectservicehandoffs_status_range", "\"Status\" BETWEEN 0 AND 3");
+                });
+            });
+
+            modelBuilder.Entity<Abs.FixedAssets.Models.Projects.ProjectWarranty>(e =>
+            {
+                e.HasIndex(x => new { x.CustomerProjectId, x.WarrantyNumber }).IsUnique()
+                    .HasDatabaseName("ux_projectwarranties_project_number");
+                e.HasIndex(x => new { x.CustomerProjectId, x.Status })
+                    .HasDatabaseName("ix_projectwarranties_project_status");
+                e.HasIndex(x => x.ProjectServiceHandoffId)
+                    .HasDatabaseName("ix_projectwarranties_handoff").HasFilter("\"ProjectServiceHandoffId\" IS NOT NULL");
+                e.Property(x => x.WarrantyType).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectWarrantyType.Full);
+                e.Property(x => x.Status).HasDefaultValue(Abs.FixedAssets.Models.Projects.ProjectWarrantyStatus.Pending);
+                e.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.CustomerProjectId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(x => x.ServiceHandoff).WithMany().HasForeignKey(x => x.ProjectServiceHandoffId).OnDelete(DeleteBehavior.SetNull);
+                e.MapXminRowVersion(x => x.RowVersion);
+                e.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_projectwarranties_number_pos", "\"WarrantyNumber\" >= 1");
+                    t.HasCheckConstraint("ck_projectwarranties_type_range", "\"WarrantyType\" BETWEEN 0 AND 3");
+                    t.HasCheckConstraint("ck_projectwarranties_status_range", "\"Status\" BETWEEN 0 AND 4");
+                    t.HasCheckConstraint("ck_projectwarranties_claimcount_nonneg", "\"ClaimCount\" >= 0");
+                });
+            });
+
             // CustomerProject gets the new cockpit-sort indexes. The raw-
             // SQL migration creates them with the cockpit filter; this
             // declaration tells EF they exist so .Include / sort hints
@@ -8095,6 +8151,13 @@ namespace Abs.FixedAssets.Data
                         propertyName.Contains("requireddocuments") ||
                         propertyName.Contains("inspectionresult") ||
                         propertyName.Contains("acceptedby") ||
+                        // B9 Wave 6 PR-18 — case-preserve the customer sign-off
+                        // stamp + warranty terms prose on the service-handoff layer.
+                        propertyName.Contains("signoffby") ||
+                        propertyName == "terms" ||
+                        // AI model identifier (e.g. "project-review-v1") — a
+                        // lowercase token, not prose to upper-case.
+                        propertyName.Contains("summarymodel") ||
                         propertyName.Contains("beforevalue") ||
                         propertyName.Contains("aftervalue") ||
                         propertyName.Contains("decisionnotes") ||

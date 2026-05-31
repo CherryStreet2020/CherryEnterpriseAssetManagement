@@ -234,6 +234,22 @@ public sealed class CustomerProjectService : ICustomerProjectService
                     $"Cannot close '{project.Code}' — {openCommitmentCodes.Count} open commitment(s): " +
                     $"{string.Join(", ", openCommitmentCodes)}. Receive/close them, or close via the " +
                     "project procurement close path with the open-commitment waiver.");
+
+            // B9 Wave 6 PR-18 — equipment-project closeout gate: a started
+            // service handoff must be SignedOff (or Closed) before the project
+            // can close (the installed-asset/warranty decision). Non-breaking:
+            // a project with no handoff (non-equipment) is unaffected.
+            var incompleteHandoffs = await _db.ProjectServiceHandoffs
+                .Where(h => h.CustomerProjectId == project.Id
+                    && h.Status != Abs.FixedAssets.Models.Projects.ProjectHandoffStatus.SignedOff
+                    && h.Status != Abs.FixedAssets.Models.Projects.ProjectHandoffStatus.Closed)
+                .OrderBy(h => h.HandoffNumber)
+                .Select(h => h.HandoffNumber)
+                .ToListAsync(ct);
+            if (incompleteHandoffs.Count > 0)
+                return Result.Failure<CustomerProject>(
+                    $"Cannot close '{project.Code}' — {incompleteHandoffs.Count} service handoff(s) not signed off " +
+                    $"(#{string.Join(", #", incompleteHandoffs)}). Complete the installed-asset/warranty handoff first.");
         }
 
         project.Status     = request.NewStatus;
