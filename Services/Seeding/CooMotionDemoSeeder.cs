@@ -295,6 +295,10 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             // surfaces for the demo project.
             await TryEnsureDemoBillingAsync(tenantId, existingProject.Id, warnings, ct);
 
+            // B9 Wave 6 PR-15 — ensure a demo change request (Ti-6Al-4V scope add)
+            // so the change-control surface + the §20 convert gate have live data.
+            await TryEnsureDemoChangeControlAsync(tenantId, existingProject.Id, warnings, ct);
+
             var existingOrderCount = await _db.Set<ProductionOrder>().AsNoTracking()
                 .CountAsync(o => o.CompanyId == tenantId
                                   && o.OrderNumber.StartsWith("DEMO-COO-PRO-"), ct);
@@ -491,6 +495,7 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
         await TryEnsureDemoFinancialsAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoQuoteBaselineAsync(tenantId, customerProject.Id, warnings, ct);
         await TryEnsureDemoBillingAsync(tenantId, customerProject.Id, warnings, ct);
+        await TryEnsureDemoChangeControlAsync(tenantId, customerProject.Id, warnings, ct);
 
         return BuildResult(tenantId, company,
             locationsCreated, customerProjectsCreated, projectPhasesCreated,
@@ -995,6 +1000,64 @@ public sealed class CooMotionDemoSeeder : ICooMotionDemoSeeder
             RecognizedAmount = 40_000m, Currency = "USD", RecognitionDate = D(2026, 6, 12), PercentComplete = 21.6m,
             Notes = "Revenue recognized on design + procurement progress.", CreatedBy = "DemoSeeder",
         });
+        await _db.SaveChangesAsync(ct);
+    }
+
+    private async Task TryEnsureDemoChangeControlAsync(int tenantId, int projectId, List<string> warnings, CancellationToken ct)
+    {
+        try { await EnsureDemoChangeControlAsync(tenantId, projectId, ct); }
+        catch (Exception ex) { warnings.Add($"Demo change-control seed skipped: {ex.Message}"); }
+    }
+
+    private async Task EnsureDemoChangeControlAsync(int tenantId, int projectId, CancellationToken ct)
+    {
+        // Idempotency anchor: if any change request already exists, skip.
+        if (await _db.Set<ProjectChangeRequest>().AnyAsync(c => c.CustomerProjectId == projectId, ct)) return;
+
+        // Affected phase, if the WBS demo seeded one (optional peg).
+        var phaseId = await _db.Set<ProjectPhase>()
+            .Where(p => p.CustomerProjectId == projectId)
+            .OrderBy(p => p.Id)
+            .Select(p => (int?)p.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var nextNumber = (await _db.Set<ProjectChangeRequest>()
+            .Where(c => c.CustomerProjectId == projectId)
+            .MaxAsync(c => (int?)c.ChangeRequestNumber, ct) ?? 0) + 1;
+
+        // A real ETO scope change: the customer adds a 4th Ti-6Al-4V actuator
+        // arm late in design. Estimated + submitted to customer, NOT yet
+        // customer-approved — so it sits as exposure and the convert gate holds.
+        var cr = new ProjectChangeRequest
+        {
+            CustomerProjectId = projectId,
+            ChangeRequestNumber = nextNumber,
+            Title = "Add 4th Ti-6Al-4V actuator arm (customer scope add)",
+            Source = ProjectChangeSource.Customer,
+            Category = ProjectChangeCategory.CustomerScope,
+            Status = ProjectChangeRequestStatus.SubmittedToCustomer,
+            RequestedByName = "Weir Procurement",
+            RequestDate = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc),
+            Description = "Customer revision B2 adds a fourth actuator arm to the frame assembly.",
+            CostImpact = 18_400m,
+            RevenueImpact = 27_500m,
+            MarginImpactPct = 1.2m,
+            ScheduleImpactDays = 9,
+            RiskImpact = ProjectChangeRiskLevel.Medium,
+            ImpactNarrative = "Adds one Ti-6Al-4V (AMS 4928) forged arm + AS9102 FAI; pushes the long-lead forging PO and PROD-130 finish out ~9 days.",
+            Currency = "USD",
+            AffectedPhaseId = phaseId,
+            RequiresInternalApproval = true,
+            RequiresCustomerApproval = true,
+            InternalApprovedAt = new DateTime(2026, 5, 22, 0, 0, 0, DateTimeKind.Utc),
+            InternalApprovedBy = "Dean Dunagan",
+            SubmittedToCustomerAt = new DateTime(2026, 5, 23, 0, 0, 0, DateTimeKind.Utc),
+            BillingTreatment = ProjectChangeBillingTreatment.AddToContract,
+            CostTreatment = ProjectChangeCostTreatment.AddToBudget,
+            CustomerReference = "WEIR-CO-2026-014",
+            CreatedBy = "DemoSeeder",
+        };
+        _db.Set<ProjectChangeRequest>().Add(cr);
         await _db.SaveChangesAsync(ct);
     }
 
